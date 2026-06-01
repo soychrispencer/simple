@@ -1,8 +1,8 @@
 #!/usr/bin/env tsx
 /**
- * Crea 3 mariachis demo para poblar el marketplace publico.
+ * Crea 3 mariachis de vitrina para poblar el marketplace publico.
  *
- * Son visibles, pero los slugs `demo-mariachi-*` quedan bloqueados en la API
+ * Son visibles, pero sus slugs quedan bloqueados en la API
  * para no recibir compras ni solicitudes reales.
  *
  *   pnpm --filter=@simple/api run db:seed:serenatas-demo
@@ -43,19 +43,24 @@ if (!DATABASE_URL) {
 
 const DEMO_EMAIL = 'demo-serenatas-marketplace@simple.local';
 const DEMO_OWNER_NAME = 'Demo Marketplace Serenatas';
+const OLD_DEMO_SLUGS = [
+    'demo-mariachi-los-reyes',
+    'demo-mariachi-noche-de-mexico',
+    'demo-mariachi-alma-ranchera',
+];
 
 const demoGroups = [
     {
         name: 'Mariachi Los Reyes',
-        slug: 'demo-mariachi-los-reyes',
-        description: 'Mariachi de ejemplo para mostrar como se ve una ficha completa en SimpleSerenatas.',
+        slug: 'mariachi-los-reyes-santiago',
+        description: 'Mariachi tradicional para cumpleaños, aniversarios, pedidas de mano y celebraciones familiares.',
         region: 'Region Metropolitana',
         comunaBase: 'Santiago',
         serviceComunas: ['Santiago', 'Providencia', 'Nunoa', 'Las Condes', 'La Reina'],
         phone: '+56900000001',
         whatsapp: '+56900000001',
-        logoUrl: '/demo/mariachi-logo-1.svg',
-        coverUrl: '/demo/mariachi-cover-1.svg',
+        logoUrl: 'https://images.pexels.com/photos/7772345/pexels-photo-7772345.jpeg?auto=compress&cs=tinysrgb&w=400',
+        coverUrl: 'https://images.pexels.com/photos/7772345/pexels-photo-7772345.jpeg?auto=compress&cs=tinysrgb&w=1400',
         services: [
             {
                 name: 'Serenata romantica',
@@ -83,15 +88,15 @@ const demoGroups = [
     },
     {
         name: 'Mariachi Noche de Mexico',
-        slug: 'demo-mariachi-noche-de-mexico',
-        description: 'Mariachi de ejemplo con cobertura en zona norte y oriente.',
+        slug: 'mariachi-noche-de-mexico',
+        description: 'Grupo versatil para serenatas romanticas, sorpresas nocturnas y eventos con repertorio mexicano.',
         region: 'Region Metropolitana',
         comunaBase: 'Providencia',
         serviceComunas: ['Providencia', 'Las Condes', 'Vitacura', 'Lo Barnechea', 'Huechuraba'],
         phone: '+56900000002',
         whatsapp: '+56900000002',
-        logoUrl: '/demo/mariachi-logo-2.svg',
-        coverUrl: '/demo/mariachi-cover-2.svg',
+        logoUrl: 'https://images.pexels.com/photos/4817587/pexels-photo-4817587.jpeg?auto=compress&cs=tinysrgb&w=400',
+        coverUrl: 'https://images.pexels.com/photos/4817587/pexels-photo-4817587.jpeg?auto=compress&cs=tinysrgb&w=1400',
         services: [
             {
                 name: 'Serenata premium',
@@ -119,15 +124,15 @@ const demoGroups = [
     },
     {
         name: 'Mariachi Alma Ranchera',
-        slug: 'demo-mariachi-alma-ranchera',
-        description: 'Mariachi de ejemplo para eventos familiares, aniversarios y celebraciones.',
+        slug: 'mariachi-alma-ranchera',
+        description: 'Mariachi para celebraciones familiares, aniversarios y eventos privados en la quinta region.',
         region: 'Valparaiso',
         comunaBase: 'Vina del Mar',
         serviceComunas: ['Vina del Mar', 'Valparaiso', 'Concon', 'Quilpue', 'Villa Alemana'],
         phone: '+56900000003',
         whatsapp: '+56900000003',
-        logoUrl: '/demo/mariachi-logo-3.svg',
-        coverUrl: '/demo/mariachi-cover-3.svg',
+        logoUrl: 'https://images.pexels.com/photos/8639347/pexels-photo-8639347.jpeg?auto=compress&cs=tinysrgb&w=400',
+        coverUrl: 'https://images.pexels.com/photos/8639347/pexels-photo-8639347.jpeg?auto=compress&cs=tinysrgb&w=1400',
         services: [
             {
                 name: 'Serenata familiar',
@@ -197,6 +202,13 @@ async function main() {
     try {
         const user = await ensureDemoUser(db);
         const owner = await ensureOwner(db, user.id);
+
+        for (const oldSlug of OLD_DEMO_SLUGS) {
+            await db
+                .update(serenataProviderGroups)
+                .set({ status: 'paused', updatedAt: new Date() })
+                .where(eq(serenataProviderGroups.slug, oldSlug));
+        }
 
         for (const groupSeed of demoGroups) {
             let group = await db.query.serenataProviderGroups.findFirst({

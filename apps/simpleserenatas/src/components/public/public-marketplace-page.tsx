@@ -181,7 +181,7 @@ export function PublicMarketplacePage() {
                             Mariachis en el marketplace
                         </h1>
                         <p className="mt-2 text-sm leading-relaxed text-fg-muted sm:text-base">
-                            Filtra por zona, nombre y fecha con cupo disponible.
+                            Busca por nombre, zona y fecha para ver grupos con servicios activos y horarios posibles.
                         </p>
                     </div>
 

@@ -43,7 +43,7 @@ const HERO_IMAGE =
 const OCCASIONS = ['Cumpleaños', 'Aniversarios', 'Sorpresas', 'Bodas', 'Día de la Madre', 'Reconciliaciones'];
 
 const HOW_IT_WORKS = [
-    { icon: IconSearch, title: 'Elige un mariachi', desc: 'Compara fotos, servicios, zonas y precio desde.' },
+    { icon: IconSearch, title: 'Elige un mariachi', desc: 'Revisa fotos, servicios, zonas y precio desde.' },
     { icon: IconCalendar, title: 'Solicita fecha y lugar', desc: 'Indica comuna, dirección, hora y destinatario.' },
     { icon: IconCheck, title: 'Recibe confirmación', desc: 'El dueño revisa disponibilidad y conforma el grupo.' },
 ];
@@ -124,7 +124,7 @@ export function PublicLanding({
                                 Encuentra mariachis para tu serenata
                             </h1>
                             <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/82 sm:text-xl">
-                                Compara grupos, precios, servicios y zonas de atención. Solicita tu fecha sin depender de cadenas de mensajes.
+                                Encuentra grupos destacados, revisa servicios, precios y zonas de atención, y solicita tu fecha desde un solo lugar.
                             </p>
                             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                                 <Link
@@ -232,16 +232,16 @@ export function PublicLanding({
 
                 <section className="border-b py-14 border-border sm:py-18">
                     <div className="container-app max-w-6xl">
-                        <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-                            <div>
+                        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+                            <div className="max-w-xl">
                                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
                                     Para cada ocasión
                                 </p>
-                                <h2 className="mt-2 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
+                                <h2 className="mt-3 text-3xl font-bold leading-tight tracking-tight text-fg sm:text-4xl">
                                     La música correcta para el momento correcto
                                 </h2>
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-3 lg:justify-end">
                                 {OCCASIONS.map((occasion) => (
                                     <span
                                         key={occasion}
@@ -323,15 +323,13 @@ function AudienceCard({
 }) {
     const content = (
         <>
-            <div className="flex size-12 items-center justify-center rounded-button bg-accent-soft text-accent">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-button bg-accent-soft text-accent">
                 <Icon size={24} />
             </div>
             <div className="min-w-0 flex-1">
                 <h3 className="text-xl font-bold text-fg">{title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-fg-muted">{description}</p>
-            </div>
-            <div className="shrink-0">
-                <span className={accent ? 'btn btn-primary h-11 px-5 font-semibold' : 'btn btn-secondary h-11 px-5 font-semibold'}>
+                <p className="mt-2 max-w-md text-sm leading-relaxed text-fg-muted">{description}</p>
+                <span className={`mt-5 ${accent ? 'btn btn-primary' : 'btn btn-secondary'} h-11 px-5 font-semibold`}>
                     {cta}
                     <IconChevronRight size={17} />
                 </span>
@@ -340,7 +338,7 @@ function AudienceCard({
     );
 
     const className =
-        'flex flex-col gap-5 rounded-card border p-5 border-border bg-surface shadow-sm sm:flex-row sm:items-center sm:p-6';
+        'grid gap-5 rounded-card border p-6 border-border bg-surface shadow-sm sm:grid-cols-[auto_1fr] sm:p-7';
 
     if (href) {
         return (

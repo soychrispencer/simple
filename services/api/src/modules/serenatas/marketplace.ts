@@ -1640,7 +1640,7 @@ export async function createMarketplaceSerenata(
     if (isDemoProviderGroup(group)) {
         return {
             ok: false as const,
-            error: 'Este mariachi es de ejemplo y no recibe solicitudes.',
+            error: 'Este mariachi no recibe solicitudes desde la web en este momento.',
             status: 403 as const,
         };
     }

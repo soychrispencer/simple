@@ -14,7 +14,7 @@ export function resolveMarketplaceRequestBlock(
     },
 ): MarketplaceRequestBlock {
     if (options?.group?.isDemo) {
-        return { allowed: false, reason: 'Este mariachi es de ejemplo y no recibe solicitudes.' };
+        return { allowed: false, reason: 'Este mariachi no recibe solicitudes desde la web en este momento.' };
     }
 
     if (options?.isLoggedIn === false) {

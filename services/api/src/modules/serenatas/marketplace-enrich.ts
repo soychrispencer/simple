@@ -2,6 +2,12 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { serenataGroupServices, serenataProviderGroups } from '../../db/schema.js';
 
+const SHOWCASE_PROVIDER_GROUP_SLUGS = new Set([
+    'mariachi-los-reyes-santiago',
+    'mariachi-noche-de-mexico',
+    'mariachi-alma-ranchera',
+]);
+
 function effectiveServicePrice(service: Pick<typeof serenataGroupServices.$inferSelect, 'price' | 'promoPrice'>) {
     return service.promoPrice != null && service.promoPrice > 0 && service.promoPrice < service.price
         ? service.promoPrice
@@ -9,7 +15,7 @@ function effectiveServicePrice(service: Pick<typeof serenataGroupServices.$infer
 }
 
 export function isDemoProviderGroup(row: Pick<typeof serenataProviderGroups.$inferSelect, 'slug'>) {
-    return row.slug.startsWith('demo-mariachi-');
+    return row.slug.startsWith('demo-mariachi-') || SHOWCASE_PROVIDER_GROUP_SLUGS.has(row.slug);
 }
 
 export function mapProviderGroup(row: typeof serenataProviderGroups.$inferSelect) {

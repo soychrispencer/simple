@@ -85,8 +85,7 @@ export function PublicProviderGroupCard({
     const coverage = zonesCoverageChip(group);
     const moreServices = extraServicesLabel(group);
     const compactMoreServices = moreServices?.replace(' más', '');
-    const showDemoBadge = group.isDemo === true;
-    const showNewBadge = !showDemoBadge && isRecentlyCreatedGroup(group);
+    const showNewBadge = isRecentlyCreatedGroup(group);
     const location = baseLocationMetaLine(group);
 
     useEffect(() => {
@@ -124,11 +123,7 @@ export function PublicProviderGroupCard({
                     aria-hidden
                 />
 
-                {showDemoBadge ? (
-                    <span className="absolute left-3 top-3 z-10 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white shadow-sm">
-                        Ejemplo
-                    </span>
-                ) : showNewBadge ? (
+                {showNewBadge ? (
                     <span className="absolute left-3 top-3 z-10 rounded-full bg-white px-3 py-1 text-xs font-semibold text-neutral-900 shadow-sm">
                         Nuevo
                     </span>
@@ -219,7 +214,7 @@ export function PublicProviderGroupCard({
                 )}
 
                 <span className="btn btn-primary mt-auto h-10 w-full justify-center text-sm font-semibold">
-                    {showDemoBadge ? 'Ver ejemplo' : 'Ver mariachi'}
+                    Ver mariachi
                     <IconChevronRight
                         size={16}
                         className="transition-transform duration-300 group-hover/card:translate-x-0.5"

@@ -58,7 +58,6 @@ export function MariachiProfileContent({
                         <MarketplaceContractButton
                             group={group}
                             onContract={() => openContract(service)}
-                            showInlineNotice={group.isDemo === true}
                         />
                     )}
                 />
