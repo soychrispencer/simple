@@ -13,6 +13,7 @@ import type {
     SerenataGroup,
     SerenataGroupMember,
     SerenataGroupPendingInvite,
+    SerenataMePlan,
 } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
@@ -53,12 +54,16 @@ export function GroupsView({
     const [profileMusicianId, setProfileMusicianId] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
     const [status, setStatus] = useState<FormStatus>({ loading: true, error: null, ok: null });
+    const [mePlan, setMePlan] = useState<SerenataMePlan | null>(null);
     const { confirm } = usePanelConfirm();
 
     const musicianById = useMemo(
         () => new Map(musicians.map((musician) => [musician.id, musician])),
         [musicians],
     );
+    const isPro = mePlan?.plan === 'pro';
+    const currentGroupsCount = musicianGroups.filter((group) => group.status !== 'closed').length;
+    const canCreateGroup = isPro || currentGroupsCount < 1;
 
     const loadMusicianGroups = useCallback(async (providerGroupId: string) => {
         const response = await serenatasApi.groups(providerGroupId);
@@ -120,10 +125,22 @@ export function GroupsView({
             loadMusicianGroups(activeMariachi.id),
             loadProviderMembers(activeMariachi.id),
             loadProviderMemberInvites(activeMariachi.id),
+            serenatasApi.mePlan().then((response) => {
+                if (response.ok) setMePlan(response);
+            }),
         ]).then(([groupsOk]) => {
             if (groupsOk) setStatus({ loading: false, error: null, ok: null });
         });
     }, [hasMariachi, activeMariachi?.id, mariachisLoading, mariachisError, loadMusicianGroups, loadProviderMembers, loadProviderMemberInvites]);
+
+    function openCreateGroup() {
+        if (!canCreateGroup) {
+            setActionError('El plan Gratis incluye 1 grupo de músicos. Suscríbete a Pro para administrar más grupos y equipos.');
+            return;
+        }
+        setActionError(null);
+        setCreateOpen(true);
+    }
 
     async function selectMusicianGroup(groupId: string) {
         setActiveMusicianGroupId(groupId);
@@ -251,6 +268,12 @@ export function GroupsView({
                 description={`Grupos de músicos de ${activeMariachi.name}. Úsalos al conformar una serenata en Solicitudes.`}
             />
 
+            {!isPro && currentGroupsCount >= 1 ? (
+                <PanelNotice tone="neutral" className="mb-4">
+                    El plan Gratis incluye 1 grupo de músicos. Pro permite administrar más grupos y equipos.
+                </PanelNotice>
+            ) : null}
+
             {actionError ? (
                 <PanelNotice tone="error" className="mb-4">
                     {actionError}
@@ -283,9 +306,10 @@ export function GroupsView({
                             <p className="text-xs font-medium uppercase tracking-wide text-fg-muted">
                                 Grupos
                             </p>
-                            <PanelButton variant="secondary" size="sm" onClick={() => setCreateOpen(true)}>
+                            <PanelButton variant="secondary" size="sm" onClick={openCreateGroup}>
                                 <IconPlus size={14} />
                                 Nuevo grupo
+                                {!canCreateGroup ? <PanelStatusBadge tone="neutral" label="Pro" size="xs" /> : null}
                             </PanelButton>
                         </div>
 
@@ -294,7 +318,7 @@ export function GroupsView({
                                 title="Sin grupos de músicos"
                                 description="Crea tu primer grupo (por ejemplo, trío, cuarteto o grupo completo) y luego invita músicos."
                                 action={
-                                    <PanelButton variant="secondary" size="sm" onClick={() => setCreateOpen(true)}>
+                                    <PanelButton variant="secondary" size="sm" onClick={openCreateGroup}>
                                         <IconPlus size={14} />
                                         Nuevo grupo
                                     </PanelButton>

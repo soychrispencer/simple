@@ -1553,6 +1553,23 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const parsed = serenataGroupAssignmentSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Asignación inválida');
         const id = c.req.param('id');
+        if (parsed.data.mode === 'new') {
+            const current = await db.query.serenatas.findFirst({
+                where: and(eq(serenatas.id, id), eq(serenatas.ownerId, required.owner.id)),
+            });
+            if (current?.providerGroupId) {
+                const [sameDayGroup] = await db.select({ id: serenataGroups.id }).from(serenataGroups).where(and(
+                    eq(serenataGroups.ownerId, required.owner.id),
+                    eq(serenataGroups.providerGroupId, current.providerGroupId),
+                    eq(serenataGroups.status, 'active'),
+                    sql`date_trunc('day', ${serenataGroups.date}) = date_trunc('day', ${current.eventDate})`,
+                )).limit(1);
+                if (!sameDayGroup) {
+                    const limitReached = await freePlanGroupLimitReached(user.id, required.owner.id);
+                    if (limitReached) return jsonError(c, FREE_GROUP_LIMIT_MESSAGE, 409);
+                }
+            }
+        }
 
         const result = await db.transaction(async (tx) => assignSerenataMusicianGroup(tx, {
             ownerId: required.owner.id,
@@ -1717,6 +1734,30 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         );
     };
 
+    const FREE_MUSICIAN_GROUP_LIMIT = 1;
+    const FREE_GROUP_LIMIT_MESSAGE =
+        'El plan Gratis permite 1 grupo de músicos. Suscríbete a Pro para crear más grupos.';
+
+    async function freePlanGroupLimitReached(
+        userId: string,
+        ownerId: string,
+        options: { excludeGroupId?: string | null } = {},
+    ) {
+        const plan = await resolveActiveSerenataBillingPlan(userId);
+        if (plan === 'pro') return false;
+        const filters = [
+            eq(serenataGroups.ownerId, ownerId),
+            inArray(serenataGroups.status, ['draft', 'active']),
+        ];
+        if (options.excludeGroupId) filters.push(ne(serenataGroups.id, options.excludeGroupId));
+        const rows = await db
+            .select({ id: serenataGroups.id })
+            .from(serenataGroups)
+            .where(and(...filters))
+            .limit(FREE_MUSICIAN_GROUP_LIMIT);
+        return rows.length >= FREE_MUSICIAN_GROUP_LIMIT;
+    }
+
     app.get('/groups', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
@@ -1797,6 +1838,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             }
         }
         try {
+            const limitReached = await freePlanGroupLimitReached(user.id, required.owner.id);
+            if (limitReached) return jsonError(c, FREE_GROUP_LIMIT_MESSAGE, 409);
             const groupDate = parsed.data.date instanceof Date ? parsed.data.date : new Date();
             const requiredInstruments = parsed.data.requiredInstruments?.length
                 ? parsed.data.requiredInstruments
@@ -1831,6 +1874,16 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (parsed.data.requiredInstruments !== undefined) {
             updates.requiredInstruments = parsed.data.requiredInstruments;
             updates.maxMusicians = parsed.data.requiredInstruments.length;
+        }
+        if (parsed.data.status === 'draft' || parsed.data.status === 'active') {
+            const current = await db.query.serenataGroups.findFirst({
+                where: and(eq(serenataGroups.id, groupId), eq(serenataGroups.ownerId, required.owner.id)),
+            });
+            if (!current) return jsonError(c, 'Grupo no encontrado', 404);
+            const limitReached = await freePlanGroupLimitReached(user.id, required.owner.id, {
+                excludeGroupId: current.id,
+            });
+            if (limitReached) return jsonError(c, FREE_GROUP_LIMIT_MESSAGE, 409);
         }
         const [item] = await db.update(serenataGroups).set(updates).where(and(
             eq(serenataGroups.id, groupId),
