@@ -42,7 +42,31 @@ export async function ensureSubscriptionPlanDbId(
         .where(and(eq(subscriptionPlans.vertical, vertical), eq(subscriptionPlans.planId, planSlug)))
         .limit(1);
 
-    if (existing[0]?.id) return existing[0].id;
+    if (existing[0]?.id) {
+        await db
+            .update(subscriptionPlans)
+            .set({
+                name: catalog.name,
+                description: catalog.description,
+                priceMonthly: String(catalog.priceMonthly),
+                priceYearly: String(catalog.priceMonthly * 12),
+                currency: catalog.currency,
+                maxListings: catalog.maxListings,
+                maxFeaturedListings: catalog.maxFeaturedListings,
+                maxImagesPerListing: catalog.maxImagesPerListing,
+                analyticsEnabled: catalog.analyticsEnabled,
+                crmEnabled: catalog.crmEnabled,
+                prioritySupport: catalog.prioritySupport,
+                customBranding: catalog.customBranding,
+                apiAccess: catalog.apiAccess,
+                features: catalog.features,
+                isActive: true,
+                isDefault: planSlug === 'free',
+                updatedAt: new Date(),
+            })
+            .where(eq(subscriptionPlans.id, existing[0].id));
+        return existing[0].id;
+    }
 
     const [inserted] = await db
         .insert(subscriptionPlans)

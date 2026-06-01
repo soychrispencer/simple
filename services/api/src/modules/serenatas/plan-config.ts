@@ -2,7 +2,7 @@
 export const APP_COMMISSION_FREE_BPS = 1500;
 export const APP_COMMISSION_PRO_BPS = 800;
 export const COMMISSION_VAT_BPS = 1900;
-export const SERENATA_PRO_PRICE_MONTHLY_CLP = 19_990;
+export const SERENATA_PRO_PRICE_MONTHLY_CLP = 49_990;
 
 /** Monto mensual cobrado en Mercado Pago (neto + IVA 19 %). */
 export function serenataProMonthlyChargeClp(): number {

@@ -8,7 +8,7 @@ describe('Serenatas subscription catalog', () => {
         expect(plans.map((plan) => plan.id)).toEqual(['free', 'pro']);
         expect(plans.find((plan) => plan.id === 'pro')).toMatchObject({
             name: 'Coordinador',
-            priceMonthly: 19990,
+            priceMonthly: 49990,
         });
     });
 });

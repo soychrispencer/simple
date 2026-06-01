@@ -27,9 +27,9 @@ function parseMePlanResponse(response: Awaited<ReturnType<typeof serenatasApi.me
         commissionAppPercent: response.commissionAppPercent ?? (response.plan === 'pro' ? 8 : 15),
         commissionVatBps: response.commissionVatBps ?? 1900,
         commissionVatPercent: response.commissionVatPercent ?? 19,
-        proPriceMonthly: response.proPriceMonthly ?? 19_990,
-        proPriceMonthlyNet: response.proPriceMonthlyNet ?? response.proPriceMonthly ?? 19_990,
-        proPriceMonthlyWithVat: response.proPriceMonthlyWithVat ?? Math.round((response.proPriceMonthlyNet ?? 19_990) * 1.19),
+        proPriceMonthly: response.proPriceMonthly ?? 49_990,
+        proPriceMonthlyNet: response.proPriceMonthlyNet ?? response.proPriceMonthly ?? 49_990,
+        proPriceMonthlyWithVat: response.proPriceMonthlyWithVat ?? Math.round((response.proPriceMonthlyNet ?? 49_990) * 1.19),
         proCheckoutAvailable: response.proCheckoutAvailable ?? false,
         exampleGrossClp: response.exampleGrossClp ?? 100_000,
         example: response.example ?? {
@@ -175,7 +175,7 @@ export function SubscriptionSection() {
     const proCommission = mePlan?.constants.APP_COMMISSION_PRO_BPS
         ? mePlan.constants.APP_COMMISSION_PRO_BPS / 100
         : 8;
-    const proNet = mePlan?.proPriceMonthlyNet ?? 19_990;
+    const proNet = mePlan?.proPriceMonthlyNet ?? 49_990;
     const proCheckoutAvailable = mePlan?.proCheckoutAvailable ?? false;
 
     const handleSubscribePro = async () => {
