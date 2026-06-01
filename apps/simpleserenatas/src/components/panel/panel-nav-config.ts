@@ -10,6 +10,7 @@ import {
     IconCalendar,
     IconMap,
     IconChartBar,
+    IconBrandWhatsapp,
     IconUser,
     IconBriefcase,
     IconBookmark,
@@ -86,7 +87,8 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
         }
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
         items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
-        items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconChartBar });
+        items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconChartBar, badge: 'Pro' });
+        items.push({ id: 'chat', href: panelSectionHref('chat'), label: 'Chat', icon: IconBrandWhatsapp, badge: 'Pro' });
         items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
     } else if (profiles.musician) {
         items.push({ id: 'invitations', href: panelSectionHref('invitations'), label: 'Invitaciones', icon: IconUsersGroup });
@@ -120,7 +122,7 @@ export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): Pane
 /** Secciones del panel dueño accesibles desde «Más» en bottom nav móvil (p. ej. Mapa). */
 export function getMobileOverflowNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     if (mode !== 'work' || !ownerFeaturesEnabled(profiles)) return [];
-    return getPanelNavItems(mode, profiles).filter((t) => t.id === 'map' || t.id === 'finanzas');
+    return getPanelNavItems(mode, profiles).filter((t) => t.id === 'map' || t.id === 'finanzas' || t.id === 'chat');
 }
 
 export function getMarketplaceNavItems(mode: AppMode, profiles: Profiles): MarketplacePanelNavItem[] {

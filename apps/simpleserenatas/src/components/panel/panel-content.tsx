@@ -38,6 +38,12 @@ const GuardadosView = dynamic(() =>
 const FinanzasView = dynamic(() =>
     import('@/components/panel/finanzas/finanzas-view').then((mod) => mod.FinanzasView),
 );
+const WhatsAppChatView = dynamic(() =>
+    import('@/components/panel/whatsapp-chat-view').then((mod) => mod.WhatsAppChatView),
+);
+const ProFeatureGate = dynamic(() =>
+    import('@/components/panel/pro-feature-gate').then((mod) => mod.ProFeatureGate),
+);
 const MiNegocioPublishToggle = dynamic(() =>
     import('@/components/panel/mi-negocio-publish-toggle').then((mod) => mod.MiNegocioPublishToggle),
 );
@@ -233,12 +239,35 @@ export function PanelContent(props: PanelContentProps) {
                 title="Finanzas"
                 description="Reportes, estadísticas y pagos a músicos."
             >
-                <FinanzasView
-                    serenatas={props.ownerSerenatas}
-                    groups={props.groups}
-                    accountUser={props.accountUser}
-                    refresh={props.refresh}
-                />
+                <ProFeatureGate
+                    featureName="Finanzas"
+                    description="Reportes, movimientos, comisiones y pagos a músicos quedan reservados para dueños con plan Pro."
+                >
+                    <FinanzasView
+                        serenatas={props.ownerSerenatas}
+                        groups={props.groups}
+                        accountUser={props.accountUser}
+                        refresh={props.refresh}
+                    />
+                </ProFeatureGate>
+            </PanelSectionPage>
+        ) : (
+            <PanelHomePage {...props} />
+        );
+    }
+
+    if (props.section === 'chat') {
+        return props.mode === 'work' && props.ownerFeaturesEnabled ? (
+            <PanelSectionPage
+                title="Chat"
+                description="Atiende solicitudes con WhatsApp desde el panel."
+            >
+                <ProFeatureGate
+                    featureName="Chat WhatsApp"
+                    description="La bandeja de atención por WhatsApp, plantillas y seguimiento de conversaciones forman parte del plan Pro."
+                >
+                    <WhatsAppChatView serenatas={props.ownerSerenatas} refresh={props.refresh} />
+                </ProFeatureGate>
             </PanelSectionPage>
         ) : (
             <PanelHomePage {...props} />

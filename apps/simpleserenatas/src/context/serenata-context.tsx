@@ -49,6 +49,7 @@ export type Section =
     | 'agenda'
     | 'map'
     | 'finanzas'
+    | 'chat'
     | 'profile';
 export type LoadState = 'idle' | 'loading' | 'error' | 'ready';
 

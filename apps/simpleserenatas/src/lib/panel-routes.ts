@@ -32,6 +32,8 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     mapa: 'map',
     map: 'map',
     finanzas: 'finanzas',
+    chat: 'chat',
+    whatsapp: 'chat',
     cuenta: 'profile',
     perfil: 'profile',
     profile: 'profile',
@@ -61,6 +63,7 @@ export const SECTION_TO_PANEL_SLUG: Record<Section, string> = {
     agenda: 'agenda',
     map: 'mapa',
     finanzas: 'finanzas',
+    chat: 'chat',
     profile: 'cuenta',
 };
 
