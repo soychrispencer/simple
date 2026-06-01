@@ -78,12 +78,6 @@ const PRO_BENEFITS = (commission: number) => [
     'Mejor margen por cada serenata pagada desde la plataforma',
 ] as const;
 
-function commissionTotal(grossClp: number, commissionPercent: number, vatPercent: number) {
-    const commissionClp = Math.round(grossClp * (commissionPercent / 100));
-    const vatClp = Math.round(commissionClp * (vatPercent / 100));
-    return commissionClp + vatClp;
-}
-
 export function SubscriptionSection() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -182,11 +176,6 @@ export function SubscriptionSection() {
         ? mePlan.constants.APP_COMMISSION_PRO_BPS / 100
         : 8;
     const proNet = mePlan?.proPriceMonthlyNet ?? 19_990;
-    const vatPercent = mePlan?.commissionVatPercent ?? 19;
-    const exampleGrossClp = mePlan?.exampleGrossClp ?? 100_000;
-    const freeDeduction = commissionTotal(exampleGrossClp, freeCommission, vatPercent);
-    const proDeduction = commissionTotal(exampleGrossClp, proCommission, vatPercent);
-    const proSavings = Math.max(0, freeDeduction - proDeduction);
     const proCheckoutAvailable = mePlan?.proCheckoutAvailable ?? false;
 
     const handleSubscribePro = async () => {
@@ -289,7 +278,6 @@ export function SubscriptionSection() {
                             priceDetail="Para publicar, configurar tu negocio y recibir solicitudes."
                             benefits={FREE_BENEFITS(freeCommission)}
                             isCurrent={!isPro}
-                            summary={`En pagos desde SimpleSerenatas, la comisión es ${freeCommission}% + IVA.`}
                         />
 
                         <PlanOptionCard
@@ -299,7 +287,6 @@ export function SubscriptionSection() {
                             benefits={PRO_BENEFITS(proCommission)}
                             isCurrent={isPro}
                             highlighted
-                            summary={`En el mismo pago de ${formatCurrency(exampleGrossClp)}, Pro descuenta ${formatCurrency(proSavings)} menos que Gratis.`}
                             footer={
                                 isPro ? (
                                     <PanelButton
@@ -333,23 +320,6 @@ export function SubscriptionSection() {
                         />
                     </div>
                 )}
-
-                {!planLoading ? (
-                    <div
-                        className="mt-5 rounded-xl border p-4 text-sm"
-                        style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-secondary)' }}
-                    >
-                        <p className="font-semibold" style={{ color: 'var(--fg)' }}>
-                            Diferencia práctica
-                        </p>
-                        <p className="mt-1">
-                            Si una serenata se paga desde SimpleSerenatas por {formatCurrency(exampleGrossClp)}, Gratis descuenta{' '}
-                            <strong style={{ color: 'var(--fg)' }}>{formatCurrency(freeDeduction)}</strong> y Pro descuenta{' '}
-                            <strong style={{ color: 'var(--fg)' }}>{formatCurrency(proDeduction)}</strong>. Las serenatas que
-                            gestiones con tu propio cliente siguen en 0% de comisión en ambos planes.
-                        </p>
-                    </div>
-                ) : null}
             </PanelCard>
         </div>
     );
@@ -366,7 +336,6 @@ type PlanOptionCardProps = {
     benefits: readonly string[];
     isCurrent: boolean;
     highlighted?: boolean;
-    summary?: string;
     footer?: ReactNode;
 };
 
@@ -377,7 +346,6 @@ function PlanOptionCard({
     benefits,
     isCurrent,
     highlighted = false,
-    summary,
     footer,
 }: PlanOptionCardProps) {
     return (
@@ -418,12 +386,6 @@ function PlanOptionCard({
                     </span>
                 ) : null}
             </div>
-
-            {summary ? (
-                <p className="mt-4 rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
-                    {summary}
-                </p>
-            ) : null}
 
             <ul className="mt-4 flex-1 space-y-2">
                 {benefits.map((text) => (
