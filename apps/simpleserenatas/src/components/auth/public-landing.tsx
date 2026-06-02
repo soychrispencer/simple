@@ -17,7 +17,6 @@ import { LandingHeader } from '@/components/layout/landing-header';
 import { Footer } from '@/components/layout/footer';
 import { MarketplaceSearchPanel } from '@/components/public/marketplace-search-panel';
 import { PublicProviderGroupCard } from '@/components/public/public-provider-group-card';
-import { OWNER_REGISTER_PATH } from '@/lib/owner-register-route';
 import { sortMarketplaceGroups } from '@/lib/marketplace-group-display';
 import {
     defaultLandingSearch,
@@ -30,8 +29,7 @@ import { useLandingHashScroll } from '@/hooks/use-landing-hash-scroll';
 
 type PublicLandingProps = {
     onLogin: () => void;
-    onRegisterClient: () => void;
-    onRegisterMusician: () => void;
+    onRegister: () => void;
     /** Header de invitado; si se omite y hay sesión, pásalo desde el padre (p. ej. chrome del panel). */
     header?: ReactNode;
     isLoggedIn?: boolean;
@@ -54,8 +52,7 @@ type FeaturedStatus = { loading: boolean; error: string | null };
 
 export function PublicLanding({
     onLogin,
-    onRegisterClient,
-    onRegisterMusician,
+    onRegister,
     header,
     isLoggedIn = false,
 }: PublicLandingProps) {
@@ -102,7 +99,7 @@ export function PublicLanding({
 
     return (
         <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-(--bg) text-(--fg)">
-            {header ?? <LandingHeader onLogin={onLogin} onRegister={onRegisterClient} />}
+            {header ?? <LandingHeader onLogin={onLogin} onRegister={onRegister} />}
 
             <main className="flex-1">
                 <section id="hero" className="relative isolate overflow-hidden border-b border-border">
@@ -142,12 +139,13 @@ export function PublicLanding({
                                         Mi panel
                                     </Link>
                                 ) : (
-                                    <Link
-                                        href={OWNER_REGISTER_PATH}
+                                    <button
+                                        type="button"
                                         className="btn h-13 border border-white/28 bg-white/12 px-7 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/20 sm:h-14 sm:px-9"
+                                        onClick={onRegister}
                                     >
-                                        Registrar mariachis
-                                    </Link>
+                                        Registrarse
+                                    </button>
                                 )}
                             </div>
                         </div>
@@ -262,16 +260,16 @@ export function PublicLanding({
                             <AudienceCard
                                 icon={IconUsersGroup}
                                 title="¿Tienes un mariachi?"
-                                description="Regístralo en SimpleSerenatas: perfil profesional, comunas, disponibilidad y nuevas oportunidades desde la web."
-                                cta="Registrar mariachis gratis"
-                                href={OWNER_REGISTER_PATH}
+                                description="Crea tu cuenta y elige Soy dueño para publicar tu grupo, configurar servicios, zonas y disponibilidad."
+                                cta="Registrarme"
+                                onClick={onRegister}
                             />
                             <AudienceCard
                                 icon={IconMusic}
                                 title="Toca con más grupos"
-                                description="Registra tu perfil de músico, recibe invitaciones y revisa tu agenda de presentaciones."
-                                cta="Registrarme como músico"
-                                onClick={onRegisterMusician}
+                                description="Crea tu cuenta y elige Soy músico para completar tu perfil musical y recibir invitaciones."
+                                cta="Registrarme"
+                                onClick={onRegister}
                             />
                         </div>
                     </div>

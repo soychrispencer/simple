@@ -94,7 +94,7 @@ function DashboardContent() {
                   { label: 'Usuarios serenatas', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Alta o actividad en serenatas' },
                   { label: 'Clientes', value: scopedUsers.filter((user) => user.serenatas?.client).length.toLocaleString('es-CL'), meta: 'Cuentas con modo cliente' },
                   { label: 'Músicos', value: scopedUsers.filter((user) => user.serenatas?.musician).length.toLocaleString('es-CL'), meta: 'Cuentas con modo músico' },
-                  { label: 'Dueños', value: scopedUsers.filter((user) => user.serenatas?.coordinator).length.toLocaleString('es-CL'), meta: 'Perfil dueño de mariachi activo' },
+                  { label: 'Dueños', value: scopedUsers.filter((user) => user.serenatas?.owner).length.toLocaleString('es-CL'), meta: 'Perfil dueño de mariachi activo' },
               ]
             : scope === 'agenda'
             ? [

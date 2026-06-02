@@ -19,7 +19,7 @@ import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-head
 
 import { suspendedAccountNotice } from '@/lib/suspended-notice';
 import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
-import { persistSignupProfile } from '@/lib/signup-profile';
+import { hasAnySerenataProfile } from '@/lib/app-mode';
 
 /**
  * Panel de trabajo: rutas `/panel/*` + compat `/?section=` → redirect en `LegacySectionRedirect`.
@@ -69,6 +69,25 @@ export function SerenatasApp() {
         changeSection('agenda', { action: 'create' });
     }, [changeSection, ownerFeatures, panelAction, section]);
 
+    useEffect(() => {
+        if (authLoading || isLoggedIn) return;
+        const authAction = searchParams.get('auth');
+        if (authAction !== 'register' && authAction !== 'login') return;
+        openAuth(authAction);
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('auth');
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [authLoading, isLoggedIn, openAuth, pathname, router, searchParams]);
+
+    useEffect(() => {
+        if (!isLoggedIn || user?.status !== 'verified') return;
+        if (loadState !== 'ready') return;
+        if (pathname.startsWith('/onboarding')) return;
+        if (hasAnySerenataProfile(profiles)) return;
+        router.replace('/onboarding');
+    }, [isLoggedIn, loadState, pathname, profiles, router, user?.status]);
+
     const clearPanelAction = useCallback(() => {
         const params = new URLSearchParams(searchParams.toString());
         params.delete('action');
@@ -84,21 +103,12 @@ export function SerenatasApp() {
     const isSuspended = user?.status === 'suspended';
     const isPanelRoute = pathname.startsWith('/panel');
 
-    const openRegisterAs = useCallback(
-        (profile: 'client' | 'musician') => {
-            persistSignupProfile(profile);
-            openAuth('register');
-        },
-        [openAuth],
-    );
-
     if (!isLoggedIn) {
         return (
             <ScreenShell>
                 <PublicLanding
                     onLogin={() => openAuth('login')}
-                    onRegisterClient={() => openRegisterAs('client')}
-                    onRegisterMusician={() => openRegisterAs('musician')}
+                    onRegister={() => openAuth('register')}
                 />
             </ScreenShell>
         );
@@ -125,8 +135,7 @@ export function SerenatasApp() {
                         <SerenatasChromeHeader mode={mode} profiles={profiles} />
                     }
                     onLogin={() => openAuth('login')}
-                    onRegisterClient={() => openRegisterAs('client')}
-                    onRegisterMusician={() => openRegisterAs('musician')}
+                    onRegister={() => openAuth('register')}
                 />
             </ScreenShell>
         );

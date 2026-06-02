@@ -4,17 +4,12 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@simple/auth';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { clearLegacyAppModeStorage } from '@/lib/app-mode';
-import { applyOwnerSignupDrafts } from '@/lib/owner-signup-bootstrap';
 import {
     clearSignupProfile,
-    hasOwnerSignupIntent,
     resolveSignupProfileForBootstrap,
 } from '@/lib/signup-profile';
 
-/**
- * Tras el registro, crea solo el perfil elegido (cliente, músico o dueño de grupo).
- * Cada cuenta queda con un solo tipo de perfil (cliente, músico o dueño).
- */
+/** Compatibilidad: si llega una invitación con `perfil=musician`, crea el perfil músico tras verificar. */
 export function SignupProfileBootstrap() {
     const { user, refreshSession } = useAuth();
     const ranRef = useRef(false);
@@ -23,10 +18,11 @@ export function SignupProfileBootstrap() {
         if (!user) return;
         if (user.status !== 'verified') return;
 
-        const signupProfile = hasOwnerSignupIntent()
-            ? 'owner'
-            : resolveSignupProfileForBootstrap();
-        if (!signupProfile) return;
+        const signupProfile = resolveSignupProfileForBootstrap();
+        if (signupProfile !== 'musician') {
+            if (signupProfile) clearSignupProfile();
+            return;
+        }
         if (ranRef.current) return;
 
         let cancelled = false;
@@ -38,22 +34,9 @@ export function SignupProfileBootstrap() {
                 const response = await serenatasApi.profiles();
                 if (!response.ok || cancelled) return;
 
-                if (signupProfile === 'client' && !response.profiles.client) {
-                    if (response.profiles.owner || response.profiles.musician) {
-                        clearSignupProfile();
-                        return;
-                    }
-                    const created = await serenatasApi.saveClientProfile({});
-                    if (!created.ok) return;
-                } else if (signupProfile === 'musician' && !response.profiles.musician) {
+                if (signupProfile === 'musician' && !response.profiles.musician) {
                     const created = await serenatasApi.saveMusicianProfile({ hasInstrument: false, hasMariachiAttire: false, workZones: [] });
                     if (!created.ok) return;
-                } else if (signupProfile === 'owner') {
-                    if (!response.profiles.owner) {
-                        const created = await serenatasApi.registerOwner();
-                        if (!created.ok) return;
-                    }
-                    await applyOwnerSignupDrafts({ refreshSession });
                 }
 
                 clearLegacyAppModeStorage();

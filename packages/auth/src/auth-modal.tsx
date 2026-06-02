@@ -307,7 +307,7 @@ export function AuthModal({
                             </button>
                             {allowRegister ? (
                                 <button onClick={() => { setMode('register'); setError(''); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
-                                    Crear cuenta
+                                    Registrarse
                                 </button>
                             ) : null}
                         </div>
@@ -317,7 +317,7 @@ export function AuthModal({
                 {allowRegister && mode === 'register' && (
                     <>
                         <h2 id="auth-modal-title" className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
-                            Crear cuenta
+                            Registrarse
                         </h2>
                         <p className="text-sm mb-5" style={{ color: 'var(--fg-muted)' }}>
                             Crea tu cuenta en Simple
@@ -351,7 +351,7 @@ export function AuthModal({
                                 <input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="form-input" placeholder="Confirmar contraseña" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
                             <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting || !canSubmitRegister}>
-                                {submitting ? 'Creando...' : 'Crear cuenta'}
+                                {submitting ? 'Creando...' : 'Registrarse'}
                             </PanelButton>
                         </form>
                         <GoogleLoginButton

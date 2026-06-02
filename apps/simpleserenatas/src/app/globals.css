@@ -299,36 +299,3 @@
         max-width: 100%;
     }
 }
-
-/* Registro dueño full-page (/registrar-mariachis) */
-.auth-register-page {
-    background: var(--bg);
-}
-
-.auth-register-form {
-    min-height: 100dvh;
-}
-
-.auth-register-logo {
-    background: var(--accent);
-}
-
-.auth-register-progress-active {
-    background: var(--accent);
-}
-
-.auth-register-progress-idle {
-    background: color-mix(in oklab, var(--accent) 18%, var(--border));
-}
-
-.auth-register-brand {
-    background: var(--accent);
-}
-
-@media (max-width: 1023px) {
-    .auth-register-brand-mobile {
-        background: var(--accent);
-        color: var(--accent-contrast);
-    }
-}
-

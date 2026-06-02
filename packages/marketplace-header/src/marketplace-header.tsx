@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from '@simple/ui/theme';
-import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import {
   IconBell, IconSun, IconMoon, IconUser, IconPlus, IconLogout, IconSparkles, IconMenu2, IconX, IconUsersGroup, IconMessage, } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
@@ -41,6 +41,7 @@ function notificationListIcon(type: PanelNotification['type']) {
 const HEADER_POPOVER_MOBILE =
   'max-md:fixed max-md:inset-x-3 max-md:top-[calc(4rem+env(safe-area-inset-top,0px))] max-md:w-auto';
 const HEADER_POPOVER_DESKTOP = 'md:absolute md:right-0 md:top-[calc(100%+8px)]';
+const MOBILE_ACCOUNT_POPOVER_TOP = 'calc(4.75rem + env(safe-area-inset-top, 0px))';
 
 export type MarketplaceHeaderProps = {
   brandAppId: 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin' | 'simpleagenda';
@@ -107,6 +108,7 @@ export function MarketplaceHeader({
   const [accountOpen, setAccountOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<PanelNotification[]>([]);
+  const [isSmallViewport, setIsSmallViewport] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const accountRef = useRef<HTMLDivElement | null>(null);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
@@ -115,6 +117,15 @@ export function MarketplaceHeader({
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setIsSmallViewport(window.matchMedia('(max-width: 767px)').matches);
+    };
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
   }, []);
 
   useEffect(() => {
@@ -174,6 +185,28 @@ export function MarketplaceHeader({
   const panelItems = useMemo(() => getPanelNavItems(role), [getPanelNavItems, role]);
   const userName = user?.name?.trim() || 'Usuario';
   const unreadNotifications = notifications.length;
+  const accountPopoverStyle: CSSProperties = isSmallViewport
+    ? {
+        position: 'fixed',
+        top: MOBILE_ACCOUNT_POPOVER_TOP,
+        left: '0.75rem',
+        right: '0.75rem',
+        width: 'auto',
+        maxHeight: 'calc(100dvh - 6rem)',
+        overflowY: 'auto',
+        background: 'var(--surface)',
+        borderColor: 'var(--border)',
+        boxShadow: 'var(--shadow-md)',
+      }
+    : {
+        position: 'absolute',
+        top: 'calc(100% + 10px)',
+        right: 0,
+        width: 'min(290px, calc(100vw - 1rem))',
+        background: 'var(--surface)',
+        borderColor: 'var(--border)',
+        boxShadow: 'var(--shadow-md)',
+      };
 
   return (
     <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -346,8 +379,8 @@ export function MarketplaceHeader({
 
               {accountOpen && (
                 <div
-                  className={`z-[60] rounded-xl border p-2 animate-slide-down ${HEADER_POPOVER_MOBILE} ${HEADER_POPOVER_DESKTOP} md:w-[min(290px,calc(100vw-1rem))]`}
-                  style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                  className="z-[60] rounded-xl border p-2 animate-slide-down"
+                  style={accountPopoverStyle}
                 >
                   <div className="px-2.5 py-2 mb-1 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
                     <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
@@ -431,9 +464,14 @@ export function MarketplaceHeader({
                 <PrimaryActionIcon size={13} /> {primaryActionLabel}
               </PanelButton>
             ) : (
-              <PanelButton onClick={() => openAuth('login')} variant="primary" size="sm" className="h-9 px-4 text-sm">
-                Iniciar sesión
-              </PanelButton>
+              <div className="flex items-center gap-2">
+                <PanelButton onClick={() => openAuth('login')} variant="secondary" size="sm" className="h-9 px-4 text-sm">
+                  Iniciar sesión
+                </PanelButton>
+                <PanelButton onClick={() => openAuth('register')} variant="primary" size="sm" className="h-9 px-4 text-sm">
+                  Registrarse
+                </PanelButton>
+              </div>
             )}
           </div>
           ) : null}
@@ -470,16 +508,28 @@ export function MarketplaceHeader({
                     <PrimaryActionIcon size={14} /> {primaryActionLabel}
                   </PanelButton>
                 ) : !isLoggedIn ? (
-                  <PanelButton
-                    onClick={() => {
-                      setMenuOpen(false);
-                      openAuth('login');
-                    }}
-                    variant="primary"
-                    className="w-full h-10 text-sm mb-2"
-                  >
-                    Iniciar sesión
-                  </PanelButton>
+                  <div className="mb-2 grid gap-2">
+                    <PanelButton
+                      onClick={() => {
+                        setMenuOpen(false);
+                        openAuth('login');
+                      }}
+                      variant="secondary"
+                      className="w-full h-10 text-sm"
+                    >
+                      Iniciar sesión
+                    </PanelButton>
+                    <PanelButton
+                      onClick={() => {
+                        setMenuOpen(false);
+                        openAuth('register');
+                      }}
+                      variant="primary"
+                      className="w-full h-10 text-sm"
+                    >
+                      Registrarse
+                    </PanelButton>
+                  </div>
                 ) : null}
 
                 <div className="my-2 border-t" style={{ borderColor: 'var(--border)' }} />

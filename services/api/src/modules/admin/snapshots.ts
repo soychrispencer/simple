@@ -65,13 +65,14 @@ export type AdminUserSnapshot = {
         agenda?: { plan: 'free' | 'pro'; status: 'active' | 'expired' | 'free'; expiresAt: string | null };
         autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
+        serenatas?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
     };
     serenatas?: {
         client: boolean;
         musician: boolean;
-        coordinator: boolean;
+        owner: boolean;
         instrument: string | null;
-        coordinatorStatus: string | null;
+        ownerStatus: string | null;
         trialEndsAt: string | null;
     };
 };
@@ -168,7 +169,7 @@ function buildRealness(input: {
     return { label: 'Registro sin señales', score: capped, reasons: reasons.length ? reasons : ['Sin actividad asociada'] };
 }
 
-export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<AdminUserSnapshot[]> {
+export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): Promise<AdminUserSnapshot[]> {
     const [userRows, listingRows, agendaProfiles, serenataClientRows, serenataMusicianRows, serenataOwnerRows] = await Promise.all([
         db.select().from(users).orderBy(desc(users.createdAt)),
         db.select({
@@ -232,7 +233,9 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
     }
 
     const ownersWithVerticalListings = new Set(
-        vertical ? listingRows.filter((l) => l.vertical === vertical).map((l) => l.ownerId) : [],
+        vertical === 'autos' || vertical === 'propiedades'
+            ? listingRows.filter((l) => l.vertical === vertical).map((l) => l.ownerId)
+            : [],
     );
     const agendaProfilesByUser = new Map(agendaProfiles.map((row) => [row.userId, row]));
     const serenataClientsByUser = new Map(serenataClientRows.map((row) => [row.userId, row]));
@@ -266,6 +269,16 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
             if (userVertical === vertical) return true;
             if (ownersWithVerticalListings.has(user.id)) return true;
             if (vertical === 'agenda' && agendaProfilesByUser.has(user.id)) return true;
+            if (
+                vertical === 'serenatas'
+                && (
+                    verticalFromSignupApp(user.signupApp) === 'serenatas'
+                    || serenataClientsByUser.has(user.id)
+                    || serenataMusiciansByUser.has(user.id)
+                    || serenataOwnersByUser.has(user.id)
+                    || subscriptionsByUser.get(user.id)?.serenatas
+                )
+            ) return true;
             return false;
         })
         .map((user) => {
@@ -406,13 +419,13 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
                     lastLoginAt: user.lastLoginAt,
                     signals,
                 }),
-                serenatas: hasSerenataProfile
+                      serenatas: hasSerenataProfile
                     ? {
                           client: Boolean(serenataClient),
                           musician: Boolean(serenataMusician),
-                          coordinator: Boolean(serenataOwner),
+                          owner: Boolean(serenataOwner),
                           instrument: serenataMusician?.instrument ?? null,
-                          coordinatorStatus: serenataOwner?.subscriptionStatus ?? null,
+                          ownerStatus: serenataOwner?.subscriptionStatus ?? null,
                           trialEndsAt: serenataOwner?.trialEndsAt?.toISOString() ?? null,
                       }
                     : undefined,

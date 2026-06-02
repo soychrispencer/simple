@@ -37,7 +37,7 @@ export type AdminUserListItem = {
     id: string;
     name: string;
     email: string;
-    role: 'user' | 'admin' | 'superadmin' | 'client' | 'musician' | 'coordinator';
+    role: 'user' | 'admin' | 'superadmin' | 'client' | 'musician';
     status: 'active' | 'verified' | 'suspended';
     provider: string | null;
     signupApp?: string | null;
@@ -73,9 +73,9 @@ export type AdminUserListItem = {
     serenatas?: {
         client: boolean;
         musician: boolean;
-        coordinator: boolean;
+        owner: boolean;
         instrument: string | null;
-        coordinatorStatus: string | null;
+        ownerStatus: string | null;
         trialEndsAt: string | null;
     } | null;
 };
@@ -290,7 +290,7 @@ type ApiResponse<T> = {
 
 function normalizeAdminUserRole(role: string): AdminUserListItem['role'] {
     if (role === 'admin' || role === 'superadmin') return role;
-    if (role === 'coordinator' || role === 'musician' || role === 'client') return role;
+    if (role === 'musician' || role === 'client') return role;
     return 'user';
 }
 
@@ -462,6 +462,68 @@ export async function updateAdminUserSubscriptions(
         });
         if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar suscripciones.' };
         return { ok: true };
+    } catch {
+        return { ok: false, error: 'No pudimos conectar con el backend.' };
+    }
+}
+
+export async function updateAdminUserSerenatasProfile(
+    userId: string,
+    payload: {
+        profileType: 'client' | 'musician' | 'owner';
+        removeClientProfile?: boolean;
+        note?: string;
+    }
+): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/serenatas-profile`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el perfil Serenatas.' };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'No pudimos conectar con el backend.' };
+    }
+}
+
+export async function sendAdminUserEmail(
+    userId: string,
+    payload: {
+        subject: string;
+        message: string;
+        actionUrl?: string;
+        actionLabel?: string;
+    }
+): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/email`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos enviar el correo.' };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'No pudimos conectar con el backend.' };
+    }
+}
+
+export async function sendAdminUsersBulkEmail(
+    userIds: string[],
+    payload: {
+        subject: string;
+        message: string;
+        actionUrl?: string;
+        actionLabel?: string;
+    }
+): Promise<{ ok: boolean; sent?: number; skipped?: number; error?: string }> {
+    try {
+        const { response, data } = await apiRequest<{ sent?: number; skipped?: number }>('/api/admin/users/email-bulk', {
+            method: 'POST',
+            body: JSON.stringify({ userIds, ...payload }),
+        });
+        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos enviar los correos.' };
+        return { ok: true, sent: data.sent ?? 0, skipped: data.skipped ?? 0 };
     } catch {
         return { ok: false, error: 'No pudimos conectar con el backend.' };
     }

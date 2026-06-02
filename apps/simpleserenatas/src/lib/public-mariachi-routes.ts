@@ -4,16 +4,17 @@ export const RESERVED_PUBLIC_SLUGS = new Set([
     'auth',
     'api',
     'uploads',
-    'registrar-mariachis',
-    'registrar-grupo',
-    'crear-mariachis',
-    'para-duenos',
     'mariachis',
     '_next',
     'favicon.ico',
     'robots.txt',
     'sitemap.xml',
     'manifest.webmanifest',
+    // Slugs heredados de campañas antiguas. No tienen página activa.
+    'registrar-mariachis',
+    'registrar-grupo',
+    'crear-mariachis',
+    'para-duenos',
 ]);
 
 export function isReservedPublicSlug(slug: string): boolean {

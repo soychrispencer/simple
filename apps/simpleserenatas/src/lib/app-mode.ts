@@ -26,6 +26,10 @@ export function hasClientProfile(profiles: Profiles | null | undefined): boolean
     return Boolean(profiles?.client);
 }
 
+export function hasAnySerenataProfile(profiles: Profiles | null | undefined): boolean {
+    return Boolean(profiles?.client || profiles?.musician || profiles?.owner);
+}
+
 /** Preferencia de ?as= para API en modo trabajo (usa owner si tiene perfil de dueño). */
 export function workApiAs(profiles: Profiles): 'musician' | 'owner' {
     if (ownerFeaturesEnabled(profiles)) return 'owner';

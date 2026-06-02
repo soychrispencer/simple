@@ -78,7 +78,7 @@ function isExampleBillingOrder(order: SerenataBillingOrder): boolean {
 }
 
 function billingTitle(order: SerenataBillingOrder): string {
-    return (order.title ?? '').replace(/coordinador/gi, 'Pro');
+    return order.title ?? '';
 }
 
 export function FinanzasView({

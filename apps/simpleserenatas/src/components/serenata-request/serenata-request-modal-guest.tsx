@@ -4,7 +4,6 @@ import { IconLock, IconX } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
-import { persistSignupProfile } from '@/lib/signup-profile';
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
 import { money } from '@/components/panel/shared';
 import { serviceEffectivePrice, serviceHasPromoPrice } from '@/lib/service-pricing';
@@ -26,7 +25,6 @@ export function SerenataRequestModalGuest({
     }
 
     function openRegister() {
-        persistSignupProfile('client');
         openAuth('register');
     }
 
@@ -36,7 +34,7 @@ export function SerenataRequestModalGuest({
                 <div>
                     <p className="text-lg font-semibold text-fg">Solicitar serenata</p>
                     <p className="mt-1 text-sm text-fg-muted">
-                        Inicia sesión o crea una cuenta de cliente para enviar tu solicitud a {group.name}.
+                        Inicia sesión o regístrate para enviar tu solicitud a {group.name}.
                     </p>
                 </div>
                 <button
@@ -73,7 +71,7 @@ export function SerenataRequestModalGuest({
                     Iniciar sesión
                 </PanelButton>
                 <PanelButton className="w-full" variant="secondary" onClick={openRegister}>
-                    Crear cuenta de cliente
+                    Registrarse
                 </PanelButton>
             </div>
         </div>

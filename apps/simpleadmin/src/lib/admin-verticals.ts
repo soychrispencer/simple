@@ -69,12 +69,12 @@ export function deriveUserVerticalMemberships(user: AdminUserListItem): AdminVer
       roleLabel: [
         serenatas?.client ? 'Cliente' : null,
         serenatas?.musician ? 'Músico' : null,
-        serenatas?.coordinator ? 'Dueño' : null,
+        serenatas?.owner ? 'Dueño' : null,
       ].filter(Boolean).join(' + ') || 'Sin perfil',
       subscriptionLabel: serenatasBilling?.planName
         ? `${serenatasBilling.planName} (billing)`
-        : serenatas?.coordinator
-          ? serenataOwnerSubscriptionLabel(serenatas.coordinatorStatus)
+        : serenatas?.owner
+          ? serenataOwnerSubscriptionLabel(serenatas.ownerStatus)
           : 'Sin suscripción',
       statusLabel: serenatas ? 'Activa' : 'Sin estado',
       activityCount: serenatas ? 1 : 0,

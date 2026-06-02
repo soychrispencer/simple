@@ -1,6 +1,10 @@
 import { Hono } from 'hono';
 import type { SubscriptionPlanId } from '../../lib/domain-types.js';
-import { serenataOwners } from '../../db/schema.js';
+import { serenataClients, serenataMusicians, serenataOwners } from '../../db/schema.js';
+import { formatAuthFromAddress, getAuthMailerTransporter } from '../../lib/auth-email.js';
+import { getEmailBrandProfile } from '../../lib/email-brand.js';
+import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
+import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from '../../lib/email-template.js';
 import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
 import {
     type CrmServiceDeps,
@@ -364,6 +368,313 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             const message = error instanceof Error ? error.message : 'Error al actualizar suscripciones';
             return c.json({ ok: false, error: message }, 500);
         }
+    });
+
+    app.patch('/users/:id/serenatas-profile', async (c) => {
+        const adminUser = await deps.authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (adminUser.role !== 'superadmin') {
+            return c.json({ ok: false, error: 'Solo superadmin puede modificar perfiles de Serenatas' }, 403);
+        }
+
+        const payload = await c.req.json().catch(() => null) as {
+            profileType?: string;
+            removeClientProfile?: boolean;
+            note?: string;
+        } | null;
+        const profileType = payload?.profileType;
+        if (profileType !== 'client' && profileType !== 'musician' && profileType !== 'owner') {
+            return c.json({ ok: false, error: 'Tipo de perfil inválido' }, 400);
+        }
+
+        const userId = c.req.param('id') ?? '';
+        const targetUser = await deps.getUserById(userId);
+        if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
+
+        const now = new Date();
+        const result: Record<string, unknown> = { profileType };
+
+        if (profileType === 'client') {
+            const existing = await deps.db.select({ id: serenataClients.id })
+                .from(serenataClients)
+                .where(deps.eq(serenataClients.userId, userId))
+                .limit(1);
+            if (existing[0]) {
+                await deps.db.update(serenataClients)
+                    .set({ phone: targetUser.phone ?? null, updatedAt: now })
+                    .where(deps.eq(serenataClients.id, existing[0].id));
+                result.client = 'updated';
+            } else {
+                await deps.db.insert(serenataClients).values({
+                    userId,
+                    phone: targetUser.phone ?? null,
+                    comuna: null,
+                    region: null,
+                });
+                result.client = 'created';
+            }
+        }
+
+        if (profileType === 'musician') {
+            const existing = await deps.db.select({ id: serenataMusicians.id })
+                .from(serenataMusicians)
+                .where(deps.eq(serenataMusicians.userId, userId))
+                .limit(1);
+            if (existing[0]) {
+                await deps.db.update(serenataMusicians)
+                    .set({ updatedAt: now })
+                    .where(deps.eq(serenataMusicians.id, existing[0].id));
+                result.musician = 'updated';
+            } else {
+                await deps.db.insert(serenataMusicians).values({
+                    userId,
+                    instrument: null,
+                    instruments: [],
+                    bio: null,
+                    comuna: null,
+                    region: null,
+                    workZones: [],
+                });
+                result.musician = 'created';
+            }
+        }
+
+        if (profileType === 'owner') {
+            const [existingOwner, musician] = await Promise.all([
+                deps.db.select({ id: serenataOwners.id })
+                    .from(serenataOwners)
+                    .where(deps.eq(serenataOwners.userId, userId))
+                    .limit(1),
+                deps.db.select({
+                    bio: serenataMusicians.bio,
+                    comuna: serenataMusicians.comuna,
+                    region: serenataMusicians.region,
+                    workZones: serenataMusicians.workZones,
+                })
+                    .from(serenataMusicians)
+                    .where(deps.eq(serenataMusicians.userId, userId))
+                    .limit(1),
+            ]);
+            if (existingOwner[0]) {
+                await deps.db.update(serenataOwners)
+                    .set({ updatedAt: now })
+                    .where(deps.eq(serenataOwners.id, existingOwner[0].id));
+                result.owner = 'updated';
+            } else {
+                const sourceMusician = musician[0];
+                await deps.db.insert(serenataOwners).values({
+                    userId,
+                    bio: sourceMusician?.bio ?? null,
+                    comuna: sourceMusician?.comuna ?? null,
+                    region: sourceMusician?.region ?? null,
+                    workingComunas: sourceMusician?.workZones?.length
+                        ? sourceMusician.workZones
+                        : sourceMusician?.comuna
+                            ? [sourceMusician.comuna]
+                            : [],
+                    subscriptionStatus: 'active',
+                    subscriptionPrice: 0,
+                    trialEndsAt: new Date('2099-12-31T00:00:00.000Z'),
+                });
+                result.owner = 'created';
+            }
+        }
+
+        if (payload?.removeClientProfile && profileType !== 'client') {
+            await deps.db.delete(serenataClients).where(deps.eq(serenataClients.userId, userId));
+            result.clientRemoved = true;
+        }
+
+        await createAdminAudit({
+            actorUserId: adminUser.id,
+            action: 'user.serenatas_profile.update',
+            entityType: 'user',
+            entityId: userId,
+            payload: {
+                ...result,
+                note: typeof payload?.note === 'string' ? payload.note.trim().slice(0, 500) : null,
+            },
+        });
+
+        return c.json({ ok: true, result });
+    });
+
+    app.post('/users/:id/email', async (c) => {
+        const adminUser = await deps.authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (adminUser.role !== 'superadmin') {
+            return c.json({ ok: false, error: 'Solo superadmin puede enviar correos desde SimpleAdmin' }, 403);
+        }
+
+        const payload = await c.req.json().catch(() => null) as {
+            subject?: string;
+            message?: string;
+            actionUrl?: string;
+            actionLabel?: string;
+        } | null;
+        const subject = typeof payload?.subject === 'string' ? payload.subject.trim() : '';
+        const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+        const actionUrl = typeof payload?.actionUrl === 'string' ? payload.actionUrl.trim() : '';
+        const actionLabel = typeof payload?.actionLabel === 'string' ? payload.actionLabel.trim() : '';
+        if (subject.length < 3 || subject.length > 120) {
+            return c.json({ ok: false, error: 'El asunto debe tener entre 3 y 120 caracteres' }, 400);
+        }
+        if (message.length < 5 || message.length > 3000) {
+            return c.json({ ok: false, error: 'El mensaje debe tener entre 5 y 3000 caracteres' }, 400);
+        }
+
+        const userId = c.req.param('id') ?? '';
+        const targetUser = await deps.getUserById(userId);
+        if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
+
+        const transporter = getAuthMailerTransporter();
+        if (!transporter) {
+            return c.json({ ok: false, error: 'SMTP no configurado para enviar correos' }, 503);
+        }
+
+        const origin = c.req.header('origin') ?? 'https://admin.simpleplataforma.app';
+        const brand = getEmailBrandProfile(origin);
+        await ensureEmailLogoCache();
+        const bodyHtml = message
+            .split(/\n{2,}/)
+            .map((paragraph) => `<p style="margin:0 0 14px;">${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
+            .join('');
+        const mail = buildActionEmailPackage({
+            brand,
+            preheader: subject,
+            eyebrow: 'SimpleAdmin',
+            headline: subject,
+            bodyHtml,
+            buttonLabel: actionLabel || 'Entrar a Simple',
+            actionUrl: actionUrl || brand.siteUrl,
+            footnote: 'Este mensaje fue enviado por el equipo de Simple.',
+        });
+
+        await transporter.sendMail({
+            from: formatAuthFromAddress(brand),
+            to: targetUser.email,
+            subject,
+            text: buildActionEmailText({
+                headline: subject,
+                body: message,
+                buttonLabel: actionLabel || 'Entrar a Simple',
+                actionUrl: actionUrl || brand.siteUrl,
+                footnote: 'Este mensaje fue enviado por el equipo de Simple.',
+                supportEmail: brand.supportEmail,
+                appName: brand.appName,
+            }),
+            html: mail.html,
+            attachments: mail.attachments,
+        });
+
+        await createAdminAudit({
+            actorUserId: adminUser.id,
+            action: 'user.email.send',
+            entityType: 'user',
+            entityId: userId,
+            payload: { subject, actionUrl: actionUrl || null },
+        });
+
+        return c.json({ ok: true });
+    });
+
+    app.post('/users/email-bulk', async (c) => {
+        const adminUser = await deps.authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (adminUser.role !== 'superadmin') {
+            return c.json({ ok: false, error: 'Solo superadmin puede enviar correos desde SimpleAdmin' }, 403);
+        }
+
+        const payload = await c.req.json().catch(() => null) as {
+            userIds?: unknown;
+            subject?: string;
+            message?: string;
+            actionUrl?: string;
+            actionLabel?: string;
+        } | null;
+        const userIds = Array.isArray(payload?.userIds)
+            ? [...new Set(payload.userIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0).map((id) => id.trim()))]
+            : [];
+        const subject = typeof payload?.subject === 'string' ? payload.subject.trim() : '';
+        const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+        const actionUrl = typeof payload?.actionUrl === 'string' ? payload.actionUrl.trim() : '';
+        const actionLabel = typeof payload?.actionLabel === 'string' ? payload.actionLabel.trim() : '';
+        if (userIds.length === 0) return c.json({ ok: false, error: 'Selecciona al menos un usuario' }, 400);
+        if (userIds.length > 50) return c.json({ ok: false, error: 'Máximo 50 usuarios por envío seleccionado' }, 400);
+        if (subject.length < 3 || subject.length > 120) {
+            return c.json({ ok: false, error: 'El asunto debe tener entre 3 y 120 caracteres' }, 400);
+        }
+        if (message.length < 5 || message.length > 3000) {
+            return c.json({ ok: false, error: 'El mensaje debe tener entre 5 y 3000 caracteres' }, 400);
+        }
+
+        const transporter = getAuthMailerTransporter();
+        if (!transporter) {
+            return c.json({ ok: false, error: 'SMTP no configurado para enviar correos' }, 503);
+        }
+
+        const origin = c.req.header('origin') ?? 'https://admin.simpleplataforma.app';
+        const brand = getEmailBrandProfile(origin);
+        await ensureEmailLogoCache();
+        const bodyHtml = message
+            .split(/\n{2,}/)
+            .map((paragraph) => `<p style="margin:0 0 14px;">${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
+            .join('');
+        const mail = buildActionEmailPackage({
+            brand,
+            preheader: subject,
+            eyebrow: 'SimpleAdmin',
+            headline: subject,
+            bodyHtml,
+            buttonLabel: actionLabel || 'Entrar a Simple',
+            actionUrl: actionUrl || brand.siteUrl,
+            footnote: 'Este mensaje fue enviado por el equipo de Simple.',
+        });
+        const text = buildActionEmailText({
+            headline: subject,
+            body: message,
+            buttonLabel: actionLabel || 'Entrar a Simple',
+            actionUrl: actionUrl || brand.siteUrl,
+            footnote: 'Este mensaje fue enviado por el equipo de Simple.',
+            supportEmail: brand.supportEmail,
+            appName: brand.appName,
+        });
+
+        const sent: string[] = [];
+        const skipped: string[] = [];
+        for (const userId of userIds) {
+            const targetUser = await deps.getUserById(userId);
+            if (!targetUser?.email) {
+                skipped.push(userId);
+                continue;
+            }
+            await transporter.sendMail({
+                from: formatAuthFromAddress(brand),
+                to: targetUser.email,
+                subject,
+                text,
+                html: mail.html,
+                attachments: mail.attachments,
+            });
+            sent.push(userId);
+            await createAdminAudit({
+                actorUserId: adminUser.id,
+                action: 'user.email.send',
+                entityType: 'user',
+                entityId: userId,
+                payload: { subject, actionUrl: actionUrl || null, bulk: true },
+            });
+        }
+
+        await createAdminAudit({
+            actorUserId: adminUser.id,
+            action: 'user.email.bulk_send',
+            entityType: 'user',
+            entityId: 'bulk',
+            payload: { subject, requested: userIds.length, sent: sent.length, skipped: skipped.length },
+        });
+
+        return c.json({ ok: true, sent: sent.length, skipped: skipped.length });
     });
 
 

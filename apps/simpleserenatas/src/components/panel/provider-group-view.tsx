@@ -11,7 +11,6 @@ import { WorkZonesPicker } from '@/components/panel/work-zones-picker';
 import { EmptyBlock, FieldInput, FieldTextarea, FormFeedback, type FormStatus } from './shared';
 import { ProviderContactPhonesFields } from './provider-contact-phones-fields';
 import { ProviderGroupBrandImages } from './provider-group-brand-images';
-import { consumeSignupGroupName } from '@/lib/active-provider-group';
 
 function addUniqueCommune(communes: string[], commune: string) {
     const clean = commune.trim();
@@ -40,12 +39,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     };
 
     const comunaBaseHint = comunaBase.trim() ? `Tu comuna base es ${comunaBase.trim()}` : null;
-
-    useEffect(() => {
-        if (hasMariachi || loading) return;
-        const draft = consumeSignupGroupName();
-        if (draft) setName(draft);
-    }, [hasMariachi, loading]);
 
     useEffect(() => {
         if (!mariachi) return;

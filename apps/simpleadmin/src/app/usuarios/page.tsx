@@ -7,8 +7,8 @@ import {
     IconCircleDot, IconSearch, IconUserPlus,
 } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
-import { fetchAdminUsers, type AdminUserListItem, type AdminVerticalType } from '@/lib/api';
-import { PanelList, PanelListHeader, PanelListRow, PanelNotice, PanelStatCard, PanelStatusBadge } from '@simple/ui/panel';
+import { fetchAdminUsers, sendAdminUsersBulkEmail, type AdminSessionUser, type AdminUserListItem, type AdminVerticalType } from '@/lib/api';
+import { PanelButton, PanelList, PanelListHeader, PanelListRow, PanelNotice, PanelStatCard, PanelStatusBadge } from '@simple/ui/panel';
 import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 
 type VerticalFilter = 'all' | AdminVerticalType | 'unknown';
@@ -33,20 +33,28 @@ const PROVIDER_FILTERS: Array<{ value: ProviderFilter; label: string }> = [
 export default function UsuariosPage() {
     return (
         <AdminProtectedPage>
-            {() => <UsuariosContent />}
+            {(adminUser) => <UsuariosContent adminUser={adminUser} />}
         </AdminProtectedPage>
     );
 }
 
-function UsuariosContent() {
+function UsuariosContent({ adminUser }: { adminUser: AdminSessionUser }) {
     const searchParams = useSearchParams();
     const [items, setItems] = useState<AdminUserListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [bulkMessage, setBulkMessage] = useState<string | null>(null);
+    const [bulkError, setBulkError] = useState<string | null>(null);
+    const [bulkSending, setBulkSending] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [bulkSubject, setBulkSubject] = useState('Actualización de tu cuenta Simple');
+    const [bulkBody, setBulkBody] = useState('');
+    const [bulkActionUrl, setBulkActionUrl] = useState('https://simpleserenatas.app/onboarding');
     const [query, setQuery] = useState('');
     const [verticalFilter, setVerticalFilter] = useState<VerticalFilter>('all');
     const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all');
     const scope = normalizeAdminScope(searchParams.get('scope'));
+    const canBulkEmail = adminUser.role === 'superadmin';
 
     useEffect(() => {
         let active = true;
@@ -66,6 +74,7 @@ function UsuariosContent() {
 
     const scopedItems = useMemo(() => {
         if (scope === 'agenda') return items.filter((item) => item.likelySignupVertical === 'agenda' || item.agendaListings > 0);
+        if (scope === 'serenatas') return items.filter((item) => item.likelySignupVertical === 'serenatas' || item.verticalSignals?.some((signal) => signal.vertical === 'serenatas') || Boolean(item.serenatas || item.subscriptions?.serenatas));
         if (scope === 'autos') return items.filter((item) => item.likelySignupVertical === 'autos' || item.autosListings > 0);
         if (scope === 'propiedades') return items.filter((item) => item.likelySignupVertical === 'propiedades' || item.propiedadesListings > 0);
         return items;
@@ -92,6 +101,10 @@ function UsuariosContent() {
         });
     }, [providerFilter, query, scopedItems, verticalFilter]);
 
+    useEffect(() => {
+        setSelectedIds((current) => current.filter((id) => filtered.some((item) => item.id === id)));
+    }, [filtered]);
+
     const recentUsers = useMemo(() => {
         const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         return scopedItems.filter((item) => item.createdAt >= sevenDaysAgo);
@@ -107,6 +120,41 @@ function UsuariosContent() {
             { label: 'Sin señal', value: scopedItems.filter((item) => !item.likelySignupVertical && (item.verticalSignals?.length ?? 0) === 0).length.toLocaleString('es-CL'), meta: 'Revisar origen' },
         ];
     }, [filtered.length, recentUsers.length, scopedItems]);
+
+    const selectedUsers = useMemo(
+        () => filtered.filter((item) => selectedIds.includes(item.id)),
+        [filtered, selectedIds],
+    );
+    const visibleSelectionChecked = filtered.length > 0 && filtered.every((item) => selectedIds.includes(item.id));
+
+    function toggleSelectAllVisible() {
+        if (visibleSelectionChecked) {
+            setSelectedIds((current) => current.filter((id) => !filtered.some((item) => item.id === id)));
+            return;
+        }
+        setSelectedIds((current) => [...new Set([...current, ...filtered.map((item) => item.id)])]);
+    }
+
+    async function handleBulkEmail() {
+        if (!canBulkEmail || selectedIds.length === 0) return;
+        setBulkSending(true);
+        setBulkError(null);
+        setBulkMessage(null);
+        const result = await sendAdminUsersBulkEmail(selectedIds, {
+            subject: bulkSubject,
+            message: bulkBody,
+            actionUrl: bulkActionUrl,
+            actionLabel: 'Ir a mi cuenta',
+        });
+        setBulkSending(false);
+        if (!result.ok) {
+            setBulkError(result.error ?? 'No pudimos enviar los correos.');
+            return;
+        }
+        setBulkBody('');
+        setSelectedIds([]);
+        setBulkMessage(`Correos enviados: ${result.sent ?? 0}${result.skipped ? ` · omitidos: ${result.skipped}` : ''}.`);
+    }
 
     return (
         <div className="container-app panel-page py-7">
@@ -165,6 +213,16 @@ function UsuariosContent() {
                     <PanelNotice tone="error">{loadError}</PanelNotice>
                 </div>
             ) : null}
+            {bulkMessage ? (
+                <div className="mt-4">
+                    <PanelNotice tone="success">{bulkMessage}</PanelNotice>
+                </div>
+            ) : null}
+            {bulkError ? (
+                <div className="mt-4">
+                    <PanelNotice tone="error">{bulkError}</PanelNotice>
+                </div>
+            ) : null}
             {loading ? (
                 <div className="mt-4">
                     <PanelNotice tone="neutral">Cargando usuarios...</PanelNotice>
@@ -179,8 +237,68 @@ function UsuariosContent() {
 
             {!loading && filtered.length > 0 ? (
                 <section className="mt-5">
+                    {canBulkEmail && selectedIds.length > 0 ? (
+                        <div className="mb-4 rounded-xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                                <div>
+                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                        {selectedUsers.length} usuarios seleccionados
+                                    </p>
+                                    <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                        Envío manual auditado. Máximo 50 destinatarios por envío.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="self-start rounded-button px-2.5 py-1.5 text-xs font-medium"
+                                    style={{ color: 'var(--fg-secondary)' }}
+                                    onClick={() => setSelectedIds([])}
+                                >
+                                    Limpiar selección
+                                </button>
+                            </div>
+                            <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(180px,280px)_1fr_minmax(180px,280px)_auto] lg:items-end">
+                                <label className="space-y-1 text-sm">
+                                    <span style={{ color: 'var(--fg-muted)' }}>Asunto</span>
+                                    <input className="form-input h-10" value={bulkSubject} onChange={(event) => setBulkSubject(event.target.value)} disabled={bulkSending} />
+                                </label>
+                                <label className="space-y-1 text-sm">
+                                    <span style={{ color: 'var(--fg-muted)' }}>Mensaje</span>
+                                    <input
+                                        className="form-input h-10"
+                                        value={bulkBody}
+                                        onChange={(event) => setBulkBody(event.target.value)}
+                                        disabled={bulkSending}
+                                        placeholder="Mensaje para los usuarios seleccionados..."
+                                    />
+                                </label>
+                                <label className="space-y-1 text-sm">
+                                    <span style={{ color: 'var(--fg-muted)' }}>Link</span>
+                                    <input className="form-input h-10" value={bulkActionUrl} onChange={(event) => setBulkActionUrl(event.target.value)} disabled={bulkSending} />
+                                </label>
+                                <PanelButton
+                                    variant="secondary"
+                                    className="h-10"
+                                    onClick={() => void handleBulkEmail()}
+                                    disabled={bulkSending || selectedIds.length === 0 || selectedIds.length > 50 || bulkSubject.trim().length < 3 || bulkBody.trim().length < 5}
+                                >
+                                    {bulkSending ? 'Enviando...' : 'Enviar'}
+                                </PanelButton>
+                            </div>
+                        </div>
+                    ) : null}
                     <PanelList>
-                        <PanelListHeader className="grid-cols-[minmax(280px,1.4fr)_170px_180px_150px_170px]">
+                        <PanelListHeader className="grid-cols-[40px_minmax(280px,1.4fr)_170px_180px_150px_170px]">
+                            <span>
+                                {canBulkEmail ? (
+                                    <input
+                                        type="checkbox"
+                                        checked={visibleSelectionChecked}
+                                        onChange={toggleSelectAllVisible}
+                                        aria-label="Seleccionar usuarios visibles"
+                                    />
+                                ) : null}
+                            </span>
                             <span>Usuario</span>
                             <span>Registro</span>
                             <span>Vertical</span>
@@ -192,6 +310,15 @@ function UsuariosContent() {
                                 <UserRow
                                     user={user}
                                     scope={scope}
+                                    selected={selectedIds.includes(user.id)}
+                                    selectable={canBulkEmail}
+                                    onSelectedChange={(checked) =>
+                                        setSelectedIds((current) =>
+                                            checked
+                                                ? [...new Set([...current, user.id])]
+                                                : current.filter((id) => id !== user.id),
+                                        )
+                                    }
                                 />
                             </PanelListRow>
                         ))}
@@ -205,12 +332,28 @@ function UsuariosContent() {
 function UserRow({
     user,
     scope,
+    selected,
+    selectable,
+    onSelectedChange,
 }: {
     user: AdminUserListItem;
     scope: ReturnType<typeof normalizeAdminScope>;
+    selected: boolean;
+    selectable: boolean;
+    onSelectedChange: (checked: boolean) => void;
 }) {
     return (
-        <article className="grid gap-4 px-4 py-4 md:grid-cols-[minmax(280px,1.4fr)_170px_180px_150px_170px] md:items-center">
+        <article className="grid gap-4 px-4 py-4 md:grid-cols-[40px_minmax(280px,1.4fr)_170px_180px_150px_170px] md:items-center">
+            <div>
+                {selectable ? (
+                    <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={(event) => onSelectedChange(event.target.checked)}
+                        aria-label={`Seleccionar ${user.name}`}
+                    />
+                ) : null}
+            </div>
             <div className="flex min-w-0 items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
                     {initials(user.name)}

@@ -201,7 +201,7 @@ function VerticalMembershipCard({
   error?: string;
   onSave: () => void;
 }) {
-  const hasOwnerProfile = Boolean(user.serenatas?.coordinator);
+  const hasOwnerProfile = Boolean(user.serenatas?.owner);
 
   return (
     <article
@@ -273,7 +273,7 @@ function VerticalMembershipCard({
               />
               {!hasOwnerProfile ? (
                 <p className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
-                  Sin perfil dueño: el plan billing se guarda igual; el trial solo aplica con perfil coordinador.
+                  Sin perfil dueño: el plan billing se guarda igual; el trial solo aplica con perfil dueño.
                 </p>
               ) : null}
             </>

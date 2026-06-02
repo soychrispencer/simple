@@ -61,7 +61,7 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                         className="btn btn-primary hidden h-10 px-4 text-sm font-semibold sm:inline-flex"
                         onClick={onRegister}
                     >
-                        Crear cuenta
+                        Registrarse
                     </button>
                 </>
             }
@@ -76,6 +76,16 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                         }}
                     >
                         Iniciar sesión
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-secondary mb-2 h-10 w-full text-sm font-semibold"
+                        onClick={() => {
+                            closeMenu();
+                            onRegister();
+                        }}
+                    >
+                        Registrarse
                     </button>
                     <div className="my-2 border-t border-border" role="presentation" />
                     {publicLinks.map((l) => (

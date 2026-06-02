@@ -6,10 +6,6 @@ import { IconCheck, IconX } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
 import { BrandLogo } from '@simple/ui/brand';
 import { PanelButton, PanelNotice } from '@simple/ui/panel';
-import { ensureOwnerProfileFromSignup } from '@/lib/owner-signup-bootstrap';
-import { OWNER_REGISTER_PATH } from '@/lib/owner-register-route';
-import { panelMiNegocioHref } from '@/lib/panel-routes';
-import { hasOwnerSignupIntent, persistSignupProfile } from '@/lib/signup-profile';
 
 export default function ConfirmEmailPage() {
     const router = useRouter();
@@ -20,11 +16,8 @@ export default function ConfirmEmailPage() {
     useEffect(() => {
         const search = new URLSearchParams(window.location.search);
         const token = search.get('token') ?? '';
-        const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/panel';
+        const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/onboarding';
         setReturnTo(nextReturnTo);
-        if (nextReturnTo.includes(OWNER_REGISTER_PATH)) {
-            persistSignupProfile('owner');
-        }
 
         if (!token) {
             setStatus('error');
@@ -51,28 +44,13 @@ export default function ConfirmEmailPage() {
                     return;
                 }
 
-                const ownerSignup = hasOwnerSignupIntent() || nextReturnTo.includes(OWNER_REGISTER_PATH);
-                if (ownerSignup) {
-                    persistSignupProfile('owner');
-                }
-
-                let destination = nextReturnTo;
-                if (data.user?.status === 'verified' && ownerSignup) {
-                    const activated = await ensureOwnerProfileFromSignup();
-                    destination = activated ? panelMiNegocioHref('datos') : OWNER_REGISTER_PATH;
-                } else if (data.user?.status !== 'verified') {
-                    destination = '/panel';
-                }
+                const destination = data.user?.status === 'verified' ? '/onboarding' : '/';
 
                 setStatus('success');
-                setMessage(
-                    ownerSignup
-                        ? 'Tu correo quedó confirmado. Preparando tu panel de dueño…'
-                        : 'Tu correo quedó confirmado. Redirigiendo a tu panel…',
-                );
+                setMessage('Tu correo quedó confirmado. Redirigiendo a la configuración de tu cuenta…');
                 window.setTimeout(() => {
                     sessionStorage.removeItem('auth.returnTo');
-                    window.location.replace(destination.startsWith('/') ? destination : '/panel');
+                    window.location.replace(destination.startsWith('/') ? destination : '/onboarding');
                 }, 1000);
             } catch {
                 setStatus('error');

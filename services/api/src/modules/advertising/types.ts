@@ -276,8 +276,8 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
         },
         {
             id: 'pro',
-            name: 'Coordinador',
-            description: 'Para operar grupos, agenda, rutas y solicitudes de la aplicación.',
+            name: 'Pro',
+            description: 'Para dueños que operan grupos, agenda, rutas y solicitudes de la aplicación.',
             priceMonthly: 49990,
             currency: 'CLP',
             maxListings: 0,
