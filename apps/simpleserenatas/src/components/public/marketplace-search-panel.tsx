@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, type FormEvent } from 'react';
-import { IconCalendar, IconMapPin, IconMusic, IconSearch, IconShield } from '@tabler/icons-react';
+import { IconCalendar, IconMap2, IconMapPin, IconMusic, IconSearch } from '@tabler/icons-react';
 import { ModernDateInput, ModernSelect } from '@simple/ui';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { type MarketplaceSearchFilters, todayIsoDate } from '@/lib/marketplace-search';
@@ -44,12 +44,12 @@ export function MarketplaceSearchPanel({
     );
 
     return (
-        <form className="rounded-card border border-border bg-surface p-4 shadow-xl sm:p-5" onSubmit={onSubmit}>
-            <div className="grid gap-3 lg:grid-cols-[1.35fr_1fr_0.9fr_1fr_auto]">
+        <form className="rounded-card border border-border bg-surface p-4 shadow-xl sm:p-5 lg:p-6" onSubmit={onSubmit}>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.35fr_1fr_1fr_0.95fr_auto] xl:items-end">
                 <label className="grid gap-1.5">
                     <span className="flex items-center gap-2 text-xs font-medium text-fg-muted">
                         <IconMusic size={15} />
-                        Nombre del mariachi
+                        Nombre o mariachi
                     </span>
                     <input
                         type="search"
@@ -62,7 +62,7 @@ export function MarketplaceSearchPanel({
                 </label>
                 <label className="grid gap-1.5">
                     <span className="flex items-center gap-2 text-xs font-medium text-fg-muted">
-                        <IconShield size={15} />
+                        <IconMap2 size={15} />
                         Región
                     </span>
                     <ModernSelect
@@ -92,7 +92,7 @@ export function MarketplaceSearchPanel({
                 <label className="grid gap-1.5">
                     <span className="flex items-center gap-2 text-xs font-medium text-fg-muted">
                         <IconCalendar size={15} />
-                        Fecha
+                        Fecha opcional
                     </span>
                     <ModernDateInput
                         min={todayIsoDate()}
@@ -104,7 +104,7 @@ export function MarketplaceSearchPanel({
                 </label>
                 <button
                     type="submit"
-                    className="btn btn-primary min-h-12 px-6 font-semibold sm:col-span-2 lg:col-span-1 lg:self-end"
+                    className="btn btn-primary min-h-12 w-full px-6 font-semibold md:col-span-2 xl:col-span-1 xl:w-auto"
                     disabled={loading}
                 >
                     <IconSearch size={19} />
@@ -112,7 +112,7 @@ export function MarketplaceSearchPanel({
                 </button>
             </div>
             <p className="mt-3 text-xs leading-relaxed text-fg-muted">
-                Si eliges una fecha, mostramos mariachis con servicios activos y al menos un horario posible ese día.
+                Elige una fecha para ver grupos con horarios posibles ese día.
             </p>
         </form>
     );
