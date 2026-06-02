@@ -155,7 +155,7 @@ export function PublicLanding({
                 </section>
 
                 <section id="para-clientes" className="relative z-10 -mt-10 scroll-mt-20">
-                    <div className="container-app max-w-6xl">
+                    <div className="container-app">
                         <MarketplaceSearchPanel
                             value={search}
                             onChange={setSearch}

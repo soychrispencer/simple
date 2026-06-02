@@ -167,7 +167,7 @@ export function PublicMarketplacePage() {
             <SerenatasChromeHeader publicLinks={serenatasExploreNavLinks} />
 
             <main className="flex-1 border-b border-border">
-                <div className="container-app max-w-6xl py-6 sm:py-10">
+                <div className="container-app py-6 sm:py-10">
                     <nav className="mb-6 text-sm text-fg-muted">
                         <Link href="/" className="font-medium transition-colors hover:text-fg">
                             Inicio

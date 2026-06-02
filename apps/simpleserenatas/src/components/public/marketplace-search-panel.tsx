@@ -45,7 +45,12 @@ export function MarketplaceSearchPanel({
 
     return (
         <form
-            className="overflow-visible rounded-[22px] border bg-surface shadow-[0_16px_46px_rgba(0,0,0,0.12)]"
+            className="overflow-visible rounded-[22px] border"
+            style={{
+                borderColor: 'var(--border)',
+                background: 'var(--surface)',
+                boxShadow: '0 16px 46px rgba(0,0,0,0.12)',
+            }}
             onSubmit={onSubmit}
         >
             <div className="space-y-3 p-3 sm:p-4">
