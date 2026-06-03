@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { BrandLogo } from '@simple/ui/brand';
 import { ThemeToggleButton } from '@simple/ui/theme';
-import React, { useState } from 'react';
+import { useAuth } from '@simple/auth';
+import React, { useEffect, useState } from 'react';
 import {
     IconArrowRight,
     IconCar,
@@ -43,6 +44,7 @@ import {
     IconExternalLink,
     IconMoon,
     IconSun,
+    IconLayoutDashboard,
 } from '@tabler/icons-react';
 
 // ============================================================================
@@ -51,35 +53,60 @@ import {
 const BRAND = {
     autos: {
         name: 'SimpleAutos',
-        color: '#ff3600',
+        color: 'var(--fg)',
         icon: IconSteeringWheel,
         url: 'https://simpleautos.app',
     },
     propiedades: {
         name: 'SimplePropiedades',
-        color: '#3232FF',
+        color: 'var(--fg)',
         icon: IconBuildingSkyscraper,
         url: 'https://simplepropiedades.app',
     },
     agenda: {
         name: 'SimpleAgenda',
-        color: '#0D9488',
+        color: 'var(--fg)',
         icon: IconCalendar,
         url: 'https://simpleagenda.app',
     },
     serenatas: {
         name: 'SimpleSerenatas',
-        color: '#E11D48',
+        color: 'var(--fg)',
         icon: IconHeart,
         url: 'https://simpleserenatas.app',
     },
     admin: {
         name: 'SimpleAdmin',
-        color: '#64748B',
-        icon: IconShieldCheck,
+        color: 'var(--fg)',
+        icon: IconLayoutDashboard,
         url: 'https://admin.simpleplataforma.app',
     },
 } as const;
+
+function getAdminUrl() {
+    if (typeof window === 'undefined') {
+        return process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.simpleplataforma.app';
+    }
+
+    const configured = process.env.NEXT_PUBLIC_ADMIN_URL?.trim();
+    if (configured) {
+        return configured;
+    }
+
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:3000';
+    }
+
+    return 'https://admin.simpleplataforma.app';
+}
+
+function getBrandUrl(id: keyof typeof BRAND) {
+    if (id === 'admin') {
+        return getAdminUrl();
+    }
+
+    return BRAND[id].url;
+}
 
 // ============================================================================
 // COMPONENTES
@@ -101,7 +128,7 @@ function Logo({ brand }: { brand?: keyof typeof BRAND }) {
                 className="w-9 h-9 rounded-button border flex items-center justify-center transition-all duration-200 group-hover:border-[var(--accent)]"
                 style={{
                     borderColor: 'var(--border)',
-                    background: `linear-gradient(135deg, ${b.color}20 0%, ${b.color}08 100%)`,
+                    background: 'var(--bg-subtle)',
                 }}
             >
                 <Icon size={18} stroke={1.5} style={{ color: b.color }} />
@@ -269,14 +296,14 @@ function VerticalCard({
                 isActive ? 'ring-1' : 'hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-sm)]'
             }`}
             style={{
-                borderColor: isActive ? brand.color : 'var(--border)',
-                background: isActive ? `${brand.color}08` : 'var(--surface)',
+                borderColor: isActive ? 'var(--border-strong)' : 'var(--border)',
+                background: isActive ? 'var(--bg-subtle)' : 'var(--surface)',
             }}
         >
             <div className="flex items-start gap-4">
                 <div
                     className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: isActive ? brand.color : `${brand.color}15`, color: isActive ? '#fff' : brand.color }}
+                    style={{ background: isActive ? 'var(--fg)' : 'var(--bg-subtle)', color: isActive ? 'var(--bg)' : 'var(--fg)' }}
                 >
                     <Icon size={22} stroke={1.5} />
                 </div>
@@ -293,7 +320,7 @@ function VerticalCard({
                 <IconChevronRight
                     size={16}
                     className={`shrink-0 transition-transform duration-200 ${isActive ? 'rotate-90' : ''}`}
-                    style={{ color: isActive ? brand.color : 'var(--fg-muted)' }}
+                    style={{ color: isActive ? 'var(--fg)' : 'var(--fg-muted)' }}
                 />
             </div>
         </button>
@@ -307,6 +334,18 @@ function VerticalCard({
 export default function LandingPage() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [activeVertical, setActiveVertical] = useState<keyof typeof BRAND>('autos');
+    const [mounted, setMounted] = useState(false);
+    const { openAuth, user, isLoggedIn } = useAuth();
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (isLoggedIn && user && (user.role === 'admin' || user.role === 'superadmin')) {
+            window.location.href = getAdminUrl();
+        }
+    }, [isLoggedIn, user]);
 
     const stats = [
         { value: '33,000+', label: 'Publicaciones activas' },
@@ -404,10 +443,14 @@ export default function LandingPage() {
                     <div className="flex items-center gap-2">
                         <ThemeToggleButton variant="header-chip" SunIcon={IconSun} MoonIcon={IconMoon} />
 
-                        <div className="hidden md:block">
-                            <ButtonPrimary href="#verticales">
-                                Explorar <IconArrowRight size={14} />
-                            </ButtonPrimary>
+                        <div className="hidden md:flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => openAuth('login')}
+                                className="btn btn-outline h-10 px-5 text-sm font-medium gap-1.5"
+                            >
+                                Iniciar sesión
+                            </button>
                         </div>
 
                         {/* Mobile Menu */}
@@ -456,6 +499,16 @@ export default function LandingPage() {
                             >
                                 <IconSparkles size={14} /> Contacto
                             </Link>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    openAuth('login');
+                                }}
+                                className="btn btn-outline h-11 justify-center text-sm font-medium"
+                            >
+                                Iniciar sesión
+                            </button>
                         </div>
                     </div>
                 )}
@@ -467,7 +520,7 @@ export default function LandingPage() {
                 <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
-                        background: `radial-gradient(ellipse 80% 50% at 50% -10%, ${activeBrand.color}15, transparent)`,
+                        background: 'radial-gradient(ellipse 80% 50% at 50% -10%, var(--bg-subtle), transparent)',
                     }}
                 />
 
@@ -476,7 +529,7 @@ export default function LandingPage() {
                         {/* Badge */}
                         <div
                             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6 border"
-                            style={{ background: `${activeBrand.color}10`, borderColor: `${activeBrand.color}30`, color: activeBrand.color }}
+                            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--fg)' }}
                         >
                             <IconSparkles size={12} />
                             <span>Ecosistema de Marketplaces</span>
@@ -486,7 +539,7 @@ export default function LandingPage() {
                         <h1 className="type-display mb-6 plt-fg">
                             Todo lo que necesitas,
                             <br />
-                            <span style={{ color: activeBrand.color }}>en un solo lugar.</span>
+                            <span style={{ color: 'var(--fg)' }}>en un solo lugar.</span>
                         </h1>
 
                         {/* Subheadline */}
@@ -497,10 +550,9 @@ export default function LandingPage() {
 
                         {/* CTA Buttons */}
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                            <ButtonPrimary href="#verticales">
-                                Descubre las verticales <IconArrowRight size={15} />
+                            <ButtonPrimary onClick={() => openAuth('login')}>
+                                Iniciar sesión <IconArrowRight size={15} />
                             </ButtonPrimary>
-                            <ButtonOutline href="#ecosistema">Conoce el ecosistema</ButtonOutline>
                         </div>
 
                         {/* Trust indicators */}
@@ -567,12 +619,12 @@ export default function LandingPage() {
                                 {/* Header with brand color */}
                                 <div
                                     className="p-6 md:p-8"
-                                    style={{ background: `linear-gradient(135deg, ${activeBrand.color}08 0%, ${activeBrand.color}03 100%)` }}
+                                    style={{ background: 'var(--surface)' }}
                                 >
                                     <div className="flex items-center gap-4 mb-4">
                                         <div
                                             className="w-14 h-14 rounded-xl flex items-center justify-center"
-                                            style={{ background: activeBrand.color, color: '#fff' }}
+                                            style={{ background: 'var(--fg)', color: 'var(--bg)' }}
                                         >
                                             <activeBrand.icon size={28} stroke={1.5} />
                                         </div>
@@ -582,7 +634,7 @@ export default function LandingPage() {
                                             </h3>
                                             <span
                                                 className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-                                                style={{ background: `${activeBrand.color}20`, color: activeBrand.color }}
+                                                style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}
                                             >
                                                 Activo
                                             </span>
@@ -610,7 +662,7 @@ export default function LandingPage() {
                                             <div key={i} className="flex items-start gap-3">
                                                 <div
                                                     className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                                                    style={{ background: `${activeBrand.color}12`, color: activeBrand.color }}
+                                                    style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}
                                                 >
                                                     <feature.icon size={16} stroke={1.5} />
                                                 </div>
@@ -629,11 +681,11 @@ export default function LandingPage() {
                                     {/* CTA */}
                                     <div className="mt-8 pt-6 plt-divider">
                                         <a
-                                            href={activeBrand.url}
+                                            href={mounted ? getBrandUrl(activeVertical) : activeBrand.url}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="inline-flex items-center gap-2 h-11 px-6 rounded-button text-sm font-medium transition-all duration-200 hover:opacity-90"
-                                            style={{ background: activeBrand.color, color: '#fff' }}
+                                            style={{ background: 'var(--fg)', color: 'var(--bg)' }}
                                         >
                                             Visitar {activeBrand.name}
                                             <IconExternalLink size={14} />
@@ -684,7 +736,7 @@ export default function LandingPage() {
                                             <div
                                                 key={id}
                                                 className="w-12 h-12 rounded-xl flex items-center justify-center"
-                                                style={{ background: b.color, color: '#fff' }}
+                                                style={{ background: 'var(--fg)', color: 'var(--bg)' }}
                                             >
                                                 <Icon size={24} stroke={1.5} />
                                             </div>
@@ -721,7 +773,7 @@ export default function LandingPage() {
                             <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full blur-3xl opacity-40 pointer-events-none plt-blur-accent" />
                             <div
                                 className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full blur-3xl opacity-30 pointer-events-none"
-                                style={{ background: activeBrand.color }}
+                                style={{ background: 'var(--fg-muted)' }}
                             />
                         </div>
                     </div>
@@ -786,7 +838,7 @@ export default function LandingPage() {
                         className="max-w-4xl mx-auto rounded-3xl p-10 md:p-16 text-center border"
                         style={{
                             borderColor: 'var(--border)',
-                            background: `linear-gradient(135deg, ${activeBrand.color}08 0%, var(--surface) 50%, ${activeBrand.color}05 100%)`,
+                            background: 'var(--surface)',
                         }}
                     >
                         <h2 className="type-display mb-4 plt-fg">
@@ -796,8 +848,8 @@ export default function LandingPage() {
                             Únete a miles de chilenos que ya usan SimplePlataforma para comprar, vender, agendar y celebrar.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                            <ButtonPrimary href="#verticales">
-                                Explorar verticales <IconArrowRight size={15} />
+                            <ButtonPrimary onClick={() => openAuth('login')}>
+                                Iniciar sesión <IconArrowRight size={15} />
                             </ButtonPrimary>
                             <a
                                 href="mailto:hola@simpleplataforma.app"
@@ -831,7 +883,7 @@ export default function LandingPage() {
                                 {(Object.keys(BRAND) as Array<keyof typeof BRAND>).map((id) => (
                                     <li key={id}>
                                         <a
-                                            href={BRAND[id].url}
+                                            href={mounted ? getBrandUrl(id) : BRAND[id].url}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
@@ -950,4 +1002,3 @@ export default function LandingPage() {
         </div>
     );
 }
-

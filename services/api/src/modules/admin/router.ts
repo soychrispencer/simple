@@ -542,7 +542,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const mail = buildActionEmailPackage({
             brand,
             preheader: subject,
-            eyebrow: 'SimpleAdmin',
+            eyebrow: 'SimplePlataforma',
             headline: subject,
             bodyHtml,
             buttonLabel: actionLabel || 'Entrar a Simple',
@@ -623,7 +623,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const mail = buildActionEmailPackage({
             brand,
             preheader: subject,
-            eyebrow: 'SimpleAdmin',
+            eyebrow: 'SimplePlataforma',
             headline: subject,
             bodyHtml,
             buttonLabel: actionLabel || 'Entrar a Simple',

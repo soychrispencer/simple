@@ -52,7 +52,7 @@ export default function VerifyEmailPage() {
             <div className="w-full max-w-md mx-4 rounded-xl p-8 animate-scale-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 {status === 'loading' ? (
                     <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--primary)' }} />
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--fg)' }} />
                         <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
                             Confirmando correo
                         </h1>
@@ -64,7 +64,7 @@ export default function VerifyEmailPage() {
 
                 {status === 'success' ? (
                     <div className="text-center">
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#dcfce7', color: '#16a34a' }}>
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}>
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
@@ -80,7 +80,7 @@ export default function VerifyEmailPage() {
 
                 {status === 'error' ? (
                     <div className="text-center">
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#fee2e2', color: '#dc2626' }}>
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}>
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>

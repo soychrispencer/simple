@@ -64,7 +64,7 @@ export default function GoogleCallback() {
       <div className="w-full max-w-md mx-4 rounded-xl p-8 animate-scale-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
         {status === 'loading' && (
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--primary)' }}></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--fg)' }}></div>
             <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
               Conectando con Google...
             </h2>
@@ -76,7 +76,7 @@ export default function GoogleCallback() {
 
         {status === 'success' && (
           <div className="text-center">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'color-mix(in srgb, var(--primary) 15%, transparent)', color: 'var(--primary)' }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}>
               <IconCheck size={22} />
             </div>
             <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
@@ -90,7 +90,7 @@ export default function GoogleCallback() {
 
         {status === 'error' && (
           <div className="text-center">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)' }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}>
               <IconX size={22} />
             </div>
             <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>

@@ -1,75 +1,55 @@
 import { API_BASE } from '@simple/config';
 
-type VerticalType = 'autos' | 'propiedades' | 'agenda';
-export type AdminVerticalType = VerticalType | 'serenatas';
-
 export type AdminSessionUser = {
     id: string;
     email: string;
     name: string;
     role: 'admin' | 'superadmin';
     status?: 'active' | 'verified' | 'suspended';
-    primaryVertical?: VerticalType | null;
+    primaryVertical?: 'autos' | 'propiedades' | 'agenda' | null;
+    avatar?: string | null;
 };
 
-export type AdminLeadQuickAction = 'call' | 'whatsapp' | 'email' | 'follow_up';
-export type AdminLeadSlaSignal = {
-    key: 'response_overdue' | 'task_due_today' | 'task_overdue' | 'hot_lead' | 'idle_follow_up';
+export type AdminVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+export type AdminUserRole = 'user' | 'admin' | 'superadmin';
+export type AdminUserStatus = 'active' | 'verified' | 'suspended';
+
+export type AdminVerticalSignal = {
+    vertical: AdminVertical;
+    source: string;
     label: string;
-    tone: 'attention' | 'urgent';
+    count: number;
+    firstSeenAt: number | null;
+    lastSeenAt: number | null;
 };
 
-export type AdminOverview = {
-    stats: {
-        usersTotal: number;
-        agendaListingsTotal?: number;
-        autosListingsTotal: number;
-        propiedadesListingsTotal: number;
-        newServiceLeads: number;
-    };
-    recentUsers: AdminUserListItem[];
-    recentListings: AdminListingListItem[];
-    recentLeads: AdminServiceLead[];
-    systemStatus: AdminSystemStatus;
-};
-
-export type AdminUserListItem = {
+export type AdminUserSnapshot = {
     id: string;
     name: string;
     email: string;
-    role: 'user' | 'admin' | 'superadmin' | 'client' | 'musician';
-    status: 'active' | 'verified' | 'suspended';
+    phone?: string | null;
+    role: AdminUserRole;
+    status: AdminUserStatus;
+    primaryVertical: 'autos' | 'propiedades' | 'agenda' | null;
     provider: string | null;
-    signupApp?: string | null;
-    signupOrigin?: string | null;
-    signupSourceLabel?: string;
+    signupApp: string | null;
+    signupOrigin: string | null;
+    signupSourceLabel: string;
     createdAt: number;
     lastLoginAt: number | null;
     totalListings: number;
+    agendaListings: number;
     autosListings: number;
     propiedadesListings: number;
-    agendaListings: number;
-    likelySignupVertical?: AdminVerticalType | null;
-    verticalConfidence?: 'direct' | 'inferred' | 'unknown';
-    verticalSignals?: {
-        vertical: AdminVerticalType;
-        source: string;
-        label: string;
-        count: number;
-        firstSeenAt: number | null;
-        lastSeenAt: number | null;
-    }[];
-    realness?: {
+    likelySignupVertical: AdminVertical | null;
+    verticalConfidence: 'direct' | 'inferred' | 'unknown';
+    verticalSignals: AdminVerticalSignal[];
+    realness: {
         label: string;
         score: number;
         reasons: string[];
     };
-    subscriptions?: {
-        agenda?: { plan: 'free' | 'pro'; expiresAt: string | null; status: 'active' | 'expired' | 'free' } | null;
-        autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
-        propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
-        serenatas?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
-    } | null;
+    subscriptions?: Record<string, unknown>;
     serenatas?: {
         client: boolean;
         musician: boolean;
@@ -77,229 +57,12 @@ export type AdminUserListItem = {
         instrument: string | null;
         ownerStatus: string | null;
         trialEndsAt: string | null;
-    } | null;
+    };
 };
 
-type AdminUserListItemWire = Omit<AdminUserListItem, 'role' | 'status' | 'subscriptions'> & {
-    role: string;
-    status: string;
-    subscriptions?: AdminUserListItem['subscriptions'];
-};
+type ApiEnvelope<T> = { ok?: boolean; error?: string } & T;
 
-export type AdminListingListItem = {
-    id: string;
-    title: string;
-    vertical: 'autos' | 'propiedades';
-    section: 'sale' | 'rent' | 'auction' | 'project';
-    status: 'draft' | 'active' | 'paused' | 'sold' | 'archived';
-    ownerId: string;
-    ownerName: string;
-    ownerEmail: string;
-    price: string | null;
-    href: string | null;
-    createdAt: number;
-    updatedAt: number;
-};
-
-export type AdminServiceLead = {
-    id: string;
-    vertical: 'autos' | 'propiedades';
-    serviceType: 'venta_asistida' | 'gestion_inmobiliaria';
-    serviceLabel: string;
-    planId: 'basico' | 'premium';
-    contactName: string;
-    contactEmail: string;
-    contactPhone: string;
-    contactWhatsapp: string | null;
-    locationLabel: string | null;
-    assetType: string | null;
-    assetBrand: string | null;
-    assetModel: string | null;
-    assetYear: string | null;
-    assetMileage: string | null;
-    assetArea: string | null;
-    expectedPrice: string | null;
-    notes: string | null;
-    status: 'new' | 'contacted' | 'qualified' | 'closed';
-    statusLabel: string;
-    priority: 'low' | 'medium' | 'high';
-    priorityLabel: string;
-    closeReason: string | null;
-    tags: string[];
-    assignedToUserId: string | null;
-    assignedToValue: string | null;
-    assignedTo: AdminLeadAssignee | null;
-    nextTaskTitle: string | null;
-    nextTaskAt: number | null;
-    nextTaskAgo: string | null;
-    sourcePage: string | null;
-    lastActivityAt: number;
-    lastActivityAgo: string;
-    attentionLevel: 'fresh' | 'attention' | 'urgent';
-    attentionLabel: string | null;
-    slaSignals: AdminLeadSlaSignal[];
-    createdAt: number;
-    createdAgo: string;
-    updatedAt: number;
-};
-
-export type AdminLeadAssignee = {
-    id: string;
-    kind: 'user' | 'team_member';
-    value: string;
-    name: string;
-    email: string | null;
-    phone: string | null;
-    role: 'user' | 'admin' | 'superadmin' | null;
-    roleTitle: string | null;
-    isLeadContact: boolean;
-};
-
-export type AdminServiceLeadActivity = {
-    id: string;
-    type: 'created' | 'note' | 'status' | 'assignment' | 'task' | 'contact';
-    label: string;
-    body: string;
-    meta: Record<string, unknown> | null;
-    createdAt: number;
-    createdAgo: string;
-    actor: {
-        id: string;
-        name: string;
-        email: string;
-    } | null;
-};
-
-export type AdminServiceLeadDetail = {
-    item: AdminServiceLead;
-    activities: AdminServiceLeadActivity[];
-    assignees: AdminLeadAssignee[];
-};
-
-export type AdminListingLead = {
-    id: string;
-    listingId: string;
-    vertical: 'autos' | 'propiedades';
-    source: 'internal_form' | 'direct_message' | 'whatsapp' | 'phone_call' | 'email' | 'instagram' | 'facebook' | 'mercadolibre' | 'yapo' | 'chileautos' | 'portal';
-    sourceLabel: string;
-    channel: 'lead' | 'message' | 'social' | 'portal';
-    channelLabel: string;
-    contactName: string;
-    contactEmail: string;
-    contactPhone: string | null;
-    contactWhatsapp: string | null;
-    message: string | null;
-    status: 'new' | 'contacted' | 'qualified' | 'closed';
-    statusLabel: string;
-    priority: 'low' | 'medium' | 'high';
-    priorityLabel: string;
-    closeReason: string | null;
-    tags: string[];
-    assignedToUserId: string | null;
-    assignedToTeamMemberId: string | null;
-    assignedToValue: string | null;
-    assignedTo: AdminLeadAssignee | null;
-    nextTaskTitle: string | null;
-    nextTaskAt: number | null;
-    nextTaskAgo: string | null;
-    sourcePage: string | null;
-    externalSourceId: string | null;
-    lastActivityAt: number;
-    lastActivityAgo: string;
-    attentionLevel: 'fresh' | 'attention' | 'urgent';
-    attentionLabel: string | null;
-    slaSignals: AdminLeadSlaSignal[];
-    createdAt: number;
-    createdAgo: string;
-    updatedAt: number;
-    listing: {
-        id: string;
-        title: string;
-        href: string;
-        section: 'sale' | 'rent' | 'auction' | 'project';
-        sectionLabel: string;
-        price: string;
-        location: string;
-    } | null;
-    owner: {
-        id: string;
-        name: string;
-        email: string;
-    } | null;
-    buyer: {
-        id: string;
-        name: string;
-        email: string;
-    } | null;
-    threadId: string | null;
-};
-
-export type AdminListingLeadActivity = {
-    id: string;
-    type: 'created' | 'note' | 'status' | 'assignment' | 'task' | 'message' | 'contact';
-    label: string;
-    body: string;
-    meta: Record<string, unknown> | null;
-    createdAt: number;
-    createdAgo: string;
-    actor: {
-        id: string;
-        name: string;
-        email: string;
-    } | null;
-};
-
-export type AdminListingLeadDetail = {
-    item: AdminListingLead;
-    activities: AdminListingLeadActivity[];
-    assignees: AdminLeadAssignee[];
-    thread: {
-        id: string;
-        vertical: 'autos' | 'propiedades';
-        viewerRole: 'buyer' | 'seller';
-        listing: AdminListingLead['listing'];
-        counterpart: {
-            id: string;
-            name: string;
-            email: string;
-        } | null;
-        leadId: string;
-        lastMessageAt: number;
-        lastMessageAgo: string;
-        lastMessagePreview: string | null;
-        createdAt: number;
-        updatedAt: number;
-    } | null;
-};
-
-export type AdminSystemStatus = {
-    nodeEnv: string;
-    databaseConfigured: boolean;
-    smtpConfigured: boolean;
-    mercadoPagoConfigured: boolean;
-    instagramConfigured: boolean;
-    leadIngestConfigured: boolean;
-    googleOAuthConfigured: boolean;
-    sessionConfigured: boolean;
-};
-
-type ApiResponse<T> = {
-    ok?: boolean;
-    error?: string;
-} & T;
-
-function normalizeAdminUserRole(role: string): AdminUserListItem['role'] {
-    if (role === 'admin' || role === 'superadmin') return role;
-    if (role === 'musician' || role === 'client') return role;
-    return 'user';
-}
-
-function normalizeAdminUserStatus(status: string): AdminUserListItem['status'] {
-    if (status === 'verified' || status === 'suspended') return status;
-    return 'active';
-}
-
-async function apiRequest<T>(path: string, init?: RequestInit): Promise<{ response: Response; data: ApiResponse<T> | null }> {
+async function apiRequest<T>(path: string, init?: RequestInit): Promise<{ response: Response; data: ApiEnvelope<T> | null }> {
     const response = await fetch(`${API_BASE}${path}`, {
         credentials: 'include',
         headers: {
@@ -308,58 +71,68 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<{ respon
         },
         ...init,
     });
-    const data = (await response.json().catch(() => null)) as ApiResponse<T> | null;
+    const data = (await response.json().catch(() => null)) as ({ ok?: boolean; error?: string } & T) | null;
     return { response, data };
 }
 
-export async function fetchAdminMe(): Promise<{ user: AdminSessionUser | null; unauthorized?: boolean }> {
-    try {
-        const { response, data } = await apiRequest<{ user?: AdminSessionUser }>('/api/auth/me', { method: 'GET' });
-        if (response.status === 401) return { user: null, unauthorized: true };
-        if (!data?.ok || !data.user) return { user: null };
-        if ((data.user.role !== 'admin' && data.user.role !== 'superadmin') || data.user.status !== 'verified') {
-            return { user: null };
-        }
-        return { user: data.user };
-    } catch {
-        return { user: null };
+async function expectOk<T>(path: string, init?: RequestInit): Promise<ApiEnvelope<T>> {
+    const { response, data } = await apiRequest<T>(path, init);
+    if (!response.ok || data?.ok === false) {
+        throw new Error(data?.error || 'No se pudo completar la operación');
     }
+    if (!data) throw new Error('Respuesta vacía del servidor');
+    return data;
 }
 
-export async function loginAdmin(email: string, password: string): Promise<boolean> {
-    try {
-        const { data } = await apiRequest<{ user?: AdminSessionUser }>('/api/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-        });
-        return Boolean(
-            data?.ok &&
-            data.user &&
-            (data.user.role === 'admin' || data.user.role === 'superadmin') &&
-            data.user.status === 'verified'
-        );
-    } catch {
-        return false;
-    }
+export async function fetchAdminUsers(): Promise<AdminUserSnapshot[]> {
+    const data = await expectOk<{ items?: AdminUserSnapshot[] }>('/api/admin/users');
+    return data.items ?? [];
 }
 
-export async function requestAdminPasswordReset(email: string): Promise<{ ok: boolean; error?: string; status?: number }> {
-    try {
-        const { response, data } = await apiRequest('/api/auth/password-reset/request', {
-            method: 'POST',
-            body: JSON.stringify({ email }),
-        });
-        if (!response.ok || !data?.ok) {
-            const message =
-                response.status === 429
-                    ? 'Demasiados intentos. Espera un momento y vuelve a intentarlo.'
-                    : data?.error || 'No pudimos iniciar la recuperación.';
-            return { ok: false, error: message, status: response.status };
-        }
-        return { ok: true };
-    } catch {
-        return { ok: false, error: 'No pudimos iniciar la recuperación.' };
-    }
+export async function updateAdminUser(userId: string, input: { name?: string; phone?: string | null }): Promise<void> {
+    await expectOk(`/api/admin/users/${encodeURIComponent(userId)}`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+    });
+}
+
+export async function updateAdminUserRole(userId: string, role: AdminUserRole): Promise<void> {
+    await expectOk(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role }),
+    });
+}
+
+export async function updateAdminUserStatus(userId: string, status: AdminUserStatus): Promise<void> {
+    await expectOk(`/api/admin/users/${encodeURIComponent(userId)}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+    });
+}
+
+export async function deleteAdminUser(userId: string): Promise<void> {
+    await expectOk(`/api/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+}
+
+export async function sendAdminUserEmail(userId: string, input: { subject: string; message: string; actionUrl?: string; actionLabel?: string }): Promise<void> {
+    await expectOk(`/api/admin/users/${encodeURIComponent(userId)}/email`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
+}
+
+export async function sendAdminBulkEmail(input: { userIds: string[]; subject: string; message: string; actionUrl?: string; actionLabel?: string }): Promise<void> {
+    await expectOk('/api/admin/users/email-bulk', {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
+}
+
+export async function updateSerenatasProfile(userId: string, input: { profileType: 'client' | 'musician' | 'owner'; removeClientProfile?: boolean; note?: string }): Promise<void> {
+    await expectOk(`/api/admin/users/${encodeURIComponent(userId)}/serenatas-profile`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+    });
 }
 
 export async function logoutAdmin(): Promise<void> {
@@ -367,372 +140,5 @@ export async function logoutAdmin(): Promise<void> {
         await apiRequest('/api/auth/logout', { method: 'POST' });
     } catch {
         // Best effort.
-    }
-}
-
-export async function fetchAdminOverview(): Promise<AdminOverview | null> {
-    const { response, data } = await apiRequest<AdminOverview>('/api/admin/overview', { method: 'GET' });
-    if (!response.ok || !data?.ok || !data.stats) return null;
-    return {
-        stats: data.stats,
-        recentUsers: data.recentUsers ?? [],
-        recentListings: data.recentListings ?? [],
-        recentLeads: data.recentLeads ?? [],
-        systemStatus: data.systemStatus,
-    };
-}
-
-export async function fetchAdminUsers(): Promise<{ items: AdminUserListItem[]; error?: string }> {
-    const { response, data } = await apiRequest<{ items?: AdminUserListItemWire[] }>('/api/admin/users', { method: 'GET' });
-    if (!response.ok || !data?.ok || !Array.isArray(data.items)) {
-        return { items: [], error: data?.error || 'No pudimos cargar usuarios.' };
-    }
-    return {
-        items: data.items.map((item) => ({
-            ...item,
-            role: normalizeAdminUserRole(item.role),
-            status: normalizeAdminUserStatus(item.status),
-            verticalSignals: item.verticalSignals ?? [],
-            realness: item.realness ?? { label: 'Sin diagnostico', score: 0, reasons: [] },
-        })),
-    };
-}
-
-export async function updateAdminUserRole(
-    userId: string,
-    role: 'user' | 'admin' | 'superadmin'
-): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
-            method: 'PATCH',
-            body: JSON.stringify({ role }),
-        });
-        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el rol.' };
-        return { ok: true };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function updateAdminUserStatus(
-    userId: string,
-    status: 'active' | 'verified' | 'suspended'
-): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/status`, {
-            method: 'PATCH',
-            body: JSON.stringify({ status }),
-        });
-        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el estado.' };
-        return { ok: true };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function deleteAdminUser(userId: string): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}`, {
-            method: 'DELETE',
-        });
-        if (!response.ok || !data?.ok) {
-            return { ok: false, error: data?.error || 'No pudimos eliminar el usuario.' };
-        }
-        return { ok: true };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export type AdminUserSubscriptionsPatch = {
-    agenda?: { plan: 'free' | 'pro'; expiresAt?: string | null };
-    autos?: { planId: string; status?: string; expiresAt?: string | null };
-    propiedades?: { planId: string; status?: string; expiresAt?: string | null };
-    serenatas?: { planId: 'free' | 'pro'; status?: string; expiresAt?: string | null; trialEndsAt?: string | null };
-};
-
-export async function updateAdminUserSubscriptions(
-    userId: string,
-    subscriptions: AdminUserSubscriptionsPatch
-): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/subscriptions`, {
-            method: 'PATCH',
-            body: JSON.stringify({ subscriptions }),
-        });
-        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar suscripciones.' };
-        return { ok: true };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function updateAdminUserSerenatasProfile(
-    userId: string,
-    payload: {
-        profileType: 'client' | 'musician' | 'owner';
-        removeClientProfile?: boolean;
-        note?: string;
-    }
-): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/serenatas-profile`, {
-            method: 'PATCH',
-            body: JSON.stringify(payload),
-        });
-        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el perfil Serenatas.' };
-        return { ok: true };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function sendAdminUserEmail(
-    userId: string,
-    payload: {
-        subject: string;
-        message: string;
-        actionUrl?: string;
-        actionLabel?: string;
-    }
-): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/email`, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
-        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos enviar el correo.' };
-        return { ok: true };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function sendAdminUsersBulkEmail(
-    userIds: string[],
-    payload: {
-        subject: string;
-        message: string;
-        actionUrl?: string;
-        actionLabel?: string;
-    }
-): Promise<{ ok: boolean; sent?: number; skipped?: number; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ sent?: number; skipped?: number }>('/api/admin/users/email-bulk', {
-            method: 'POST',
-            body: JSON.stringify({ userIds, ...payload }),
-        });
-        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos enviar los correos.' };
-        return { ok: true, sent: data.sent ?? 0, skipped: data.skipped ?? 0 };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export type AdminAuditLogItem = {
-    id: string;
-    actorUserId: string;
-    action: string;
-    entityType: string;
-    entityId: string;
-    payload: Record<string, unknown>;
-    createdAt: string | null;
-};
-
-export async function fetchAdminAuditLogs(filters?: {
-    entityType?: string;
-    entityId?: string;
-    limit?: number;
-}): Promise<AdminAuditLogItem[]> {
-    const params = new URLSearchParams();
-    if (filters?.entityType) params.set('entityType', filters.entityType);
-    if (filters?.entityId) params.set('entityId', filters.entityId);
-    if (filters?.limit) params.set('limit', String(filters.limit));
-    const suffix = params.toString() ? `?${params.toString()}` : '';
-    const { response, data } = await apiRequest<{ items?: AdminAuditLogItem[] }>(`/api/admin/audit-logs${suffix}`, { method: 'GET' });
-    if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
-    return data.items;
-}
-
-export async function fetchAdminListings(): Promise<AdminListingListItem[]> {
-    const { response, data } = await apiRequest<{ items?: AdminListingListItem[] }>('/api/admin/listings', { method: 'GET' });
-    if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
-    return data.items;
-}
-
-export async function fetchAdminServiceLeads(): Promise<AdminServiceLead[]> {
-    const { response, data } = await apiRequest<{ items?: AdminServiceLead[] }>('/api/admin/service-leads', { method: 'GET' });
-    if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
-    return data.items;
-}
-
-export async function updateAdminServiceLeadStatus(
-    leadId: string,
-    changes: {
-        status?: AdminServiceLead['status'];
-        priority?: AdminServiceLead['priority'];
-        closeReason?: string | null;
-        tags?: string[];
-        assignedToUserId?: string | null;
-        assignedToTeamMemberId?: string | null;
-        nextTaskTitle?: string | null;
-        nextTaskAt?: string | null;
-    }
-): Promise<{ ok: boolean; item?: AdminServiceLead; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: AdminServiceLead }>(`/api/admin/service-leads/${encodeURIComponent(leadId)}`, {
-            method: 'PATCH',
-            body: JSON.stringify(changes),
-        });
-        if (!response.ok || !data?.ok || !data.item) {
-            return { ok: false, error: data?.error || 'No pudimos actualizar el lead.' };
-        }
-        return { ok: true, item: data.item };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function fetchAdminServiceLeadDetail(leadId: string): Promise<AdminServiceLeadDetail | null> {
-    try {
-        const { response, data } = await apiRequest<AdminServiceLeadDetail>(`/api/admin/service-leads/${encodeURIComponent(leadId)}`, {
-            method: 'GET',
-        });
-        if (!response.ok || !data?.ok || !data.item) return null;
-        return {
-            item: data.item,
-            activities: data.activities ?? [],
-            assignees: data.assignees ?? [],
-        };
-    } catch {
-        return null;
-    }
-}
-
-export async function addAdminServiceLeadNote(
-    leadId: string,
-    body: string
-): Promise<{ ok: boolean; item?: AdminServiceLead; activity?: AdminServiceLeadActivity; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: AdminServiceLead; activity?: AdminServiceLeadActivity }>(`/api/admin/service-leads/${encodeURIComponent(leadId)}/notes`, {
-            method: 'POST',
-            body: JSON.stringify({ body }),
-        });
-        if (!response.ok || !data?.ok || !data.item || !data.activity) {
-            return { ok: false, error: data?.error || 'No pudimos guardar la nota.' };
-        }
-        return { ok: true, item: data.item, activity: data.activity };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function runAdminServiceLeadQuickAction(
-    leadId: string,
-    action: AdminLeadQuickAction
-): Promise<{ ok: boolean; item?: AdminServiceLead; activity?: AdminServiceLeadActivity; actionLabel?: string; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: AdminServiceLead; activity?: AdminServiceLeadActivity; actionLabel?: string }>(`/api/admin/service-leads/${encodeURIComponent(leadId)}/actions`, {
-            method: 'POST',
-            body: JSON.stringify({ action }),
-        });
-        if (!response.ok || !data?.ok || !data.item || !data.activity) {
-            return { ok: false, error: data?.error || 'No pudimos registrar la acción.' };
-        }
-        return { ok: true, item: data.item, activity: data.activity, actionLabel: data.actionLabel };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function fetchAdminSystemStatus(): Promise<AdminSystemStatus | null> {
-    const { response, data } = await apiRequest<{ status?: AdminSystemStatus }>('/api/admin/system-status', { method: 'GET' });
-    if (!response.ok || !data?.ok || !data.status) return null;
-    return data.status;
-}
-
-export async function fetchAdminListingLeads(): Promise<AdminListingLead[]> {
-    const { response, data } = await apiRequest<{ items?: AdminListingLead[] }>('/api/admin/listing-leads', { method: 'GET' });
-    if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
-    return data.items;
-}
-
-export async function fetchAdminListingLeadDetail(leadId: string): Promise<AdminListingLeadDetail | null> {
-    try {
-        const { response, data } = await apiRequest<AdminListingLeadDetail>(`/api/admin/listing-leads/${encodeURIComponent(leadId)}`, {
-            method: 'GET',
-        });
-        if (!response.ok || !data?.ok || !data.item) return null;
-        return {
-            item: data.item,
-            activities: data.activities ?? [],
-            assignees: data.assignees ?? [],
-            thread: data.thread ?? null,
-        };
-    } catch {
-        return null;
-    }
-}
-
-export async function updateAdminListingLeadStatus(
-    leadId: string,
-    changes: {
-        status?: AdminListingLead['status'];
-        priority?: AdminListingLead['priority'];
-        closeReason?: string | null;
-        tags?: string[];
-        assignedToUserId?: string | null;
-        assignedToTeamMemberId?: string | null;
-        nextTaskTitle?: string | null;
-        nextTaskAt?: string | null;
-    }
-): Promise<{ ok: boolean; item?: AdminListingLead; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: AdminListingLead }>(`/api/admin/listing-leads/${encodeURIComponent(leadId)}`, {
-            method: 'PATCH',
-            body: JSON.stringify(changes),
-        });
-        if (!response.ok || !data?.ok || !data.item) {
-            return { ok: false, error: data?.error || 'No pudimos actualizar el lead.' };
-        }
-        return { ok: true, item: data.item };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function addAdminListingLeadNote(
-    leadId: string,
-    body: string
-): Promise<{ ok: boolean; item?: AdminListingLead; activity?: AdminListingLeadActivity; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: AdminListingLead; activity?: AdminListingLeadActivity }>(`/api/admin/listing-leads/${encodeURIComponent(leadId)}/notes`, {
-            method: 'POST',
-            body: JSON.stringify({ body }),
-        });
-        if (!response.ok || !data?.ok || !data.item || !data.activity) {
-            return { ok: false, error: data?.error || 'No pudimos guardar la nota.' };
-        }
-        return { ok: true, item: data.item, activity: data.activity };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function runAdminListingLeadQuickAction(
-    leadId: string,
-    action: AdminLeadQuickAction
-): Promise<{ ok: boolean; item?: AdminListingLead; activity?: AdminListingLeadActivity; actionLabel?: string; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: AdminListingLead; activity?: AdminListingLeadActivity; actionLabel?: string }>(`/api/admin/listing-leads/${encodeURIComponent(leadId)}/actions`, {
-            method: 'POST',
-            body: JSON.stringify({ action }),
-        });
-        if (!response.ok || !data?.ok || !data.item || !data.activity) {
-            return { ok: false, error: data?.error || 'No pudimos registrar la acción.' };
-        }
-        return { ok: true, item: data.item, activity: data.activity, actionLabel: data.actionLabel };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
     }
 }

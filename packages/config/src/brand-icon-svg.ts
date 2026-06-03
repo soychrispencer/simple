@@ -78,22 +78,13 @@ function propiedadesSvg(t: IconTokens): string {
     );
 }
 
-const ADMIN_SVG =
+const DASHBOARD_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">'
-    + '<rect width="512" height="512" rx="128" fill="#4f46e5"/>'
-    + '<path d="M256 140 C321 140 374 193 374 258 L374 316 C374 342 353 363 327 363 L185 363 C159 363 138 342 138 316 L138 258 C138 193 191 140 256 140 Z" stroke="white" stroke-width="16" fill="none"/>'
-    + '<circle cx="256" cy="276" r="24" fill="white"/>'
-    + '<line x1="256" y1="200" x2="256" y2="252" stroke="white" stroke-width="16" stroke-linecap="round"/>'
-    + '</svg>';
-
-const PLATAFORMA_SVG =
-    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">'
-    + '<rect width="512" height="512" rx="128" fill="#475569"/>'
-    + '<path d="M140 428 L372 428" stroke="white" stroke-width="24" stroke-linecap="round"/>'
-    + '<path d="M172 428 L172 196 L256 128 L340 196 L340 428" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
-    + '<path d="M244 428 L244 340 L292 340 L292 428" stroke="white" stroke-width="24" stroke-linecap="round"/>'
-    + '<path d="M220 244 L268 244" stroke="white" stroke-width="24" stroke-linecap="round"/>'
-    + '<path d="M220 292 L268 292" stroke="white" stroke-width="24" stroke-linecap="round"/>'
+    + '<rect width="512" height="512" rx="128" fill="#111111"/>'
+    + '<rect x="136" y="128" width="104" height="160" rx="24" stroke="white" stroke-width="24" fill="none"/>'
+    + '<rect x="136" y="336" width="104" height="64" rx="24" stroke="white" stroke-width="24" fill="none"/>'
+    + '<rect x="272" y="128" width="104" height="64" rx="24" stroke="white" stroke-width="24" fill="none"/>'
+    + '<rect x="272" y="240" width="104" height="160" rx="24" stroke="white" stroke-width="24" fill="none"/>'
     + '</svg>';
 
 export function buildSimpleBrandIconSvg(appId: SimpleAppId, tokens: IconTokens): string {
@@ -107,11 +98,10 @@ export function buildSimpleBrandIconSvg(appId: SimpleAppId, tokens: IconTokens):
         case 'simplepropiedades':
             return propiedadesSvg(tokens);
         case 'simpleadmin':
-            return ADMIN_SVG;
         case 'simpleplataforma':
-            return PLATAFORMA_SVG;
+            return DASHBOARD_SVG;
         default:
-            return PLATAFORMA_SVG;
+            return DASHBOARD_SVG;
     }
 }
 

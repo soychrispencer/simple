@@ -99,12 +99,12 @@ export function getEmailBrandProfile(origin: string): EmailBrandProfile {
             return getAgendaEmailBrand(base);
         }
         if (host.includes('admin.simpleplataforma.app') || port === '3000') {
-            return enrichBrand('simpleadmin', base, {
-                surface: '#111827',
+            return enrichBrand('simpleplataforma', base, {
+                surface: '#0f172a',
                 onSurface: 'rgba(255,255,255,0.88)',
-                tagline: 'Administración del ecosistema Simple',
-                supportLabel: 'equipo SimpleAdmin',
-                supportEmail: 'soporte@simpleplataforma.app',
+                tagline: 'Tu ecosistema digital en un solo lugar',
+                supportLabel: 'equipo Simple',
+                supportEmail: 'hola@simpleplataforma.app',
             });
         }
         if (host.includes('simpleplataforma') || port === '3001') {

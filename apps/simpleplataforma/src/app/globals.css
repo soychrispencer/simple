@@ -41,7 +41,7 @@
 .plt-step-icon { background: var(--bg-subtle); border: 1px solid var(--border); }
 .plt-step-icon-accent { color: var(--accent); }
 .plt-eco-row { background: var(--bg-subtle); }
-.plt-eco-icon { background: var(--accent); color: #fff; }
+.plt-eco-icon { background: var(--fg); color: var(--bg); }
 .plt-cta-card { border-color: var(--border); }
 .plt-divider { border-top: 1px solid var(--border); }
 .plt-blur-accent { background: var(--accent); }

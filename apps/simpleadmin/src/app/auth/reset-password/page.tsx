@@ -69,8 +69,8 @@ export default function ResetPasswordPage() {
                 <p className="text-sm mb-5" style={{ color: 'var(--fg-muted)' }}>
                     Elige una nueva contraseña para tu cuenta de SimpleAdmin.
                 </p>
-                {error ? <p className="text-sm mb-3" style={{ color: '#dc2626' }}>{error}</p> : null}
-                {success ? <p className="text-sm mb-3" style={{ color: '#16a34a' }}>{success}</p> : null}
+                {error ? <p className="text-sm mb-3" style={{ color: 'var(--fg)' }}>{error}</p> : null}
+                {success ? <p className="text-sm mb-3" style={{ color: 'var(--fg)' }}>{success}</p> : null}
                 <form onSubmit={handleSubmit} className="space-y-3">
                     <input
                         type="password"

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentType, CSSProperties } from 'react';
-import { IconBuildingSkyscraper, IconCalendar, IconConfetti, IconSteeringWheel } from '@tabler/icons-react';
+import { IconBuildingSkyscraper, IconCalendar, IconConfetti, IconLayoutDashboard, IconSteeringWheel } from '@tabler/icons-react';
 import clsx from 'clsx';
 import { getSimpleAppBrand, type SimpleAppId } from '@simple/config';
 
@@ -19,8 +19,8 @@ export type BrandLogoProps = {
 const BRAND_ICON_BY_APP: Record<SimpleAppId, ComponentType<{ size?: number; style?: CSSProperties }>> = {
     simpleautos: IconSteeringWheel,
     simplepropiedades: IconBuildingSkyscraper,
-    simpleadmin: IconBuildingSkyscraper,
-    simpleplataforma: IconBuildingSkyscraper,
+    simpleadmin: IconLayoutDashboard,
+    simpleplataforma: IconLayoutDashboard,
     simpleagenda: IconCalendar,
     simpleserenatas: IconConfetti,
 };

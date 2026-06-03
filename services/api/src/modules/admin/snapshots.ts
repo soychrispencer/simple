@@ -40,6 +40,7 @@ export type AdminUserSnapshot = {
     id: string;
     name: string;
     email: string;
+    phone: string | null;
     role: UserRole;
     status: UserStatus;
     primaryVertical: VerticalType | null;
@@ -396,6 +397,7 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                 id: user.id,
                 name: user.name,
                 email: user.email,
+                phone: user.phone ?? null,
                 role: user.role as UserRole,
                 status: user.status as UserStatus,
                 primaryVertical: (user.primaryVertical as VerticalType | null) ?? null,

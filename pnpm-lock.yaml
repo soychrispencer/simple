@@ -260,6 +260,9 @@ importers:
 
   apps/simpleplataforma:
     dependencies:
+      '@simple/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@simple/config':
         specifier: workspace:*
         version: link:../../packages/config

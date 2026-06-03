@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ClientProviders } from '@/components/client-providers';
 import { buildSimpleAppMetadata } from '@simple/config';
 
 const inter = Inter({
@@ -17,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang="es" suppressHydrationWarning>
             <body className={`${inter.variable} font-sans antialiased`}>
                 <ThemeProvider>
-                    {children}
+                    <ClientProviders>{children}</ClientProviders>
                 </ThemeProvider>
             </body>
         </html>
