@@ -18,7 +18,7 @@ export type MarketplaceFooterProps = {
     sections?: MarketplaceFooterSection[];
     platformLinks?: MarketplaceFooterLink[];
     legalLinks?: MarketplaceFooterLink[];
-    statusLabel?: string;
+    socialLinks?: MarketplaceFooterLink[];
 };
 
 const ECOSYSTEM_LINKS: MarketplaceFooterLink[] = [
@@ -32,12 +32,6 @@ const ECOSYSTEM_LINKS: MarketplaceFooterLink[] = [
 const CONTACT_LINKS: MarketplaceFooterLink[] = [
     { label: 'Correo', href: 'mailto:hola@simpleplataforma.app' },
     { label: 'WhatsApp', href: 'https://wa.me/56978623828' },
-];
-
-const SOCIAL_LINKS: MarketplaceFooterLink[] = [
-    { label: 'SimpleAutos en Instagram', href: 'https://www.instagram.com/simpleautos.app' },
-    { label: 'SimplePropiedades en Instagram', href: 'https://www.instagram.com/simplepropiedades.app' },
-    { label: 'SimpleSerenatas en Instagram', href: 'https://www.instagram.com/simpleserenata' },
 ];
 
 const defaultLegal: MarketplaceFooterLink[] = [
@@ -94,15 +88,16 @@ export function MarketplaceFooter({
     sections = [],
     platformLinks = ECOSYSTEM_LINKS,
     legalLinks = defaultLegal,
-    statusLabel = 'Sistemas operativos',
+    socialLinks = [],
 }: MarketplaceFooterProps) {
     const hasSections = sections.length > 0;
     const hasPlatform = platformLinks && platformLinks.length > 0;
+    const hasSocial = socialLinks.length > 0;
 
     return (
         <footer className="border-t border-(--border) bg-(--bg-subtle)">
             <div className="container-app py-14">
-                <div className="mb-10 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.65fr)_minmax(220px,0.75fr)]">
+                <div className="mb-10 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.55fr)_minmax(220px,0.85fr)]">
                     <div className="space-y-4">
                         <Link href="/" className="flex shrink-0 items-center gap-2">
                             {logo}
@@ -144,42 +139,29 @@ export function MarketplaceFooter({
                             </div>
                         ) : null}
 
-                        <div>
-                            <h4 className="mb-4 text-sm font-medium text-(--fg)">Legal</h4>
-                            <ul className="space-y-3">
-                                {legalLinks.map((link) => (
-                                    <li key={link.href}>
-                                        <FooterLink link={link}>{link.label}</FooterLink>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
                     </div>
 
-                    <div className="space-y-7 lg:text-right">
-                        <div>
-                            <h4 className="mb-4 text-sm font-medium text-(--fg)">Contacto</h4>
-                            <div className="flex gap-2 lg:justify-end">
-                                {CONTACT_LINKS.map((link) => (
-                                    <FooterIconLink key={link.href} link={link}>
-                                        {link.href.startsWith('mailto:')
-                                            ? <IconMail size={18} stroke={1.8} />
-                                            : <IconBrandWhatsapp size={18} stroke={1.8} />}
-                                    </FooterIconLink>
-                                ))}
-                            </div>
+                    <div className="lg:text-right">
+                        <h4 className="mb-4 text-sm font-medium text-(--fg)">Contacto</h4>
+                        <div className="flex gap-2 lg:justify-end">
+                            {CONTACT_LINKS.map((link) => (
+                                <FooterIconLink key={link.href} link={link}>
+                                    {link.href.startsWith('mailto:')
+                                        ? <IconMail size={18} stroke={1.8} />
+                                        : <IconBrandWhatsapp size={18} stroke={1.8} />}
+                                </FooterIconLink>
+                            ))}
+                            {hasSocial
+                                ? socialLinks.map((link) => (
+                                      <FooterIconLink key={link.href} link={link}>
+                                          <IconBrandInstagram size={18} stroke={1.8} />
+                                      </FooterIconLink>
+                                  ))
+                                : null}
                         </div>
-
-                        <div>
-                            <h4 className="mb-4 text-sm font-medium text-(--fg)">Redes</h4>
-                            <div className="flex gap-2 lg:justify-end">
-                                {SOCIAL_LINKS.map((link) => (
-                                    <FooterIconLink key={link.href} link={link}>
-                                        <IconBrandInstagram size={18} stroke={1.8} />
-                                    </FooterIconLink>
-                                ))}
-                            </div>
-                        </div>
+                        <p className="mt-3 text-xs leading-relaxed text-(--fg-muted)">
+                            Atención comercial del ecosistema Simple.
+                        </p>
                     </div>
                 </div>
 
@@ -196,10 +178,13 @@ export function MarketplaceFooter({
                         </a>
                         .
                     </p>
-                    <div className="flex items-center gap-2 rounded-full border border-(--border) px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-(--fg-muted)">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-(--color-success)" aria-hidden />
-                        {statusLabel}
-                    </div>
+                    <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+                        {legalLinks.map((link) => (
+                            <FooterLink key={link.href} link={link}>
+                                {link.label}
+                            </FooterLink>
+                        ))}
+                    </nav>
                 </div>
             </div>
         </footer>

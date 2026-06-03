@@ -26,7 +26,10 @@ const sections = [
 const legalLinks = [
     { label: 'Términos', href: '/terminos' },
     { label: 'Privacidad', href: '/privacidad' },
-    { label: 'Preguntas frecuentes', href: '/faq' },
+];
+
+const socialLinks = [
+    { label: 'SimpleAutos en Instagram', href: 'https://www.instagram.com/simpleautos.app' },
 ];
 
 export function Footer() {
@@ -37,6 +40,7 @@ export function Footer() {
             copyrightName="SimpleAutos"
             sections={sections}
             legalLinks={legalLinks}
+            socialLinks={socialLinks}
         />
     );
 }
