@@ -36,7 +36,7 @@ export default function TerminosPage() {
                 <p className="mb-4">Nos reservamos el derecho de modificar estos términos. Los cambios se notificarán a través de la plataforma.</p>
 
                 <h2 className="text-lg font-semibold mt-6 mb-3">7. Contacto</h2>
-                <p className="mb-4">Para consultas sobre estos términos, contáctanos en: hola@simpleagenda.app</p>
+                <p className="mb-4">Para consultas sobre estos términos, contáctanos en: hola@simpleplataforma.app</p>
             </div>
         </div>
     );

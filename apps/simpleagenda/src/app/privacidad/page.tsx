@@ -44,7 +44,7 @@ export default function PrivacidadPage() {
                 </ul>
 
                 <h2 className="text-lg font-semibold mt-6 mb-3">6. Contacto</h2>
-                <p className="mb-4">Para consultas sobre privacidad, contáctanos en: hola@simpleagenda.app</p>
+                <p className="mb-4">Para consultas sobre privacidad, contáctanos en: hola@simpleplataforma.app</p>
             </div>
         </div>
     );

@@ -53,7 +53,18 @@ export function LegalDocumentLayout({
 
             <footer className="border-t plt-border py-8">
                 <div className="container-app flex flex-col items-center justify-between gap-3 text-xs plt-muted sm:flex-row">
-                    <p>&copy; {new Date().getFullYear()} Simple Plataforma. Todos los derechos reservados.</p>
+                    <p>
+                        &copy; {new Date().getFullYear()} Simple Plataforma. Desarrollado por{' '}
+                        <a
+                            href="https://www.artestudio.cl"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium hover:text-[var(--fg)]"
+                        >
+                            Artestudio
+                        </a>
+                        .
+                    </p>
                     <div className="flex gap-4">
                         <Link href="/privacidad" className="hover:text-[var(--fg)]">
                             Política de privacidad

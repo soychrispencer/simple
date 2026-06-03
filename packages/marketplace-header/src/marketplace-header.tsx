@@ -207,6 +207,28 @@ export function MarketplaceHeader({
         borderColor: 'var(--border)',
         boxShadow: 'var(--shadow-md)',
       };
+  const menuPopoverStyle: CSSProperties = isSmallViewport
+    ? {
+        position: 'fixed',
+        top: MOBILE_ACCOUNT_POPOVER_TOP,
+        left: '0.75rem',
+        right: '0.75rem',
+        width: 'auto',
+        maxHeight: 'calc(100dvh - 6rem)',
+        overflowY: 'auto',
+        background: 'var(--surface)',
+        borderColor: 'var(--border)',
+        boxShadow: 'var(--shadow-md)',
+      }
+    : {
+        position: 'absolute',
+        top: 'calc(100% + 10px)',
+        right: 0,
+        width: 'min(290px, calc(100vw - 1rem))',
+        background: 'var(--surface)',
+        borderColor: 'var(--border)',
+        boxShadow: 'var(--shadow-md)',
+      };
 
   return (
     <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -489,8 +511,8 @@ export function MarketplaceHeader({
 
             {menuOpen && (
               <div
-                className={`z-[60] rounded-xl border p-2 animate-slide-down ${HEADER_POPOVER_MOBILE} ${HEADER_POPOVER_DESKTOP} md:w-[260px]`}
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                className="z-[60] rounded-xl border p-2 animate-slide-down"
+                style={menuPopoverStyle}
               >
                 {renderMobileMenu ? (
                   renderMobileMenu(() => setMenuOpen(false))

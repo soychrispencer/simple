@@ -53,31 +53,31 @@ const BRAND = {
         name: 'SimpleAutos',
         color: '#ff3600',
         icon: IconSteeringWheel,
-        url: 'https://autos.simple.cl',
+        url: 'https://simpleautos.app',
     },
     propiedades: {
         name: 'SimplePropiedades',
         color: '#3232FF',
         icon: IconBuildingSkyscraper,
-        url: 'https://propiedades.simple.cl',
+        url: 'https://simplepropiedades.app',
     },
     agenda: {
         name: 'SimpleAgenda',
         color: '#0D9488',
         icon: IconCalendar,
-        url: 'https://agenda.simple.cl',
+        url: 'https://simpleagenda.app',
     },
     serenatas: {
         name: 'SimpleSerenatas',
         color: '#E11D48',
         icon: IconHeart,
-        url: 'https://serenatas.simple.cl',
+        url: 'https://simpleserenatas.app',
     },
     admin: {
         name: 'SimpleAdmin',
         color: '#64748B',
         icon: IconShieldCheck,
-        url: 'https://admin.simple.cl',
+        url: 'https://admin.simpleplataforma.app',
     },
 } as const;
 
@@ -800,7 +800,7 @@ export default function LandingPage() {
                                 Explorar verticales <IconArrowRight size={15} />
                             </ButtonPrimary>
                             <a
-                                href="mailto:hola@simple.cl"
+                                href="mailto:hola@simpleplataforma.app"
                                 className="h-10 px-5 rounded-button text-sm font-medium flex items-center gap-2 transition-colors hover:bg-[var(--bg-subtle)] plt-secondary"
                             >
                                 <IconMail size={16} /> Contactar
@@ -882,10 +882,20 @@ export default function LandingPage() {
                             <ul className="space-y-2">
                                 <li>
                                     <a
-                                        href="mailto:hola@simple.cl"
+                                        href="mailto:hola@simpleplataforma.app"
                                         className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
                                     >
-                                        Contacto
+                                        hola@simpleplataforma.app
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="https://wa.me/56978623828"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
+                                    >
+                                        +56 9 7862 3828
                                     </a>
                                 </li>
                                 <li>
@@ -916,7 +926,7 @@ export default function LandingPage() {
                     {/* Bottom */}
                     <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 plt-footer-border">
                         <p className="text-xs plt-muted">
-                            &copy; {new Date().getFullYear()} SimplePlataforma. Todos los derechos reservados.
+                            &copy; {new Date().getFullYear()} SimplePlataforma. Ecosistema Simple.
                         </p>
                         <div className="flex gap-4 text-xs">
                             <Link href="/terminos" className="plt-muted hover:text-[var(--fg)]">
@@ -926,14 +936,18 @@ export default function LandingPage() {
                                 Privacidad
                             </Link>
                         </div>
-                        <p className="text-xs flex items-center gap-1 plt-muted">
-                            Hecho con <IconHeart size={12} className="text-red-500" fill="currentColor" /> en Chile
-                        </p>
+                        <a
+                            href="https://www.artestudio.cl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs plt-muted hover:text-[var(--fg)]"
+                        >
+                            Desarrollado por Artestudio
+                        </a>
                     </div>
                 </div>
             </footer>
         </div>
     );
 }
-
 
