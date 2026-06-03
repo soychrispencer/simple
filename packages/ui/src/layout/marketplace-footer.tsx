@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { IconBrandInstagram, IconBrandWhatsapp, IconMail } from '@tabler/icons-react';
 import { type ReactNode } from 'react';
 
 export type MarketplaceFooterLink = { label: string; href: string };
@@ -29,8 +30,14 @@ const ECOSYSTEM_LINKS: MarketplaceFooterLink[] = [
 ];
 
 const CONTACT_LINKS: MarketplaceFooterLink[] = [
-    { label: 'hola@simpleplataforma.app', href: 'mailto:hola@simpleplataforma.app' },
-    { label: '+56 9 7862 3828', href: 'https://wa.me/56978623828' },
+    { label: 'Correo', href: 'mailto:hola@simpleplataforma.app' },
+    { label: 'WhatsApp', href: 'https://wa.me/56978623828' },
+];
+
+const SOCIAL_LINKS: MarketplaceFooterLink[] = [
+    { label: 'SimpleAutos en Instagram', href: 'https://www.instagram.com/simpleautos.app' },
+    { label: 'SimplePropiedades en Instagram', href: 'https://www.instagram.com/simplepropiedades.app' },
+    { label: 'SimpleSerenatas en Instagram', href: 'https://www.instagram.com/simpleserenata' },
 ];
 
 const defaultLegal: MarketplaceFooterLink[] = [
@@ -59,6 +66,27 @@ function FooterLink({ link, children }: { link: MarketplaceFooterLink; children:
     );
 }
 
+function FooterIconLink({
+    link,
+    children,
+}: {
+    link: MarketplaceFooterLink;
+    children: ReactNode;
+}) {
+    return (
+        <a
+            href={link.href}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={link.label}
+            title={link.label}
+            className="inline-flex size-10 items-center justify-center rounded-full border border-(--border) bg-(--surface) text-(--fg-muted) transition-colors hover:border-(--border-strong) hover:text-(--fg)"
+        >
+            {children}
+        </a>
+    );
+}
+
 export function MarketplaceFooter({
     logo,
     description,
@@ -73,70 +101,85 @@ export function MarketplaceFooter({
 
     return (
         <footer className="border-t border-(--border) bg-(--bg-subtle)">
-            <div className="container-app py-16">
-                <div
-                    className={`mb-12 grid gap-10 ${hasSections ? 'grid-cols-2 sm:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-4'}`}
-                >
-                    <div className={`space-y-4 ${hasSections ? 'col-span-2 sm:col-span-1' : 'sm:col-span-2 lg:col-span-2'}`}>
+            <div className="container-app py-14">
+                <div className="mb-10 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.65fr)_minmax(220px,0.75fr)]">
+                    <div className="space-y-4">
                         <Link href="/" className="flex shrink-0 items-center gap-2">
                             {logo}
                         </Link>
                         <p className="max-w-xs text-sm leading-relaxed text-(--fg-muted)">{description}</p>
                     </div>
 
-                    {hasSections
-                        ? sections.map((section) => (
-                              <div key={section.title}>
-                                  <h4 className="mb-4 text-sm font-medium text-(--fg)">{section.title}</h4>
-                                  <ul className="space-y-3">
-                                      {section.links.map((link) => (
-                                          <li key={link.href}>
-                                              <Link
-                                                  href={link.href}
-                                                  className="text-sm text-(--fg-muted) transition-colors hover:text-(--fg)"
-                                              >
-                                                  {link.label}
-                                              </Link>
-                                          </li>
-                                      ))}
-                                  </ul>
-                              </div>
-                          ))
-                        : null}
+                    <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+                        {hasSections
+                            ? sections.map((section) => (
+                                  <div key={section.title}>
+                                      <h4 className="mb-4 text-sm font-medium text-(--fg)">{section.title}</h4>
+                                      <ul className="space-y-3">
+                                          {section.links.map((link) => (
+                                              <li key={link.href}>
+                                                  <Link
+                                                      href={link.href}
+                                                      className="text-sm text-(--fg-muted) transition-colors hover:text-(--fg)"
+                                                  >
+                                                      {link.label}
+                                                  </Link>
+                                              </li>
+                                          ))}
+                                      </ul>
+                                  </div>
+                              ))
+                            : null}
 
-                    <div>
-                        <h4 className="mb-4 text-sm font-medium text-(--fg)">Contacto</h4>
-                        <ul className="space-y-3">
-                            {CONTACT_LINKS.map((link) => (
-                                <li key={link.href}>
-                                    <FooterLink link={link}>{link.label}</FooterLink>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                        {hasPlatform ? (
+                            <div>
+                                <h4 className="mb-4 text-sm font-medium text-(--fg)">Ecosistema</h4>
+                                <ul className="space-y-3">
+                                    {platformLinks!.map((link) => (
+                                        <li key={link.href}>
+                                            <FooterLink link={link}>{link.label}</FooterLink>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ) : null}
 
-                    {hasPlatform ? (
                         <div>
-                            <h4 className="mb-4 text-sm font-medium text-(--fg)">Ecosistema Simple</h4>
+                            <h4 className="mb-4 text-sm font-medium text-(--fg)">Legal</h4>
                             <ul className="space-y-3">
-                                {platformLinks!.map((link) => (
+                                {legalLinks.map((link) => (
                                     <li key={link.href}>
                                         <FooterLink link={link}>{link.label}</FooterLink>
                                     </li>
                                 ))}
                             </ul>
                         </div>
-                    ) : null}
+                    </div>
 
-                    <div>
-                        <h4 className="mb-4 text-sm font-medium text-(--fg)">Legal</h4>
-                        <ul className="space-y-3">
-                            {legalLinks.map((link) => (
-                                <li key={link.href}>
-                                    <FooterLink link={link}>{link.label}</FooterLink>
-                                </li>
-                            ))}
-                        </ul>
+                    <div className="space-y-7 lg:text-right">
+                        <div>
+                            <h4 className="mb-4 text-sm font-medium text-(--fg)">Contacto</h4>
+                            <div className="flex gap-2 lg:justify-end">
+                                {CONTACT_LINKS.map((link) => (
+                                    <FooterIconLink key={link.href} link={link}>
+                                        {link.href.startsWith('mailto:')
+                                            ? <IconMail size={18} stroke={1.8} />
+                                            : <IconBrandWhatsapp size={18} stroke={1.8} />}
+                                    </FooterIconLink>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="mb-4 text-sm font-medium text-(--fg)">Redes</h4>
+                            <div className="flex gap-2 lg:justify-end">
+                                {SOCIAL_LINKS.map((link) => (
+                                    <FooterIconLink key={link.href} link={link}>
+                                        <IconBrandInstagram size={18} stroke={1.8} />
+                                    </FooterIconLink>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
