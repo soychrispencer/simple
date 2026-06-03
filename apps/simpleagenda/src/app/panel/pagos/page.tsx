@@ -15,6 +15,7 @@ import {
     IconAlertTriangle,
     IconDownload,
     IconChartBar,
+    IconLock,
 } from '@tabler/icons-react';
 import {
     fetchAgendaPayments,
@@ -23,6 +24,8 @@ import {
     deleteAgendaPayment,
     fetchAgendaClients,
     fetchAgendaAppointments,
+    fetchAgendaProfile,
+    isPlanActive,
     type AgendaPayment,
     type AgendaClient,
     type AgendaAppointment,
@@ -99,6 +102,7 @@ export default function PagosPage() {
     const [clients, setClients] = useState<AgendaClient[]>([]);
     const [appointments, setAppointments] = useState<AgendaAppointment[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isPro, setIsPro] = useState(false);
     const [showCreate, setShowCreate] = useState(false);
     const [markingPaid, setMarkingPaid] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -124,6 +128,16 @@ export default function PagosPage() {
 
     const load = useCallback(async () => {
         setLoading(true);
+        const profile = await fetchAgendaProfile();
+        const canUsePayments = profile ? isPlanActive(profile) : false;
+        setIsPro(canUsePayments);
+        if (!canUsePayments) {
+            setPayments([]);
+            setClients([]);
+            setAppointments([]);
+            setLoading(false);
+            return;
+        }
         const [p, c, a] = await Promise.all([
             fetchAgendaPayments(),
             fetchAgendaClients(),
@@ -331,6 +345,33 @@ export default function PagosPage() {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     };
+
+    if (!loading && !isPro) {
+        return (
+            <div className="container-app panel-page py-4 lg:py-8">
+                <div className="flex items-start justify-between gap-3 mb-5 lg:mb-6 flex-wrap">
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold agenda-pagos-title">Cobros</h1>
+                        <p className="text-sm mt-0.5 agenda-pagos-muted">
+                            Registra y controla los pagos de tus sesiones.
+                        </p>
+                    </div>
+                </div>
+                <div className="rounded-2xl border p-6 sm:p-8 agenda-pagos-surface">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                        <IconLock size={22} />
+                    </div>
+                    <h2 className="text-xl font-bold agenda-pagos-title mb-2">Cobros es una función Pro</h2>
+                    <p className="text-sm agenda-pagos-muted max-w-xl mb-5">
+                        Activa el plan Profesional para registrar pagos, controlar pendientes, exportar cobros y conectar medios de pago.
+                    </p>
+                    <a href="/panel/suscripciones" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold agenda-pagos-btn-accent">
+                        Ver planes
+                    </a>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="container-app panel-page py-4 lg:py-8">
@@ -900,4 +941,3 @@ export default function PagosPage() {
         </div>
     );
 }
-

@@ -122,7 +122,7 @@ export default function HomePage() {
     const router = useRouter();
 
     const handleCTA = () => {
-        if (isLoggedIn) { router.push('/panel'); } else { openAuth('login'); }
+        if (isLoggedIn) { router.push('/panel'); } else { openAuth('register'); }
     };
 
     return (

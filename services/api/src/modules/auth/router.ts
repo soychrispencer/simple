@@ -143,6 +143,37 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         }
     }
 
+    function normalizeSignupPhone(raw: unknown): string | null {
+        if (typeof raw !== 'string') return null;
+        const normalized = raw.replace(/[\s().-]/g, '').trim();
+        return /^\+569\d{8}$/.test(normalized) ? normalized : null;
+    }
+
+    async function verifyCaptchaToken(token: unknown, remoteIp?: string): Promise<boolean> {
+        const secret = deps.asString(process.env.RECAPTCHA_SECRET_KEY);
+        if (!secret) return true;
+        if (typeof token !== 'string' || !token.trim()) return false;
+        try {
+            const params = new URLSearchParams({
+                secret,
+                response: token.trim(),
+            });
+            if (remoteIp) params.set('remoteip', remoteIp);
+            const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params,
+            });
+            const data = await response.json().catch(() => null) as { success?: boolean; score?: number } | null;
+            if (!data?.success) return false;
+            const minScore = Number(process.env.RECAPTCHA_MIN_SCORE ?? '0.5');
+            return typeof data.score === 'number' ? data.score >= minScore : true;
+        } catch (error) {
+            console.error('[auth captcha] verification error', error);
+            return false;
+        }
+    }
+
     function resolveLinkUserFromState(
         stateData: GoogleOAuthStatePayload | null,
     ): Promise<{ id: string; email: string } | undefined> {
@@ -256,53 +287,16 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             return { ok: true, user: linked.user, origin, isNewUser: linked.isNewUser };
         }
 
-        const signupSource = resolveSignupSource(origin);
         let user = await deps.getUserByEmail(normalizedEmail);
         if (user && !deps.canAuthenticateUser(user)) return { ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.', status: 403 };
 
         let isNewUser = false;
         if (!user) {
-            isNewUser = true;
-            const [insertedUser] = await deps.db.insert(deps.tables.users).values({
-                email: normalizedEmail,
-                name: deps.asString(googleUser.name) || 'Usuario Simple',
-                avatarUrl: deps.asString(googleUser.picture) || null,
-                provider: 'google',
-                providerId: deps.asString(googleUser.id) || null,
-                role: 'user',
-                status: googleUser.verified_email ? 'verified' : 'active',
-                primaryVertical: signupSource.primaryVertical,
-                signupApp: signupSource.app,
-                signupOrigin: origin,
-                lastLoginAt: new Date(),
-            }).returning({ id: deps.tables.users.id });
-
-            user = {
-                id: insertedUser.id,
-                email: normalizedEmail,
-                name: deps.asString(googleUser.name) || 'Usuario Simple',
-                role: 'user',
-                status: googleUser.verified_email ? 'verified' : 'active',
-                avatar: deps.asString(googleUser.picture) || undefined,
-                provider: 'google',
-                providerId: deps.asString(googleUser.id) || undefined,
-                primaryVertical: signupSource.primaryVertical,
-                signupApp: signupSource.app,
-                signupOrigin: origin,
-                lastLoginAt: new Date(),
+            return {
+                ok: false,
+                error: 'Primero regístrate con tus datos y WhatsApp. Después podrás vincular Google desde tu cuenta.',
+                status: 409,
             };
-            const personalAccount = await deps.ensurePrimaryAccountForUser(user);
-            user = { ...user, primaryAccountId: personalAccount.id };
-            await createUserRegistrationAudit({
-                userId: user.id,
-                email: normalizedEmail,
-                provider: 'google',
-                origin,
-                source: signupSource,
-            });
-            if (!googleUser.verified_email) {
-                try { await deps.issueEmailVerification(user.id, normalizedEmail, origin); } catch (e) { console.error('Email verification delivery error:', e); }
-            }
         } else {
             const personalAccount = await deps.ensurePrimaryAccountForUser(user);
             const nextLoginAt = new Date();
@@ -399,6 +393,17 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const normalizedEmail = parsed.data.email.trim().toLowerCase();
         const existing = await deps.getUserByEmail(normalizedEmail);
         if (existing) return c.json({ ok: false, error: 'Email ya registrado' }, 409);
+        const normalizedPhone = normalizeSignupPhone(parsed.data.phone);
+        if (!normalizedPhone) {
+            return c.json({ ok: false, error: 'Ingresa un WhatsApp válido con formato +569XXXXXXXX.' }, 400);
+        }
+        if (parsed.data.termsAccepted !== true) {
+            return c.json({ ok: false, error: 'Debes aceptar los términos y condiciones para registrarte.' }, 400);
+        }
+        const captchaOk = await verifyCaptchaToken(parsed.data.captchaToken, clientId);
+        if (!captchaOk) {
+            return c.json({ ok: false, error: 'No pudimos validar el captcha. Intenta nuevamente.' }, 400);
+        }
 
         const hashedPassword = await deps.bcrypt.hash(parsed.data.password, 10);
         const signupSource = resolveSignupSource(origin);
@@ -410,6 +415,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 email: normalizedEmail,
                 passwordHash: hashedPassword,
                 name: parsed.data.name.trim(),
+                phone: normalizedPhone,
                 role: 'user',
                 status: 'active',
                 provider: 'local',
@@ -425,6 +431,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             email: normalizedEmail,
             passwordHash: hashedPassword,
             name: parsed.data.name.trim(),
+            phone: normalizedPhone,
             role: 'user',
             status: 'active',
             provider: 'local',

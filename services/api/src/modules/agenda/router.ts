@@ -40,8 +40,8 @@ export interface AgendaRouterDeps {
     getAgendaProfile: (userId: string) => Promise<any>;
     ensureAgendaProfile: (user: any) => Promise<any>;
     isFreePlan: (profile: any, role?: string) => boolean;
-    checkClientLimit: (profileId: string) => Promise<string | null>;
-    checkAppointmentLimit: (profileId: string) => Promise<string | null>;
+    checkClientLimit: (profileId: string, additionalClients?: number) => Promise<string | null>;
+    checkAppointmentLimit: (profileId: string, additionalAppointments?: number) => Promise<string | null>;
     generateSlots: (rules: any[], duration: number, dayStart: Date, existing: any[], blocked: any[], tz: string) => any[];
     isValidSlug: (slug: string) => { ok: boolean; error?: string };
     RESERVED_SLUGS: Set<string>;
@@ -695,7 +695,6 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-        if (isFreePlan(profile, user.role)) { const le = await checkAppointmentLimit(profile.id); if (le) return c.json({ ok: false, error: le }, 403); }
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         if (!body.startsAt) return c.json({ ok: false, error: 'Fecha de inicio requerida' }, 400);
         const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
@@ -707,6 +706,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const recurrenceCount = typeof body.recurrenceCount === 'number' && body.recurrenceCount > 1 ? Math.min(body.recurrenceCount, 52) : (frequency ? 1 : 0);
         const effectiveFrequency = frequency ?? (legacyRepeat > 0 ? 'weekly' as const : null);
         const totalOccurrences = effectiveFrequency ? (frequency ? recurrenceCount : legacyRepeat + 1) : 1;
+        if (isFreePlan(profile, user.role)) { const le = await checkAppointmentLimit(profile.id, totalOccurrences); if (le) return c.json({ ok: false, error: le }, 403); }
         const seriesId = totalOccurrences > 1 ? randomUUID() : null;
         const appointmentsList: any[] = [];
         const clientPackId = typeof body.clientPackId === 'string' && body.clientPackId ? body.clientPackId : null;
@@ -789,7 +789,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             const pack = await db.query.agendaClientPacks.findFirst({ where: eq(agendaClientPacks.id, prev.clientPackId) });
             if (pack && pack.sessionsUsed > 0) { const nu = Math.max(0, pack.sessionsUsed - 1); await db.update(agendaClientPacks).set({ sessionsUsed: nu, status: pack.status === 'completed' && nu < pack.sessionsTotal ? 'active' : pack.status, updatedAt: new Date() }).where(eq(agendaClientPacks.id, pack.id)); }
         }
-        if (status === 'cancelled') { const phone = updated.clientPhone; if (phone && profile.waNotificationsEnabled) void notifyCancellation({ clientName: updated.clientName, clientPhone: phone, startsAt: updated.startsAt, endsAt: updated.endsAt }, { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours }).catch(() => {}); void syncToGoogleCalendar(profile, updated, 'delete'); }
+        if (status === 'cancelled') { const phone = updated.clientPhone; if (phone && !isFreePlan(profile, user.role) && profile.waNotificationsEnabled) void notifyCancellation({ clientName: updated.clientName, clientPhone: phone, startsAt: updated.startsAt, endsAt: updated.endsAt }, { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours }).catch(() => {}); void syncToGoogleCalendar(profile, updated, 'delete'); }
         else { void syncToGoogleCalendar(profile, updated, 'update'); }
         if (status === 'completed') void ensureNpsForAppointment(profile.id, updated.id, updated.clientId).catch(() => {});
         return c.json({ ok: true, appointment: updated });
@@ -1349,6 +1349,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: true, payments: [] });
+        if (isFreePlan(profile, user.role)) return c.json({ ok: false, error: 'Cobros requiere plan Profesional.' }, 403);
         const payments = await db.select().from(agendaPayments).where(eq(agendaPayments.professionalId, profile.id)).orderBy(desc(agendaPayments.createdAt));
         return c.json({ ok: true, payments });
     });
@@ -1358,6 +1359,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (isFreePlan(profile, user.role)) return c.json({ ok: false, error: 'Cobros requiere plan Profesional.' }, 403);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         if (!body.amount) return c.json({ ok: false, error: 'El monto es requerido' }, 400);
         const [payment] = await db.insert(agendaPayments).values({ professionalId: profile.id, appointmentId: typeof body.appointmentId === 'string' ? body.appointmentId||null : null, clientId: typeof body.clientId === 'string' ? body.clientId||null : null, amount: String(body.amount), currency: typeof body.currency === 'string' ? body.currency : profile.currency, method: typeof body.method === 'string' ? body.method||null : null, status: typeof body.status === 'string' ? body.status : 'pending', paidAt: body.status === 'paid' ? new Date() : null, notes: typeof body.notes === 'string' ? body.notes||null : null }).returning();
@@ -1369,6 +1371,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (isFreePlan(profile, user.role)) return c.json({ ok: false, error: 'Cobros requiere plan Profesional.' }, 403);
         const id = c.req.param('id') ?? '';
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const patch: Record<string, unknown> = { updatedAt: new Date() };
@@ -1384,6 +1387,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (isFreePlan(profile, user.role)) return c.json({ ok: false, error: 'Cobros requiere plan Profesional.' }, 403);
         const id = c.req.param('id') ?? '';
         const [deleted] = await db.delete(agendaPayments).where(and(eq(agendaPayments.id, id), eq(agendaPayments.professionalId, profile.id))).returning({ id: agendaPayments.id });
         if (!deleted) return c.json({ ok: false, error: 'Cobro no encontrado' }, 404);
@@ -1698,7 +1702,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
     const {
         db, sql, tables, dbHelpers: { eq, and, or, asc, desc, gte, lte, lt, inArray, isNull },
         asString, randomUUID,
-        isFreePlan, checkAppointmentLimit, generateSlots,
+        isFreePlan, checkClientLimit, checkAppointmentLimit, generateSlots,
         logAudit, logNotification, syncToGoogleCalendar, sendPushToUser,
         sendBookingConfirmationEmail, notifyConfirmation, notifyProfessionalNewBooking,
         ensureNpsForAppointment, createCheckoutPreference, rateLimit,
@@ -1818,7 +1822,6 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const slug = c.req.param('slug') ?? '';
         const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)) });
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-        if (isFreePlan(profile)) { const le = await checkAppointmentLimit(profile.id); if (le) return c.json({ ok: false, error: 'Este profesional ha alcanzado el límite de citas de su plan actual. Intenta más adelante.' }, 403); }
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         if (!body.startsAt || !body.clientName) return c.json({ ok: false, error: 'Datos requeridos: startsAt, clientName' }, 400);
         let durationMinutes = 60; let serviceId: string|null = null; let price: string|null = null; let serviceName: string|null = null;
@@ -1847,7 +1850,21 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         if (requestedFrequency && !profile.allowsRecurrentBooking) return c.json({ ok: false, error: 'Este profesional no permite reservar sesiones recurrentes.' }, 403);
         const recurrenceCountRaw = typeof body.recurrenceCount === 'number' ? body.recurrenceCount : 1;
         const publicTotalOccurrences = requestedFrequency ? Math.max(2, Math.min(recurrenceCountRaw, 26)) : 1;
+        if (isFreePlan(profile)) { const le = await checkAppointmentLimit(profile.id, publicTotalOccurrences); if (le) return c.json({ ok: false, error: 'Este profesional ha alcanzado el límite de citas de su plan actual. Intenta más adelante.' }, 403); }
         const publicSeriesId = publicTotalOccurrences > 1 ? randomUUID() : null;
+        const bookingEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
+        const bookingPhone = typeof body.clientPhone === 'string' && body.clientPhone ? body.clientPhone : null;
+        const clientFullName = String(body.clientName).trim();
+        const nameParts = clientFullName.split(/\s+/);
+        const bookingFirstName = nameParts[0] ?? clientFullName;
+        const bookingLastName = nameParts.slice(1).join(' ') || null;
+        let existingClient = null;
+        if (bookingEmail) existingClient = await db.query.agendaClients.findFirst({ where: and(eq(agendaClients.email, bookingEmail), eq(agendaClients.professionalId, profile.id)) });
+        if (!existingClient && bookingPhone) existingClient = await db.query.agendaClients.findFirst({ where: and(eq(agendaClients.phone, bookingPhone), eq(agendaClients.professionalId, profile.id)) });
+        if (!existingClient && isFreePlan(profile)) {
+            const clientLimit = await checkClientLimit(profile.id, 1);
+            if (clientLimit) return c.json({ ok: false, error: 'Este profesional ha alcanzado el límite de pacientes de su plan actual. Intenta más adelante.' }, 403);
+        }
         const addOffsetPub = (base: Date, idx: number, freq: string|null): Date => {
             if (!freq || idx === 0) return new Date(base.getTime());
             const d = new Date(base.getTime());
@@ -1871,15 +1888,6 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         }
         const appointment = insertedAppointments[0];
         if (appliedPromotion) await db.update(agendaPromotions).set({ usesCount: sql`${agendaPromotions.usesCount} + 1`, updatedAt: new Date() }).where(eq(agendaPromotions.id, appliedPromotion.id));
-        const bookingEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
-        const bookingPhone = typeof body.clientPhone === 'string' && body.clientPhone ? body.clientPhone : null;
-        const clientFullName = String(body.clientName).trim();
-        const nameParts = clientFullName.split(/\s+/);
-        const bookingFirstName = nameParts[0] ?? clientFullName;
-        const bookingLastName = nameParts.slice(1).join(' ') || null;
-        let existingClient = null;
-        if (bookingEmail) existingClient = await db.query.agendaClients.findFirst({ where: and(eq(agendaClients.email, bookingEmail), eq(agendaClients.professionalId, profile.id)) });
-        if (!existingClient && bookingPhone) existingClient = await db.query.agendaClients.findFirst({ where: and(eq(agendaClients.phone, bookingPhone), eq(agendaClients.professionalId, profile.id)) });
         const seriesApptIds = insertedAppointments.map((a) => a.id);
         if (!existingClient) { const [nc] = await db.insert(agendaClients).values({ professionalId: profile.id, firstName: bookingFirstName, lastName: bookingLastName, email: bookingEmail, phone: bookingPhone }).returning({ id: agendaClients.id }); if (nc) await db.update(agendaAppointments).set({ clientId: nc.id }).where(inArray(agendaAppointments.id, seriesApptIds)); }
         else { await db.update(agendaAppointments).set({ clientId: existingClient.id }).where(inArray(agendaAppointments.id, seriesApptIds)); }
@@ -1893,10 +1901,10 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const clientPhone2 = typeof body.clientPhone === 'string' ? body.clientPhone : null;
         const waSeriesCount = publicSeriesId ? insertedAppointments.length : null;
         const waSeriesFreq = publicSeriesId ? requestedFrequency : null;
-        if (status === 'confirmed' && clientPhone2 && profile.waNotificationsEnabled) {
+        if (status === 'confirmed' && clientPhone2 && !isFreePlan(profile) && profile.waNotificationsEnabled) {
             void notifyConfirmation({ id: appointment.id, slug: profile.slug, clientName: String(body.clientName), clientPhone: clientPhone2, startsAt, endsAt, meetingUrl: appointment.meetingUrl, seriesCount: waSeriesCount, seriesFrequency: waSeriesFreq }, { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours }).then(() => logNotification({ professionalId: profile.id, appointmentId: appointment.id, channel: 'whatsapp', eventType: 'confirmation', recipient: clientPhone2, status: 'sent' })).catch((err: any) => { void logNotification({ professionalId: profile.id, appointmentId: appointment.id, channel: 'whatsapp', eventType: 'confirmation', recipient: clientPhone2, status: 'failed', errorMessage: err instanceof Error ? err.message : String(err) }); });
         }
-        if (profile.waNotifyProfessional) { const profPhone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone; if (profPhone) void notifyProfessionalNewBooking(profPhone, { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours }, { clientName: String(body.clientName), clientPhone: clientPhone2, startsAt, endsAt, seriesCount: waSeriesCount, seriesFrequency: waSeriesFreq }).catch(() => {}); }
+        if (!isFreePlan(profile) && profile.waNotifyProfessional) { const profPhone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone; if (profPhone) void notifyProfessionalNewBooking(profPhone, { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours }, { clientName: String(body.clientName), clientPhone: clientPhone2, startsAt, endsAt, seriesCount: waSeriesCount, seriesFrequency: waSeriesFreq }).catch(() => {}); }
         if (!(isOnlineBooking && gcConnected)) void syncToGoogleCalendar(profile, { ...appointment, googleEventId: null, modality: appointment.modality }, 'create').then(async (result: any) => { if (result?.eventId) await db.update(agendaAppointments).set({ googleEventId: result.eventId }).where(eq(agendaAppointments.id, appointment.id)); });
         const tz3 = profile.timezone ?? 'America/Santiago';
         const fmtT3 = (d: Date) => d.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:tz3 });
@@ -1921,6 +1929,3 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
 
     return app;
 }
-
-
-

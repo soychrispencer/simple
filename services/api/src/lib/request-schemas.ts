@@ -10,7 +10,10 @@ export const loginSchema = z.object({
 export const registerSchema = z.object({
     name: z.string().min(2).max(80),
     email: z.string().email(),
+    phone: z.string().trim().max(20).nullable().optional(),
     password: z.string().min(8).max(120),
+    termsAccepted: z.boolean().optional(),
+    captchaToken: z.string().trim().max(4096).nullable().optional(),
 });
 
 export const updateProfileSchema = z.object({

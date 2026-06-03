@@ -17,25 +17,25 @@ export function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }
     return false;
 }
 
-export async function checkClientLimit(profileId: string): Promise<string | null> {
+export async function checkClientLimit(profileId: string, additionalClients = 1): Promise<string | null> {
     const [row] = await db
         .select({ total: sql<number>`count(*)::int` })
         .from(agendaClients)
         .where(eq(agendaClients.professionalId, profileId));
-    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxClientsTotal) {
+    if ((row?.total ?? 0) + additionalClients > FREE_TIER_LIMITS.maxClientsTotal) {
         return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxClientsTotal} pacientes del plan gratuito. Actualiza a Pro para pacientes ilimitados.`;
     }
     return null;
 }
 
-export async function checkAppointmentLimit(profileId: string): Promise<string | null> {
+export async function checkAppointmentLimit(profileId: string, additionalAppointments = 1): Promise<string | null> {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const [row] = await db
         .select({ total: sql<number>`count(*)::int` })
         .from(agendaAppointments)
         .where(and(eq(agendaAppointments.professionalId, profileId), gte(agendaAppointments.startsAt, monthStart)));
-    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxAppointmentsPerMonth) {
+    if ((row?.total ?? 0) + additionalAppointments > FREE_TIER_LIMITS.maxAppointmentsPerMonth) {
         return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxAppointmentsPerMonth} citas mensuales del plan gratuito. Actualiza a Pro para citas ilimitadas.`;
     }
     return null;

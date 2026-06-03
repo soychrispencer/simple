@@ -80,6 +80,8 @@ export function registerAgendaCronJobs() {
                     sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
                     isNull(agendaAppointments.reminderSentAt),
                     sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
+                    sql`${agendaProfessionalProfiles.plan} = 'pro'`,
+                    sql`(${agendaProfessionalProfiles.planExpiresAt} IS NULL OR ${agendaProfessionalProfiles.planExpiresAt} > now())`,
                 ));
 
             for (const { appt, prof } of appts) {
@@ -141,6 +143,8 @@ export function registerAgendaCronJobs() {
                     sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
                     isNull(agendaAppointments.reminder30minSentAt),
                     sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
+                    sql`${agendaProfessionalProfiles.plan} = 'pro'`,
+                    sql`(${agendaProfessionalProfiles.planExpiresAt} IS NULL OR ${agendaProfessionalProfiles.planExpiresAt} > now())`,
                 ));
 
             for (const { appt, prof } of appts) {

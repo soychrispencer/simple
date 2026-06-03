@@ -2,7 +2,7 @@
 
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { IconX, IconBrandGoogle, IconMail, IconLock, IconUser, IconMailCheck } from '@tabler/icons-react';
+import { IconX, IconBrandGoogle, IconMail, IconLock, IconUser, IconMailCheck, IconPhone, IconShieldCheck } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelIconButton, PanelNotice } from '@simple/ui/panel';
@@ -10,6 +10,15 @@ import GoogleLoginButton from './google-login-button';
 import { useAuth } from './auth-context';
 
 type Mode = 'login' | 'register' | 'recovery' | 'verify-email';
+
+declare global {
+    interface Window {
+        grecaptcha?: {
+            ready: (callback: () => void) => void;
+            execute: (siteKey: string, options: { action: string }) => Promise<string>;
+        };
+    }
+}
 
 type AuthModalProps = {
     allowRegister?: boolean;
@@ -32,6 +41,9 @@ export function AuthModal({
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [termsAccepted, setTermsAccepted] = useState(false);
+    const [rememberEmail, setRememberEmail] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -44,6 +56,8 @@ export function AuthModal({
         setPassword('');
         setConfirmPassword('');
         setName('');
+        setPhone('');
+        setTermsAccepted(false);
         setError('');
         setSuccess('');
         setSubmitting(false);
@@ -70,11 +84,31 @@ export function AuthModal({
     useEffect(() => {
         if (!authOpen) return;
         setMode(allowRegister ? authInitialMode : 'login');
+        try {
+            const savedEmail = window.localStorage.getItem('simple:auth:remembered-email') ?? '';
+            if (savedEmail) {
+                setEmail(savedEmail);
+                setRememberEmail(true);
+            }
+        } catch {
+            // ignore storage errors
+        }
         const timeoutId = window.setTimeout(() => {
             dialogRef.current?.focus();
         }, 0);
         return () => window.clearTimeout(timeoutId);
     }, [allowRegister, authInitialMode, authOpen]);
+
+    useEffect(() => {
+        const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+        if (!authOpen || !siteKey || document.querySelector('script[data-simple-recaptcha="true"]')) return;
+        const script = document.createElement('script');
+        script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}`;
+        script.async = true;
+        script.defer = true;
+        script.dataset.simpleRecaptcha = 'true';
+        document.head.appendChild(script);
+    }, [authOpen]);
 
     useEffect(() => {
         if (!authOpen) return;
@@ -126,6 +160,37 @@ export function AuthModal({
         return 'Fuerte';
     }, [password]);
 
+    const normalizedPhone = useMemo(() => phone.replace(/[\s().-]/g, '').trim(), [phone]);
+
+    const getCaptchaToken = async () => {
+        const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+        if (!siteKey) return null;
+        if (!window.grecaptcha) {
+            await new Promise<void>((resolve) => {
+                const existing = document.querySelector<HTMLScriptElement>('script[data-simple-recaptcha="true"]');
+                const script = existing ?? document.createElement('script');
+                if (!existing) {
+                    script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}`;
+                    script.async = true;
+                    script.defer = true;
+                    script.dataset.simpleRecaptcha = 'true';
+                    document.head.appendChild(script);
+                }
+                script.addEventListener('load', () => resolve(), { once: true });
+                script.addEventListener('error', () => resolve(), { once: true });
+                window.setTimeout(() => resolve(), 2500);
+            });
+        }
+        if (!window.grecaptcha) return null;
+        return new Promise<string | null>((resolve) => {
+            window.grecaptcha?.ready(() => {
+                window.grecaptcha?.execute(siteKey, { action: 'register' })
+                    .then(resolve)
+                    .catch(() => resolve(null));
+            });
+        });
+    };
+
     if (!authOpen || !portalElement) return null;
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -142,6 +207,12 @@ export function AuthModal({
             setRegisteredEmail(result.user.email);
             setSuccess('');
             setMode('verify-email');
+        }
+        try {
+            if (rememberEmail) window.localStorage.setItem('simple:auth:remembered-email', email.trim().toLowerCase());
+            else window.localStorage.removeItem('simple:auth:remembered-email');
+        } catch {
+            // ignore storage errors
         }
     };
 
@@ -160,8 +231,24 @@ export function AuthModal({
             setError('Las contraseñas no coinciden.');
             return;
         }
+        if (!/^\+569\d{8}$/.test(normalizedPhone)) {
+            setError('Ingresa tu WhatsApp con formato +569XXXXXXXX.');
+            return;
+        }
+        if (!termsAccepted) {
+            setError('Debes aceptar los términos y condiciones para registrarte.');
+            return;
+        }
         setSubmitting(true);
-        const result = await register(name, email, password);
+        const captchaToken = await getCaptchaToken();
+        const result = await register({
+            name,
+            phone: normalizedPhone,
+            email,
+            password,
+            termsAccepted,
+            captchaToken,
+        });
         setSubmitting(false);
         if (!result.ok || !result.user) {
             setError(result.error || 'No pudimos completar el registro.');
@@ -177,6 +264,8 @@ export function AuthModal({
             setPassword('');
             setConfirmPassword('');
             setName('');
+            setPhone('');
+            setTermsAccepted(false);
         }
     };
 
@@ -285,6 +374,20 @@ export function AuthModal({
                                 <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="form-input" placeholder="Contraseña" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
+                            <div className="flex items-center justify-between gap-3 -mt-1">
+                                <label className="inline-flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--fg-muted)' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={rememberEmail}
+                                        onChange={(event) => setRememberEmail(event.target.checked)}
+                                        className="h-4 w-4 rounded"
+                                    />
+                                    Recordar cuenta
+                                </label>
+                                <button type="button" onClick={() => { setMode('recovery'); setError(''); }} className="text-xs font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
+                                    Recuperar contraseña
+                                </button>
+                            </div>
                             <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting}>
                                 {submitting ? 'Ingresando...' : 'Iniciar sesión'}
                             </PanelButton>
@@ -302,9 +405,7 @@ export function AuthModal({
                             </PanelButton>
                         </GoogleLoginButton>
                         <div className="flex items-center justify-between mt-4 text-sm">
-                            <button onClick={() => { setMode('recovery'); setError(''); }} style={{ color: 'var(--fg-muted)' }} disabled={submitting}>
-                                ¿Olvidaste tu contraseña?
-                            </button>
+                            <span style={{ color: 'var(--fg-muted)' }}>¿No tienes cuenta?</span>
                             {allowRegister ? (
                                 <button onClick={() => { setMode('register'); setError(''); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
                                     Registrarse
@@ -334,6 +435,10 @@ export function AuthModal({
                                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="form-input" placeholder="Nombre completo" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
                             <div className="relative flex items-center">
+                                <IconPhone size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
+                                <input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="form-input" placeholder="WhatsApp +569XXXXXXXX" required pattern="\\+569[0-9]{8}" style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
+                            </div>
+                            <div className="relative flex items-center">
                                 <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
@@ -350,18 +455,29 @@ export function AuthModal({
                                 <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="form-input" placeholder="Confirmar contraseña" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
+                            <label className="flex items-start gap-2 text-xs leading-relaxed cursor-pointer" style={{ color: 'var(--fg-muted)' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={termsAccepted}
+                                    onChange={(event) => setTermsAccepted(event.target.checked)}
+                                    className="mt-0.5 h-4 w-4 rounded shrink-0"
+                                    required
+                                />
+                                <span>
+                                    Acepto los{' '}
+                                    <a href="https://simpleplataforma.app/terminos" target="_blank" rel="noreferrer" className="font-medium underline" style={{ color: 'var(--fg)' }}>Términos</a>
+                                    {' '}y la{' '}
+                                    <a href="https://simpleplataforma.app/privacidad" target="_blank" rel="noreferrer" className="font-medium underline" style={{ color: 'var(--fg)' }}>Política de privacidad</a>.
+                                </span>
+                            </label>
+                            <p className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                <IconShieldCheck size={13} />
+                                Protegido por reCAPTCHA cuando está configurado.
+                            </p>
                             <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting || !canSubmitRegister}>
                                 {submitting ? 'Creando...' : 'Registrarse'}
                             </PanelButton>
                         </form>
-                        <GoogleLoginButton
-                            disabled={submitting || !canSubmitRegister}
-                            onError={(message) => setError(message)}
-                        >
-                            <PanelButton variant="secondary" className="mt-3 w-full" disabled={submitting || !canSubmitRegister}>
-                                <IconBrandGoogle size={15} /> Continuar con Google
-                            </PanelButton>
-                        </GoogleLoginButton>
                         <div className="text-center mt-4 text-sm">
                             <span style={{ color: 'var(--fg-muted)' }}>¿Ya tienes cuenta? </span>
                             <button onClick={() => { setMode('login'); setError(''); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>

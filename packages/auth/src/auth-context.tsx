@@ -29,7 +29,7 @@ type AuthContextType = {
     authLoading: boolean;
     refreshSession: () => Promise<User>;
     login: (email: string, password: string) => Promise<AuthActionResult>;
-    register: (name: string, email: string, password: string) => Promise<AuthActionResult>;
+    register: (input: { name: string; phone: string; email: string; password: string; termsAccepted: boolean; captchaToken?: string | null }) => Promise<AuthActionResult>;
     logout: () => Promise<void>;
     requireAuth: (callback?: () => void) => boolean;
     openAuth: (mode?: 'login' | 'register') => void;
@@ -147,10 +147,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     const register = useCallback(
-        async (name: string, email: string, password: string): Promise<AuthActionResult> => {
+        async (input: { name: string; phone: string; email: string; password: string; termsAccepted: boolean; captchaToken?: string | null }): Promise<AuthActionResult> => {
             const { status, data } = await authRequest('/api/auth/register', {
                 method: 'POST',
-                body: JSON.stringify({ name, email, password }),
+                body: JSON.stringify(input),
             });
 
             if (!data?.user) {
