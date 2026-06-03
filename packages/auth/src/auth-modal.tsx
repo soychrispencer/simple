@@ -75,8 +75,15 @@ export function AuthModal({
         const el = document.createElement('div');
         document.body.appendChild(el);
         setPortalElement(el);
+
+        const recaptchaStyle = document.createElement('style');
+        recaptchaStyle.dataset.simpleRecaptchaStyle = 'true';
+        recaptchaStyle.textContent = '.grecaptcha-badge{visibility:hidden!important;}';
+        document.head.appendChild(recaptchaStyle);
+
         return () => {
             document.body.removeChild(el);
+            document.head.removeChild(recaptchaStyle);
             setPortalElement(null);
         };
     }, []);
@@ -160,7 +167,14 @@ export function AuthModal({
         return 'Fuerte';
     }, [password]);
 
-    const normalizedPhone = useMemo(() => phone.replace(/[\s().-]/g, '').trim(), [phone]);
+    const phoneDigits = useMemo(() => phone.replace(/\D/g, '').slice(0, 8), [phone]);
+    const normalizedPhone = useMemo(() => (phoneDigits.length === 8 ? `+569${phoneDigits}` : ''), [phoneDigits]);
+
+    const handlePhoneChange = (value: string) => {
+        const digits = value.replace(/\D/g, '');
+        const withoutPrefix = digits.startsWith('569') ? digits.slice(3) : digits;
+        setPhone(withoutPrefix.slice(0, 8));
+    };
 
     const getCaptchaToken = async () => {
         const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
@@ -232,7 +246,7 @@ export function AuthModal({
             return;
         }
         if (!/^\+569\d{8}$/.test(normalizedPhone)) {
-            setError('Ingresa tu WhatsApp con formato +569XXXXXXXX.');
+            setError('Ingresa tu WhatsApp con formato +569 y 8 dígitos.');
             return;
         }
         if (!termsAccepted) {
@@ -436,7 +450,22 @@ export function AuthModal({
                             </div>
                             <div className="relative flex items-center">
                                 <IconPhone size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
-                                <input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="form-input" placeholder="WhatsApp +569XXXXXXXX" required pattern="\\+569[0-9]{8}" style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
+                                <span className="pointer-events-none absolute text-sm font-medium" style={{ color: 'var(--fg)', left: '40px' }}>
+                                    +569
+                                </span>
+                                <input
+                                    type="tel"
+                                    inputMode="numeric"
+                                    value={phoneDigits}
+                                    onChange={(e) => handlePhoneChange(e.target.value)}
+                                    className="form-input"
+                                    placeholder="12345678"
+                                    required
+                                    pattern="[0-9]{8}"
+                                    maxLength={8}
+                                    autoComplete="tel"
+                                    style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '82px' }}
+                                />
                             </div>
                             <div className="relative flex items-center">
                                 <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
