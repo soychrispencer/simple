@@ -94,45 +94,45 @@ export function buildActionEmailHtml(input: ActionEmailInput): string {
   <meta name="color-scheme" content="light" />
   <title>${appName}</title>
 </head>
-<body style="margin:0;padding:0;background:#eef2f7;-webkit-text-size-adjust:100%;">
+<body style="margin:0;padding:0;background:#f6f7f9;-webkit-text-size-adjust:100%;">
   <div style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;">${preheader}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef2f7;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f7f9;">
     <tr>
-      <td align="center" style="padding:32px 16px 40px;">
+      <td align="center" style="padding:40px 18px 44px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
           ${brandHeader}
           <tr>
-            <td style="background:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 12px 40px rgba(15,23,42,0.08);">
+            <td style="background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 18px 46px rgba(15,23,42,0.07);">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="height:4px;background:${brand.accent};font-size:0;line-height:0;">&nbsp;</td>
+                  <td style="height:5px;background:${brand.accent};font-size:0;line-height:0;">&nbsp;</td>
                 </tr>
                 <tr>
-                  <td style="padding:28px 32px 24px;background:${brand.surface};">
+                  <td style="padding:34px 36px 22px;background:#ffffff;">
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       <tr>
                         <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-                          <span style="display:inline-block;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,0.14);color:#ffffff;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${eyebrow}</span>
-                          <p style="margin:16px 0 0;font-size:22px;line-height:1.25;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">${headline}</p>
-                          <p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:${brand.onSurface};">${tagline}</p>
+                          <span style="display:inline-block;padding:7px 12px;border-radius:999px;background:${brand.accentSoft};color:${brand.accent};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${eyebrow}</span>
+                          <p style="margin:18px 0 0;font-size:26px;line-height:1.22;font-weight:760;color:#111827;letter-spacing:-0.025em;">${headline}</p>
+                          <p style="margin:10px 0 0;font-size:14px;line-height:1.55;color:#6b7280;">${tagline}</p>
                         </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:32px 32px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-                    <div style="font-size:15px;line-height:1.7;color:#334155;">${input.bodyHtml}</div>
-                    <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0 8px;">
+                  <td style="padding:8px 36px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                    <div style="font-size:15px;line-height:1.75;color:#374151;">${input.bodyHtml}</div>
+                    <table role="presentation" cellspacing="0" cellpadding="0" style="margin:30px 0 10px;">
                       <tr>
-                        <td align="center" style="border-radius:12px;background:${brand.accent};">
-                          <a href="${actionUrl}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px;">${buttonLabel}</a>
+                        <td align="center" style="border-radius:14px;background:${brand.accent};box-shadow:0 12px 28px rgba(15,23,42,0.12);">
+                          <a href="${actionUrl}" target="_blank" style="display:inline-block;padding:15px 26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">${buttonLabel}</a>
                         </td>
                       </tr>
                     </table>
                     ${input.extraHtml ?? ''}
-                    <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#64748b;">${footnote}</p>
-                    <p style="margin:16px 0 0;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;line-height:1.6;color:#94a3b8;">
+                    <p style="margin:24px 0 0;padding:16px 18px;border-radius:14px;background:#f9fafb;font-size:13px;line-height:1.65;color:#6b7280;">${footnote}</p>
+                    <p style="margin:18px 0 0;padding-top:18px;border-top:1px solid #eef0f3;font-size:12px;line-height:1.65;color:#9ca3af;">
                       Si el botón no funciona, copia este enlace en tu navegador:<br />
                       <a href="${actionUrl}" style="color:${brand.accent};word-break:break-all;text-decoration:underline;">${actionUrl}</a>
                     </p>
@@ -142,9 +142,9 @@ export function buildActionEmailHtml(input: ActionEmailInput): string {
             </td>
           </tr>
           <tr>
-            <td align="center" style="padding:20px 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#94a3b8;">
+            <td align="center" style="padding:22px 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.65;color:#8b95a1;">
               Enviado por ${supportLabel} · <a href="mailto:${supportEmail}" style="color:#64748b;text-decoration:underline;">${supportEmail}</a><br />
-              <span style="color:#cbd5e1;">Parte del ecosistema Simple</span>
+              <span style="color:#aab2bd;">${appName} es parte del ecosistema Simple. El dominio de envío puede estar centralizado en SimplePlataforma para seguridad y continuidad.</span>
             </td>
           </tr>
         </table>

@@ -104,64 +104,74 @@ const EMAIL_TEMPLATES = [
         label: 'Mensaje personalizado',
         subject: '',
         message: '',
+        actionLabel: '',
+        actionUrl: '',
     },
     {
         id: 'agenda-follow-up',
         label: 'Seguimiento SimpleAgenda',
-        subject: '¿Te ayudamos a dejar SimpleAgenda funcionando?',
+        subject: '¿Te ayudamos a dejar tu agenda funcionando?',
         message: `Hola {{name}},
 
-Vimos que creaste tu cuenta en SimpleAgenda y queríamos saber cómo te fue en los primeros pasos.
+Vimos que creaste tu cuenta en SimpleAgenda y queríamos acompañarte en los primeros pasos.
 
-SimpleAgenda está pensada para que puedas ordenar tus citas, pacientes, cobros y disponibilidad desde un solo lugar, sin depender de mensajes sueltos o planillas.
+La idea es simple: que puedas ordenar tus horarios, citas, pacientes y cobros desde un solo lugar, sin depender de mensajes sueltos o planillas.
 
-Si algo no quedó claro, si te faltó configurar algo o si simplemente quieres que revisemos contigo cómo aprovechar mejor la plataforma, respóndenos este correo y te ayudamos.
+Si te faltó configurar disponibilidad, servicios o pagos, responde este correo y te orientamos directamente.
 
 Saludos,
-Equipo SimplePlataforma`,
+Equipo SimpleAgenda`,
+        actionLabel: 'Entrar a SimpleAgenda',
+        actionUrl: 'https://simpleagenda.app/panel',
     },
     {
         id: 'agenda-reactivation',
         label: 'Recuperación SimpleAgenda',
-        subject: 'Tu cuenta de SimpleAgenda sigue disponible',
+        subject: 'Tu cuenta de SimpleAgenda sigue lista para usar',
         message: `Hola {{name}},
 
-Tu cuenta de SimpleAgenda sigue activa y lista para que puedas continuar configurando tu agenda profesional.
+Tu cuenta sigue disponible para que puedas continuar configurando tu agenda profesional.
 
-Puedes usarla para publicar tus servicios, ordenar horarios, recibir reservas y mantener tu operación más clara desde el panel.
+Si la probaste y la dejaste pendiente, puede que solo falte un ajuste: horarios, servicios, datos de contacto o forma de pago.
 
-Si la probaste y hubo algo que no te convenció, nos interesa saberlo. Tu respuesta nos ayuda a mejorar la plataforma para profesionales como tú.
+Queremos que SimpleAgenda sea útil de verdad para tu operación. Si algo no te hizo sentido, respóndenos este correo y lo revisamos contigo.
 
 Saludos,
-Equipo SimplePlataforma`,
+Equipo SimpleAgenda`,
+        actionLabel: 'Retomar configuración',
+        actionUrl: 'https://simpleagenda.app/panel',
     },
     {
         id: 'welcome-platform',
         label: 'Bienvenida corporativa',
-        subject: 'Bienvenido a SimplePlataforma',
+        subject: 'Bienvenido al ecosistema Simple',
         message: `Hola {{name}},
 
 Gracias por crear tu cuenta en el ecosistema Simple.
 
-Desde SimplePlataforma estamos construyendo herramientas para que puedas gestionar mejor tus publicaciones, reservas, clientes y oportunidades comerciales según la vertical que uses.
+Cada vertical está pensada para resolver un flujo concreto: agenda, publicaciones, clientes, oportunidades comerciales o gestión operativa.
 
-Si necesitas ayuda para comenzar, responde este correo y te orientamos.
+Si necesitas ayuda para ubicarte o elegir por dónde continuar, responde este correo y te orientamos.
 
 Saludos,
-Equipo SimplePlataforma`,
+Equipo Simple`,
+        actionLabel: 'Ir al ecosistema Simple',
+        actionUrl: 'https://simpleplataforma.app',
     },
     {
         id: 'subscription-help',
         label: 'Apoyo plan Pro',
-        subject: 'Podemos ayudarte a activar tu plan correctamente',
+        subject: 'Revisemos si tu plan actual calza con tu operación',
         message: `Hola {{name}},
 
-Te escribimos para ayudarte a revisar tu configuración y confirmar si el plan que tienes activo es el adecuado para tu operación.
+Te escribimos para ayudarte a revisar si tu configuración actual es suficiente o si un plan de pago puede darte más control para operar mejor.
 
-Si necesitas más funciones, menos fricción o soporte para dejar todo funcionando, podemos orientarte directamente.
+La idea no es venderte un plan que no necesitas. Queremos entender cómo estás usando la plataforma y recomendarte el camino correcto.
 
 Saludos,
-Equipo SimplePlataforma`,
+Equipo Simple`,
+        actionLabel: 'Revisar mi cuenta',
+        actionUrl: 'https://simpleplataforma.app',
     },
 ] as const;
 
@@ -449,15 +459,25 @@ function EmailModal({ user, userIds, onCancel, onSent }: { user?: AdminUserSnaps
     const [templateId, setTemplateId] = useState('custom');
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
+    const [actionLabel, setActionLabel] = useState('');
+    const [actionUrl, setActionUrl] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
+    const brandVertical = user?.likelySignupVertical ?? user?.primaryVertical ?? null;
 
     const send = async () => {
         setSending(true);
         setError('');
         try {
-            if (user) await sendAdminUserEmail(user.id, { subject, message });
-            else await sendAdminBulkEmail({ userIds: userIds ?? [], subject, message });
+            const payload = {
+                subject,
+                message,
+                actionLabel: actionLabel.trim() || undefined,
+                actionUrl: actionUrl.trim() || undefined,
+                brandVertical,
+            };
+            if (user) await sendAdminUserEmail(user.id, payload);
+            else await sendAdminBulkEmail({ userIds: userIds ?? [], ...payload });
             onSent();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'No se pudo enviar');
@@ -470,9 +490,10 @@ function EmailModal({ user, userIds, onCancel, onSent }: { user?: AdminUserSnaps
         setTemplateId(id);
         const template = EMAIL_TEMPLATES.find((item) => item.id === id);
         if (!template || template.id === 'custom') return;
-        const fallbackName = user?.name || 'Hola';
         setSubject(template.subject);
-        setMessage(template.message.replaceAll('{{name}}', fallbackName));
+        setMessage(user ? template.message.replaceAll('{{name}}', user.name || 'tu cuenta') : template.message);
+        setActionLabel(template.actionLabel);
+        setActionUrl(template.actionUrl);
     };
 
     return (
@@ -497,6 +518,19 @@ function EmailModal({ user, userIds, onCancel, onSent }: { user?: AdminUserSnaps
                     <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Mensaje</span>
                     <textarea className="form-input min-h-36 resize-y" value={message} onChange={(event) => setMessage(event.target.value)} />
                 </label>
+                <div className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+                    <label className="space-y-1.5 block">
+                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Texto del botón</span>
+                        <input className="form-input" value={actionLabel} onChange={(event) => setActionLabel(event.target.value)} placeholder="Abrir panel" />
+                    </label>
+                    <label className="space-y-1.5 block">
+                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Link del botón</span>
+                        <input className="form-input" value={actionUrl} onChange={(event) => setActionUrl(event.target.value)} placeholder="https://..." />
+                    </label>
+                </div>
+                <p className="text-xs leading-5" style={{ color: 'var(--fg-muted)' }}>
+                    Marca sugerida: {brandVertical ? verticalLabel(brandVertical) : 'SimplePlataforma'}. El correo puede salir desde el dominio central, pero el nombre visible y el diseño serán de la vertical.
+                </p>
             </div>
             {error ? <p className="mt-4 text-sm" style={{ color: 'var(--fg)' }}>{error}</p> : null}
             <div className="mt-5 flex justify-end gap-2">

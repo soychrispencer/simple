@@ -121,14 +121,14 @@ export async function deleteAdminUser(userId: string): Promise<void> {
     await expectOk(`/api/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
 }
 
-export async function sendAdminUserEmail(userId: string, input: { subject: string; message: string; actionUrl?: string; actionLabel?: string }): Promise<void> {
+export async function sendAdminUserEmail(userId: string, input: { subject: string; message: string; actionUrl?: string; actionLabel?: string; brandVertical?: string | null }): Promise<void> {
     await expectOk(`/api/admin/users/${encodeURIComponent(userId)}/email`, {
         method: 'POST',
         body: JSON.stringify(input),
     });
 }
 
-export async function sendAdminBulkEmail(input: { userIds: string[]; subject: string; message: string; actionUrl?: string; actionLabel?: string }): Promise<void> {
+export async function sendAdminBulkEmail(input: { userIds: string[]; subject: string; message: string; actionUrl?: string; actionLabel?: string; brandVertical?: string | null }): Promise<void> {
     await expectOk('/api/admin/users/email-bulk', {
         method: 'POST',
         body: JSON.stringify(input),

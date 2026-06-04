@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { SubscriptionPlanId } from '../../lib/domain-types.js';
 import { serenataClients, serenataMusicians, serenataOwners } from '../../db/schema.js';
 import { formatAuthFromAddress, getAuthMailerTransporter } from '../../lib/auth-email.js';
-import { getEmailBrandProfile } from '../../lib/email-brand.js';
+import { getEmailBrandProfileForVertical, type EmailBrandProfile, type EmailBrandVertical } from '../../lib/email-brand.js';
 import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
 import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from '../../lib/email-template.js';
 import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
@@ -67,6 +67,64 @@ export type AdminRouterDeps = CrmServiceDeps & {
     };
     sql: any;
 };
+
+type AdminEmailBrandInput = EmailBrandVertical | 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | null | undefined;
+
+function normalizeAdminEmailBrandVertical(input: AdminEmailBrandInput): EmailBrandVertical | null {
+    if (input === 'agenda' || input === 'simpleagenda') return 'agenda';
+    if (input === 'autos' || input === 'simpleautos') return 'autos';
+    if (input === 'propiedades' || input === 'simplepropiedades') return 'propiedades';
+    if (input === 'serenatas' || input === 'simpleserenatas') return 'serenatas';
+    if (input === 'platform') return 'platform';
+    return null;
+}
+
+function resolveAdminEmailBrand(targetUser: AppUser, requestedBrand?: AdminEmailBrandInput): EmailBrandProfile {
+    const requested = normalizeAdminEmailBrandVertical(requestedBrand);
+    if (requested) return getEmailBrandProfileForVertical(requested);
+    return getEmailBrandProfileForVertical(normalizeAdminEmailBrandVertical(targetUser.primaryVertical as AdminEmailBrandInput) ?? 'platform');
+}
+
+function personalizeAdminEmailMessage(message: string, targetUser: AppUser): string {
+    const name = targetUser.name?.trim() || 'tu cuenta';
+    return message.replaceAll('{{name}}', name);
+}
+
+function buildAdminUserEmail(input: {
+    brand: EmailBrandProfile;
+    subject: string;
+    message: string;
+    actionUrl?: string;
+    actionLabel?: string;
+}) {
+    const actionUrl = input.actionUrl || input.brand.siteUrl;
+    const actionLabel = input.actionLabel || `Abrir ${input.brand.appName}`;
+    const bodyHtml = input.message
+        .split(/\n{2,}/)
+        .map((paragraph) => `<p style="margin:0 0 16px;">${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
+        .join('');
+    const footnote = `Te escribimos desde ${input.brand.appName}. Si tienes dudas, responde este correo y el equipo te orientará.`;
+    const mail = buildActionEmailPackage({
+        brand: input.brand,
+        preheader: input.subject,
+        eyebrow: input.brand.appName,
+        headline: input.subject,
+        bodyHtml,
+        buttonLabel: actionLabel,
+        actionUrl,
+        footnote,
+    });
+    const text = buildActionEmailText({
+        headline: input.subject,
+        body: input.message,
+        buttonLabel: actionLabel,
+        actionUrl,
+        footnote,
+        supportEmail: input.brand.supportEmail,
+        appName: input.brand.appName,
+    });
+    return { actionUrl, actionLabel, mail, text, footnote };
+}
 
 
 export function createAdminRouter(deps: AdminRouterDeps) {
@@ -521,6 +579,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             message?: string;
             actionUrl?: string;
             actionLabel?: string;
+            brandVertical?: AdminEmailBrandInput;
         } | null;
         const subject = typeof payload?.subject === 'string' ? payload.subject.trim() : '';
         const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
@@ -542,39 +601,23 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             return c.json({ ok: false, error: 'SMTP no configurado para enviar correos' }, 503);
         }
 
-        const origin = c.req.header('origin') ?? 'https://admin.simpleplataforma.app';
-        const brand = getEmailBrandProfile(origin);
+        const brand = resolveAdminEmailBrand(targetUser, payload?.brandVertical);
         await ensureEmailLogoCache();
-        const bodyHtml = message
-            .split(/\n{2,}/)
-            .map((paragraph) => `<p style="margin:0 0 14px;">${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
-            .join('');
-        const mail = buildActionEmailPackage({
+        const prepared = buildAdminUserEmail({
             brand,
-            preheader: subject,
-            eyebrow: 'SimplePlataforma',
-            headline: subject,
-            bodyHtml,
-            buttonLabel: actionLabel || 'Entrar a Simple',
-            actionUrl: actionUrl || brand.siteUrl,
-            footnote: 'Este mensaje fue enviado por el equipo de Simple.',
+            subject,
+            message: personalizeAdminEmailMessage(message, targetUser),
+            actionUrl,
+            actionLabel,
         });
 
         await transporter.sendMail({
             from: formatAuthFromAddress(brand),
             to: targetUser.email,
             subject,
-            text: buildActionEmailText({
-                headline: subject,
-                body: message,
-                buttonLabel: actionLabel || 'Entrar a Simple',
-                actionUrl: actionUrl || brand.siteUrl,
-                footnote: 'Este mensaje fue enviado por el equipo de Simple.',
-                supportEmail: brand.supportEmail,
-                appName: brand.appName,
-            }),
-            html: mail.html,
-            attachments: mail.attachments,
+            text: prepared.text,
+            html: prepared.mail.html,
+            attachments: prepared.mail.attachments,
         });
 
         await createAdminAudit({
@@ -582,7 +625,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             action: 'user.email.send',
             entityType: 'user',
             entityId: userId,
-            payload: { subject, actionUrl: actionUrl || null },
+            payload: { subject, actionUrl: prepared.actionUrl, appName: brand.appName },
         });
 
         return c.json({ ok: true });
@@ -601,6 +644,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             message?: string;
             actionUrl?: string;
             actionLabel?: string;
+            brandVertical?: AdminEmailBrandInput;
         } | null;
         const userIds = Array.isArray(payload?.userIds)
             ? [...new Set(payload.userIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0).map((id) => id.trim()))]
@@ -623,32 +667,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             return c.json({ ok: false, error: 'SMTP no configurado para enviar correos' }, 503);
         }
 
-        const origin = c.req.header('origin') ?? 'https://admin.simpleplataforma.app';
-        const brand = getEmailBrandProfile(origin);
         await ensureEmailLogoCache();
-        const bodyHtml = message
-            .split(/\n{2,}/)
-            .map((paragraph) => `<p style="margin:0 0 14px;">${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
-            .join('');
-        const mail = buildActionEmailPackage({
-            brand,
-            preheader: subject,
-            eyebrow: 'SimplePlataforma',
-            headline: subject,
-            bodyHtml,
-            buttonLabel: actionLabel || 'Entrar a Simple',
-            actionUrl: actionUrl || brand.siteUrl,
-            footnote: 'Este mensaje fue enviado por el equipo de Simple.',
-        });
-        const text = buildActionEmailText({
-            headline: subject,
-            body: message,
-            buttonLabel: actionLabel || 'Entrar a Simple',
-            actionUrl: actionUrl || brand.siteUrl,
-            footnote: 'Este mensaje fue enviado por el equipo de Simple.',
-            supportEmail: brand.supportEmail,
-            appName: brand.appName,
-        });
 
         const sent: string[] = [];
         const skipped: string[] = [];
@@ -658,13 +677,21 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 skipped.push(userId);
                 continue;
             }
+            const brand = resolveAdminEmailBrand(targetUser, payload?.brandVertical);
+            const prepared = buildAdminUserEmail({
+                brand,
+                subject,
+                message: personalizeAdminEmailMessage(message, targetUser),
+                actionUrl,
+                actionLabel,
+            });
             await transporter.sendMail({
                 from: formatAuthFromAddress(brand),
                 to: targetUser.email,
                 subject,
-                text,
-                html: mail.html,
-                attachments: mail.attachments,
+                text: prepared.text,
+                html: prepared.mail.html,
+                attachments: prepared.mail.attachments,
             });
             sent.push(userId);
             await createAdminAudit({
@@ -672,7 +699,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 action: 'user.email.send',
                 entityType: 'user',
                 entityId: userId,
-                payload: { subject, actionUrl: actionUrl || null, bulk: true },
+                payload: { subject, actionUrl: prepared.actionUrl, appName: brand.appName, bulk: true },
             });
         }
 

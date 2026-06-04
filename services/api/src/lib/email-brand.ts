@@ -137,3 +137,13 @@ export function getAgendaEmailBrand(origin = 'https://simpleagenda.app'): EmailB
         supportEmail: 'hola@simpleplataforma.app',
     });
 }
+
+export type EmailBrandVertical = 'agenda' | 'autos' | 'propiedades' | 'serenatas' | 'platform';
+
+export function getEmailBrandProfileForVertical(vertical: EmailBrandVertical | null | undefined): EmailBrandProfile {
+    if (vertical === 'agenda') return getAgendaEmailBrand('https://simpleagenda.app');
+    if (vertical === 'autos') return getEmailBrandProfile('https://simpleautos.app');
+    if (vertical === 'propiedades') return getEmailBrandProfile('https://simplepropiedades.app');
+    if (vertical === 'serenatas') return getEmailBrandProfile('https://simpleserenatas.app');
+    return getEmailBrandProfile('https://simpleplataforma.app');
+}
