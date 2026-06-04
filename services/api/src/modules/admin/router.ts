@@ -246,6 +246,16 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         if (payload?.phone && typeof payload.phone === 'string') {
             updates.phone = payload.phone.trim() || null;
         }
+        if ('primaryVertical' in (payload ?? {})) {
+            const primaryVertical = payload?.primaryVertical;
+            if (primaryVertical === null || primaryVertical === '') {
+                updates.primaryVertical = null;
+            } else if (['autos', 'propiedades', 'agenda'].includes(primaryVertical)) {
+                updates.primaryVertical = primaryVertical;
+            } else {
+                return c.json({ ok: false, error: 'Vertical inválida' }, 400);
+            }
+        }
         if (Object.keys(updates).length === 0) {
             return c.json({ ok: false, error: 'No hay datos para actualizar' }, 400);
         }

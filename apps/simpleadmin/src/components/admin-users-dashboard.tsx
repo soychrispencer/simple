@@ -31,6 +31,7 @@ import {
     updateAdminUser,
     updateAdminUserRole,
     updateAdminUserStatus,
+    updateAdminUserSubscriptions,
     updateSerenatasProfile,
     type AdminUserRole,
     type AdminUserSnapshot,
@@ -43,8 +44,12 @@ type StatusFilter = 'all' | AdminUserStatus;
 type ModalState =
     | { type: 'edit'; user: AdminUserSnapshot }
     | { type: 'email'; user?: AdminUserSnapshot; userIds?: string[] }
+    | { type: 'subscriptions'; user: AdminUserSnapshot }
     | { type: 'delete'; user: AdminUserSnapshot }
     | null;
+
+type PrimaryVerticalValue = 'none' | 'autos' | 'propiedades' | 'agenda';
+type SubscriptionStatusValue = 'active' | 'cancelled' | 'expired';
 
 const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
     { value: 'all', label: 'Todos los estados' },
@@ -58,6 +63,107 @@ const ROLE_OPTIONS: Array<{ value: AdminUserRole; label: string }> = [
     { value: 'admin', label: 'Admin' },
     { value: 'superadmin', label: 'Superadmin' },
 ];
+
+const PRIMARY_VERTICAL_OPTIONS: Array<{ value: PrimaryVerticalValue; label: string }> = [
+    { value: 'none', label: 'Sin vertical' },
+    { value: 'agenda', label: 'SimpleAgenda' },
+    { value: 'autos', label: 'SimpleAutos' },
+    { value: 'propiedades', label: 'SimplePropiedades' },
+];
+
+const SUBSCRIPTION_STATUS_OPTIONS: Array<{ value: SubscriptionStatusValue; label: string }> = [
+    { value: 'active', label: 'Activa' },
+    { value: 'cancelled', label: 'Cancelada' },
+    { value: 'expired', label: 'Expirada' },
+];
+
+const PLAN_OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
+    agenda: [
+        { value: 'free', label: 'Gratis' },
+        { value: 'pro', label: 'Pro' },
+    ],
+    autos: [
+        { value: 'free', label: 'Gratis' },
+        { value: 'pro', label: 'Pro' },
+        { value: 'enterprise', label: 'Enterprise' },
+    ],
+    propiedades: [
+        { value: 'free', label: 'Gratis' },
+        { value: 'pro', label: 'Pro' },
+        { value: 'enterprise', label: 'Enterprise' },
+    ],
+    serenatas: [
+        { value: 'free', label: 'Gratis' },
+        { value: 'pro', label: 'Pro' },
+    ],
+};
+
+const EMAIL_TEMPLATES = [
+    {
+        id: 'custom',
+        label: 'Mensaje personalizado',
+        subject: '',
+        message: '',
+    },
+    {
+        id: 'agenda-follow-up',
+        label: 'Seguimiento SimpleAgenda',
+        subject: '¿Te ayudamos a dejar SimpleAgenda funcionando?',
+        message: `Hola {{name}},
+
+Vimos que creaste tu cuenta en SimpleAgenda y queríamos saber cómo te fue en los primeros pasos.
+
+SimpleAgenda está pensada para que puedas ordenar tus citas, pacientes, cobros y disponibilidad desde un solo lugar, sin depender de mensajes sueltos o planillas.
+
+Si algo no quedó claro, si te faltó configurar algo o si simplemente quieres que revisemos contigo cómo aprovechar mejor la plataforma, respóndenos este correo y te ayudamos.
+
+Saludos,
+Equipo SimplePlataforma`,
+    },
+    {
+        id: 'agenda-reactivation',
+        label: 'Recuperación SimpleAgenda',
+        subject: 'Tu cuenta de SimpleAgenda sigue disponible',
+        message: `Hola {{name}},
+
+Tu cuenta de SimpleAgenda sigue activa y lista para que puedas continuar configurando tu agenda profesional.
+
+Puedes usarla para publicar tus servicios, ordenar horarios, recibir reservas y mantener tu operación más clara desde el panel.
+
+Si la probaste y hubo algo que no te convenció, nos interesa saberlo. Tu respuesta nos ayuda a mejorar la plataforma para profesionales como tú.
+
+Saludos,
+Equipo SimplePlataforma`,
+    },
+    {
+        id: 'welcome-platform',
+        label: 'Bienvenida corporativa',
+        subject: 'Bienvenido a SimplePlataforma',
+        message: `Hola {{name}},
+
+Gracias por crear tu cuenta en el ecosistema Simple.
+
+Desde SimplePlataforma estamos construyendo herramientas para que puedas gestionar mejor tus publicaciones, reservas, clientes y oportunidades comerciales según la vertical que uses.
+
+Si necesitas ayuda para comenzar, responde este correo y te orientamos.
+
+Saludos,
+Equipo SimplePlataforma`,
+    },
+    {
+        id: 'subscription-help',
+        label: 'Apoyo plan Pro',
+        subject: 'Podemos ayudarte a activar tu plan correctamente',
+        message: `Hola {{name}},
+
+Te escribimos para ayudarte a revisar tu configuración y confirmar si el plan que tienes activo es el adecuado para tu operación.
+
+Si necesitas más funciones, menos fricción o soporte para dejar todo funcionando, podemos orientarte directamente.
+
+Saludos,
+Equipo SimplePlataforma`,
+    },
+] as const;
 
 const SERENATAS_PROFILE_OPTIONS = [
     { value: 'client', label: 'Cliente' },
@@ -145,11 +251,12 @@ function UserAvatar({ user }: { user: AdminUserSnapshot }) {
     );
 }
 
-function Drawer({ user, onClose, onEdit, onEmail, onDelete, onSerenatasProfile }: {
+function Drawer({ user, onClose, onEdit, onEmail, onSubscriptions, onDelete, onSerenatasProfile }: {
     user: AdminUserSnapshot;
     onClose: () => void;
     onEdit: () => void;
     onEmail: () => void;
+    onSubscriptions: () => void;
     onDelete: () => void;
     onSerenatasProfile: (profileType: 'client' | 'musician' | 'owner') => void;
 }) {
@@ -209,6 +316,26 @@ function Drawer({ user, onClose, onEdit, onEmail, onDelete, onSerenatasProfile }
                     </div>
                 </section>
 
+                <section>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Suscripciones</p>
+                        <button type="button" className="text-sm font-medium" style={{ color: 'var(--fg)' }} onClick={onSubscriptions}>
+                            Editar
+                        </button>
+                    </div>
+                    <div className="grid gap-2">
+                        {(['agenda', 'autos', 'propiedades', 'serenatas'] as const).map((vertical) => {
+                            const value = getSubscriptionSummary(user, vertical);
+                            return (
+                                <div key={vertical} className="flex items-center justify-between gap-3 rounded-card border px-3 py-2" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                                    <span className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{verticalLabel(vertical)}</span>
+                                    <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>{value}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
+
                 {user.likelySignupVertical === 'serenatas' || user.serenatas ? (
                     <section>
                         <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>SimpleSerenatas</p>
@@ -232,10 +359,20 @@ function Drawer({ user, onClose, onEdit, onEmail, onDelete, onSerenatasProfile }
             <div className="flex flex-wrap items-center justify-end gap-2 border-t p-4" style={{ borderColor: 'var(--border)' }}>
                 <button className="btn btn-outline" type="button" onClick={onEmail}><IconMail size={15} /> Correo</button>
                 <button className="btn btn-outline" type="button" onClick={onEdit}><IconEdit size={15} /> Editar</button>
+                <button className="btn btn-outline" type="button" onClick={onSubscriptions}>Suscripción</button>
                 <button className="btn btn-outline" type="button" onClick={onDelete}><IconTrash size={15} /> Eliminar</button>
             </div>
         </aside>
     );
+}
+
+function getSubscriptionSummary(user: AdminUserSnapshot, vertical: 'agenda' | 'autos' | 'propiedades' | 'serenatas') {
+    const subscriptions = user.subscriptions as Record<string, any> | undefined;
+    const item = subscriptions?.[vertical];
+    if (!item) return 'Sin plan';
+    const plan = vertical === 'agenda' ? item.plan : item.planId;
+    const status = item.status ? ` · ${item.status}` : '';
+    return `${plan || 'free'}${status}`;
 }
 
 function Info({ label, value, className }: { label: string; value: string; className?: string }) {
@@ -252,6 +389,7 @@ function EditModal({ user, onCancel, onSaved }: { user: AdminUserSnapshot; onCan
     const [phone, setPhone] = useState(user.phone ?? '');
     const [role, setRole] = useState<AdminUserRole>(user.role);
     const [status, setStatus] = useState<AdminUserStatus>(user.status);
+    const [primaryVertical, setPrimaryVertical] = useState<PrimaryVerticalValue>(user.primaryVertical ?? 'none');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
 
@@ -259,7 +397,11 @@ function EditModal({ user, onCancel, onSaved }: { user: AdminUserSnapshot; onCan
         setSaving(true);
         setError('');
         try {
-            await updateAdminUser(user.id, { name, phone });
+            await updateAdminUser(user.id, {
+                name,
+                phone,
+                primaryVertical: primaryVertical === 'none' ? null : primaryVertical,
+            });
             if (role !== user.role) await updateAdminUserRole(user.id, role);
             if (status !== user.status) await updateAdminUserStatus(user.id, status);
             onSaved();
@@ -289,6 +431,10 @@ function EditModal({ user, onCancel, onSaved }: { user: AdminUserSnapshot; onCan
                     <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Estado</span>
                     <ModernSelect value={status} onChange={(value) => setStatus(value as AdminUserStatus)} options={STATUS_OPTIONS.filter((option) => option.value !== 'all') as Array<{ value: AdminUserStatus; label: string }>} />
                 </label>
+                <label className="space-y-1.5 sm:col-span-2">
+                    <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Vertical primaria</span>
+                    <ModernSelect value={primaryVertical} onChange={(value) => setPrimaryVertical(value as PrimaryVerticalValue)} options={PRIMARY_VERTICAL_OPTIONS} />
+                </label>
             </div>
             {error ? <p className="mt-4 text-sm" style={{ color: 'var(--fg)' }}>{error}</p> : null}
             <div className="mt-5 flex justify-end gap-2">
@@ -300,6 +446,7 @@ function EditModal({ user, onCancel, onSaved }: { user: AdminUserSnapshot; onCan
 }
 
 function EmailModal({ user, userIds, onCancel, onSent }: { user?: AdminUserSnapshot; userIds?: string[]; onCancel: () => void; onSent: () => void }) {
+    const [templateId, setTemplateId] = useState('custom');
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
     const [sending, setSending] = useState(false);
@@ -319,12 +466,29 @@ function EmailModal({ user, userIds, onCancel, onSent }: { user?: AdminUserSnaps
         }
     };
 
+    const applyTemplate = (id: string) => {
+        setTemplateId(id);
+        const template = EMAIL_TEMPLATES.find((item) => item.id === id);
+        if (!template || template.id === 'custom') return;
+        const fallbackName = user?.name || 'Hola';
+        setSubject(template.subject);
+        setMessage(template.message.replaceAll('{{name}}', fallbackName));
+    };
+
     return (
         <AdminModal title={user ? `Correo a ${user.name}` : 'Correo seleccionado'} onCancel={onCancel}>
             <div className="space-y-4">
                 <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
                     {user ? user.email : `${userIds?.length ?? 0} usuarios seleccionados`}
                 </p>
+                <label className="space-y-1.5 block">
+                    <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Plantilla</span>
+                    <ModernSelect
+                        value={templateId}
+                        onChange={applyTemplate}
+                        options={EMAIL_TEMPLATES.map((template) => ({ value: template.id, label: template.label }))}
+                    />
+                </label>
                 <label className="space-y-1.5 block">
                     <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Asunto</span>
                     <input className="form-input" value={subject} onChange={(event) => setSubject(event.target.value)} />
@@ -341,6 +505,140 @@ function EmailModal({ user, userIds, onCancel, onSent }: { user?: AdminUserSnaps
             </div>
         </AdminModal>
     );
+}
+
+function SubscriptionModal({ user, onCancel, onSaved }: { user: AdminUserSnapshot; onCancel: () => void; onSaved: () => void }) {
+    const subscriptions = user.subscriptions as Record<string, any> | undefined;
+    const [form, setForm] = useState(() => ({
+        agenda: {
+            plan: subscriptions?.agenda?.plan ?? 'free',
+            status: subscriptions?.agenda?.status === 'expired' ? 'expired' : subscriptions?.agenda?.status === 'active' ? 'active' : 'cancelled',
+            expiresAt: toDateInputValue(subscriptions?.agenda?.expiresAt),
+        },
+        autos: {
+            plan: subscriptions?.autos?.planId ?? 'free',
+            status: subscriptions?.autos?.status ?? 'cancelled',
+            expiresAt: toDateInputValue(subscriptions?.autos?.expiresAt),
+        },
+        propiedades: {
+            plan: subscriptions?.propiedades?.planId ?? 'free',
+            status: subscriptions?.propiedades?.status ?? 'cancelled',
+            expiresAt: toDateInputValue(subscriptions?.propiedades?.expiresAt),
+        },
+        serenatas: {
+            plan: subscriptions?.serenatas?.planId ?? 'free',
+            status: subscriptions?.serenatas?.status ?? 'cancelled',
+            expiresAt: toDateInputValue(subscriptions?.serenatas?.expiresAt),
+            trialEndsAt: toDateInputValue(user.serenatas?.trialEndsAt),
+        },
+    }));
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    const setVerticalField = (vertical: keyof typeof form, field: string, value: string) => {
+        setForm((current) => ({
+            ...current,
+            [vertical]: {
+                ...current[vertical],
+                [field]: value,
+            },
+        }));
+    };
+
+    const save = async () => {
+        setSaving(true);
+        setError('');
+        try {
+            await updateAdminUserSubscriptions(user.id, {
+                agenda: {
+                    plan: form.agenda.plan,
+                    expiresAt: dateInputToIso(form.agenda.expiresAt),
+                },
+                autos: {
+                    planId: form.autos.plan,
+                    status: form.autos.plan === 'free' ? 'cancelled' : form.autos.status,
+                    expiresAt: dateInputToIso(form.autos.expiresAt),
+                },
+                propiedades: {
+                    planId: form.propiedades.plan,
+                    status: form.propiedades.plan === 'free' ? 'cancelled' : form.propiedades.status,
+                    expiresAt: dateInputToIso(form.propiedades.expiresAt),
+                },
+                serenatas: {
+                    planId: form.serenatas.plan,
+                    status: form.serenatas.plan === 'free' ? 'cancelled' : form.serenatas.status,
+                    expiresAt: dateInputToIso(form.serenatas.expiresAt),
+                    trialEndsAt: dateInputToIso(form.serenatas.trialEndsAt),
+                },
+            });
+            onSaved();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'No se pudo guardar la suscripción');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <AdminModal title={`Suscripciones · ${user.name}`} onCancel={onCancel} widthClassName="max-w-3xl">
+            <div className="space-y-3">
+                {(['agenda', 'autos', 'propiedades', 'serenatas'] as const).map((vertical) => (
+                    <div key={vertical} className="grid gap-3 rounded-card border p-3 md:grid-cols-[1fr_150px_150px_150px]" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                        <div>
+                            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{verticalLabel(vertical)}</p>
+                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{getSubscriptionSummary(user, vertical)}</p>
+                        </div>
+                        <ModernSelect
+                            value={form[vertical].plan}
+                            onChange={(value) => setVerticalField(vertical, 'plan', value)}
+                            options={PLAN_OPTIONS[vertical]}
+                        />
+                        <ModernSelect
+                            value={form[vertical].status}
+                            onChange={(value) => setVerticalField(vertical, 'status', value)}
+                            options={SUBSCRIPTION_STATUS_OPTIONS}
+                            disabled={form[vertical].plan === 'free'}
+                        />
+                        <input
+                            className="form-input"
+                            type="date"
+                            value={form[vertical].expiresAt}
+                            onChange={(event) => setVerticalField(vertical, 'expiresAt', event.target.value)}
+                            aria-label={`Expiración ${vertical}`}
+                        />
+                        {vertical === 'serenatas' ? (
+                            <label className="md:col-start-4">
+                                <span className="mb-1 block text-xs" style={{ color: 'var(--fg-muted)' }}>Fin prueba dueño</span>
+                                <input
+                                    className="form-input"
+                                    type="date"
+                                    value={form.serenatas.trialEndsAt}
+                                    onChange={(event) => setVerticalField('serenatas', 'trialEndsAt', event.target.value)}
+                                />
+                            </label>
+                        ) : null}
+                    </div>
+                ))}
+            </div>
+            {error ? <p className="mt-4 text-sm" style={{ color: 'var(--fg)' }}>{error}</p> : null}
+            <div className="mt-5 flex justify-end gap-2">
+                <button className="btn btn-outline" type="button" onClick={onCancel}>Cancelar</button>
+                <button className="btn btn-primary" type="button" onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
+            </div>
+        </AdminModal>
+    );
+}
+
+function toDateInputValue(value: unknown) {
+    if (typeof value !== 'string' || !value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
+}
+
+function dateInputToIso(value: string) {
+    if (!value) return null;
+    return new Date(`${value}T23:59:59.000Z`).toISOString();
 }
 
 function DeleteModal({ user, onCancel, onDeleted }: { user: AdminUserSnapshot; onCancel: () => void; onDeleted: () => void }) {
@@ -581,6 +879,7 @@ export function AdminUsersDashboard() {
                     onClose={() => setSelectedUserId(null)}
                     onEdit={() => setModal({ type: 'edit', user: selectedUser })}
                     onEmail={() => setModal({ type: 'email', user: selectedUser })}
+                    onSubscriptions={() => setModal({ type: 'subscriptions', user: selectedUser })}
                     onDelete={() => setModal({ type: 'delete', user: selectedUser })}
                     onSerenatasProfile={(profileType) => void applySerenatasProfile(selectedUser, profileType)}
                 />
@@ -588,6 +887,7 @@ export function AdminUsersDashboard() {
 
             {modal?.type === 'edit' ? <EditModal user={modal.user} onCancel={() => setModal(null)} onSaved={refreshAfterAction} /> : null}
             {modal?.type === 'email' ? <EmailModal user={modal.user} userIds={modal.userIds} onCancel={() => setModal(null)} onSent={refreshAfterAction} /> : null}
+            {modal?.type === 'subscriptions' ? <SubscriptionModal user={modal.user} onCancel={() => setModal(null)} onSaved={refreshAfterAction} /> : null}
             {modal?.type === 'delete' ? <DeleteModal user={modal.user} onCancel={() => setModal(null)} onDeleted={refreshAfterAction} /> : null}
         </div>
     );

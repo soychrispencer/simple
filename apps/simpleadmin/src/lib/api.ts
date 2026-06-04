@@ -89,10 +89,17 @@ export async function fetchAdminUsers(): Promise<AdminUserSnapshot[]> {
     return data.items ?? [];
 }
 
-export async function updateAdminUser(userId: string, input: { name?: string; phone?: string | null }): Promise<void> {
+export async function updateAdminUser(userId: string, input: { name?: string; phone?: string | null; primaryVertical?: 'autos' | 'propiedades' | 'agenda' | null }): Promise<void> {
     await expectOk(`/api/admin/users/${encodeURIComponent(userId)}`, {
         method: 'PUT',
         body: JSON.stringify(input),
+    });
+}
+
+export async function updateAdminUserSubscriptions(userId: string, subscriptions: Record<string, unknown>): Promise<void> {
+    await expectOk(`/api/admin/users/${encodeURIComponent(userId)}/subscriptions`, {
+        method: 'PATCH',
+        body: JSON.stringify({ subscriptions }),
     });
 }
 
