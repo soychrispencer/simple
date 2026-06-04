@@ -103,7 +103,9 @@ function buildAdminUserEmail(input: {
         .split(/\n{2,}/)
         .map((paragraph) => `<p style="margin:0 0 16px;">${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
         .join('');
-    const footnote = `Te escribimos desde ${input.brand.appName}. Si tienes dudas, responde este correo y el equipo te orientará.`;
+    const supportEmail = 'hola@simpleplataforma.app';
+    const supportWhatsapp = '+56 9 7862 3828';
+    const footnote = `Te escribimos desde ${input.brand.appName}. Si necesitas ayuda, escríbenos a ${supportEmail} o al WhatsApp ${supportWhatsapp}.`;
     const mail = buildActionEmailPackage({
         brand: input.brand,
         preheader: input.subject,
@@ -120,7 +122,7 @@ function buildAdminUserEmail(input: {
         buttonLabel: actionLabel,
         actionUrl,
         footnote,
-        supportEmail: input.brand.supportEmail,
+        supportEmail,
         appName: input.brand.appName,
     });
     return { actionUrl, actionLabel, mail, text, footnote };
@@ -613,6 +615,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         await transporter.sendMail({
             from: formatAuthFromAddress(brand),
+            replyTo: 'hola@simpleplataforma.app',
             to: targetUser.email,
             subject,
             text: prepared.text,
@@ -687,6 +690,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             });
             await transporter.sendMail({
                 from: formatAuthFromAddress(brand),
+                replyTo: 'hola@simpleplataforma.app',
                 to: targetUser.email,
                 subject,
                 text: prepared.text,
