@@ -5,15 +5,75 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ClientProviders } from '@/components/client-providers';
 import { buildSimpleAppMetadata } from '@simple/config';
 
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app').replace(/\/$/, '');
+const APP_TITLE = 'SimpleAgenda | Agenda online y sistema de reservas';
+const APP_DESCRIPTION = 'Agenda online para reservas, citas, clientes y pagos. SimpleAgenda ayuda a profesionales, barberías, estética, salud privada y servicios a recibir reservas online.';
+
 const inter = Inter({
     subsets: ['latin'],
     variable: '--font-sans',
     display: 'swap',
 });
 
-export const metadata: Metadata = buildSimpleAppMetadata('simpleagenda');
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.cl';
+export const metadata: Metadata = {
+    ...buildSimpleAppMetadata('simpleagenda'),
+    metadataBase: new URL(APP_URL),
+    title: {
+        default: APP_TITLE,
+        template: '%s | SimpleAgenda',
+    },
+    description: APP_DESCRIPTION,
+    keywords: [
+        'agenda online',
+        'agenda digital',
+        'sistema de reservas',
+        'reservas online',
+        'citas online',
+        'agenda para barbería',
+        'agenda para estética',
+        'agenda para profesionales',
+        'agenda para salud privada',
+        'gestión de clientes',
+        'recordatorios de citas',
+        'Chile',
+    ],
+    alternates: {
+        canonical: '/',
+    },
+    openGraph: {
+        type: 'website',
+        locale: 'es_CL',
+        url: APP_URL,
+        siteName: 'SimpleAgenda',
+        title: APP_TITLE,
+        description: APP_DESCRIPTION,
+        images: [
+            {
+                url: `${APP_URL}/hero/consultation-hero.webp`,
+                width: 1600,
+                height: 857,
+                alt: 'SimpleAgenda para gestionar reservas online',
+            },
+        ],
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: APP_TITLE,
+        description: APP_DESCRIPTION,
+        images: [`${APP_URL}/hero/consultation-hero.webp`],
+    },
+    icons: {
+        icon: [
+            { url: '/favicon-48x48.png', sizes: '48x48', type: 'image/png' },
+            { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+        ],
+        apple: [
+            { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+        ],
+        shortcut: ['/favicon-48x48.png'],
+    },
+};
 
 const siteSchema = {
     '@context': 'https://schema.org',
@@ -25,7 +85,9 @@ const siteSchema = {
             url: APP_URL,
             logo: {
                 '@type': 'ImageObject',
-                url: `${APP_URL}/icon.png`,
+                url: `${APP_URL}/icon-512.png`,
+                width: 512,
+                height: 512,
             },
         },
         {
@@ -35,6 +97,26 @@ const siteSchema = {
             name: 'SimpleAgenda',
             publisher: { '@id': `${APP_URL}/#organization` },
             inLanguage: 'es-CL',
+        },
+        {
+            '@type': 'SoftwareApplication',
+            '@id': `${APP_URL}/#software`,
+            name: 'SimpleAgenda',
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Web',
+            url: APP_URL,
+            image: `${APP_URL}/hero/consultation-hero.webp`,
+            description: APP_DESCRIPTION,
+            offers: {
+                '@type': 'Offer',
+                price: '0',
+                priceCurrency: 'CLP',
+                availability: 'https://schema.org/InStock',
+            },
+            audience: {
+                '@type': 'Audience',
+                audienceType: 'Profesionales y negocios que necesitan agenda online y reservas',
+            },
         },
     ],
 };

@@ -16,11 +16,11 @@ import {
     IconDeviceMobile,
     IconHeartHandshake,
     IconStethoscope,
-    IconBrain,
-    IconApple,
     IconYoga,
     IconMoodSmile,
-    IconEar,
+    IconScissors,
+    IconSparkles,
+    IconBriefcase,
     IconChevronDown,
     IconStar,
     IconPlayerPlay,
@@ -32,12 +32,12 @@ const FEATURES = [
     {
         icon: IconCalendar,
         title: 'Agenda inteligente',
-        desc: 'Calendario visual con reservas online. Tus pacientes eligen horario según tu disponibilidad real.',
+        desc: 'Calendario visual con reservas online. Tus clientes o pacientes eligen horario según tu disponibilidad real.',
     },
     {
         icon: IconUsers,
-        title: 'Ficha de pacientes',
-        desc: 'Historial de sesiones, notas clínicas y datos de contacto en un solo lugar.',
+        title: 'Ficha de clientes',
+        desc: 'Historial de atenciones, notas y datos de contacto en un solo lugar.',
     },
     {
         icon: IconCreditCard,
@@ -54,33 +54,33 @@ const FEATURES = [
 const STEPS = [
     { icon: IconLink, title: 'Crea tu perfil', desc: 'Configura tus servicios, horarios y pagos en menos de 5 minutos.' },
     { icon: IconCalendar, title: 'Comparte tu link', desc: 'Envía tu página de reservas por WhatsApp, email o redes sociales.' },
-    { icon: IconClockHour4, title: 'Recibe reservas', desc: 'Tus pacientes eligen horario y reservan. Recibes la confirmación al instante.' },
+    { icon: IconClockHour4, title: 'Recibe reservas', desc: 'Tus clientes eligen horario y reservan. Recibes la confirmación al instante.' },
 ];
 
 const DIFFERENTIATORS = [
     { icon: IconShieldCheck, title: 'Sin comisiones ocultas', desc: 'Sin cobros por cita ni porcentajes sobre tus ingresos.' },
     { icon: IconDeviceMobile, title: 'Desde cualquier dispositivo', desc: 'Celular, tablet o computador. Sin descargar nada.' },
-    { icon: IconHeartHandshake, title: 'Hecho para salud', desc: 'Pensado para psicólogos, terapeutas y profesionales independientes.' },
+    { icon: IconHeartHandshake, title: 'Hecho para servicios con agenda', desc: 'Pensado para profesionales independientes y negocios que atienden con reserva.' },
     { icon: IconClockHour4, title: 'Listo en 5 minutos', desc: 'Sin curva de aprendizaje. Empieza a recibir reservas hoy.' },
 ];
 
 const PROFESSIONALS = [
-    { icon: IconBrain, label: 'Psicólogos' },
-    { icon: IconStethoscope, label: 'Médicos' },
-    { icon: IconApple, label: 'Nutricionistas' },
-    { icon: IconYoga, label: 'Kinesiólogos' },
-    { icon: IconMoodSmile, label: 'Terapeutas' },
-    { icon: IconEar, label: 'Fonoaudiólogos' },
+    { icon: IconScissors, label: 'Barberías' },
+    { icon: IconSparkles, label: 'Estética' },
+    { icon: IconMoodSmile, label: 'Psicólogos' },
+    { icon: IconYoga, label: 'Bienestar' },
+    { icon: IconStethoscope, label: 'Salud privada' },
+    { icon: IconBriefcase, label: 'Consultorías' },
 ];
 
-const FREE_FEATURES = ['Hasta 10 citas al mes', 'Hasta 5 pacientes', 'Página de reserva pública', 'Recordatorios por email'];
-const PRO_FEATURES = ['Citas y pacientes ilimitados', 'Notas clínicas por sesión', 'Control de pagos y cobros', 'Recordatorios email + WhatsApp', 'Estadísticas de consulta', 'Soporte prioritario'];
+const FREE_FEATURES = ['Hasta 10 citas al mes', 'Hasta 5 clientes', 'Página de reserva pública', 'Recordatorios por email'];
+const PRO_FEATURES = ['Citas y clientes ilimitados', 'Notas por atención', 'Control de pagos y cobros', 'Recordatorios email + WhatsApp', 'Estadísticas de negocio', 'Soporte prioritario'];
 
 const FAQS: { q: string; a: string }[] = [
-    { q: '¿Es realmente gratis?', a: 'Sí. El plan gratuito incluye hasta 10 citas mensuales y 5 pacientes sin costo. No necesitas tarjeta de crédito para comenzar.' },
+    { q: '¿Es realmente gratis?', a: 'Sí. El plan gratuito incluye hasta 10 citas mensuales y 5 clientes sin costo. No necesitas tarjeta de crédito para comenzar.' },
     { q: '¿Puedo cambiar de plan en cualquier momento?', a: 'Claro. Puedes actualizar a Pro cuando quieras desde tu panel. Si decides volver al plan gratuito, tus datos se mantienen intactos.' },
-    { q: '¿Mis pacientes necesitan crear una cuenta?', a: 'No. Tus pacientes reservan directamente desde tu página pública sin necesidad de registrarse.' },
-    { q: '¿Qué métodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus pacientes paguen por adelantado.' },
+    { q: '¿Mis clientes necesitan crear una cuenta?', a: 'No. Tus clientes reservan directamente desde tu página pública sin necesidad de registrarse.' },
+    { q: '¿Qué métodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus clientes paguen por adelantado.' },
     { q: '¿Funciona para consultas presenciales y online?', a: 'Sí. Puedes configurar servicios presenciales, online o ambos. Cada servicio puede tener duración y precio diferente.' },
     { q: '¿Puedo cancelar cuando quiera?', a: 'Absolutamente. Sin contratos ni permanencia. Cancela tu plan Pro en cualquier momento desde tu panel.' },
 ];
@@ -131,56 +131,91 @@ export default function HomePage() {
             {/* ═══════════════ HERO ═══════════════ */}
             <section style={{ background: 'var(--bg)' }}>
                 <div className="container-app pt-14 sm:pt-20 lg:pt-28 pb-14 sm:pb-20 lg:pb-24">
-                    <div className="max-w-3xl mx-auto text-center">
-                        <div
-                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-8 animate-fade-in border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)]"
-                        >
-                            <IconCalendar size={13} />
-                            Agenda profesional online
-                        </div>
-                        <h1
-                            className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight mb-6 animate-slide-up"
-                            style={{ color: 'var(--fg)', letterSpacing: '-0.03em' }}
-                        >
-                            Gestiona tu consulta de forma{' '}
-                            <span style={{ color: 'var(--accent)' }}>simple</span>
-                        </h1>
-                        <p
-                            className="text-base sm:text-lg leading-relaxed mb-8 max-w-xl mx-auto animate-slide-up"
-                            style={{ color: 'var(--fg-secondary)', animationDelay: '80ms' }}
-                        >
-                            Citas, pacientes y pagos en un solo lugar. Tus pacientes reservan online y tú recibes todo organizado.
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center animate-slide-up" style={{ animationDelay: '140ms' }}>
-                            <button
-                                onClick={handleCTA}
-                                className="btn btn-primary h-12 px-7 text-sm gap-2"
+                    <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(440px,1.1fr)] lg:gap-14">
+                        <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
+                            <div
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-8 animate-fade-in border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)]"
                             >
-                                Comenzar gratis
-                                <IconArrowRight size={16} />
-                            </button>
-                            <a
-                                href="#como-funciona"
-                                className="btn btn-outline h-12 px-7 text-sm gap-2"
-                            >
-                                <IconPlayerPlay size={14} />
-                                Ver como funciona
-                            </a>
-                        </div>
-                        {/* Trust bar */}
-                        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-8 animate-fade-in" style={{ animationDelay: '280ms' }}>
-                            <div className="flex items-center gap-1.5">
-                                {[1, 2, 3, 4, 5].map((s) => (
-                                    <IconStar key={s} size={13} fill="var(--accent)" style={{ color: 'var(--accent)' }} />
-                                ))}
-                                <span className="text-sm font-medium ml-1" style={{ color: 'var(--fg)' }}>5.0</span>
+                                <IconCalendar size={13} />
+                                Agenda profesional online
                             </div>
-                            <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                <span>100% gratuito</span>
-                                <span style={{ color: 'var(--border)' }}>|</span>
-                                <span>Sin tarjeta</span>
-                                <span style={{ color: 'var(--border)' }}>|</span>
-                                <span>Listo en 5 min</span>
+                            <h1
+                                className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight mb-6 animate-slide-up"
+                                style={{ color: 'var(--fg)', letterSpacing: '-0.03em' }}
+                            >
+                                Gestiona tu consulta de forma{' '}
+                                <span style={{ color: 'var(--accent)' }}>simple</span>
+                            </h1>
+                            <p
+                                className="text-base sm:text-lg leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0 animate-slide-up"
+                                style={{ color: 'var(--fg-secondary)', animationDelay: '80ms' }}
+                            >
+                                Citas, clientes y pagos en un solo lugar. Tus reservas llegan online y tú recibes todo organizado.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start animate-slide-up" style={{ animationDelay: '140ms' }}>
+                                <button
+                                    onClick={handleCTA}
+                                    className="btn btn-primary h-12 px-7 text-sm gap-2"
+                                >
+                                    Comenzar gratis
+                                    <IconArrowRight size={16} />
+                                </button>
+                                <a
+                                    href="#como-funciona"
+                                    className="btn btn-outline h-12 px-7 text-sm gap-2"
+                                >
+                                    <IconPlayerPlay size={14} />
+                                    Ver como funciona
+                                </a>
+                            </div>
+                            {/* Trust bar */}
+                            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-5 sm:gap-8 animate-fade-in" style={{ animationDelay: '280ms' }}>
+                                <div className="flex items-center gap-1.5">
+                                    {[1, 2, 3, 4, 5].map((s) => (
+                                        <IconStar key={s} size={13} fill="var(--accent)" style={{ color: 'var(--accent)' }} />
+                                    ))}
+                                    <span className="text-sm font-medium ml-1" style={{ color: 'var(--fg)' }}>5.0</span>
+                                </div>
+                                <div className="flex flex-wrap items-center justify-center gap-3 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                    <span>100% gratuito</span>
+                                    <span style={{ color: 'var(--border)' }}>|</span>
+                                    <span>Sin tarjeta</span>
+                                    <span style={{ color: 'var(--border)' }}>|</span>
+                                    <span>Listo en 5 min</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="relative mx-auto w-full max-w-2xl animate-scale-in">
+                            <div
+                                className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
+                            >
+                                <img
+                                    src="/hero/consultation-hero.webp"
+                                    alt="Profesional usando SimpleAgenda con una paciente en consulta"
+                                    width={1600}
+                                    height={854}
+                                    className="h-full w-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.18),rgba(0,0,0,0)_42%)]" />
+                            </div>
+                            <div
+                                className="absolute -bottom-5 left-4 right-4 grid gap-2 rounded-2xl border p-3 shadow-lg sm:left-auto sm:right-6 sm:w-72"
+                                style={{ borderColor: 'var(--border)', background: 'color-mix(in oklab, var(--surface) 94%, transparent)' }}
+                            >
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-xs font-semibold" style={{ color: 'var(--fg)' }}>Agenda del día</span>
+                                    <span className="rounded-full px-2 py-1 text-[11px] font-semibold" style={{ color: 'var(--accent)', background: 'var(--accent-subtle)' }}>Organizada</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {['Citas', 'Pagos', 'Pacientes'].map((item, index) => (
+                                        <div key={item} className="rounded-xl border p-2" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                                            <p className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>{item}</p>
+                                            <p className="mt-1 text-sm font-bold" style={{ color: 'var(--fg)' }}>{index === 0 ? '8' : index === 1 ? '$' : '24'}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -191,24 +226,37 @@ export default function HomePage() {
             <section style={{ background: 'var(--bg-subtle)' }}>
                 <div className="container-app py-16 sm:py-20 lg:py-24">
                     <div className="grid lg:grid-cols-2 gap-8 lg:gap-10 items-center max-w-5xl mx-auto">
-                        {/* Left — calendar mockup */}
+                        {/* Left — real professional support image */}
                         <div className="flex justify-center">
                             <div
-                                className="w-full max-w-sm rounded-2xl overflow-hidden animate-scale-in"
+                                className="relative w-full max-w-sm rounded-2xl overflow-hidden animate-scale-in"
                                 style={{
                                     border: '1px solid var(--border)',
                                     boxShadow: 'var(--shadow-xl)',
                                     background: 'var(--surface)',
                                 }}
                             >
-                                { }
                                 <img
-                                    src="/hero/agenda.svg"
-                                    alt="Vista de agenda SimpleAgenda"
-                                    width={560}
-                                    height={480}
-                                    className="w-full h-auto"
+                                    src="/hero/mobile-agenda-professional.webp"
+                                    alt="Profesional revisando su agenda desde el celular"
+                                    width={1024}
+                                    height={1536}
+                                    className="aspect-[4/5] w-full object-cover"
                                 />
+                                <div
+                                    className="absolute bottom-4 left-4 right-4 rounded-2xl border p-3"
+                                    style={{ borderColor: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(14px)' }}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}>
+                                            <IconDeviceMobile size={18} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>Control desde el celular</p>
+                                            <p className="text-xs" style={{ color: '#64748b' }}>Ideal entre atenciones o fuera de la consulta.</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -216,7 +264,7 @@ export default function HomePage() {
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Ventajas</p>
                             <h2 className="text-2xl sm:text-3xl font-bold mb-3" style={{ color: 'var(--fg)' }}>¿Por qué elegir SimpleAgenda?</h2>
-                            <p className="mb-8" style={{ color: 'var(--fg-muted)' }}>Diseñado para simplificar el día a día de profesionales de salud.</p>
+                            <p className="mb-8" style={{ color: 'var(--fg-muted)' }}>Diseñado para simplificar el día a día de profesionales y negocios que trabajan con horas reservadas.</p>
 
                             <div className="grid sm:grid-cols-2 gap-4">
                                 {DIFFERENTIATORS.map((d, i) => (
@@ -273,7 +321,7 @@ export default function HomePage() {
                 <div className="text-center mb-10 sm:mb-14 lg:mb-16">
                     <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Funcionalidades</p>
                     <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Todo lo que necesitas en un solo lugar</h2>
-                    <p className="max-w-lg mx-auto" style={{ color: 'var(--fg-muted)' }}>Una plataforma completa pensada para profesionales de la salud y servicios.</p>
+                    <p className="max-w-lg mx-auto" style={{ color: 'var(--fg-muted)' }}>Una plataforma completa pensada para profesionales, equipos y negocios que necesitan ordenar reservas.</p>
                 </div>
 
                 {/* Row 1: Booking page — image left, text right */}
@@ -293,7 +341,7 @@ export default function HomePage() {
                         </div>
                         <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Reservas online 24/7</h3>
                         <p className="leading-relaxed mb-5" style={{ color: 'var(--fg-muted)' }}>
-                            Tus pacientes eligen servicio, fecha y hora desde tu página pública. Sin llamadas, sin WhatsApp ida y vuelta.
+                            Tus clientes eligen servicio, fecha y hora desde tu página pública. Sin llamadas, sin WhatsApp ida y vuelta.
                         </p>
                         <ul className="flex flex-col gap-2">
                             {['Página de reservas con tu marca', 'Selección de servicio y horario', 'Confirmación automática por email'].map((item) => (
@@ -314,10 +362,10 @@ export default function HomePage() {
                         </div>
                         <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Control total de tu consulta</h3>
                         <p className="leading-relaxed mb-5" style={{ color: 'var(--fg-muted)' }}>
-                            Visualiza citas, ingresos y pacientes activos desde un dashboard claro. Registra pagos y lleva el control financiero.
+                            Visualiza citas, ingresos y clientes activos desde un dashboard claro. Registra pagos y lleva el control financiero.
                         </p>
                         <ul className="flex flex-col gap-2">
-                            {['Dashboard con métricas clave', 'Historial de pagos por paciente', 'Notas clínicas por sesión'].map((item) => (
+                            {['Dashboard con métricas clave', 'Historial de pagos por cliente', 'Notas por atención o sesión'].map((item) => (
                                 <li key={item} className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                                     <IconCheck size={14} style={{ color: 'var(--accent)' }} />
                                     {item}
@@ -380,6 +428,26 @@ export default function HomePage() {
                                 <p className="text-sm leading-relaxed max-w-xs mx-auto" style={{ color: 'var(--fg-muted)' }}>{step.desc}</p>
                             </div>
                         ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══════════════ SEO SUPPORT COPY ═══════════════ */}
+            <section className="container-app py-14 sm:py-16">
+                <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Agenda online para servicios</p>
+                        <h2 className="text-2xl sm:text-3xl font-bold leading-tight" style={{ color: 'var(--fg)' }}>
+                            Reservas online para profesionales, barberías, estética y negocios con atención por hora
+                        </h2>
+                    </div>
+                    <div className="grid gap-4 text-sm leading-7" style={{ color: 'var(--fg-secondary)' }}>
+                        <p>
+                            SimpleAgenda es un sistema de reservas online para organizar citas, clientes, pagos y disponibilidad desde una sola plataforma. Está pensado para quienes atienden con horario reservado y necesitan reducir mensajes repetidos, llamadas y cambios manuales.
+                        </p>
+                        <p>
+                            Puedes usarlo como agenda para barbería, estética, terapias, salud privada, asesorías, clases, consultorías o cualquier servicio que dependa de reservar una hora. Tus clientes eligen un horario disponible y tú recibes la información ordenada en tu panel.
+                        </p>
                     </div>
                 </div>
             </section>

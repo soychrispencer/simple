@@ -454,11 +454,11 @@ export default function OnboardingPage() {
                                 style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
                             >
                                 <span className="text-sm font-mono truncate" style={{ color: 'var(--accent)' }}>
-                                    simpleagenda.cl/{profileLink}
+                                    simpleagenda.app/{profileLink}
                                 </span>
                                 <button
                                     type="button"
-                                    onClick={() => void navigator.clipboard.writeText(`https://simpleagenda.cl/${profileLink}`)}
+                                    onClick={() => void navigator.clipboard.writeText(`https://simpleagenda.app/${profileLink}`)}
                                     className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0"
                                     style={{ background: 'var(--accent)', color: '#fff' }}
                                 >
