@@ -346,6 +346,10 @@ h4 {
     padding-right: clamp(0.9rem, 1.7vw, 2rem);
 }
 
+.avatar-upload-cropper--rounded .reactEasyCrop_CropArea {
+    border-radius: 28px !important;
+}
+
 @media (max-width: 1023px) {
     .panel-content-frame .container-app {
         padding-left: clamp(1rem, 4vw, 1.4rem);
@@ -661,6 +665,15 @@ h4 {
     color: var(--fg);
     border-color: var(--border-strong);
     box-shadow: var(--shadow-xs);
+}
+
+.header-icon-chip:focus {
+    outline: none;
+}
+
+.header-icon-chip:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+    outline-offset: 2px;
 }
 
 /* ── Panel filter chips ───────────────────────────────────────────────────── */

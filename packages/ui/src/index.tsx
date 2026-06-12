@@ -67,6 +67,11 @@ export {
     type PanelStepNavProps,
 } from './panel/panel-navigation';
 export {
+    PanelSectionTabs,
+    type PanelSectionTabItem,
+    type PanelSectionTabsProps,
+} from './panel/panel-section-tabs';
+export {
     PanelAccountProfileCard,
     PanelActions,
     PanelEmptyState,
@@ -149,6 +154,13 @@ export {
     type PanelPersonalDataAction,
     type PanelPersonalDataRowProps,
 } from './panel/panel-personal-data-list.js';
+export {
+    PanelAccountPersonalDataSection,
+    type PanelAccountPersonalDataSaveInput,
+    type PanelAccountPersonalDataSaveResult,
+    type PanelAccountPersonalDataSectionProps,
+    type PanelAccountPersonalDataUser,
+} from './panel/account-personal-data-section.js';
 export { resolveActiveNavHref, cleanPanelPath } from './panel/resolve-active-nav';
 export { PublicProfileEditor, type PublicProfileEditorProps, type PublicProfileVertical } from './panel/public-profile-editor';
 export { AvatarUpload, type AvatarUploadConfig, type AvatarUploadHandle, type AvatarUploadProps } from './avatar-upload';

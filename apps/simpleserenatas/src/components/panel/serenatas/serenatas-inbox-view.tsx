@@ -48,7 +48,6 @@ import {
     FormFeedback,
     SerenataRow,
     cleanSerenataAddress,
-    commissionPercentFromBps,
     computeSerenataAppDeduction,
     formatDate,
     formatSerenataListSummary,
@@ -438,9 +437,9 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
             cancelled = true;
         };
     }, [item.id, item.providerGroupId, item.selectedServiceId, item.songsIncludedAtBooking]);
-    const commissionBps = ownerPlan?.commissionAppBps ?? ownerPlan?.constants.APP_COMMISSION_FREE_BPS ?? 1500;
-    const commissionVatBps = ownerPlan?.commissionVatBps ?? ownerPlan?.constants.COMMISSION_VAT_BPS ?? 1900;
-    const commissionPercent = ownerPlan?.commissionAppPercent ?? commissionPercentFromBps(commissionBps);
+    void ownerPlan;
+    const commissionBps = 0;
+    const commissionVatBps = 0;
     const appDeduction = item.source === 'platform_lead' && item.price != null
         ? computeSerenataAppDeduction(item.price, commissionBps, commissionVatBps)
         : null;
@@ -529,7 +528,7 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
                     </div>
                     <div className="mt-5 grid min-w-0 gap-4 sm:grid-cols-3">
                         <MoneyMetric label="Precio" value={item.price} strong />
-                        <MoneyMetric label={`Comisión ${commissionPercent}% + IVA`} value={commission} />
+                        <MoneyMetric label="Costo Simple" value={commission} />
                         <MoneyMetric label="Estimado neto" value={net} strong />
                     </div>
                 </div>

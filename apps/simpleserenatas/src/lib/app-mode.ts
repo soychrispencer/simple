@@ -7,7 +7,7 @@ export type AppMode = 'client' | 'work';
 export const APP_MODE_STORAGE_KEY = 'serenatas-app-mode';
 const LEGACY_PROFILE_STORAGE_KEY = 'serenatas-active-profile';
 
-/** Perfil dueño; la suscripción ya no restringe el panel. */
+/** Perfil dueño; la prueba/Pro se evalúa en funciones comerciales, no al resolver el modo base. */
 export function isOwnerSubscriptionActive(
     owner: OwnerProfile | null | undefined,
 ): boolean {

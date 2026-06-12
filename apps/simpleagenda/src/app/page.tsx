@@ -73,16 +73,16 @@ const PROFESSIONALS = [
     { icon: IconBriefcase, label: 'Consultorías' },
 ];
 
-const FREE_FEATURES = ['Hasta 10 citas al mes', 'Hasta 5 clientes', 'Página de reserva pública', 'Recordatorios por email'];
-const PRO_FEATURES = ['Citas y clientes ilimitados', 'Notas por atención', 'Control de pagos y cobros', 'Recordatorios email + WhatsApp', 'Estadísticas de negocio', 'Soporte prioritario'];
+const ESSENTIAL_FEATURES = ['Perfil público activo', 'Marketplace y link de reservas', 'Servicios y agenda básica', 'Reservas y clientes básicos', 'Notificaciones básicas', 'Sin comisión por reserva'];
+const PRO_FEATURES = ['Todo lo del Esencial', 'Agenda avanzada', 'Clientes, historial y notas', 'Pagos, packs y promociones', 'Recordatorios avanzados', 'Reportes, NPS y referidos', 'Automatización y múltiples ubicaciones', 'Sin comisión por reserva'];
 
 const FAQS: { q: string; a: string }[] = [
-    { q: '¿Es realmente gratis?', a: 'Sí. El plan gratuito incluye hasta 10 citas mensuales y 5 clientes sin costo. No necesitas tarjeta de crédito para comenzar.' },
-    { q: '¿Puedo cambiar de plan en cualquier momento?', a: 'Claro. Puedes actualizar a Pro cuando quieras desde tu panel. Si decides volver al plan gratuito, tus datos se mantienen intactos.' },
+    { q: '¿La prueba es gratis?', a: 'Sí. Al activar tu cuenta tienes 30 días para probar todas las funciones. Después eliges Esencial o Pro para seguir operando.' },
+    { q: '¿Puedo cambiar de plan en cualquier momento?', a: 'Sí. Puedes elegir Esencial o Pro desde tu panel. Si cancelas, tus datos se mantienen guardados.' },
     { q: '¿Mis clientes necesitan crear una cuenta?', a: 'No. Tus clientes reservan directamente desde tu página pública sin necesidad de registrarse.' },
     { q: '¿Qué métodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus clientes paguen por adelantado.' },
     { q: '¿Funciona para consultas presenciales y online?', a: 'Sí. Puedes configurar servicios presenciales, online o ambos. Cada servicio puede tener duración y precio diferente.' },
-    { q: '¿Puedo cancelar cuando quiera?', a: 'Absolutamente. Sin contratos ni permanencia. Cancela tu plan Pro en cualquier momento desde tu panel.' },
+    { q: '¿Puedo cancelar cuando quiera?', a: 'Absolutamente. Sin contratos ni permanencia. Cancela tu suscripción en cualquier momento desde tu panel.' },
 ];
 
 /* ────────────────────────── Helpers ────────────────────────── */
@@ -432,50 +432,36 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* ═══════════════ SEO SUPPORT COPY ═══════════════ */}
-            <section className="container-app py-14 sm:py-16">
-                <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Agenda online para servicios</p>
-                        <h2 className="text-2xl sm:text-3xl font-bold leading-tight" style={{ color: 'var(--fg)' }}>
-                            Reservas online para profesionales, barberías, estética y negocios con atención por hora
-                        </h2>
-                    </div>
-                    <div className="grid gap-4 text-sm leading-7" style={{ color: 'var(--fg-secondary)' }}>
-                        <p>
-                            SimpleAgenda es un sistema de reservas online para organizar citas, clientes, pagos y disponibilidad desde una sola plataforma. Está pensado para quienes atienden con horario reservado y necesitan reducir mensajes repetidos, llamadas y cambios manuales.
-                        </p>
-                        <p>
-                            Puedes usarlo como agenda para barbería, estética, terapias, salud privada, asesorías, clases, consultorías o cualquier servicio que dependa de reservar una hora. Tus clientes eligen un horario disponible y tú recibes la información ordenada en tu panel.
-                        </p>
-                    </div>
-                </div>
-            </section>
-
             {/* ═══════════════ PRICING ═══════════════ */}
             <section id="planes" className="container-app py-16 sm:py-20 lg:py-24">
                 <div className="text-center mb-10 sm:mb-14">
                     <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Planes</p>
                     <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Elige el plan que se adapte a ti</h2>
-                    <p style={{ color: 'var(--fg-muted)' }}>Sin letra chica. Sin contratos. Cancela cuando quieras.</p>
+                    <p style={{ color: 'var(--fg-muted)' }}>Comienza con 30 días de prueba completa. Después eliges Esencial o Pro.</p>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                    {/* Free */}
+                <div
+                    className="mb-5 rounded-2xl border p-4 text-center text-sm max-w-3xl mx-auto"
+                    style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-secondary)' }}
+                >
+                    La prueba no es un plan permanente: tienes acceso completo por 30 días, sin tarjeta de crédito. Tus datos se mantienen si luego eliges un plan.
+                </div>
+                <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
+                    {/* Essential */}
                     <div
                         className="p-5 sm:p-7 rounded-2xl border flex flex-col gap-5 transition-all duration-200"
                         style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}
                     >
                         <div>
-                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>Gratis</h3>
-                            <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Para empezar a ordenar tu consulta.</p>
+                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>Esencial</h3>
+                            <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Para mantener tu agenda activa y recibir reservas.</p>
                             <div className="flex items-baseline gap-1 mt-4">
-                                <span className="text-4xl font-bold" style={{ color: 'var(--fg)' }}>$0</span>
-                                <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>/mes</span>
+                                <span className="text-4xl font-bold" style={{ color: 'var(--fg)' }}>$9.990</span>
+                                <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>/mes + IVA</span>
                             </div>
                         </div>
                         <hr style={{ borderColor: 'var(--border)' }} />
                         <ul className="flex flex-col gap-2.5 flex-1">
-                            {FREE_FEATURES.map((f) => (
+                            {ESSENTIAL_FEATURES.map((f) => (
                                 <li key={f} className="flex items-start gap-2.5 text-sm" style={{ color: 'var(--fg)' }}>
                                     <IconCheck size={15} className="shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
                                     {f}
@@ -486,7 +472,7 @@ export default function HomePage() {
                             onClick={handleCTA}
                             className="btn btn-outline w-full h-11 text-sm"
                         >
-                            Comenzar gratis
+                            Comenzar prueba
                         </button>
                     </div>
 
@@ -502,10 +488,10 @@ export default function HomePage() {
                             Recomendado
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>Profesional</h3>
-                            <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Para profesionales con práctica activa.</p>
+                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>Pro</h3>
+                            <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Para profesionales y equipos con operación diaria.</p>
                             <div className="flex items-baseline gap-1 mt-4">
-                                <span className="text-4xl font-bold" style={{ color: 'var(--fg)' }}>$14.990</span>
+                                <span className="text-4xl font-bold" style={{ color: 'var(--fg)' }}>$19.990</span>
                                 <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>/mes + IVA</span>
                             </div>
                         </div>

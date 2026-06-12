@@ -89,6 +89,24 @@ function PanelNavList({
     );
 }
 
+function PanelUserAvatar({ user, sizeClass = 'h-8 w-8 rounded-[10px]' }: { user: UserInfo; sizeClass?: string }) {
+    const userName = user?.name?.trim() || 'Usuario';
+    const userInitial = userName.charAt(0).toUpperCase();
+    const className = `flex ${sizeClass} items-center justify-center overflow-hidden text-sm font-semibold`;
+    if (user.avatar) {
+        return (
+            <span className={className} style={{ background: 'var(--bg-muted)' }}>
+                <img src={user.avatar} alt="" className="h-full w-full object-cover" />
+            </span>
+        );
+    }
+    return (
+        <span className={className} style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
+            {userInitial}
+        </span>
+    );
+}
+
 export function PanelShell({
     children,
     navItems,
@@ -117,7 +135,6 @@ export function PanelShell({
     );
     const showChrome = chromeEnabled;
     const userName = user?.name?.trim() || 'Usuario';
-    const userInitial = userName.charAt(0).toUpperCase();
 
     useEffect(() => {
         const storedCollapsed = window.localStorage.getItem(collapsedStorageKey);
@@ -201,12 +218,7 @@ export function PanelShell({
                                 className="mb-3 flex items-center gap-2.5 rounded-xl border p-2.5"
                                 style={{ borderColor: 'var(--border)' }}
                             >
-                                <span
-                                    className="flex h-8 w-8 items-center justify-center rounded-[10px] text-sm font-semibold"
-                                    style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
-                                >
-                                    {userInitial}
-                                </span>
+                                <PanelUserAvatar user={{ ...user, name: userName, role: roleLabel }} />
                                 <span className="min-w-0 flex-1">
                                     <span className="block truncate text-sm" style={{ color: 'var(--fg)' }}>
                                         {userName}

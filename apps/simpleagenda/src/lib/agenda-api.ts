@@ -35,13 +35,13 @@ async function agendaMutation<T extends { ok: boolean }>(
     }
 }
 
-export type AgendaPlanId = 'free' | 'pro' | 'enterprise';
+export type AgendaPlanId = 'free' | 'essential' | 'pro';
 
 export function isPlanActive(profile: { plan: string; planExpiresAt: string | null }, minPlan: AgendaPlanId = 'pro'): boolean {
-    const RANK: Record<AgendaPlanId, number> = { free: 0, pro: 1, enterprise: 2 };
+    const RANK: Record<AgendaPlanId, number> = { free: 0, essential: 1, pro: 2 };
     const planId = profile.plan as AgendaPlanId;
     if ((RANK[planId] ?? 0) < (RANK[minPlan] ?? 1)) return false;
-    if ((planId === 'pro' || planId === 'enterprise') && profile.planExpiresAt && new Date(profile.planExpiresAt) < new Date()) return false;
+    if ((planId === 'essential' || planId === 'pro') && profile.planExpiresAt && new Date(profile.planExpiresAt) < new Date()) return false;
     return true;
 }
 

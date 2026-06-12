@@ -1,12 +1,12 @@
 import { apiFetch } from './api-client.js';
 
-export type PaymentVertical = 'autos' | 'propiedades';
+export type PaymentVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 export type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
 export type AdFormat = 'hero' | 'card' | 'inline';
 export type AdDurationDays = 7 | 15 | 30;
 export type PaymentBoostSection = 'sale' | 'rent' | 'auction' | 'project';
 export type PaymentBoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
-export type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
+export type SubscriptionPlanId = 'free' | 'essential' | 'pro' | 'enterprise';
 
 export type PaymentOrderView = {
     id: string;
@@ -47,15 +47,16 @@ export type SubscriptionPlan = {
 export type ActiveSubscription = {
     id: string;
     vertical: PaymentVertical;
-    planId: 'pro' | 'enterprise';
+    planId: 'essential' | 'pro' | 'enterprise' | 'free';
     planName: string;
     priceMonthly: number;
     currency: 'CLP';
     features: string[];
-    status: 'active' | 'cancelled' | 'paused';
+    status: 'active' | 'cancelled' | 'paused' | 'expired';
     providerStatus: string | null;
     startedAt: number;
     updatedAt: number;
+    planExpiresAt: number | null;
 };
 
 type StartCheckoutResponse = {
@@ -147,7 +148,7 @@ export async function startSubscriptionCheckout(
     vertical: PaymentVertical,
     input: {
         returnUrl: string;
-        planId: 'pro' | 'enterprise';
+        planId: 'essential' | 'pro' | 'enterprise';
     }
 ): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
     const { data } = await apiFetch<StartCheckoutResponse>('/api/payments/checkout', {

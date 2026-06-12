@@ -8,10 +8,11 @@ import {
     IconBookmark,
     IconPlus,
     IconRocket,
-    IconSettings,
+    IconUser,
     IconSparkles,
     IconMessageCircle,
     IconUsersGroup,
+    IconBriefcase,
 } from '@tabler/icons-react';
 
 export type PanelRole = 'user' | 'admin' | 'superadmin';
@@ -31,11 +32,12 @@ const PANEL_NAV_ITEMS: PanelNavItem[] = [
     { href: '/panel/publicar', label: 'Nueva publicación', icon: IconPlus },
     { href: '/panel/guardados', label: 'Guardados', icon: IconBookmark },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
-    { href: '/panel/equipo', label: 'Equipo y leads', icon: IconUsersGroup, badge: 'PRO' },
-    { href: '/panel/configuracion', label: 'Mi cuenta', icon: IconSettings },
     { href: '/panel/estadisticas', label: 'Estadísticas', icon: IconChartBar, visibility: 'admin_plus' },
     { href: '/panel/crm', label: 'CRM', icon: IconSparkles, badge: 'PRO' },
     { href: '/panel/publicidad', label: 'Publicidad', icon: IconRocket, visibility: 'admin_plus', badge: 'PRO' },
+    { href: '/panel/equipo', label: 'Equipo y leads', icon: IconUsersGroup, badge: 'PRO' },
+    { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBriefcase },
+    { href: '/panel/mi-cuenta', label: 'Mi cuenta', icon: IconUser },
 ];
 
 function canSee(itemVisibility: PanelVisibility | undefined, role: PanelRole): boolean {
@@ -66,5 +68,11 @@ function cleanPanelHref(href: string): string {
 export function isPanelNavActive(pathname: string, href: string): boolean {
     const normalized = cleanPanelHref(href);
     if (normalized === '/panel') return pathname === '/panel';
+    if (normalized === '/panel/mi-cuenta') {
+        return pathname === normalized || pathname.startsWith('/panel/mi-cuenta/');
+    }
+    if (normalized === '/panel/mi-negocio') {
+        return pathname === normalized || pathname.startsWith('/panel/mi-negocio/');
+    }
     return pathname === normalized || pathname.startsWith(`${normalized}/`);
 }

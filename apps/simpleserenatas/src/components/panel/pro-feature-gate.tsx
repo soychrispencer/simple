@@ -49,7 +49,7 @@ export function ProFeatureGate({ featureName, description, children }: ProFeatur
         );
     }
 
-    if (plan?.plan === 'pro') return <>{children}</>;
+    if (plan?.plan === 'pro' || plan?.trialActive) return <>{children}</>;
 
     return (
         <div className="grid gap-4">
@@ -73,8 +73,9 @@ export function ProFeatureGate({ featureName, description, children }: ProFeatur
                             </div>
                             <p className="mt-1 max-w-2xl text-sm text-fg-muted">{description}</p>
                             <p className="mt-3 text-sm text-fg-secondary">
-                                Tu plan Gratis sigue activo para operar, publicar servicios, recibir solicitudes y gestionar tu
-                                agenda. Pro agrega herramientas de mayor margen y operación avanzada.
+                                Esencial mantiene tu perfil activo y te permite recibir solicitudes básicas. Pro suma operación
+                                avanzada: agenda completa, músicos, finanzas, WhatsApp, mapa y rutas. Ambos planes operan sin
+                                comisión por serenata.
                             </p>
                         </div>
                     </div>
@@ -83,7 +84,7 @@ export function ProFeatureGate({ featureName, description, children }: ProFeatur
                         className={getPanelButtonClassName({ className: 'sm:shrink-0' })}
                         style={getPanelButtonStyle('primary')}
                     >
-                        Ver plan Pro
+                        Ver planes
                     </Link>
                 </div>
             </PanelCard>

@@ -28,6 +28,13 @@ export {
     type PanelPersonalDataAction,
     type PanelPersonalDataRowProps,
 } from './panel-personal-data-list';
+export {
+    PanelAccountPersonalDataSection,
+    type PanelAccountPersonalDataSaveInput,
+    type PanelAccountPersonalDataSaveResult,
+    type PanelAccountPersonalDataSectionProps,
+    type PanelAccountPersonalDataUser,
+} from './account-personal-data-section';
 export { resolveActiveNavHref, cleanPanelPath } from './resolve-active-nav';
 export { PublicProfileEditor, type PublicProfileEditorProps, type PublicProfileVertical } from './public-profile-editor';
 export { CrmTeamSettingsManager, type CrmTeamSettingsManagerProps } from './crm-team-settings-manager';
@@ -54,6 +61,11 @@ export {
     type PanelStepNavItem,
     type PanelStepNavProps,
 } from './panel-navigation';
+export {
+    PanelSectionTabs,
+    type PanelSectionTabItem,
+    type PanelSectionTabsProps,
+} from './panel-section-tabs';
 export {
     PanelAccountProfileCard,
     PanelActions,

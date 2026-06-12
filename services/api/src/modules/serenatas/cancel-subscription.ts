@@ -10,8 +10,8 @@ export async function cancelSerenatasProSubscription(
     | { ok: false; error: string; status: number }
 > {
     const sub = await loadCurrentSubscriptionFromDb(userId, 'serenatas');
-    if (!sub || sub.planSlug !== 'pro') {
-        return { ok: false, error: 'No tienes una suscripción Pro activa.', status: 400 };
+    if (!sub || (sub.planSlug !== 'essential' && sub.planSlug !== 'pro')) {
+        return { ok: false, error: 'No tienes una suscripción activa.', status: 400 };
     }
 
     const preapprovalId = sub.providerSubscriptionId;
@@ -27,7 +27,7 @@ export async function cancelSerenatasProSubscription(
         userId,
         accountId: sub.accountId,
         vertical: 'serenatas',
-        planSlug: 'pro',
+        planSlug: sub.planSlug,
         providerSubscriptionId: preapprovalId ?? `cancelled-${sub.id}`,
         providerStatus: 'cancelled',
         status: 'cancelled',
@@ -37,6 +37,6 @@ export async function cancelSerenatasProSubscription(
 
     return {
         ok: true,
-        message: 'Suscripción Pro cancelada. Vuelves al plan Gratis; la comisión en serenatas por Simple será 15% + IVA.',
+        message: 'Suscripción cancelada. Al finalizar el período vigente, tu perfil puede quedar pausado hasta activar Esencial o Pro nuevamente. SimpleSerenatas no cobra comisión por serenata.',
     };
 }

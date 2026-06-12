@@ -203,7 +203,7 @@ export function FinanzasView({
     }
 
     function exportMovementsCsv() {
-        const header = ['fecha', 'hora', 'destinatario', 'origen', 'estado', 'bruto_clp', 'comision_clp', 'neto_clp', 'cobro'];
+        const header = ['fecha', 'hora', 'destinatario', 'origen', 'estado', 'bruto_clp', 'costo_simple_clp', 'neto_clp', 'cobro'];
         const rows = movements.map((row) => [
             row.eventDate,
             row.eventTime ?? '',
@@ -256,7 +256,7 @@ export function FinanzasView({
 
     const stats = [
         { label: 'Ingreso bruto', value: money(summary.grossClp), icon: <IconCoin size={16} /> },
-        { label: 'Comisión app', value: money(summary.commissionClp), icon: <IconReceipt size={16} /> },
+        { label: 'Costo Simple', value: money(summary.commissionClp), icon: <IconReceipt size={16} /> },
         { label: 'Neto estimado', value: money(summary.netEstimatedClp), icon: <IconChartBar size={16} /> },
         { label: 'Serenatas', value: String(summary.serenataCount), icon: <IconCash size={16} /> },
     ];
@@ -489,7 +489,7 @@ export function FinanzasView({
                 <PanelCard size="md">
                     <PanelBlockHeader
                         title="Cobros Simple"
-                        description="Suscripción Pro y serenatas cobradas por la aplicación."
+                        description="Suscripción Pro y pagos online gestionados desde la aplicación."
                         className="mb-4"
                     />
                     {loadingBilling ? (
@@ -525,7 +525,7 @@ export function FinanzasView({
                                 )}
                             </div>
                             <div>
-                                <h3 className="mb-2 text-sm font-semibold text-fg">Cobros de serenatas</h3>
+                                <h3 className="mb-2 text-sm font-semibold text-fg">Pagos online de serenatas</h3>
                                 {billingBookings.length === 0 ? (
                                     <PanelNotice tone="neutral">No hay cobros de serenatas en este período.</PanelNotice>
                                 ) : (

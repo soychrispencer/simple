@@ -55,9 +55,9 @@ function profileMissingLabels(mode: AppMode, profiles: Profiles): string[] {
 }
 
 function profileCompleteHref(mode: AppMode, profiles: Profiles): string {
-    if (mode === 'client') return '/panel/cuenta?account_tab=data';
+    if (mode === 'client') return '/panel/mi-cuenta?account_tab=data';
     if (ownerFeaturesEnabled(profiles)) return panelMiNegocioHref('datos');
-    return '/panel/cuenta?account_tab=musician';
+    return '/panel/mi-cuenta?account_tab=musician';
 }
 
 function profileCompleteLinkLabel(mode: AppMode, profiles: Profiles): string {

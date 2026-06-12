@@ -12,6 +12,9 @@ import {
     IconAlertCircle,
     IconUsers,
     IconGift,
+    IconCopy,
+    IconExternalLink,
+    IconArrowRight,
 } from '@tabler/icons-react';
 import {
     fetchAgendaReferrals,
@@ -19,10 +22,12 @@ import {
     patchAgendaReferral,
     deleteAgendaReferral,
     fetchAgendaClients,
+    fetchAgendaProfile,
     type AgendaReferral,
     type ReferralStats,
     type ReferralStatus,
     type AgendaClient,
+    type AgendaProfile,
 } from '@/lib/agenda-api';
 import { fmtDateMedium } from '@/lib/format';
 import { Skeleton, SkeletonStat } from '@/components/panel/skeleton';
@@ -46,15 +51,26 @@ function clientFullName(c: AgendaClient): string {
     return `${c.firstName}${c.lastName ? ' ' + c.lastName : ''}`.trim();
 }
 
+function platformReferralUrl(profile: AgendaProfile | null): string {
+    const url = new URL('https://simpleagenda.app/');
+    url.searchParams.set('utm_source', 'simpleagenda_panel');
+    url.searchParams.set('utm_medium', 'referral');
+    url.searchParams.set('utm_campaign', 'professional_recommendation');
+    if (profile?.slug) url.searchParams.set('ref', profile.slug);
+    return url.toString();
+}
+
 export default function ReferidosPage() {
     const [referrals, setReferrals] = useState<AgendaReferral[]>([]);
     const [stats, setStats] = useState<ReferralStats>({ total: 0, pending: 0, converted: 0, rewarded: 0 });
     const [clients, setClients] = useState<AgendaClient[]>([]);
+    const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [savingStatus, setSavingStatus] = useState<string | null>(null);
     const [error, setError] = useState('');
+    const [copied, setCopied] = useState<'booking' | 'platform' | null>(null);
 
     const [form, setForm] = useState({
         referrerClientId: '',
@@ -67,10 +83,11 @@ export default function ReferidosPage() {
 
     const load = async () => {
         setLoading(true);
-        const [refData, cls] = await Promise.all([fetchAgendaReferrals(), fetchAgendaClients()]);
+        const [refData, cls, agendaProfile] = await Promise.all([fetchAgendaReferrals(), fetchAgendaClients(), fetchAgendaProfile()]);
         setReferrals(refData.referrals);
         setStats(refData.stats);
         setClients(cls);
+        setProfile(agendaProfile);
         setLoading(false);
     };
 
@@ -85,10 +102,18 @@ export default function ReferidosPage() {
     );
 
     const conversionRate = stats.total > 0 ? Math.round(((stats.converted + stats.rewarded) / stats.total) * 100) : 0;
+    const bookingUrl = profile?.slug ? `https://simpleagenda.app/${profile.slug}` : '';
+    const platformUrl = platformReferralUrl(profile);
+
+    const copyToClipboard = async (value: string, type: 'booking' | 'platform') => {
+        await navigator.clipboard.writeText(value);
+        setCopied(type);
+        window.setTimeout(() => setCopied(null), 1800);
+    };
 
     const handleCreate = async () => {
         setCreateError('');
-        if (!form.referrerClientId) { setCreateError('Selecciona el paciente que refirió.'); return; }
+        if (!form.referrerClientId) { setCreateError('Selecciona el cliente que recomendó.'); return; }
         if (!form.refereeName.trim()) { setCreateError('Indica el nombre del referido.'); return; }
         setCreating(true);
         const res = await createAgendaReferral({
@@ -140,7 +165,7 @@ export default function ReferidosPage() {
                 <div>
                     <h1 className="text-xl md:text-2xl font-semibold" style={{ color: 'var(--fg)' }}>Referidos</h1>
                     <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                        Registra quién te recomienda y agradece a tus pacientes.
+                        Controla recomendaciones y comparte tus links.
                     </p>
                 </div>
                 <button
@@ -159,6 +184,151 @@ export default function ReferidosPage() {
                 <StatCard label="Convertidos" value={String(stats.converted)} icon={IconCheck} tone="var(--accent)" />
                 <StatCard label="Conversión" value={`${conversionRate}%`} icon={IconGift} />
             </section>
+
+            <section className="grid gap-3 lg:grid-cols-2">
+                <div
+                    className="rounded-2xl border p-4 md:p-5"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
+                                Recomendaciones
+                            </p>
+                            <h2 className="mt-1 text-base font-semibold" style={{ color: 'var(--fg)' }}>
+                                Clientes que traen nuevos clientes
+                            </h2>
+                        </div>
+                        <span
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                            style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                        >
+                            <IconUserPlus size={18} />
+                        </span>
+                    </div>
+                    <div className="mb-4 inline-flex rounded-full px-3 py-1 text-xs font-medium" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+                        Beneficio definido por ti
+                    </div>
+                    <div className="grid gap-3">
+                        {[
+                            ['1', 'El cliente recomienda'],
+                            ['2', 'Guardas el contacto'],
+                            ['3', 'Si reserva, lo marcas premiado'],
+                        ].map(([step, label]) => (
+                            <div key={step} className="flex items-center gap-3">
+                                <span
+                                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                                    style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}
+                                >
+                                    {step}
+                                </span>
+                                <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{label}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowCreate(true)}
+                        className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold"
+                        style={{ background: 'var(--accent)', color: '#fff' }}
+                    >
+                        Registrar referido
+                        <IconArrowRight size={14} />
+                    </button>
+                </div>
+
+                <div
+                    className="rounded-2xl border p-4 md:p-5"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
+                                SimpleAgenda
+                            </p>
+                            <h2 className="mt-1 text-base font-semibold" style={{ color: 'var(--fg)' }}>
+                                Recomienda SimpleAgenda
+                            </h2>
+                        </div>
+                        <span
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                            style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                        >
+                            <IconShare size={18} />
+                        </span>
+                    </div>
+                    <div className="mb-4 inline-flex rounded-full px-3 py-1 text-xs font-medium" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+                        Tu link lleva tu código
+                    </div>
+                    <div className="mb-4 grid gap-3">
+                        {[
+                            ['1', 'Copias tu link'],
+                            ['2', 'Lo compartes con colegas'],
+                            ['3', 'El origen queda identificado'],
+                        ].map(([step, label]) => (
+                            <div key={step} className="flex items-center gap-3">
+                                <span
+                                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                                    style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}
+                                >
+                                    {step}
+                                </span>
+                                <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{label}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div
+                        className="rounded-xl border p-3 text-xs leading-5"
+                        style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}
+                    >
+                        <span className="line-clamp-2 break-all">{platformUrl}</span>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                        <button
+                            type="button"
+                            onClick={() => void copyToClipboard(platformUrl, 'platform')}
+                            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium"
+                            style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                        >
+                            <IconCopy size={14} />
+                            {copied === 'platform' ? 'Copiado' : 'Copiar link'}
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {bookingUrl ? (
+                <section
+                    className="flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div className="min-w-0">
+                        <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Tu página pública de reservas</h2>
+                        <p className="mt-1 truncate text-xs" style={{ color: 'var(--fg-muted)' }}>{bookingUrl}</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => void copyToClipboard(bookingUrl, 'booking')}
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-medium"
+                            style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                        >
+                            <IconCopy size={13} />
+                            {copied === 'booking' ? 'Copiado' : 'Copiar'}
+                        </button>
+                        <a
+                            href={bookingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-medium"
+                            style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                        >
+                            <IconExternalLink size={13} />
+                            Abrir
+                        </a>
+                    </div>
+                </section>
+            ) : null}
 
             {error ? (
                 <div
@@ -180,7 +350,7 @@ export default function ReferidosPage() {
                         <IconShare size={28} className="mx-auto mb-3" style={{ color: 'var(--fg-muted)' }} />
                         <p className="text-sm mb-1" style={{ color: 'var(--fg)' }}>Aún no hay referidos registrados.</p>
                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                            Registra el primer paciente que recomendó a alguien.
+                            Registra el primer cliente que recomendó a alguien.
                         </p>
                     </div>
                 ) : (
@@ -291,7 +461,7 @@ export default function ReferidosPage() {
                         <div className="flex flex-col gap-3">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
-                                    Paciente que refirió
+                                    Cliente que recomendó
                                 </label>
                                 <select
                                     value={form.referrerClientId}

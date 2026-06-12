@@ -27,6 +27,8 @@ export const users = pgTable('users', {
   signupApp: varchar('signup_app', { length: 40 }),
   signupOrigin: varchar('signup_origin', { length: 255 }),
   avatarUrl: varchar('avatar_url', { length: 500 }),
+  timezone: varchar('timezone', { length: 50 }).notNull().default('America/Santiago'),
+  dstEnabled: boolean('dst_enabled').notNull().default(false),
   // OAuth fields
   provider: varchar('provider', { length: 20 }), // 'local' | 'google' | 'facebook' | etc.
   providerId: varchar('provider_id', { length: 255 }), // ID from OAuth provider
@@ -86,6 +88,25 @@ export const emailVerificationTokens = pgTable('email_verification_tokens', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
   uniqueTokenHash: uniqueIndex('email_verification_tokens_token_hash_idx').on(table.tokenHash),
+}));
+
+export const userPlatformAccess = pgTable('user_platform_access', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  app: varchar('app', { length: 40 }).notNull(),
+  role: varchar('role', { length: 40 }).notNull().default('user'),
+  status: varchar('status', { length: 20 }).notNull().default('active'),
+  origin: varchar('origin', { length: 255 }),
+  firstSeenAt: timestamp('first_seen_at').notNull().defaultNow(),
+  activatedAt: timestamp('activated_at'),
+  lastLoginAt: timestamp('last_login_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  uniqueUserApp: uniqueIndex('user_platform_access_user_app_idx').on(table.userId, table.app),
+  userIdx: index('user_platform_access_user_idx').on(table.userId),
+  appIdx: index('user_platform_access_app_idx').on(table.app),
+  statusIdx: index('user_platform_access_status_idx').on(table.status),
 }));
 
 // Listings table
@@ -1125,7 +1146,7 @@ export const serenataOwners = pgTable('serenata_owners', {
   minPrice: integer('min_price'),
   maxPrice: integer('max_price'),
   subscriptionStatus: varchar('subscription_status', { length: 30 }).notNull().default('trialing'),
-  subscriptionPrice: integer('subscription_price').notNull().default(49990),
+  subscriptionPrice: integer('subscription_price').notNull().default(9990),
   commissionRateBps: integer('commission_rate_bps').notNull().default(800),
   commissionVatRateBps: integer('commission_vat_rate_bps').notNull().default(1900),
   trialEndsAt: timestamp('trial_ends_at').notNull(),
@@ -1175,6 +1196,7 @@ export const serenataProviderGroups = pgTable('serenata_provider_groups', {
     holderEmail: string;
     alias?: string;
   } | null>(),
+  timezone: varchar('timezone', { length: 50 }).notNull().default('America/Santiago'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({

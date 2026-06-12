@@ -54,7 +54,7 @@ Apps con `transpilePackages: ['@simple/ui', …]` en `next.config` siguen necesi
 
 ## Libreta de direcciones en apps
 
-- **simpleautos / simplepropiedades**: página `/panel/configuracion/direcciones` con `useAddressBookPage` + `AddressBookManager`.
+- **simpleautos / simplepropiedades**: página `/panel/mi-negocio/direcciones` con `useAddressBookPage` + `AddressBookManager`.
 - **simpleserenatas**: direcciones en la SPA (`account_tab=addresses`), no usa la página Next de libreta.
 - **simpleagenda**: API propia (`agenda-api`); no usar `useAddressBookPage`.
 

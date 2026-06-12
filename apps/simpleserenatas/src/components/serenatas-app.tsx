@@ -160,7 +160,7 @@ export function SerenatasApp() {
             <SerenatasChromeHeader mode={mode} profiles={profiles} />
 
             <SerenataPanelShell section={section} onSectionChange={changeSection}>
-                <div className="panel-page container-app mx-auto min-w-0 max-w-7xl py-4 lg:py-8">
+                <div className="container-app panel-page min-w-0 py-4 lg:py-8">
                         {isSuspended ? (
                             <PanelNotice tone="error" className="mb-4">
                                 {suspendedAccountNotice(mode)}

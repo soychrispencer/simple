@@ -7,7 +7,7 @@ import { useAuth } from '@simple/auth';
 import { PanelShell as SharedPanelShell } from '@simple/ui/panel';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
-import { getPanelNavItems, panelRoleLabel, type PanelRole } from '@/components/panel/panel-nav-config';
+import { getPanelNavItems, isPanelNavActive, panelRoleLabel, type PanelRole } from '@/components/panel/panel-nav-config';
 
 const STORAGE_COLLAPSED = 'simpleagenda:panel:collapsed';
 
@@ -24,6 +24,10 @@ export function PanelShell({ children }: { children: ReactNode }) {
         () => getPanelNavItems(role).map(({ href, label, icon, badge }) => ({ href, label, icon, badge })),
         [role]
     );
+    const activeHref = useMemo(
+        () => navItems.find((item) => isPanelNavActive(pathname, item.href))?.href ?? null,
+        [navItems, pathname],
+    );
 
     const userName = user?.name?.trim() || 'Usuario';
     const roleLabel = panelRoleLabel(role);
@@ -31,7 +35,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
     return (
         <SharedPanelShell
             navItems={navItems}
-            user={{ name: userName, role: roleLabel }}
+            user={{ name: userName, role: roleLabel, avatar: user?.avatar }}
             roleLabel={roleLabel}
             collapsedStorageKey={STORAGE_COLLAPSED}
             footerHref="/"
@@ -40,6 +44,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             bottomNav={<PanelBottomNav />}
             chromeEnabled={!isFullscreenFlow}
             isVerified={user?.status === 'verified'}
+            activeHref={activeHref}
         >
             {children}
         </SharedPanelShell>

@@ -1,10 +1,11 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { AddressBookManager } from './address-book-manager';
 import { useAddressBookPage } from './use-address-book-page';
 import { PanelNotice, PanelPageHeader } from '../panel';
 
-export function PanelAddressesPage() {
+export function PanelAddressesPage({ afterHeader }: { afterHeader?: ReactNode }) {
     const {
         addressBook,
         loading,
@@ -21,10 +22,10 @@ export function PanelAddressesPage() {
     return (
         <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
-                backHref="/panel/configuracion"
                 title="Direcciones"
                 description="Registra y gestiona tus direcciones. Puedes tener más de una activa."
             />
+            {afterHeader}
             <div className="space-y-4">
                 <AddressBookManager
                     showHeader={false}

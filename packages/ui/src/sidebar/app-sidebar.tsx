@@ -38,6 +38,24 @@ function cleanHref(href: string): string {
     return href.split('#')[0] ?? href;
 }
 
+function SidebarAvatar({ user, className = 'w-8 h-8 rounded-[10px]' }: { user: UserInfo; className?: string }) {
+    const userName = user?.name || 'Usuario';
+    const userInitial = userName.charAt(0).toUpperCase();
+    const baseClass = `${className} flex items-center justify-center overflow-hidden text-sm font-semibold`;
+    if (user.avatar) {
+        return (
+            <span className={baseClass} style={{ background: 'var(--bg-muted)' }}>
+                <img src={user.avatar} alt="" className="h-full w-full object-cover" />
+            </span>
+        );
+    }
+    return (
+        <span className={baseClass} style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
+            {userInitial}
+        </span>
+    );
+}
+
 export function Sidebar({
     navItems,
     user,
@@ -62,7 +80,6 @@ export function Sidebar({
 
     const showExpanded = !collapsed || hovered;
     const userName = user?.name || 'Usuario';
-    const userInitial = userName.charAt(0).toUpperCase();
     const userRoleLabel = user?.role || 'Usuario';
     const FooterIcon = footerIcon || IconUser;
 
@@ -125,12 +142,7 @@ export function Sidebar({
                     style={{ borderColor: 'var(--border)' }}
                     title={collapsed ? `${userName} · ${userRoleLabel}` : undefined}
                 >
-                    <span
-                        className="w-8 h-8 rounded-[10px] flex items-center justify-center text-sm font-semibold"
-                        style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
-                    >
-                        {userInitial}
-                    </span>
+                    <SidebarAvatar user={user} />
                     {!collapsed ? (
                         <span className="min-w-0 flex-1">
                             <span className="block text-sm truncate" style={{ color: 'var(--fg)' }}>

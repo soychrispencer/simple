@@ -272,8 +272,8 @@ export function CrmTeamSettingsManager({
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    <Link href="/panel/suscripciones" className="btn-primary">Ver suscripciones</Link>
-                    <Link href="/panel/configuracion" className="btn-secondary">Volver a configuración</Link>
+                    <Link href="/panel/mi-cuenta/suscripcion" className="btn-primary">Ver suscripciones</Link>
+                    <Link href="/panel/mi-negocio" className="btn-secondary">Volver a configuración</Link>
                 </div>
             </PanelCard>
         );
@@ -297,7 +297,7 @@ export function CrmTeamSettingsManager({
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                        <Link href="/panel/configuracion" className="btn-secondary">
+                        <Link href="/panel/mi-negocio" className="btn-secondary">
                             Editar página pública
                         </Link>
                     </div>
@@ -483,7 +483,7 @@ export function CrmTeamSettingsManager({
                 <PanelButton type="button" onClick={() => void handleSave()} disabled={saving}>
                     {saving ? 'Guardando...' : 'Guardar equipo y routing'}
                 </PanelButton>
-                <Link href="/panel/configuracion" className="btn-secondary">
+                <Link href="/panel/mi-negocio" className="btn-secondary">
                     Ir a página pública
                 </Link>
             </div>

@@ -17,8 +17,8 @@ test.describe('SimpleSerenatas panel smoke', () => {
         });
     });
 
-    test('/panel/cuenta muestra acceso o formulario de cuenta', async ({ page }) => {
-        await page.goto('/panel/cuenta');
+    test('/panel/mi-cuenta muestra acceso o formulario de cuenta', async ({ page }) => {
+        await page.goto('/panel/mi-cuenta');
         await expect(page).toHaveURL(/\/panel\/cuenta/, { timeout: 10_000 });
         await expect(
             page.getByRole('heading', { name: /acceso restringido|mi cuenta/i }).first(),

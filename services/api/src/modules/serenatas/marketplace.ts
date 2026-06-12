@@ -64,8 +64,14 @@ import {
     toggleSavedMariachiSchema,
 } from './saved-provider-groups.js';
 import { listProviderGroupReviews, recomputeProviderGroupRatings } from './provider-group-ratings.js';
+import { resolveActiveSerenataBillingPlan } from './plan.js';
+import { defaultSerenataTrialEndsAt } from './plan-config.js';
 
 export { recomputeProviderGroupRatings, listProviderGroupReviews } from './provider-group-ratings.js';
+
+const ESSENTIAL_ACTIVE_SERVICE_LIMIT = 3;
+const ESSENTIAL_SERVICE_LIMIT_MESSAGE =
+    'Esencial permite hasta 3 servicios activos. Durante la prueba tienes acceso completo; activa Pro para publicar más servicios.';
 
 type AuthUser = {
     id: string;
@@ -74,6 +80,31 @@ type AuthUser = {
     role: string;
     status: string;
 };
+
+async function essentialServiceLimitReached(
+    userId: string,
+    providerGroupId: string,
+    options: { excludeServiceId?: string | null } = {},
+): Promise<boolean> {
+    const plan = await resolveActiveSerenataBillingPlan(userId);
+    if (plan === 'pro') return false;
+    const owner = await db.query.serenataOwners.findFirst({
+        where: eq(serenataOwners.userId, userId),
+    });
+    const trialActive = Boolean(owner?.trialEndsAt && owner.trialEndsAt.getTime() >= Date.now());
+    if (plan === 'free') return !trialActive;
+    const filters = [
+        eq(serenataGroupServices.providerGroupId, providerGroupId),
+        eq(serenataGroupServices.isActive, true),
+    ];
+    if (options.excludeServiceId) filters.push(ne(serenataGroupServices.id, options.excludeServiceId));
+    const rows = await db
+        .select({ id: serenataGroupServices.id })
+        .from(serenataGroupServices)
+        .where(and(...filters))
+        .limit(ESSENTIAL_ACTIVE_SERVICE_LIMIT);
+    return rows.length >= ESSENTIAL_ACTIVE_SERVICE_LIMIT;
+}
 
 export type MarketplaceDeps = {
     authUser: (c: Context) => Promise<AuthUser | null>;
@@ -973,9 +1004,9 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
                 comuna: application.comunaBase,
                 region: application.region,
                 workingComunas: application.serviceComunas,
-                subscriptionStatus: 'active',
+                subscriptionStatus: 'trialing',
                 subscriptionPrice: 0,
-                trialEndsAt: new Date('2099-12-31T00:00:00.000Z'),
+                trialEndsAt: defaultSerenataTrialEndsAt(),
             }).returning())[0];
             const slug = await uniqueSlug(application.name);
             const [group] = await tx.insert(serenataProviderGroups).values({
@@ -1541,6 +1572,9 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
         if (!access.ok) return access.response;
         const parsed = groupServiceWriteSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return deps.jsonError(c, 'Servicio inválido');
+        if ((parsed.data.isActive ?? true) && await essentialServiceLimitReached(user.id, access.group.id)) {
+            return deps.jsonError(c, ESSENTIAL_SERVICE_LIMIT_MESSAGE, 409);
+        }
         const [item] = await db.insert(serenataGroupServices).values({
             providerGroupId: access.group.id,
             ...parsed.data,
@@ -1572,6 +1606,10 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
         const nextPromoPrice = patch.promoPrice !== undefined ? patch.promoPrice : existing.promoPrice;
         if (nextPromoPrice != null && nextPromoPrice >= nextPrice) {
             return deps.jsonError(c, 'El precio oferta debe ser menor al precio normal.', 400);
+        }
+        const nextActive = patch.isActive ?? existing.isActive;
+        if (nextActive && await essentialServiceLimitReached(user.id, access.group.id, { excludeServiceId: serviceId })) {
+            return deps.jsonError(c, ESSENTIAL_SERVICE_LIMIT_MESSAGE, 409);
         }
         const [item] = await db.update(serenataGroupServices).set({
             ...(patch.name !== undefined ? { name: patch.name } : {}),

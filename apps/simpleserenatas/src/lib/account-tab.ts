@@ -8,8 +8,10 @@ import { profilePanelHref } from '@/lib/panel-routes';
 
 export const ACCOUNT_TAB_VALUES = [
     'data',
+    'security',
     'musician',
     'addresses',
+    'timezone',
     'notifications',
     'integrations',
     'subscription',
@@ -19,13 +21,13 @@ export type AccountTab = (typeof ACCOUNT_TAB_VALUES)[number];
 
 const LEGACY_ACCOUNT_TAB_ALIASES: Record<string, AccountTab> = {
     plan: 'subscription',
+    seguridad: 'security',
     suscripcion: 'subscription',
     suscripciones: 'subscription',
 };
 
 export function normalizeAccountTab(value: string | null | undefined): AccountTab | null {
     if (!value) return null;
-    if (value === 'security') return 'data';
     const legacy = LEGACY_ACCOUNT_TAB_ALIASES[value];
     if (legacy) return legacy;
     return isAccountTab(value) ? value : null;
@@ -53,10 +55,12 @@ export function profileSectionHref(accountTab?: AccountTab): string {
 export function getAccountPillItems(mode: AppMode, profiles: Profiles): { key: AccountTab; label: string }[] {
     const items: { key: AccountTab; label: string }[] = [
         { key: 'data', label: 'Datos personales' },
+        { key: 'security', label: 'Seguridad' },
         ...(mode === 'work' && profiles.musician
             ? [{ key: 'musician' as const, label: 'Perfil público' }]
             : []),
         { key: 'addresses', label: 'Direcciones' },
+        { key: 'timezone', label: 'Zona horaria' },
         { key: 'notifications', label: 'Notificaciones' },
     ];
     if (mode === 'work' && ownerFeaturesEnabled(profiles)) {
@@ -70,16 +74,16 @@ export function isAccountTabVisible(tab: AccountTab, mode: AppMode, profiles: Pr
     return getAccountPillItems(mode, profiles).some((item) => item.key === tab);
 }
 
-/** Rutas legacy /panel/configuracion/* → pestaña de Mi cuenta */
+/** Rutas legacy /panel/mi-negocio/* → pestaña de Mi cuenta */
 export const CONFIG_SLUG_TO_ACCOUNT_TAB: Record<string, AccountTab> = {
     cuenta: 'data',
     'datos-personales': 'data',
     personal: 'data',
+    seguridad: 'security',
     musico: 'musician',
     'perfil-publico': 'musician',
     'datos-musico': 'musician',
     direcciones: 'addresses',
-    seguridad: 'data',
     integraciones: 'integrations',
     suscripciones: 'subscription',
     suscripcion: 'subscription',

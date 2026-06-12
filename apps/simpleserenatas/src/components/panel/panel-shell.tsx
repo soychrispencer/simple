@@ -67,7 +67,7 @@ export function SerenataPanelShell({ children, section, onSectionChange }: Seren
     return (
         <SharedPanelShell
             navItems={navItems}
-            user={{ name: userName, role: accountTypeLabel }}
+            user={{ name: userName, role: accountTypeLabel, avatar: accountUser?.avatar || user?.avatar }}
             roleLabel={accountTypeLabel}
             collapsedStorageKey={STORAGE_COLLAPSED}
             footerHref={null}

@@ -23,6 +23,18 @@ export type AdminVerticalSignal = {
     lastSeenAt: number | null;
 };
 
+export type AdminPlatformAccess = {
+    app: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas';
+    label: string;
+    vertical: AdminVertical;
+    role: string;
+    status: string;
+    origin: string | null;
+    firstSeenAt: number | null;
+    activatedAt: number | null;
+    lastLoginAt: number | null;
+};
+
 export type AdminUserSnapshot = {
     id: string;
     name: string;
@@ -44,6 +56,8 @@ export type AdminUserSnapshot = {
     likelySignupVertical: AdminVertical | null;
     verticalConfidence: 'direct' | 'inferred' | 'unknown';
     verticalSignals: AdminVerticalSignal[];
+    platformAccesses: AdminPlatformAccess[];
+    primaryPlatform: AdminPlatformAccess | null;
     realness: {
         label: string;
         score: number;
@@ -86,7 +100,11 @@ async function expectOk<T>(path: string, init?: RequestInit): Promise<ApiEnvelop
 
 export async function fetchAdminUsers(): Promise<AdminUserSnapshot[]> {
     const data = await expectOk<{ items?: AdminUserSnapshot[] }>('/api/admin/users');
-    return data.items ?? [];
+    return (data.items ?? []).map((user) => ({
+        ...user,
+        platformAccesses: user.platformAccesses ?? [],
+        primaryPlatform: user.primaryPlatform ?? null,
+    }));
 }
 
 export async function updateAdminUser(userId: string, input: { name?: string; phone?: string | null; primaryVertical?: 'autos' | 'propiedades' | 'agenda' | null }): Promise<void> {

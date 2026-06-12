@@ -2127,7 +2127,7 @@ function InstagramShareButton({
     if (!eligible) {
         return (
             <Link
-                href="/panel/suscripciones"
+                href="/panel/mi-cuenta/suscripcion"
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 font-medium
                     hover:from-purple-200 hover:to-pink-200 transition-all border border-purple-200"
             >

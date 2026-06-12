@@ -2,7 +2,7 @@
 
 export function PanelLoadingFallback() {
     return (
-        <div className="container-app mx-auto min-w-0 max-w-7xl px-4 py-8 lg:py-12" aria-busy="true" aria-label="Cargando panel">
+        <div className="container-app panel-page min-w-0 py-8 lg:py-12" aria-busy="true" aria-label="Cargando panel">
             <div className="grid gap-4">
                 <div className="h-8 w-48 animate-pulse rounded-lg bg-(--bg-subtle)" />
                 <div className="h-4 w-full max-w-md animate-pulse rounded bg-(--bg-subtle)" />

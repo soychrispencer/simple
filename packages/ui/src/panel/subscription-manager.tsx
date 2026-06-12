@@ -54,7 +54,7 @@ export function SubscriptionManager({
     fetchSubscriptionCatalog,
     confirmCheckout,
     startSubscriptionCheckout,
-    subscriptionsPath = '/panel/suscripciones',
+    subscriptionsPath = '/panel/mi-cuenta/suscripcion',
 }: SubscriptionManagerProps) {
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
@@ -68,22 +68,24 @@ export function SubscriptionManager({
     const [error, setError] = useState('');
     const [busyPlanId, setBusyPlanId] = useState<string | null>(null);
     const [handledPurchaseId, setHandledPurchaseId] = useState<string | null>(null);
+    const [catalog, setCatalog] = useState<SubscriptionCatalogResponse | null>(null);
 
     const load = async () => {
         setLoading(true);
-        const catalog = await fetchSubscriptionCatalog();
-        if (!catalog) {
+        const catalogData = await fetchSubscriptionCatalog();
+        if (!catalogData) {
             setError('No pudimos cargar tus suscripciones.');
             setLoading(false);
             return;
         }
 
-        setPlans(catalog.plans);
-        setFreePlan(catalog.freePlan);
-        setOrders(catalog.orders);
-        setMercadoPagoEnabled(catalog.mercadoPagoEnabled);
-        setCurrentPlanId(catalog.currentSubscription?.planId ?? catalog.freePlan?.id ?? 'free');
-        setCurrentPlanName(catalog.currentSubscription?.planName ?? catalog.freePlan?.name ?? 'Gratuito');
+        setCatalog(catalogData);
+        setPlans(catalogData.plans);
+        setFreePlan(catalogData.freePlan);
+        setOrders(catalogData.orders);
+        setMercadoPagoEnabled(catalogData.mercadoPagoEnabled);
+        setCurrentPlanId(catalogData.currentSubscription?.planId ?? catalogData.freePlan?.id ?? 'free');
+        setCurrentPlanName(catalogData.currentSubscription?.planName ?? catalogData.freePlan?.name ?? 'Gratuito');
         setLoading(false);
     };
 
@@ -99,10 +101,14 @@ export function SubscriptionManager({
         setError('');
 
         void (async () => {
-            const result = await confirmCheckout({
+            const paymentId = searchParams.get('payment_id') ?? searchParams.get('collection_id');
+            const payload: { orderId: string; paymentId?: string } = {
                 orderId: purchaseId,
-                paymentId: searchParams.get('payment_id') ?? searchParams.get('collection_id'),
-            });
+            };
+            if (paymentId) {
+                payload.paymentId = paymentId;
+            }
+            const result = await confirmCheckout(payload);
 
             if (!result.ok) {
                 setError(result.error ?? 'No pudimos confirmar la suscripción.');
@@ -128,7 +134,7 @@ export function SubscriptionManager({
         [plans, freePlan, currentPlanId]
     );
 
-    const startCheckout = async (planId: Extract<SubscriptionPlanId, 'pro' | 'enterprise'>) => {
+    const startCheckout = async (planId: Exclude<SubscriptionPlanId, 'free'>) => {
         setBusyPlanId(planId);
         setError('');
         setMessage('');
@@ -155,10 +161,46 @@ export function SubscriptionManager({
                 <PanelNotice tone="warning">Mercado Pago aún no está disponible en este entorno.</PanelNotice>
             ) : null}
 
+            {/* Banner de prueba gratuita */}
+            {!loading && currentPlanId === 'free' && catalog?.currentSubscription && catalog.currentSubscription.planExpiresAt ? (
+                (() => {
+                    const expiresAt = new Date(catalog.currentSubscription.planExpiresAt);
+                    const now = new Date();
+                    const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+                    const isExpired = daysRemaining === 0;
+                    return (
+                        <div className={`rounded-2xl border p-5 ${isExpired ? 'bg-red-50 border-red-200' : ''}`} style={!isExpired ? { background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1))', borderColor: 'rgba(59, 130, 246, 0.3)' } : {}}>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${isExpired ? 'bg-red-200 text-red-700' : ''}`} style={!isExpired ? { background: 'rgba(59, 130, 246, 0.2)', color: 'rgb(59, 130, 246)' } : {}}>
+                                            {isExpired ? 'Prueba expirada' : 'Prueba gratuita activa'}
+                                        </span>
+                                        {!isExpired && (
+                                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white text-gray-700">
+                                                {daysRemaining} {daysRemaining === 1 ? 'día restante' : 'días restantes'}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>
+                                        {isExpired ? 'Tu prueba gratuita ha terminado' : 'Disfruta 30 días de acceso completo'}
+                                    </h3>
+                                    <p className="text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
+                                        {isExpired 
+                                            ? 'Elige Esencial o Pro para continuar operando todas las funciones.' 
+                                            : 'Tu prueba está activa. Elige Esencial o Pro para continuar operando.'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()
+            ) : null}
+
             <PanelCard size="lg">
                 <PanelBlockHeader
                     title="Plan actual"
-                    description="Gestiona tu suscripción mensual para publicar y vender mejor."
+                    description={currentPlanId === 'free' ? 'Estás en prueba gratuita. Elige un plan para continuar.' : 'Gestiona tu suscripción mensual para publicar y vender mejor.'}
                 />
 
                 {loading ? (
@@ -170,12 +212,12 @@ export function SubscriptionManager({
                                 <p className="text-sm text-(--fg-secondary)">Actualmente activo</p>
                                 <h3 className="text-2xl font-semibold text-(--fg)">{currentPlanName}</h3>
                                 <p className="mt-1 text-sm text-(--fg-secondary)">
-                                    {currentPlan?.priceMonthly ? `$${formatMoney(currentPlan.priceMonthly)} / mes` : 'Sin costo mensual'}
+                                    {currentPlan?.priceMonthly ? `$${formatMoney(currentPlan.priceMonthly)} + IVA / mes` : 'Sin costo mensual'}
                                 </p>
                             </div>
                             <PanelStatusBadge
-                                label={currentPlanId === 'free' ? 'Base' : 'Suscrito'}
-                                tone={currentPlanId === 'free' ? 'neutral' : 'success'}
+                                label={currentPlanId === 'free' ? 'Prueba gratuita' : 'Suscrito'}
+                                tone={currentPlanId === 'free' ? 'info' : 'success'}
                             />
                         </div>
                         {currentPlan?.features?.length ? (
@@ -198,14 +240,14 @@ export function SubscriptionManager({
                     description="Elige el plan que quieres facturar mensualmente con Mercado Pago."
                 />
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {plans.map((plan) => {
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 items-stretch">
+                    {plans.filter(plan => plan.id !== 'free').map((plan) => {
                         const isCurrent = plan.id === currentPlanId;
                         const isPaid = plan.priceMonthly > 0 && plan.id !== 'free';
                         return (
                             <article
                                 key={plan.id}
-                                className={`rounded-card border p-5 ${isCurrent ? 'border-(--fg) bg-(--bg-subtle)' : 'border-(--border) bg-(--surface)'}`}
+                                className={`flex flex-col h-full rounded-card border p-5 ${isCurrent ? 'border-(--fg) bg-(--bg-subtle)' : 'border-(--border) bg-(--surface)'}`}
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
@@ -216,13 +258,13 @@ export function SubscriptionManager({
                                 </div>
 
                                 <p className="mt-4 text-2xl font-semibold text-(--fg)">
-                                    {plan.priceMonthly ? `$${formatMoney(plan.priceMonthly)}` : 'Gratis'}
+                                    {plan.priceMonthly ? `$${formatMoney(plan.priceMonthly)} + IVA` : 'Gratis'}
                                 </p>
                                 <p className="text-xs text-(--fg-muted)">
-                                    {plan.priceMonthly ? 'facturación mensual' : 'sin facturación'}
+                                    {plan.priceMonthly ? 'facturación mensual + IVA' : 'sin facturación'}
                                 </p>
 
-                                <div className="mt-4 space-y-2">
+                                <div className="mt-4 flex-1 space-y-2">
                                     {plan.features.map((feature) => (
                                         <div key={feature} className="flex items-start gap-2 text-sm">
                                             <IconCheck size={14} className="mt-0.5 shrink-0 text-(--fg-secondary)" />
@@ -231,19 +273,21 @@ export function SubscriptionManager({
                                     ))}
                                 </div>
 
-                                <PanelButton
-                                    className="mt-5 w-full"
-                                    variant={isCurrent ? 'secondary' : 'primary'}
-                                    disabled={!isPaid || isCurrent || busyPlanId === plan.id || !mercadoPagoEnabled}
-                                    onClick={() => {
-                                        if (plan.id === 'pro' || plan.id === 'enterprise') {
-                                            void startCheckout(plan.id);
-                                        }
-                                    }}
-                                >
-                                    {busyPlanId === plan.id ? <IconLoader2 size={14} className="animate-spin" /> : <IconCreditCard size={14} />}
-                                    {isCurrent ? 'Plan activo' : isPaid ? 'Suscribirme' : 'Plan base'}
-                                </PanelButton>
+                                <div className="mt-auto pt-5">
+                                    <PanelButton
+                                        className="w-full"
+                                        variant={isCurrent ? 'secondary' : 'primary'}
+                                        disabled={!isPaid || isCurrent || busyPlanId === plan.id || !mercadoPagoEnabled}
+                                        onClick={() => {
+                                            if (plan.id !== 'free') {
+                                                void startCheckout(plan.id as Exclude<SubscriptionPlanId, 'free'>);
+                                            }
+                                        }}
+                                    >
+                                        {busyPlanId === plan.id ? <IconLoader2 size={14} className="animate-spin" /> : <IconCreditCard size={14} />}
+                                        {isCurrent ? 'Plan activo' : isPaid ? 'Suscribirme' : 'Plan base'}
+                                    </PanelButton>
+                                </div>
                             </article>
                         );
                     })}
@@ -270,7 +314,7 @@ export function SubscriptionManager({
                                 <div>
                                     <p className="font-medium text-(--fg)">{order.title}</p>
                                     <p className="mt-1 text-xs text-(--fg-secondary)">
-                                        ${formatMoney(order.amount)} · {new Date(order.createdAt).toLocaleString('es-CL')}
+                                        ${formatMoney(order.amount)} + IVA · {new Date(order.createdAt).toLocaleString('es-CL')}
                                     </p>
                                 </div>
                                 <PanelStatusBadge label={subscriptionLabel(order.status)} tone={subscriptionTone(order.status)} />

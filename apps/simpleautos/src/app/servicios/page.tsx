@@ -41,7 +41,7 @@ const SERVICES = [
         cta: 'Solicitar evaluación',
     },
     {
-        icon: <IconCamera size={20} />, title: 'Planes Pro', href: '/panel/suscripciones', price: 'Desde $14.990 / mes',
+        icon: <IconCamera size={20} />, title: 'Planes Pro', href: '/panel/mi-cuenta/suscripcion', price: 'Desde $14.990 / mes',
         desc: 'Suscripciones mensuales para publicar más, activar CRM y operar con mejor visibilidad.',
         features: ['Más publicaciones activas', 'Destacados incluidos', 'CRM y estadísticas', 'Cobro mensual con Mercado Pago'],
         cta: 'Ver planes',

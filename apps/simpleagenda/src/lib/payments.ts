@@ -1,56 +1,26 @@
 import { API_BASE } from '@simple/config';
+import type {
+  ConfirmCheckoutResponse,
+  PaymentOrderStatus,
+  PaymentOrderView,
+  PaymentVertical,
+  SubscriptionCatalogResponse,
+  SubscriptionPlan,
+  SubscriptionPlanId,
+} from '@simple/utils';
 
-export type PaymentOrderStatus =
-  | 'pending'
-  | 'approved'
-  | 'authorized'
-  | 'rejected'
-  | 'cancelled'
-  | 'refunded';
-
-export type SubscriptionPlan = {
-  id: string;
-  name: string;
-  description: string;
-  priceMonthly: number;
-  priceYearly?: number;
-  currency: string;
-  features: string[];
-  maxListings?: number;
-  maxFeaturedListings?: number;
-  analyticsEnabled?: boolean;
-  crmEnabled?: boolean;
-  prioritySupport?: boolean;
-  recommended?: boolean;
-};
-
-export type PaymentOrderView = {
-  id: string;
-  title: string;
-  amount: number;
-  currency: string;
-  status: PaymentOrderStatus;
-  createdAt: string;
-};
-
-export type SubscriptionCatalogResponse = {
-  ok: boolean;
-  error?: string;
-  mercadoPagoEnabled: boolean;
-  plans: SubscriptionPlan[];
-  freePlan: SubscriptionPlan | null;
-  currentSubscription?: {
-    id: string;
-    planId: string;
-    planName: string;
-    status: string;
-    expiresAt: string | null;
-  } | null;
-  orders: PaymentOrderView[];
+export type {
+  ConfirmCheckoutResponse,
+  PaymentOrderStatus,
+  PaymentOrderView,
+  PaymentVertical,
+  SubscriptionCatalogResponse,
+  SubscriptionPlan,
+  SubscriptionPlanId,
 };
 
 export type CheckoutStartInput = {
-  planId: 'free' | 'pro' | 'enterprise';
+  planId: 'essential' | 'pro';
   returnUrl: string;
 };
 
@@ -64,7 +34,7 @@ export type CheckoutStartResponse = {
 
 export type CheckoutConfirmInput = {
   orderId?: string;
-  paymentId?: string;
+  paymentId?: string | null;
   preapprovalId?: string;
   status?: PaymentOrderStatus;
 };

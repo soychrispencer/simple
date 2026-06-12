@@ -37,6 +37,33 @@ function notificationListIcon(type: PanelNotification['type']) {
   return IconSparkles;
 }
 
+function HeaderAccountAvatar({
+  avatar,
+  name,
+  sizeClass = 'h-8 w-8 rounded-[10px]',
+  bordered = true,
+}: {
+  avatar?: string | null;
+  name: string;
+  sizeClass?: string;
+  bordered?: boolean;
+}) {
+  const borderClass = bordered ? 'border border-[var(--border)]' : '';
+  if (avatar) {
+    return (
+      <span className={`inline-flex shrink-0 items-center justify-center overflow-hidden bg-[var(--bg-subtle)] ${borderClass} ${sizeClass}`}>
+        <img src={avatar} alt="" className="h-full w-full object-cover" />
+      </span>
+    );
+  }
+
+  return (
+    <span className={`inline-flex shrink-0 items-center justify-center bg-[var(--bg-subtle)] text-[var(--fg-secondary)] ${borderClass} ${sizeClass}`}>
+      <IconUser size={16} stroke={1.9} />
+    </span>
+  );
+}
+
 /** Evita que overflow-x del layout recorte popovers en móvil (fixed bajo el header). */
 const HEADER_POPOVER_MOBILE =
   'max-md:fixed max-md:inset-x-3 max-md:top-[calc(4rem+env(safe-area-inset-top,0px))] max-md:w-auto';
@@ -184,6 +211,7 @@ export function MarketplaceHeader({
   const role: MarketplacePanelRole = user?.role ?? 'user';
   const panelItems = useMemo(() => getPanelNavItems(role), [getPanelNavItems, role]);
   const userName = user?.name?.trim() || 'Usuario';
+  const userAvatar = user?.avatar ?? null;
   const unreadNotifications = notifications.length;
   const accountPopoverStyle: CSSProperties = isSmallViewport
     ? {
@@ -392,11 +420,11 @@ export function MarketplaceHeader({
                   setNotificationsOpen(false);
                   setMenuOpen(false);
                 }}
-                className="header-icon-chip"
+                className="header-icon-chip overflow-hidden"
                 aria-label="Panel de usuario"
                 aria-expanded={accountOpen}
               >
-                <IconUser size={16} />
+                <HeaderAccountAvatar avatar={userAvatar} name={userName} sizeClass="h-full w-full rounded-[10px]" bordered={false} />
               </button>
 
               {accountOpen && (
@@ -404,13 +432,16 @@ export function MarketplaceHeader({
                   className="z-[60] rounded-xl border p-2 animate-slide-down"
                   style={accountPopoverStyle}
                 >
-                  <div className="px-2.5 py-2 mb-1 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
-                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
-                      {userName}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                      {user?.email}
-                    </p>
+                  <div className="mb-1 flex items-center gap-3 rounded-lg px-2.5 py-2" style={{ background: 'var(--bg-subtle)' }}>
+                    <HeaderAccountAvatar avatar={userAvatar} name={userName} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                        {userName}
+                      </p>
+                      <p className="truncate text-xs" style={{ color: 'var(--fg-muted)' }}>
+                        {user?.email}
+                      </p>
+                    </div>
                   </div>
 
                   <nav className="space-y-1" aria-label="Navegación de panel">

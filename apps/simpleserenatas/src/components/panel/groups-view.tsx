@@ -61,9 +61,9 @@ export function GroupsView({
         () => new Map(musicians.map((musician) => [musician.id, musician])),
         [musicians],
     );
-    const isPro = mePlan?.plan === 'pro';
+    const hasFullAccess = mePlan?.plan === 'pro' || mePlan?.trialActive;
     const currentGroupsCount = musicianGroups.filter((group) => group.status !== 'closed').length;
-    const canCreateGroup = isPro || currentGroupsCount < 1;
+    const canCreateGroup = hasFullAccess || currentGroupsCount < 1;
 
     const loadMusicianGroups = useCallback(async (providerGroupId: string) => {
         const response = await serenatasApi.groups(providerGroupId);
@@ -135,7 +135,7 @@ export function GroupsView({
 
     function openCreateGroup() {
         if (!canCreateGroup) {
-            setActionError('El plan Gratis incluye 1 grupo de músicos. Suscríbete a Pro para administrar más grupos y equipos.');
+            setActionError('Esencial permite 1 grupo de músicos. Durante la prueba tienes acceso completo; activa Pro para administrar más grupos y equipos.');
             return;
         }
         setActionError(null);
@@ -268,9 +268,9 @@ export function GroupsView({
                 description={`Grupos de músicos de ${activeMariachi.name}. Úsalos al conformar una serenata en Solicitudes.`}
             />
 
-            {!isPro && currentGroupsCount >= 1 ? (
+            {!hasFullAccess && currentGroupsCount >= 1 ? (
                 <PanelNotice tone="neutral" className="mb-4">
-                    El plan Gratis incluye 1 grupo de músicos. Pro permite administrar más grupos y equipos.
+                    Esencial permite 1 grupo de músicos. Durante la prueba tienes acceso completo; Pro permite administrar más grupos y equipos.
                 </PanelNotice>
             ) : null}
 

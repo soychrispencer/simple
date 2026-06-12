@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
@@ -365,7 +365,7 @@ export default function PagosPage() {
                     <p className="text-sm agenda-pagos-muted max-w-xl mb-5">
                         Activa el plan Profesional para registrar pagos, controlar pendientes, exportar cobros y conectar medios de pago.
                     </p>
-                    <a href="/panel/suscripciones" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold agenda-pagos-btn-accent">
+                    <a href="/panel/mi-cuenta/suscripcion" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold agenda-pagos-btn-accent">
                         Ver planes
                     </a>
                 </div>

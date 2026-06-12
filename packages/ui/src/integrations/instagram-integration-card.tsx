@@ -71,7 +71,7 @@ function formatDate(value: number | null | undefined): string {
 
 export function InstagramIntegrationCard({
     panelDescription,
-    subscriptionsHref = '/panel/suscripciones',
+    subscriptionsHref = '/panel/mi-cuenta/suscripcion',
     autoPublishDescription,
     autoPublishAriaLabel,
     captionPlaceholder,

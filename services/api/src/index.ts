@@ -159,6 +159,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { eq, and, or, desc, asc, gt, lt, gte, lte, isNull, sql, inArray, type SQL } from 'drizzle-orm';
 import {
     users,
+    userPlatformAccess,
     accounts,
     accountUsers,
     listings,
@@ -726,48 +727,12 @@ for (const user of seedUsers) {
     usersById.set(user.id, user);
 }
 
-const MAX_BOOST_SLOTS_PER_SECTION = 10;
-
-const BOOST_PLAN_TEMPLATES: Array<{
-    id: BoostPlanId;
-    name: string;
-    days: number;
-    visibilityLift: string;
-}> = [
-    { id: 'boost_starter', name: 'Starter', days: 7, visibilityLift: 'x2 visibilidad' },
-    { id: 'boost_pro', name: 'Pro', days: 15, visibilityLift: 'x3 visibilidad' },
-    { id: 'boost_max', name: 'Max', days: 30, visibilityLift: 'x5 visibilidad' },
-];
-
-const BOOST_PRICE_BY_VERTICAL_SECTION: Record<VerticalType, Record<BoostSection, Record<BoostPlanId, number>>> = {
-    autos: {
-        sale: { boost_starter: 9990, boost_pro: 17990, boost_max: 29990 },
-        rent: { boost_starter: 6990, boost_pro: 12990, boost_max: 21990 },
-        auction: { boost_starter: 4990, boost_pro: 8990, boost_max: 14990 },
-        project: { boost_starter: 9990, boost_pro: 17990, boost_max: 29990 },
-    },
-    propiedades: {
-        sale: { boost_starter: 12990, boost_pro: 23990, boost_max: 39990 },
-        rent: { boost_starter: 8990, boost_pro: 16990, boost_max: 27990 },
-        auction: { boost_starter: 12990, boost_pro: 23990, boost_max: 39990 },
-        project: { boost_starter: 14990, boost_pro: 27990, boost_max: 44990 },
-    },
-    agenda: {
-        sale: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        rent: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-    },
-};
-
+// Boost constants moved to modules/boost/types.ts
+import { MAX_BOOST_SLOTS_PER_SECTION } from './modules/boost/types.js';
+import { boostListingsSeed } from './modules/boost/service.js';
 // Advertising constants moved to modules/advertising/types.ts
-
 // Subscription plans moved to modules/advertising/types.ts
-
-const boostListingsSeed: BoostListingRecord[] = [];
-
 // Boost functions moved to modules/boost/service.ts
-
 // Advertising functions moved to modules/advertising/service.ts
 
 const {
@@ -1596,6 +1561,7 @@ app.route('/api/auth', createAuthRouter({
     sql,
     tables: {
         users,
+        userPlatformAccess,
         passwordResetTokens,
         emailVerificationTokens,
     },

@@ -44,6 +44,12 @@ async function pickUniqueSlug(user: Pick<AppUser, 'name' | 'email'>): Promise<st
     return `agenda-${randomBytes(4).toString('hex')}`;
 }
 
+function defaultAgendaTrialEndsAt(from = new Date()): Date {
+    const trialEndsAt = new Date(from);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+    return trialEndsAt;
+}
+
 export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: EnsurePrimaryAccount }) {
     const { ensurePrimaryAccountForUser } = deps;
 
@@ -63,6 +69,7 @@ export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: E
                 slug,
                 displayName,
                 plan: 'free',
+                planExpiresAt: defaultAgendaTrialEndsAt(),
             })
             .returning();
 

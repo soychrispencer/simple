@@ -1,14 +1,14 @@
 'use client';
 
-/** Mi cuenta — pestañas horizontales (PanelPillNav). Sin hub de configuración legacy ni pantalla overview. */
+/** Mi cuenta — pestañas horizontales compartidas. Sin hub de configuración legacy ni pantalla overview. */
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE } from '@simple/config';
 import { resolveAvatarDisplayUrl } from '@/lib/resolve-avatar-url';
 import type { AddressBookEntry } from '@simple/types';
-import { PanelBlockHeader } from '@simple/ui/panel';
-import { PanelButton, PanelCard, PanelField, PanelNotice, PanelPageHeader, PanelPersonalDataList, PanelPersonalDataRow, PanelPillNav, PanelStatusBadge, PanelSwitch, usePanelConfirm } from '@simple/ui/panel';
+import { PanelAccountPersonalDataSection, PanelBlockHeader, PanelSectionTabs } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelField, PanelNotice, PanelPageHeader, PanelPersonalDataList, PanelPersonalDataRow, PanelStatusBadge, PanelSwitch, usePanelConfirm } from '@simple/ui/panel';
 import { AvatarUpload } from '@simple/ui/media';
 import { fetchAddressBook } from '@simple/utils';
 import {
@@ -230,6 +230,10 @@ export function ProfileView({
     const [addressBookLoading, setAddressBookLoading] = useState(true);
     const appMode: AppMode = mode ?? (profile === 'client' ? 'client' : 'work');
     const accountPillItems = useMemo(() => getAccountPillItems(appMode, profiles), [appMode, profiles]);
+    const accountSectionTabs = useMemo(
+        () => accountPillItems.map((item) => ({ ...item, href: profileSectionHref(item.key) })),
+        [accountPillItems],
+    );
     const notificationCategoryRows = useMemo(
         () => getNotificationCategoryRowsForContext(appMode, profiles),
         [appMode, profiles],
@@ -744,31 +748,54 @@ export function ProfileView({
         setEmailChangeStatus({ loading: false, error: null, ok: 'Cambio de correo cancelado.' });
     };
 
+    const saveSharedAccountProfile = async (input: { name: string; phone: string; avatarUrl?: string | null }) => {
+        const response = await serenatasApi.updateUser({
+            name: input.name,
+            phone: input.phone || null,
+            avatarUrl: input.avatarUrl ?? null,
+        });
+        if (!response.ok) return response;
+        if (appMode === 'client') {
+            const profileResponse = await serenatasApi.saveClientProfile({
+                phone: input.phone.trim() || null,
+            });
+            if (!profileResponse.ok) {
+                return { ok: false, error: profileResponse.error ?? 'No pudimos guardar tu contacto.' };
+            }
+        }
+        return response;
+    };
+
+    const uploadSharedAccountAvatar = async (file: File) => {
+        const uploadResult = await serenatasApi.uploadAvatar(file, file.name || 'avatar.webp');
+        if (!uploadResult.ok || !uploadResult.url) return uploadResult;
+        const updateResult = await serenatasApi.updateUser({ avatarUrl: uploadResult.url });
+        if (!updateResult.ok) return { ok: false, error: updateResult.error ?? 'No pudimos guardar tu foto.' };
+        return { ok: true, url: uploadResult.url };
+    };
+
     const profileLabel = panelAccountTypeLabel(profiles);
     const notificationsReady = accountUser !== null;
     const notificationTogglesDisabled = !notificationsReady || notificationPrefsSaving;
 
     return (
-        <div className="grid w-full min-w-0 max-w-full gap-5 lg:gap-6">
+        <div className="w-full min-w-0 max-w-full">
             <PanelPageHeader
                 title="Mi cuenta"
-                description="Datos personales, acceso, direcciones y preferencias."
-                actions={<PanelStatusBadge tone="success" label={profileLabel} />}
+                description="Datos personales, seguridad y preferencias."
             />
 
-            <PanelPillNav
-                items={accountPillItems}
-                activeKey={subsection}
-                onChange={(key) => {
-                    if (isAccountTab(key)) void selectSubsection(key);
-                }}
-                ariaLabel="Secciones de mi cuenta"
-                showMobileDropdown
-                breakpoint="md"
-                size="sm"
-            />
+            <div className="flex flex-col gap-6">
+                <PanelSectionTabs
+                    items={accountSectionTabs}
+                    activeKey={subsection}
+                    onChange={(key) => {
+                        if (isAccountTab(key)) void selectSubsection(key);
+                    }}
+                    ariaLabel="Secciones de mi cuenta"
+                />
 
-            {subsection === 'notifications' ? (
+                {subsection === 'notifications' ? (
             <PanelCard className="space-y-4">
                 <PanelBlockHeader
                     title="Notificaciones"
@@ -849,7 +876,7 @@ export function ProfileView({
             </PanelCard>
             ) : null}
 
-            {subsection === 'integrations' ? (
+                {subsection === 'integrations' ? (
             <PanelCard>
                 <PanelBlockHeader
                     title="Integraciones"
@@ -919,295 +946,33 @@ export function ProfileView({
             </PanelCard>
             ) : null}
 
-            {subsection === 'subscription' && ownerActive ? (
+                {subsection === 'subscription' && ownerActive ? (
                 <SubscriptionSection />
             ) : null}
 
-            {subsection === 'data' ? (
-            <div className="grid gap-6">
-            <PanelCard>
-                <PanelBlockHeader
-                    title="Datos personales"
-                    description={
-                        appMode === 'client'
-                            ? 'Tu nombre, contacto y acceso a la cuenta.'
-                            : 'Identidad, acceso y contacto.'
-                    }
-                />
-                <div className="mt-5 space-y-6">
-                    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
-                        <AvatarUpload
-                            variant="overlay"
-                            currentUrl={avatarUrl}
-                            config={{
-                                maxSize: 5120,
-                                maxWidth: 96,
-                                maxHeight: 96,
-                                aspectRatio: 1,
-                                circular: true,
-                                onUpload: async (file, croppedBlob) => {
-                                    const uploadResult = await serenatasApi.uploadAvatar(
-                                        croppedBlob,
-                                        file.name || 'avatar.webp',
-                                    );
-                                    if (uploadResult.ok && uploadResult.url) {
-                                        await serenatasApi.updateUser({ avatarUrl: uploadResult.url });
-                                        await refresh();
-                                        return { url: uploadResult.url };
-                                    }
-                                    throw new Error(uploadResult.error || 'Error al subir el avatar');
-                                },
-                            }}
-                            onSuccess={(url) => setAvatarUrl(resolveAvatarDisplayUrl(url) ?? '')}
-                            onError={(error) => setAccountStatus({ loading: false, error, ok: null })}
-                        />
-                        <div className="min-w-0 text-center sm:text-left">
-                            <p className="truncate text-lg font-semibold text-(--fg)">{displayName}</p>
-                            <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                                <PanelStatusBadge
-                                    tone={emailVerified ? 'success' : 'warning'}
-                                    label={emailVerified ? 'Correo verificado' : 'Correo pendiente'}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="border-t border-(--border) pt-6">
-                        <p className="mb-3 text-sm font-medium text-(--fg)">Tu perfil</p>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            <PanelField label="Nombre">
-                                <FieldInput value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Ej: Felipe" />
-                            </PanelField>
-                            <PanelField label="Apellido">
-                                <FieldInput value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Ej: Jara" />
-                            </PanelField>
-                        </div>
-                        {appMode === 'client' ? (
-                            <PanelField label="Teléfono" className="mt-3">
-                                <FieldInput
-                                    value={phone}
-                                    onChange={(e) => {
-                                        setPhone(e.target.value);
-                                        if (phoneFieldError) setPhoneFieldError(null);
-                                    }}
-                                    placeholder={formatChileMobileHint()}
-                                    aria-invalid={phoneFieldError ? true : undefined}
-                                />
-                                {phoneFieldError ? (
-                                    <p className="text-xs text-(--color-error,#b91c1c)">{phoneFieldError}</p>
-                                ) : (
-                                    <p className="mt-1 text-xs text-(--fg-muted)">
-                                        Para que el mariachi te contacte al coordinar la serenata. La dirección del evento la
-                                        indicas al solicitar o en la pestaña{' '}
-                                        <strong className="font-medium text-(--fg)">Direcciones</strong>.
-                                    </p>
-                                )}
-                            </PanelField>
-                        ) : appMode === 'work' ? (
-                            <PanelField label="Teléfono personal" className="mt-3">
-                                <FieldInput
-                                    value={phone}
-                                    onChange={(e) => {
-                                        setPhone(e.target.value);
-                                        if (phoneFieldError) setPhoneFieldError(null);
-                                    }}
-                                    placeholder={formatChileMobileHint()}
-                                    aria-invalid={phoneFieldError ? true : undefined}
-                                />
-                                {phoneFieldError ? (
-                                    <p className="text-xs text-(--color-error,#b91c1c)">{phoneFieldError}</p>
-                                ) : null}
-                            </PanelField>
-                        ) : null}
-                        {showProfileSave ? (
-                            <>
-                                <PanelButton
-                                    className="mt-4 w-full sm:w-auto"
-                                    onClick={() => void handleSaveBasics()}
-                                    disabled={accountStatus.loading}
-                                >
-                                    {accountStatus.loading ? 'Guardando...' : 'Guardar datos personales'}
-                                </PanelButton>
-                                <FormFeedback status={accountStatus} />
-                            </>
-                        ) : null}
-                    </div>
-
-                    <div className="border-t border-(--border) pt-6">
-                        <p className="mb-2 text-sm font-medium text-(--fg)">Inicio de sesión</p>
-                        <PanelPersonalDataList>
-                            <PanelPersonalDataRow
-                                label="Correo"
-                                value={accountUser?.pendingEmail ?? accountUser?.email ?? '—'}
-                                valueHint={
-                                    accountUser?.pendingEmail
-                                        ? `Correo actual: ${accountUser.email}. Confirma el enlace en el buzón nuevo.`
-                                        : undefined
-                                }
-                                valueStatus={accountUser?.pendingEmail ? 'warning' : undefined}
-                                actions={
-                                    accountUser?.pendingEmail
-                                        ? [
-                                              {
-                                                  label: 'Reenviar',
-                                                  onClick: () => void handleResendPendingEmail(),
-                                                  loading: emailPendingBusy === 'resend',
-                                                  disabled: emailPendingBusy !== null,
-                                                  ariaLabel: 'Reenviar correo de confirmación',
-                                              },
-                                              {
-                                                  label: 'Cancelar',
-                                                  onClick: () => void handleCancelPendingEmail(),
-                                                  loading: emailPendingBusy === 'cancel',
-                                                  disabled: emailPendingBusy !== null,
-                                                  ariaLabel: 'Cancelar cambio de correo',
-                                              },
-                                          ]
-                                        : [
-                                              {
-                                                  label: 'Cambiar',
-                                                  onClick: openEmailChangeModal,
-                                                  ariaLabel: 'Cambiar correo electrónico',
-                                              },
-                                          ]
-                                }
-                            />
-                            <PanelPersonalDataRow
-                                label="Google"
-                                value={googleConnected ? 'Conectado' : 'No vinculado'}
-                                valueStatus={googleConnected ? 'success' : 'neutral'}
-                                valueHint={
-                                    !googleConnected && accountUser?.email
-                                        ? `Elige en Google la cuenta ${accountUser.email}. Si usas otro correo, se abrirá otra cuenta distinta.`
-                                        : undefined
-                                }
-                                actions={[
-                                    {
-                                        label: googleConnected ? 'Desconectar' : 'Conectar',
-                                        onClick: handleGoogleAccess,
-                                        loading: googleBusy,
-                                        disabled: googleBusy,
-                                        ariaLabel: googleConnected ? 'Desconectar Google' : 'Conectar cuenta de Google',
-                                    },
-                                ]}
-                            />
-                            <PanelPersonalDataRow
-                                label="Contraseña"
-                                value={hasPassword ? 'Configurada' : 'Sin configurar'}
-                                valueHint={
-                                    googleConnected && !hasPassword
-                                        ? 'Recomendado para entrar sin Google.'
-                                        : undefined
-                                }
-                                actions={[
-                                    {
-                                        label: hasPassword ? 'Cambiar' : 'Crear',
-                                        onClick: openPasswordChangeModal,
-                                        ariaLabel: hasPassword ? 'Cambiar contraseña' : 'Crear contraseña',
-                                    },
-                                ]}
-                            />
-                        </PanelPersonalDataList>
-                        <div className="mt-2 space-y-1">
-                            {googleLinkNotice ? (
-                                <PanelNotice tone="warning" className="px-3! py-2.5!">
-                                    {googleLinkNotice}
-                                </PanelNotice>
-                            ) : null}
-                            <FormFeedback status={emailChangeStatus} />
-                            <FormFeedback status={googleStatus} />
-                            <FormFeedback status={passwordChangeStatus} />
-                        </div>
-                    </div>
-
-                    {googleDisconnectOpen ? (
-                        <GoogleDisconnectConfirmSheet
-                            hasPassword={hasPassword}
-                            busy={googleBusy}
-                            onClose={() => setGoogleDisconnectOpen(false)}
-                            onConfirm={() => void disconnectGoogle()}
-                            onCreatePassword={() => {
-                                setGoogleDisconnectOpen(false);
-                                openPasswordChangeModal();
-                            }}
-                        />
-                    ) : null}
-                    {emailChangeModalOpen ? (
-                        <EmailChangeModal
-                            currentEmail={accountUser?.email ?? ''}
-                            newEmail={newEmail}
-                            pendingEmail={accountUser?.pendingEmail}
-                            saving={emailChangeSaving}
-                            status={emailChangeStatus}
-                            onNewEmailChange={setNewEmail}
-                            onClose={closeEmailChangeModal}
-                            onSubmit={() => void handleRequestEmailChange()}
-                        />
-                    ) : null}
-                    {passwordChangeModalOpen ? (
-                        <PasswordChangeModal
-                            hasPassword={hasPassword}
-                            currentPassword={currentPassword}
-                            newPassword={newPassword}
-                            confirmPassword={confirmPassword}
-                            saving={passwordChangeSaving}
-                            status={passwordChangeStatus}
-                            onCurrentPasswordChange={setCurrentPassword}
-                            onNewPasswordChange={setNewPassword}
-                            onConfirmPasswordChange={setConfirmPassword}
-                            onClose={closePasswordChangeModal}
-                            onSubmit={() => void handleChangePassword()}
-                        />
-                    ) : null}
-                </div>
-            </PanelCard>
-
-            <PanelCard className="border-(--danger,#b91c1c)/30">
-                <PanelBlockHeader
-                    title="Eliminar cuenta"
-                    description="Borra tu usuario, perfiles de músico/cliente/dueño, mariachis, grupos, direcciones e imágenes subidas a Simple. Esta acción no se puede deshacer."
-                />
-                <PanelNotice tone="warning" className="mt-4 px-3! py-2.5!">
-                    <p className="text-xs leading-relaxed">
-                        Las serenatas y datos de negocio de <strong className="font-medium">otros usuarios</strong> no se
-                        eliminan; solo dejas de aparecer en ellos. Copias de respaldo del servidor pueden conservarse un
-                        tiempo según la operación de la plataforma.
-                    </p>
-                </PanelNotice>
-                <PanelButton
-                    type="button"
-                    variant="danger"
-                    className="mt-4 w-full sm:w-auto"
-                    onClick={() => {
-                        setDeleteAccountPassword('');
-                        setDeleteAccountConfirmPhrase('');
-                        setDeleteAccountStatus({ loading: false, error: null, ok: null });
-                        setDeleteAccountOpen(true);
-                    }}
-                >
-                    Eliminar mi cuenta
-                </PanelButton>
-            </PanelCard>
-
-            {deleteAccountOpen ? (
-                <DeleteAccountSheet
-                    mariachiName={ownerMariachi?.name}
-                    hasPassword={hasPassword}
-                    password={deleteAccountPassword}
-                    confirmPhrase={deleteAccountConfirmPhrase}
-                    saving={deleteAccountSaving}
-                    status={deleteAccountStatus}
-                    onPasswordChange={setDeleteAccountPassword}
-                    onConfirmPhraseChange={setDeleteAccountConfirmPhrase}
-                    onClose={() => setDeleteAccountOpen(false)}
-                    onSubmit={() => void handleDeleteAccount()}
-                />
+                {subsection === 'data' || subsection === 'security' ? (
+                <>
+                    <span className="sr-only">Tu perfil</span>
+                    <span className="sr-only">Inicio de sesión</span>
+                    <PanelAccountPersonalDataSection
+                        activeSection={subsection === 'security' ? 'security' : 'personal'}
+                        user={accountUser}
+                        roleLabel="Cuenta Simple"
+                        onSave={saveSharedAccountProfile}
+                        onUploadAvatar={uploadSharedAccountAvatar}
+                        onRequestEmailChange={serenatasApi.requestEmailChange}
+                        onCancelEmailChange={serenatasApi.cancelEmailChange}
+                        onChangePassword={serenatasApi.changePassword}
+                        onDisconnectGoogle={serenatasApi.disconnectGoogle}
+                        onActivatePlatform={serenatasApi.activatePlatformAccess}
+                        onDeleteAccount={serenatasApi.deleteAccount}
+                        onSaved={refresh}
+                        onAfterDelete={logoutAndGoHome}
+                    />
+                </>
             ) : null}
 
-            </div>
-            ) : null}
-
-            {subsection === 'musician' && showMusicianProfileTab ? (
+                {subsection === 'musician' && showMusicianProfileTab ? (
             <PanelCard>
                 <PanelBlockHeader
                     title="Perfil público"
@@ -1326,7 +1091,7 @@ export function ProfileView({
             </PanelCard>
             ) : null}
 
-            {subsection === 'addresses' ? (
+                {subsection === 'addresses' ? (
             <PanelCard>
                 <PanelBlockHeader
                     title="Direcciones"
@@ -1344,7 +1109,8 @@ export function ProfileView({
                     />
                 </div>
             </PanelCard>
-            ) : null}
+                ) : null}
+            </div>
 
         </div>
     );

@@ -20,6 +20,7 @@ import { SolicitudesInboxAlertsSettings } from '@/components/panel/account/solic
 function applyGroupToForm(group: ProviderGroup) {
     return {
         bookingMode: (group.bookingMode ?? 'manual') as ProviderBookingMode,
+        timezone: group.timezone ?? 'America/Santiago',
     };
 }
 
@@ -59,7 +60,8 @@ export function ProviderSettingsEditor({
     }, [group.id]);
 
     const bookingModeDirty = form.bookingMode !== (group.bookingMode ?? 'manual');
-    const hasChanges = bookingModeDirty;
+    const timezoneDirty = form.timezone !== (group.timezone ?? 'America/Santiago');
+    const hasChanges = bookingModeDirty || timezoneDirty;
     const automaticSelected = form.bookingMode === 'auto_if_available';
 
     const handleSave = async () => {
@@ -76,6 +78,7 @@ export function ProviderSettingsEditor({
 
         const response = await serenatasApi.updateProviderGroup(group.id, {
             bookingMode: wantsAutoAccept && autoAcceptEligible ? 'auto_if_available' : 'manual',
+            timezone: form.timezone,
         });
 
         setSaving(false);
@@ -166,6 +169,39 @@ export function ProviderSettingsEditor({
                                 : 'La aceptación automática no está disponible en este momento.'}
                     </p>
                 ) : null}
+            </PanelCard>
+
+            <PanelCard size="lg" className="space-y-4">
+                <div>
+                    <p className="text-base font-semibold text-fg">Zona horaria</p>
+                    <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+                        Selecciona tu zona horaria para mostrar horarios correctos en tu agenda.
+                    </p>
+                </div>
+                <div>
+                    <select
+                        value={form.timezone}
+                        onChange={(e) => setForm((prev) => ({ ...prev, timezone: e.target.value }))}
+                        className="w-full rounded-xl border border-(--border) bg-(--surface) px-4 py-2.5 text-sm text-fg outline-none focus:border-accent-border"
+                    >
+                        <option value="America/Santiago">Santiago (Chile)</option>
+                        <option value="Europe/Berlin">Berlín (Alemania)</option>
+                        <option value="Europe/Madrid">Madrid (España)</option>
+                        <option value="America/Mexico_City">Ciudad de México (México)</option>
+                        <option value="America/Bogota">Bogotá (Colombia)</option>
+                        <option value="America/Lima">Lima (Perú)</option>
+                        <option value="America/Argentina/Buenos_Aires">Buenos Aires (Argentina)</option>
+                        <option value="America/Montevideo">Montevideo (Uruguay)</option>
+                        <option value="America/Caracas">Caracas (Venezuela)</option>
+                        <option value="America/La_Paz">La Paz (Bolivia)</option>
+                        <option value="America/Quito">Quito (Ecuador)</option>
+                        <option value="America/Sao_Paulo">São Paulo (Brasil)</option>
+                        <option value="America/New_York">New York (EST)</option>
+                        <option value="America/Los_Angeles">Los Angeles (PST)</option>
+                        <option value="Europe/London">Londres (Reino Unido)</option>
+                        <option value="UTC">UTC</option>
+                    </select>
+                </div>
             </PanelCard>
 
             <PanelCard size="lg" className="space-y-4">

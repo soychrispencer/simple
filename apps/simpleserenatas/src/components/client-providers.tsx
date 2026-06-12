@@ -12,7 +12,7 @@ import { PanelLoadingFallback } from '@/components/panel/panel-loading-fallback'
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
     return (
-        <AuthProvider>
+        <AuthProvider appId="simpleserenatas">
             <SerenataRequestModalProvider>
                 <LogoutHomeRedirect />
                 <SignupProfileBootstrap />

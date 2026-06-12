@@ -478,7 +478,7 @@ export default function OnboardingPage() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => router.push('/panel/configuracion')}
+                                onClick={() => router.push('/panel/mi-negocio')}
                                 className="w-full py-3 rounded-xl text-sm font-medium border transition-colors"
                                 style={{ background: 'transparent', borderColor: 'var(--border)', color: 'var(--fg)' }}
                             >

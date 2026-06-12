@@ -136,7 +136,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
                 const serenataResponse = await serenatasApi.clientSerenatas();
 
                 return {
-                    accountUser: profileResponse.user,
+                    accountUser: user ? { ...profileResponse.user, ...user } : profileResponse.user,
                     profiles: nextProfiles,
                     effectiveMode,
                     ownerFeaturesEnabled: ownerActive,
@@ -178,7 +178,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
             const ownerClosureItems = ownerClosureResponse.ok ? ownerClosureResponse.items : [];
 
             return {
-                accountUser: profileResponse.user,
+                accountUser: user ? { ...profileResponse.user, ...user } : profileResponse.user,
                 profiles: nextProfiles,
                 effectiveMode,
                 ownerFeaturesEnabled: ownerActive,
@@ -191,7 +191,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
                 invitations: invitationResponse.ok ? invitationResponse.items : [],
             };
         },
-        [isLoggedIn],
+        [isLoggedIn, user],
     );
 
     const { data, error: swrError, isLoading, mutate: swrMutate } = useSWR(
@@ -388,7 +388,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         user,
         isLoggedIn,
         authLoading,
-        accountUser: data?.accountUser ?? null,
+        accountUser: user ? { ...(data?.accountUser ?? {}), ...user } as SerenatasUser : data?.accountUser ?? null,
         mode,
         ownerFeaturesEnabled: ownerFeatures,
         profiles,

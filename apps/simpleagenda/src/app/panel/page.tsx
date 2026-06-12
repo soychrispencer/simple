@@ -147,7 +147,7 @@ function SetupChecklist({
             key: 'profile',
             label: 'Tus datos',
             description: 'Nombre y profesión',
-            href: '/panel/configuracion/perfil',
+            href: '/panel/mi-negocio',
             icon: IconUser,
             done: !!(profile.displayName && profile.profession),
         },
@@ -155,7 +155,7 @@ function SetupChecklist({
             key: 'services',
             label: 'Servicios',
             description: 'Qué ofreces y cuánto dura',
-            href: '/panel/configuracion/servicios',
+            href: '/panel/mi-negocio/servicios',
             icon: IconBriefcase,
             done: stats.hasServices,
         },
@@ -163,7 +163,7 @@ function SetupChecklist({
             key: 'availability',
             label: 'Disponibilidad',
             description: 'Tus horarios de atención',
-            href: '/panel/configuracion/disponibilidad',
+            href: '/panel/mi-negocio/disponibilidad',
             icon: IconClock,
             done: stats.hasRules,
         },
@@ -171,7 +171,7 @@ function SetupChecklist({
             key: 'publish',
             label: 'Publica tu página',
             description: 'Activa tu link público de reservas',
-            href: '/panel/configuracion/link',
+            href: '/panel/mi-negocio/link',
             icon: IconRocket,
             done: profile.isPublished,
         },
@@ -280,9 +280,9 @@ export default function PanelHomePage() {
             setStats(s);
             setProfile(p);
             setLoading(false);
-            // Redirigir al onboarding si el perfil no existe o está vacío (usuario nuevo)
+            // Redirigir a mi negocio si el perfil no existe o está vacío (usuario nuevo)
             if (!p || (!p.displayName && !p.profession)) {
-                router.replace('/panel/onboarding');
+                router.replace('/panel/mi-negocio');
             }
         };
         void load();
@@ -453,16 +453,16 @@ export default function PanelHomePage() {
                 {/* Free plan limits banner */}
                 {showFreeBanner && (
                 <Link
-                    href="/panel/suscripciones"
+                    href="/panel/mi-cuenta/suscripcion"
                     className="flex items-center gap-4 rounded-2xl border p-4 transition-colors hover:border-[--accent-border] agenda-home-warning-banner"
                 >
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 agenda-home-warning-icon">
                         <IconCreditCard size={17} />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold agenda-home-fg">Acercándote al límite del plan gratuito</p>
+                        <p className="text-sm font-semibold agenda-home-fg">Acercándote al límite de tu prueba</p>
                         <p className="text-xs mt-0.5 agenda-home-muted">
-                            {clientsNearLimit && `${clientsUsed}/5 ${vocab.clients}`}{clientsNearLimit && appsNearLimit ? ' · ' : ''}{appsNearLimit && `${appsUsed}/10 citas este mes`}. Actualiza a Pro para uso ilimitado.
+                            {clientsNearLimit && `${clientsUsed}/5 ${vocab.clients}`}{clientsNearLimit && appsNearLimit ? ' · ' : ''}{appsNearLimit && `${appsUsed}/10 citas este mes`}. Activa Esencial o Pro para continuar.
                         </p>
                     </div>
                     <IconChevronRight size={16} className="agenda-home-warning-chevron" />

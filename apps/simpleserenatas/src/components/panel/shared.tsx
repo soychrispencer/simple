@@ -335,7 +335,7 @@ export function googleMapsDirectionsUrl(items: Serenata[]) {
     return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-/** Comisión app + IVA sobre bruto (misma fórmula que API / plan-config). */
+/** @deprecated Cálculo legacy. SimpleSerenatas no cobra comisión por serenata. */
 export function computeSerenataAppDeduction(
     grossClp: number,
     commissionAppBps: number,

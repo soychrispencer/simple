@@ -22,7 +22,7 @@ export type AvatarUploadProps = {
     config?: AvatarUploadConfig;
     onSuccess?: (url: string) => void;
     onError?: (error: string) => void;
-    /** `overlay`: círculo con botón + (estilo Instagram). `default`: botones laterales. */
+    /** `overlay`: preview con botón +. `default`: botones laterales. */
     variant?: 'default' | 'overlay';
     /** Oculta botones propios; usar con `ref` para abrir el selector desde fuera. */
     hideTrigger?: boolean;
@@ -178,7 +178,7 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
         onSuccess?.('');
     }, [onSuccess]);
 
-    const shapeClass = circular ? 'rounded-full' : 'rounded-lg';
+    const shapeClass = circular ? 'rounded-full' : 'rounded-[28px]';
     const previewSize = Math.min(maxWidth, maxHeight);
 
     const avatarPreview = (
@@ -275,6 +275,7 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
                             </button>
                         </div>
                         <div
+                            className={circular ? undefined : 'avatar-upload-cropper--rounded'}
                             style={{
                                 position: 'relative',
                                 width: '100%',

@@ -260,7 +260,7 @@ export function PublicLanding({
                             <AudienceCard
                                 icon={IconUsersGroup}
                                 title="¿Tienes un mariachi?"
-                                description="Crea tu cuenta y elige Soy dueño para publicar tu grupo, configurar servicios, zonas y disponibilidad."
+                                description="Prueba gratis por 30 días. Publica tu grupo y luego activa Esencial o Pro para mantener tu perfil visible sin comisión por serenata."
                                 cta="Registrarme"
                                 onClick={onRegister}
                             />

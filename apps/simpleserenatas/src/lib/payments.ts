@@ -1,43 +1,22 @@
 import { apiFetch } from '@simple/utils';
+import type {
+  ConfirmCheckoutResponse,
+  PaymentOrderStatus,
+  PaymentOrderView,
+  PaymentVertical,
+  SubscriptionCatalogResponse,
+  SubscriptionPlan,
+  SubscriptionPlanId,
+} from '@simple/utils';
 
-export type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled' | 'refunded';
-
-export type SubscriptionPlan = {
-    id: string;
-    name: string;
-    description: string;
-    priceMonthly: number;
-    currency: string;
-    features: string[];
-    recommended?: boolean;
-};
-
-export type PaymentOrderView = {
-    id: string;
-    title: string;
-    amount: number;
-    currency: string;
-    status: PaymentOrderStatus;
-    providerStatus: string | null;
-    createdAt: number;
-};
-
-export type SubscriptionCatalogResponse = {
-    ok: boolean;
-    mercadoPagoEnabled: boolean;
-    plans: SubscriptionPlan[];
-    freePlan: SubscriptionPlan | null;
-    currentSubscription: {
-        id: string;
-        planId: string;
-        planName: string;
-        priceMonthly: number;
-        currency: string;
-        features: string[];
-        status: string;
-    } | null;
-    orders: PaymentOrderView[];
-    error?: string;
+export type {
+  ConfirmCheckoutResponse,
+  PaymentOrderStatus,
+  PaymentOrderView,
+  PaymentVertical,
+  SubscriptionCatalogResponse,
+  SubscriptionPlan,
+  SubscriptionPlanId,
 };
 
 export async function fetchSubscriptionCatalog(): Promise<SubscriptionCatalogResponse | null> {
@@ -45,7 +24,7 @@ export async function fetchSubscriptionCatalog(): Promise<SubscriptionCatalogRes
     return data?.ok ? data : null;
 }
 
-export async function startSubscriptionCheckout(input: { planId: 'pro'; returnUrl: string }): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
+export async function startSubscriptionCheckout(input: { planId: 'essential' | 'pro'; returnUrl: string }): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
     const { data } = await apiFetch<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }>('/api/payments/checkout', {
         method: 'POST',
         body: JSON.stringify({

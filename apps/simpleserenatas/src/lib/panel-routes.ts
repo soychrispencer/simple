@@ -1,5 +1,5 @@
 import type { Section } from '@/context/serenata-context';
-import { CONFIG_SLUG_TO_ACCOUNT_TAB, type AccountTab, isAccountTab, normalizeAccountTab } from '@/lib/account-tab';
+import { type AccountTab, normalizeAccountTab } from '@/lib/account-tab';
 import type { MarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
 import { marketplaceRequestDraftQuery, publicSerenataRequestQuery } from '@/lib/marketplace-request-draft';
 import { marketplaceCatalogHref, parseMarketplaceSearchParams } from '@/lib/marketplace-search';
@@ -34,11 +34,9 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     finanzas: 'finanzas',
     chat: 'chat',
     whatsapp: 'chat',
-    cuenta: 'profile',
     perfil: 'profile',
     profile: 'profile',
     'mi-cuenta': 'profile',
-    configuracion: 'profile',
     marketplace: 'mariachis',
     explorar: 'mariachis',
     'nuevo-evento': 'mariachis',
@@ -64,7 +62,7 @@ export const SECTION_TO_PANEL_SLUG: Record<Section, string> = {
     map: 'mapa',
     finanzas: 'finanzas',
     chat: 'chat',
-    profile: 'cuenta',
+    profile: 'mi-cuenta',
 };
 
 const ALL_SECTIONS = new Set<string>(Object.keys(SECTION_TO_PANEL_SLUG));
@@ -288,21 +286,9 @@ export function resolveGrupoQueryRedirect(pathname: string, search: string): str
     return null;
 }
 
-/** Rutas anidadas legacy (`/panel/cuenta/datos`, `/panel/configuracion/seguridad`) → `/panel/cuenta?…`. */
+/** Sin rutas anidadas legacy: Mi cuenta vive solo en `/panel/mi-cuenta`. */
 export function resolveNestedPanelRedirect(pathname: string): string | null {
-    const configMatch = pathname.match(/^\/panel\/configuracion\/([^/]+)$/);
-    if (configMatch) {
-        const tab = CONFIG_SLUG_TO_ACCOUNT_TAB[configMatch[1]];
-        if (tab) return profilePanelHref(tab);
-        return panelSectionHref('profile');
-    }
-
-    const cuentaMatch = pathname.match(/^\/panel\/cuenta\/([^/]+)$/);
-    if (cuentaMatch) {
-        const tab = CONFIG_SLUG_TO_ACCOUNT_TAB[cuentaMatch[1]] ?? (isAccountTab(cuentaMatch[1]) ? cuentaMatch[1] : null);
-        if (tab) return profilePanelHref(tab);
-    }
-
+    void pathname;
     return null;
 }
 

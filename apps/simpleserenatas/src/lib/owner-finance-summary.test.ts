@@ -31,7 +31,7 @@ function serenata(partial: Partial<Serenata>): Serenata {
 }
 
 describe('owner-finance-summary', () => {
-    it('incluye comisión en leads de app y descuenta pagos músicos', () => {
+    it('mantiene costo Simple en cero y descuenta pagos músicos', () => {
         const items: Serenata[] = [
             serenata({ id: 'own', source: 'own_lead', price: 100000, eventDate: '2026-05-10' }),
             serenata({ id: 'app', source: 'platform_lead', price: 100000, eventDate: '2026-05-11' }),
@@ -66,13 +66,22 @@ describe('owner-finance-summary', () => {
             items,
             {
                 plan: 'free',
-                planLabel: 'Free',
+                planLabel: 'Prueba gratis',
+                trialDays: 14,
+                trialEndsAt: '2026-05-15T00:00:00.000Z',
+                trialActive: true,
+                subscriptionRequired: false,
+                profileVisibilityStatus: 'trial',
                 alwaysFreeMonthly: true,
                 ownerOwnSerenataCommissionPercent: 0,
                 commissionAppBps: 1500,
                 commissionAppPercent: 15,
                 commissionVatBps: 1900,
                 commissionVatPercent: 19,
+                essentialPriceMonthly: 9990,
+                essentialPriceMonthlyNet: 9990,
+                essentialPriceMonthlyWithVat: Math.round(9990 * 1.19),
+                essentialCheckoutAvailable: false,
                 proPriceMonthly: 0,
                 proPriceMonthlyNet: 0,
                 proPriceMonthlyWithVat: 0,
@@ -95,11 +104,10 @@ describe('owner-finance-summary', () => {
         );
 
         expect(summary.grossClp).toBe(200000);
-        expect(summary.commissionClp).toBe(17850);
-        expect(summary.netEstimatedClp).toBe(182150);
+        expect(summary.commissionClp).toBe(0);
+        expect(summary.netEstimatedClp).toBe(200000);
         expect(summary.pendingMusicianPayoutsClp).toBe(20000);
         expect(summary.paidMusicianPayoutsClp).toBe(30000);
-        expect(summary.netAfterMusiciansClp).toBe(152150);
+        expect(summary.netAfterMusiciansClp).toBe(170000);
     });
 });
-

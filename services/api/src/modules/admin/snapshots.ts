@@ -8,6 +8,7 @@ import {
     serenataMusicians,
     subscriptionPlans,
     subscriptions,
+    userPlatformAccess,
     users,
 } from '../../db/schema.js';
 
@@ -36,6 +37,18 @@ export type AdminVerticalSignal = {
     lastSeenAt: number | null;
 };
 
+export type AdminPlatformAccess = {
+    app: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas';
+    label: string;
+    vertical: AdminVertical;
+    role: string;
+    status: string;
+    origin: string | null;
+    firstSeenAt: number | null;
+    activatedAt: number | null;
+    lastLoginAt: number | null;
+};
+
 export type AdminUserSnapshot = {
     id: string;
     name: string;
@@ -57,8 +70,10 @@ export type AdminUserSnapshot = {
     likelySignupVertical: AdminVertical | null;
     verticalConfidence: 'direct' | 'inferred' | 'unknown';
     verticalSignals: AdminVerticalSignal[];
+    platformAccesses: AdminPlatformAccess[];
+    primaryPlatform: AdminPlatformAccess | null;
     realness: {
-        label: 'Cuenta interna/admin' | 'Alta real probable' | 'Registro real sin actividad' | 'Registro sin señales';
+        label: 'Cuenta interna/admin' | 'Cuenta real activa' | 'Registro real sin actividad' | 'Registro sin plataforma';
         score: number;
         reasons: string[];
     };
@@ -115,6 +130,24 @@ function verticalFromSignupApp(signupApp: string | null | undefined): AdminVerti
     return null;
 }
 
+function verticalFromPlatformApp(app: string | null | undefined): AdminVertical | null {
+    if (app === 'simpleautos') return 'autos';
+    if (app === 'simplepropiedades') return 'propiedades';
+    if (app === 'simpleagenda') return 'agenda';
+    if (app === 'simpleserenatas') return 'serenatas';
+    return null;
+}
+
+function platformLabel(app: string | null | undefined): string {
+    const labels: Record<string, string> = {
+        simpleagenda: 'SimpleAgenda',
+        simpleautos: 'SimpleAutos',
+        simplepropiedades: 'SimplePropiedades',
+        simpleserenatas: 'SimpleSerenatas',
+    };
+    return app ? labels[app] ?? app : 'Sin plataforma';
+}
+
 function signupSourceLabel(signupApp: string | null | undefined, signupOrigin: string | null | undefined): string {
     const labels: Record<string, string> = {
         simpleadmin: 'SimpleAdmin',
@@ -123,7 +156,7 @@ function signupSourceLabel(signupApp: string | null | undefined, signupOrigin: s
         simpleautos: 'SimpleAutos',
         simplepropiedades: 'SimplePropiedades',
         simpleserenatas: 'SimpleSerenatas',
-        unknown: 'Origen no identificado',
+        unknown: 'Sin origen histórico',
     };
     if (signupApp && labels[signupApp]) return labels[signupApp];
     if (!signupOrigin) return 'No registrado historicamente';
@@ -140,6 +173,7 @@ function buildRealness(input: {
     provider: string | null;
     lastLoginAt: Date | null | undefined;
     signals: AdminVerticalSignal[];
+    platformAccesses: AdminPlatformAccess[];
 }): AdminUserSnapshot['realness'] {
     if (input.role === 'admin' || input.role === 'superadmin') {
         return { label: 'Cuenta interna/admin', score: 100, reasons: ['Rol administrativo'] };
@@ -159,20 +193,24 @@ function buildRealness(input: {
         score += 20;
         reasons.push('Tiene inicio de sesión');
     }
-    if (input.signals.length > 0) {
+    if (input.platformAccesses.length > 0) {
         score += 30;
-        reasons.push('Tiene señales de vertical');
+        reasons.push('Tiene plataforma activada');
+    } else if (input.signals.length > 0) {
+        score += 15;
+        reasons.push('Tiene actividad detectada');
     }
 
     const capped = Math.min(score, 100);
-    if (capped >= 65) return { label: 'Alta real probable', score: capped, reasons };
+    if (capped >= 65) return { label: 'Cuenta real activa', score: capped, reasons };
     if (capped >= 35) return { label: 'Registro real sin actividad', score: capped, reasons };
-    return { label: 'Registro sin señales', score: capped, reasons: reasons.length ? reasons : ['Sin actividad asociada'] };
+    return { label: 'Registro sin plataforma', score: capped, reasons: reasons.length ? reasons : ['Sin actividad asociada'] };
 }
 
 export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): Promise<AdminUserSnapshot[]> {
-    const [userRows, listingRows, agendaProfiles, serenataClientRows, serenataMusicianRows, serenataOwnerRows] = await Promise.all([
+    const [userRows, platformRows, listingRows, agendaProfiles, serenataClientRows, serenataMusicianRows, serenataOwnerRows] = await Promise.all([
         db.select().from(users).orderBy(desc(users.createdAt)),
+        db.select().from(userPlatformAccess),
         db.select({
             ownerId: listings.ownerId,
             vertical: listings.vertical,
@@ -239,6 +277,32 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
             : [],
     );
     const agendaProfilesByUser = new Map(agendaProfiles.map((row) => [row.userId, row]));
+    const platformsByUser = new Map<string, AdminPlatformAccess[]>();
+    for (const row of platformRows) {
+        const v = verticalFromPlatformApp(row.app);
+        if (!v) continue;
+        const access: AdminPlatformAccess = {
+            app: row.app as AdminPlatformAccess['app'],
+            label: platformLabel(row.app),
+            vertical: v,
+            role: row.role,
+            status: row.status,
+            origin: row.origin ?? null,
+            firstSeenAt: timeOrNull(row.firstSeenAt),
+            activatedAt: timeOrNull(row.activatedAt),
+            lastLoginAt: timeOrNull(row.lastLoginAt),
+        };
+        const bucket = platformsByUser.get(row.userId) ?? [];
+        bucket.push(access);
+        platformsByUser.set(row.userId, bucket);
+    }
+    for (const bucket of platformsByUser.values()) {
+        bucket.sort((a, b) => {
+            const aTime = a.activatedAt ?? a.firstSeenAt ?? Number.MAX_SAFE_INTEGER;
+            const bTime = b.activatedAt ?? b.firstSeenAt ?? Number.MAX_SAFE_INTEGER;
+            return aTime - bTime;
+        });
+    }
     const serenataClientsByUser = new Map(serenataClientRows.map((row) => [row.userId, row]));
     const serenataMusiciansByUser = new Map(serenataMusicianRows.map((row) => [row.userId, row]));
     const serenataOwnersByUser = new Map(serenataOwnerRows.map((row) => [row.userId, row]));
@@ -265,7 +329,9 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
 
     return userRows
         .filter((user) => {
+            const platformAccesses = platformsByUser.get(user.id) ?? [];
             if (!vertical) return true;
+            if (platformAccesses.some((access) => access.vertical === vertical)) return true;
             const userVertical = user.primaryVertical ?? null;
             if (userVertical === vertical) return true;
             if (ownersWithVerticalListings.has(user.id)) return true;
@@ -289,6 +355,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
             const serenataMusician = serenataMusiciansByUser.get(user.id);
             const serenataOwner = serenataOwnersByUser.get(user.id);
             const sub = subscriptionsByUser.get(user.id);
+            const platformAccesses = platformsByUser.get(user.id) ?? [];
+            const primaryPlatform = platformAccesses.find((access) => access.status === 'active') ?? platformAccesses[0] ?? null;
             const signals: AdminVerticalSignal[] = [];
             const directSignupVertical = verticalFromSignupApp(user.signupApp);
 
@@ -306,7 +374,7 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                 signals.push({
                     vertical: user.primaryVertical as VerticalType,
                     source: 'primary_vertical',
-                    label: 'Vertical primaria guardada',
+                    label: 'Plataforma base guardada',
                     count: 1,
                     firstSeenAt: user.createdAt.getTime(),
                     lastSeenAt: user.updatedAt.getTime(),
@@ -382,11 +450,12 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                 return (a.firstSeenAt ?? Number.MAX_SAFE_INTEGER) - (b.firstSeenAt ?? Number.MAX_SAFE_INTEGER);
             });
 
-            const likelySignupVertical = directSignupVertical
+            const likelySignupVertical = primaryPlatform?.vertical
+                ?? directSignupVertical
                 ?? (user.primaryVertical as VerticalType | null)
                 ?? signals[0]?.vertical
                 ?? null;
-            const verticalConfidence = directSignupVertical || user.primaryVertical
+            const verticalConfidence = primaryPlatform || directSignupVertical || user.primaryVertical
                 ? 'direct'
                 : signals.length > 0
                     ? 'inferred'
@@ -414,12 +483,15 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                 likelySignupVertical,
                 verticalConfidence,
                 verticalSignals: signals,
+                platformAccesses,
+                primaryPlatform,
                 realness: buildRealness({
                     role: user.role,
                     status: user.status,
                     provider: user.provider ?? null,
                     lastLoginAt: user.lastLoginAt,
                     signals,
+                    platformAccesses,
                 }),
                       serenatas: hasSerenataProfile
                     ? {

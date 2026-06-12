@@ -3,7 +3,7 @@ import { BOOST_PLAN_TEMPLATES, BOOST_PRICE_BY_VERTICAL_SECTION, MAX_BOOST_SLOTS_
 
 // State
 const boostOrdersByUser = new Map<string, BoostOrder[]>();
-const boostListingsSeed: BoostListingRecord[] = [];
+export const boostListingsSeed: BoostListingRecord[] = [];
 
 // Utility functions
 export function isBoostSectionAllowed(vertical: VerticalType, section: BoostSection): boolean {

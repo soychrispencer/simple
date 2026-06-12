@@ -2,6 +2,7 @@
 
 import { Suspense } from 'react';
 import { AuthGuard } from '@/components/auth/auth-guard';
+import { SubscriptionGate } from '@/components/auth/subscription-gate';
 import { PanelQueryRedirect } from '@/components/panel/panel-query-redirect';
 import { PanelLoadingFallback } from '@/components/panel/panel-loading-fallback';
 
@@ -12,7 +13,9 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
             <Suspense fallback={<PanelLoadingFallback />}>
                 <PanelQueryRedirect />
             </Suspense>
-            <AuthGuard>{children}</AuthGuard>
+            <AuthGuard>
+                <SubscriptionGate>{children}</SubscriptionGate>
+            </AuthGuard>
         </>
     );
 }

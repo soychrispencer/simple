@@ -809,7 +809,7 @@ export default function AgendaPage() {
                             return (
                                 <button
                                     key={gs.id}
-                                    onClick={(e) => { e.stopPropagation(); router.push(`/panel/configuracion/grupales/${gs.id}`); }}
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/panel/mi-negocio/grupales/${gs.id}`); }}
                                     className="absolute left-14 sm:left-16 right-2 rounded-lg px-2.5 py-1.5 text-left transition-opacity hover:opacity-90 z-20 overflow-hidden"
                                     style={{
                                         top,
@@ -923,7 +923,7 @@ export default function AgendaPage() {
                                     {loading ? null : combined.slice(0, 3).map((item) => item.kind === 'group' ? (
                                         <button
                                             key={`g-${item.data.id}`}
-                                            onClick={(e) => { e.stopPropagation(); router.push(`/panel/configuracion/grupales/${item.data.id}`); }}
+                                            onClick={(e) => { e.stopPropagation(); router.push(`/panel/mi-negocio/grupales/${item.data.id}`); }}
                                             className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate mb-0.5 transition-opacity hover:opacity-80 flex items-center gap-1"
                                             style={{ background: '#8b5cf6', color: '#fff' }}
                                         >

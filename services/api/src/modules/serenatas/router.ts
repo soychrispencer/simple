@@ -71,7 +71,7 @@ import {
     flushAssignGroupSideEffects,
 } from '../../lib/serenatas-notification-delivery.js';
 import { isMercadoPagoConfigured } from '../mercadopago/service.js';
-import { APP_COMMISSION_FREE_BPS, COMMISSION_VAT_BPS } from './plan-config.js';
+import { APP_COMMISSION_FREE_BPS, COMMISSION_VAT_BPS, defaultSerenataTrialEndsAt } from './plan-config.js';
 import { listSerenataBillingHistory } from './billing-history.js';
 import {
     listMusicianPayouts,
@@ -858,9 +858,13 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 503,
             );
         }
+        const ownerProfile = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.userId, user.id) });
         return c.json({
             ok: true,
-            ...buildSerenataMePlanResponse(plan, { proCheckoutAvailable: isMercadoPagoConfigured() }),
+            ...buildSerenataMePlanResponse(plan, {
+                proCheckoutAvailable: isMercadoPagoConfigured(),
+                trialEndsAt: ownerProfile?.trialEndsAt ?? null,
+            }),
         });
     });
 
@@ -1015,9 +1019,9 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             : await db.insert(serenataOwners).values({
                 userId: user.id,
                 ...values,
-                subscriptionStatus: 'active',
+                subscriptionStatus: 'trialing',
                 subscriptionPrice: 0,
-                trialEndsAt: new Date('2099-12-31T00:00:00.000Z'),
+                trialEndsAt: defaultSerenataTrialEndsAt(),
             }).returning();
         return c.json({ ok: true, profile });
     };
@@ -1043,11 +1047,11 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 : musician?.comuna
                     ? [musician.comuna]
                     : [],
-            subscriptionStatus: 'active',
+            subscriptionStatus: 'trialing',
             subscriptionPrice: 0,
             commissionRateBps: APP_COMMISSION_FREE_BPS,
             commissionVatRateBps: COMMISSION_VAT_BPS,
-            trialEndsAt: new Date('2099-12-31T00:00:00.000Z'),
+            trialEndsAt: defaultSerenataTrialEndsAt(),
         }).returning();
         return c.json({ ok: true, profile }, 201);
     };
@@ -1736,7 +1740,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
 
     const FREE_MUSICIAN_GROUP_LIMIT = 1;
     const FREE_GROUP_LIMIT_MESSAGE =
-        'El plan Gratis permite 1 grupo de músicos. Suscríbete a Pro para crear más grupos.';
+        'Esencial permite 1 grupo de músicos. Durante la prueba tienes acceso completo; activa Pro para crear más grupos.';
 
     async function freePlanGroupLimitReached(
         userId: string,
@@ -1745,6 +1749,11 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     ) {
         const plan = await resolveActiveSerenataBillingPlan(userId);
         if (plan === 'pro') return false;
+        const owner = await db.query.serenataOwners.findFirst({
+            where: eq(serenataOwners.id, ownerId),
+        });
+        const trialActive = Boolean(owner?.trialEndsAt && owner.trialEndsAt.getTime() >= Date.now());
+        if (plan === 'free') return !trialActive;
         const filters = [
             eq(serenataGroups.ownerId, ownerId),
             inArray(serenataGroups.status, ['draft', 'active']),

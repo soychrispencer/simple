@@ -3,9 +3,9 @@ import { persistPaymentOrderToDb } from './persist.js';
 import { persistUserSubscription } from '../subscriptions/persist-db.js';
 
 export type ConfirmSubscriptionDeps = {
-    getPaidSubscriptionPlan: (vertical: VerticalType, planId: 'pro' | 'enterprise') => PaidSubscriptionPlanRecord | null;
+    getPaidSubscriptionPlan: (vertical: VerticalType, planId: 'essential' | 'pro' | 'enterprise') => PaidSubscriptionPlanRecord | null;
     upsertActiveSubscription: (sub: Record<string, unknown>) => Record<string, unknown>;
-    makeSubscriptionId: (vertical: VerticalType, planId: 'pro' | 'enterprise') => string;
+    makeSubscriptionId: (vertical: VerticalType, planId: 'essential' | 'pro' | 'enterprise') => string;
     updatePaymentOrder: (
         userId: string,
         orderId: string,
@@ -41,7 +41,7 @@ export async function confirmSubscriptionFromPreapproval(
         return { ok: false, error: 'La orden no tiene metadata de suscripción válida.', status: 409 };
     }
 
-    const planId = metadata.planId as 'pro' | 'enterprise';
+    const planId = metadata.planId as 'essential' | 'pro' | 'enterprise';
     const vertical = String(input.order.vertical) as VerticalType;
     const parsedStatus = deps.parseMercadoPagoPreapprovalStatus(input.providerStatus);
 

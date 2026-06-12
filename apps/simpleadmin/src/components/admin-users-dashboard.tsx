@@ -65,7 +65,7 @@ const ROLE_OPTIONS: Array<{ value: AdminUserRole; label: string }> = [
 ];
 
 const PRIMARY_VERTICAL_OPTIONS: Array<{ value: PrimaryVerticalValue; label: string }> = [
-    { value: 'none', label: 'Sin vertical' },
+    { value: 'none', label: 'Sin plataforma base' },
     { value: 'agenda', label: 'SimpleAgenda' },
     { value: 'autos', label: 'SimpleAutos' },
     { value: 'propiedades', label: 'SimplePropiedades' },
@@ -149,7 +149,7 @@ Equipo SimpleAgenda`,
 
 Gracias por crear tu cuenta en el ecosistema Simple.
 
-Cada vertical está pensada para resolver un flujo concreto: agenda, publicaciones, clientes, oportunidades comerciales o gestión operativa.
+Cada plataforma está pensada para resolver un flujo concreto: agenda, publicaciones, clientes, oportunidades comerciales o gestión operativa.
 
 Si necesitas ayuda para ubicarte o elegir por dónde continuar, responde este correo y te orientamos.
 
@@ -209,7 +209,32 @@ function verticalLabel(vertical: AdminVertical | null) {
     if (vertical === 'autos') return 'SimpleAutos';
     if (vertical === 'propiedades') return 'SimplePropiedades';
     if (vertical === 'serenatas') return 'SimpleSerenatas';
-    return 'Sin vertical';
+    return 'Sin plataforma';
+}
+
+function platformStatusLabel(status: string) {
+    if (status === 'active') return 'Activa';
+    if (status === 'suspended') return 'Suspendida';
+    if (status === 'inactive') return 'No activada';
+    return status;
+}
+
+function platformRoleLabel(role: string | null | undefined) {
+    if (role === 'professional') return 'Profesional';
+    if (role === 'publisher') return 'Publicador';
+    if (role === 'owner') return 'Dueño';
+    if (role === 'musician') return 'Músico';
+    return 'Usuario';
+}
+
+function platformSummary(user: AdminUserSnapshot) {
+    if (!user.platformAccesses?.length) return 'Sin plataforma activada';
+    return user.platformAccesses.map((access) => access.label).join(', ');
+}
+
+function activitySummary(user: AdminUserSnapshot) {
+    if (user.lastLoginAt) return `Último ingreso ${formatDateTime(user.lastLoginAt)}`;
+    return `Registro ${formatDateTime(user.createdAt)}`;
 }
 
 function neutralBadge(label: string) {
@@ -222,27 +247,34 @@ function neutralBadge(label: string) {
 
 function userMatchesVertical(user: AdminUserSnapshot, vertical: VerticalFilter) {
     if (vertical === 'all') return true;
+    if (user.platformAccesses?.some((access) => access.vertical === vertical)) return true;
     if (user.likelySignupVertical === vertical) return true;
     return user.verticalSignals.some((signal) => signal.vertical === vertical);
 }
 
-function healthLabel(score: number) {
-    if (score >= 70) return 'Alta';
-    if (score >= 40) return 'Media';
-    return 'Baja';
-}
-
-function AccountHealth({ score }: { score: number }) {
-    const safeScore = Math.max(0, Math.min(100, score || 0));
+function AccessState({ user, compact = false }: { user: AdminUserSnapshot; compact?: boolean }) {
+    const hasPlatform = (user.platformAccesses ?? []).some((access) => access.status === 'active');
+    const items = [
+        { label: user.status === 'verified' ? 'Correo verificado' : 'Correo pendiente', ok: user.status === 'verified' },
+        { label: user.lastLoginAt ? 'Con ingreso' : 'Sin ingreso', ok: Boolean(user.lastLoginAt) },
+        { label: hasPlatform ? 'Plataforma activa' : 'Sin plataforma', ok: hasPlatform },
+        { label: user.provider === 'google' ? 'Google' : 'Email', ok: true },
+    ];
     return (
-        <div className="min-w-[120px]">
-            <div className="mb-1 flex items-center justify-between gap-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                <span>{healthLabel(safeScore)}</span>
-                <span className="font-mono">{safeScore}</span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--bg-muted)' }}>
-                <div className="h-full rounded-full" style={{ width: `${safeScore}%`, background: 'var(--fg)' }} />
-            </div>
+        <div className={compact ? 'flex flex-wrap gap-1.5' : 'grid gap-2'}>
+            {items.map((item) => (
+                <span
+                    key={item.label}
+                    className="inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-medium"
+                    style={{
+                        borderColor: item.ok ? 'rgba(22,163,74,0.22)' : 'var(--border)',
+                        color: item.ok ? '#166534' : 'var(--fg-secondary)',
+                        background: item.ok ? 'rgba(22,163,74,0.08)' : 'var(--bg-subtle)',
+                    }}
+                >
+                    {item.label}
+                </span>
+            ))}
         </div>
     );
 }
@@ -270,6 +302,10 @@ function Drawer({ user, onClose, onEdit, onEmail, onSubscriptions, onDelete, onS
     onDelete: () => void;
     onSerenatasProfile: (profileType: 'client' | 'musician' | 'owner') => void;
 }) {
+    const activePlatforms = user.platformAccesses ?? [];
+    const distinctActivity = user.verticalSignals.filter((signal) => (
+        !activePlatforms.some((access) => access.vertical === signal.vertical && signal.source === 'signup_app')
+    ));
     return (
         <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l shadow-2xl" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
             <div className="flex items-start justify-between gap-4 border-b p-5" style={{ borderColor: 'var(--border)' }}>
@@ -285,46 +321,57 @@ function Drawer({ user, onClose, onEdit, onEmail, onSubscriptions, onDelete, onS
 
             <div className="flex-1 space-y-5 overflow-y-auto p-5">
                 <section>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Cuenta</p>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                        <Info label="Rol" value={roleLabel(user.role)} />
-                        <Info label="Estado" value={statusLabel(user.status)} />
-                        <Info label="Teléfono" value={user.phone || 'Sin teléfono'} />
-                        <Info label="Proveedor" value={user.provider || 'Email'} />
-                        <Info label="Alta" value={user.signupSourceLabel} className="col-span-2" />
-                        <Info label="Vertical probable" value={`${verticalLabel(user.likelySignupVertical)} · ${user.verticalConfidence === 'direct' ? 'directa' : user.verticalConfidence === 'inferred' ? 'inferida' : 'sin señal'}`} className="col-span-2" />
+                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Resumen</p>
+                    <div className="grid gap-2 text-sm">
+                        <div className="rounded-card border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {neutralBadge(roleLabel(user.role))}
+                                {neutralBadge(statusLabel(user.status))}
+                                {user.provider === 'google' ? neutralBadge('Google') : neutralBadge('Email')}
+                            </div>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                <Info label="Teléfono" value={user.phone || 'Sin teléfono'} />
+                                <Info label="Actividad" value={activitySummary(user)} />
+                            </div>
+                        </div>
                     </div>
                 </section>
 
                 <section>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Salud de cuenta</p>
-                    <PanelCard size="sm">
-                        <AccountHealth score={user.realness.score} />
-                        <p className="mt-3 text-sm font-medium" style={{ color: 'var(--fg)' }}>{user.realness.label}</p>
-                        {user.realness.reasons.length ? (
-                            <ul className="mt-2 space-y-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                {user.realness.reasons.map((reason) => <li key={reason}>• {reason}</li>)}
-                            </ul>
-                        ) : null}
-                    </PanelCard>
-                </section>
-
-                <section>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Señales por vertical</p>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Plataformas</p>
                     <div className="space-y-2">
-                        {user.verticalSignals.length ? user.verticalSignals.map((signal, index) => (
-                            <div key={`${signal.vertical}-${signal.source}-${index}`} className="rounded-card border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                        {activePlatforms.length ? activePlatforms.map((access) => (
+                            <div key={access.app} className="rounded-card border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
                                 <div className="flex items-center justify-between gap-3">
-                                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{verticalLabel(signal.vertical)}</p>
-                                    {neutralBadge(String(signal.count))}
+                                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{access.label}</p>
+                                    {neutralBadge(platformStatusLabel(access.status))}
                                 </div>
-                                <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>{signal.label}</p>
+                                <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                    {platformRoleLabel(access.role)} · Activada {formatDateTime(access.activatedAt)}
+                                </p>
                             </div>
                         )) : (
-                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>No hay señales suficientes para asignar vertical.</p>
+                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>No tiene plataformas activadas todavía.</p>
                         )}
                     </div>
                 </section>
+
+                {!activePlatforms.length && distinctActivity.length ? (
+                    <section>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Actividad detectada</p>
+                        <div className="space-y-2">
+                            {distinctActivity.map((signal, index) => (
+                                <div key={`${signal.vertical}-${signal.source}-${index}`} className="rounded-card border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{verticalLabel(signal.vertical)}</p>
+                                        {neutralBadge(String(signal.count))}
+                                    </div>
+                                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>{signal.label}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                ) : null}
 
                 <section>
                     <div className="mb-2 flex items-center justify-between gap-3">
@@ -442,7 +489,7 @@ function EditModal({ user, onCancel, onSaved }: { user: AdminUserSnapshot; onCan
                     <ModernSelect value={status} onChange={(value) => setStatus(value as AdminUserStatus)} options={STATUS_OPTIONS.filter((option) => option.value !== 'all') as Array<{ value: AdminUserStatus; label: string }>} />
                 </label>
                 <label className="space-y-1.5 sm:col-span-2">
-                    <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Vertical primaria</span>
+                    <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Plataforma base</span>
                     <ModernSelect value={primaryVertical} onChange={(value) => setPrimaryVertical(value as PrimaryVerticalValue)} options={PRIMARY_VERTICAL_OPTIONS} />
                 </label>
             </div>
@@ -529,7 +576,7 @@ function EmailModal({ user, userIds, onCancel, onSent }: { user?: AdminUserSnaps
                     </label>
                 </div>
                 <p className="text-xs leading-5" style={{ color: 'var(--fg-muted)' }}>
-                    Marca sugerida: {brandVertical ? verticalLabel(brandVertical) : 'SimplePlataforma'}. El correo puede salir desde el dominio central, pero el nombre visible y el diseño serán de la vertical.
+                    Marca sugerida: {brandVertical ? verticalLabel(brandVertical) : 'SimplePlataforma'}. El correo puede salir desde el dominio central, pero el nombre visible y el diseño serán de la plataforma.
                 </p>
             </div>
             {error ? <p className="mt-4 text-sm" style={{ color: 'var(--fg)' }}>{error}</p> : null}
@@ -757,7 +804,7 @@ export function AdminUsersDashboard() {
             if (!userMatchesVertical(user, vertical)) return false;
             if (status !== 'all' && user.status !== status) return false;
             if (!normalized) return true;
-            return [user.name, user.email, user.phone ?? '', user.signupSourceLabel, verticalLabel(user.likelySignupVertical)]
+            return [user.name, user.email, user.phone ?? '', user.signupSourceLabel, platformSummary(user), verticalLabel(user.likelySignupVertical)]
                 .join(' ')
                 .toLowerCase()
                 .includes(normalized);
@@ -769,10 +816,10 @@ export function AdminUsersDashboard() {
     const allVisibleChecked = filteredUsers.length > 0 && visibleCheckedIds.length === filteredUsers.length;
 
     const stats = useMemo(() => {
-        const verified = filteredUsers.filter((user) => user.status === 'verified').length;
         const suspended = filteredUsers.filter((user) => user.status === 'suspended').length;
+        const withPlatform = filteredUsers.filter((user) => (user.platformAccesses ?? []).some((access) => access.status === 'active')).length;
         const proSignals = filteredUsers.filter((user) => JSON.stringify(user.subscriptions ?? {}).includes('active')).length;
-        return { total: filteredUsers.length, verified, suspended, proSignals };
+        return { total: filteredUsers.length, suspended, withPlatform, proSignals };
     }, [filteredUsers]);
 
     const refreshAfterAction = async () => {
@@ -829,17 +876,17 @@ export function AdminUsersDashboard() {
                         className="form-input pl-10"
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
-                        placeholder="Buscar por nombre, correo, teléfono o vertical..."
+                        placeholder="Buscar por nombre, correo, teléfono o plataforma..."
                     />
                 </label>
                 <ModernSelect value={status} onChange={(value) => setStatus(value as StatusFilter)} options={STATUS_OPTIONS} />
             </div>
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mb-5 grid gap-3 sm:grid-cols-3">
                 <PanelStatCard label="Usuarios filtrados" value={String(stats.total)} icon={<IconUsers size={16} />} />
-                <PanelStatCard label="Verificados" value={String(stats.verified)} icon={<IconUserCheck size={16} />} />
+                <PanelStatCard label="Con plataforma activa" value={String(stats.withPlatform)} icon={<IconUserCheck size={16} />} />
                 <PanelStatCard label="Con suscripción activa" value={String(stats.proSignals)} />
-                <PanelStatCard label="Suspendidos" value={String(stats.suspended)} />
+                {stats.suspended > 0 ? <PanelStatCard label="Suspendidos" value={String(stats.suspended)} /> : null}
             </div>
 
             {error ? (
@@ -849,12 +896,11 @@ export function AdminUsersDashboard() {
             ) : null}
 
             <PanelList>
-                <PanelListHeader className="grid-cols-[40px_minmax(240px,1.5fr)_minmax(150px,0.8fr)_minmax(170px,0.9fr)_minmax(150px,0.8fr)_120px]">
+                <PanelListHeader className="grid-cols-[40px_minmax(280px,1.5fr)_minmax(190px,0.9fr)_minmax(210px,1fr)_120px]">
                     <button type="button" onClick={toggleAllVisible} className="flex h-4 w-4 items-center justify-center rounded border" style={{ borderColor: 'var(--border)', background: allVisibleChecked ? 'var(--fg)' : 'var(--surface)' }} aria-label="Seleccionar visibles" />
                     <span>Usuario</span>
-                    <span>Vertical</span>
-                    <span>Registro / último login</span>
-                    <span>Salud</span>
+                    <span>Plataforma</span>
+                    <span>Actividad</span>
                     <span className="text-right">Acciones</span>
                 </PanelListHeader>
 
@@ -869,7 +915,7 @@ export function AdminUsersDashboard() {
                 ) : filteredUsers.map((user) => {
                     const checked = checkedIds.includes(user.id);
                     return (
-                        <PanelListRow key={user.id} className="grid gap-3 p-4 md:grid-cols-[40px_minmax(240px,1.5fr)_minmax(150px,0.8fr)_minmax(170px,0.9fr)_minmax(150px,0.8fr)_120px] md:items-center">
+                        <PanelListRow key={user.id} className="grid gap-3 p-4 md:grid-cols-[40px_minmax(280px,1.5fr)_minmax(190px,0.9fr)_minmax(210px,1fr)_120px] md:items-center">
                             <button
                                 type="button"
                                 onClick={(event) => { event.stopPropagation(); toggleChecked(user.id); }}
@@ -889,14 +935,16 @@ export function AdminUsersDashboard() {
                                 </span>
                             </button>
                             <div>
-                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{verticalLabel(user.likelySignupVertical)}</p>
-                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user.signupSourceLabel}</p>
+                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{user.primaryPlatform?.label ?? verticalLabel(user.likelySignupVertical)}</p>
+                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{platformSummary(user)}</p>
                             </div>
-                            <div className="font-mono text-xs leading-5" style={{ color: 'var(--fg-muted)' }}>
-                                <p>{formatDateTime(user.createdAt)}</p>
-                                <p>{formatDateTime(user.lastLoginAt)}</p>
+                            <div className="space-y-2">
+                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{activitySummary(user)}</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {neutralBadge(user.status === 'verified' ? 'Verificado' : user.status === 'suspended' ? 'Suspendido' : 'Activo')}
+                                    {user.provider === 'google' ? neutralBadge('Google') : null}
+                                </div>
                             </div>
-                            <AccountHealth score={user.realness.score} />
                             <div className="flex items-center justify-start gap-1 md:justify-end">
                                 <PanelIconButton label="Editar" onClick={() => setModal({ type: 'edit', user })} variant="soft"><IconEdit size={15} /></PanelIconButton>
                                 <PanelIconButton label="Enviar correo" onClick={() => setModal({ type: 'email', user })} variant="soft"><IconMail size={15} /></PanelIconButton>

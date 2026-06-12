@@ -49,8 +49,9 @@ export function buildOwnerFinanceSummary(
     range: FinancePeriodRange,
     payouts: MusicianPayout[] = [],
 ): OwnerFinanceSummary {
-    const commissionBps = plan?.commissionAppBps ?? plan?.constants.APP_COMMISSION_FREE_BPS ?? 1500;
-    const commissionVatBps = plan?.commissionVatBps ?? plan?.constants.COMMISSION_VAT_BPS ?? 1900;
+    void plan;
+    const commissionBps = 0;
+    const commissionVatBps = 0;
 
     const items = serenatas.filter((item) => inRange(item, range) && REVENUE_STATUSES.has(item.status));
 
@@ -116,8 +117,9 @@ export function buildFinanceMovements(
     plan: SerenataMePlan | null,
     range: FinancePeriodRange,
 ): FinanceMovementRow[] {
-    const commissionBps = plan?.commissionAppBps ?? plan?.constants.APP_COMMISSION_FREE_BPS ?? 1500;
-    const commissionVatBps = plan?.commissionVatBps ?? plan?.constants.COMMISSION_VAT_BPS ?? 1900;
+    void plan;
+    const commissionBps = 0;
+    const commissionVatBps = 0;
 
     return serenatas
         .filter((item) => inRange(item, range))

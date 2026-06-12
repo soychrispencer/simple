@@ -616,7 +616,7 @@ export default function CRMPage() {
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-3">
-                            <PanelButton type="button" onClick={() => window.location.assign('/panel/suscripciones')}>
+                            <PanelButton type="button" onClick={() => window.location.assign('/panel/mi-cuenta/suscripcion')}>
                                 Ver suscripciones
                             </PanelButton>
                             <PanelButton type="button" variant="secondary" onClick={() => window.location.assign('/panel/mensajes')}>

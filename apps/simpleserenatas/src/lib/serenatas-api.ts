@@ -38,6 +38,17 @@ export type SerenatasUser = {
     hasPassword?: boolean;
     pendingEmail?: string | null;
     status: 'active' | 'verified' | 'suspended';
+    currentApp?: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | null;
+    platformAccesses?: {
+        app: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas';
+        label: string;
+        status: string;
+        role: string;
+        origin?: string | null;
+        firstSeenAt?: string | null;
+        activatedAt?: string | null;
+        lastLoginAt?: string | null;
+    }[];
 };
 
 export type MusicianProfile = {
@@ -85,26 +96,43 @@ export type OwnerProfile = {
     maxPrice: number | null;
     subscriptionStatus: 'trialing' | 'active' | 'past_due' | 'cancelled';
     subscriptionPrice: number;
+    /** @deprecated SimpleSerenatas no cobra comisión por serenata. */
     commissionRateBps: number;
+    /** @deprecated Solo aplica a cálculos legacy de comisión, no al modelo comercial actual. */
     commissionVatRateBps: number;
     trialEndsAt: string;
 };
 
-export type SerenataBillingPlanId = 'free' | 'pro';
+export type SerenataBillingPlanId = 'free' | 'essential' | 'pro';
 
 export type SerenataMePlan = {
     plan: SerenataBillingPlanId;
     planLabel: string;
+    /** @deprecated El modelo actual es prueba gratis por tiempo limitado + Esencial/Pro. */
     alwaysFreeMonthly: true;
+    /** @deprecated SimpleSerenatas no cobra comisión por serenata. */
     ownerOwnSerenataCommissionPercent: 0;
+    /** @deprecated SimpleSerenatas no cobra comisión por serenata. */
     commissionAppBps: number;
+    /** @deprecated SimpleSerenatas no cobra comisión por serenata. */
     commissionAppPercent: number;
+    /** @deprecated Solo aplica a cálculos legacy de comisión, no al modelo comercial actual. */
     commissionVatBps: number;
+    /** @deprecated Solo aplica a cálculos legacy de comisión, no al modelo comercial actual. */
     commissionVatPercent: number;
+    essentialPriceMonthly: number;
+    essentialPriceMonthlyNet: number;
+    essentialPriceMonthlyWithVat: number;
+    essentialCheckoutAvailable: boolean;
     proPriceMonthly: number;
     proPriceMonthlyNet: number;
     proPriceMonthlyWithVat: number;
     proCheckoutAvailable: boolean;
+    trialDays: number;
+    trialEndsAt: string | null;
+    trialActive: boolean;
+    subscriptionRequired: boolean;
+    profileVisibilityStatus: 'trial' | 'active' | 'paused';
     exampleGrossClp: number;
     example: {
         grossClp: number;
@@ -198,6 +226,7 @@ export type ProviderGroup = {
     slaHours?: number;
     bookingMode?: ProviderBookingMode;
     bufferMinutes?: number;
+    timezone?: string;
     requiresAdvancePayment?: boolean;
     advancePaymentInstructions?: string | null;
     acceptsCash?: boolean;
@@ -892,6 +921,14 @@ export const serenatasApi = {
     disconnectGoogle: async (): Promise<ApiEnvelope<{ disconnected?: boolean; user?: SerenatasUser }>> => {
         const response = await apiFetch<ApiEnvelope<{ disconnected?: boolean; user?: SerenatasUser }>>('/api/auth/google/disconnect', {
             method: 'POST',
+        });
+        if (!response.data) return { ok: false, error: 'No pudimos conectar con el servidor.' };
+        return response.data;
+    },
+    activatePlatformAccess: async (app?: string): Promise<ApiEnvelope<{ user?: SerenatasUser }>> => {
+        const response = await apiFetch<ApiEnvelope<{ user?: SerenatasUser }>>('/api/auth/platform-access/activate', {
+            method: 'POST',
+            body: JSON.stringify(app ? { app } : {}),
         });
         if (!response.data) return { ok: false, error: 'No pudimos conectar con el servidor.' };
         return response.data;

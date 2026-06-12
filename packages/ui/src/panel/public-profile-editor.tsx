@@ -393,7 +393,7 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    <Link href="/panel/suscripciones" className="btn-primary">Ver suscripciones</Link>
+                    <Link href="/panel/mi-cuenta/suscripcion" className="btn-primary">Ver suscripciones</Link>
                     <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>Cuando actives un plan de pago, esta sección quedará disponible al instante.</span>
                 </div>
             </PanelCard>

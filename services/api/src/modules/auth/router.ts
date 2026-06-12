@@ -28,6 +28,7 @@ export type AuthRouterDeps = {
         users: any;
         passwordResetTokens: any;
         emailVerificationTokens: any;
+        userPlatformAccess: any;
     };
     bcrypt: { hash: (pw: string, rounds: number) => Promise<string>; compare: (pw: string, hash: string) => Promise<boolean> };
     getUserByEmail: (email: string) => Promise<any | null>;
@@ -91,9 +92,26 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     // Store cleanup function for graceful shutdown
     (app as any).cleanup = () => clearInterval(cleanupInterval);
 
+    type SimpleUserApp = 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas';
     type SignupSource = {
-        app: 'simpleadmin' | 'simpleplataforma' | 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'unknown';
+        app: 'simpleadmin' | 'simpleplataforma' | SimpleUserApp | 'unknown';
         primaryVertical: 'agenda' | 'autos' | 'propiedades' | null;
+    };
+
+    const userFacingApps: SimpleUserApp[] = ['simpleagenda', 'simpleautos', 'simplepropiedades', 'simpleserenatas'];
+
+    const appLabels: Record<SimpleUserApp, string> = {
+        simpleagenda: 'SimpleAgenda',
+        simpleautos: 'SimpleAutos',
+        simplepropiedades: 'SimplePropiedades',
+        simpleserenatas: 'SimpleSerenatas',
+    };
+
+    const defaultAppRoles: Record<SimpleUserApp, string> = {
+        simpleagenda: 'professional',
+        simpleautos: 'publisher',
+        simplepropiedades: 'publisher',
+        simpleserenatas: 'user',
     };
 
     function resolveSignupSource(origin: string | null): SignupSource {
@@ -112,6 +130,83 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (hostname.includes('simpleserenatas')) return { app: 'simpleserenatas', primaryVertical: null };
         if (hostname.includes('simpleplataforma')) return { app: 'simpleplataforma', primaryVertical: null };
         return { app: 'unknown', primaryVertical: null };
+    }
+
+    function resolveCurrentApp(c: any): SimpleUserApp | null {
+        const explicit = deps.asString(c.req.header('x-simple-app')).trim().toLowerCase();
+        if (userFacingApps.includes(explicit as SimpleUserApp)) return explicit as SimpleUserApp;
+        const source = resolveSignupSource(deps.resolveBrowserOrigin(c));
+        return userFacingApps.includes(source.app as SimpleUserApp) ? source.app as SimpleUserApp : null;
+    }
+
+    async function upsertPlatformAccess(input: {
+        userId: string;
+        app: SimpleUserApp | null;
+        origin: string | null;
+        role?: string;
+        markLogin?: boolean;
+        activate?: boolean;
+    }): Promise<void> {
+        if (!input.app) return;
+        const now = new Date();
+        const role = input.role || defaultAppRoles[input.app] || 'user';
+        const table = deps.tables.userPlatformAccess;
+        await deps.db
+            .insert(table)
+            .values({
+                userId: input.userId,
+                app: input.app,
+                role,
+                status: 'active',
+                origin: input.origin,
+                activatedAt: input.activate === false ? null : now,
+                lastLoginAt: input.markLogin === false ? null : now,
+                createdAt: now,
+                updatedAt: now,
+            })
+            .onConflictDoUpdate({
+                target: [table.userId, table.app],
+                set: {
+                    role: deps.sql`COALESCE(NULLIF(${table.role}, ''), excluded.role)`,
+                    status: input.activate === false ? deps.sql`${table.status}` : 'active',
+                    origin: deps.sql`COALESCE(${table.origin}, excluded.origin)`,
+                    activatedAt: input.activate === false
+                        ? deps.sql`${table.activatedAt}`
+                        : deps.sql`COALESCE(${table.activatedAt}, excluded.activated_at)`,
+                    lastLoginAt: input.markLogin === false
+                        ? deps.sql`${table.lastLoginAt}`
+                        : deps.sql`excluded.last_login_at`,
+                    updatedAt: now,
+                },
+            });
+    }
+
+    async function listPlatformAccesses(userId: string) {
+        const rows = await deps.db
+            .select()
+            .from(deps.tables.userPlatformAccess)
+            .where(deps.eq(deps.tables.userPlatformAccess.userId, userId));
+        return userFacingApps.map((app) => {
+            const row = rows.find((entry: any) => entry.app === app);
+            return {
+                app,
+                label: appLabels[app],
+                status: row?.status ?? 'inactive',
+                role: row?.role ?? defaultAppRoles[app],
+                origin: row?.origin ?? null,
+                firstSeenAt: row?.firstSeenAt ?? null,
+                activatedAt: row?.activatedAt ?? null,
+                lastLoginAt: row?.lastLoginAt ?? null,
+            };
+        });
+    }
+
+    async function sanitizeUserWithPlatformAccess(user: any, c: any) {
+        return {
+            ...deps.sanitizeUser(user),
+            currentApp: resolveCurrentApp(c),
+            platformAccesses: await listPlatformAccesses(user.id),
+        };
     }
 
     async function createUserRegistrationAudit(input: {
@@ -358,6 +453,13 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (!passwordMatch) return c.json({ ok: false, error: 'Tu correo o contraseña no coinciden.' }, 401);
 
         await deps.touchUserLastLoginAt(user.id);
+        await upsertPlatformAccess({
+            userId: user.id,
+            app: resolveCurrentApp(c),
+            origin: deps.resolveBrowserOrigin(c),
+            markLogin: true,
+            activate: true,
+        });
         const personalAccount = await deps.ensurePrimaryAccountForUser(user);
         const profile = null;
         deps.clearRateLimit(`auth:login:ip:${clientId}`);
@@ -365,7 +467,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         deps.setSession(c, user.id);
         return c.json({
             ok: true,
-            user: deps.sanitizeUser({ ...user, lastLoginAt: new Date(), primaryAccountId: personalAccount.id }),
+            user: await sanitizeUserWithPlatformAccess({ ...user, lastLoginAt: new Date(), primaryAccountId: personalAccount.id }, c),
             ...(profile ? { profile } : {}),
         });
     });
@@ -392,7 +494,12 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
         const normalizedEmail = parsed.data.email.trim().toLowerCase();
         const existing = await deps.getUserByEmail(normalizedEmail);
-        if (existing) return c.json({ ok: false, error: 'Email ya registrado' }, 409);
+        if (existing) {
+            return c.json({
+                ok: false,
+                error: 'Este correo ya tiene una Cuenta Simple. Inicia sesión para activar esta plataforma con la misma cuenta, o usa otro correo si prefieres separar tus cuentas.',
+            }, 409);
+        }
         const normalizedPhone = normalizeSignupPhone(parsed.data.phone);
         if (!normalizedPhone) {
             return c.json({ ok: false, error: 'Ingresa un WhatsApp válido con formato +569XXXXXXXX.' }, 400);
@@ -450,6 +557,13 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             origin,
             source: signupSource,
         });
+        await upsertPlatformAccess({
+            userId: newUser.id,
+            app: userFacingApps.includes(signupSource.app as SimpleUserApp) ? signupSource.app as SimpleUserApp : null,
+            origin,
+            markLogin: true,
+            activate: true,
+        });
 
         const shouldSendVerificationEmail = process.env.NODE_ENV === 'production' || deps.isAuthEmailConfigured();
         if (shouldSendVerificationEmail) {
@@ -470,7 +584,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const profile = null;
         deps.clearRateLimit(`auth:register:ip:${clientId}`);
         deps.setSession(c, newUser.id);
-        return c.json({ ok: true, user: deps.sanitizeUser(newUser), ...(profile ? { profile } : {}) }, 201);
+        return c.json({ ok: true, user: await sanitizeUserWithPlatformAccess(newUser, c), ...(profile ? { profile } : {}) }, 201);
     });
 
     app.get('/me', async (c) => {
@@ -478,7 +592,32 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         // Sin sesión: 200 + user null (evita 401 en consola al cargar landing como invitado).
         if (!user) return c.json({ ok: true, user: null });
         const profile = null;
-        return c.json({ ok: true, user: deps.sanitizeUser(user), ...(profile ? { profile } : {}) });
+        return c.json({ ok: true, user: await sanitizeUserWithPlatformAccess(user, c), ...(profile ? { profile } : {}) });
+    });
+
+    app.post('/platform-access/activate', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const payload = await c.req.json().catch(() => ({}));
+        const requestedApp = deps.asString((payload as Record<string, unknown>)?.app).trim().toLowerCase();
+        const app = (userFacingApps.includes(requestedApp as SimpleUserApp)
+            ? requestedApp
+            : resolveCurrentApp(c)) as SimpleUserApp | null;
+        if (!app) return c.json({ ok: false, error: 'No pudimos identificar la plataforma.' }, 400);
+
+        await upsertPlatformAccess({
+            userId: user.id,
+            app,
+            origin: deps.resolveBrowserOrigin(c),
+            markLogin: true,
+            activate: true,
+        });
+
+        return c.json({
+            ok: true,
+            user: await sanitizeUserWithPlatformAccess(user, c),
+        });
     });
 
     // Actualizar perfil del usuario autenticado
@@ -496,6 +635,8 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             'name',
             'phone',
             'avatarUrl',
+            'timezone',
+            'dstEnabled',
             'whatsappEnabled',
             'whatsappNotifyInvitations',
             'whatsappNotifyRequests',
@@ -532,6 +673,10 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 }
                 continue;
             }
+            if (key === 'dstEnabled') {
+                if (typeof value === 'boolean') updates.dstEnabled = value;
+                continue;
+            }
             if (key === 'avatarUrl') {
                 continue;
             }
@@ -555,6 +700,13 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if ('phone' in payload && payload.phone !== undefined) {
             const phone = typeof payload.phone === 'string' ? payload.phone.trim() : '';
             updates.phone = phone || null;
+        }
+
+        if ('timezone' in payload && payload.timezone !== undefined) {
+            const timezone = typeof payload.timezone === 'string' ? payload.timezone.trim() : '';
+            if (timezone) {
+                updates.timezone = timezone;
+            }
         }
 
         if (
@@ -613,7 +765,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 .where(deps.eq(deps.tables.users.id, user.id));
 
             const updatedUser = await deps.getUserById(user.id);
-            return c.json({ ok: true, user: deps.sanitizeUser(updatedUser) });
+            return c.json({ ok: true, user: await sanitizeUserWithPlatformAccess(updatedUser, c) });
         } catch (error) {
             console.error('Error updating profile:', error);
             return c.json({ ok: false, error: 'Error al actualizar el perfil' }, 500);
@@ -819,7 +971,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const personalAccount = await deps.ensurePrimaryAccountForUser(updatedUser);
         return c.json({
             ok: true,
-            user: deps.sanitizeUser({ ...updatedUser, passwordHash: nextPasswordHash, primaryAccountId: personalAccount.id }),
+            user: await sanitizeUserWithPlatformAccess({ ...updatedUser, passwordHash: nextPasswordHash, primaryAccountId: personalAccount.id }, c),
         });
     });
 
@@ -913,7 +1065,14 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
         deps.setSession(c, user.id);
         const personalAccount = await deps.ensurePrimaryAccountForUser(user);
-        return c.json({ ok: true, user: deps.sanitizeUser({ ...user, passwordHash: nextPasswordHash, lastLoginAt: now, primaryAccountId: personalAccount.id }) });
+        await upsertPlatformAccess({
+            userId: user.id,
+            app: resolveCurrentApp(c),
+            origin: deps.resolveBrowserOrigin(c),
+            markLogin: true,
+            activate: true,
+        });
+        return c.json({ ok: true, user: await sanitizeUserWithPlatformAccess({ ...user, passwordHash: nextPasswordHash, lastLoginAt: now, primaryAccountId: personalAccount.id }, c) });
     });
 
     app.post('/email-verification/request', async (c) => {
@@ -989,10 +1148,17 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
         deps.setSession(c, nextUser.id);
         const personalAccount = await deps.ensurePrimaryAccountForUser(nextUser);
+        await upsertPlatformAccess({
+            userId: nextUser.id,
+            app: resolveCurrentApp(c),
+            origin: deps.resolveBrowserOrigin(c),
+            markLogin: true,
+            activate: true,
+        });
         return c.json({
             ok: true,
             emailChanged: Boolean(pendingEmail),
-            user: deps.sanitizeUser({ ...nextUser, status: 'verified', primaryAccountId: personalAccount.id }),
+            user: await sanitizeUserWithPlatformAccess({ ...nextUser, status: 'verified', primaryAccountId: personalAccount.id }, c),
         });
     });
 
@@ -1030,7 +1196,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         return c.json({
             ok: true,
             disconnected: true,
-            user: deps.sanitizeUser({ ...updatedUser, provider: 'local', providerId: undefined, primaryAccountId: personalAccount.id }),
+            user: await sanitizeUserWithPlatformAccess({ ...updatedUser, provider: 'local', providerId: undefined, primaryAccountId: personalAccount.id }, c),
         });
     });
 
@@ -1235,9 +1401,16 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             );
         }
 
+        await upsertPlatformAccess({
+            userId: callback.result.user.id,
+            app: resolveCurrentApp(c),
+            origin: deps.resolveBrowserOrigin(c),
+            markLogin: true,
+            activate: true,
+        });
         return c.json({
             ok: true,
-            user: deps.sanitizeUser(callback.result.user),
+            user: await sanitizeUserWithPlatformAccess(callback.result.user, c),
             isNewUser: callback.result.isNewUser,
         });
     });
@@ -1254,7 +1427,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (!user || !deps.canAuthenticateUser(user)) return c.json({ ok: false, error: 'Usuario no encontrado' }, 401);
 
         deps.setSession(c, user.id);
-        return c.json({ ok: true, user: deps.sanitizeUser(user) });
+        return c.json({ ok: true, user: await sanitizeUserWithPlatformAccess(user, c) });
     });
 
     return app;

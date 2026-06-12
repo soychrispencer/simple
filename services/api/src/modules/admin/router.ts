@@ -6,6 +6,7 @@ import { getEmailBrandProfileForVertical, type EmailBrandProfile, type EmailBran
 import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
 import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from '../../lib/email-template.js';
 import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
+import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import {
     type CrmServiceDeps,
     type AppUser,
@@ -352,7 +353,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                     .where(deps.eq(deps.tables.agendaProfessionalProfiles.userId, userId))
                     .limit(1);
 
-                const plan = agendaPayload.plan === 'pro' ? 'pro' : 'free';
+                const plan = agendaPayload.plan === 'essential' || agendaPayload.plan === 'pro' ? agendaPayload.plan : 'free';
                 const expiresAt = agendaPayload.expiresAt ? new Date(agendaPayload.expiresAt) : null;
 
                 if (profile.length > 0) {
@@ -360,7 +361,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                         .set({ plan, planExpiresAt: expiresAt, updatedAt: new Date() })
                         .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profile[0].id));
                     results.agenda = { plan, expiresAt: expiresAt?.toISOString() ?? null };
-                } else if (plan === 'pro') {
+                } else if (plan === 'essential' || plan === 'pro') {
                     const slug = `${targetUser.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
                     await deps.db.insert(deps.tables.agendaProfessionalProfiles).values({
                         accountId: await deps.getPrimaryAccountIdForUser(userId),
@@ -389,7 +390,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 const planSlug = (raw.planId ?? 'free') as SubscriptionPlanId;
                 const allowedPlans =
                     vertical === 'serenatas'
-                        ? ['free', 'pro']
+                        ? ['free', 'essential', 'pro']
                         : ['free', 'pro', 'enterprise'];
                 if (!allowedPlans.includes(planSlug)) {
                     return c.json({ ok: false, error: `Plan inválido para ${vertical}` }, 400);
@@ -542,9 +543,9 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                         : sourceMusician?.comuna
                             ? [sourceMusician.comuna]
                             : [],
-                    subscriptionStatus: 'active',
+                    subscriptionStatus: 'trialing',
                     subscriptionPrice: 0,
-                    trialEndsAt: new Date('2099-12-31T00:00:00.000Z'),
+                    trialEndsAt: defaultSerenataTrialEndsAt(),
                 });
                 result.owner = 'created';
             }
@@ -1054,7 +1055,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         const result = profiles.map((p: any) => {
             const u = userMap.get(p.userId) as any;
-            const expired = p.plan === 'pro' && p.planExpiresAt && p.planExpiresAt < new Date();
+            const expired = (p.plan === 'essential' || p.plan === 'pro') && p.planExpiresAt && p.planExpiresAt < new Date();
             return {
                 profileId: p.id,
                 userId: p.userId,
@@ -1065,7 +1066,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 plan: p.plan,
                 planExpiresAt: p.planExpiresAt ? p.planExpiresAt.toISOString() : null,
                 isPublished: p.isPublished,
-                status: p.plan === 'pro' && !expired ? 'active' : expired ? 'expired' : 'free',
+                status: (p.plan === 'essential' || p.plan === 'pro') && !expired ? 'active' : expired ? 'expired' : 'free',
                 createdAt: p.createdAt.toISOString(),
             };
         });
@@ -1082,7 +1083,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const { profileId, plan, expiresAt, notes } = body as { profileId?: string; plan?: string; expiresAt?: string | null; notes?: string };
 
         if (!profileId || !plan) return c.json({ ok: false, error: 'Se requiere profileId y plan' }, 400);
-        if (!['free', 'pro'].includes(plan)) return c.json({ ok: false, error: 'Plan debe ser free o pro' }, 400);
+        if (!['free', 'essential', 'pro'].includes(plan)) return c.json({ ok: false, error: 'Plan debe ser free, essential o pro' }, 400);
 
         const profiles = await deps.db.select().from(deps.tables.agendaProfessionalProfiles)
             .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profileId)).limit(1);

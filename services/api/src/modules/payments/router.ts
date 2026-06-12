@@ -16,7 +16,7 @@ import {
     resolvePaymentsProvider,
     verifyFintocWebhookSignature,
 } from '../fintoc/service.js';
-import { serenataProMonthlyChargeClp } from '../serenatas/plan-config.js';
+import { serenataPlanMonthlyChargeClp } from '../serenatas/plan-config.js';
 import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
 import { confirmPaymentFromProvider, findPaymentOrderByExternalReference } from './confirm-from-provider.js';
 import { confirmSubscriptionFromPreapproval } from './confirm-subscription.js';
@@ -88,7 +88,7 @@ export type PaymentsRouterDeps = {
     // DB helpers for agenda subscriptions
     dbQuery: any;
     dbSql: any;
-    tables2: { agendaProfessionalProfiles: any };
+    tables2: { agendaProfessionalProfiles: any; serenataOwners: any };
     schemas: {
         createCheckoutSchema: any;
         confirmCheckoutSchema: any;
@@ -266,12 +266,77 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                             providerStatus: 'manual',
                             startedAt: profile.createdAt.getTime(),
                             updatedAt: profile.updatedAt.getTime(),
+                            planExpiresAt: profile.planExpiresAt ? profile.planExpiresAt.getTime() : null,
                         };
                     }
+                } else if (profile && profile.plan === 'free' && profile.planExpiresAt) {
+                    // Mostrar información de la prueba gratuita
+                    const matchedPlan = plans.find((p: any) => p.id === profile.plan);
+                    currentSubscription = {
+                        id: `agenda-${profile.id}`,
+                        accountId: profile.accountId ?? null,
+                        vertical: 'agenda' as const,
+                        planId: profile.plan,
+                        planName: matchedPlan?.name ?? profile.plan,
+                        priceMonthly: matchedPlan?.priceMonthly ?? 0,
+                        currency: 'CLP',
+                        features: matchedPlan?.features ?? [],
+                        status: profile.planExpiresAt < new Date() ? 'expired' as const : 'active' as const,
+                        providerStatus: 'trial',
+                        startedAt: profile.createdAt.getTime(),
+                        updatedAt: profile.updatedAt.getTime(),
+                        planExpiresAt: profile.planExpiresAt.getTime(),
+                    };
                 }
             } catch (dbErr) {
                 console.error('[subscriptions/catalog] agenda DB error:', dbErr);
                 return c.json({ ok: false, error: 'Error al consultar el perfil de agenda. Verifica que las migraciones estén aplicadas.' }, 500);
+            }
+        } else if (vertical === 'serenatas') {
+            try {
+                const owner = await deps.dbQuery.serenataOwners.findFirst({
+                    where: deps.dbHelpers.eq(deps.tables2.serenataOwners.userId, user.id),
+                });
+                if (owner && owner.subscriptionStatus === 'trialing' && owner.trialEndsAt) {
+                    const matchedPlan = plans.find((p: any) => p.id === 'free');
+                    const isExpired = owner.trialEndsAt < new Date();
+                    currentSubscription = {
+                        id: `serenatas-${owner.id}`,
+                        accountId: null,
+                        vertical: 'serenatas' as const,
+                        planId: 'free',
+                        planName: matchedPlan?.name ?? 'Prueba gratis',
+                        priceMonthly: 0,
+                        currency: 'CLP',
+                        features: matchedPlan?.features ?? [],
+                        status: isExpired ? 'expired' as const : 'active' as const,
+                        providerStatus: 'trial',
+                        startedAt: owner.createdAt.getTime(),
+                        updatedAt: owner.updatedAt.getTime(),
+                        planExpiresAt: owner.trialEndsAt.getTime(),
+                    };
+                } else if (owner && owner.subscriptionStatus === 'active') {
+                    const planId = owner.subscriptionPrice === 9990 ? 'essential' : 'pro';
+                    const matchedPlan = plans.find((p: any) => p.id === planId);
+                    currentSubscription = {
+                        id: `serenatas-${owner.id}`,
+                        accountId: null,
+                        vertical: 'serenatas' as const,
+                        planId,
+                        planName: matchedPlan?.name ?? (owner.subscriptionPrice === 9990 ? 'Esencial' : 'Pro'),
+                        priceMonthly: owner.subscriptionPrice,
+                        currency: 'CLP',
+                        features: matchedPlan?.features ?? [],
+                        status: 'active' as const,
+                        providerStatus: 'manual',
+                        startedAt: owner.createdAt.getTime(),
+                        updatedAt: owner.updatedAt.getTime(),
+                        planExpiresAt: null,
+                    };
+                }
+            } catch (dbErr) {
+                console.error('[subscriptions/catalog] serenatas DB error:', dbErr);
+                currentSubscription = deps.activeSubscriptionToResponse(deps.getCurrentSubscription(user.id, vertical));
             }
         } else {
             try {
@@ -658,9 +723,12 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             }
 
             const orderId = deps.makePaymentOrderId('subscription');
+            const isSerenatas = vertical === 'serenatas';
+            const isAgenda = vertical === 'agenda';
+
             const subscriptionChargeAmount =
-                vertical === 'serenatas' && plan.id === 'pro'
-                    ? serenataProMonthlyChargeClp()
+                (isSerenatas || isAgenda) && (plan.id === 'essential' || plan.id === 'pro')
+                    ? Math.round(plan.priceMonthly * (1 + 1900 / 10_000))
                     : plan.priceMonthly;
             const subscriptionBackUrl = deps.appendCheckoutParams(returnUrl, {
                 checkout: 'return',

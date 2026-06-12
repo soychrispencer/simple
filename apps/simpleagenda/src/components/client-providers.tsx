@@ -6,7 +6,7 @@ import { Footer } from '@/components/layout/footer';
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
     return (
-        <AuthProvider>
+        <AuthProvider appId="simpleagenda">
             <div className="flex flex-col min-h-screen">
                 <Header />
                 <main className="flex-1">{children}</main>

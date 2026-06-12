@@ -241,7 +241,7 @@ export function PanelContent(props: PanelContentProps) {
             >
                 <ProFeatureGate
                     featureName="Finanzas"
-                    description="Reportes, movimientos, comisiones y pagos a músicos quedan reservados para dueños con plan Pro."
+                    description="Reportes, movimientos y pagos a músicos quedan reservados para dueños con plan Pro."
                 >
                     <FinanzasView
                         serenatas={props.ownerSerenatas}

@@ -12,8 +12,9 @@ export const FREE_TIER_LIMITS = { maxClientsTotal: 5, maxAppointmentsPerMonth: 1
 
 export function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }, userRole?: string): boolean {
     if (userRole === 'superadmin') return false;
-    if (profile.plan === 'free') return true;
-    if (profile.plan === 'pro' && profile.planExpiresAt && profile.planExpiresAt < new Date()) return true;
+    const expiresAt = profile.planExpiresAt?.getTime() ?? null;
+    if (profile.plan === 'free') return expiresAt == null || expiresAt < Date.now();
+    if ((profile.plan === 'essential' || profile.plan === 'pro') && profile.planExpiresAt && profile.planExpiresAt < new Date()) return true;
     return false;
 }
 
@@ -23,7 +24,7 @@ export async function checkClientLimit(profileId: string, additionalClients = 1)
         .from(agendaClients)
         .where(eq(agendaClients.professionalId, profileId));
     if ((row?.total ?? 0) + additionalClients > FREE_TIER_LIMITS.maxClientsTotal) {
-        return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxClientsTotal} pacientes del plan gratuito. Actualiza a Pro para pacientes ilimitados.`;
+        return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxClientsTotal} clientes. Activa Esencial o Pro para continuar.`;
     }
     return null;
 }
@@ -36,7 +37,7 @@ export async function checkAppointmentLimit(profileId: string, additionalAppoint
         .from(agendaAppointments)
         .where(and(eq(agendaAppointments.professionalId, profileId), gte(agendaAppointments.startsAt, monthStart)));
     if ((row?.total ?? 0) + additionalAppointments > FREE_TIER_LIMITS.maxAppointmentsPerMonth) {
-        return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxAppointmentsPerMonth} citas mensuales del plan gratuito. Actualiza a Pro para citas ilimitadas.`;
+        return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxAppointmentsPerMonth} citas mensuales. Activa Esencial o Pro para continuar.`;
     }
     return null;
 }

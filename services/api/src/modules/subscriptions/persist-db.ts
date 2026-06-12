@@ -274,14 +274,14 @@ async function syncSerenataOwnerCommissionForPlan(
 
     if (!owner[0]) return;
 
-    const isActivePro = status === 'active' && planSlug === 'pro';
-    const commissionRateBps = isActivePro ? APP_COMMISSION_PRO_BPS : APP_COMMISSION_FREE_BPS;
+    const isActivePaidPlan = status === 'active' && (planSlug === 'essential' || planSlug === 'pro');
+    const commissionRateBps = isActivePaidPlan ? APP_COMMISSION_PRO_BPS : APP_COMMISSION_FREE_BPS;
 
     await db
         .update(serenataOwners)
         .set({
             commissionRateBps,
-            subscriptionStatus: isActivePro ? 'active' : 'trialing',
+            subscriptionStatus: isActivePaidPlan ? 'active' : 'trialing',
             updatedAt: new Date(),
         })
         .where(eq(serenataOwners.id, owner[0].id));
