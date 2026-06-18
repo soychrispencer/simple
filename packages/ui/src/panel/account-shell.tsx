@@ -43,6 +43,7 @@ export type PanelAccountShellProps = {
     title?: string;
     description?: string;
     ariaLabel?: string;
+    actions?: ReactNode;
     children: ReactNode;
     className?: string;
 };
@@ -53,12 +54,13 @@ export function PanelAccountShell({
     title = ACCOUNT_PAGE_DEFAULTS.title,
     description = ACCOUNT_PAGE_DEFAULTS.description,
     ariaLabel = ACCOUNT_PAGE_DEFAULTS.ariaLabel,
+    actions,
     children,
     className,
 }: PanelAccountShellProps) {
     return (
         <div className={className ?? 'container-app panel-page py-4 lg:py-8'}>
-            <PanelPageHeader title={title} description={description} />
+            <PanelPageHeader title={title} description={description} actions={actions} />
             <div className="flex flex-col gap-6">
                 <PanelSectionTabs items={tabs} activeKey={activeKey} ariaLabel={ariaLabel} />
                 {children}

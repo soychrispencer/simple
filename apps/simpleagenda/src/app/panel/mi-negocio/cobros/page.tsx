@@ -331,7 +331,6 @@ function CobrosConfigPageInner() {
                     <IconChevronRight size={18} style={{ color: 'var(--accent)' }} />
                 </Link>
             </div>
-            </div>
         </PanelBusinessShell>
     );
 }

@@ -39,6 +39,7 @@ import { SerenataSetlistPanel } from '../serenata-setlist-panel';
 import { ClientSerenataCancelPrompt } from '../client-serenata-cancel-prompt';
 import { startSerenataCheckout } from '@/lib/payments';
 import { panelMiNegocioHref, panelSectionHref } from '@/lib/panel-routes';
+import { formatSerenataCollectionMethod } from '@/lib/owner-collection-method';
 import { useSerenataPanelFormat } from '@/hooks/use-serenata-panel-format';
 import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
 import { PanelSheet } from '../panel-sheet';
@@ -400,6 +401,7 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
 }
 
 function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Serenata; groups: SerenataGroup[]; ownerPlan: SerenataMePlan | null; refresh: () => Promise<void>; onEdit: () => void }) {
+    const fmt = useSerenataPanelFormat(true);
     const assignedGroup = groups.find((entry) => entry.id === item.groupId);
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [pickedGroupId, setPickedGroupId] = useState(item.groupId ?? '');

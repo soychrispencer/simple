@@ -13,7 +13,7 @@ export type PanelBlockHeaderProps = {
 export type PanelNoticeProps = {
     children: ReactNode;
     className?: string;
-    tone?: 'neutral' | 'success' | 'warning' | 'error';
+    tone?: 'neutral' | 'success' | 'warning' | 'error' | 'info';
 };
 
 export type PanelStatusBadgeProps = {
@@ -63,7 +63,9 @@ export function PanelNotice(props: PanelNoticeProps) {
             ? { borderColor: 'rgba(180,83,9,0.22)', background: 'rgba(180,83,9,0.06)', color: '#92400e' }
             : tone === 'error'
                 ? { borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }
-                : { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg-secondary)' };
+                : tone === 'info'
+                    ? { borderColor: 'rgba(37,99,235,0.22)', background: 'rgba(37,99,235,0.06)', color: '#1d4ed8' }
+                    : { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg-secondary)' };
     return (
         <div className={joinClasses('rounded-card border px-4 py-3 text-sm', className)} style={toneStyle}>
             {children}

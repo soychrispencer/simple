@@ -16,11 +16,11 @@ function AccountStats({ account }: { account: InstagramAccountView }) {
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="prop-stat-tile bg-(--surface)">
                 <p className="text-xs uppercase tracking-[0.12em] text-(--fg-muted)">Última sincronización</p>
-                <p className="mt-1 text-sm text-(--fg)">{account.lastSyncedAt ? fmt.dateTimeShort(account.lastSyncedAt) : 'Aún sin actividad'}</p>
+                <p className="mt-1 text-sm text-(--fg)">{account.lastSyncedAt ? fmt.dateTimeShort(new Date(account.lastSyncedAt)) : 'Aún sin actividad'}</p>
             </div>
             <div className="prop-stat-tile bg-(--surface)">
                 <p className="text-xs uppercase tracking-[0.12em] text-(--fg-muted)">Último post</p>
-                <p className="mt-1 text-sm text-(--fg)">{account.lastPublishedAt ? fmt.dateTimeShort(account.lastPublishedAt) : 'Aún sin actividad'}</p>
+                <p className="mt-1 text-sm text-(--fg)">{account.lastPublishedAt ? fmt.dateTimeShort(new Date(account.lastPublishedAt)) : 'Aún sin actividad'}</p>
             </div>
             <div className="prop-stat-tile bg-(--surface)">
                 <p className="text-xs uppercase tracking-[0.12em] text-(--fg-muted)">Scopes</p>

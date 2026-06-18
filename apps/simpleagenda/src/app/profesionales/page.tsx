@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE } from '@simple/config';
@@ -52,6 +52,14 @@ function filtersToParams(filters: Filters) {
 }
 
 export default function ProfesionalesPage() {
+    return (
+        <Suspense fallback={<div className="container-app py-8 text-sm text-fg-muted">Cargando profesionales…</div>}>
+            <ProfesionalesPageInner />
+        </Suspense>
+    );
+}
+
+function ProfesionalesPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const filters = useMemo(() => parseFilters(searchParams), [searchParams]);

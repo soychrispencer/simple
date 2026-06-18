@@ -77,7 +77,7 @@ function ClientHome(props: Parameters<typeof HomeView>[0]) {
             item.status === 'pending' ||
             item.status === 'accepted_pending_group',
     );
-    const confirmed = props.serenatas.filter(isUpcomingScheduled).length;
+    const confirmed = props.serenatas.filter((item) => isUpcomingScheduled(item, personalTimezone)).length;
     const completed = props.serenatas.filter((item) => item.status === 'completed').length;
     const toClose = props.serenatas.filter((item) => needsClosure(item, personalTimezone));
     const inProgress = [...pending].sort(sortSerenatasByEvent).slice(0, 5);

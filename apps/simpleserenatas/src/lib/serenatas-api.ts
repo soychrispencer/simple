@@ -1,5 +1,6 @@
 import { apiFetch } from '@simple/utils';
 import { API_BASE } from '@simple/config';
+import type { StructuredLocation } from '@simple/types';
 
 export type ActiveProfile = 'client' | 'musician' | 'owner';
 export type SerenataPackageCode = 'duo' | 'trio' | 'cuarteto' | 'quinteto';
@@ -38,16 +39,10 @@ export type SerenatasUser = {
     residenceRegionName?: string | null;
     residenceLocalityId?: string | null;
     residenceLocalityName?: string | null;
-    residence?: {
-        countryCode: string;
-        regionId?: string | null;
-        regionName?: string | null;
-        localityId?: string | null;
-        localityName?: string | null;
-    };
-    currentApp?: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | null;
+    residence?: StructuredLocation | null;
+    currentApp?: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin' | null;
     platformAccesses?: {
-        app: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas';
+        app: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin';
         label: string;
         status: string;
         role: string;

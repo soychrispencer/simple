@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
     IconCalendar, IconUsers, IconCreditCard, IconClockHour4, IconTrendingUp, IconTrendingDown, IconMinus, IconChevronRight, IconCheck, IconUser, IconBriefcase, IconClock, IconRocket, IconX, } from '@tabler/icons-react';
 import Link from 'next/link';
-import { fetchAgendaStats, fetchAgendaProfile, isAgendaTrialPeriod, agendaTrialDaysRemaining, type AgendaStats, type AgendaProfile } from '@/lib/agenda-api';
+import { fetchAgendaStats, fetchAgendaProfile, isAgendaTrialPeriod, agendaTrialDaysRemaining, type AgendaStats, type AgendaProfile, type AgendaWeekDay } from '@/lib/agenda-api';
 import { fmtCLP, fmtTodayLabel } from '@simple/utils';
 import { usePanelFormatters } from '@simple/auth';
 import { vocab } from '@/lib/vocabulary';

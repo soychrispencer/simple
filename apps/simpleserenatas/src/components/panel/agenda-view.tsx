@@ -167,6 +167,7 @@ export function AgendaView({
                                     item={item}
                                     ownerFeaturesEnabled={ownerFeatures}
                                     refresh={refresh}
+                                    timezone={businessTimezone}
                                     onEdit={ownerFeatures ? setEditingSerenata : undefined}
                                 />
                             ))}
@@ -246,11 +247,13 @@ function AgendaTimelineItem({
     item,
     ownerFeaturesEnabled: ownerFeatures,
     refresh,
+    timezone,
     onEdit,
 }: {
     item: Serenata;
     ownerFeaturesEnabled: boolean;
     refresh: () => Promise<void>;
+    timezone: string;
     onEdit?: (item: Serenata) => void;
 }) {
     const mapQuery = item.lat && item.lng ? `${item.lat},${item.lng}` : item.address;
@@ -277,13 +280,13 @@ function AgendaTimelineItem({
                         Mapa
                     </a>
                     {ownerFeatures ? (
-                        <SerenataClosureActions item={item} refresh={refresh} inline timezone={businessTimezone} />
+                        <SerenataClosureActions item={item} refresh={refresh} inline timezone={timezone} />
                     ) : null}
                 </>
             }
             footer={
                 ownerFeatures ? (
-                    <SerenataPastDateNotice item={item} timezone={businessTimezone} />
+                    <SerenataPastDateNotice item={item} timezone={timezone} />
                 ) : (
                     <SerenataSetlistPanel serenata={item} mode="musician" refresh={refresh} />
                 )
