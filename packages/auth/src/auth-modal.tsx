@@ -1,11 +1,11 @@
 'use client';
 
 import { createPortal } from 'react-dom';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { IconX, IconBrandGoogle, IconMail, IconLock, IconUser, IconMailCheck, IconPhone, IconShieldCheck } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
 import { PanelButton } from '@simple/ui/panel';
-import { PanelIconButton, PanelNotice } from '@simple/ui/panel';
+import { PanelNotice } from '@simple/ui/panel';
 import GoogleLoginButton from './google-login-button';
 import { useAuth } from './auth-context';
 
@@ -26,6 +26,32 @@ type AuthModalProps = {
     canSubmitRegister?: boolean;
     registerDisabledMessage?: string;
 };
+
+const INPUT_CLASS = 'form-input form-input-has-leading-icon';
+const INPUT_STYLE: CSSProperties = {
+    background: 'var(--surface)',
+    color: 'var(--fg)',
+    borderColor: 'var(--border)',
+};
+const ICON_STYLE: CSSProperties = { color: 'var(--fg-muted)', left: '14px' };
+const LABEL_CLASS = 'text-xs font-medium';
+const LABEL_STYLE: CSSProperties = { color: 'var(--fg-muted)' };
+
+function Field({ label, htmlFor, icon, children }: { label: string; htmlFor: string; icon: ReactNode; children: ReactNode }) {
+    return (
+        <div className="grid gap-1.5">
+            <label htmlFor={htmlFor} className={LABEL_CLASS} style={LABEL_STYLE}>
+                {label}
+            </label>
+            <div className="relative flex items-center">
+                <span className="pointer-events-none absolute flex" style={ICON_STYLE}>
+                    {icon}
+                </span>
+                {children}
+            </div>
+        </div>
+    );
+}
 
 export function AuthModal({
     allowRegister = true,
@@ -364,36 +390,36 @@ export function AuthModal({
                     aria-label="Cerrar modal"
                     disabled={submitting}
                     type="button"
-                    className="absolute top-3 right-3 z-10 flex items-center justify-center w-9 h-9 bg-transparent border-none"
+                    className="absolute top-4 right-4 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-transparent border-none transition-colors"
                     style={{
                         cursor: submitting ? 'not-allowed' : 'pointer',
-                        color: 'var(--fg)',
+                        color: 'var(--fg-muted)',
                         opacity: submitting ? 0.5 : 1,
                     }}
                 >
-                    <IconX size={24} strokeWidth={2.5} />
+                    <IconX size={22} strokeWidth={2.5} />
                 </button>
 
-                <div className="p-6 sm:p-7">
+                <div className="p-7 sm:p-8">
                 {mode === 'login' && (
                     <>
-                        <div className="pr-10 mb-6">
-                            <h2 id="auth-modal-title" className="text-lg font-semibold leading-snug" style={{ color: 'var(--fg)' }}>
+                        <div className="pr-10 mb-7">
+                            <h2 id="auth-modal-title" className="text-xl font-semibold leading-tight" style={{ color: 'var(--fg)' }}>
                                 Iniciar sesión
                             </h2>
-                            <p className="text-xs leading-relaxed mt-2" style={{ color: 'var(--fg-muted)' }}>
+                            <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
                                 Si ya tienes cuenta en Simple, usa el mismo correo o Google.
                             </p>
                         </div>
                         {suggestGoogleLogin ? (
-                            <PanelNotice tone="info" className="mb-4">
+                            <PanelNotice tone="info" className="mb-5">
                                 <p>
                                     Esta cuenta usa Google. Pulsa el botón de arriba para continuar.
                                 </p>
                             </PanelNotice>
                         ) : null}
                         {error ? (
-                            <PanelNotice tone="error" className="mb-4">
+                            <PanelNotice tone="error" className="mb-5">
                                 {error}
                             </PanelNotice>
                         ) : null}
@@ -403,26 +429,24 @@ export function AuthModal({
                             onError={(message) => setError(message)}
                         >
                             <PanelButton variant="primary" className="w-full" disabled={submitting}>
-                                <IconBrandGoogle size={15} /> Continuar con Google
+                                <IconBrandGoogle size={16} /> Continuar con Google
                             </PanelButton>
                         </GoogleLoginButton>
-                        <div className="flex items-center gap-3 my-5">
-                            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                        <div className="flex items-center gap-3 my-6">
+                            <div className="h-px flex-1" style={{ background: 'var(--border)' }} />
                             <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                o con correo
+                                o con tu correo
                             </span>
-                            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                            <div className="h-px flex-1" style={{ background: 'var(--border)' }} />
                         </div>
-                        <form onSubmit={handleLogin} className="grid gap-3.5" aria-label="Formulario de inicio de sesión">
-                            <div className="relative flex items-center">
-                                <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
-                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
-                            </div>
-                            <div className="relative flex items-center">
-                                <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
-                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="form-input" placeholder="Contraseña" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
-                            </div>
-                            <div className="flex items-center justify-between gap-3 -mt-1">
+                        <form onSubmit={handleLogin} className="grid gap-4" aria-label="Formulario de inicio de sesión">
+                            <Field label="Correo electrónico" htmlFor="auth-login-email" icon={<IconMail size={16} />}>
+                                <input id="auth-login-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT_CLASS} placeholder="tucorreo@ejemplo.com" required style={INPUT_STYLE} />
+                            </Field>
+                            <Field label="Contraseña" htmlFor="auth-login-password" icon={<IconLock size={16} />}>
+                                <input id="auth-login-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className={INPUT_CLASS} placeholder="Tu contraseña" required style={INPUT_STYLE} />
+                            </Field>
+                            <div className="mt-0.5 flex items-center justify-between gap-3">
                                 <label className="inline-flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--fg-muted)' }}>
                                     <input
                                         type="checkbox"
@@ -432,19 +456,19 @@ export function AuthModal({
                                     />
                                     Recordar cuenta
                                 </label>
-                                <button type="button" onClick={() => { setMode('recovery'); setError(''); setSuggestGoogleLogin(false); }} className="text-xs font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
-                                    Recuperar contraseña
+                                <button type="button" onClick={() => { setMode('recovery'); setError(''); setSuccess(''); setSuggestGoogleLogin(false); }} className="text-xs font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
+                                    ¿Olvidaste tu contraseña?
                                 </button>
                             </div>
-                            <PanelButton type="submit" variant="secondary" className="w-full" disabled={submitting}>
+                            <PanelButton type="submit" variant="secondary" className="mt-1 w-full" disabled={submitting}>
                                 {submitting ? 'Ingresando...' : 'Iniciar sesión con correo'}
                             </PanelButton>
                         </form>
-                        <div className="flex items-center justify-between mt-5 pt-1 text-sm">
+                        <div className="mt-7 flex items-center justify-center gap-1.5 border-t pt-5 text-sm" style={{ borderColor: 'var(--border)' }}>
                             <span style={{ color: 'var(--fg-muted)' }}>¿No tienes cuenta?</span>
                             {allowRegister ? (
-                                <button onClick={() => { setMode('register'); setError(''); setSuggestGoogleLogin(false); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
-                                    Registrarse
+                                <button onClick={() => { setMode('register'); setError(''); setSuggestGoogleLogin(false); }} className="font-semibold" style={{ color: 'var(--fg)' }} disabled={submitting}>
+                                    Crear cuenta
                                 </button>
                             ) : null}
                         </div>
@@ -453,60 +477,68 @@ export function AuthModal({
 
                 {allowRegister && mode === 'register' && (
                     <>
-                        <h2 id="auth-modal-title" className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
-                            Registrarse
-                        </h2>
-                        <p className="text-sm mb-5" style={{ color: 'var(--fg-muted)' }}>
-                            Crea tu cuenta en Simple
-                        </p>
+                        <div className="pr-10 mb-7">
+                            <h2 id="auth-modal-title" className="text-xl font-semibold leading-tight" style={{ color: 'var(--fg)' }}>
+                                Crear tu cuenta
+                            </h2>
+                            <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                                Una sola cuenta Simple para todas nuestras apps.
+                            </p>
+                        </div>
                         {error ? (
-                            <PanelNotice tone="error" className="mb-3">
+                            <PanelNotice tone="error" className="mb-5">
                                 {error}
                             </PanelNotice>
                         ) : null}
-                        {registerIntro ? <div className="mb-4">{registerIntro}</div> : null}
+                        {registerIntro ? <div className="mb-5">{registerIntro}</div> : null}
                         <form onSubmit={handleRegister} className="grid gap-4" aria-label="Formulario de registro">
-                            <div className="relative flex items-center">
-                                <IconUser size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
-                                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="form-input" placeholder="Nombre completo" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
+                            <Field label="Nombre completo" htmlFor="auth-register-name" icon={<IconUser size={16} />}>
+                                <input id="auth-register-name" type="text" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className={INPUT_CLASS} placeholder="Tu nombre y apellido" required style={INPUT_STYLE} />
+                            </Field>
+                            <div className="grid gap-1.5">
+                                <label htmlFor="auth-register-phone" className={LABEL_CLASS} style={LABEL_STYLE}>
+                                    WhatsApp
+                                </label>
+                                <div className="relative flex items-center">
+                                    <span className="pointer-events-none absolute flex" style={ICON_STYLE}>
+                                        <IconPhone size={16} />
+                                    </span>
+                                    <span className="pointer-events-none absolute text-sm font-medium" style={{ color: 'var(--fg)', left: '42px' }}>
+                                        +569
+                                    </span>
+                                    <input
+                                        id="auth-register-phone"
+                                        type="tel"
+                                        inputMode="numeric"
+                                        value={phoneDigits}
+                                        onChange={(e) => handlePhoneChange(e.target.value)}
+                                        className="form-input"
+                                        placeholder="12345678"
+                                        required
+                                        pattern="[0-9]{8}"
+                                        maxLength={8}
+                                        autoComplete="tel"
+                                        style={{ ...INPUT_STYLE, paddingLeft: '84px' }}
+                                    />
+                                </div>
                             </div>
-                            <div className="relative flex items-center">
-                                <IconPhone size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
-                                <span className="pointer-events-none absolute text-sm font-medium" style={{ color: 'var(--fg)', left: '40px' }}>
-                                    +569
-                                </span>
-                                <input
-                                    type="tel"
-                                    inputMode="numeric"
-                                    value={phoneDigits}
-                                    onChange={(e) => handlePhoneChange(e.target.value)}
-                                    className="form-input"
-                                    placeholder="12345678"
-                                    required
-                                    pattern="[0-9]{8}"
-                                    maxLength={8}
-                                    autoComplete="tel"
-                                    style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '82px' }}
-                                />
+                            <Field label="Correo electrónico" htmlFor="auth-register-email" icon={<IconMail size={16} />}>
+                                <input id="auth-register-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT_CLASS} placeholder="tucorreo@ejemplo.com" required style={INPUT_STYLE} />
+                            </Field>
+                            <div className="grid gap-1.5">
+                                <Field label="Contraseña" htmlFor="auth-register-password" icon={<IconLock size={16} />}>
+                                    <input id="auth-register-password" type="password" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={INPUT_CLASS} placeholder="Mínimo 8 caracteres" required style={INPUT_STYLE} />
+                                </Field>
+                                {password ? (
+                                    <p className="text-xs" style={{ color: passwordStrength === 'Débil' ? '#dc2626' : 'var(--fg-muted)' }}>
+                                        Fortaleza: {passwordStrength}
+                                    </p>
+                                ) : null}
                             </div>
-                            <div className="relative flex items-center">
-                                <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
-                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
-                            </div>
-                            <div className="relative flex items-center">
-                                <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
-                                <input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="form-input" placeholder="Contraseña (mínimo 8 caracteres)" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
-                            </div>
-                            {password ? (
-                                <p className="text-xs" style={{ color: passwordStrength === 'Débil' ? '#dc2626' : 'var(--fg-muted)' }}>
-                                    Fortaleza: {passwordStrength}
-                                </p>
-                            ) : null}
-                            <div className="relative flex items-center">
-                                <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
-                                <input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="form-input" placeholder="Confirmar contraseña" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
-                            </div>
-                            <label className="flex items-start gap-2 text-xs leading-relaxed cursor-pointer" style={{ color: 'var(--fg-muted)' }}>
+                            <Field label="Confirmar contraseña" htmlFor="auth-register-confirm" icon={<IconLock size={16} />}>
+                                <input id="auth-register-confirm" type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={INPUT_CLASS} placeholder="Repite tu contraseña" required style={INPUT_STYLE} />
+                            </Field>
+                            <label className="mt-2 flex items-start gap-2.5 text-xs leading-relaxed cursor-pointer" style={{ color: 'var(--fg-muted)' }}>
                                 <input
                                     type="checkbox"
                                     checked={termsAccepted}
@@ -525,13 +557,13 @@ export function AuthModal({
                                 <IconShieldCheck size={13} />
                                 Protegido por reCAPTCHA cuando está configurado.
                             </p>
-                            <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting || !canSubmitRegister}>
-                                {submitting ? 'Creando...' : 'Registrarse'}
+                            <PanelButton type="submit" variant="primary" className="mt-2 w-full" disabled={submitting || !canSubmitRegister}>
+                                {submitting ? 'Creando...' : 'Crear cuenta'}
                             </PanelButton>
                         </form>
-                        <div className="text-center mt-4 text-sm">
-                            <span style={{ color: 'var(--fg-muted)' }}>¿Ya tienes cuenta? </span>
-                            <button onClick={() => { setMode('login'); setError(''); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
+                        <div className="mt-7 flex items-center justify-center gap-1.5 border-t pt-5 text-sm" style={{ borderColor: 'var(--border)' }}>
+                            <span style={{ color: 'var(--fg-muted)' }}>¿Ya tienes cuenta?</span>
+                            <button onClick={() => { setMode('login'); setError(''); }} className="font-semibold" style={{ color: 'var(--fg)' }} disabled={submitting}>
                                 Iniciar sesión
                             </button>
                         </div>
@@ -540,32 +572,33 @@ export function AuthModal({
 
                 {mode === 'recovery' && (
                     <>
-                        <h2 id="auth-modal-title" className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
-                            Recuperar contraseña
-                        </h2>
-                        <p className="text-sm mb-5" style={{ color: 'var(--fg-muted)' }}>
-                            Te enviaremos un enlace para restablecer tu contraseña.
-                        </p>
+                        <div className="pr-10 mb-7">
+                            <h2 id="auth-modal-title" className="text-xl font-semibold leading-tight" style={{ color: 'var(--fg)' }}>
+                                Recuperar contraseña
+                            </h2>
+                            <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                                Te enviaremos un enlace para restablecer tu contraseña.
+                            </p>
+                        </div>
                         {error ? (
-                            <PanelNotice tone="error" className="mb-3">
+                            <PanelNotice tone="error" className="mb-5">
                                 {error}
                             </PanelNotice>
                         ) : null}
                         {success ? (
-                            <PanelNotice tone="success" className="mb-3">
+                            <PanelNotice tone="success" className="mb-5">
                                 {success}
                             </PanelNotice>
                         ) : null}
-                        <form onSubmit={handleRecovery} className="space-y-0" aria-label="Formulario de recuperación de contraseña">
-                            <div className="relative flex items-center">
-                                <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
-                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
-                            </div>
-                            <PanelButton type="submit" variant="primary" className="w-full mt-4" disabled={submitting || recoveryCooldown > 0}>
+                        <form onSubmit={handleRecovery} className="grid gap-4" aria-label="Formulario de recuperación de contraseña">
+                            <Field label="Correo electrónico" htmlFor="auth-recovery-email" icon={<IconMail size={16} />}>
+                                <input id="auth-recovery-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT_CLASS} placeholder="tucorreo@ejemplo.com" required style={INPUT_STYLE} />
+                            </Field>
+                            <PanelButton type="submit" variant="primary" className="mt-1 w-full" disabled={submitting || recoveryCooldown > 0}>
                                 {recoveryCooldown > 0 ? `Reintenta en ${recoveryCooldown}s` : 'Enviar enlace'}
                             </PanelButton>
                         </form>
-                        <div className="text-center mt-4 text-sm">
+                        <div className="mt-7 flex justify-center border-t pt-5 text-sm" style={{ borderColor: 'var(--border)' }}>
                             <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
                                 Volver al inicio de sesión
                             </button>
@@ -575,76 +608,64 @@ export function AuthModal({
 
                 {mode === 'verify-email' && (
                     <>
-                        <div className="text-center mb-6">
-                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ background: 'rgba(34, 197, 94, 0.1)' }}>
+                        <div className="text-center mb-7">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-5" style={{ background: 'rgba(34, 197, 94, 0.1)' }}>
                                 <IconMailCheck size={32} style={{ color: 'rgb(34, 197, 94)' }} />
                             </div>
-                            <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
+                            <h2 id="auth-modal-title" className="text-xl font-semibold leading-tight" style={{ color: 'var(--fg)' }}>
                                 Verifica tu email
                             </h2>
-                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                            <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
                                 Te hemos enviado un email a<br />
-                                <span className="font-medium">{registeredEmail}</span>
+                                <span className="font-semibold" style={{ color: 'var(--fg)' }}>{registeredEmail}</span>
                             </p>
                         </div>
 
-                        <div className="bg-opacity-50 p-4 rounded-lg mb-4" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>
-                            <p className="text-sm" style={{ color: 'var(--fg)' }}>
+                        <div className="p-4 rounded-xl mb-5" style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.15)' }}>
+                            <p className="text-sm leading-relaxed" style={{ color: 'var(--fg)' }}>
                                 <strong>¿Qué hacer ahora?</strong><br />
                                 1. Abre el email que recibiste<br />
-                                2. Haz clic en el botón "Confirmar correo"<br />
+                                2. Haz clic en el botón «Confirmar correo»<br />
                                 3. ¡Listo! Tu cuenta estará verificada
                             </p>
                         </div>
 
                         {error ? (
-                            <PanelNotice tone="error" className="mb-3">
+                            <PanelNotice tone="error" className="mb-5">
                                 {error}
                             </PanelNotice>
                         ) : null}
                         {success ? (
-                            <PanelNotice tone="success" className="mb-3">
+                            <PanelNotice tone="success" className="mb-5">
                                 {success}
                             </PanelNotice>
                         ) : null}
 
-                        <button
-                            onClick={handleResendVerificationEmail}
-                            disabled={submitting}
-                            className="w-full text-sm font-medium py-2.5 rounded-lg transition-colors mb-3"
-                            style={{
-                                background: 'var(--surface-secondary)',
-                                color: 'var(--fg)',
-                                border: '1px solid var(--border)',
-                            }}
-                        >
-                            {submitting ? 'Reenviando...' : 'Reenviar email de confirmación'}
-                        </button>
+                        <div className="grid gap-3">
+                            <PanelButton variant="secondary" className="w-full" onClick={handleResendVerificationEmail} disabled={submitting}>
+                                {submitting ? 'Reenviando...' : 'Reenviar email de confirmación'}
+                            </PanelButton>
+                            <PanelButton
+                                variant="ghost"
+                                className="w-full"
+                                onClick={() => void logout().finally(() => handleClose())}
+                                disabled={submitting}
+                            >
+                                Cerrar sesión
+                            </PanelButton>
+                        </div>
 
-                        <div className="text-center mt-4 text-sm">
-                            <span style={{ color: 'var(--fg-muted)' }}>¿Problemas? </span>
+                        <div className="mt-7 flex items-center justify-center gap-1.5 border-t pt-5 text-sm" style={{ borderColor: 'var(--border)' }}>
+                            <span style={{ color: 'var(--fg-muted)' }}>¿Problemas?</span>
                             <button
                                 onClick={() => { setMode('login'); setError(''); setSuccess(''); setRegisteredEmail(''); }}
-                                className="font-medium"
+                                className="font-semibold"
                                 style={{ color: 'var(--fg)' }}
                                 disabled={submitting}
                             >
                                 Volver al inicio de sesión
                             </button>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => void logout().finally(() => handleClose())}
-                            className="mt-3 w-full text-sm font-medium py-2.5 rounded-lg transition-colors"
-                            style={{
-                                background: 'transparent',
-                                color: 'var(--fg-muted)',
-                                border: '1px solid var(--border)',
-                            }}
-                            disabled={submitting}
-                        >
-                            Cerrar sesión
-                        </button>
                     </>
                 )}
                 </div>
