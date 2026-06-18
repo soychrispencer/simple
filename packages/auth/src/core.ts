@@ -45,9 +45,20 @@ export function getPasswordStrength(password: string): 'none' | 'low' | 'medium'
   return 'high';
 }
 
+/**
+ * Devuelve una ruta interna segura para redirigir tras el login, o `fallback`
+ * si la entrada apunta a un destino externo. Evita open redirects:
+ *  - Elimina espacios y caracteres de control (\t, \n, etc.) que los navegadores
+ *    descartan al resolver URLs y que sirven para «contrabandear» destinos
+ *    (p. ej. "/\t/evil.com" → "//evil.com").
+ *  - Exige una ruta absoluta ("/...") y rechaza referencias de red
+ *    protocol-relative ("//host") y sus variantes con backslash ("/\\host",
+ *    "\\host"), que el navegador normaliza a un origen externo.
+ */
 export function resolveSafeInternalPath(path: string | null | undefined, fallback = '/'): string {
   if (!path) return fallback;
-  if (!path.startsWith('/')) return fallback;
-  if (path.startsWith('//')) return fallback;
-  return path;
+  const cleaned = path.replace(/[\u0000-\u001F\u007F\s]/g, '');
+  if (!cleaned.startsWith('/')) return fallback;
+  if (cleaned.length > 1 && (cleaned[1] === '/' || cleaned[1] === '\\')) return fallback;
+  return cleaned;
 }
