@@ -17,7 +17,7 @@ Monorepo de aplicaciones verticales con frontend en Next.js, backend en Hono y p
 - Frontend: Next.js 16 + React 19 + Tailwind
 - Backend: Hono + TypeScript + Zod
 - Monorepo: pnpm workspaces
-- Paquetes compartidos: `packages/auth`, `packages/config`, `packages/listings-core`, `packages/logger`, `packages/marketplace-header`, `packages/types`, `packages/ui`, `packages/utils`
+- Paquetes compartidos: `packages/auth`, `packages/config`, `packages/logger`, `packages/marketplace-header`, `packages/types`, `packages/ui`, `packages/utils` (helpers de listings/guardados en `utils/saved-listings.ts`)
 
 ## Requisitos
 

@@ -37,11 +37,10 @@ docs/            Documentacion activa
 
 - `@simple/config`: branding, metadata, lifecycle de publicaciones y constantes de API.
 - `@simple/types`: schemas y tipos compartidos con Zod.
-- `@simple/utils`: helpers de formato, CRM, geocoding, media, slug, RUT y valuacion.
+- `@simple/utils`: helpers de formato, CRM, geocoding, media, slug, RUT, valuacion y **guardados/favoritos de listings** (`saved-listings.ts`).
 - `@simple/ui`: componentes UI compartidos y cards de listings.
 - `@simple/auth`: contexto, modal y helpers de autenticacion frontend.
 - `@simple/marketplace-header`: header/panel compartido para marketplaces.
-- `@simple/listings-core`: hooks y helpers especificos de listings autos/propiedades.
 - `@simple/logger`: logger estructurado para backend.
 
 ## Backend

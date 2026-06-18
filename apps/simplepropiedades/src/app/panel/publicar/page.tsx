@@ -25,22 +25,24 @@ import {
     IconSparkles,
     IconVideo,
 } from '@tabler/icons-react';
-import PanelSectionHeader from '@/components/panel/panel-section-header';
+import { MarketplacePublishSuccess, MarketplacePublishWizard } from '@simple/ui/publish';
 import { ModernSelect } from '@simple/ui/forms';
 import { useAuth } from '@simple/auth';
 import { uploadMediaFile } from '@simple/utils';
 import { getPublicationLifecyclePolicy, type PublicationLifecyclePolicy } from '@simple/config';
 import {
-    createPanelListing, deletePanelListingDraft, fetchPanelListingDetail, fetchPanelListingDraft, savePanelListingDraft, updatePanelListing, type PanelListing, } from '@/lib/panel-listings';
+    createPanelListing, deletePanelListingDraft, fetchPanelListingDetail, fetchPanelListingDraft, savePanelListingDraft, updatePanelListing, type PanelListing,
+} from '@/lib/panel-listings';
 import {
-    createEmptyListingLocation, type AddressBookEntry, type ListingLocation, patchListingLocation, type PropertyValuationEstimate, type PropertyValuationRequest, type PropertyValuationSourceStatus, } from '@simple/types';
+    createEmptyListingLocation, type AddressBookEntry, type ListingLocation, patchListingLocation, type PropertyValuationEstimate, type PropertyValuationRequest, type PropertyValuationSourceStatus,
+} from '@simple/types';
 import {
-    estimatePropertyValue, fetchAddressBook, fetchPropertyValuationSources, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, refreshPropertyValuationSources, resolveLocationNames, } from '@simple/utils';
-import { PanelActions } from '@simple/ui/panel';
-import { PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelDocumentUploader, PanelMediaUploader, PanelNotice, PanelStepNav, PanelSummaryCard, PanelVideoUploader, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
+    estimatePropertyValue, fetchAddressBook, fetchPropertyValuationSources, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, refreshPropertyValuationSources, resolveLocationNames,
+} from '@simple/utils';
+import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelDocumentUploader, PanelMediaUploader, PanelNotice, PanelSummaryCard, PanelVideoUploader, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
 import { ListingLocationEditor } from '@simple/ui/location';
 
-type StepId = 'setup' | 'basic' | 'specs' | 'media' | 'commercial' | 'review';
+type StepId = 'media' | 'details' | 'publish';
 type PublishedListing = { id: string; href: string; title: string };
 type PropertyOperation = 'sale' | 'rent' | 'project';
 type Currency = 'UF' | 'CLP' | 'USD';
@@ -174,12 +176,9 @@ const PROPERTY_MEDIA_GUIDE_SLOTS = [
 ] as const;
 
 const STEPS: Array<{ id: StepId; label: string; helper: string }> = [
-    { id: 'media', label: 'Multimedia', helper: 'Fotos, video y portada' },
-    { id: 'setup', label: 'Tipo', helper: 'Operación y tipología' },
-    { id: 'basic', label: 'Datos', helper: 'Ficha principal y ubicación' },
-    { id: 'commercial', label: 'Comercial', helper: 'Precio, contacto y tasación' },
-    { id: 'specs', label: 'Detalles', helper: 'Características y amenities' },
-    { id: 'review', label: 'Revisión', helper: 'Validación final' },
+    { id: 'media', label: 'Multimedia', helper: 'Sube fotos y video para tu aviso' },
+    { id: 'details', label: 'Detalles', helper: 'Tipo, ficha principal, precio y oferta' },
+    { id: 'publish', label: 'Publicar', helper: 'Ubicación, revisión y compartir' },
 ];
 
 const OPERATION_CARDS: Array<{ value: PropertyOperation; label: string; icon: React.ReactNode }> = [
@@ -656,46 +655,34 @@ function buildValuationRequest(data: WizardData): PropertyValuationRequest | nul
 function validateStep(step: StepId, data: WizardData): Record<string, string> {
     const errors: Record<string, string> = {};
 
-    if (step === 'setup') {
+    if (step === 'details') {
         if (!data.setup.propertyType) errors['setup.propertyType'] = 'Selecciona el tipo de propiedad.';
         if (!data.setup.operationType) errors['setup.operationType'] = 'Selecciona la operación.';
-    }
-
-    if (step === 'basic') {
         if (!data.basic.title.trim()) errors['basic.title'] = 'Ingresa un título para la publicación.';
-        if (data.basic.description.trim().length < 80) errors['basic.description'] = 'La descripción debe tener al menos 80 caracteres.';
         if (data.setup.operationType === 'project') {
             if (!data.project.projectName.trim()) errors['project.projectName'] = 'Ingresa el nombre del proyecto.';
             if (!data.project.developerName.trim()) errors['project.developerName'] = 'Ingresa la inmobiliaria o desarrollador.';
-            if (!data.project.salesStage) errors['project.salesStage'] = 'Selecciona la etapa comercial.';
-            if (!data.project.deliveryStatus) errors['project.deliveryStatus'] = 'Selecciona el estado de entrega.';
             if (parseNumber(data.project.availableUnits) == null) errors['project.availableUnits'] = 'Ingresa las unidades disponibles.';
-            if (parseNumber(data.project.usableAreaFrom) == null) errors['project.usableAreaFrom'] = 'Ingresa la superficie útil desde.';
             if (data.project.models.length === 0) {
                 errors['project.models'] = 'Agrega al menos una tipología del proyecto.';
-            } else {
-                data.project.models.forEach((model, index) => {
-                    if (!model.label.trim()) errors[`project.models.${index}.label`] = 'Nombra la tipología.';
-                    if (parseNumber(model.bedrooms) == null) errors[`project.models.${index}.bedrooms`] = 'Indica dormitorios.';
-                    if (parseNumber(model.bathrooms) == null) errors[`project.models.${index}.bathrooms`] = 'Indica baños.';
-                    if (parseNumber(model.usableAreaFrom) == null) errors[`project.models.${index}.usableAreaFrom`] = 'Indica m² útiles desde.';
-                    if (parseNumber(model.priceFrom) == null) errors[`project.models.${index}.priceFrom`] = 'Indica precio desde.';
-                });
             }
         } else {
             if (parseNumber(data.basic.totalArea) == null) errors['basic.totalArea'] = 'La superficie total es obligatoria.';
-            if (parseNumber(data.basic.usableArea) == null) errors['basic.usableArea'] = 'La superficie útil es obligatoria.';
             if (parseNumber(data.basic.rooms) == null) errors['basic.rooms'] = 'Ingresa la cantidad de dormitorios.';
             if (parseNumber(data.basic.bathrooms) == null) errors['basic.bathrooms'] = 'Ingresa la cantidad de baños.';
-            if (parseNumber(data.basic.parkingSpaces) == null) errors['basic.parkingSpaces'] = 'Ingresa la cantidad de estacionamientos.';
-            if (parseNumber(data.basic.storageUnits) == null) errors['basic.storageUnits'] = 'Ingresa la cantidad de bodegas.';
-            if (!data.basic.petsAllowed) errors['basic.petsAllowed'] = 'Indica si admite mascotas.';
-            if (!data.basic.furnished) errors['basic.furnished'] = 'Indica si se publica amoblado.';
         }
+        if (parseNumber(data.commercial.price) == null) errors['commercial.price'] = 'Ingresa un precio válido.';
+    }
+
+    if (step === 'publish') {
+        if (data.basic.description.trim().length < 40) errors['basic.description'] = 'La descripción debe tener al menos 40 caracteres.';
         if (!data.location.regionId) errors['location.regionId'] = 'Selecciona la región.';
         if (!data.location.communeId) errors['location.communeId'] = 'Selecciona la comuna.';
         if (!data.location.addressLine1?.trim()) errors['location.addressLine1'] = 'La dirección exacta es obligatoria.';
         if (data.location.sourceMode === 'saved_address' && !data.location.sourceAddressId) errors['location.sourceAddressId'] = 'Selecciona una dirección guardada.';
+        if (!data.review.acceptTerms) {
+            errors['review.acceptTerms'] = 'Debes aceptar los términos antes de publicar.';
+        }
     }
 
     if (step === 'media') {
@@ -708,14 +695,6 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
                 errors['media.tour360Url'] = 'Usa una URL válida para el tour 360.';
             }
         }
-    }
-
-    if (step === 'commercial') {
-        if (parseNumber(data.commercial.price) == null) errors['commercial.price'] = 'Ingresa un precio válido.';
-    }
-
-    if (step === 'review' && !data.review.acceptTerms) {
-        errors['review.acceptTerms'] = 'Debes aceptar los términos antes de publicar.';
     }
 
     return errors;
@@ -1080,8 +1059,9 @@ function StepBasic(props: {
     communes: Array<{ id: string; name: string }>;
     onGeocodeLocation: () => void | Promise<void>;
     geocoding: boolean;
+    variant?: 'full' | 'details' | 'location';
 }) {
-    const { data, setData, errors, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding } = props;
+    const { data, setData, errors, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding, variant = 'full' } = props;
     const [openSections, setOpenSections] = useState<Record<'main' | 'secondary' | 'location', boolean>>({
         main: true,
         secondary: true,
@@ -1099,10 +1079,18 @@ function StepBasic(props: {
         }));
     };
 
+    const showLocation = variant === 'full' || variant === 'location';
+    const showDetails = variant === 'full' || variant === 'details';
+
     return (
         <section className="space-y-4">
-            <h2 className="type-section-title">{isProject ? 'Datos del proyecto' : 'Datos del inmueble'}</h2>
+            {showDetails ? (
+                <h2 className="type-section-title">{isProject ? 'Datos del proyecto' : 'Datos del inmueble'}</h2>
+            ) : (
+                <h2 className="type-section-title">Ubicación</h2>
+            )}
 
+            {showLocation ? (
             <AccordionGroup
                 title="Ubicación del aviso"
                 description="Elige una dirección guardada o escribe una nueva. Completa dirección, región y comuna y decide si quieres ocultar la dirección exacta."
@@ -1138,7 +1126,10 @@ function StepBasic(props: {
                     onGeocode={onGeocodeLocation}
                 />
             </AccordionGroup>
+            ) : null}
 
+            {showDetails ? (
+            <>
             <AccordionGroup
                 title={isProject ? 'Identidad y estado del proyecto' : 'Datos principales'}
                 description={isProject ? 'Nombre del proyecto, inmobiliaria, etapa, entrega y descripción comercial.' : 'Titular, descripción y atributos obligatorios del inmueble.'}
@@ -1179,10 +1170,12 @@ function StepBasic(props: {
                                 <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
                             </Field>
                         </div>
+                        {variant !== 'details' ? (
                         <Field label="Descripción" required error={errors['basic.description']}>
                             <textarea className="form-textarea" rows={5} value={data.basic.description} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, description: event.target.value } }))} placeholder="Describe el proyecto, sus diferenciales, entorno, conectividad, amenidades y por qué destaca frente a otras alternativas." />
                             <p className="text-xs mt-1 prop-field-hint">{data.basic.description.length} / 2500</p>
                         </Field>
+                        ) : null}
                     </>
                 ) : (
                     <>
@@ -1194,10 +1187,12 @@ function StepBasic(props: {
                                 <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
                             </Field>
                         </div>
+                        {variant !== 'details' ? (
                         <Field label="Descripción" required error={errors['basic.description']}>
                             <textarea className="form-textarea" rows={5} value={data.basic.description} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, description: event.target.value } }))} placeholder="Distribución, terminaciones, orientación, entorno, conectividad y cualquier ventaja competitiva del inmueble." />
                             <p className="text-xs mt-1 prop-field-hint">{data.basic.description.length} / 2500</p>
                         </Field>
+                        ) : null}
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
                             <Field label="Dormitorios" required error={errors['basic.rooms']}><div className="relative"><IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" /></div></Field>
                             <Field label="Baños" required error={errors['basic.bathrooms']}><div className="relative"><IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" /></div></Field>
@@ -1357,6 +1352,8 @@ function StepBasic(props: {
                     </>
                 )}
             </AccordionGroup>
+            </>
+            ) : null}
 
         </section>
     );
@@ -1537,12 +1534,13 @@ function StepCommercial(props: {
     onRunValuation: () => void | Promise<void>;
     onRefreshValuationSources: () => void | Promise<void>;
     lifecyclePolicy: PublicationLifecyclePolicy;
+    compact?: boolean;
 }) {
-    const { data, setData, errors, estimate, estimating, valuationRequest, onRunValuation, lifecyclePolicy } = props;
+    const { data, setData, errors, estimate, estimating, valuationRequest, onRunValuation, lifecyclePolicy, compact = false } = props;
     const isProject = data.setup.operationType === 'project';
 
     return (
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <section className={compact ? 'space-y-4' : 'grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]'}>
             <div className="space-y-4">
                 <h2 className="type-section-title">{isProject ? 'Precio y proyecto' : 'Precio y publicación'}</h2>
                 <PanelNotice tone="neutral">
@@ -1598,6 +1596,7 @@ function StepCommercial(props: {
                 ) : null}
             </div>
 
+            {!compact ? (
             <div className="space-y-4">
                 <PanelCard tone="subtle" size="md">
                     <div className="flex items-start gap-3">
@@ -1668,7 +1667,118 @@ function StepCommercial(props: {
                     ) : null}
                 </PanelCard>
             </div>
+            ) : null}
         </section>
+    );
+}
+
+function StepDetails(props: {
+    data: WizardData;
+    setData: WizardSetter;
+    errors: Record<string, string>;
+    addressBook: AddressBookEntry[];
+    addressBookLoading: boolean;
+    communes: Array<{ id: string; name: string }>;
+    estimate: PropertyValuationEstimate | null;
+    estimating: boolean;
+    valuationSources: PropertyValuationSourceStatus[];
+    refreshingSources: boolean;
+    valuationRequest: PropertyValuationRequest | null;
+    onRunValuation: () => void | Promise<void>;
+    onRefreshValuationSources: () => void | Promise<void>;
+    lifecyclePolicy: PublicationLifecyclePolicy;
+    onGeocodeLocation: () => void | Promise<void>;
+    geocoding: boolean;
+}) {
+    const { data, setData, errors, lifecyclePolicy, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding, ...commercialProps } = props;
+    return (
+        <div className="space-y-8">
+            <StepSetup data={data} setData={setData} errors={errors} />
+            <StepBasic
+                data={data}
+                setData={setData}
+                errors={errors}
+                addressBook={addressBook}
+                addressBookLoading={addressBookLoading}
+                communes={communes}
+                onGeocodeLocation={onGeocodeLocation}
+                geocoding={geocoding}
+                variant="details"
+            />
+            <StepCommercial
+                data={data}
+                setData={setData}
+                errors={errors}
+                lifecyclePolicy={lifecyclePolicy}
+                compact
+                {...commercialProps}
+            />
+        </div>
+    );
+}
+
+function StepPublish(props: {
+    data: WizardData;
+    setData: WizardSetter;
+    errors: Record<string, string>;
+    addressBook: AddressBookEntry[];
+    addressBookLoading: boolean;
+    communes: Array<{ id: string; name: string }>;
+    onGeocodeLocation: () => void | Promise<void>;
+    geocoding: boolean;
+    estimate: PropertyValuationEstimate | null;
+    score: number;
+    lifecyclePolicy: PublicationLifecyclePolicy;
+}) {
+    const {
+        data,
+        setData,
+        errors,
+        addressBook,
+        addressBookLoading,
+        communes,
+        onGeocodeLocation,
+        geocoding,
+        estimate,
+        score,
+        lifecyclePolicy,
+    } = props;
+
+    return (
+        <div className="space-y-8">
+            <section className="space-y-3">
+                <h2 className="type-section-title">Descripción</h2>
+                <Field label="Descripción" required error={errors['basic.description']} hint="Texto que verán los interesados en la ficha pública.">
+                    <textarea
+                        className="form-textarea"
+                        rows={4}
+                        value={data.basic.description}
+                        onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, description: event.target.value } }))}
+                        placeholder="Distribución, terminaciones, entorno y ventajas del inmueble."
+                    />
+                    <p className="text-xs mt-1 prop-field-hint">{data.basic.description.length} / 2500</p>
+                </Field>
+            </section>
+            <StepBasic
+                data={data}
+                setData={setData}
+                errors={errors}
+                addressBook={addressBook}
+                addressBookLoading={addressBookLoading}
+                communes={communes}
+                onGeocodeLocation={onGeocodeLocation}
+                geocoding={geocoding}
+                variant="location"
+            />
+            <StepReview
+                data={data}
+                estimate={estimate}
+                score={score}
+                errors={errors}
+                setData={setData}
+                lifecyclePolicy={lifecyclePolicy}
+            />
+        </div>
     );
 }
 
@@ -1836,7 +1946,6 @@ export default function PublishWizardPage() {
     const dataRef = useRef<WizardData>(data);
     const estimateRef = useRef<PropertyValuationEstimate | null>(estimate);
     const stepIndex = STEPS.findIndex((item) => item.id === step);
-    const currentStep = STEPS[stepIndex] || STEPS[0];
     const score = qualityScore(data, estimate);
     const lifecyclePolicy = useMemo(() => getPublicationLifecyclePolicy('simplepropiedades', data.setup.operationType), [data.setup.operationType]);
     const communes = useMemo(() => getCommunesForRegion(data.location.regionId || ''), [data.location.regionId]);
@@ -2178,138 +2287,104 @@ export default function PublishWizardPage() {
     };
 
     if (published) {
-        return <StepSuccess published={published} onReset={resetForNewListing} />;
+        return (
+            <MarketplacePublishSuccess
+                title={published.title}
+                publishedHref={published.href}
+                shareText={`Mira esta propiedad en SimplePropiedades: ${published.title}`}
+                onReset={resetForNewListing}
+                onGoToListings={() => { window.location.href = '/panel/publicaciones'; }}
+            />
+        );
     }
 
     return (
-        <div className="container-app panel-page max-w-6xl py-4 lg:py-8">
-            <PanelSectionHeader
-                title={isEditing ? 'Editar propiedad' : 'Publicar propiedad'}
-                description={`Paso ${stepIndex + 1} de ${STEPS.length}`}
-                actions={(
-                    <div className="flex items-center gap-2">
-                        {draftSavedNote ? (
-                            <span className="rounded-lg border px-2.5 h-9 inline-flex items-center text-xs prop-draft-badge">
-                                {draftSavedNote}
-                            </span>
-                        ) : null}
-                        <PanelButton type="button" variant="secondary" size="sm" onClick={() => void saveDraft(true)}>
-                            <IconDeviceFloppy size={14} />
-                            Guardar borrador
+        <MarketplacePublishWizard
+            title="Nueva publicación"
+            subtitle="Publica en 3 pasos: multimedia, detalles y ubicación."
+            steps={STEPS.map((item) => ({ key: item.id, label: item.label, helper: item.helper }))}
+            activeStepKey={step}
+            stepIndex={stepIndex}
+            isEditing={isEditing}
+            onBack={goBack}
+            onClose={() => router.push('/panel')}
+            onStepChange={(key) => {
+                const targetIndex = STEPS.findIndex((item) => item.id === key);
+                if (targetIndex <= stepIndex) setStep(key as StepId);
+            }}
+            headerActions={(
+                <PanelButton type="button" variant="ghost" size="sm" onClick={() => void saveDraft(true)} aria-label="Guardar borrador">
+                    <IconDeviceFloppy size={16} />
+                </PanelButton>
+            )}
+            notices={(
+                <>
+                    {message ? <PanelNotice>{message}</PanelNotice> : null}
+                    {storageError ? <PanelNotice tone="error">{storageError}</PanelNotice> : null}
+                    {draftSavedNote ? <PanelNotice tone="success">{draftSavedNote}</PanelNotice> : null}
+                    {editingLoading ? <PanelNotice tone="neutral">Cargando publicación para editar...</PanelNotice> : null}
+                </>
+            )}
+            footer={(
+                <PanelActions
+                    left={(
+                        <PanelButton type="button" variant="secondary" onClick={goBack} disabled={stepIndex === 0}>
+                            <IconArrowLeft size={14} />
+                            Anterior
                         </PanelButton>
-                    </div>
-                )}
-            />
-
-            {message ? <PanelNotice className="mb-4">{message}</PanelNotice> : null}
-            {storageError ? <PanelNotice tone="error" className="mb-3">{storageError}</PanelNotice> : null}
-            {editingLoading ? <PanelNotice tone="neutral" className="mb-4">Cargando publicación para editar...</PanelNotice> : null}
-
-            <PanelCard className="mb-6" size="md">
-                <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div className="min-w-0">
-                            <p className="text-xs uppercase tracking-[0.18em] text-(--fg-muted)">
-                                Publicación guiada
-                            </p>
-                            <h2 className="text-xl font-semibold mt-1 text-(--fg)">
-                                {currentStep.label}
-                            </h2>
-                            <p className="text-sm mt-1 text-(--fg-secondary)">
-                                {currentStep.helper}
-                            </p>
-                        </div>
-                        <div className="w-full md:max-w-xs">
-                            <div className="flex items-center justify-between text-xs mb-1 text-(--fg-muted)">
-                                <span>Progreso</span>
-                                <span>{Math.round(((stepIndex + 1) / STEPS.length) * 100)}%</span>
-                            </div>
-                            <div className="h-2 rounded-full bg-(--bg-muted)">
-                                <div
-                                    className="h-full rounded-full transition-all duration-300"
-                                    style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%`, background: 'var(--fg)' }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    <div className="rounded-2xl border px-3 py-3 prop-wizard-nav">
-                        <PanelStepNav
-                            items={STEPS.map((item, index) => ({
-                                key: item.id,
-                                label: item.label,
-                                disabled: index > stepIndex,
-                                done: index < stepIndex,
-                            }))}
-                            activeKey={step}
-                            onChange={(key) => setStep(key as StepId)}
-                            ariaLabel="Pasos de publicación"
-                            labelBreakpoint="always"
-                        />
-                    </div>
-                </div>
-            </PanelCard>
-
-            <PanelCard size="lg">
-                <div className="animate-scale-in">
-                    {step === 'setup' && <StepSetup data={data} setData={setData} errors={errors} />}
-                    {step === 'basic' && (
-                        <StepBasic
-                            data={data}
-                            setData={setData}
-                            errors={errors}
-                            addressBook={addressBook}
-                            addressBookLoading={addressBookLoading}
-                            communes={communes}
-                            onGeocodeLocation={refreshLocationMap}
-                            geocoding={geocoding}
-                        />
                     )}
-                    {step === 'specs' && <StepSpecs data={data} setData={setData} />}
-                    {step === 'media' && <StepMedia data={data} setData={setData} errors={errors} />}
-                    {step === 'commercial' && (
-                        <StepCommercial
-                            data={data}
-                            setData={setData}
-                            errors={errors}
-                            estimate={estimate}
-                            estimating={estimating}
-                            valuationSources={valuationSources}
-                            refreshingSources={refreshingSources}
-                            valuationRequest={valuationRequest}
-                            onRunValuation={runValuation}
-                            onRefreshValuationSources={refreshValuationConnectors}
-                            lifecyclePolicy={lifecyclePolicy}
-                        />
-                    )}
-                    {step === 'review' && <StepReview data={data} estimate={estimate} score={score} errors={errors} setData={setData} lifecyclePolicy={lifecyclePolicy} />}
-                </div>
-            </PanelCard>
-
-            <PanelActions
-                left={(
-                    <PanelButton type="button" variant="secondary" onClick={goBack} disabled={stepIndex === 0}>
-                        <IconArrowLeft size={14} />
-                        Anterior
-                    </PanelButton>
-                )}
-                right={step === 'review' ? (
-                    <>
-                        <PanelButton type="button" variant="secondary" onClick={() => void saveDraft(true)}>
-                            <IconDeviceFloppy size={14} />
-                            Guardar borrador
-                        </PanelButton>
+                    right={step === 'publish' ? (
                         <PanelButton type="button" variant="primary" onClick={() => void publishNow()} disabled={publishing || editingLoading}>
                             <IconCheck size={14} />
                             {publishing ? (isEditing ? 'Guardando...' : 'Publicando...') : (isEditing ? 'Guardar cambios' : 'Publicar')}
                         </PanelButton>
-                    </>
-                ) : (
-                    <PanelButton type="button" variant="primary" onClick={goNext}>
-                        Siguiente
-                        <IconArrowRight size={14} />
-                    </PanelButton>
+                    ) : (
+                        <PanelButton type="button" variant="primary" onClick={goNext}>
+                            Siguiente
+                            <IconArrowRight size={14} />
+                        </PanelButton>
+                    )}
+                />
+            )}
+        >
+            <PanelCard size="lg">
+                {step === 'media' && <StepMedia data={data} setData={setData} errors={errors} />}
+                {step === 'details' && (
+                    <StepDetails
+                        data={data}
+                        setData={setData}
+                        errors={errors}
+                        addressBook={addressBook}
+                        addressBookLoading={addressBookLoading}
+                        communes={communes}
+                        onGeocodeLocation={refreshLocationMap}
+                        geocoding={geocoding}
+                        estimate={estimate}
+                        estimating={estimating}
+                        valuationSources={valuationSources}
+                        refreshingSources={refreshingSources}
+                        valuationRequest={valuationRequest}
+                        onRunValuation={runValuation}
+                        onRefreshValuationSources={refreshValuationConnectors}
+                        lifecyclePolicy={lifecyclePolicy}
+                    />
                 )}
-            />
-        </div>
+                {step === 'publish' && (
+                    <StepPublish
+                        data={data}
+                        setData={setData}
+                        errors={errors}
+                        addressBook={addressBook}
+                        addressBookLoading={addressBookLoading}
+                        communes={communes}
+                        onGeocodeLocation={refreshLocationMap}
+                        geocoding={geocoding}
+                        estimate={estimate}
+                        score={score}
+                        lifecyclePolicy={lifecyclePolicy}
+                    />
+                )}
+            </PanelCard>
+        </MarketplacePublishWizard>
     );
 }

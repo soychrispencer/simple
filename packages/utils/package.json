@@ -19,11 +19,10 @@
   },
   "dependencies": {
     "@simple/config": "workspace:*",
-    "@simple/types": "workspace:*",
-    "zod": "^4.3.6"
+    "@simple/types": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.19.17",
+    "@types/node": "^22.19.21",
     "country-state-city": "^3.2.1",
     "typescript": "^5.9.3"
   }

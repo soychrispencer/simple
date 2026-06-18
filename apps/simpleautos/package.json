@@ -18,27 +18,25 @@
     "@simple/auth": "workspace:*",
     "@simple/config": "workspace:*",
     "@simple/marketplace-header": "workspace:*",
-    "@simple/listings-core": "workspace:*",
     "@simple/types": "workspace:*",
     "@simple/ui": "workspace:*",
     "@simple/utils": "workspace:*",
-    "@tabler/icons-react": "^3.31.0",
-    "clsx": "^2.1.1",
+    "@tabler/icons-react": "^3.44.0",
     "leaflet": "^1.9.4",
-    "next": "^16.1.6",
+    "next": "^16.2.9",
     "next-themes": "^0.4.6",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "react-leaflet": "^5.0.0",
-    "swiper": "^12.1.2"
+    "swiper": "^12.2.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.2.1",
+    "@tailwindcss/postcss": "^4.3.1",
     "@types/leaflet": "^1.9.21",
-    "@types/node": "^22.19.17",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "tailwindcss": "^4.2.1",
+    "@types/node": "^22.19.21",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.3.1",
     "typescript": "^5.9.3"
   }
 }

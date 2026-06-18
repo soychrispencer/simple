@@ -355,7 +355,7 @@ export function AuthModal({
                 aria-modal="true"
                 aria-labelledby="auth-modal-title"
                 tabIndex={-1}
-                className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-scale-in"
+                className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-scale-in"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -374,24 +374,26 @@ export function AuthModal({
                     <IconX size={24} strokeWidth={2.5} />
                 </button>
 
-                <div className="p-5 sm:p-6">
+                <div className="p-6 sm:p-7">
                 {mode === 'login' && (
                     <>
-                        <h2 id="auth-modal-title" className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
-                            Iniciar sesión
-                        </h2>
-                        <p className="text-sm mb-5" style={{ color: 'var(--fg-muted)' }}>
-                            Una sola cuenta Simple para todas nuestras apps. Si ya entraste en Serenatas, Autos u otra vertical, usa el mismo correo o Google.
-                        </p>
+                        <div className="pr-10 mb-6">
+                            <h2 id="auth-modal-title" className="text-lg font-semibold leading-snug" style={{ color: 'var(--fg)' }}>
+                                Iniciar sesión
+                            </h2>
+                            <p className="text-xs leading-relaxed mt-2" style={{ color: 'var(--fg-muted)' }}>
+                                Si ya tienes cuenta en Simple, usa el mismo correo o Google.
+                            </p>
+                        </div>
                         {suggestGoogleLogin ? (
-                            <PanelNotice tone="info" className="mb-3">
-                                <p className="mb-2">
-                                    Esta cuenta está vinculada a Google. Pulsa el botón resaltado para continuar con la misma identidad en esta app.
+                            <PanelNotice tone="info" className="mb-4">
+                                <p>
+                                    Esta cuenta usa Google. Pulsa el botón de arriba para continuar.
                                 </p>
                             </PanelNotice>
                         ) : null}
                         {error ? (
-                            <PanelNotice tone="error" className="mb-3">
+                            <PanelNotice tone="error" className="mb-4">
                                 {error}
                             </PanelNotice>
                         ) : null}
@@ -404,14 +406,14 @@ export function AuthModal({
                                 <IconBrandGoogle size={15} /> Continuar con Google
                             </PanelButton>
                         </GoogleLoginButton>
-                        <div className="flex items-center gap-3 my-4">
+                        <div className="flex items-center gap-3 my-5">
                             <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
                             <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                                 o con correo
                             </span>
                             <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
                         </div>
-                        <form onSubmit={handleLogin} className="grid gap-4" aria-label="Formulario de inicio de sesión">
+                        <form onSubmit={handleLogin} className="grid gap-3.5" aria-label="Formulario de inicio de sesión">
                             <div className="relative flex items-center">
                                 <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
@@ -438,7 +440,7 @@ export function AuthModal({
                                 {submitting ? 'Ingresando...' : 'Iniciar sesión con correo'}
                             </PanelButton>
                         </form>
-                        <div className="flex items-center justify-between mt-4 text-sm">
+                        <div className="flex items-center justify-between mt-5 pt-1 text-sm">
                             <span style={{ color: 'var(--fg-muted)' }}>¿No tienes cuenta?</span>
                             {allowRegister ? (
                                 <button onClick={() => { setMode('register'); setError(''); setSuggestGoogleLogin(false); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>

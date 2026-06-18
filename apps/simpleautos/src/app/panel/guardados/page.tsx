@@ -6,7 +6,7 @@ import { IconTrash } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import { PanelEmptyState } from '@simple/ui/panel';
 import { PanelIconButton, PanelList, PanelListRow } from '@simple/ui/panel';
-import { readSavedListings, removeSavedListing, subscribeSavedListings, syncSavedListingsFromApi, type SavedListingRecord } from '@/lib/saved-listings';
+import { readSavedListings, removeSavedListing, subscribeSavedListings, syncSavedListingsFromApi, type SavedListingRecord } from '@simple/utils';
 
 function initialsFromName(name?: string): string {
     if (!name) return 'S';

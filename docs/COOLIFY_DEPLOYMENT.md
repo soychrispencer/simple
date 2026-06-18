@@ -27,6 +27,19 @@ Acceso Coolify (solo en vault / variables de entorno del operador, no en git):
 - `COOLIFY_PASSWORD` — contraseña (set in vault)
 - `COOLIFY_API_TOKEN` — token de API (set in vault)
 
+### Despliegue automatizado (Cursor / CLI)
+
+1. Copiar `.env.deploy.example` → `.env.deploy` y pegar `COOLIFY_URL` + `COOLIFY_API_TOKEN` (archivo gitignored).
+2. Tras `git push` a `main`: `pnpm run coolify:deploy` (todos los `simple*`) o `pnpm run coolify:deploy -- --app simple-api`.
+3. Regla Cursor: `.cursor/rules/coolify-deploy.mdc` (`alwaysApply`) para que el agente despliegue sin pedir credenciales de nuevo.
+
+Opcional en Windows (variables de usuario persistentes):
+
+```powershell
+[System.Environment]::SetEnvironmentVariable('COOLIFY_URL', 'http://<servidor>:8000', 'User')
+[System.Environment]::SetEnvironmentVariable('COOLIFY_API_TOKEN', '<token>', 'User')
+```
+
 ```env
 PORT=4000
 API_HOST=0.0.0.0

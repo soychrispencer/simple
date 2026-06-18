@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { MarketplaceHeader, type MarketplacePublicLink } from '@simple/marketplace-header';
 import { getPanelNavItems, isPanelNavActive, type PanelRole } from '@/components/panel/panel-nav-config';
 import { fetchPanelNotifications } from '@/lib/panel-notifications';
-import { clearSavedListingsCache, syncSavedListingsFromApi } from '@/lib/saved-listings';
+import { clearSavedListingsCache, syncSavedListingsFromApi } from '@simple/utils';
 
 const publicLinks: MarketplacePublicLink[] = [
     { href: '/ventas', label: 'Comprar' },

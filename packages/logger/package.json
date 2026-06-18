@@ -17,7 +17,7 @@
     "dependencies": {},
     "devDependencies": {
         "typescript": "^5.9.3",
-        "@types/node": "^22.19.17"
+        "@types/node": "^22.19.21"
     },
     "files": [
         "dist"

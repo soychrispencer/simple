@@ -64,6 +64,10 @@
       "types": "./dist/panel/index.d.ts",
       "default": "./dist/panel/index.js"
     },
+    "./publish": {
+      "types": "./dist/publish/index.d.ts",
+      "default": "./dist/publish/index.js"
+    },
     "./public-profile": {
       "types": "./dist/public-profile/index.d.ts",
       "default": "./dist/public-profile/index.js"
@@ -94,8 +98,7 @@
     "@simple/utils": "workspace:*",
     "clsx": "^2.1.1",
     "next-themes": "^0.4.6",
-    "react-easy-crop": "^5.5.7",
-    "tailwind-merge": "^3.5.0"
+    "react-easy-crop": "^5.5.7"
   },
   "peerDependencies": {
     "@tabler/icons-react": "^3.31.0",
@@ -106,13 +109,12 @@
     "swiper": "^12.1.2"
   },
   "devDependencies": {
-    "@tabler/icons-react": "^3.31.0",
-    "next-themes": "^0.4.6",
-    "@types/node": "^22.19.17",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "next": "^16.1.6",
-    "swiper": "^12.1.2",
+    "@tabler/icons-react": "^3.44.0",
+    "@types/node": "^22.19.21",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "next": "^16.2.9",
+    "swiper": "^12.2.0",
     "typescript": "^5.9.3"
   }
 }

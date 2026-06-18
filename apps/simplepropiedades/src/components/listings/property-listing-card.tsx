@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@simple/auth';
-import { isListingSaved, subscribeSavedListings, toggleSavedListing } from '@/lib/saved-listings';
+import { isListingSaved, subscribeSavedListings, toggleSavedListing } from '@simple/utils';
 import { 
     IconHeart, 
     IconHeartFilled,

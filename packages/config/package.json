@@ -18,10 +18,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^22.19.17",
+    "@types/node": "^22.19.21",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "@simple/types": "workspace:*"
   }
 }

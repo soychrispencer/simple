@@ -24,6 +24,7 @@ import {
 import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelNotice } from '@simple/ui/panel';
+import { MarketplacePublishSuccess, MarketplacePublishWizard } from '@simple/ui/publish';
 import { ModernSelect } from '@simple/ui/forms';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { fetchAddressBook, uploadMediaFile } from '@simple/utils';
@@ -113,9 +114,11 @@ const EMPTY_FORM: FormData = {
     exchange: false,
 };
 
-// =============================================================================
-// CONSTANTES
-// =============================================================================
+const PUBLISH_STEPS = [
+    { key: '1', label: 'Multimedia', helper: 'Fotos y video para tu aviso' },
+    { key: '2', label: 'Detalles', helper: 'Tipo, vehículo, precio y oferta' },
+    { key: '3', label: 'Publicar', helper: 'Ubicación, revisión y compartir' },
+] as const;
 
 const VEHICLE_TYPES = [
     { value: 'car', label: 'Auto / SUV', Icon: IconCar },
@@ -558,54 +561,80 @@ export default function PublicarPage() {
     // RENDER PASOS
     // =============================================================================
     
+    const stepIndex = step === 'success' ? 2 : (step as number) - 1;
+
     return (
-        <div className="min-h-screen bg-[var(--bg)]">
-            {/* Header móvil */}
-            <header className="sticky top-0 z-50 bg-[var(--surface)] border-b border-[var(--border)]">
-                <div className="flex items-center justify-between h-14 px-4">
-                    <button 
-                        onClick={() => step === 1 ? router.push('/panel') : setStep(prev => (prev === 2 ? 1 : prev === 3 ? 2 : 1) as Step)}
-                        className="p-2 -ml-2 rounded-xl hover:bg-[var(--bg-subtle)] transition-colors"
-                    >
-                        {step === 1 ? <IconX size={22} /> : <IconArrowLeft size={22} />}
-                    </button>
-                    <span className="text-sm font-medium">
-                        {isEditing ? 'Editar publicación' : 'Nueva publicación'}
-                    </span>
-                    <div className="w-10" /> {/* Spacer */}
-                </div>
-                
-                {/* Progress bar */}
-                {step !== 'success' && (
-                    <div className="flex h-1 bg-[var(--bg-subtle)]">
-                        <div 
-                            className="transition-all duration-300 bg-[var(--accent)]"
-                            style={{ width: step === 1 ? '33%' : step === 2 ? '66%' : '100%' }}
-                        />
-                    </div>
+        <>
+        {step === 'success' && published ? (
+            <MarketplacePublishSuccess
+                title={published.title}
+                publishedHref={published.href}
+                shareText={`Mira este vehículo en SimpleAutos: ${published.title}`}
+                onReset={() => window.location.reload()}
+                onGoToListings={() => router.push('/panel/publicaciones')}
+                extraActions={(
+                    <ShareToSocialPanel
+                        listingId={published.id}
+                        listingHref={published.href}
+                        listingTitle={published.title}
+                        hasVideo={published.hasVideo}
+                    />
                 )}
-            </header>
-            
-            {/* Contenido - Responsive: mobile full width, desktop wider with sidebar-like spacing */}
-            <main className="flex-1 overflow-y-auto">
-                <div className="max-w-2xl xl:max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
-                    {draftNotice && step !== 'success' ? (
-                        <PanelNotice tone="warning" className="mb-4">{draftNotice}</PanelNotice>
-                    ) : null}
-                    {!isEditing && step !== 'success' ? (
-                        <PanelNotice tone="neutral" className="mb-4">
-                            Guardar borrador estará disponible próximamente.
-                        </PanelNotice>
-                    ) : null}
-                    {step === 1 && (
-                        <Step1PhotosAndIdentity 
-                            form={form} 
-                            updateForm={updateForm} 
-                            catalog={catalog}
-                        />
-                    )}
-                    
-                    {step === 2 && (
+            />
+        ) : (
+        <MarketplacePublishWizard
+            title="Nueva publicación"
+            subtitle="Publica en 3 pasos: multimedia, detalles y ubicación."
+            steps={PUBLISH_STEPS.map((item) => ({ key: item.key, label: item.label, helper: item.helper }))}
+            activeStepKey={String(step)}
+            stepIndex={stepIndex}
+            isEditing={isEditing}
+            onBack={() => setStep((prev) => ((prev as number) - 1) as Step)}
+            onClose={() => router.push('/panel')}
+            onStepChange={(key) => {
+                const target = Number(key);
+                if (!Number.isNaN(target) && target <= (step as number)) setStep(target as Step);
+            }}
+            notices={draftNotice ? <PanelNotice tone="warning">{draftNotice}</PanelNotice> : null}
+            footer={(
+                <div className="flex justify-end">
+                    <PanelButton
+                        type="button"
+                        variant="primary"
+                        className="w-full sm:w-auto min-w-[200px]"
+                        onClick={() => {
+                            if (step === 3) void handlePublish();
+                            else setStep((prev) => ((prev as number) + 1) as Step);
+                        }}
+                        disabled={!canProceed() || loading}
+                    >
+                        {loading ? (
+                            <>
+                                <IconLoader2 size={18} className="animate-spin" />
+                                {step === 3 ? 'Publicando...' : 'Continuar'}
+                            </>
+                        ) : step === 3 ? (
+                            <>
+                                <IconRocket size={18} />
+                                Publicar
+                            </>
+                        ) : (
+                            <>
+                                Continuar
+                                <IconArrowRight size={18} />
+                            </>
+                        )}
+                    </PanelButton>
+                </div>
+            )}
+        >
+            <PanelCard size="lg">
+                {step === 1 && (
+                    <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="media" />
+                )}
+                {step === 2 && (
+                    <div className="space-y-8">
+                        <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="identity" />
                         <Step2Condition
                             form={form}
                             updateForm={updateForm}
@@ -613,89 +642,20 @@ export default function PublicarPage() {
                             toggleSection={toggleSection}
                             catalog={catalog}
                         />
-                    )}
-                    
-                    {step === 3 && (
-                        <Step3LocationAndPublish
-                            form={form}
-                            updateForm={updateForm}
-                            user={user}
-                            catalog={catalog}
-                        />
-                    )}
-                    
-                    {step === 'success' && published && (
-                        <StepSuccess published={published} />
-                    )}
-                </div>
-            </main>
-            
-            {/* Footer con acción - sobre bottom nav en mobile, normal en desktop */}
-            {step !== 'success' && (
-                <footer className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-40 bg-[var(--surface)] border-t border-[var(--border)] shadow-lg p-4 safe-area-pb lg:p-5">
-                    <div className="max-w-2xl xl:max-w-5xl mx-auto flex items-center justify-between gap-4">
-                        {/* Info del paso - solo desktop */}
-                        <div className="hidden lg:block">
-                            <p className="text-sm font-medium text-[var(--fg)]">
-                                {step === 1 && 'Paso 1: Fotos'}
-                                {step === 2 && 'Paso 2: Estado del vehículo'}
-                                {step === 3 && 'Paso 3: Ubicación y publicar'}
-                            </p>
-                            <p className="text-xs text-[var(--fg-muted)]">
-                                {step === 3 ? 'Revisa tu aviso antes de publicar' : 'Completa los datos requeridos'}
-                            </p>
-                        </div>
-                        
-                        <div className="flex-1 lg:flex-initial">
-                            <button
-                                onClick={() => {
-                                    if (step === 3) handlePublish();
-                                    else setStep(prev => ((prev as number) + 1) as Step);
-                                }}
-                                disabled={!canProceed() || loading}
-                                className="w-full lg:w-auto lg:min-w-[200px] h-12 lg:h-14 rounded-xl font-semibold text-white transition-all shadow-md
-                                    disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
-                                    bg-[var(--accent)] hover:bg-[var(--accent)]/90 hover:shadow-lg hover:scale-[1.02]
-                                    active:scale-[0.98]
-                                    flex items-center justify-center gap-2 px-6"
-                            >
-                                {loading ? (
-                                    <>
-                                        <IconLoader2 size={20} className="animate-spin" />
-                                        {step === 3 ? 'Publicando...' : 'Guardando...'}
-                                    </>
-                                ) : (
-                                    <>
-                                        {step === 3 ? (
-                                            <>
-                                                <IconRocket size={20} />
-                                                <span>Publicar aviso</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span>Continuar</span>
-                                                <IconArrowRight size={20} />
-                                            </>
-                                        )}
-                                    </>
-                                )}
-                            </button>
-                            
-                            {step === 2 && !canProceed() && (
-                                <p className="text-xs text-center lg:text-right text-[var(--fg-muted)] mt-2">
-                                    Completa marca, modelo, año y precio en el paso 1 antes de continuar
-                                </p>
-                            )}
-                            {step === 3 && !canProceed() && (
-                                <p className="text-xs text-center lg:text-right text-[var(--fg-muted)] mt-2">
-                                    Completa todos los campos requeridos para publicar
-                                </p>
-                            )}
-                        </div>
                     </div>
-                </footer>
-            )}
-        </div>
+                )}
+                {step === 3 && (
+                    <Step3LocationAndPublish
+                        form={form}
+                        updateForm={updateForm}
+                        user={user}
+                        catalog={catalog}
+                    />
+                )}
+            </PanelCard>
+        </MarketplacePublishWizard>
+        )}
+        </>
     );
 }
 
@@ -779,11 +739,13 @@ function SortablePhotoItem({
 function Step1PhotosAndIdentity({
     form,
     updateForm,
-    catalog
+    catalog,
+    section = 'all',
 }: {
     form: FormData;
     updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
     catalog: PublishWizardCatalog | null;
+    section?: 'media' | 'identity' | 'all';
 }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
@@ -876,19 +838,22 @@ function Step1PhotosAndIdentity({
         ? getModelsForBrand(catalog, form.brandId, form.vehicleType)
         : [];
     
+    const showMedia = section === 'media' || section === 'all';
+    const showIdentity = section === 'identity' || section === 'all';
+    
     return (
-        <div className="space-y-8 pb-32">
-            {/* Header Premium */}
+        <div className="space-y-8 pb-8">
+            {showMedia ? (
+            <>
             <div className="text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] text-xs font-semibold mb-3">
-                    <IconCamera size={14} />
-                    Paso 1 de 3
-                </div>
-                <h1 className="text-3xl lg:text-4xl font-bold text-[var(--fg)] tracking-tight">
-                    Fotos primero, datos después
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--fg-muted)]">
+                    Paso 1 · Multimedia
+                </p>
+                <h1 className="text-2xl lg:text-3xl font-bold text-[var(--fg)] tracking-tight mt-1">
+                    Fotos y video primero
                 </h1>
-                <p className="text-[var(--fg-muted)] text-base mt-2 max-w-lg">
-                    Toma fotos en terreno, ordénalas como quieres que aparezcan y completa solo lo necesario para publicar rápido.
+                <p className="text-[var(--fg-muted)] text-sm mt-2 max-w-lg">
+                    Sube lo esencial para la tarjeta. Puedes reordenar y marcar portada.
                 </p>
             </div>
             
@@ -1054,6 +1019,24 @@ function Step1PhotosAndIdentity({
                     className="hidden"
                 />
             </section>
+            </>
+            ) : null}
+            
+            {showIdentity ? (
+            <>
+            {section === 'identity' ? (
+                <div className="text-center lg:text-left">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--fg-muted)]">
+                        Paso 2 · Detalles
+                    </p>
+                    <h1 className="text-2xl lg:text-3xl font-bold text-[var(--fg)] tracking-tight mt-1">
+                        Datos para la tarjeta
+                    </h1>
+                    <p className="text-[var(--fg-muted)] text-sm mt-2 max-w-lg">
+                        Tipo de operación, vehículo, precio y oferta opcional.
+                    </p>
+                </div>
+            ) : null}
             
             {/* Tipo de publicación - Premium cards */}
             <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm">
@@ -1286,6 +1269,8 @@ function Step1PhotosAndIdentity({
                     )}
                 </div>
             </section>
+            </>
+            ) : null}
         </div>
     );
 }
