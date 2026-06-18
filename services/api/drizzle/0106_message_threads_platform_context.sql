@@ -12,8 +12,17 @@ WHERE context_type IS NULL
   AND listing_id IS NOT NULL;
 
 ALTER TABLE message_threads
-  ALTER COLUMN listing_id DROP NOT NULL,
-  ALTER COLUMN lead_id DROP NOT NULL;
+  ALTER COLUMN listing_id DROP NOT NULL;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'message_threads' AND column_name = 'lead_id'
+  ) THEN
+    ALTER TABLE message_threads ALTER COLUMN lead_id DROP NOT NULL;
+  END IF;
+END $$;
 
 DROP INDEX IF EXISTS message_threads_listing_buyer_idx;
 

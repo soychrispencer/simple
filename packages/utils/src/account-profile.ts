@@ -1,5 +1,5 @@
 import { API_BASE } from '@simple/config';
-import { uploadMediaFile } from './media-upload';
+import { uploadMediaFile } from './media-upload.js';
 
 type UpdateProfileResponse = {
     ok: boolean;

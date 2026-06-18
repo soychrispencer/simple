@@ -33,4 +33,5 @@ node dist/db/apply-post-journal-migrations-cli.js || {
 }
 
 echo "[Entrypoint] Starting API server..."
-exec pnpm --filter=@simple/api run start
+cd /app
+exec node services/api/dist/index.js

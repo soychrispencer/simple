@@ -21,23 +21,31 @@ CREATE INDEX IF NOT EXISTS "platform_notifications_user_created_idx"
 CREATE INDEX IF NOT EXISTS "platform_notifications_user_unread_idx"
   ON "platform_notifications" ("user_id", "is_read");
 
-INSERT INTO "platform_notifications" (
-  "id", "user_id", "vertical", "type", "title", "body", "action_url", "metadata", "is_read", "created_at"
-)
-SELECT
-  "id",
-  "user_id",
-  'serenatas',
-  "type",
-  "title",
-  "message",
-  NULL,
-  "metadata",
-  "is_read",
-  "created_at"
-FROM "serenata_notifications";
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'serenata_notifications'
+  ) THEN
+    INSERT INTO "platform_notifications" (
+      "id", "user_id", "vertical", "type", "title", "body", "action_url", "metadata", "is_read", "created_at"
+    )
+    SELECT
+      "id",
+      "user_id",
+      'serenatas',
+      "type",
+      "title",
+      "message",
+      NULL,
+      "metadata",
+      "is_read",
+      "created_at"
+    FROM "serenata_notifications";
 
-DROP TABLE IF EXISTS "serenata_notifications";
+    DROP TABLE "serenata_notifications";
+  END IF;
+END $$;
 
 ALTER TABLE "users" DROP COLUMN IF EXISTS "whatsapp_enabled";
 ALTER TABLE "users" DROP COLUMN IF EXISTS "whatsapp_notify_invitations";
