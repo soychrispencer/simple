@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, GoogleLoginButton } from '@simple/auth';
+import { useAuth, GoogleLoginButton, resolveSafeInternalPath } from '@simple/auth';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelNotice } from '@simple/ui/panel';
@@ -19,7 +19,7 @@ export default function GoogleCallback() {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         const state = urlParams.get('state');
-        const nextReturnTo = urlParams.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/';
+        const nextReturnTo = resolveSafeInternalPath(urlParams.get('returnTo') || sessionStorage.getItem('auth.returnTo'), '/');
         setReturnTo(nextReturnTo);
 
         if (!code) {

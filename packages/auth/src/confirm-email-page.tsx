@@ -7,6 +7,7 @@ import { API_BASE, getSimpleAppBrand, type SimpleAppId } from '@simple/config';
 import { BrandLogo } from '@simple/ui/brand';
 import { PanelButton, PanelNotice } from '@simple/ui/panel';
 import { useAuth } from './auth-context';
+import { resolveSafeInternalPath } from './core';
 
 export type ConfirmEmailPageProps = {
     appId: SimpleAppId;
@@ -25,7 +26,8 @@ export function ConfirmEmailPage({ appId, defaultReturnTo = '/panel' }: ConfirmE
     useEffect(() => {
         const search = new URLSearchParams(window.location.search);
         const token = search.get('token') ?? '';
-        const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || defaultReturnTo;
+        const requestedReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || defaultReturnTo;
+        const nextReturnTo = resolveSafeInternalPath(requestedReturnTo, defaultReturnTo);
         setReturnTo(nextReturnTo);
 
         if (!token) {
@@ -60,8 +62,7 @@ export function ConfirmEmailPage({ appId, defaultReturnTo = '/panel' }: ConfirmE
                 setMessage(`Tu correo quedó confirmado. Redirigiendo a ${brand.name}…`);
                 window.setTimeout(() => {
                     sessionStorage.removeItem('auth.returnTo');
-                    const destination = nextReturnTo.startsWith('/') ? nextReturnTo : defaultReturnTo;
-                    window.location.replace(destination);
+                    window.location.replace(nextReturnTo);
                 }, 1200);
             } catch {
                 setStatus('error');

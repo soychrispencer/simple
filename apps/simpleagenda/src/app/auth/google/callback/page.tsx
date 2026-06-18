@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { IconX, IconCheck } from '@tabler/icons-react';
+import { resolveSafeInternalPath } from '@simple/auth';
 
 export default function GoogleCallback() {
     const [error, setError] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export default function GoogleCallback() {
                 throw new Error(data.error || 'Error al iniciar sesión con Google');
             }
 
-            const returnTo = sessionStorage.getItem('auth.returnTo') || '/panel';
+            const returnTo = resolveSafeInternalPath(sessionStorage.getItem('auth.returnTo'), '/panel');
             sessionStorage.removeItem('auth.returnTo');
 
             if (data.isNewUser) {

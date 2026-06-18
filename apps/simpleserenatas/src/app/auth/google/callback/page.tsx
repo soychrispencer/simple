@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconCheck, IconX } from '@tabler/icons-react';
-import { useAuth } from '@simple/auth';
+import { useAuth, resolveSafeInternalPath } from '@simple/auth';
 import { API_BASE } from '@simple/config';
 import { BrandLogo } from '@simple/ui/brand';
 import { PanelButton, PanelNotice } from '@simple/ui/panel';
@@ -20,11 +20,11 @@ export default function GoogleCallbackPage() {
         const googleError = search.get('google_error');
         const code = search.get('code') ?? '';
         const state = search.get('state') ?? '';
-        const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/';
+        const nextReturnTo = resolveSafeInternalPath(search.get('returnTo') || sessionStorage.getItem('auth.returnTo'), '/');
         setReturnTo(nextReturnTo);
 
         if (googleError) {
-            const storedReturnTo = sessionStorage.getItem('auth.returnTo');
+            const storedReturnTo = resolveSafeInternalPath(sessionStorage.getItem('auth.returnTo'), '');
             if (googleError === 'email_mismatch' && storedReturnTo) {
                 try {
                     const target = new URL(storedReturnTo, window.location.origin);
