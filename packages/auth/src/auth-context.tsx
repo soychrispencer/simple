@@ -52,6 +52,7 @@ type AuthActionResult = {
     ok: boolean;
     user?: NonNullable<User>;
     error?: string;
+    code?: string;
     status?: number;
 };
 
@@ -76,6 +77,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 type AuthApiResponse = {
     ok?: boolean;
     error?: string;
+    code?: string;
     user?: NonNullable<User>;
 };
 
@@ -191,7 +193,7 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
 
             if (!data?.user) {
                 const errorMsg = data?.error || (status === 0 ? 'Error de conexión con el servidor' : 'Error de inicio de sesión');
-                return { ok: false, error: errorMsg, status };
+                return { ok: false, error: errorMsg, code: data?.code, status };
             }
             setUser(data.user);
             if (data.user.status === 'verified') {

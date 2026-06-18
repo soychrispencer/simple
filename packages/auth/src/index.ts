@@ -2,6 +2,7 @@ export { AuthProvider, useAuth } from './auth-context';
 export { usePanelFormatters, useUserTimezone } from './use-panel-format';
 export { AuthModal } from './auth-modal';
 export { default as GoogleLoginButton } from './google-login-button';
+export { startGoogleOAuthLogin } from './google-oauth';
 export { ConfirmEmailPage } from './confirm-email-page';
 export { AuthRouteRedirect } from './auth-route-redirect';
 export { EmailVerificationGate } from './email-verification-gate';

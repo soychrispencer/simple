@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, cloneElement, type ReactElement } from 'react';
-import { API_BASE } from '@simple/config';
+import { startGoogleOAuthLogin } from './google-oauth';
 
 type GoogleLoginChildProps = {
     onClick?: () => void;
@@ -11,10 +11,16 @@ type GoogleLoginChildProps = {
 type GoogleLoginButtonProps = {
     children: ReactElement<GoogleLoginChildProps>;
     disabled?: boolean;
+    highlighted?: boolean;
     onError?: (message: string) => void;
 };
 
-export default function GoogleLoginButton({ children, disabled = false, onError }: GoogleLoginButtonProps) {
+export default function GoogleLoginButton({
+    children,
+    disabled = false,
+    highlighted = false,
+    onError,
+}: GoogleLoginButtonProps) {
     const [loading, setLoading] = useState(false);
 
     const handleGoogleLogin = async () => {
@@ -22,19 +28,7 @@ export default function GoogleLoginButton({ children, disabled = false, onError 
 
         try {
             setLoading(true);
-            const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-            sessionStorage.setItem('auth.returnTo', returnTo);
-
-            const response = await fetch(`${API_BASE}/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`, {
-                credentials: 'include',
-            });
-            const data = (await response.json().catch(() => null)) as { authUrl?: string; error?: string } | null;
-
-            if (!response.ok || !data?.authUrl) {
-                throw new Error(data?.error || 'No pudimos iniciar el acceso con Google.');
-            }
-
-            window.location.href = data.authUrl;
+            await startGoogleOAuthLogin();
         } catch (error) {
             const message = error instanceof Error ? error.message : 'No pudimos iniciar el acceso con Google.';
             onError?.(message);
@@ -43,8 +37,19 @@ export default function GoogleLoginButton({ children, disabled = false, onError 
         }
     };
 
-    return cloneElement(children, {
-        onClick: handleGoogleLogin,
-        disabled: disabled || loading,
-    });
+    return (
+        <div
+            className="rounded-xl transition-shadow"
+            style={
+                highlighted
+                    ? { boxShadow: '0 0 0 2px var(--surface), 0 0 0 4px color-mix(in srgb, var(--primary) 65%, transparent)' }
+                    : undefined
+            }
+        >
+            {cloneElement(children, {
+                onClick: handleGoogleLogin,
+                disabled: disabled || loading,
+            })}
+        </div>
+    );
 }

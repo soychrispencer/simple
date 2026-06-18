@@ -49,6 +49,7 @@ export function AuthModal({
     const [submitting, setSubmitting] = useState(false);
     const [registeredEmail, setRegisteredEmail] = useState('');
     const [recoveryCooldown, setRecoveryCooldown] = useState(0);
+    const [suggestGoogleLogin, setSuggestGoogleLogin] = useState(false);
 
     const resetLocalState = () => {
         setMode('login');
@@ -63,6 +64,7 @@ export function AuthModal({
         setSubmitting(false);
         setRegisteredEmail('');
         setRecoveryCooldown(0);
+        setSuggestGoogleLogin(false);
     };
 
     const handleClose = () => {
@@ -210,10 +212,17 @@ export function AuthModal({
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setSuggestGoogleLogin(false);
         setSubmitting(true);
         const result = await login(email, password);
         setSubmitting(false);
         if (!result.ok || !result.user) {
+            if (result.code === 'google_only') {
+                setSuggestGoogleLogin(true);
+                setPassword('');
+                setError('');
+                return;
+            }
             setError(result.error || 'Correo electrónico o contraseña incorrectos.');
             return;
         }
@@ -372,13 +381,36 @@ export function AuthModal({
                             Iniciar sesión
                         </h2>
                         <p className="text-sm mb-5" style={{ color: 'var(--fg-muted)' }}>
-                            Accede a tu cuenta Simple
+                            Una sola cuenta Simple para todas nuestras apps. Si ya entraste en Serenatas, Autos u otra vertical, usa el mismo correo o Google.
                         </p>
+                        {suggestGoogleLogin ? (
+                            <PanelNotice tone="info" className="mb-3">
+                                <p className="mb-2">
+                                    Esta cuenta está vinculada a Google. Pulsa el botón resaltado para continuar con la misma identidad en esta app.
+                                </p>
+                            </PanelNotice>
+                        ) : null}
                         {error ? (
                             <PanelNotice tone="error" className="mb-3">
                                 {error}
                             </PanelNotice>
                         ) : null}
+                        <GoogleLoginButton
+                            disabled={submitting}
+                            highlighted={suggestGoogleLogin}
+                            onError={(message) => setError(message)}
+                        >
+                            <PanelButton variant="primary" className="w-full" disabled={submitting}>
+                                <IconBrandGoogle size={15} /> Continuar con Google
+                            </PanelButton>
+                        </GoogleLoginButton>
+                        <div className="flex items-center gap-3 my-4">
+                            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                o con correo
+                            </span>
+                            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                        </div>
                         <form onSubmit={handleLogin} className="grid gap-4" aria-label="Formulario de inicio de sesión">
                             <div className="relative flex items-center">
                                 <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
@@ -398,30 +430,18 @@ export function AuthModal({
                                     />
                                     Recordar cuenta
                                 </label>
-                                <button type="button" onClick={() => { setMode('recovery'); setError(''); }} className="text-xs font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
+                                <button type="button" onClick={() => { setMode('recovery'); setError(''); setSuggestGoogleLogin(false); }} className="text-xs font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
                                     Recuperar contraseña
                                 </button>
                             </div>
-                            <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting}>
-                                {submitting ? 'Ingresando...' : 'Iniciar sesión'}
+                            <PanelButton type="submit" variant="secondary" className="w-full" disabled={submitting}>
+                                {submitting ? 'Ingresando...' : 'Iniciar sesión con correo'}
                             </PanelButton>
                         </form>
-                        <div className="flex items-center gap-3 my-4">
-                            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                o
-                            </span>
-                            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-                        </div>
-                        <GoogleLoginButton disabled={submitting} onError={(message) => setError(message)}>
-                            <PanelButton variant="secondary" className="w-full" disabled={submitting}>
-                                <IconBrandGoogle size={15} /> Continuar con Google
-                            </PanelButton>
-                        </GoogleLoginButton>
                         <div className="flex items-center justify-between mt-4 text-sm">
                             <span style={{ color: 'var(--fg-muted)' }}>¿No tienes cuenta?</span>
                             {allowRegister ? (
-                                <button onClick={() => { setMode('register'); setError(''); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
+                                <button onClick={() => { setMode('register'); setError(''); setSuggestGoogleLogin(false); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
                                     Registrarse
                                 </button>
                             ) : null}

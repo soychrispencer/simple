@@ -449,7 +449,8 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (!user.passwordHash) {
             return c.json({
                 ok: false,
-                error: 'Esta cuenta se creó con Google y no tiene contraseña. Usa "Continuar con Google" o restablece tu contraseña para entrar con correo y contraseña.',
+                code: 'google_only',
+                error: 'Esta cuenta está vinculada a Google. Usa «Continuar con Google» para entrar.',
             }, 401);
         }
 
