@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { panelPathFromSection } from '@/lib/panel-routes';
+import { panelPathFromSection, isMiNegocioPanelSection } from '@/lib/panel-routes';
 import { PanelButton, PanelConfirmProvider, PanelNotice } from '@simple/ui/panel';
 
 import { useAuth, EmailVerificationGate } from '@simple/auth';
@@ -16,7 +16,6 @@ import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-head
 
 import { suspendedAccountNotice } from '@/lib/suspended-notice';
 import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
-import { hasAnySerenataProfile } from '@/lib/app-mode';
 
 /**
  * Panel de trabajo: rutas `/panel/*` + compat `/?section=` → redirect en `LegacySectionRedirect`.
@@ -77,14 +76,6 @@ export function SerenatasApp() {
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     }, [authLoading, isLoggedIn, openAuth, pathname, router, searchParams]);
 
-    useEffect(() => {
-        if (!isLoggedIn || user?.status !== 'verified') return;
-        if (loadState !== 'ready') return;
-        if (pathname.startsWith('/onboarding')) return;
-        if (hasAnySerenataProfile(profiles)) return;
-        router.replace('/onboarding');
-    }, [isLoggedIn, loadState, pathname, profiles, router, user?.status]);
-
     const clearPanelAction = useCallback(() => {
         const params = new URLSearchParams(searchParams.toString());
         params.delete('action');
@@ -99,6 +90,79 @@ export function SerenatasApp() {
 
     const isSuspended = user?.status === 'suspended';
     const isPanelRoute = pathname.startsWith('/panel');
+    const miNegocioUsesOwnShell = isMiNegocioPanelSection(section);
+
+    const panelNotices = (
+        <>
+            {isSuspended ? (
+                <PanelNotice tone="error" className="mb-4">
+                    {suspendedAccountNotice(mode)}
+                </PanelNotice>
+            ) : null}
+            {checkoutStatus.loading ? (
+                <PanelNotice className="mb-4">Confirmando tu pago…</PanelNotice>
+            ) : null}
+            {checkoutStatus.ok ? (
+                <PanelNotice tone="success" className="mb-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>{checkoutStatus.ok}</span>
+                        <button
+                            type="button"
+                            className="text-xs font-medium underline"
+                            onClick={() => setCheckoutStatus({ loading: false, error: null, ok: null })}
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </PanelNotice>
+            ) : null}
+            {checkoutStatus.error ? (
+                <PanelNotice tone="error" className="mb-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>{checkoutStatus.error}</span>
+                        <button
+                            type="button"
+                            className="text-xs font-medium underline"
+                            onClick={() => setCheckoutStatus({ loading: false, error: null, ok: null })}
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </PanelNotice>
+            ) : null}
+        </>
+    );
+
+    const panelContent = (
+        <PanelContent
+            section={section}
+            mode={mode}
+            ownerFeaturesEnabled={ownerFeatures}
+            profiles={profiles}
+            accountSuspended={isSuspended}
+            accountUser={accountUser}
+            serenatas={serenatas}
+            ownerSerenatas={ownerSerenatas}
+            ownerClosureSerenatas={ownerClosureSerenatas}
+            groups={groups}
+            packages={packages}
+            musicians={musicians}
+            invitations={invitations}
+            agendaDate={agendaDate}
+            agendaItems={agendaItems}
+            routeItems={routeItems}
+            setAgendaDate={setAgendaDate}
+            setSection={changeSection}
+            router={router}
+            selectedSerenataId={selectedSerenataId}
+            panelAction={panelAction}
+            clearPanelAction={clearPanelAction}
+            openClientRequest={openClientRequest}
+            refresh={refresh}
+            refreshAgenda={refreshAgenda}
+            agendaLoading={agendaLoading}
+        />
+    );
 
     if (!isLoggedIn) {
         return (
@@ -158,72 +222,21 @@ export function SerenatasApp() {
             <SerenatasChromeHeader mode={mode} profiles={profiles} />
 
             <SerenataPanelShell section={section} onSectionChange={changeSection}>
-                <div className="container-app panel-page min-w-0 py-4 lg:py-8">
-                        {isSuspended ? (
-                            <PanelNotice tone="error" className="mb-4">
-                                {suspendedAccountNotice(mode)}
-                            </PanelNotice>
+                {miNegocioUsesOwnShell ? (
+                    <>
+                        {isSuspended || checkoutStatus.loading || checkoutStatus.ok || checkoutStatus.error ? (
+                            <div className="container-app panel-page min-w-0 pt-4 lg:pt-8">
+                                {panelNotices}
+                            </div>
                         ) : null}
-                        {checkoutStatus.loading ? (
-                            <PanelNotice className="mb-4">Confirmando tu pago…</PanelNotice>
-                        ) : null}
-                        {checkoutStatus.ok ? (
-                            <PanelNotice tone="success" className="mb-4">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <span>{checkoutStatus.ok}</span>
-                                    <button
-                                        type="button"
-                                        className="text-xs font-medium underline"
-                                        onClick={() => setCheckoutStatus({ loading: false, error: null, ok: null })}
-                                    >
-                                        Cerrar
-                                    </button>
-                                </div>
-                            </PanelNotice>
-                        ) : null}
-                        {checkoutStatus.error ? (
-                            <PanelNotice tone="error" className="mb-4">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <span>{checkoutStatus.error}</span>
-                                    <button
-                                        type="button"
-                                        className="text-xs font-medium underline"
-                                        onClick={() => setCheckoutStatus({ loading: false, error: null, ok: null })}
-                                    >
-                                        Cerrar
-                                    </button>
-                                </div>
-                            </PanelNotice>
-                        ) : null}
-                        <PanelContent
-                            section={section}
-                            mode={mode}
-                            ownerFeaturesEnabled={ownerFeatures}
-                            profiles={profiles}
-                            accountSuspended={isSuspended}
-                            accountUser={accountUser}
-                            serenatas={serenatas}
-                            ownerSerenatas={ownerSerenatas}
-                            ownerClosureSerenatas={ownerClosureSerenatas}
-                            groups={groups}
-                            packages={packages}
-                            musicians={musicians}
-                            invitations={invitations}
-                            agendaDate={agendaDate}
-                            agendaItems={agendaItems}
-                            routeItems={routeItems}
-                            setAgendaDate={setAgendaDate}
-                            setSection={changeSection}
-                            router={router}
-                            selectedSerenataId={selectedSerenataId}
-                            panelAction={panelAction}
-                            clearPanelAction={clearPanelAction}
-                            openClientRequest={openClientRequest}
-                            refresh={refresh}
-                            refreshAgenda={refreshAgenda}
-                            agendaLoading={agendaLoading}
-                        />
-                </div>
+                        {panelContent}
+                    </>
+                ) : (
+                    <div className="container-app panel-page min-w-0 py-4 lg:py-8">
+                        {panelNotices}
+                        {panelContent}
+                    </div>
+                )}
             </SerenataPanelShell>
         </div>
         </PanelConfirmProvider>

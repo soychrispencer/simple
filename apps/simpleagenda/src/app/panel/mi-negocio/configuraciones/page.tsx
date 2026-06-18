@@ -4,11 +4,12 @@ import { AgendaBusinessSettingsEditor } from '@/components/panel/agenda-business
 import { AgendaOperatingLocationEditor } from '@/components/panel/agenda-operating-location-editor';
 import { AgendaPublishPanel } from '@/components/panel/agenda-publish-panel';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
-import { AGENDA_BUSINESS_CONFIGURACIONES_PAGE, PanelBusinessShell, PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE, PanelNotice } from '@simple/ui/panel';
+import { AGENDA_BUSINESS_CONFIGURACIONES_PAGE, PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE, PanelNotice } from '@simple/ui/panel';
+import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 
 export default function ConfiguracionesPage() {
     return (
-        <PanelBusinessShell
+        <AgendaMiNegocioShell
             activeKey="configuraciones"
             tabs={businessSectionTabs}
             title={AGENDA_BUSINESS_CONFIGURACIONES_PAGE.title}
@@ -21,6 +22,6 @@ export default function ConfiguracionesPage() {
                 <AgendaBusinessSettingsEditor />
                 <AgendaPublishPanel />
             </div>
-        </PanelBusinessShell>
+        </AgendaMiNegocioShell>
     );
 }

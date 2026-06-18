@@ -84,6 +84,14 @@ export function mercadoPagoDevCheckoutFallbackEnabled(): boolean {
         && process.env.MERCADO_PAGO_DEV_CHECKOUT_FALLBACK !== 'false';
 }
 
+export function mercadoPagoDevCheckoutFallbackAllowedForKind(kind: string): boolean {
+    if (!mercadoPagoDevCheckoutFallbackEnabled()) return false;
+    return kind === 'serenata_booking'
+        || kind === 'subscription'
+        || kind === 'boost'
+        || kind === 'advertising';
+}
+
 export function mercadoPagoSubscriptionOriginEnvName(vertical: MercadoPagoCheckoutVertical): string {
     if (vertical === 'autos') return 'MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS';
     if (vertical === 'agenda') return 'MERCADO_PAGO_PUBLIC_ORIGIN_AGENDA';
@@ -96,10 +104,13 @@ export function isDevMercadoPagoPreapprovalId(preapprovalId: string): boolean {
 }
 
 export function ensureMercadoPagoSubscriptionReturnUrl(vertical: MercadoPagoCheckoutVertical, rawReturnUrl: string): string {
-    const resolved = resolveMercadoPagoReturnUrl(vertical, rawReturnUrl);
+    // En local confiamos en el origin del cliente (p. ej. :3002 Autos, :3003 Propiedades).
+    // Reescribir con MERCADO_PAGO_PUBLIC_ORIGIN_* suele mandar a otro puerto/app → 404.
     if (mercadoPagoDevCheckoutFallbackEnabled()) {
-        return resolved;
+        return new URL(rawReturnUrl).toString();
     }
+
+    const resolved = resolveMercadoPagoReturnUrl(vertical, rawReturnUrl);
 
     const target = new URL(resolved);
     if (target.protocol !== 'https:' || isLocalHostname(target.hostname)) {

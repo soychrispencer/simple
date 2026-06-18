@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import {
     ensureMercadoPagoSubscriptionReturnUrl,
     isDevMercadoPagoPreapprovalId,
+    mercadoPagoDevCheckoutFallbackAllowedForKind,
     mercadoPagoSubscriptionOriginEnvName,
 } from './checkout-helpers.js';
 
@@ -22,12 +23,20 @@ describe('checkout-helpers subscriptions', () => {
         process.env.MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS = originalSerenatasOrigin;
     });
 
-    it('permite localhost en dev para serenatas', () => {
+    it('en dev conserva el origin del cliente aunque exista MERCADO_PAGO_PUBLIC_ORIGIN_*', () => {
+        const url = ensureMercadoPagoSubscriptionReturnUrl(
+            'autos',
+            'http://localhost:3002/panel/mi-cuenta/suscripcion',
+        );
+        expect(url).toBe('http://localhost:3002/panel/mi-cuenta/suscripcion');
+    });
+
+    it('en dev no reescribe serenatas hacia otro puerto', () => {
         const url = ensureMercadoPagoSubscriptionReturnUrl(
             'serenatas',
-            'http://localhost:3005/panel/cuenta?account_tab=subscription',
+            'http://127.0.0.1:3005/panel/mi-cuenta?account_tab=subscription',
         );
-        expect(url).toBe('http://localhost:3005/panel/cuenta?account_tab=subscription');
+        expect(url).toBe('http://127.0.0.1:3005/panel/mi-cuenta?account_tab=subscription');
     });
 
     it('nombra el env correcto para serenatas', () => {
@@ -37,5 +46,11 @@ describe('checkout-helpers subscriptions', () => {
     it('detecta preapproval de desarrollo', () => {
         expect(isDevMercadoPagoPreapprovalId('dev-preapproval-ord_123')).toBe(true);
         expect(isDevMercadoPagoPreapprovalId('abc123')).toBe(false);
+    });
+
+    it('permite fallback dev para suscripciones en marketplace', () => {
+        expect(mercadoPagoDevCheckoutFallbackAllowedForKind('subscription')).toBe(true);
+        expect(mercadoPagoDevCheckoutFallbackAllowedForKind('boost')).toBe(true);
+        expect(mercadoPagoDevCheckoutFallbackAllowedForKind('unknown')).toBe(false);
     });
 });

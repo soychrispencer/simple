@@ -31,7 +31,7 @@ export function miNegocioTabFromSearch(search: string): MiNegocioTab {
 export function miNegocioTabLabel(tab: MiNegocioTab): string {
     switch (tab) {
         case 'datos':
-            return 'Página pública';
+            return 'Perfil público';
         case 'disponibilidad':
             return 'Disponibilidad';
         case 'servicios':

@@ -67,6 +67,8 @@ type StartCheckoutResponse = {
     checkoutUrl?: string | null;
     order?: PaymentOrderView;
     error?: string;
+    alreadyActive?: boolean;
+    message?: string;
 };
 
 export type ConfirmCheckoutResponse = {
@@ -155,7 +157,7 @@ export async function startSubscriptionCheckout(
         returnUrl: string;
         planId: 'pro' | 'enterprise';
     }
-): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
+): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string; alreadyActive?: boolean; message?: string }> {
     const { data } = await apiFetch<StartCheckoutResponse>('/api/payments/checkout', {
         method: 'POST',
         body: JSON.stringify({
@@ -169,10 +171,12 @@ export async function startSubscriptionCheckout(
     });
 
     return {
-        ok: Boolean(data?.ok && data.checkoutUrl),
+        ok: Boolean(data?.ok && (data.checkoutUrl || data.alreadyActive)),
         orderId: data?.orderId,
         checkoutUrl: data?.checkoutUrl,
-        error: data?.error ?? (!data?.checkoutUrl ? 'No pudimos iniciar el checkout.' : undefined),
+        error: data?.error ?? (!data?.checkoutUrl && !data?.alreadyActive ? 'No pudimos iniciar el checkout.' : undefined),
+        alreadyActive: data?.alreadyActive,
+        message: data?.message,
     };
 }
 

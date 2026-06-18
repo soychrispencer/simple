@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { IconLoader2, IconPlus, IconTrash, IconCalendarOff, IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
 import Link from 'next/link';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelField, PanelButton, PanelSwitch, PanelBlockHeader, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_DISPONIBILIDAD_PAGE } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelSwitch, PanelBlockHeader, PanelEmptyState, AGENDA_BUSINESS_DISPONIBILIDAD_PAGE } from '@simple/ui/panel';
+import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaAvailability,
@@ -288,24 +289,26 @@ export default function DisponibilidadConfigPage() {
 
     if (loading) {
         return (
-            <PanelBusinessShell
+            <AgendaMiNegocioShell
                 activeKey="disponibilidad"
                 tabs={businessSectionTabs}
                 title={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.title}
+                description={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.description}
             >
                 <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                     <IconLoader2 size={16} className="animate-spin" /> Cargando disponibilidad...
                 </div>
-            </PanelBusinessShell>
+            </AgendaMiNegocioShell>
         );
     }
 
     if (loadError) {
         return (
-            <PanelBusinessShell
+            <AgendaMiNegocioShell
                 activeKey="disponibilidad"
                 tabs={businessSectionTabs}
                 title={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.title}
+                description={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.description}
             >
                 <div className="rounded-2xl border px-5 py-4 text-sm flex items-center gap-3" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
                     <IconAlertCircle size={16} className="shrink-0" />
@@ -316,17 +319,17 @@ export default function DisponibilidadConfigPage() {
                         </button>
                     </div>
                 </div>
-            </PanelBusinessShell>
+            </AgendaMiNegocioShell>
         );
     }
 
     return (
-        <PanelBusinessShell
+        <AgendaMiNegocioShell
             activeKey="disponibilidad"
             tabs={businessSectionTabs}
             title={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.title}
             description={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.description}
-            actions={
+            headerActions={
                 rules.length === 0 ? (
                     <PanelButton
                         variant="secondary"
@@ -589,6 +592,6 @@ export default function DisponibilidadConfigPage() {
                     <IconChevronRight size={18} style={{ color: 'var(--accent)' }} />
                 </Link>
             </div>
-        </PanelBusinessShell>
+        </AgendaMiNegocioShell>
     );
 }

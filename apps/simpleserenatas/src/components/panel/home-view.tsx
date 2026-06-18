@@ -5,11 +5,12 @@ import { useEffect, useState } from 'react';
 import { IconChevronRight, IconSearch } from '@tabler/icons-react';
 import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
 import { PanelBlockHeader } from '@simple/ui/panel';
-import { PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelStatCard, PanelStatusBadge } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelStatCard, PanelStatusBadge, PanelBusinessSetupCard } from '@simple/ui/panel';
 import type { Invitation, Serenata, SerenataGroup, Profiles } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
-import { type Section } from '@/context/serenata-context';
+import { useSerenata, type Section } from '@/context/serenata-context';
+import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { isOwnerHomePendingMetric } from '@/lib/serenata-pending';
 import { normalizeTimezone } from '@simple/utils';
 import { isUpcomingScheduled, needsClosure, resolveSerenataBusinessTimezone } from '@/lib/serenata-dates';
@@ -19,11 +20,8 @@ import {
     toInputDate,
 } from './shared';
 import { useSerenataPanelFormat } from '@/hooks/use-serenata-panel-format';
-import { ProfileSetupChecklist, isProfileSetupPending } from './profile-setup-checklist';
-import { OwnerOnboardingCard } from './owner-onboarding-card';
-import { useMyMariachi } from '@/hooks/use-my-mariachi';
-import { useSerenata } from '@/context/serenata-context';
 import { MusicianAvailabilityToggle } from './musician-availability-toggle';
+import { useSerenatasBusinessSetup } from '@/hooks/use-serenatas-business-setup';
 
 export function HomeView(props: {
     mode: AppMode;
@@ -89,7 +87,6 @@ function ClientHome(props: Parameters<typeof HomeView>[0]) {
 
     return (
         <div className="grid gap-4">
-            <ProfileSetupChecklist mode="client" profiles={props.profiles} />
             <PanelCard size="md" className="border-(--accent)/25 bg-[color-mix(in_oklab,var(--accent)_8%,var(--surface))]">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
@@ -231,6 +228,7 @@ function ClosurePendingCard({
 
 function WorkHome(props: Parameters<typeof HomeView>[0]) {
     const ownerActive = props.ownerFeaturesEnabled;
+    const businessSetup = useSerenatasBusinessSetup(ownerActive);
     const { mariachi } = useMyMariachi();
     const { accountUser } = useSerenata();
     const fmt = useSerenataPanelFormat(ownerActive);
@@ -238,7 +236,6 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
         ? resolveSerenataBusinessTimezone(mariachi)
         : normalizeTimezone(accountUser?.timezone);
     const [providerMusicianCount, setProviderMusicianCount] = useState<number | null>(null);
-    const [serviceCount, setServiceCount] = useState(0);
 
     useEffect(() => {
         if (!ownerActive) {
@@ -253,17 +250,13 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
                 return;
             }
             const group = groupsResponse.items[0];
-            const [membersResponse, servicesResponse] = await Promise.all([
-                serenatasApi.providerGroupMembers(group.id),
-                serenatasApi.providerGroupServices(group.id),
-            ]);
+            const membersResponse = await serenatasApi.providerGroupMembers(group.id);
             if (cancelled) return;
             setProviderMusicianCount(
                 membersResponse.ok
                     ? membersResponse.items.filter((m) => m.status === 'active').length
                     : 0,
             );
-            setServiceCount(servicesResponse.ok ? servicesResponse.items.filter((s) => s.isActive !== false).length : 0);
         })();
         return () => {
             cancelled = true;
@@ -301,18 +294,19 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
         : props.serenatas.filter((item) => needsClosure(item, businessTimezone));
     const closurePreview = [...toClose].sort(sortSerenatasByEvent).slice(0, 3);
     const showAssignGroupCard = ownerActive && needsGroupSerenatas.length > 0;
-    const setupPending = isProfileSetupPending('work', props.profiles, ownerActive ? mariachi : null, serviceCount);
 
     return (
         <div className="grid gap-4">
-            <ProfileSetupChecklist
-                mode="work"
-                profiles={props.profiles}
-                mariachi={ownerActive ? mariachi : null}
-                serviceCount={serviceCount}
-            />
-            {!setupPending ? (
-                <OwnerOnboardingCard profiles={props.profiles} setSection={props.setSection} />
+            {ownerActive ? (
+                <PanelBusinessSetupCard
+                    steps={businessSetup.steps}
+                    billing={businessSetup.billing ?? {
+                        status: 'free',
+                        daysRemaining: null,
+                        subscriptionHref: '/panel/mi-cuenta?account_tab=subscription',
+                    }}
+                    loading={businessSetup.loading}
+                />
             ) : null}
             {props.profiles.musician && !ownerActive ? (
                 <MusicianAvailabilityToggle musician={props.profiles.musician} refresh={props.refresh} />

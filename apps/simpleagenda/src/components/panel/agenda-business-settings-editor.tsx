@@ -109,7 +109,7 @@ export function AgendaBusinessSettingsEditor() {
             <PanelCard size="lg" className="text-center">
                 <p className="text-sm font-medium text-fg">Completa tus datos comerciales primero</p>
                 <p className="mt-1 text-sm text-fg-muted">
-                    Define tu nombre y profesión en Página pública y luego configura las reservas aquí.
+                    Define tu nombre y profesión en Perfil público y luego configura las reservas aquí.
                 </p>
             </PanelCard>
         );
@@ -208,7 +208,7 @@ export function AgendaBusinessSettingsEditor() {
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-fg">Permitir reservas recurrentes</p>
                         <p className="text-xs mt-0.5 text-fg-muted">
-                            Tus {vocab.clients} podrán agendar varias sesiones desde tu página pública.
+                            Tus {vocab.clients} podrán agendar varias sesiones desde tu perfil público.
                         </p>
                     </div>
                     <PanelSwitch

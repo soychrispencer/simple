@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     IconPlus, IconLoader2, IconTrash, IconEdit, IconX, IconCheck, IconAlertCircle, IconPackage, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_PACKS_PAGE, AGENDA_BUSINESS_SERVICIOS_PAGE } from '@simple/ui/panel';
+import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelEmptyState, AGENDA_BUSINESS_PACKS_PAGE, agendaBusinessSubsectionShellProps } from '@simple/ui/panel';
+import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaPacks,
@@ -157,13 +158,12 @@ export default function PacksPage() {
     const visibleServices = useMemo(() => services.filter((s) => s.isActive), [services]);
 
     return (
-        <PanelBusinessShell
-            activeKey="servicios"
+        <AgendaMiNegocioShell
+            {...agendaBusinessSubsectionShellProps('packs')}
             tabs={businessSectionTabs}
             title={AGENDA_BUSINESS_PACKS_PAGE.title}
             description={AGENDA_BUSINESS_PACKS_PAGE.description}
-            subsectionBack={{ href: '/panel/mi-negocio/servicios', label: AGENDA_BUSINESS_SERVICIOS_PAGE.title }}
-            actions={
+            headerActions={
                 <PanelButton variant="accent" size="sm" onClick={openNew}>
                     <IconPlus size={14} /> Nuevo
                 </PanelButton>
@@ -406,6 +406,6 @@ export default function PacksPage() {
                     </div>
                 </div>
             )}
-        </PanelBusinessShell>
+        </AgendaMiNegocioShell>
     );
 }

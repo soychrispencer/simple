@@ -4,7 +4,8 @@ import { Suspense, useEffect, useState } from 'react';
 import {
     IconLink, IconBuildingBank, IconCheck, IconLoader2, IconCreditCard, IconCash, IconExternalLink, IconAlertCircle, IconChevronRight, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelField, PanelButton, PanelSwitch, PanelBusinessShell, BUSINESS_PAYMENT_METHODS_PAGE, PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE, PanelNotice } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelSwitch, BUSINESS_PAYMENT_METHODS_PAGE, PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE, PanelNotice } from '@simple/ui/panel';
+import { AgendaMiNegocioShell, AgendaMiNegocioLoading } from '@/components/panel/agenda-mi-negocio-shell';
 import Link from 'next/link';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
@@ -91,21 +92,21 @@ function CobrosConfigPageInner() {
 
     if (loading) {
         return (
-            <PanelBusinessShell
+            <AgendaMiNegocioShell
                 activeKey="cobros"
                 tabs={businessSectionTabs}
                 title={BUSINESS_PAYMENT_METHODS_PAGE.title}
-                description="Configura cómo quieres recibir los pagos de tus pacientes."
+                description={BUSINESS_PAYMENT_METHODS_PAGE.description}
             >
                 <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                     <IconLoader2 size={16} className="animate-spin" /> Cargando...
                 </div>
-            </PanelBusinessShell>
+            </AgendaMiNegocioShell>
         );
     }
 
     return (
-        <PanelBusinessShell
+        <AgendaMiNegocioShell
             activeKey="cobros"
             tabs={businessSectionTabs}
             title={BUSINESS_PAYMENT_METHODS_PAGE.title}
@@ -331,16 +332,18 @@ function CobrosConfigPageInner() {
                     <IconChevronRight size={18} style={{ color: 'var(--accent)' }} />
                 </Link>
             </div>
-        </PanelBusinessShell>
+        </AgendaMiNegocioShell>
     );
 }
 
 export default function CobrosConfigPage() {
     return (
         <Suspense fallback={
-            <div className="container-app panel-page py-4 lg:py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                <IconLoader2 size={16} className="animate-spin" /> Cargando...
-            </div>
+            <AgendaMiNegocioLoading
+                activeKey="cobros"
+                title={BUSINESS_PAYMENT_METHODS_PAGE.title}
+                description={BUSINESS_PAYMENT_METHODS_PAGE.description}
+            />
         }>
             <CobrosConfigPageInner />
         </Suspense>

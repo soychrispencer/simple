@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { serenataOwners, subscriptionPlans, subscriptions } from '../../db/schema.js';
+import { agendaProfessionalProfiles, serenataOwners, subscriptionPlans, subscriptions } from '../../db/schema.js';
 import type { PaymentVerticalType, SubscriptionPlanId } from '../../lib/domain-types.js';
 import { SUBSCRIPTION_PLANS_BY_VERTICAL } from '../advertising/types.js';
 import type { PaymentProvider } from '../payments/resolve-provider.js';
@@ -173,6 +173,7 @@ export async function persistUserSubscription(input: {
             .where(eq(subscriptions.id, existing[0].id));
 
         await syncSerenataOwnerCommissionForPlan(input.userId, input.planSlug, input.status);
+        await syncAgendaProfilePlanForUser(input.userId, input.planSlug, input.status, input.expiresAt);
         return { subscriptionDbId: existing[0].id, planSlug: input.planSlug };
     }
 
@@ -194,6 +195,7 @@ export async function persistUserSubscription(input: {
         .returning({ id: subscriptions.id });
 
     await syncSerenataOwnerCommissionForPlan(input.userId, input.planSlug, input.status);
+    await syncAgendaProfilePlanForUser(input.userId, input.planSlug, input.status, input.expiresAt);
     return { subscriptionDbId: inserted.id, planSlug: input.planSlug };
 }
 
@@ -260,6 +262,26 @@ export async function persistManualAdminSubscription(input: {
         status: dbStatus,
         expiresAt: expiresAt?.toISOString() ?? null,
     };
+}
+
+async function syncAgendaProfilePlanForUser(
+    userId: string,
+    planSlug: string,
+    status: string,
+    expiresAt?: Date | null,
+): Promise<void> {
+    if (status !== 'active' || (planSlug !== 'pro' && planSlug !== 'enterprise')) {
+        return;
+    }
+
+    await db
+        .update(agendaProfessionalProfiles)
+        .set({
+            plan: 'pro',
+            planExpiresAt: expiresAt ?? null,
+            updatedAt: new Date(),
+        })
+        .where(eq(agendaProfessionalProfiles.userId, userId));
 }
 
 async function syncSerenataOwnerCommissionForPlan(

@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { IconCheck, IconAlertCircle, IconLoader2, IconCamera, IconX, IconBrandInstagram, IconBrandFacebook, IconBrandLinkedin, IconBrandTiktok, IconBrandYoutube, IconBrandX, IconWorld, IconChevronDown } from '@tabler/icons-react';
+import { IconCheck, IconAlertCircle, IconLoader2, IconBrandInstagram, IconBrandFacebook, IconBrandLinkedin, IconBrandTiktok, IconBrandYoutube, IconBrandX, IconWorld, IconChevronDown, IconX } from '@tabler/icons-react';
 import { fetchAgendaProfile, saveAgendaProfile, uploadAvatar, fetchAgendaLocations, updateAgendaLocation, type AgendaLocation } from '@/lib/agenda-api';
 import { vocab } from '@/lib/vocabulary';
 import Link from 'next/link';
 import { IconChevronRight, IconMapPin, IconPlus, IconLoader2 as IconLoader2Loc } from '@tabler/icons-react';
-import { PanelCard } from '@simple/ui/panel';
-import { PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelSwitch, PanelBusinessShell, AGENDA_BUSINESS_PAGINA_PAGE, PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE } from '@simple/ui/panel';
-import { AvatarUpload } from '@simple/ui/media';
+import { PanelCard, PanelProfileBrandImages, PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelSwitch } from '@simple/ui/panel';
+import { AgendaMiNegocioShell, AgendaMiNegocioLoading } from '@/components/panel/agenda-mi-negocio-shell';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
+import { AGENDA_BUSINESS_PERFIL_PAGE } from '@simple/ui/panel';
 
 type SocialPlatform = 'instagram' | 'facebook' | 'linkedin' | 'tiktok' | 'youtube' | 'twitter';
 type SocialLink = { platform: SocialPlatform; username: string };
@@ -37,9 +37,6 @@ export default function PerfilConfigPage() {
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
-    const [avatarError, setAvatarError] = useState(false);
-    const [coverUploading, setCoverUploading] = useState(false);
-    const coverInputRef = useRef<HTMLInputElement>(null);
 
     const [form, setForm] = useState({
         displayName: '',
@@ -105,19 +102,6 @@ export default function PerfilConfigPage() {
         setForm((prev) => ({ ...prev, [key]: value }));
     };
 
-    const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        if (file.size > 8 * 1024 * 1024) { setError('La imagen no puede pesar más de 8 MB.'); return; }
-        setCoverUploading(true);
-        setError('');
-        const result = await uploadAvatar(file);
-        setCoverUploading(false);
-        if (!result.ok) { setError(result.error ?? 'Error al subir la imagen.'); return; }
-        if (result.url) set('coverUrl', result.url);
-        if (coverInputRef.current) coverInputRef.current.value = '';
-    };
-
     const handleSave = async () => {
         if (!form.displayName.trim()) { setError('El nombre visible es requerido.'); return; }
         setSaving(true);
@@ -134,106 +118,59 @@ export default function PerfilConfigPage() {
         setSaving(false);
         if (!result.ok) { setError(result.error ?? 'Error al guardar.'); return; }
         setSaved(true);
+        window.dispatchEvent(new CustomEvent('simple:agenda-profile-changed'));
         setTimeout(() => setSaved(false), 3000);
     };
 
     if (loading) {
         return (
-            <div className="container-app panel-page py-4 lg:py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                <IconLoader2 size={16} className="animate-spin" /> Cargando datos comerciales...
-            </div>
+            <AgendaMiNegocioLoading
+                activeKey="pagina"
+                title={AGENDA_BUSINESS_PERFIL_PAGE.title}
+                description={AGENDA_BUSINESS_PERFIL_PAGE.description}
+                message="Cargando datos comerciales..."
+            />
         );
     }
 
     return (
-        <PanelBusinessShell
+        <AgendaMiNegocioShell
             activeKey="pagina"
             tabs={businessSectionTabs}
-            title={AGENDA_BUSINESS_PAGINA_PAGE.title}
-            description={AGENDA_BUSINESS_PAGINA_PAGE.description}
+            title={AGENDA_BUSINESS_PERFIL_PAGE.title}
+            description={AGENDA_BUSINESS_PERFIL_PAGE.description}
         >
-                <PanelNotice tone="info">{PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE}</PanelNotice>
-                {/* Cover + Avatar Preview */}
-                <PanelCard size="md">
-                    <PanelBlockHeader title="Imágenes de perfil" className="mb-3" />
-                    <div className="flex flex-col items-center gap-4">
-                        {/* Cover Preview - matching public profile layout */}
-                        <div className="relative w-full">
-                            <div
-                                className="w-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm"
-                                style={{
-                                    height: 240,
-                                    background: form.coverUrl
-                                        ? `url('${encodeURI(form.coverUrl)}') center/cover no-repeat`
-                                        : 'linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 40%, #1a1a2e) 50%, #0f0f23 100%)',
-                                }}
-                            />
-                            {/* Avatar overlapping cover - responsive size */}
-                            <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: -36 }}>
-                                <div
-                                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden flex items-center justify-center text-2xl sm:text-3xl font-bold shadow-lg"
-                                    style={{
-                                        border: '4px solid var(--bg)',
-                                        background: form.avatarUrl && !avatarError
-                                            ? `url('${encodeURI(form.avatarUrl)}') center/cover no-repeat`
-                                            : 'linear-gradient(135deg, var(--accent-soft) 0%, var(--accent-subtle) 100%)',
-                                        color: form.avatarUrl && !avatarError ? 'transparent' : 'var(--accent)',
-                                    }}
-                                >
-                                    {(!form.avatarUrl || avatarError) && (form.displayName?.charAt(0)?.toUpperCase() ?? '?')}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Upload buttons */}
-                        <div className="flex flex-wrap items-center justify-center gap-3 pt-10">
-                            <button
-                                onClick={() => coverInputRef.current?.click()}
-                                disabled={coverUploading}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-                                style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
-                            >
-                                {coverUploading ? <IconLoader2 size={16} className="animate-spin" /> : <IconCamera size={16} />}
-                                {form.coverUrl ? 'Cambiar portada' : 'Subir portada'}
-                            </button>
-                            {(form.coverUrl || form.avatarUrl) && (
-                                <button
-                                    onClick={() => { set('coverUrl', ''); set('avatarUrl', ''); }}
-                                    className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                                    style={{ color: 'var(--color-error)' }}
-                                >
-                                    <IconX size={14} /> Eliminar
-                                </button>
-                            )}
-                        </div>
-                        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
-                        <div className="flex justify-center pt-4">
-                            <AvatarUpload
-                                currentUrl={form.avatarUrl}
-                                config={{
-                                    maxSize: 5120,
-                                    maxWidth: 112,
-                                    maxHeight: 112,
-                                    aspectRatio: 1,
-                                    circular: false,
-                                    onUpload: async (_file, croppedBlob) => {
-                                        const uploadFile = new File([croppedBlob], 'avatar.webp', { type: 'image/webp' });
-                                        const result = await uploadAvatar(uploadFile);
-                                        if (!result.ok || !result.url) {
-                                            throw new Error(result.error ?? 'Error al subir la imagen.');
-                                        }
-                                        return { url: result.url };
-                                    },
-                                }}
-                                onSuccess={(url) => {
-                                    setAvatarError(false);
-                                    set('avatarUrl', url);
-                                    setError('');
-                                }}
-                                onError={(message) => setError(message)}
-                            />
-                        </div>
-                    </div>
+                <PanelCard size="lg">
+                    <PanelBlockHeader
+                        title="Imágenes del negocio"
+                        description="Portada y logo de tu consulta o negocio. Tu foto personal se configura en Mi cuenta."
+                        className="mb-3"
+                    />
+                    <PanelProfileBrandImages
+                        displayName={form.displayName}
+                        logoUrl={form.avatarUrl || null}
+                        coverUrl={form.coverUrl || null}
+                        subtitle={form.profession?.trim() || form.headline?.trim() || null}
+                        onLogoChange={(url) => set('avatarUrl', url)}
+                        onCoverChange={(url) => set('coverUrl', url)}
+                        onUploadLogo={async (_file, croppedBlob) => {
+                            const uploadFile = new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
+                            const result = await uploadAvatar(uploadFile);
+                            if (!result.ok || !result.url) {
+                                throw new Error(result.error ?? 'Error al subir el logo.');
+                            }
+                            return { url: result.url };
+                        }}
+                        onUploadCover={async (_file, croppedBlob) => {
+                            const uploadFile = new File([croppedBlob], 'cover.webp', { type: 'image/webp' });
+                            const result = await uploadAvatar(uploadFile);
+                            if (!result.ok || !result.url) {
+                                throw new Error(result.error ?? 'Error al subir la imagen.');
+                            }
+                            return { url: result.url };
+                        }}
+                        onError={(message) => setError(message)}
+                    />
                 </PanelCard>
 
                 {/* Info basica */}
@@ -388,7 +325,7 @@ export default function PerfilConfigPage() {
                             description="Activa los consultorios donde atiendes esta semana."
                         />
                         <Link
-                            href="/panel/mi-negocio/direcciones"
+                            href="/panel/mi-cuenta/direcciones"
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:opacity-80 shrink-0"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
                         >
@@ -397,7 +334,7 @@ export default function PerfilConfigPage() {
                     </div>
                     {locations.length === 0 ? (
                         <Link
-                            href="/panel/mi-negocio/direcciones"
+                            href="/panel/mi-cuenta/direcciones"
                             className="flex items-center gap-3 p-3 rounded-xl border border-dashed transition-colors hover:border-[--accent-border]"
                             style={{ borderColor: 'var(--border)' }}
                         >
@@ -475,6 +412,6 @@ export default function PerfilConfigPage() {
                     <IconChevronRight size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                 </Link>
             </div>
-        </PanelBusinessShell>
+        </AgendaMiNegocioShell>
     );
 }

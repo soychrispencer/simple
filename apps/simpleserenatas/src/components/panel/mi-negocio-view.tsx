@@ -9,19 +9,35 @@ import { ProviderSettingsView } from '@/components/panel/provider-settings-view'
 import { ProviderServicesView } from '@/components/panel/provider-services-view';
 import { ProviderRepertoireView } from '@/components/panel/provider-repertoire-view';
 import { ProviderPaymentMethodsView } from '@/components/panel/provider-payment-methods-view';
-import { PanelBusinessShell, SERENATAS_BUSINESS_TABS } from '@simple/ui/panel';
+import { MiNegocioPublishToggle } from '@/components/panel/mi-negocio-publish-toggle';
+import {
+    PanelMiNegocioShell,
+    SERENATAS_BUSINESS_TABS,
+    resolveSerenatasBusinessPageCopy,
+} from '@simple/ui/panel';
 
 export function MiNegocioView({
     tab,
     musicians,
     refresh,
+    onTabChange,
 }: {
     tab: MiNegocioTab;
     musicians: MusicianDirectoryItem[];
     refresh: () => Promise<void>;
+    onTabChange?: (tab: MiNegocioTab) => void;
 }) {
+    const page = resolveSerenatasBusinessPageCopy(tab);
+
     return (
-        <PanelBusinessShell activeKey={tab} tabs={SERENATAS_BUSINESS_TABS} className="w-full">
+        <PanelMiNegocioShell
+            activeKey={tab}
+            tabs={SERENATAS_BUSINESS_TABS}
+            title={page.title}
+            description={page.description}
+            publishToggle={<MiNegocioPublishToggle refresh={refresh} />}
+            onTabChange={onTabChange ? (key) => onTabChange(key as MiNegocioTab) : undefined}
+        >
             {tab === 'datos' ? (
                 <ProviderGroupView refresh={refresh} />
             ) : null}
@@ -33,6 +49,6 @@ export function MiNegocioView({
                 <GroupsView musicians={musicians} refresh={refresh} />
             ) : null}
             {tab === 'configuraciones' ? <ProviderSettingsView refresh={refresh} /> : null}
-        </PanelBusinessShell>
+        </PanelMiNegocioShell>
     );
 }

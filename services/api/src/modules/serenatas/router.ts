@@ -85,6 +85,7 @@ import {
 } from './musician-payouts.js';
 import { cancelSerenatasProSubscription } from './cancel-subscription.js';
 import { buildSerenataMePlanResponse, resolveActiveSerenataBillingPlan } from './plan.js';
+import { normalizeTrialEndsAtForDisplay } from '../billing/trial-config.js';
 import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
 import { sendSerenataGuestGroupInviteEmail } from '../../lib/serenatas-email.js';
 import {
@@ -725,7 +726,7 @@ async function requireOwner(c: Context, userId: string): Promise<
             ok: false as const,
             response: jsonError(
                 c,
-                'Activa tu perfil de dueño desde el onboarding antes de continuar.',
+                'Activa tu perfil de dueño desde Mi cuenta antes de continuar.',
                 403,
             ),
         };
@@ -862,6 +863,11 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 .update(serenataOwners)
                 .set({ trialEndsAt, updatedAt: new Date() })
                 .where(eq(serenataOwners.id, ownerProfile.id));
+        } else if (ownerProfile && plan === 'free' && trialEndsAt) {
+            trialEndsAt = normalizeTrialEndsAtForDisplay(
+                trialEndsAt,
+                ownerProfile.createdAt ?? new Date(),
+            );
         }
         return c.json({
             ok: true,

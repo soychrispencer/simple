@@ -5,7 +5,8 @@ import Link from 'next/link';
 import {
     IconWorld, IconLoader2, IconCheck, IconLock, IconCopy, IconAlertCircle, IconBell, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelBusinessShell, AGENDA_BUSINESS_DOMINIO_PAGE, AGENDA_BUSINESS_CONFIGURACIONES_PAGE } from '@simple/ui/panel';
+import { PanelButton, AGENDA_BUSINESS_DOMINIO_PAGE, agendaBusinessSubsectionShellProps } from '@simple/ui/panel';
+import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaProfile,
@@ -58,12 +59,11 @@ export default function DominioPage() {
     };
 
     return (
-        <PanelBusinessShell
-            activeKey="configuraciones"
+        <AgendaMiNegocioShell
+            {...agendaBusinessSubsectionShellProps('dominio')}
             tabs={businessSectionTabs}
             title={AGENDA_BUSINESS_DOMINIO_PAGE.title}
             description={AGENDA_BUSINESS_DOMINIO_PAGE.description}
-            subsectionBack={{ href: '/panel/mi-negocio/configuraciones', label: AGENDA_BUSINESS_CONFIGURACIONES_PAGE.title }}
         >
             {loading ? (
                 <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
@@ -199,6 +199,6 @@ export default function DominioPage() {
                     </PanelCard>
                 </div>
             )}
-        </PanelBusinessShell>
+        </AgendaMiNegocioShell>
     );
 }

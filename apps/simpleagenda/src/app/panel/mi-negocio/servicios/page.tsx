@@ -5,7 +5,8 @@ import {
     IconPlus, IconTrash, IconLoader2, IconEdit, IconAlertCircle, IconChevronRight, IconPackage, IconUsersGroup, IconTag, IconX, IconArrowUp, IconArrowDown, } from '@tabler/icons-react';
 import Link from 'next/link';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelField, PanelButton, PanelSwitch, PanelNotice, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_SERVICIOS_PAGE } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelSwitch, PanelNotice, PanelEmptyState, AGENDA_BUSINESS_SERVICIOS_PAGE } from '@simple/ui/panel';
+import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaServices,
@@ -173,12 +174,12 @@ export default function ServiciosConfigPage() {
     };
 
     return (
-        <PanelBusinessShell
+        <AgendaMiNegocioShell
             activeKey="servicios"
             tabs={businessSectionTabs}
             title={AGENDA_BUSINESS_SERVICIOS_PAGE.title}
             description={AGENDA_BUSINESS_SERVICIOS_PAGE.description}
-            actions={
+            headerActions={
                 !showForm ? (
                     <PanelButton
                         variant="accent"
@@ -567,6 +568,6 @@ export default function ServiciosConfigPage() {
                     <IconChevronRight size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                 </Link>
             </div>
-        </PanelBusinessShell>
+        </AgendaMiNegocioShell>
     );
 }

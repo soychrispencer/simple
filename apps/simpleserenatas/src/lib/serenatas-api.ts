@@ -615,7 +615,7 @@ export const serenatasApi = {
     uploadAvatar: async (
         file: Blob,
         filename = 'avatar.webp',
-        purpose: 'avatar' | 'cover' = 'avatar',
+        purpose: 'avatar' | 'logo' | 'cover' = 'avatar',
     ): Promise<{ ok: boolean; url?: string; error?: string }> => {
         const formData = new FormData();
         formData.append('file', file, filename);

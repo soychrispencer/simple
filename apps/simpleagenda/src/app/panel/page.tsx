@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
-    IconCalendar, IconUsers, IconCreditCard, IconClockHour4, IconTrendingUp, IconTrendingDown, IconMinus, IconChevronRight, IconCheck, IconUser, IconBriefcase, IconClock, IconRocket, IconX, } from '@tabler/icons-react';
+    IconCalendar, IconUsers, IconCreditCard, IconClockHour4, IconTrendingUp, IconTrendingDown, IconMinus, IconChevronRight, } from '@tabler/icons-react';
 import Link from 'next/link';
-import { fetchAgendaStats, fetchAgendaProfile, isAgendaTrialPeriod, agendaTrialDaysRemaining, type AgendaStats, type AgendaProfile, type AgendaWeekDay } from '@/lib/agenda-api';
+import { fetchAgendaStats, fetchAgendaProfile, type AgendaStats, type AgendaProfile, type AgendaWeekDay } from '@/lib/agenda-api';
 import { fmtCLP, fmtTodayLabel } from '@simple/utils';
 import { usePanelFormatters } from '@simple/auth';
 import { vocab } from '@/lib/vocabulary';
-import { PanelPageHeader } from '@simple/ui/panel';
+import { PanelPageHeader, PanelBusinessSetupCard } from '@simple/ui/panel';
 import { PanelStatCard } from '@simple/ui/panel';
+import { useAgendaBusinessSetup } from '@/hooks/use-agenda-business-setup';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -121,160 +121,14 @@ function RevenueTrend({ current, prev, loading }: { current: number; prev: numbe
     );
 }
 
-// ── Onboarding checklist ──────────────────────────────────────────────────────
-
-type ChecklistStep = {
-    key: string;
-    label: string;
-    description: string;
-    href: string;
-    icon: typeof IconUser;
-    done: boolean;
-};
-
-function SetupChecklist({
-    profile,
-    stats,
-    dismissed,
-    onDismiss,
-}: {
-    profile: AgendaProfile;
-    stats: AgendaStats;
-    dismissed: boolean;
-    onDismiss: () => void;
-}) {
-    const steps: ChecklistStep[] = [
-        {
-            key: 'profile',
-            label: 'Tus datos',
-            description: 'Nombre y profesión',
-            href: '/panel/mi-negocio',
-            icon: IconUser,
-            done: !!(profile.displayName && profile.profession),
-        },
-        {
-            key: 'services',
-            label: 'Servicios',
-            description: 'Qué ofreces y cuánto dura',
-            href: '/panel/mi-negocio/servicios',
-            icon: IconBriefcase,
-            done: stats.hasServices,
-        },
-        {
-            key: 'availability',
-            label: 'Disponibilidad',
-            description: 'Tus horarios de atención',
-            href: '/panel/mi-negocio/disponibilidad',
-            icon: IconClock,
-            done: stats.hasRules,
-        },
-        {
-            key: 'publish',
-            label: 'Publica tu página',
-            description: 'Activa tu link público de reservas',
-            href: '/panel/mi-negocio/configuraciones',
-            icon: IconRocket,
-            done: profile.isPublished,
-        },
-    ];
-
-    const completed = steps.filter((s) => s.done).length;
-    const total = steps.length;
-    const allDone = completed === total;
-    const pct = Math.round((completed / total) * 100);
-
-    if (allDone || dismissed) return null;
-
-    return (
-        <div
-            className="rounded-2xl border p-5 mb-3 agenda-home-surface"
-        >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="min-w-0">
-                    <p className="text-sm font-semibold agenda-home-fg">
-                        Configura tu agenda
-                    </p>
-                    <p className="text-xs mt-0.5 agenda-home-muted">
-                        {completed} de {total} pasos · {pct === 0 ? 'comencemos' : `${pct}% listo`}
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    onClick={onDismiss}
-                    aria-label="Ocultar checklist"
-                    className="shrink-0 rounded-lg p-1 transition-colors hover:bg-[--accent-soft] agenda-home-muted"
-                >
-                    <IconX size={14} />
-                </button>
-            </div>
-
-            {/* Progress bar */}
-            <div
-                className="h-1 rounded-full overflow-hidden mb-4 agenda-home-progress-track"
-                role="progressbar"
-                aria-valuenow={pct}
-                aria-valuemin={0}
-                aria-valuemax={100}
-            >
-                <div
-                    className="h-full transition-all duration-500 agenda-home-progress-fill"
-                    style={{ width: `${pct}%` }}
-                />
-            </div>
-
-            {/* Steps */}
-            <ul className="flex flex-col gap-1">
-                {steps.map((step) => {
-                    const Icon = step.done ? IconCheck : step.icon;
-                    return (
-                        <li key={step.key}>
-                            <Link
-                                href={step.href}
-                                aria-label={`${step.label}${step.done ? ' (completado)' : ' (pendiente)'}`}
-                                className="group flex items-center gap-3 rounded-xl px-2 py-2 -mx-2 transition-colors hover:bg-[--accent-soft]"
-                            >
-                                <div
-                                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${step.done ? 'agenda-home-step-icon--done' : 'agenda-home-step-icon--pending'}`}
-                                >
-                                    <Icon size={15} stroke={step.done ? 3 : 2} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p
-                                        className={`text-sm font-medium truncate ${step.done ? 'agenda-home-step-title--done' : 'agenda-home-step-title--pending'}`}
-                                    >
-                                        {step.label}
-                                    </p>
-                                    <p
-                                        className={`text-xs truncate ${step.done ? 'agenda-home-step-desc--done' : 'agenda-home-step-desc--pending'}`}
-                                    >
-                                        {step.description}
-                                    </p>
-                                </div>
-                                {!step.done && (
-                                    <IconChevronRight
-                                        size={14}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 agenda-home-accent"
-                                    />
-                                )}
-                            </Link>
-                        </li>
-                    );
-                })}
-            </ul>
-        </div>
-    );
-}
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function PanelHomePage() {
-    const router = useRouter();
     const [stats, setStats] = useState<AgendaStats | null>(null);
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [loading, setLoading] = useState(true);
-    const [checklistDismissed, setChecklistDismissed] = useState(false);
     const fmt = usePanelFormatters();
+    const businessSetup = useAgendaBusinessSetup();
 
     useEffect(() => {
         const load = async () => {
@@ -282,28 +136,9 @@ export default function PanelHomePage() {
             setStats(s);
             setProfile(p);
             setLoading(false);
-            // Redirigir a mi negocio si el perfil no existe o está vacío (usuario nuevo)
-            if (!p || (!p.displayName && !p.profession)) {
-                router.replace('/panel/mi-negocio');
-            }
         };
         void load();
-        if (typeof window !== 'undefined') {
-            setChecklistDismissed(window.localStorage.getItem('simpleagenda:setup-dismissed') === '1');
-        }
-     
     }, []);
-
-    const handleDismissChecklist = () => {
-        setChecklistDismissed(true);
-        if (typeof window !== 'undefined') {
-            window.localStorage.setItem('simpleagenda:setup-dismissed', '1');
-        }
-    };
-
-    const isOnTrial = !loading && profile !== null && isAgendaTrialPeriod(profile);
-    const trialDays = profile ? agendaTrialDaysRemaining(profile) : null;
-    const showTrialBanner = isOnTrial && trialDays !== null;
 
     const greeting = profile?.displayName ? `Hola, ${profile.displayName.split(' ')[0]}` : null;
     const dateLabel = fmtTodayLabel(fmt.timezone);
@@ -351,6 +186,16 @@ export default function PanelHomePage() {
             <PanelPageHeader title="Mi panel" description={panelDescription} />
 
             <div className="grid gap-4">
+                <PanelBusinessSetupCard
+                    steps={businessSetup.steps}
+                    billing={businessSetup.billing ?? {
+                        status: 'free',
+                        daysRemaining: null,
+                        subscriptionHref: '/panel/mi-cuenta/suscripcion',
+                    }}
+                    loading={businessSetup.loading}
+                />
+
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 {statCards.map((stat) => (
                     <Link
@@ -438,37 +283,6 @@ export default function PanelHomePage() {
                     </div>
                 </div>
                 </div>
-
-                {/* Onboarding checklist — auto-hides when complete or dismissed */}
-                {!loading && profile && stats && (
-                <SetupChecklist
-                    profile={profile}
-                    stats={stats}
-                    dismissed={checklistDismissed}
-                    onDismiss={handleDismissChecklist}
-                />
-                )}
-
-                {/* Prueba gratuita activa */}
-                {showTrialBanner && (
-                <Link
-                    href="/panel/mi-cuenta/suscripcion"
-                    className="flex items-center gap-4 rounded-2xl border p-4 transition-colors hover:border-[--accent-border] agenda-home-warning-banner"
-                >
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 agenda-home-warning-icon">
-                        <IconClockHour4 size={17} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold agenda-home-fg">Prueba gratuita activa</p>
-                        <p className="text-xs mt-0.5 agenda-home-muted">
-                            {trialDays === 0
-                                ? 'Tu prueba termina hoy. Activa Pro para seguir operando sin interrupciones.'
-                                : `Te ${trialDays === 1 ? 'queda' : 'quedan'} ${trialDays} ${trialDays === 1 ? 'día' : 'días'} con acceso completo. Puedes activar Pro cuando quieras.`}
-                        </p>
-                    </div>
-                    <IconChevronRight size={16} className="agenda-home-warning-chevron" />
-                </Link>
-                )}
             </div>
 
         </div>

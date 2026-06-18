@@ -5,7 +5,7 @@ import {
     IconChartBar,
     IconFileText,
     IconBookmark,
-    IconHome2,
+    IconLayoutDashboard,
     IconPlus,
     IconRocket,
     IconUser,
@@ -25,7 +25,7 @@ export type PanelNavItem = {
 };
 
 const PANEL_NAV_ITEMS: PanelNavItem[] = [
-    { href: '/panel', label: 'Mi panel', icon: IconHome2 },
+    { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
     { href: '/panel/publicaciones', label: 'Publicaciones', icon: IconFileText },
     { href: '/panel/publicar', label: 'Nueva publicación', icon: IconPlus },
     { href: '/panel/guardados', label: 'Guardados', icon: IconBookmark },

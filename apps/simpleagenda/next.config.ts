@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
     images: {
         remotePatterns: [
             { protocol: 'https', hostname: '**' },
+            { protocol: 'http', hostname: 'localhost' },
+            { protocol: 'http', hostname: '127.0.0.1' },
         ],
     },
     async rewrites() {
@@ -21,6 +23,10 @@ const nextConfig: NextConfig = {
             {
                 source: '/api/:path*',
                 destination: `${apiBackendUrl}/api/:path*`,
+            },
+            {
+                source: '/uploads/:path*',
+                destination: `${apiBackendUrl}/uploads/:path*`,
             },
         ];
     },

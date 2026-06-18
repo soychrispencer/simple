@@ -18,7 +18,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
     usePushNotifications(!!user);
 
     const pathname = usePathname() ?? '';
-    const isFullscreenFlow = pathname.startsWith('/panel/onboarding');
 
     const navItems = useMemo(
         () => getPanelNavItems(role).map(({ href, label, icon, badge }) => ({ href, label, icon, badge })),
@@ -42,7 +41,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             footerLabel="Ir al inicio"
             footerIcon={IconHome}
             bottomNav={<PanelBottomNav />}
-            chromeEnabled={!isFullscreenFlow}
+            chromeEnabled
             isVerified={user?.status === 'verified'}
             activeHref={activeHref}
         >

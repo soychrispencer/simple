@@ -5,7 +5,8 @@ import { use } from 'react';
 import {
     IconUserPlus, IconLoader2, IconTrash, IconX, IconCheck, IconAlertCircle, IconUsersGroup, IconCalendarEvent, IconMapPin, IconVideo, IconUser, IconUserCheck, IconUserX, IconMail, IconPhone, IconCurrencyDollar, IconEdit, IconPlayerStop, IconCircleCheck, IconArrowBackUp, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelField, PanelNotice, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_GRUPALES_PAGE } from '@simple/ui/panel';
+import { PanelButton, PanelField, PanelNotice, PanelEmptyState, AGENDA_BUSINESS_GRUPALES_PAGE } from '@simple/ui/panel';
+import { AgendaMiNegocioShell, AgendaMiNegocioLoading } from '@/components/panel/agenda-mi-negocio-shell';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchGroupSession,
@@ -243,17 +244,17 @@ export default function GroupSessionDetailPage({ params }: { params: Promise<{ i
 
     if (loading) {
         return (
-            <div className="container-app panel-page py-4 lg:py-8">
-                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                    <IconLoader2 size={14} className="animate-spin" /> Cargando...
-                </div>
-            </div>
+            <AgendaMiNegocioLoading
+                activeKey="servicios"
+                title="Sesión grupal"
+                subsectionBack={{ href: '/panel/mi-negocio/grupales', label: AGENDA_BUSINESS_GRUPALES_PAGE.title }}
+            />
         );
     }
 
     if (notFound || !session) {
         return (
-            <PanelBusinessShell
+            <AgendaMiNegocioShell
                 activeKey="servicios"
                 tabs={businessSectionTabs}
                 title="Sesión no encontrada"
@@ -263,20 +264,20 @@ export default function GroupSessionDetailPage({ params }: { params: Promise<{ i
                     title="No encontramos esta sesión"
                     description="Puede que haya sido eliminada."
                 />
-            </PanelBusinessShell>
+            </AgendaMiNegocioShell>
         );
     }
 
     const statusTone_ = sessionStatusTone[session.status];
 
     return (
-        <PanelBusinessShell
+        <AgendaMiNegocioShell
             activeKey="servicios"
             tabs={businessSectionTabs}
             title={session.title}
             description={`${taken}/${session.capacity} asistentes`}
             subsectionBack={{ href: '/panel/mi-negocio/grupales', label: AGENDA_BUSINESS_GRUPALES_PAGE.title }}
-            actions={
+            headerActions={
                 <PanelButton
                     variant="accent"
                     size="sm"
@@ -585,6 +586,6 @@ export default function GroupSessionDetailPage({ params }: { params: Promise<{ i
                     </div>
                 </div>
             )}
-        </PanelBusinessShell>
+        </AgendaMiNegocioShell>
     );
 }

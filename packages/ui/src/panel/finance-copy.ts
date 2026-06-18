@@ -20,6 +20,5 @@ export const SUBSCRIPTION_BILLING_HISTORY = {
 /** Mi negocio: cómo el dueño cobra a sus clientes. */
 export const BUSINESS_PAYMENT_METHODS_PAGE = {
     title: 'Medios de pago',
-    description:
-        'Activa cómo quieres cobrar a tus clientes. MercadoPago va a tu cuenta conectada; también transferencia o link de pago. Simple no interviene en el cobro.',
+    description: 'Cómo cobras a tus clientes.',
 } as const;

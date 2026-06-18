@@ -12,9 +12,6 @@ export const OWNER_ROLE_LABEL = 'Dueño';
 /** Título de sección o audiencia (landing, marketing). */
 export const OWNER_ROLE_LABEL_PLURAL = 'Dueños';
 
-/** Onboarding: tarjeta de alta. */
-export const OWNER_ONBOARDING_TITLE = 'Soy dueño';
-
 /** Landing: eyebrow de bloque para dueños. */
 export const OWNER_SECTION_EYEBROW = 'Para dueños de mariachi';
 

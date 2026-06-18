@@ -1,6 +1,7 @@
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { subscriptionPlans, subscriptions } from '../../db/schema.js';
+import { serenataOwners } from '../../db/schema.js';
+import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
 import {
     APP_COMMISSION_FREE_BPS,
     APP_COMMISSION_PRO_BPS,
@@ -17,25 +18,19 @@ import {
 } from './plan-config.js';
 
 export async function resolveActiveSerenataBillingPlan(userId: string): Promise<SerenataBillingPlanId> {
-    const rows = await db
-        .select({
-            planSlug: subscriptionPlans.planId,
-            status: subscriptions.status,
-            expiresAt: subscriptions.expiresAt,
-        })
-        .from(subscriptions)
-        .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
-        .where(and(eq(subscriptions.userId, userId), eq(subscriptions.vertical, 'serenatas')))
-        .limit(1);
+    const dbSub = await loadCurrentSubscriptionFromDb(userId, 'serenatas');
+    if (dbSub && (dbSub.planSlug === 'pro' || dbSub.planSlug === 'enterprise') && dbSub.status === 'active') {
+        return 'pro';
+    }
 
-    const row = rows[0];
-    if (!row) return 'free';
+    const owner = await db.query.serenataOwners.findFirst({
+        where: eq(serenataOwners.userId, userId),
+        columns: { subscriptionStatus: true },
+    });
+    if (owner?.subscriptionStatus === 'active') {
+        return 'pro';
+    }
 
-    const expired = row.expiresAt && row.expiresAt < new Date();
-    const inactive = row.status === 'cancelled' || row.status === 'expired' || expired;
-    if (inactive) return 'free';
-
-    if (row.planSlug === 'pro' || row.planSlug === 'enterprise') return 'pro';
     return 'free';
 }
 

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import {
     IconPlus, IconLoader2, IconTrash, IconEdit, IconX, IconCheck, IconAlertCircle, IconUsersGroup, IconChevronRight, IconCalendarEvent, IconUser, IconMapPin, IconVideo, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_GRUPALES_PAGE, AGENDA_BUSINESS_SERVICIOS_PAGE } from '@simple/ui/panel';
+import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelEmptyState, AGENDA_BUSINESS_GRUPALES_PAGE, agendaBusinessSubsectionShellProps } from '@simple/ui/panel';
+import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchGroupSessions,
@@ -195,13 +196,12 @@ export default function GrupalesPage() {
     const visibleServices = useMemo(() => services.filter((s) => s.isActive), [services]);
 
     return (
-        <PanelBusinessShell
-            activeKey="servicios"
+        <AgendaMiNegocioShell
+            {...agendaBusinessSubsectionShellProps('grupales')}
             tabs={businessSectionTabs}
             title={AGENDA_BUSINESS_GRUPALES_PAGE.title}
             description={AGENDA_BUSINESS_GRUPALES_PAGE.description}
-            subsectionBack={{ href: '/panel/mi-negocio/servicios', label: AGENDA_BUSINESS_SERVICIOS_PAGE.title }}
-            actions={
+            headerActions={
                 <PanelButton variant="accent" size="sm" onClick={openNew}>
                     <IconPlus size={14} /> Nueva
                 </PanelButton>
@@ -467,6 +467,6 @@ export default function GrupalesPage() {
                     </div>
                 </div>
             )}
-        </PanelBusinessShell>
+        </AgendaMiNegocioShell>
     );
 }

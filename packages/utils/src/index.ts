@@ -8,6 +8,7 @@ export * from './format.js';
 export * from './listing-conversations.js';
 export * from './location-catalog.js';
 export * from './media-upload.js';
+export * from './media-url.js';
 export * from './messages.js';
 export * from './panel-notifications.js';
 export * from './payments.js';

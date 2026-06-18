@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    IconHome2,
+    IconLayoutDashboard,
     IconFileText,
     IconPlus,
     IconMessageCircle,
@@ -12,7 +12,7 @@ import { PanelBottomNav as SharedPanelBottomNav } from '@simple/ui/panel';
 import { isPanelNavActive } from '@/components/panel/panel-nav-config';
 
 const items = [
-    { href: '/panel', label: 'Mi panel', icon: IconHome2 },
+    { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
     { href: '/panel/publicaciones', label: 'Publicaciones', icon: IconFileText },
     { href: '/panel/publicar', label: 'Publicar', icon: IconPlus, highlight: true },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },

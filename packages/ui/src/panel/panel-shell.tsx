@@ -278,7 +278,7 @@ export function PanelShell({
                     </div>
                 ) : null}
 
-                <div className={`panel-content-frame ${showChrome ? 'pb-20 lg:pb-0' : ''}`}>{children}</div>
+                <div className={`panel-content-frame pt-3 ${showChrome ? 'pb-20 lg:pb-0' : ''}`}>{children}</div>
             </section>
 
             {showChrome ? bottomNav : null}

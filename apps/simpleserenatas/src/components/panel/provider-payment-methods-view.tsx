@@ -72,7 +72,7 @@ export function ProviderPaymentMethodsView({ refresh }: { refresh: () => Promise
     }
 
     if (error || !hasMariachi || !mariachi || !form) {
-        return <EmptyBlock title="Sin mariachi" description="Crea tu grupo en Página pública para configurar medios de pago." />;
+        return <EmptyBlock title="Sin mariachi" description="Crea tu grupo en Perfil público para configurar medios de pago." />;
     }
 
     const anyMethodActive = form.acceptsTransfer || form.acceptsMp || form.acceptsPaymentLink;
@@ -165,7 +165,7 @@ export function ProviderPaymentMethodsView({ refresh }: { refresh: () => Promise
                         </div>
                         <div>
                             <p className="text-sm font-semibold text-fg">Transferencia bancaria</p>
-                            <p className="text-xs mt-0.5 text-fg-muted">Visible en tu página pública para quien reserve contigo.</p>
+                            <p className="text-xs mt-0.5 text-fg-muted">Visible en tu perfil público para quien reserve contigo.</p>
                         </div>
                     </div>
                     <PanelSwitch

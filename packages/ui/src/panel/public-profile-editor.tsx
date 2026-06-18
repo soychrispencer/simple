@@ -17,6 +17,7 @@ import {
     IconBuildingStore,
     IconClock,
     IconLink,
+    IconLock,
     IconMail,
     IconMapPin,
     IconNotebook,
@@ -32,17 +33,22 @@ import {
     checkPublicProfileSlugAvailability as checkPublicProfileSlugAvailabilityForVertical,
     fetchAccountPublicProfile as fetchAccountPublicProfileForVertical,
     updateAccountPublicProfile as updateAccountPublicProfileForVertical,
+    uploadMediaFile,
     type EditablePublicProfile as BaseEditablePublicProfile,
     type EditablePublicProfileTeamMember,
 } from '@simple/utils';
 import { PanelButton } from './panel-button.js';
 import { PanelCard } from './panel-card.js';
 import { PanelBlockHeader, PanelChoiceCard, PanelNotice, PanelStatusBadge, PanelSwitch } from './panel-primitives.js';
+import { PanelProfileBrandImages } from './panel-profile-brand-images.js';
 
 export type PublicProfileVertical = 'autos' | 'propiedades';
 
+export type PublicProfileEditorSection = 'pagina' | 'contacto' | 'redes' | 'horarios' | 'equipo';
+
 export type PublicProfileEditorProps = {
     vertical: PublicProfileVertical;
+    section?: PublicProfileEditorSection;
 };
 
 type EditablePublicProfile = Omit<BaseEditablePublicProfile, 'vertical'> & { vertical: PublicProfileVertical };
@@ -110,6 +116,50 @@ function splitTeamSpecialties(value: string) {
         .slice(0, 6);
 }
 
+function PublicProfileFeatureGate({ currentPlanName }: { currentPlanName: string }) {
+    return (
+        <PanelCard
+            size="lg"
+            className="border-(--accent)/25 bg-[color-mix(in_oklab,var(--accent)_6%,var(--surface))]"
+        >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                    style={{
+                        background: 'color-mix(in oklab, var(--accent) 14%, var(--surface))',
+                        color: 'var(--accent)',
+                    }}
+                >
+                    <IconLock size={20} aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                    <div className="space-y-1">
+                        <h3 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>
+                            Disponible con suscripción
+                        </h3>
+                        <p className="text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                            Tu plan {currentPlanName} no incluye la ficha pública del marketplace.
+                        </p>
+                    </div>
+                    <Link href="/panel/mi-cuenta/suscripcion" className="inline-flex">
+                        <PanelButton type="button">Ver planes</PanelButton>
+                    </Link>
+                </div>
+            </div>
+        </PanelCard>
+    );
+}
+
+function uploadPublicProfileImage(purpose: 'logo' | 'cover', file: File): Promise<{ url: string }> {
+    return uploadMediaFile(file, { fileType: 'image', purpose }).then((result) => {
+        const url = result.result?.publicUrl ?? result.result?.url;
+        if (!result.ok || !url) {
+            throw new Error(result.error ?? 'No pudimos subir la imagen.');
+        }
+        return { url };
+    });
+}
+
 function createEmptyTeamMember(): EditablePublicProfileTeamMember {
     return {
         id: null,
@@ -172,7 +222,7 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
     );
 }
 
-export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
+export function PublicProfileEditor({ vertical, section }: PublicProfileEditorProps) {
     const appId: SimpleAppId = vertical === 'autos' ? 'simpleautos' : 'simplepropiedades';
     const brand = getSimpleAppBrand(appId);
     const [loading, setLoading] = useState(true);
@@ -203,12 +253,34 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
             }
             setLoading(false);
         })();
+        const onPublishChanged = (event: Event) => {
+            const detail = (event as CustomEvent<{ vertical: PublicProfileVertical; isPublished: boolean; publicUrl: string | null }>).detail;
+            if (!detail || detail.vertical !== vertical) return;
+            setForm((current) => (
+                current
+                    ? {
+                        ...current,
+                        isPublished: detail.isPublished,
+                        publicUrl: detail.publicUrl,
+                    }
+                    : current
+            ));
+        };
+        window.addEventListener('simple:marketplace-publish-changed', onPublishChanged);
         return () => {
             active = false;
+            window.removeEventListener('simple:marketplace-publish-changed', onPublishChanged);
         };
     }, [vertical]);
 
-    const publicPreview = useMemo(() => previewUrl(form?.publicUrl ?? null), [form?.publicUrl]);
+    const publicPreviewPath = useMemo(() => {
+        if (!form) return null;
+        if (form.publicUrl) return form.publicUrl;
+        if (form.isPublished && form.slug) return `/perfil/${normalizeSlug(form.slug)}`;
+        return null;
+    }, [form?.publicUrl, form?.isPublished, form?.slug]);
+
+    const publicPreview = useMemo(() => previewUrl(publicPreviewPath), [publicPreviewPath]);
 
     const updateForm = <K extends keyof EditablePublicProfile>(key: K, value: EditablePublicProfile[K]) => {
         setForm((current) => (current ? { ...current, [key]: value } : current));
@@ -350,21 +422,25 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
         if (!form) return;
         setSaving(true);
         setNotice(null);
+        const fresh = await fetchAccountPublicProfile(vertical);
+        const isPublished = fresh?.ok ? fresh.profile.isPublished : form.isPublished;
         const { id: _id, userId: _userId, vertical: _vertical, publicUrl: _publicUrl, ...payload } = form;
         const response = await updateAccountPublicProfile(vertical, {
             ...payload,
+            isPublished,
             slug: normalizeSlug(payload.slug || payload.displayName),
         });
         setSaving(false);
         if (!response.ok) {
-            setNotice(response.error ?? 'No pudimos guardar tu página pública.');
+            setNotice(response.error ?? 'No pudimos guardar tu perfil público.');
             return;
         }
         setFeatureEnabled(response.featureEnabled);
         setCurrentPlanId(response.currentPlanId);
         setCurrentPlanName(response.currentPlanName);
         setForm(response.profile);
-        setNotice('Página pública guardada.');
+        setNotice('Perfil público guardado.');
+        window.dispatchEvent(new CustomEvent('simple:marketplace-profile-changed', { detail: { vertical } }));
     };
 
     if (loading) {
@@ -372,65 +448,46 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
     }
 
     if (!form) {
-        return <PanelNotice tone="warning">No pudimos cargar tu página pública.</PanelNotice>;
+        return <PanelNotice tone="warning">No pudimos cargar tu perfil público.</PanelNotice>;
     }
 
     if (!featureEnabled) {
-        return (
-            <PanelCard size="lg" className="space-y-5">
-                <div className="flex flex-wrap items-center gap-3">
-                    <PanelStatusBadge label={`Plan actual: ${currentPlanName}`} tone={currentPlanId === 'free' ? 'warning' : 'info'} />
-                    <PanelStatusBadge label="Función premium" tone="neutral" />
-                </div>
-                <div className="space-y-2">
-                    <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>La página pública está disponible con suscripción.</h3>
-                    <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                        Activa un plan para publicar tu ficha en el marketplace: contacto, redes, horario e inventario. Los cobros y contactos van directo a ti; Simple no cobra comisión por transacción.
-                    </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <Link href="/panel/mi-cuenta/suscripcion" className="btn-primary">Ver suscripciones</Link>
-                    <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>Cuando actives un plan de pago, esta sección quedará disponible al instante.</span>
-                </div>
-            </PanelCard>
-        );
+        return <PublicProfileFeatureGate currentPlanName={currentPlanName} />;
     }
 
-    return (
-        <div className="space-y-6">
-            <PanelCard size="lg" className="space-y-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <PanelStatusBadge label={`Plan ${currentPlanName}`} tone="info" />
-                            <PanelStatusBadge label={form.isPublished ? 'Publicada' : 'Borrador'} tone={form.isPublished ? 'success' : 'neutral'} />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Página pública</h3>
-                            <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                Tu vitrina en el marketplace: contacto, redes y horario visibles para compradores. Sin comisiones por venta ni intermediación en los pagos.
-                            </p>
-                        </div>
-                    </div>
+    const tabbed = section !== undefined;
+    const show = (name: PublicProfileEditorSection) => !tabbed || section === name;
 
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-2 rounded-full border px-3 py-2" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                            <PanelSwitch checked={form.isPublished} onChange={(next) => updateForm('isPublished', next)} ariaLabel="Publicar página pública" size="sm" />
-                            <span className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Mostrar perfil público</span>
-                        </div>
-                        {publicPreview ? (
-                            <a href={publicPreview} target="_blank" rel="noreferrer" className="btn-primary">
-                                Ver perfil
-                            </a>
-                        ) : null}
-                    </div>
-                </div>
-                {notice ? <PanelNotice tone="neutral">{notice}</PanelNotice> : null}
-            </PanelCard>
+    const brandImagesCard = (
+        <PanelCard size="lg" className="space-y-4">
+            <PanelBlockHeader
+                title="Imágenes del negocio"
+                description="Portada y logo de tu empresa o negocio en la ficha pública. No reemplaza tu foto personal de Mi cuenta."
+                className="mb-0"
+            />
+            <PanelProfileBrandImages
+                displayName={form.displayName}
+                logoUrl={form.avatarImageUrl}
+                coverUrl={form.coverImageUrl}
+                subtitle={form.headline?.trim() || [form.city, form.region].filter(Boolean).join(', ') || null}
+                previewHref={publicPreview}
+                onLogoChange={(url) => updateForm('avatarImageUrl', url || null)}
+                onCoverChange={(url) => updateForm('coverImageUrl', url || null)}
+                onUploadLogo={async (_file, croppedBlob) => {
+                    const uploadFile = new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
+                    return uploadPublicProfileImage('logo', uploadFile);
+                }}
+                onUploadCover={async (_file, croppedBlob) => {
+                    const uploadFile = new File([croppedBlob], 'cover.webp', { type: 'image/webp' });
+                    return uploadPublicProfileImage('cover', uploadFile);
+                }}
+                onError={(message) => setNotice(message)}
+            />
+        </PanelCard>
+    );
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
-                <div className="space-y-6">
-                    <PanelCard size="lg" className="space-y-5">
+    const identityCard = (
+        <PanelCard size="lg" className="space-y-5">
                         <PanelBlockHeader
                             title="Identidad pública"
                             description={`Define cómo quieres presentarte en ${brand.name}.`}
@@ -491,19 +548,15 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                                     <input className="form-input" value={form.companyName ?? ''} onChange={(event) => updateForm('companyName', event.target.value)} placeholder="Ej: Autos Las Condes SpA" />
                                 </Field>
                             ) : <div />}
-                            <Field label="Avatar URL" icon={<IconUser size={14} />}>
-                                <input className="form-input" value={form.avatarImageUrl ?? ''} onChange={(event) => updateForm('avatarImageUrl', event.target.value)} placeholder="https://..." />
-                            </Field>
-                            <Field label="Portada URL" icon={<IconPhoto size={14} />}>
-                                <input className="form-input" value={form.coverImageUrl ?? ''} onChange={(event) => updateForm('coverImageUrl', event.target.value)} placeholder="https://..." />
-                            </Field>
                         </div>
 
                         <Field label="Descripción" icon={<IconBadgeTm size={14} />}>
                             <textarea className="form-textarea min-h-[160px]" value={form.bio ?? ''} onChange={(event) => updateForm('bio', event.target.value)} placeholder="Cuenta quién eres, cómo trabajas, qué tipo de vehículos manejas y por qué un comprador debería contactarte." />
                         </Field>
                     </PanelCard>
+    );
 
+    const contactCard = (
                     <PanelCard size="lg" className="space-y-5">
                         <PanelBlockHeader
                             title="Contacto y operación"
@@ -543,9 +596,9 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                             </Field>
                         </div>
                     </PanelCard>
-                </div>
+    );
 
-                <div className="space-y-6">
+    const socialCard = (
                     <PanelCard size="lg" className="space-y-5">
                         <PanelBlockHeader
                             title="Redes sociales"
@@ -562,7 +615,9 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                             <SocialField icon={<IconBrandX size={15} />} label="X / Twitter" value={form.socialLinks.x} onChange={(value) => updateForm('socialLinks', { ...form.socialLinks, x: value })} />
                         </div>
                     </PanelCard>
+    );
 
+    const hoursCard = (
                     <PanelCard size="lg" className="space-y-5">
                         <div className="flex items-center justify-between gap-3">
                             <PanelBlockHeader
@@ -613,7 +668,9 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                             <input className="form-input" value={form.scheduleNote ?? ''} onChange={(event) => updateForm('scheduleNote', event.target.value)} placeholder="Ej: Atendemos por agenda previa los sábados." />
                         </Field>
                     </PanelCard>
+    );
 
+    const summaryCard = (
                     <PanelCard size="lg" className="space-y-4">
                         <PanelBlockHeader
                             title="Resumen"
@@ -627,13 +684,13 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                         <SummaryItem label="URL" value={publicPreview ?? 'Aún no publicada'} />
                         <div className="pt-2">
                             <PanelButton type="button" onClick={() => void handleSave()} disabled={saving}>
-                                {saving ? 'Guardando...' : 'Guardar página pública'}
+                                {saving ? 'Guardando...' : 'Guardar perfil público'}
                             </PanelButton>
                         </div>
                     </PanelCard>
-                </div>
-            </div>
+    );
 
+    const teamCard = (
             <PanelCard size="lg" className="space-y-5">
                 <PanelBlockHeader
                     title="Equipo visible"
@@ -767,6 +824,47 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                     </div>
                 </div>
             </PanelCard>
+    );
+
+    const saveFooter = (
+        <PanelCard size="lg" className="space-y-4">
+            <PanelButton type="button" onClick={() => void handleSave()} disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar perfil público'}
+            </PanelButton>
+        </PanelCard>
+    );
+
+    return (
+        <div className="space-y-6">
+            {tabbed && notice ? <PanelNotice tone="neutral">{notice}</PanelNotice> : null}
+
+            {tabbed ? (
+                <>
+                    {show('pagina') ? brandImagesCard : null}
+                    {show('pagina') ? identityCard : null}
+                    {show('contacto') ? contactCard : null}
+                    {show('redes') ? socialCard : null}
+                    {show('horarios') ? hoursCard : null}
+                    {show('equipo') ? teamCard : null}
+                    {saveFooter}
+                </>
+            ) : (
+                <>
+                    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
+                        <div className="space-y-6">
+                            {brandImagesCard}
+                            {identityCard}
+                            {contactCard}
+                        </div>
+                        <div className="space-y-6">
+                            {socialCard}
+                            {hoursCard}
+                            {summaryCard}
+                        </div>
+                    </div>
+                    {teamCard}
+                </>
+            )}
         </div>
     );
 }

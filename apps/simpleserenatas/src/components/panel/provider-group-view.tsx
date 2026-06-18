@@ -1,16 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { IconMusic } from '@tabler/icons-react';
 import type { StructuredLocation } from '@simple/types';
 import { PanelButton } from '@simple/ui/panel';
-import { PanelCard, PanelField, PanelNotice } from '@simple/ui/panel';
+import { PanelCard, PanelField, PanelNotice, PanelBlockHeader } from '@simple/ui/panel';
 import { StructuredLocationFields } from '@simple/ui/panel';
 import { normalizeStructuredLocation } from '@simple/utils';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { WorkZonesPicker } from '@/components/panel/work-zones-picker';
-import { EmptyBlock, FieldInput, FieldTextarea, FormFeedback, type FormStatus } from './shared';
+import { FieldInput, FieldTextarea, FormFeedback, type FormStatus } from './shared';
 import { ProviderContactPhonesFields } from './provider-contact-phones-fields';
 import { ProviderGroupBrandImages } from './provider-group-brand-images';
 
@@ -56,6 +55,13 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     const comunaBaseHint = location.localityName?.trim()
         ? `Tu comuna base es ${location.localityName.trim()}`
         : null;
+
+    const previewSubtitle = useMemo(() => {
+        const parts = [location.localityName, location.regionName]
+            .map((part) => part?.trim())
+            .filter(Boolean);
+        return parts.length > 0 ? parts.join(', ') : null;
+    }, [location.localityName, location.regionName]);
 
     const groupLocationFields = useMemo(() => (
         <StructuredLocationFields
@@ -174,33 +180,29 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     if (!hasMariachi) {
         return (
             <div className="grid gap-5">
-                <PanelCard size="md" className="border-(--accent)/25 bg-[color-mix(in_oklab,var(--accent)_8%,var(--surface))]">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-(--accent)">
-                                Configuración inicial
-                            </p>
-                            <h2 className="mt-1 text-lg font-bold text-(--fg)">Configura tus datos comerciales</h2>
-                            <p className="mt-1 text-sm leading-relaxed text-fg-muted">
-                                Al registrarte como dueño creas tu mariachi en el marketplace. Completa estos datos para que los clientes te encuentren.
-                            </p>
-                        </div>
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-(--accent-contrast) shadow-sm">
-                            <IconMusic size={20} aria-hidden="true" />
-                        </div>
-                    </div>
+                <PanelCard size="lg" className="space-y-4">
+                    <PanelBlockHeader
+                        title="Imágenes del negocio"
+                        description="Portada y logo de tu mariachi. Tu foto personal se configura en Mi cuenta."
+                        className="mb-0"
+                    />
+                    <ProviderGroupBrandImages
+                        name={name}
+                        logoUrl={logoUrl}
+                        coverUrl={coverUrl}
+                        subtitle={previewSubtitle}
+                        onLogoChange={setLogoUrl}
+                        onCoverChange={setCoverUrl}
+                        onError={(message) => setSaveStatus({ loading: false, error: message, ok: null })}
+                    />
                 </PanelCard>
-                <PanelCard>
-                    <h3 className="text-lg font-semibold text-(--fg)">Datos comerciales</h3>
-                    <div className="mt-5 grid gap-4">
-                        <ProviderGroupBrandImages
-                            name={name}
-                            logoUrl={logoUrl}
-                            coverUrl={coverUrl}
-                            onLogoChange={setLogoUrl}
-                            onCoverChange={setCoverUrl}
-                            onError={(message) => setSaveStatus({ loading: false, error: message, ok: null })}
-                        />
+                <PanelCard size="lg" className="space-y-5">
+                    <PanelBlockHeader
+                        title="Identidad y contacto"
+                        description="Nombre, descripción, teléfonos y zonas donde ofreces serenatas."
+                        className="mb-0"
+                    />
+                    <div className="grid gap-4">
                         <PanelField label="Nombre del mariachi">
                             <FieldInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Mariachi Los Reyes" />
                         </PanelField>
@@ -231,25 +233,31 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
 
     return (
         <div className="grid gap-5">
-            <PanelCard>
-                <h3 className="text-lg font-semibold text-(--fg)">Datos comerciales</h3>
-
+            <PanelCard size="lg" className="space-y-4">
+                <PanelBlockHeader
+                    title="Imágenes del negocio"
+                    description="Portada y logo de tu mariachi. Tu foto personal se configura en Mi cuenta."
+                    className="mb-0"
+                />
                 <ProviderGroupBrandImages
-                    className="mt-5"
                     name={name}
                     logoUrl={logoUrl}
                     coverUrl={coverUrl}
+                    subtitle={previewSubtitle}
                     onLogoChange={setLogoUrl}
                     onCoverChange={setCoverUrl}
                     onError={(message) => setSaveStatus({ loading: false, error: message, ok: null })}
                     onSave={saveImages}
                 />
+            </PanelCard>
 
-                <p className="mt-4 text-sm text-(--fg-muted)">
-                    Lo que verán los clientes al contratarte: nombre, fotos, descripción, zonas y contacto.
-                </p>
-
-                <div className="mt-5 grid gap-4">
+            <PanelCard size="lg" className="space-y-5">
+                <PanelBlockHeader
+                    title="Identidad y contacto"
+                    description="Lo que verán los clientes al contratarte: nombre, descripción, zonas y contacto."
+                    className="mb-0"
+                />
+                <div className="grid gap-4">
                     <PanelField label="Nombre del mariachi">
                         <FieldInput value={name} onChange={(e) => setName(e.target.value)} />
                     </PanelField>

@@ -34,7 +34,8 @@ function monthlyTotalWithVat(netMonthly: number): number {
 function trialMeta(catalog: SubscriptionCatalogResponse | null, currentPlanId: string) {
     if (currentPlanId !== 'free' || !catalog?.currentSubscription?.planExpiresAt) return null;
     const expiresAt = new Date(catalog.currentSubscription.planExpiresAt);
-    const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+    const rawDays = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+    const daysRemaining = Math.min(rawDays, 30);
     return { daysRemaining, isExpired: daysRemaining === 0, expiresAt };
 }
 
@@ -70,7 +71,7 @@ export type SubscriptionManagerPayments = {
     startSubscriptionCheckout: (input: {
         planId: SubscriptionPlanId;
         returnUrl: string;
-    }) => Promise<{ ok: boolean; checkoutUrl?: string | null; error?: string }>;
+    }) => Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string; alreadyActive?: boolean; message?: string }>;
 };
 
 export type SubscriptionManagerProps = SubscriptionManagerPayments & {
@@ -125,6 +126,25 @@ export function SubscriptionManager({
         void load();
     }, []);
 
+    const applyConfirmResult = async (result: Awaited<ReturnType<typeof confirmCheckout>>) => {
+        if (!result.ok) {
+            setError(result.error ?? 'No pudimos confirmar la suscripción.');
+            return;
+        }
+
+        if (result.status === 'authorized' || result.status === 'approved') {
+            setMessage('Suscripción activada correctamente.');
+        } else if (result.status === 'pending') {
+            setMessage(`Tu suscripción quedó pendiente de validación en ${paymentProviderLabel()}.`);
+        } else if (result.status === 'cancelled') {
+            setError('La suscripción fue cancelada.');
+        } else {
+            setError('La suscripción no pudo ser aprobada.');
+        }
+
+        await load();
+    };
+
     useEffect(() => {
         const purchaseId = searchParams.get('purchaseId');
         if (!purchaseId || handledPurchaseId === purchaseId) return;
@@ -140,24 +160,7 @@ export function SubscriptionManager({
             if (paymentId) {
                 payload.paymentId = paymentId;
             }
-            const result = await confirmCheckout(payload);
-
-            if (!result.ok) {
-                setError(result.error ?? 'No pudimos confirmar la suscripción.');
-                return;
-            }
-
-            if (result.status === 'authorized' || result.status === 'approved') {
-                setMessage('Suscripción activada correctamente.');
-            } else if (result.status === 'pending') {
-                setMessage(`Tu suscripción quedó pendiente de validación en ${paymentProviderLabel()}.`);
-            } else if (result.status === 'cancelled') {
-                setError('La suscripción fue cancelada.');
-            } else {
-                setError('La suscripción no pudo ser aprobada.');
-            }
-
-            await load();
+            await applyConfirmResult(await confirmCheckout(payload));
         })();
     }, [handledPurchaseId, paymentProvider, searchParams]);
 
@@ -179,10 +182,34 @@ export function SubscriptionManager({
             returnUrl: `${window.location.origin}${subscriptionsPath}`,
         });
 
+        if (result.alreadyActive) {
+            setMessage(result.message ?? 'Tu plan ya está activo.');
+            setBusyPlanId(null);
+            await load();
+            return;
+        }
+
         if (!result.ok || !result.checkoutUrl) {
             setError(result.error ?? 'No pudimos iniciar la suscripción.');
             setBusyPlanId(null);
             return;
+        }
+
+        try {
+            const target = new URL(result.checkoutUrl, window.location.href);
+            const purchaseId = target.searchParams.get('purchaseId') ?? result.orderId;
+            const isDevReturn =
+                target.origin === window.location.origin
+                && target.searchParams.get('checkout') === 'return'
+                && Boolean(purchaseId);
+
+            if (isDevReturn && purchaseId) {
+                await applyConfirmResult(await confirmCheckout({ orderId: purchaseId }));
+                setBusyPlanId(null);
+                return;
+            }
+        } catch {
+            // Si la URL no es parseable, seguimos con redirección clásica.
         }
 
         window.location.assign(result.checkoutUrl);
@@ -195,6 +222,11 @@ export function SubscriptionManager({
             {!checkoutEnabled && !loading ? (
                 <PanelNotice tone="warning">
                     Mercado Pago aún no está disponible en este entorno.
+                </PanelNotice>
+            ) : null}
+            {!loading && catalog?.checkoutEnabled && catalog.mercadoPagoEnabled === false ? (
+                <PanelNotice tone="info">
+                    Modo desarrollo: al suscribirte se simula el pago y el plan queda activo sin ir a Mercado Pago. En producción el cobro es real.
                 </PanelNotice>
             ) : null}
 

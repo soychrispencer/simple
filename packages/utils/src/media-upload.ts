@@ -4,8 +4,8 @@ import { API_BASE } from '@simple/config';
 export type MediaUploadOptions = {
     fileType: 'image' | 'video' | 'document';
     listingId?: string;
-    /** `avatar` recorta a 512px; el API convierte imágenes a WebP. */
-    purpose?: 'avatar' | 'default';
+    /** `avatar` recorta a 512px; `logo` igual que avatar; `cover` a 16:9; el API convierte imágenes a WebP. */
+    purpose?: 'avatar' | 'logo' | 'cover' | 'default';
     onProgress?: (progress: number) => void;
 };
 

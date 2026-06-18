@@ -19,6 +19,7 @@ import {
     addressBook,
 } from '../../db/schema.js';
 import { loadPaymentOrdersCache } from '../payments/load-payment-orders-cache.js';
+import { loadActiveSubscriptionsCache } from '../subscriptions/load-subscriptions-cache.js';
 import { makeGeoPoint, type GeoPoint } from '../listings/location.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,6 +44,7 @@ export type StartupCacheMaps = {
     publicProfilesByUserVertical: Map<string, AnyRecord>;
     publicProfilesByVerticalSlug: Map<string, AnyRecord>;
     publicProfileTeamMembersByUserVertical: Map<string, AnyRecord[]>;
+    activeSubscriptionsByUser: Map<string, AnyRecord[]>;
 };
 
 export type StartupLoadDeps = {
@@ -52,6 +54,7 @@ export type StartupLoadDeps = {
     mapAccountRow: (row: typeof accounts.$inferSelect) => AnyRecord;
     mapAccountUserRow: (row: typeof accountUsers.$inferSelect) => AnyRecord;
     upsertAccountUserCache: (membership: AnyRecord) => AnyRecord;
+    upsertActiveSubscription: (subscription: AnyRecord) => AnyRecord;
     mapPublicProfileRow: (row: typeof publicProfiles.$inferSelect) => AnyRecord;
     upsertPublicProfileCache: (profile: AnyRecord) => AnyRecord;
     mapPublicProfileTeamMemberRow: (row: typeof publicProfileTeamMembers.$inferSelect) => AnyRecord;
@@ -74,6 +77,7 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
         mapAccountRow,
         mapAccountUserRow,
         upsertAccountUserCache,
+        upsertActiveSubscription,
         mapPublicProfileRow,
         upsertPublicProfileCache,
         mapPublicProfileTeamMemberRow,
@@ -307,6 +311,17 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
             paymentOrderCount += orders.length;
         }
         logger.info('Loaded payment orders', { users: paymentOrderCache.size, orders: paymentOrderCount });
+
+        const subscriptionsCache = await loadActiveSubscriptionsCache();
+        maps.activeSubscriptionsByUser.clear();
+        let subscriptionCount = 0;
+        for (const subs of subscriptionsCache.values()) {
+            for (const sub of subs) {
+                upsertActiveSubscription(sub);
+                subscriptionCount += 1;
+            }
+        }
+        logger.info('Loaded active subscriptions', { users: subscriptionsCache.size, subscriptions: subscriptionCount });
 
         logger.info('Data loading complete');
     };

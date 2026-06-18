@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconCar, IconChevronRight } from '@tabler/icons-react';
 import { fetchMyPanelListings, type PanelListing } from '@/lib/panel-listings';
 import {
-    PanelBlockHeader, PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelPageHeader, PanelStatCard } from '@simple/ui/panel';
+    PanelBlockHeader, PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelPageHeader, PanelStatCard, PanelBusinessSetupCard } from '@simple/ui/panel';
+import { useAutosBusinessSetup } from '@/hooks/use-business-setup';
 
 function formatAgo(updatedAt: number): string {
     const diffMs = Date.now() - updatedAt;
@@ -17,6 +18,7 @@ function formatAgo(updatedAt: number): string {
 export default function PanelHomePage() {
     const [items, setItems] = useState<PanelListing[]>([]);
     const [loading, setLoading] = useState(true);
+    const businessSetup = useAutosBusinessSetup();
 
     useEffect(() => {
         void (async () => {
@@ -48,6 +50,16 @@ export default function PanelHomePage() {
             <PanelPageHeader title="Mi panel" description="Resumen de publicaciones, visitas y contactos." />
 
             <div className="grid gap-4">
+                <PanelBusinessSetupCard
+                    steps={businessSetup.steps}
+                    billing={businessSetup.billing ?? {
+                        status: 'free',
+                        daysRemaining: null,
+                        subscriptionHref: '/panel/mi-cuenta/suscripcion',
+                    }}
+                    loading={businessSetup.loading}
+                />
+
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                     {stats.map((item) => (
                         <PanelStatCard key={item.label} label={item.label} value={item.value} meta={item.sub} />

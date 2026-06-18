@@ -83,7 +83,7 @@ const FAQS: { q: string; a: string }[] = [
     { q: '¿La prueba es gratis?', a: 'Sí. Al crear tu cuenta tienes 30 días para probar todas las funciones, sin tarjeta de crédito.' },
     { q: '¿Necesito pagar para empezar?', a: 'No. El registro es gratuito y la prueba incluye acceso completo. Los planes y precios los ves en tu panel cuando quieras continuar.' },
     { q: '¿Puedo cancelar cuando quiera?', a: 'Sí. Sin permanencia. Si activas un plan después, puedes cancelarlo en cualquier momento desde tu panel.' },
-    { q: '¿Mis clientes necesitan crear una cuenta?', a: 'No. Tus clientes reservan directamente desde tu página pública sin necesidad de registrarse.' },
+    { q: '¿Mis clientes necesitan crear una cuenta?', a: 'No. Tus clientes reservan directamente desde tu perfil público sin necesidad de registrarse.' },
     { q: '¿Qué métodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus clientes paguen por adelantado.' },
     { q: '¿Funciona para consultas presenciales y online?', a: 'Sí. Puedes configurar servicios presenciales, online o ambos. Cada servicio puede tener duración y precio diferente.' },
 ];
@@ -344,7 +344,7 @@ export default function HomePage() {
                         </div>
                         <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Reservas online 24/7</h3>
                         <p className="leading-relaxed mb-5" style={{ color: 'var(--fg-muted)' }}>
-                            Tus clientes eligen servicio, fecha y hora desde tu página pública. Sin llamadas, sin WhatsApp ida y vuelta.
+                            Tus clientes eligen servicio, fecha y hora desde tu perfil público. Sin llamadas, sin WhatsApp ida y vuelta.
                         </p>
                         <ul className="flex flex-col gap-2">
                             {['Página de reservas con tu marca', 'Selección de servicio y horario', 'Confirmación automática por email'].map((item) => (

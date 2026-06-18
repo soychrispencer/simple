@@ -107,7 +107,7 @@ function ProfesionalesPageInner() {
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-fg">Encuentra un profesional</h1>
                 <p className="mt-1 text-sm text-fg-muted">
-                    Directorio de profesionales con reserva directa en su página pública. Sin comisiones de Simple por cita.
+                    Directorio de profesionales con reserva directa en su perfil público. Sin comisiones de Simple por cita.
                 </p>
             </div>
 

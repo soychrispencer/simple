@@ -53,7 +53,7 @@ function defaultEmailVerificationReturnTo(origin: string): string {
         const url = new URL(origin);
         const host = url.hostname.toLowerCase();
         const port = url.port;
-        if (host.includes('simpleserenatas') || port === '3005') return '/onboarding';
+        if (host.includes('simpleserenatas') || port === '3005') return '/panel';
         if (host.includes('admin.simpleplataforma') || host.includes('simpleadmin') || port === '3000') return '/';
     } catch {
         /* origin inválido */

@@ -336,11 +336,6 @@ h4 {
     }
 }
 
-.panel-content-frame .panel-page {
-    padding-top: clamp(1rem, 1.8vw, 1.35rem);
-    padding-bottom: clamp(1.4rem, 2.1vw, 2rem);
-}
-
 .panel-content-frame .container-app {
     padding-left: clamp(0.7rem, 1.4vw, 1.65rem);
     padding-right: clamp(0.9rem, 1.7vw, 2rem);

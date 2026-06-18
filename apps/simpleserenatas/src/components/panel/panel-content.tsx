@@ -10,7 +10,7 @@ import {
 import type { AppMode } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { appearsInOwnerSolicitudes } from '@/lib/serenata-pending';
-import { miNegocioTabFromPanelPath } from '@/lib/panel-routes';
+import { isMiNegocioPanelSection, miNegocioTabFromPanelPath } from '@/lib/panel-routes';
 import { PanelNotice, SERENATAS_FINANCE_PAGE } from '@simple/ui/panel';
 import { PanelPageHeader } from '@simple/ui/panel';
 
@@ -40,9 +40,6 @@ const FinanzasView = dynamic(() =>
 );
 const PanelMessagesInbox = dynamic(() =>
     import('@simple/ui/panel').then((mod) => mod.PanelMessagesInbox),
-);
-const MiNegocioPublishToggle = dynamic(() =>
-    import('@/components/panel/mi-negocio-publish-toggle').then((mod) => mod.MiNegocioPublishToggle),
 );
 
 export type PanelContentProps = {
@@ -107,20 +104,14 @@ export function PanelContent(props: PanelContentProps) {
         return null;
     }
 
-    if (props.section === 'mi-negocio' || props.section === 'servicios' || props.section === 'groups') {
+    if (isMiNegocioPanelSection(props.section)) {
         const tab = miNegocioTabFromPanelPath(pathname, searchParams.toString());
         return props.mode === 'work' && props.ownerFeaturesEnabled ? (
-            <PanelSectionPage
-                title="Mi negocio"
-                description="Tu página pública en el marketplace: marca, servicios, disponibilidad y medios de pago directos. Sin comisión por serenata."
-                actions={<MiNegocioPublishToggle refresh={props.refresh} />}
-            >
-                <MiNegocioView
-                    tab={tab}
-                    musicians={props.musicians}
-                    refresh={props.refresh}
-                />
-            </PanelSectionPage>
+            <MiNegocioView
+                tab={tab}
+                musicians={props.musicians}
+                refresh={props.refresh}
+            />
         ) : (
             <PanelHomePage {...props} />
         );

@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import type { ReactNode } from 'react';
+import { resolveAppMediaUrl } from '@simple/utils';
 import {
     IconBrandFacebook,
     IconBrandInstagram,
@@ -219,9 +220,11 @@ export function PublicProfileShell({
     teamSectionDescription = 'Asesores visibles conectados a esta cuenta y a su operación pública.',
 }: PublicProfileShellProps) {
     const socialLinks = buildSocialLinks(profile);
-    const heroStyle = profile.coverImageUrl
+    const coverSrc = resolveAppMediaUrl(profile.coverImageUrl);
+    const avatarSrc = resolveAppMediaUrl(profile.avatarImageUrl);
+    const heroStyle = coverSrc
         ? {
-              background: `linear-gradient(180deg, rgba(10,10,10,0.08), rgba(10,10,10,0.72)), url(${profile.coverImageUrl}) center/cover`,
+              background: `linear-gradient(180deg, rgba(10,10,10,0.08), rgba(10,10,10,0.72)), url(${coverSrc}) center/cover`,
           }
         : undefined;
 
@@ -255,8 +258,8 @@ export function PublicProfileShell({
                         </div>
 
                         <div className="flex flex-col gap-5 md:flex-row md:items-end">
-                            {profile.avatarImageUrl ? (
-                                <Image src={profile.avatarImageUrl} alt={profile.name} width={96} height={96} className="h-24 w-24 rounded-[28px] object-cover ring-1 ring-white/20" />
+                            {avatarSrc ? (
+                                <Image src={avatarSrc} alt={profile.name} width={96} height={96} className="h-24 w-24 rounded-[28px] object-cover ring-1 ring-white/20" />
                             ) : (
                                 <div className="flex h-24 w-24 items-center justify-center rounded-[28px] bg-white/12 text-3xl font-semibold ring-1 ring-white/20 backdrop-blur">
                                     {initials}
@@ -451,11 +454,12 @@ function PublicProfileTeamMemberCard({ member }: { member: PublicProfileShellTea
         .filter((item) => item.value && item.href);
     const memberInitials = initialsFromPublicProfileName(member.name);
 
+    const memberAvatarSrc = resolveAppMediaUrl(member.avatarImageUrl);
     return (
         <div className="rounded-[24px] border p-5 space-y-4 pp-team-card">
             <div className="flex items-start gap-4">
-                {member.avatarImageUrl ? (
-                    <Image src={member.avatarImageUrl} alt={member.name} width={64} height={64} className="h-16 w-16 rounded-[20px] object-cover" />
+                {memberAvatarSrc ? (
+                    <Image src={memberAvatarSrc} alt={member.name} width={64} height={64} className="h-16 w-16 rounded-[20px] object-cover" />
                 ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded-[20px] text-lg font-semibold pp-icon-well">{memberInitials}</div>
                 )}

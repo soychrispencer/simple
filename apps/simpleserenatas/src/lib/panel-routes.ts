@@ -113,11 +113,15 @@ export function resolvePanelActivePathname(routerPathname: string, section: Sect
     return sectionPath;
 }
 
+export function isMiNegocioPanelSection(section: Section): boolean {
+    return section === 'mi-negocio' || section === 'servicios' || section === 'groups';
+}
+
 export function panelPathFromSection(section: Section, groupSlug?: string | null): string {
     if (section === 'grupo' && groupSlug) {
         return panelGroupHref(groupSlug);
     }
-    if (section === 'mi-negocio' || section === 'servicios' || section === 'groups') {
+    if (isMiNegocioPanelSection(section)) {
         return '/panel/mi-negocio';
     }
     const slug = SECTION_TO_PANEL_SLUG[section];

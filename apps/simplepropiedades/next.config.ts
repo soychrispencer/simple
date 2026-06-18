@@ -8,7 +8,11 @@ const nextConfig: NextConfig = {
     outputFileTracingRoot: path.join(process.cwd(), '../..'),
     transpilePackages: ['@simple/types', '@simple/config', '@simple/ui', '@simple/utils', '@simple/auth', '@simple/marketplace-header', '@simple/listings-core'],
     images: {
-        remotePatterns: [{ protocol: 'https', hostname: '**' }],
+        remotePatterns: [
+            { protocol: 'https', hostname: '**' },
+            { protocol: 'http', hostname: 'localhost' },
+            { protocol: 'http', hostname: '127.0.0.1' },
+        ],
     },
     async rewrites() {
         return [
@@ -19,6 +23,10 @@ const nextConfig: NextConfig = {
             {
                 source: '/api/:path*',
                 destination: `${apiBackendUrl}/api/:path*`,
+            },
+            {
+                source: '/uploads/:path*',
+                destination: `${apiBackendUrl}/uploads/:path*`,
             },
         ];
     },

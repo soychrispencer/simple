@@ -107,6 +107,7 @@ export function createMediaRouter(deps: MediaRouterDeps) {
             const purposeRaw = asString(formData.get('purpose'));
             const imagePurpose: ImageUploadPurpose =
                 purposeRaw === 'avatar' ? 'avatar'
+                : purposeRaw === 'logo' ? 'logo'
                 : purposeRaw === 'cover' ? 'cover'
                 : 'default';
 

@@ -2,7 +2,7 @@
 
 import type { ComponentType } from 'react';
 import {
-    IconHome,
+    IconLayoutDashboard,
     IconPlus,
     IconUsersGroup,
     IconMusic,
@@ -68,7 +68,7 @@ export function getPrimaryActionConfig(
 
 export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     const items: PanelNavItem[] = [
-        { id: 'home', href: panelSectionHref('home'), label: 'Mi panel', icon: IconHome },
+        { id: 'home', href: panelSectionHref('home'), label: 'Mi panel', icon: IconLayoutDashboard },
     ];
 
     if (mode === 'client') {

@@ -2,7 +2,7 @@
 
 import type { ComponentType } from 'react';
 import {
-    IconCar,
+    IconLayoutDashboard,
     IconChartBar,
     IconFileText,
     IconBookmark,
@@ -25,7 +25,7 @@ export type PanelNavItem = {
 };
 
 const PANEL_NAV_ITEMS: PanelNavItem[] = [
-    { href: '/panel', label: 'Mi panel', icon: IconCar },
+    { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
     { href: '/panel/publicaciones', label: 'Publicaciones', icon: IconFileText },
     { href: '/panel/publicar', label: 'Nueva publicación', icon: IconPlus },
     { href: '/panel/guardados', label: 'Guardados', icon: IconBookmark },

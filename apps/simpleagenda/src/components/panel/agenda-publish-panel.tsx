@@ -18,7 +18,7 @@ import {
     IconWorld,
     IconX,
 } from '@tabler/icons-react';
-import { PanelButton, PanelCard, PanelField, PanelSwitch } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelField } from '@simple/ui/panel';
 import { checkSlugAvailable, fetchAgendaProfile, saveAgendaProfile, type AgendaProfile } from '@/lib/agenda-api';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3004';
@@ -28,8 +28,6 @@ export function AgendaPublishPanel() {
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [copied, setCopied] = useState(false);
-    const [togglingPublish, setTogglingPublish] = useState(false);
-    const [publishSaved, setPublishSaved] = useState(false);
     const [editingSlug, setEditingSlug] = useState(false);
     const [slugDraft, setSlugDraft] = useState('');
     const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
@@ -132,19 +130,8 @@ export function AgendaPublishPanel() {
         ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(publicUrl)}`
         : null;
 
-    const handleTogglePublish = async (next: boolean) => {
-        if (!profile) return;
-        setTogglingPublish(true);
-        setPublishSaved(false);
-        await saveAgendaProfile({ isPublished: next } as Partial<AgendaProfile>);
-        setProfile((prev) => (prev ? { ...prev, isPublished: next } : prev));
-        setTogglingPublish(false);
-        setPublishSaved(true);
-        setTimeout(() => setPublishSaved(false), 2500);
-    };
-
     if (loading) {
-        return <p className="text-sm text-fg-muted">Cargando página pública…</p>;
+        return <p className="text-sm text-fg-muted">Cargando perfil público…</p>;
     }
 
     if (!profile?.slug) {
@@ -152,16 +139,16 @@ export function AgendaPublishPanel() {
             <div className="grid w-full min-w-0 gap-5">
                 <PanelCard size="lg" className="flex flex-col items-center gap-3 text-center">
                     <IconAlertCircle size={32} className="text-fg-muted" />
-                    <p className="text-sm font-medium text-fg">Primero completa tu página pública</p>
+                    <p className="text-sm font-medium text-fg">Primero completa tu perfil público</p>
                     <p className="text-xs text-fg-muted">
-                        Define tu nombre visible en Página pública para obtener tu link de reservas y aparecer en el directorio.
+                        Define tu nombre visible en Perfil público para obtener tu link de reservas y aparecer en el directorio.
                     </p>
                     <Link
                         href="/panel/mi-negocio"
                         className="mt-1 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90"
                         style={{ background: 'var(--accent)', color: '#fff' }}
                     >
-                        Ir a Página pública
+                        Ir a Perfil público
                     </Link>
                 </PanelCard>
             </div>
@@ -341,35 +328,6 @@ export function AgendaPublishPanel() {
                             </PanelButton>
                         </div>
                     </div>
-                )}
-            </PanelCard>
-
-            <PanelCard size="md">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                        <p className="mb-0.5 text-sm font-semibold text-fg">
-                            {profile.isPublished ? 'Página activa' : 'Página inactiva'}
-                        </p>
-                        <p className="text-xs text-fg-muted">
-                            {profile.isPublished
-                                ? 'Tu perfil está en tu link público y en el directorio de profesionales. Los pacientes reservan directo contigo.'
-                                : 'Tu página no es visible. Actívala para aparecer en el marketplace y recibir reservas.'}
-                        </p>
-                    </div>
-                    {togglingPublish ? (
-                        <IconLoader2 size={20} className="shrink-0 animate-spin text-fg-muted" />
-                    ) : (
-                        <PanelSwitch
-                            checked={profile.isPublished}
-                            onChange={(next) => void handleTogglePublish(next)}
-                            ariaLabel={profile.isPublished ? 'Despublicar página' : 'Publicar página'}
-                        />
-                    )}
-                </div>
-                {publishSaved && (
-                    <p className="mt-3 flex items-center gap-1 text-xs text-accent">
-                        <IconCheck size={12} /> Guardado
-                    </p>
                 )}
             </PanelCard>
 
