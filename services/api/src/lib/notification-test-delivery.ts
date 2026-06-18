@@ -3,19 +3,13 @@ import { getEmailBrandProfile } from './email-brand.js';
 import { ensureEmailLogoCache } from './email-brand-logo.js';
 import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from './email-template.js';
 import { formatAuthFromAddress, getAuthMailerTransporter } from './auth-email.js';
-import { sendVerticalTemplate } from '../modules/whatsapp/service.js';
 import { touchUserLastNotificationAt } from './notification-delivery-meta.js';
 import { logUserNotificationDelivery } from './user-notification-log.js';
-import {
-    getUserNotificationPrefs,
-    isSerenatasWhatsAppQuietHours,
-    shouldSendSerenatasWhatsApp,
-} from './user-notification-prefs.js';
+import { getUserNotificationPrefs, shouldSendAccountEmail } from './user-notification-prefs.js';
 
 const TEST_EMAIL_SUBJECT = 'Prueba de notificaciones';
-const TEST_WA_TEMPLATE = 'simpleserenatas_invitacion_grupo';
 
-function serenatasAppUrl(): string {
+function appPanelUrl(): string {
     return (
         process.env.SERENATAS_APP_URL
         ?? process.env.MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS
@@ -25,9 +19,9 @@ function serenatasAppUrl(): string {
 
 export async function sendNotificationTestEmail(userId: string, email: string, name: string): Promise<void> {
     const transporter = getAuthMailerTransporter();
-    const brand = getEmailBrandProfile(serenatasAppUrl());
+    const brand = getEmailBrandProfile(appPanelUrl());
     await ensureEmailLogoCache();
-    const panelUrl = `${serenatasAppUrl()}/panel?account_tab=notifications`;
+    const panelUrl = `${appPanelUrl()}/panel?account_tab=notifications`;
     const body = `Hola ${name || 'equipo'}, este es un correo de prueba desde ${brand.appName}. Si lo recibiste, el canal de correo funciona.`;
 
     if (!transporter) {
@@ -71,38 +65,10 @@ export async function sendNotificationTestEmail(userId: string, email: string, n
     await logUserNotificationDelivery(userId, 'email', 'test', TEST_EMAIL_SUBJECT);
 }
 
-export async function sendNotificationTestWhatsApp(userId: string): Promise<{ deferredQuietHours?: boolean }> {
+export async function sendNotificationTestInApp(userId: string): Promise<void> {
     const prefs = await getUserNotificationPrefs(userId);
-    if (!prefs || !shouldSendSerenatasWhatsApp(prefs) || !prefs.phone) {
-        throw new Error(
-            'Activa WhatsApp en al menos una categoría (Invitaciones, Agenda o Cuenta) y agrega un móvil chileno en Datos personales.',
-        );
+    if (!prefs || !shouldSendAccountEmail(prefs)) {
+        throw new Error('Activa las notificaciones por correo en Mi cuenta → Notificaciones.');
     }
-    if (isSerenatasWhatsAppQuietHours()) {
-        await touchUserLastNotificationAt(userId, 'whatsapp');
-        await logUserNotificationDelivery(userId, 'whatsapp', 'test', 'Prueba (horario silencioso)');
-        return { deferredQuietHours: true };
-    }
-
-    const panelUrl = `${serenatasAppUrl()}/panel?account_tab=notifications`;
-    try {
-        await sendVerticalTemplate(
-            'serenatas',
-            prefs.phone,
-            TEST_WA_TEMPLATE,
-            'es',
-            [prefs.email.split('@')[0] || 'Hola', 'Prueba Simple Serenatas', panelUrl],
-        );
-    } catch (error) {
-        if (!isProduction) {
-            console.info('[notification-test] (dev) WhatsApp falló, simulando envío', { userId, error });
-            await touchUserLastNotificationAt(userId, 'whatsapp');
-            await logUserNotificationDelivery(userId, 'whatsapp', 'test', 'Prueba WhatsApp (simulado)');
-            return {};
-        }
-        throw error;
-    }
-    await touchUserLastNotificationAt(userId, 'whatsapp');
-    await logUserNotificationDelivery(userId, 'whatsapp', 'test', 'Prueba WhatsApp');
-    return {};
+    await logUserNotificationDelivery(userId, 'in_app', 'test', 'Prueba de notificación');
 }

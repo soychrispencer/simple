@@ -2,7 +2,7 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { userNotificationLog } from '../db/schema.js';
 
-export type UserNotificationLogChannel = 'email' | 'whatsapp';
+export type UserNotificationLogChannel = 'email' | 'whatsapp' | 'in_app';
 
 export async function logUserNotificationDelivery(
     userId: string,

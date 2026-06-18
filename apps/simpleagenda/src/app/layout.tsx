@@ -62,17 +62,6 @@ export const metadata: Metadata = {
         description: APP_DESCRIPTION,
         images: [`${APP_URL}/hero/consultation-hero.webp`],
     },
-    icons: {
-        icon: [
-            { url: '/favicon-48x48.png', sizes: '48x48', type: 'image/png' },
-            { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-            { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-        ],
-        apple: [
-            { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-        ],
-        shortcut: ['/favicon-48x48.png'],
-    },
 };
 
 const siteSchema = {

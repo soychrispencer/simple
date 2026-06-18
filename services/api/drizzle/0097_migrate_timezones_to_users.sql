@@ -1,18 +1,17 @@
--- Migrate timezones from business profiles to users table
+-- Migrate timezones from business profiles to users (solo si el usuario sigue en el default)
 
--- Migrate timezone from agenda_professional_profiles to users
 UPDATE users
 SET timezone = ap.timezone
 FROM agenda_professional_profiles ap
-WHERE users.id = ap.userId
+WHERE users.id = ap.user_id
 AND ap.timezone IS NOT NULL
-AND ap.timezone != 'America/Santiago';
+AND ap.timezone != 'America/Santiago'
+AND users.timezone = 'America/Santiago';
 
--- Migrate timezone from serenatas_provider_groups to users
 UPDATE users
 SET timezone = spg.timezone
-FROM serenatas_provider_groups spg
-JOIN serenatas_provider_group_members spgm ON spg.groupId = spg.id
-WHERE users.id = spgm.userId
+FROM serenata_provider_groups spg
+WHERE users.id = spg.owner_user_id
 AND spg.timezone IS NOT NULL
-AND spg.timezone != 'America/Santiago';
+AND spg.timezone != 'America/Santiago'
+AND users.timezone = 'America/Santiago';

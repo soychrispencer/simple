@@ -1,1 +1,5 @@
-export { default } from '../verify-email/confirm-page';
+import { ConfirmEmailPage } from '@simple/auth';
+
+export default function ConfirmarCorreoPage() {
+    return <ConfirmEmailPage appId="simpleserenatas" defaultReturnTo="/onboarding" />;
+}

@@ -2,51 +2,33 @@
 
 import { useAuth } from '@simple/auth';
 import {
-    cancelAccountEmailChange,
-    changeAccountPassword,
-    deleteAccount,
-    disconnectAccountGoogle,
-    activateAccountPlatform,
-    requestAccountEmailChange,
-    updateAccountProfile,
-    uploadAccountAvatar,
-} from '@/lib/account-profile';
-import { PanelAccountPersonalDataSection, PanelPageHeader } from '@simple/ui/panel';
-import { PanelSectionTabs, accountSectionTabs } from '@/components/panel/panel-section-tabs';
+    PanelAccountPersonalDataSection,
+    PanelAccountShell,
+    bindAccountProfileSection,
+    DEFAULT_ACCOUNT_SECTION_TABS,
+    ACCOUNT_SECURITY_PAGE,
+} from '@simple/ui/panel';
 
 export default function SeguridadCuentaPage() {
-    const { user, refreshSession, requireAuth, logout } = useAuth();
+    const auth = useAuth();
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Mi cuenta"
-                description="Datos personales, seguridad y preferencias."
+        <PanelAccountShell
+            activeKey="seguridad"
+            tabs={DEFAULT_ACCOUNT_SECTION_TABS}
+            title={ACCOUNT_SECURITY_PAGE.title}
+            description={ACCOUNT_SECURITY_PAGE.description}
+        >
+            <PanelAccountPersonalDataSection
+                {...bindAccountProfileSection({
+                    user: auth.user,
+                    appLabel: 'Simple Propiedades',
+                    activeSection: 'security',
+                    refreshSession: auth.refreshSession,
+                    logout: auth.logout,
+                    requireAuth: auth.requireAuth,
+                })}
             />
-
-            <div className="flex flex-col gap-6">
-                <PanelSectionTabs
-                    items={accountSectionTabs}
-                    activeKey="seguridad"
-                />
-
-                <PanelAccountPersonalDataSection
-                    activeSection="security"
-                    user={user}
-                    roleLabel="Cuenta Simple"
-                    onSave={updateAccountProfile}
-                    onUploadAvatar={uploadAccountAvatar}
-                    onRequestEmailChange={requestAccountEmailChange}
-                    onCancelEmailChange={cancelAccountEmailChange}
-                    onChangePassword={changeAccountPassword}
-                    onDisconnectGoogle={disconnectAccountGoogle}
-                    onActivatePlatform={activateAccountPlatform}
-                    onDeleteAccount={deleteAccount}
-                    onSaved={refreshSession}
-                    onAfterDelete={logout}
-                    onUnauthorized={requireAuth}
-                />
-            </div>
-        </div>
+        </PanelAccountShell>
     );
 }

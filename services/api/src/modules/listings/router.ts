@@ -34,12 +34,19 @@ export type ListingsRouterDeps = {
     getListingDraftRecord: (userId: string, vertical: any) => Promise<any>;
     upsertListingDraftRecord: (userId: string, vertical: any, draft: unknown) => Promise<any>;
     deleteListingDraftRecord: (userId: string, vertical: any) => Promise<void>;
+    generateListingReel?: (input: {
+        user: { id: string; role?: string };
+        listing: any;
+        replaceExisting?: boolean;
+    }) => Promise<{ publicUrl: string; sizeBytes: number; durationSeconds: number; slideCount: number }>;
+    isReelGeneratorAvailable?: () => boolean;
     schemas: {
         createListingSchema: any;
         updateListingSchema: any;
         updateListingStatusSchema: any;
         publishListingPortalSchema: any;
         listingDraftWriteSchema: any;
+        generateListingReelSchema?: any;
     };
 };
 
@@ -293,6 +300,50 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             portal,
             integration: deps.getPortalSyncView(listing, portal),
         });
+    });
+
+    app.post('/:id/generate-reel', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        if (!deps.generateListingReel || !deps.isReelGeneratorAvailable?.()) {
+            return c.json({ ok: false, error: 'El generador de video no está disponible en este entorno.' }, 503);
+        }
+
+        const listingId = c.req.param('id') ?? '';
+        let listing = await resolvePanelListing(listingId);
+        if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+            return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
+        }
+        if (listing.status !== 'active') {
+            return c.json({ ok: false, error: 'Solo puedes generar video para avisos activos.' }, 409);
+        }
+
+        const payload = await c.req.json().catch(() => ({}));
+        const parsed = deps.schemas.generateListingReelSchema?.safeParse(payload);
+        if (parsed && !parsed.success) {
+            return c.json({ ok: false, error: 'Payload inválido' }, 400);
+        }
+
+        try {
+            const result = await deps.generateListingReel({
+                user,
+                listing,
+                replaceExisting: parsed?.success ? parsed.data.replaceExisting : false,
+            });
+            listing = await resolvePanelListing(listingId);
+            return c.json({
+                ok: true,
+                videoUrl: result.publicUrl,
+                durationSeconds: result.durationSeconds,
+                slideCount: result.slideCount,
+                item: listing ? deps.listingToDetailResponse(listing) : undefined,
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'No se pudo generar el video.';
+            return c.json({ ok: false, error: message }, 422);
+        }
     });
 
     app.patch('/:id/status', async (c) => {

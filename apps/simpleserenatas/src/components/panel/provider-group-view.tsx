@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { IconMusic } from '@tabler/icons-react';
+import type { StructuredLocation } from '@simple/types';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelField, PanelNotice } from '@simple/ui/panel';
-import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
+import { StructuredLocationFields } from '@simple/ui/panel';
+import { normalizeStructuredLocation } from '@simple/utils';
+import { serenatasApi } from '@/lib/serenatas-api';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
-import { RegionCommuneFields } from '@/components/panel/region-commune-fields';
 import { WorkZonesPicker } from '@/components/panel/work-zones-picker';
 import { EmptyBlock, FieldInput, FieldTextarea, FormFeedback, type FormStatus } from './shared';
 import { ProviderContactPhonesFields } from './provider-contact-phones-fields';
@@ -19,6 +21,17 @@ function addUniqueCommune(communes: string[], commune: string) {
     return exists ? communes : [...communes, clean];
 }
 
+function locationPayload(location: StructuredLocation) {
+    const normalized = normalizeStructuredLocation(location);
+    return {
+        countryCode: normalized.countryCode,
+        regionId: normalized.regionId,
+        localityId: normalized.localityId,
+        region: normalized.regionName,
+        comunaBase: normalized.localityName,
+    };
+}
+
 export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> }) {
     const { mariachi, hasMariachi, loading, error, refresh: refreshMariachi } = useMyMariachi();
     const [saveStatus, setSaveStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
@@ -29,16 +42,30 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     const [coverUrl, setCoverUrl] = useState('');
     const [phone, setPhone] = useState('');
     const [whatsapp, setWhatsapp] = useState('');
-    const [region, setRegion] = useState('');
-    const [comunaBase, setComunaBase] = useState('');
+    const [location, setLocation] = useState<StructuredLocation>(() => normalizeStructuredLocation({ countryCode: 'CL' }));
     const [serviceComunas, setServiceComunas] = useState<string[]>([]);
 
-    const handleComunaBaseChange = (nextComuna: string) => {
-        setComunaBase(nextComuna);
-        setServiceComunas((current) => addUniqueCommune(current, nextComuna));
+    const handleLocationChange = (next: StructuredLocation) => {
+        setLocation(next);
+        const localityName = next.localityName?.trim();
+        if (localityName) {
+            setServiceComunas((current) => addUniqueCommune(current, localityName));
+        }
     };
 
-    const comunaBaseHint = comunaBase.trim() ? `Tu comuna base es ${comunaBase.trim()}` : null;
+    const comunaBaseHint = location.localityName?.trim()
+        ? `Tu comuna base es ${location.localityName.trim()}`
+        : null;
+
+    const groupLocationFields = useMemo(() => (
+        <StructuredLocationFields
+            value={location}
+            onChange={handleLocationChange}
+            disabled={saveStatus.loading}
+            regionLabel="Región"
+            localityLabel="Comuna base"
+        />
+    ), [location, saveStatus.loading]);
 
     useEffect(() => {
         if (!mariachi) return;
@@ -48,8 +75,13 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
         setCoverUrl(mariachi.coverUrl ?? '');
         setPhone(mariachi.phone ?? '');
         setWhatsapp(mariachi.whatsapp ?? '');
-        setRegion(mariachi.region ?? '');
-        setComunaBase(mariachi.comunaBase ?? '');
+        setLocation(normalizeStructuredLocation({
+            countryCode: mariachi.countryCode ?? 'CL',
+            regionId: mariachi.regionId ?? null,
+            regionName: mariachi.region ?? null,
+            localityId: mariachi.localityId ?? null,
+            localityName: mariachi.comunaBase ?? null,
+        }));
         setServiceComunas(mariachi.serviceComunas ?? []);
     }, [mariachi?.id, mariachi?.updatedAt]);
 
@@ -66,8 +98,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
             coverUrl: coverUrl.trim() || null,
             phone: phone.trim() || null,
             whatsapp: whatsapp.trim() || null,
-            region: region || null,
-            comunaBase: comunaBase || null,
+            ...locationPayload(location),
             serviceComunas,
             status: 'draft',
         });
@@ -94,8 +125,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
             coverUrl: coverUrl.trim() || null,
             phone: phone.trim() || null,
             whatsapp: whatsapp.trim() || null,
-            region: region || null,
-            comunaBase: comunaBase || null,
+            ...locationPayload(location),
             serviceComunas,
         });
         if (!response.ok) {
@@ -116,8 +146,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
             coverUrl,
             phone: phone || null,
             whatsapp: whatsapp || null,
-            region: region || null,
-            comunaBase: comunaBase || null,
+            ...locationPayload(location),
             serviceComunas,
         });
         if (!response.ok) {
@@ -185,7 +214,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                             onPhoneChange={setPhone}
                             onWhatsappChange={setWhatsapp}
                         />
-                        <RegionCommuneFields region={region} comuna={comunaBase} onRegionChange={setRegion} onComunaChange={handleComunaBaseChange} />
+                        {groupLocationFields}
                         <PanelField label="Zonas de trabajo">
                             <WorkZonesPicker value={serviceComunas} onChange={setServiceComunas} />
                             {comunaBaseHint ? <p className="mt-2 text-xs text-fg-muted">{comunaBaseHint}</p> : null}
@@ -234,12 +263,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                         onPhoneChange={setPhone}
                         onWhatsappChange={setWhatsapp}
                     />
-                    <RegionCommuneFields
-                        region={region}
-                        comuna={comunaBase}
-                        onRegionChange={setRegion}
-                        onComunaChange={handleComunaBaseChange}
-                    />
+                    {groupLocationFields}
                     <PanelField label="Zonas de trabajo">
                         <WorkZonesPicker value={serviceComunas} onChange={setServiceComunas} />
                         {comunaBaseHint ? <p className="mt-2 text-xs text-fg-muted">{comunaBaseHint}</p> : null}

@@ -9,7 +9,7 @@ import {
     serenataProviderGroups,
     serenatas,
 } from '../../db/schema.js';
-import { eventDateYmd, SERENATA_TIMEZONE, todayYmdInChile } from './lifecycle.js';
+import { eventDateYmd, SERENATA_TIMEZONE, todayYmdInChile, todayYmdInTimezone } from './lifecycle.js';
 
 export const DEFAULT_SLA_HOURS = 24;
 /** Plazo único de respuesta del dueño en solicitudes marketplace pagadas (expiración + cronómetro). */
@@ -27,6 +27,7 @@ export type ProviderGroupSlotOptions = {
     dayEnd?: string;
     bufferMinutes?: number;
     blockedSlots?: { startsAt: Date; endsAt: Date }[];
+    timezone?: string;
 };
 
 export type ProviderGroupBlockedSlotRow = typeof serenataProviderGroupBlockedSlots.$inferSelect;
@@ -90,9 +91,9 @@ function estimatedTravelMinutes(a: typeof serenatas.$inferSelect, b: typeof sere
     return Math.max(10, Math.ceil((distanceKm({ lat: aLat, lng: aLng }, { lat: bLat, lng: bLng }) / 28) * 60) + 8);
 }
 
-function chileTimeParts(date = new Date()) {
+function timePartsInTimezone(date = new Date(), timezone = SERENATA_TIMEZONE) {
     const formatter = new Intl.DateTimeFormat('en-GB', {
-        timeZone: SERENATA_TIMEZONE,
+        timeZone: timezone,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -108,14 +109,14 @@ function chileTimeParts(date = new Date()) {
     };
 }
 
-/** UTC ms para una fecha/hora expresada en America/Santiago. */
-export function chileWallClockToMs(ymd: string, minutes: number): number | null {
+/** UTC ms para una fecha/hora expresada en la zona indicada (default Chile). */
+export function wallClockToMs(ymd: string, minutes: number, timezone = SERENATA_TIMEZONE): number | null {
     const [year, month, day] = ymd.split('-').map(Number);
     if (!year || !month || !day || !Number.isFinite(minutes)) return null;
     const hh = Math.floor(minutes / 60);
     const mm = minutes % 60;
     const formatter = new Intl.DateTimeFormat('en-GB', {
-        timeZone: SERENATA_TIMEZONE,
+        timeZone: timezone,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -134,16 +135,26 @@ export function chileWallClockToMs(ymd: string, minutes: number): number | null 
     return null;
 }
 
-export function dayOfWeekChile(ymd: string): number {
-    const ms = chileWallClockToMs(ymd, 12 * 60);
+/** @deprecated Usar `wallClockToMs`. */
+export function chileWallClockToMs(ymd: string, minutes: number): number | null {
+    return wallClockToMs(ymd, minutes, SERENATA_TIMEZONE);
+}
+
+export function dayOfWeekInTimezone(ymd: string, timezone = SERENATA_TIMEZONE): number {
+    const ms = wallClockToMs(ymd, 12 * 60, timezone);
     const date = ms != null ? new Date(ms) : new Date(`${ymd}T12:00:00.000Z`);
     const weekday = new Intl.DateTimeFormat('en-US', {
-        timeZone: SERENATA_TIMEZONE,
+        timeZone: timezone,
         weekday: 'long',
     }).format(date);
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const index = days.indexOf(weekday);
     return index >= 0 ? index : date.getUTCDay();
+}
+
+/** @deprecated Usar `dayOfWeekInTimezone`. */
+export function dayOfWeekChile(ymd: string): number {
+    return dayOfWeekInTimezone(ymd, SERENATA_TIMEZONE);
 }
 
 export function resolveBufferMinutes(value?: number | null) {
@@ -177,9 +188,10 @@ function slotRangeOverlapsBlocked(
     slotStartMinutes: number,
     slotEndMinutes: number,
     blocked: { startsAt: Date; endsAt: Date }[],
+    timezone = SERENATA_TIMEZONE,
 ): boolean {
-    const slotStartMs = chileWallClockToMs(dayYmd, slotStartMinutes);
-    const slotEndMs = chileWallClockToMs(dayYmd, slotEndMinutes);
+    const slotStartMs = wallClockToMs(dayYmd, slotStartMinutes, timezone);
+    const slotEndMs = wallClockToMs(dayYmd, slotEndMinutes, timezone);
     if (slotStartMs == null || slotEndMs == null) return false;
     return blocked.some((block) => slotStartMs < block.endsAt.getTime() && block.startsAt.getTime() < slotEndMs);
 }
@@ -190,11 +202,12 @@ export async function getProviderGroupSlotOptions(
 ): Promise<ProviderGroupSlotOptions | null> {
     const group = await db.query.serenataProviderGroups.findFirst({
         where: eq(serenataProviderGroups.id, providerGroupId),
-        columns: { bufferMinutes: true },
+        columns: { bufferMinutes: true, timezone: true },
     });
     if (!group) return null;
 
-    const dow = dayOfWeekChile(dayYmd);
+    const tz = group.timezone ?? SERENATA_TIMEZONE;
+    const dow = dayOfWeekInTimezone(dayYmd, tz);
     const rules = await listProviderGroupAvailabilityRules(providerGroupId);
     const activeRules = rules.filter((rule) => rule.isActive);
     const dayRule = activeRules.length > 0
@@ -202,13 +215,14 @@ export async function getProviderGroupSlotOptions(
         : DEFAULT_WEEKLY_RULES.find((rule) => rule.dayOfWeek === dow);
 
     if (!dayRule) {
-        return { bufferMinutes: resolveBufferMinutes(group.bufferMinutes) };
+        return { bufferMinutes: resolveBufferMinutes(group.bufferMinutes), timezone: tz };
     }
 
     return {
         dayStart: dayRule.startTime,
         dayEnd: dayRule.endTime,
         bufferMinutes: resolveBufferMinutes(group.bufferMinutes),
+        timezone: tz,
     };
 }
 
@@ -244,13 +258,14 @@ export function validateMarketplaceEventLead(
     eventDate: Date,
     eventTime: string | null | undefined,
     minLeadHours = MARKETPLACE_MIN_LEAD_HOURS,
+    timezone = SERENATA_TIMEZONE,
 ): string | null {
     const ymd = eventDateYmd(eventDate);
     if (!ymd) return 'Fecha inválida.';
     if (!eventTime) return null;
     const eventMinutes = minutesFromTime(eventTime);
     if (eventMinutes == null) return 'Hora inválida.';
-    const eventMs = chileWallClockToMs(ymd, eventMinutes);
+    const eventMs = wallClockToMs(ymd, eventMinutes, timezone);
     if (eventMs == null) return 'Fecha u hora inválida.';
     const nowMs = Date.now();
     if (eventMs < nowMs) return 'La fecha y hora del evento deben ser futuras.';
@@ -444,12 +459,13 @@ export function generateMarketplaceTimeSlots(
     const dayEnd = minutesFromTime(options?.dayEnd ?? MARKETPLACE_DAY_END) ?? 23 * 60;
     const bufferMinutes = resolveBufferMinutes(options?.bufferMinutes);
     const blocked = options?.blockedSlots ?? [];
+    const tz = options?.timezone ?? SERENATA_TIMEZONE;
     const step = durationMinutes + bufferMinutes;
     if (dayEnd <= dayStart || step <= 0) return [];
 
     const slots: string[] = [];
-    const today = todayYmdInChile();
-    const nowParts = chileTimeParts();
+    const today = todayYmdInTimezone(tz);
+    const nowParts = timePartsInTimezone(new Date(), tz);
 
     for (let cursor = dayStart; cursor + durationMinutes <= dayEnd; cursor += step) {
         if (dayYmd === today && cursor <= nowParts.minutes) continue;
@@ -465,7 +481,7 @@ export function generateMarketplaceTimeSlots(
             );
         });
         if (overlaps) continue;
-        if (slotRangeOverlapsBlocked(dayYmd, cursor, cursor + durationMinutes + bufferMinutes, blocked)) continue;
+        if (slotRangeOverlapsBlocked(dayYmd, cursor, cursor + durationMinutes + bufferMinutes, blocked, tz)) continue;
         slots.push(minutesToTime(cursor));
     }
 
@@ -550,17 +566,19 @@ export async function filterProviderGroupsAvailableOnDate(
         listProviderGroupsBusySerenatas(groupIds, dayYmd, true),
     ]);
 
-    const dow = dayOfWeekChile(dayYmd);
+    const dow = dayOfWeekInTimezone(dayYmd, SERENATA_TIMEZONE);
 
     return groups.filter((group) => {
+        const groupTz = group.timezone ?? SERENATA_TIMEZONE;
+        const groupDow = groupTz === SERENATA_TIMEZONE ? dow : dayOfWeekInTimezone(dayYmd, groupTz);
         const groupServices = services.filter((service) => service.providerGroupId === group.id);
         if (groupServices.length === 0) return false;
 
         const groupRules = rules.filter((rule) => rule.providerGroupId === group.id);
         const activeRules = groupRules.filter((rule) => rule.isActive);
         const dayRule = activeRules.length > 0
-            ? activeRules.find((rule) => rule.dayOfWeek === dow)
-            : DEFAULT_WEEKLY_RULES.find((rule) => rule.dayOfWeek === dow);
+            ? activeRules.find((rule) => rule.dayOfWeek === groupDow)
+            : DEFAULT_WEEKLY_RULES.find((rule) => rule.dayOfWeek === groupDow);
         if (activeRules.length > 0 && !dayRule) return false;
 
         const slotOptions: ProviderGroupSlotOptions = {
@@ -570,6 +588,7 @@ export async function filterProviderGroupsAvailableOnDate(
             blockedSlots: blockedSlots
                 .filter((slot) => slot.providerGroupId === group.id)
                 .map((slot) => ({ startsAt: slot.startsAt, endsAt: slot.endsAt })),
+            timezone: groupTz,
         };
         const busy = busySerenatas.filter((item) => item.providerGroupId === group.id);
 

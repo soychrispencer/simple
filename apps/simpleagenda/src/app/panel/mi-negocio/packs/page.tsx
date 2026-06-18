@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     IconPlus, IconLoader2, IconTrash, IconEdit, IconX, IconCheck, IconAlertCircle, IconPackage, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelPageHeader, PanelEmptyState } from '@simple/ui/panel';
+import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_PACKS_PAGE, AGENDA_BUSINESS_SERVICIOS_PAGE } from '@simple/ui/panel';
+import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaPacks,
     createAgendaPack,
@@ -156,17 +157,18 @@ export default function PacksPage() {
     const visibleServices = useMemo(() => services.filter((s) => s.isActive), [services]);
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Packs y bonos"
-                description="Vende varias sesiones juntas con un precio especial. Los pacientes agendan cuando quieran usarlas."
-                actions={
-                    <PanelButton variant="accent" size="sm" onClick={openNew}>
-                        <IconPlus size={14} /> Nuevo
-                    </PanelButton>
-                }
-            />
-
+        <PanelBusinessShell
+            activeKey="servicios"
+            tabs={businessSectionTabs}
+            title={AGENDA_BUSINESS_PACKS_PAGE.title}
+            description={AGENDA_BUSINESS_PACKS_PAGE.description}
+            subsectionBack={{ href: '/panel/mi-negocio/servicios', label: AGENDA_BUSINESS_SERVICIOS_PAGE.title }}
+            actions={
+                <PanelButton variant="accent" size="sm" onClick={openNew}>
+                    <IconPlus size={14} /> Nuevo
+                </PanelButton>
+            }
+        >
             {flash && (
                 <div className="mb-4">
                     <PanelNotice tone="success">
@@ -404,6 +406,6 @@ export default function PacksPage() {
                     </div>
                 </div>
             )}
-        </div>
+        </PanelBusinessShell>
     );
 }

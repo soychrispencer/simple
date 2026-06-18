@@ -3,9 +3,9 @@ import { persistPaymentOrderToDb } from './persist.js';
 import { persistUserSubscription } from '../subscriptions/persist-db.js';
 
 export type ConfirmSubscriptionDeps = {
-    getPaidSubscriptionPlan: (vertical: VerticalType, planId: 'essential' | 'pro' | 'enterprise') => PaidSubscriptionPlanRecord | null;
+    getPaidSubscriptionPlan: (vertical: VerticalType, planId: 'pro' | 'enterprise') => PaidSubscriptionPlanRecord | null;
     upsertActiveSubscription: (sub: Record<string, unknown>) => Record<string, unknown>;
-    makeSubscriptionId: (vertical: VerticalType, planId: 'essential' | 'pro' | 'enterprise') => string;
+    makeSubscriptionId: (vertical: VerticalType, planId: 'pro' | 'enterprise') => string;
     updatePaymentOrder: (
         userId: string,
         orderId: string,
@@ -41,7 +41,7 @@ export async function confirmSubscriptionFromPreapproval(
         return { ok: false, error: 'La orden no tiene metadata de suscripción válida.', status: 409 };
     }
 
-    const planId = metadata.planId as 'essential' | 'pro' | 'enterprise';
+    const planId = metadata.planId as 'pro' | 'enterprise';
     const vertical = String(input.order.vertical) as VerticalType;
     const parsedStatus = deps.parseMercadoPagoPreapprovalStatus(input.providerStatus);
 
@@ -64,6 +64,7 @@ export async function confirmSubscriptionFromPreapproval(
             accountId,
             vertical,
             planSlug: planId,
+            provider: 'mercadopago',
             providerSubscriptionId: input.providerPreapprovalId,
             providerStatus: input.providerStatus,
             status: 'cancelled',
@@ -87,10 +88,14 @@ export async function confirmSubscriptionFromPreapproval(
         accountId,
         vertical,
         planSlug: planId,
+        provider: 'mercadopago',
         providerSubscriptionId: input.providerPreapprovalId,
         providerStatus: input.providerStatus,
         status: 'active',
     });
+
+    const billedAmount = Number(nextOrder.amount ?? plan.priceMonthly);
+    const billedCurrency = String(nextOrder.currency ?? plan.currency);
 
     const subscription = deps.upsertActiveSubscription({
         id: deps.makeSubscriptionId(vertical, planId),
@@ -98,8 +103,8 @@ export async function confirmSubscriptionFromPreapproval(
         vertical,
         planId: plan.id,
         planName: plan.name,
-        priceMonthly: plan.priceMonthly,
-        currency: plan.currency,
+        priceMonthly: billedAmount,
+        currency: billedCurrency,
         features: plan.features,
         status: 'active',
         providerPreapprovalId: input.providerPreapprovalId,
@@ -124,10 +129,10 @@ export async function confirmSubscriptionFromPreapproval(
         vertical,
         kind: 'subscription',
         title: String(nextOrder.title ?? `Suscripción ${plan.name}`),
-        amount: Number(nextOrder.amount ?? plan.priceMonthly),
-        currency: String(nextOrder.currency ?? plan.currency),
+        amount: billedAmount,
+        currency: billedCurrency,
         status: 'authorized',
-        provider: String(nextOrder.metadata && typeof nextOrder.metadata === 'object' && (nextOrder.metadata as Record<string, unknown>).provider === 'fintoc' ? 'fintoc' : 'mercadopago'),
+        provider: 'mercadopago',
         providerStatus: input.providerStatus,
         providerReferenceId: input.providerPreapprovalId,
         preferenceId: null,

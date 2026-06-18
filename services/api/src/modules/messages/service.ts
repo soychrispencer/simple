@@ -1,13 +1,7 @@
 import { eq, and, or, desc, asc } from 'drizzle-orm';
 import type { z } from 'zod';
-import type { VerticalType } from '@simple/types';
-import type {
-    ListingLeadRecord,
-    MessageEntryRecord,
-    MessageSenderRole,
-    MessageThreadRecord,
-    ServiceLeadRecord,
-} from '../crm/row-mappers.js';
+import type { MessageThreadListingDisplay } from './message-thread-context.js';
+import type { MessageEntryRecord, MessageSenderRole, MessageThreadRecord } from './row-mappers.js';
 
 export type MessageFolder = 'inbox' | 'archived' | 'spam';
 export type { MessageThreadRecord, MessageEntryRecord, MessageSenderRole };
@@ -34,6 +28,7 @@ export type MessageServiceDeps = {
     }>;
     formatAgo: (timestamp: number) => string;
     publicSectionLabel: (section: unknown) => string;
+    resolveThreadListingDisplay: (thread: MessageThreadRecord) => Promise<MessageThreadListingDisplay | null>;
     mapMessageThreadRow: (row: any) => MessageThreadRecord;
     mapMessageEntryRow: (row: any) => MessageEntryRecord;
 };
@@ -69,13 +64,27 @@ export function getMessageThreadFolder(thread: MessageThreadRecord, viewerUserId
     return 'inbox';
 }
 
-export function messageThreadToResponse(
+export async function messageThreadToResponse(
     deps: MessageServiceDeps,
     thread: MessageThreadRecord,
     viewerUserId: string,
     entries: MessageEntryRecord[] = [],
 ) {
-    const listing = deps.listingsById.get(thread.listingId) ?? null;
+    const listing = thread.listingId
+        ? (() => {
+            const cached = deps.listingsById.get(thread.listingId!);
+            if (!cached) return null;
+            return {
+                id: cached.id,
+                title: cached.title,
+                href: cached.href,
+                section: cached.section as 'sale' | 'rent' | 'auction' | 'project',
+                sectionLabel: deps.publicSectionLabel(cached.section),
+                price: String(cached.price ?? ''),
+                location: cached.location ?? '',
+            };
+        })()
+        : await deps.resolveThreadListingDisplay(thread);
     const owner = deps.usersById.get(thread.ownerUserId) ?? null;
     const buyer = deps.usersById.get(thread.buyerUserId) ?? null;
     const viewerRole = getMessageThreadViewerRole(thread, viewerUserId);
@@ -95,7 +104,7 @@ export function messageThreadToResponse(
             title: listing.title,
             href: listing.href,
             section: listing.section,
-            sectionLabel: deps.publicSectionLabel(listing.section),
+            sectionLabel: listing.sectionLabel,
             price: listing.price,
             location: listing.location ?? '',
         } : null,
@@ -104,7 +113,6 @@ export function messageThreadToResponse(
             name: counterpart.name,
             email: counterpart.email,
         } : null,
-        leadId: thread.leadId,
         unreadCount,
         archived,
         spam,
@@ -139,21 +147,6 @@ export function messageEntryToResponse(
     };
 }
 
-export function buildListingLeadNotification(
-    deps: MessageServiceDeps,
-    record: ListingLeadRecord,
-) {
-    const listing = deps.listingsById.get(record.listingId) ?? null;
-    return {
-        id: `listing-lead:${record.id}`,
-        type: 'listing_lead' as const,
-        title: `${record.contactName} consulto por ${listing?.title ?? 'tu publicación'}.`,
-        time: deps.formatAgo(record.createdAt),
-        href: '/panel/crm',
-        createdAt: record.createdAt,
-    };
-}
-
 export async function buildMessageThreadNotification(
     deps: MessageServiceDeps,
     thread: MessageThreadRecord,
@@ -164,54 +157,25 @@ export async function buildMessageThreadNotification(
     }
     const entries = await listMessageEntries(deps, thread.id);
     const lastEntry = entries[entries.length - 1] ?? null;
-    const listing = deps.listingsById.get(thread.listingId) ?? null;
+    const listing = thread.listingId
+        ? deps.listingsById.get(thread.listingId) ?? null
+        : await deps.resolveThreadListingDisplay(thread);
     const counterpartId = viewerUserId === thread.ownerUserId ? thread.buyerUserId : thread.ownerUserId;
     const counterpart = deps.usersById.get(counterpartId) ?? null;
     return {
         id: `message-thread:${thread.id}`,
         type: 'message_thread' as const,
         title: lastEntry
-            ? `${counterpart?.name ?? 'Contacto'} escribió por ${listing?.title ?? 'tu publicación'}.`
-            : `Conversación activa por ${listing?.title ?? 'tu publicación'}.`,
+            ? `${counterpart?.name ?? 'Contacto'} escribió por ${listing?.title ?? 'tu conversación'}.`
+            : `Conversación activa por ${listing?.title ?? 'tu solicitud'}.`,
         time: deps.formatAgo(thread.lastMessageAt),
         href: `/panel/mensajes?thread=${encodeURIComponent(thread.id)}`,
         createdAt: thread.lastMessageAt,
     };
 }
 
-export function buildServiceLeadNotification(
-    deps: MessageServiceDeps,
-    record: ServiceLeadRecord,
-) {
-    const subject = [
-        record.assetType,
-        record.assetBrand,
-        record.assetModel,
-        record.assetYear,
-    ].filter(Boolean).join(' ');
-
-    const title = record.vertical === 'propiedades'
-        ? `${record.contactName} solicito gestion inmobiliaria${subject ? ` para ${subject}` : ''}.`
-        : `${record.contactName} solicito venta asistida${subject ? ` para ${subject}` : ''}.`;
-
-    return {
-        id: record.id,
-        type: 'service_lead' as const,
-        title,
-        time: deps.formatAgo(record.createdAt),
-        href: '/panel/crm',
-        createdAt: record.createdAt,
-    };
-}
-
 export async function getMessageThreadById(deps: MessageServiceDeps, id: string): Promise<MessageThreadRecord | null> {
     const rows = await deps.db.select().from(deps.tables.messageThreads).where(deps.eq(deps.tables.messageThreads.id, id)).limit(1);
-    if (rows.length === 0) return null;
-    return deps.mapMessageThreadRow(rows[0]);
-}
-
-export async function getMessageThreadByLeadId(deps: MessageServiceDeps, leadId: string): Promise<MessageThreadRecord | null> {
-    const rows = await deps.db.select().from(deps.tables.messageThreads).where(deps.eq(deps.tables.messageThreads.leadId, leadId)).limit(1);
     if (rows.length === 0) return null;
     return deps.mapMessageThreadRow(rows[0]);
 }
@@ -233,10 +197,29 @@ export async function getMessageThreadByListingAndBuyer(
     return deps.mapMessageThreadRow(rows[0]);
 }
 
+export async function getMessageThreadByContext(
+    deps: MessageServiceDeps,
+    contextType: string,
+    contextId: string,
+    buyerUserId: string,
+): Promise<MessageThreadRecord | null> {
+    const rows = await deps.db
+        .select()
+        .from(deps.tables.messageThreads)
+        .where(and(
+            deps.eq(deps.tables.messageThreads.contextType, contextType),
+            deps.eq(deps.tables.messageThreads.contextId, contextId),
+            deps.eq(deps.tables.messageThreads.buyerUserId, buyerUserId),
+        ))
+        .limit(1);
+    if (rows.length === 0) return null;
+    return deps.mapMessageThreadRow(rows[0]);
+}
+
 export async function listMessageThreadsForUser(
     deps: MessageServiceDeps,
     userId: string,
-    vertical?: VerticalType,
+    vertical?: string,
     folder: MessageFolder = 'inbox',
 ): Promise<MessageThreadRecord[]> {
     const conditions = [or(
@@ -268,11 +251,10 @@ export async function listMessageEntries(deps: MessageServiceDeps, threadId: str
 export async function createMessageThread(
     deps: MessageServiceDeps,
     input: {
-        vertical: VerticalType;
+        vertical: string;
         listingId: string;
         ownerUserId: string;
         buyerUserId: string;
-        leadId: string;
         lastMessageAt?: number;
         ownerUnreadCount?: number;
         buyerUnreadCount?: number;
@@ -281,10 +263,41 @@ export async function createMessageThread(
     const now = new Date(input.lastMessageAt ?? Date.now());
     const rows = await deps.db.insert(deps.tables.messageThreads).values({
         vertical: input.vertical,
+        contextType: 'listing',
+        contextId: input.listingId,
         listingId: input.listingId,
         ownerUserId: input.ownerUserId,
         buyerUserId: input.buyerUserId,
-        leadId: input.leadId,
+        ownerUnreadCount: input.ownerUnreadCount ?? 0,
+        buyerUnreadCount: input.buyerUnreadCount ?? 0,
+        lastMessageAt: now,
+        createdAt: now,
+        updatedAt: now,
+    }).returning();
+    return deps.mapMessageThreadRow(rows[0]);
+}
+
+export async function createContextMessageThread(
+    deps: MessageServiceDeps,
+    input: {
+        vertical: string;
+        contextType: string;
+        contextId: string;
+        ownerUserId: string;
+        buyerUserId: string;
+        lastMessageAt?: number;
+        ownerUnreadCount?: number;
+        buyerUnreadCount?: number;
+    },
+): Promise<MessageThreadRecord> {
+    const now = new Date(input.lastMessageAt ?? Date.now());
+    const rows = await deps.db.insert(deps.tables.messageThreads).values({
+        vertical: input.vertical,
+        contextType: input.contextType,
+        contextId: input.contextId,
+        listingId: null,
+        ownerUserId: input.ownerUserId,
+        buyerUserId: input.buyerUserId,
         ownerUnreadCount: input.ownerUnreadCount ?? 0,
         buyerUnreadCount: input.buyerUnreadCount ?? 0,
         lastMessageAt: now,

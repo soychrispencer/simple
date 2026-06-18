@@ -71,6 +71,7 @@ export function PublicMarketplacePage() {
         }
 
         const response = await serenatasApi.marketplaceGroups({
+            country: next.country || undefined,
             region: next.region || undefined,
             comuna: next.comuna || undefined,
             q: next.q || undefined,

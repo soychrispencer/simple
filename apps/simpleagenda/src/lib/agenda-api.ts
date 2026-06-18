@@ -35,14 +35,33 @@ async function agendaMutation<T extends { ok: boolean }>(
     }
 }
 
-export type AgendaPlanId = 'free' | 'essential' | 'pro';
+export type AgendaPlanId = 'free' | 'pro';
 
-export function isPlanActive(profile: { plan: string; planExpiresAt: string | null }, minPlan: AgendaPlanId = 'pro'): boolean {
-    const RANK: Record<AgendaPlanId, number> = { free: 0, essential: 1, pro: 2 };
-    const planId = profile.plan as AgendaPlanId;
-    if ((RANK[planId] ?? 0) < (RANK[minPlan] ?? 1)) return false;
-    if ((planId === 'essential' || planId === 'pro') && profile.planExpiresAt && new Date(profile.planExpiresAt) < new Date()) return false;
-    return true;
+export function hasAgendaFullAccess(profile: { plan: string; planExpiresAt: string | null }): boolean {
+    const plan = profile.plan === 'essential' ? 'free' : profile.plan;
+    if (plan === 'pro') {
+        return !profile.planExpiresAt || new Date(profile.planExpiresAt) >= new Date();
+    }
+    if (plan === 'free') {
+        return Boolean(profile.planExpiresAt && new Date(profile.planExpiresAt) >= new Date());
+    }
+    return false;
+}
+
+export function isAgendaTrialPeriod(profile: { plan: string; planExpiresAt: string | null }): boolean {
+    const plan = profile.plan === 'essential' ? 'free' : profile.plan;
+    return plan === 'free' && hasAgendaFullAccess(profile);
+}
+
+export function agendaTrialDaysRemaining(profile: { planExpiresAt: string | null }): number | null {
+    if (!profile.planExpiresAt) return null;
+    const days = Math.ceil((new Date(profile.planExpiresAt).getTime() - Date.now()) / 86_400_000);
+    return Math.max(0, days);
+}
+
+/** @deprecated Usar `hasAgendaFullAccess`. */
+export function isPlanActive(profile: { plan: string; planExpiresAt: string | null }, _minPlan?: AgendaPlanId): boolean {
+    return hasAgendaFullAccess(profile);
 }
 
 // ── Profile ──────────────────────────────────────────────────────────────────
@@ -79,6 +98,19 @@ export type AgendaProfile = {
     city: string | null;
     region: string | null;
     address: string | null;
+    countryCode?: string | null;
+    regionId?: string | null;
+    localityId?: string | null;
+    serviceLocalities?: string[];
+    servesOnline?: boolean;
+    servesPresential?: boolean;
+    operatingLocation?: {
+        countryCode: string;
+        regionId: string | null;
+        regionName: string | null;
+        localityId: string | null;
+        localityName: string | null;
+    };
     currency: string;
     timezone: string;
     bookingWindowDays: number;

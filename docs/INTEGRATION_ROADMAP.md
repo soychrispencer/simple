@@ -1,16 +1,17 @@
-# SimpleAutos - Flujo de Publicación con Almacenamiento en B2
+# SimpleAutos - Flujo de Publicación con Almacenamiento (legacy)
 
-## ✅ Cambios Implementados
+> **Obsoleto:** el storage activo es Cloudflare R2. Ver `docs/STORAGE_SETUP.md` y `services/api/src/storage-providers/cloudflare-r2.ts`.
+
+## ✅ Cambios Implementados (histórico)
 
 ### 1. **StorageProvider (Arquitectura)**
 - Ubicación: `packages/config/src/index.ts`
 - Interface abstracta para cualquier proveedor de almacenamiento
 - Tipos: `StorageProvider`, `StorageUploadInput`, `StorageUploadResult`
-- Permite cambiar entre B2, AWS S3, MinIO, CloudFlare sin tocar el código
+- Producción: `cloudflare-r2`; desarrollo: `local`
 
-### 2. **BackblazeB2Provider (Implementación)**
-- Ubicación: `services/api/src/storage-providers/backblaze-b2.ts`
-- Implementa StorageProvider usando B2 API v3
+### 2. **CloudflareR2Provider (Implementación actual)**
+- Ubicación: `services/api/src/storage-providers/cloudflare-r2.ts`
 - Métodos: `upload()`, `delete()`, `getUrl()`, `health()`
 - Manejo automático de autorización y renovación de tokens
 

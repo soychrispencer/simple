@@ -1,7 +1,7 @@
 'use client';
 
 import type { MouseEventHandler, ReactNode } from 'react';
-import { joinClasses } from '../shared/join-classes.js';
+import { joinClasses } from '../shared/join-classes';
 
 export type PanelBlockHeaderProps = {
     title: string;

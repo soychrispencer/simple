@@ -1,15 +1,22 @@
 'use client';
 
 import SubscriptionManager from '@/components/panel/subscription-manager';
-import { PanelSectionTabs, accountSectionTabs } from '@/components/panel/panel-section-tabs';
-import { PanelPageHeader } from '@simple/ui/panel';
+import {
+    PanelAccountShell,
+    DEFAULT_ACCOUNT_SECTION_TABS,
+    ACCOUNT_SUBSCRIPTION_PAGE,
+    accountSubscriptionDescription,
+} from '@simple/ui/panel';
 
 export default function SuscripcionesPage() {
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader title="Suscripciones" description="Planes mensuales para impulsar tu cuenta." />
-            <PanelSectionTabs items={accountSectionTabs} activeKey="suscripcion" />
+        <PanelAccountShell
+            activeKey="suscripcion"
+            tabs={DEFAULT_ACCOUNT_SECTION_TABS}
+            title={ACCOUNT_SUBSCRIPTION_PAGE.title}
+            description={accountSubscriptionDescription('Simple Propiedades')}
+        >
             <SubscriptionManager />
-        </div>
+        </PanelAccountShell>
     );
 }

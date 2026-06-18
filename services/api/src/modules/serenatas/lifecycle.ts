@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { serenataOwners, serenataClients, serenatas } from '../../db/schema.js';
-import { insertSerenataNotifications } from '../../lib/serenata-in-app-notifications.js';
+import { serenataOwners, serenataClients, serenataProviderGroups, serenatas } from '../../db/schema.js';
+import { insertInAppNotifications } from '../../lib/platform-in-app-notifications.js';
 import {
     deliverSerenataAgendaNotification,
     deliverSerenataRequestNotification,
@@ -37,44 +37,63 @@ export function validateClientCancelReason(
     return null;
 }
 
-export function todayYmdInChile(): string {
+export function todayYmdInTimezone(timezone = SERENATA_TIMEZONE): string {
     return new Intl.DateTimeFormat('en-CA', {
-        timeZone: SERENATA_TIMEZONE,
+        timeZone: timezone,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
     }).format(new Date());
 }
 
-export function eventDateYmd(eventDate: Date | string): string | null {
+export function todayYmdInChile(): string {
+    return todayYmdInTimezone(SERENATA_TIMEZONE);
+}
+
+export function eventDateYmd(eventDate: Date | string, timezone = SERENATA_TIMEZONE): string | null {
     if (typeof eventDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return eventDate;
     const date = eventDate instanceof Date ? eventDate : new Date(eventDate);
     if (Number.isNaN(date.getTime())) return null;
     return new Intl.DateTimeFormat('en-CA', {
-        timeZone: SERENATA_TIMEZONE,
+        timeZone: timezone,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
     }).format(date);
 }
 
-export function isEventBeforeToday(eventDate: Date | string, todayYmd = todayYmdInChile()): boolean {
-    const ymd = eventDateYmd(eventDate);
+export function isEventBeforeToday(
+    eventDate: Date | string,
+    todayYmd = todayYmdInChile(),
+    timezone = SERENATA_TIMEZONE,
+): boolean {
+    const ymd = typeof eventDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(eventDate)
+        ? eventDate
+        : eventDateYmd(eventDate, timezone);
     if (!ymd) return false;
     return ymd < todayYmd;
 }
 
-export function isEventOnOrAfterToday(eventDate: Date | string, todayYmd = todayYmdInChile()): boolean {
-    const ymd = eventDateYmd(eventDate);
+export function isEventOnOrAfterToday(
+    eventDate: Date | string,
+    todayYmd = todayYmdInChile(),
+    timezone = SERENATA_TIMEZONE,
+): boolean {
+    const ymd = typeof eventDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(eventDate)
+        ? eventDate
+        : eventDateYmd(eventDate, timezone);
     if (!ymd) return false;
     return ymd >= todayYmd;
 }
 
-export function needsClosure(item: { status: string; eventDate: Date | string }): boolean {
+export function needsClosure(
+    item: { status: string; eventDate: Date | string },
+    timezone = SERENATA_TIMEZONE,
+): boolean {
     if (!CLOSURE_PENDING_STATUSES.includes(item.status as (typeof CLOSURE_PENDING_STATUSES)[number])) {
         return false;
     }
-    return isEventBeforeToday(item.eventDate);
+    return isEventBeforeToday(item.eventDate, todayYmdInTimezone(timezone), timezone);
 }
 
 export function validateCompleteTransition(current: { status: string }): string | null {
@@ -95,6 +114,7 @@ export function validateCompleteTransition(current: { status: string }): string 
 export function validateCancelTransition(
     current: { status: string; eventDate: Date | string },
     cancelReason: string,
+    timezone = SERENATA_TIMEZONE,
 ): string | null {
     const reason = cancelReason.trim();
     if (reason.length < 3) {
@@ -108,7 +128,7 @@ export function validateCancelTransition(
     if (!CANCELLABLE_STATUSES.includes(current.status as (typeof CANCELLABLE_STATUSES)[number])) {
         return 'Esta serenata no puede cancelarse en su estado actual.';
     }
-    if (isEventBeforeToday(current.eventDate)) {
+    if (isEventBeforeToday(current.eventDate, todayYmdInTimezone(timezone), timezone)) {
         return 'La fecha del evento ya pasó. No puedes cancelar desde aquí; marca la serenata como completada o contacta soporte si hubo un no-show.';
     }
     return null;
@@ -129,23 +149,44 @@ export function validateClientConfirmTransition(current: {
 
 export async function listOwnerSerenatasNeedingClosure(ownerId: string) {
     const rows = await db
-        .select()
+        .select({
+            serenata: serenatas,
+            groupTimezone: serenataProviderGroups.timezone,
+        })
         .from(serenatas)
+        .leftJoin(serenataProviderGroups, eq(serenatas.providerGroupId, serenataProviderGroups.id))
         .where(and(
             eq(serenatas.ownerId, ownerId),
             inArray(serenatas.status, [...CLOSURE_PENDING_STATUSES]),
         ))
         .orderBy(serenatas.eventDate);
-    return rows.filter(needsClosure);
+    return rows
+        .filter(({ serenata, groupTimezone }) => needsClosure(serenata, groupTimezone ?? SERENATA_TIMEZONE))
+        .map(({ serenata }) => serenata);
 }
 
 /** Recordatorios in-app al dueño tras la fecha del evento (una vez por serenata). */
 export async function maybeSendClosureReminders(
     ownerUserId: string,
-    items: Array<typeof serenatas.$inferSelect>,
+    items: Array<typeof serenatas.$inferSelect & { groupTimezone?: string | null }>,
 ) {
+    const groupIds = [...new Set(items.map((item) => item.providerGroupId).filter(Boolean))] as string[];
+    const timezoneByGroup = new Map<string, string>();
+    if (groupIds.length > 0) {
+        const groups = await db
+            .select({ id: serenataProviderGroups.id, timezone: serenataProviderGroups.timezone })
+            .from(serenataProviderGroups)
+            .where(inArray(serenataProviderGroups.id, groupIds));
+        for (const group of groups) {
+            timezoneByGroup.set(group.id, group.timezone ?? SERENATA_TIMEZONE);
+        }
+    }
+
     for (const item of items) {
-        if (!needsClosure(item) || item.closureReminderSentAt) continue;
+        const tz = item.providerGroupId
+            ? timezoneByGroup.get(item.providerGroupId) ?? SERENATA_TIMEZONE
+            : SERENATA_TIMEZONE;
+        if (!needsClosure(item, tz) || item.closureReminderSentAt) continue;
 
         const [updated] = await db
             .update(serenatas)
@@ -161,7 +202,7 @@ export async function maybeSendClosureReminders(
 
         const title = 'Confirma si se realizó';
         const message = `La serenata para ${item.recipientName} ya pasó. Márcala como completada o cancelada.`;
-        await insertSerenataNotifications({
+        await insertInAppNotifications({
             userId: ownerUserId,
             type: 'serenata_closure_reminder',
             title,
@@ -233,7 +274,7 @@ export async function expirePendingSerenatas(now = new Date()) {
             if (client) {
                 const expiredTitle = 'Solicitud expirada';
                 const expiredMessage = 'El grupo no respondió a tiempo. Puedes solicitar otra serenata.';
-                await insertSerenataNotifications({
+                await insertInAppNotifications({
                     userId: client.userId,
                     type: 'client_serenata_expired',
                     title: expiredTitle,
@@ -251,7 +292,7 @@ export async function expirePendingSerenatas(now = new Date()) {
         if (updated.ownerId) {
             const owner = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, updated.ownerId) });
             if (owner) {
-                await insertSerenataNotifications({
+                await insertInAppNotifications({
                     userId: owner.userId,
                     type: 'provider_group_request_expired',
                     title: 'Solicitud expirada',
@@ -299,7 +340,7 @@ export async function maybeSendPendingSlaReminders(now = new Date()) {
 
         const reminderTitle = 'Solicitud pendiente';
         const reminderMessage = `Queda poco plazo para responder la solicitud de ${item.recipientName}.`;
-        await insertSerenataNotifications({
+        await insertInAppNotifications({
             userId: owner.userId,
             type: 'provider_group_request_reminder',
             title: reminderTitle,
@@ -369,7 +410,7 @@ export async function cancelClientPendingSerenata(
         if (owner) {
             const cancelTitle = 'Solicitud cancelada';
             const cancelMessage = `El cliente canceló la solicitud para ${item.recipientName}.`;
-            await insertSerenataNotifications({
+            await insertInAppNotifications({
                 userId: owner.userId,
                 type: 'provider_group_request_cancelled',
                 title: cancelTitle,

@@ -12,7 +12,6 @@ import {
     serenataGroupServices,
     serenataGroups,
     serenataMusicians,
-    serenataNotifications,
     serenataOffers,
     serenataProviderGroupMemberInvites,
     serenataProviderGroupMembers,
@@ -61,7 +60,7 @@ import {
     OWNER_COLLECTION_METHODS,
     validateOwnerCollectionMethod,
 } from './owner-collection-method.js';
-import { insertSerenataNotifications } from '../../lib/serenata-in-app-notifications.js';
+import { insertInAppNotifications } from '../../lib/platform-in-app-notifications.js';
 import { getUserNotificationPrefs, shouldCreateInAppNotification } from '../../lib/user-notification-prefs.js';
 import {
     deliverSerenataAgendaNotification,
@@ -70,6 +69,11 @@ import {
     deliverSerenataRequestNotification,
     flushAssignGroupSideEffects,
 } from '../../lib/serenatas-notification-delivery.js';
+import {
+    listPlatformNotificationsForUser,
+    markAllPlatformNotificationsRead,
+    markPlatformNotificationRead,
+} from '../platform/notifications-service.js';
 import { isMercadoPagoConfigured } from '../mercadopago/service.js';
 import { APP_COMMISSION_FREE_BPS, COMMISSION_VAT_BPS, defaultSerenataTrialEndsAt } from './plan-config.js';
 import { listSerenataBillingHistory } from './billing-history.js';
@@ -532,7 +536,7 @@ async function createPlatformOffersForSerenata(serenata: { id: string; comuna: s
         expiresAt,
     }))).onConflictDoNothing().returning();
 
-    await insertSerenataNotifications(
+    await insertInAppNotifications(
         candidates.map((owner) => ({
             userId: owner.userId,
             type: 'platform_serenata_offer',
@@ -587,7 +591,7 @@ async function notifyPaidMarketplaceSerenataToOwner(item: SerenataPaymentTarget)
         ? `${item.recipientName} · fecha ${eventDateYmd(item.eventDate) ?? 'por confirmar'} (horario por confirmar)`
         : `${item.comuna ?? 'Comuna por confirmar'} · ${item.recipientName}`;
 
-    await insertSerenataNotifications({
+    await insertInAppNotifications({
         userId: owner.userId,
         type: 'provider_group_request',
         title: requestTitle,
@@ -692,7 +696,7 @@ function resolveActorRole(
 ): SerenataActorRole | null {
     if (requested === 'client' && profiles.client) return 'client';
     if (requested === 'musician' && profiles.musician) return 'musician';
-    if ((requested === 'owner' || requested === 'admin') && profiles.owner) return 'owner';
+    if (requested === 'owner' && profiles.owner) return 'owner';
     return null;
 }
 
@@ -751,7 +755,7 @@ async function notifySerenataClient(clientId: string | null, payload: { type: st
     if (!clientId) return;
     const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.id, clientId) });
     if (!client) return;
-    await insertSerenataNotifications({
+    await insertInAppNotifications({
         userId: client.userId,
         type: payload.type,
         title: payload.title,
@@ -782,10 +786,10 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (!shouldCreateInAppNotification(prefs)) {
             return c.json({ ok: true, items: [] });
         }
-        const rows = await db.query.serenataNotifications.findMany({
-            where: and(eq(serenataNotifications.userId, user.id), eq(serenataNotifications.isRead, false)),
-            orderBy: desc(serenataNotifications.createdAt),
+        const rows = await listPlatformNotificationsForUser(user.id, {
+            unreadOnly: true,
             limit: 10,
+            vertical: 'serenatas',
         });
         return c.json({
             ok: true,
@@ -798,7 +802,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                     || item.type === 'provider_group_application_approved'
                     || item.type === 'provider_group_application_rejected'
                         ? 'message_thread'
-                        : 'service_lead',
+                        : 'activity',
                 title: item.title,
                 time: relativeNotificationTime(item.createdAt),
                 href: notificationHref(item.metadata ?? null, item.type),
@@ -812,23 +816,15 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
         const notificationId = c.req.param('id');
-        await db
-            .update(serenataNotifications)
-            .set({ isRead: true })
-            .where(and(
-                eq(serenataNotifications.id, notificationId),
-                eq(serenataNotifications.userId, user.id),
-            ));
+        const ok = await markPlatformNotificationRead(user.id, notificationId);
+        if (!ok) return jsonError(c, 'Notificación no encontrada', 404);
         return c.json({ ok: true });
     });
 
     app.post('/notifications/mark-all-read', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        await db
-            .update(serenataNotifications)
-            .set({ isRead: true })
-            .where(and(eq(serenataNotifications.userId, user.id), eq(serenataNotifications.isRead, false)));
+        await markAllPlatformNotificationsRead(user.id);
         return c.json({ ok: true });
     });
 
@@ -859,11 +855,19 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             );
         }
         const ownerProfile = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.userId, user.id) });
+        let trialEndsAt = ownerProfile?.trialEndsAt ?? null;
+        if (ownerProfile && plan === 'free' && !trialEndsAt) {
+            trialEndsAt = defaultSerenataTrialEndsAt(ownerProfile.createdAt ?? new Date());
+            await db
+                .update(serenataOwners)
+                .set({ trialEndsAt, updatedAt: new Date() })
+                .where(eq(serenataOwners.id, ownerProfile.id));
+        }
         return c.json({
             ok: true,
             ...buildSerenataMePlanResponse(plan, {
                 proCheckoutAvailable: isMercadoPagoConfigured(),
-                trialEndsAt: ownerProfile?.trialEndsAt ?? null,
+                trialEndsAt,
             }),
         });
     });
@@ -1027,8 +1031,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     };
 
     app.put('/profiles/owner', upsertOwnerProfile);
-    /** @deprecated Usar `PUT /profiles/owner`. */
-    app.put('/profiles/admin', upsertOwnerProfile);
 
     const startOwnerTrial = async (c: Context) => {
         const user = await deps.authUser(c);
@@ -1057,8 +1059,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     };
 
     app.post('/subscriptions/owner/start-trial', startOwnerTrial);
-    /** @deprecated Usar `POST /subscriptions/owner/start-trial`. */
-    app.post('/subscriptions/admin/start-trial', startOwnerTrial);
 
     app.get('/musicians', async (c) => {
         const user = await deps.authUser(c);
@@ -1416,7 +1416,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             if (item.clientId) {
                 const client = await tx.query.serenataClients.findFirst({ where: eq(serenataClients.id, item.clientId) });
                 if (client) {
-                    await insertSerenataNotifications({
+                    await insertInAppNotifications({
                         userId: client.userId,
                         type: 'client_serenata_accepted',
                         title: 'Grupo asignado',
@@ -1740,7 +1740,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
 
     const FREE_MUSICIAN_GROUP_LIMIT = 1;
     const FREE_GROUP_LIMIT_MESSAGE =
-        'Esencial permite 1 grupo de músicos. Durante la prueba tienes acceso completo; activa Pro para crear más grupos.';
+        'Durante la prueba tienes acceso completo. Activa Pro para crear más grupos.';
 
     async function freePlanGroupLimitReached(
         userId: string,
@@ -1752,8 +1752,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const owner = await db.query.serenataOwners.findFirst({
             where: eq(serenataOwners.id, ownerId),
         });
-        const trialActive = Boolean(owner?.trialEndsAt && owner.trialEndsAt.getTime() >= Date.now());
-        if (plan === 'free') return !trialActive;
+        const trialActive = Boolean(!owner?.trialEndsAt || owner.trialEndsAt.getTime() >= Date.now());
+        if (plan === 'free' && trialActive) return false;
         const filters = [
             eq(serenataGroups.ownerId, ownerId),
             inArray(serenataGroups.status, ['draft', 'active']),
@@ -1982,7 +1982,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                     updatedAt: new Date(),
                 },
             }).returning();
-            await insertSerenataNotifications({
+            await insertInAppNotifications({
                 userId: musician.userId,
                 type: 'group_invitation',
                 title: 'Nueva invitación',
@@ -2208,7 +2208,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 updatedAt: new Date(),
             },
         }).returning();
-        await insertSerenataNotifications({
+        await insertInAppNotifications({
             userId: musician.userId,
             type: 'group_invitation',
             title: 'Nueva invitación',

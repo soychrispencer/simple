@@ -49,8 +49,8 @@ export type Section =
     | 'agenda'
     | 'map'
     | 'finanzas'
-    | 'chat'
-    | 'profile';
+    | 'profile'
+    | 'mensajes';
 export type LoadState = 'idle' | 'loading' | 'error' | 'ready';
 
 interface SerenataContextType {

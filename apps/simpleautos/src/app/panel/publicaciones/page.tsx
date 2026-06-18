@@ -42,7 +42,8 @@ import {
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import { ModernSelect } from '@simple/ui/forms';
-import { fetchInstagramIntegrationStatus, publishListingToInstagramEnhanced, generateSmartTemplates, type InstagramPublicationView, type InstagramTemplateView, } from '@/lib/instagram';
+import { fetchInstagramIntegrationStatus, publishListingToInstagramEnhanced, generateSmartTemplates, type InstagramPublicationView, type InstagramTemplateView, type InstagramMediaFormat, } from '@/lib/instagram';
+import { getListingVideoUrl, listingHasShareableVideo } from '@/lib/listing-media';
 import {
     deletePanelListing, fetchMyPanelListings, publishListingToPortal, renewPanelListing, updatePanelListingStatus, type ListingStatus, type PanelListing, type PortalKey, } from '@/lib/panel-listings';
 import { InstagramTemplatePreview } from '@simple/ui/integrations';
@@ -205,6 +206,7 @@ export default function PublicacionesPage() {
     const [previewCaption, setPreviewCaption] = useState('');
     const [isPublishingInstagram, setIsPublishingInstagram] = useState(false);
     const [instagramCarouselIndex, setInstagramCarouselIndex] = useState(0);
+    const [instagramMediaFormat, setInstagramMediaFormat] = useState<InstagramMediaFormat>('carousel');
     const [statusBusyKey, setStatusBusyKey] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     
@@ -533,6 +535,7 @@ export default function PublicacionesPage() {
         setPreviewListing(listing);
         setPreviewCaption(defaultCaption);
         setInstagramCarouselIndex(0);
+        setInstagramMediaFormat('carousel');
         setInstagramTemplates([]);
         setSelectedTemplateId(null);
         setInstagramPreviewOpen(true);
@@ -540,36 +543,47 @@ export default function PublicacionesPage() {
     };
 
     // Validación de imágenes y contenido antes de publicar
-    const validateInstagramContent = useCallback(async (listing: PanelListing, caption: string, template: InstagramTemplateView | null) => {
+    const validateInstagramContent = useCallback(async (
+        listing: PanelListing,
+        caption: string,
+        template: InstagramTemplateView | null,
+        mediaFormat: InstagramMediaFormat = 'carousel',
+    ) => {
         const errors: string[] = [];
         const warnings: string[] = [];
-        
-        // Validación de imágenes
-        const images = getListingImages(listing);
-        if (images.length === 0) {
-            errors.push('El vehículo no tiene imágenes.');
+
+        if (mediaFormat === 'reel') {
+            if (!listingHasShareableVideo(listing)) {
+                errors.push('El vehículo no tiene un video público para Reel.');
+            }
         } else {
-            // Validar calidad de imágenes (simulado)
-            for (let i = 0; i < images.length; i++) {
-                const img = images[i];
-                try {
-                    // Verificar si la imagen existe y es accesible
-                    const response = await fetch(img, { method: 'HEAD' });
-                    if (!response.ok) {
-                        errors.push(`La imagen ${i + 1} no está disponible.`);
-                    } else {
-                        const contentType = response.headers.get('content-type');
-                        if (!contentType?.startsWith('image/')) {
-                            errors.push(`La imagen ${i + 1} no es un formato válido.`);
+            const images = getListingImages(listing);
+            if (images.length === 0) {
+                errors.push('El vehículo no tiene imágenes.');
+            } else {
+                for (let i = 0; i < images.length; i++) {
+                    const img = images[i];
+                    try {
+                        const response = await fetch(img, { method: 'HEAD' });
+                        if (!response.ok) {
+                            errors.push(`La imagen ${i + 1} no está disponible.`);
+                        } else {
+                            const contentType = response.headers.get('content-type');
+                            if (!contentType?.startsWith('image/')) {
+                                errors.push(`La imagen ${i + 1} no es un formato válido.`);
+                            }
                         }
+                    } catch {
+                        warnings.push(`No se pudo verificar la imagen ${i + 1}.`);
                     }
-                } catch {
-                    warnings.push(`No se pudo verificar la imagen ${i + 1}.`);
                 }
             }
+
+            if (!template) {
+                warnings.push('No se ha seleccionado ningún template de diseño.');
+            }
         }
-        
-        // Validación de caption
+
         if (!caption.trim()) {
             errors.push('El caption no puede estar vacío.');
         } else if (caption.length < 10) {
@@ -577,49 +591,50 @@ export default function PublicacionesPage() {
         } else if (caption.length > 2200) {
             errors.push('El caption excede el límite de 2200 caracteres.');
         }
-        
-        // Validación de contenido inapropiado (simulado)
+
         const prohibitedWords = ['spam', 'estafa', 'fraude', 'ilegal'];
-        const foundWords = prohibitedWords.filter(word => 
-            caption.toLowerCase().includes(word)
-        );
+        const foundWords = prohibitedWords.filter((word) => caption.toLowerCase().includes(word));
         if (foundWords.length > 0) {
             warnings.push(`El caption contiene palabras que podrían ser marcadas: ${foundWords.join(', ')}`);
         }
-        
-        // Validación de template
-        if (!template) {
-            warnings.push('No se ha seleccionado ningún template de diseño.');
-        }
-        
-        // Validación de información del vehículo
+
         if (!listing.price || Number(listing.price) <= 0) {
             warnings.push('El vehículo no tiene precio definido.');
         }
-        
+
         if (!listing.location?.trim()) {
             warnings.push('El vehículo no tiene ubicación definida.');
         }
-        
+
         return {
             isValid: errors.length === 0,
             errors,
             warnings,
-            canProceed: errors.length === 0
+            canProceed: errors.length === 0,
         };
     }, []);
 
     const handleConfirmInstagramPublish = async () => {
         if (!previewListing) return;
-        if (templatesLoading || !activeTemplate) {
+        const isReel = instagramMediaFormat === 'reel';
+        if (!isReel && (templatesLoading || !activeTemplate)) {
             setNotice('Espera a que cargue el template de portada antes de publicar.');
+            return;
+        }
+        if (isReel && !listingHasShareableVideo(previewListing)) {
+            setNotice('Este aviso no tiene video. Edítalo y sube un video antes de publicar un Reel.');
             return;
         }
         
         // Validar contenido antes de publicar
         setPublishingState('validating');
         setNotice('Validando contenido...');
-        const validation = await validateInstagramContent(previewListing, previewCaption, activeTemplate);
+        const validation = await validateInstagramContent(
+            previewListing,
+            previewCaption,
+            isReel ? null : activeTemplate,
+            instagramMediaFormat,
+        );
         
         if (!validation.canProceed) {
             setPublishingState('failed');
@@ -650,12 +665,13 @@ export default function PublicacionesPage() {
         try {
             const result = await publishListingToInstagramEnhanced(previewListing.id, {
                 useAI: true,
-                useTemplates: Boolean(activeTemplate),
+                useTemplates: !isReel && Boolean(activeTemplate),
                 tone: 'professional',
                 targetAudience: 'general',
                 captionOverride: previewCaption,
-                templateId: activeTemplate?.id ?? null,
-                layoutVariant: activeTemplate?.layoutVariant ?? 'square',
+                templateId: isReel ? null : (activeTemplate?.id ?? null),
+                layoutVariant: isReel ? null : (activeTemplate?.layoutVariant ?? 'square'),
+                mediaFormat: instagramMediaFormat,
             });
             const publication = result.publication ?? result.result;
             if (result.ok && publication) {
@@ -1099,6 +1115,42 @@ export default function PublicacionesPage() {
                                         </div>
                                     )}
                                     <div className="w-full md:w-1/2 flex flex-col gap-3">
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setInstagramMediaFormat('carousel')}
+                                                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
+                                                    instagramMediaFormat === 'carousel'
+                                                        ? 'border-[#111] bg-[#111] text-white'
+                                                        : 'border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]'
+                                                }`}
+                                            >
+                                                Carrusel de fotos
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setInstagramMediaFormat('reel')}
+                                                disabled={!listingHasShareableVideo(previewListing)}
+                                                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-all disabled:opacity-50 ${
+                                                    instagramMediaFormat === 'reel'
+                                                        ? 'border-[#111] bg-[#111] text-white'
+                                                        : 'border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]'
+                                                }`}
+                                            >
+                                                Reel (video)
+                                            </button>
+                                        </div>
+                                        {instagramMediaFormat === 'reel' ? (
+                                            <div className="w-full max-w-[420px] mx-auto aspect-[9/16] overflow-hidden rounded-2xl bg-black">
+                                                <video
+                                                    src={getListingVideoUrl(previewListing) ?? undefined}
+                                                    className="h-full w-full object-cover"
+                                                    controls
+                                                    playsInline
+                                                    muted
+                                                />
+                                            </div>
+                                        ) : (
                                         <InstagramTemplatePreview
                                             className={`w-full max-w-[420px] mx-auto group transition-all duration-300 ${
                                                 templateTransitioning ? 'opacity-70 scale-95' : 'opacity-100 scale-100'
@@ -1132,6 +1184,7 @@ export default function PublicacionesPage() {
                                                 </>
                                             )}
                                         </InstagramTemplatePreview>
+                                        )}
                                     </div>
 
                                     {/* Lado derecho: Descripción editable */}
@@ -1143,6 +1196,7 @@ export default function PublicacionesPage() {
                                                 background: activeTemplate
                                                     ? `linear-gradient(135deg, ${activeTemplate.colors.accent}18 0%, ${activeTemplate.colors.secondary}18 100%)`
                                                     : 'linear-gradient(135deg, rgba(255,54,0,0.1) 0%, rgba(17,17,17,0.12) 100%)',
+                                                display: instagramMediaFormat === 'reel' ? 'none' : undefined,
                                             }}
                                         >
                                             <div className="mb-3 flex items-center justify-between gap-3">
@@ -1260,9 +1314,18 @@ export default function PublicacionesPage() {
                                         variant="primary"
                                         className="flex-1"
                                         onClick={handleConfirmInstagramPublish}
-                                        disabled={isPublishingInstagram || templatesLoading || !activeTemplate}
+                                        disabled={
+                                            isPublishingInstagram
+                                            || (instagramMediaFormat === 'carousel' && (templatesLoading || !activeTemplate))
+                                        }
                                     >
-                                        {isPublishingInstagram ? 'Publicando...' : templatesLoading ? 'Cargando template...' : 'Publicar ahora'}
+                                        {isPublishingInstagram
+                                            ? 'Publicando...'
+                                            : instagramMediaFormat === 'reel'
+                                                ? 'Publicar Reel'
+                                                : templatesLoading
+                                                    ? 'Cargando template...'
+                                                    : 'Publicar carrusel'}
                                     </PanelButton>
                                 </div>
                             </div>

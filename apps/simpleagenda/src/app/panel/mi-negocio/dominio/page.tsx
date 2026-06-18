@@ -5,10 +5,10 @@ import Link from 'next/link';
 import {
     IconWorld, IconLoader2, IconCheck, IconLock, IconCopy, IconAlertCircle, IconBell, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelPageHeader } from '@simple/ui/panel';
+import { PanelButton, PanelBusinessShell, AGENDA_BUSINESS_DOMINIO_PAGE, AGENDA_BUSINESS_CONFIGURACIONES_PAGE } from '@simple/ui/panel';
+import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaProfile,
-    isPlanActive,
     type AgendaProfile,
 } from '@/lib/agenda-api';
 
@@ -25,7 +25,6 @@ const APP_HOST = (() => {
 export default function DominioPage() {
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
-    const [isPro, setIsPro] = useState(false);
     const [copied, setCopied] = useState(false);
     const [interest, setInterest] = useState(false);
 
@@ -34,7 +33,6 @@ export default function DominioPage() {
             const p = await fetchAgendaProfile();
             if (p) {
                 setProfile(p);
-                setIsPro(isPlanActive(p));
             }
             setLoading(false);
         })();
@@ -60,12 +58,13 @@ export default function DominioPage() {
     };
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Dominio personalizado"
-                description="Usa tu propio dominio para la página de reservas."
-            />
-
+        <PanelBusinessShell
+            activeKey="configuraciones"
+            tabs={businessSectionTabs}
+            title={AGENDA_BUSINESS_DOMINIO_PAGE.title}
+            description={AGENDA_BUSINESS_DOMINIO_PAGE.description}
+            subsectionBack={{ href: '/panel/mi-negocio/configuraciones', label: AGENDA_BUSINESS_CONFIGURACIONES_PAGE.title }}
+        >
             {loading ? (
                 <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                     <IconLoader2 size={14} className="animate-spin" /> Cargando...
@@ -80,7 +79,7 @@ export default function DominioPage() {
                         Configura tu link de reservas antes de conectar un dominio propio.
                     </p>
                     <Link
-                        href="/panel/mi-negocio/link"
+                        href="/panel/mi-negocio/configuraciones"
                         className="mt-1 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
                         style={{ background: 'var(--accent)', color: '#fff' }}
                     >
@@ -127,11 +126,6 @@ export default function DominioPage() {
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
                                         Próximamente
                                     </span>
-                                    {!isPro && (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
-                                            Pro
-                                        </span>
-                                    )}
                                 </div>
                                 <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>
                                     Apunta un dominio propio (ej. <strong>reservas.tu-consulta.cl</strong>) a SimpleAgenda sin perder tus links anteriores.
@@ -205,6 +199,6 @@ export default function DominioPage() {
                     </PanelCard>
                 </div>
             )}
-        </div>
+        </PanelBusinessShell>
     );
 }

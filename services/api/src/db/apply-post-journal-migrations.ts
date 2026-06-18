@@ -58,6 +58,18 @@ export const POST_JOURNAL_TAGS = [
     '0093_serenata_service_promo_price',
     '0094_user_platform_access',
     '0095_serenata_provider_group_timezone',
+    '0096_user_timezone',
+    '0097_migrate_timezones_to_users',
+    '0098_user_dst_enabled',
+    '0100_serenata_drop_legacy_coordinator_admin',
+    '0101_instagram_publication_content_type',
+    '0102_meta_facebook_page',
+    '0103_social_publications',
+    '0104_structured_locations',
+    '0104_tiktok_youtube_accounts',
+    '0105_platform_core_communication',
+    '0106_message_threads_platform_context',
+    '0107_drop_crm',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

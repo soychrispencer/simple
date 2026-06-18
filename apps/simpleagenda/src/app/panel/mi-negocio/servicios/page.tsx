@@ -5,8 +5,8 @@ import {
     IconPlus, IconTrash, IconLoader2, IconEdit, IconAlertCircle, IconChevronRight, IconPackage, IconUsersGroup, IconTag, IconX, IconArrowUp, IconArrowDown, } from '@tabler/icons-react';
 import Link from 'next/link';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelField, PanelButton, PanelSwitch, PanelNotice, PanelPageHeader, PanelEmptyState } from '@simple/ui/panel';
-import { PanelSectionTabs, businessSectionTabs } from '@/components/panel/panel-section-tabs';
+import { PanelField, PanelButton, PanelSwitch, PanelNotice, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_SERVICIOS_PAGE } from '@simple/ui/panel';
+import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaServices,
     createAgendaService,
@@ -173,32 +173,24 @@ export default function ServiciosConfigPage() {
     };
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Servicios y sesiones"
-                description="Define los tipos de consulta que ofreces."
-                actions={
-                    !showForm ? (
-                        <PanelButton
-                            variant="accent"
-                            size="sm"
-                            onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()); setError(''); }}
-                        >
-                            <IconPlus size={15} />
-                            Nuevo servicio
-                        </PanelButton>
-                    ) : null
-                }
-            />
-
-            <div className="mb-6">
-                <PanelSectionTabs
-                    items={businessSectionTabs}
-                    activeKey="servicios"
-                    ariaLabel="Secciones de mi negocio"
-                />
-            </div>
-
+        <PanelBusinessShell
+            activeKey="servicios"
+            tabs={businessSectionTabs}
+            title={AGENDA_BUSINESS_SERVICIOS_PAGE.title}
+            description={AGENDA_BUSINESS_SERVICIOS_PAGE.description}
+            actions={
+                !showForm ? (
+                    <PanelButton
+                        variant="accent"
+                        size="sm"
+                        onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()); setError(''); }}
+                    >
+                        <IconPlus size={15} />
+                        Nuevo servicio
+                    </PanelButton>
+                ) : null
+            }
+        >
             {/* Form */}
             {showForm && (
                 <div className="mb-6">
@@ -575,6 +567,6 @@ export default function ServiciosConfigPage() {
                     <IconChevronRight size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                 </Link>
             </div>
-        </div>
+        </PanelBusinessShell>
     );
 }

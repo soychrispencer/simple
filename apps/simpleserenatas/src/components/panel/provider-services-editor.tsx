@@ -249,7 +249,6 @@ export function ProviderServicesEditor({
                         ? 'Sin servicios publicados'
                         : `${activeCount} activo${activeCount === 1 ? '' : 's'} de ${services.length}`}
                 </span>
-                <span>Durante la prueba tienes acceso completo. Esencial permite hasta 3 servicios activos; Pro permite publicar más.</span>
                 {listNotice ? <span className="text-accent">{listNotice}</span> : null}
             </div>
 

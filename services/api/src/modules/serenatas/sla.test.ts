@@ -145,6 +145,7 @@ describe('createMarketplaceSerenata', () => {
         mockFindFirst
             .mockResolvedValueOnce({
                 id: 'g1',
+                slug: 'mariachi-test',
                 ownerId: 'a1',
                 ownerUserId: 'u-other',
                 status: 'active',
@@ -190,6 +191,7 @@ describe('createMarketplaceSerenata', () => {
         mockFindFirst
             .mockResolvedValueOnce({
                 id: 'g1',
+                slug: 'mariachi-test',
                 ownerId: 'a1',
                 ownerUserId: 'u-other',
                 status: 'active',

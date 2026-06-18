@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconBrandWhatsapp, IconMail, IconPhone } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
-import { submitListingLead, submitListingLeadAction } from '@simple/utils';
+import { submitListingConversation } from '@simple/utils';
 import { PanelBlockHeader } from '@simple/ui/panel';
 import { PanelButton, PanelCard } from '@simple/ui/panel';
 
@@ -22,7 +22,7 @@ export default function PublicListingContactCard(props: {
     const [contactName, setContactName] = useState('');
     const [contactEmail, setContactEmail] = useState('');
     const [contactPhone, setContactPhone] = useState('');
-    const [message, setMessage] = useState(`Hola, me interesa ${props.listingTitle}. ¿Podemos coordinar más información?`);
+    const [message, setMessage] = useState(`Hola, me interesa ${props.listingTitle}. ¿Sigue disponible?`);
     const [submitting, setSubmitting] = useState(false);
     const [feedback, setFeedback] = useState<string | null>(null);
     const [threadId, setThreadId] = useState<string | null>(null);
@@ -35,63 +35,42 @@ export default function PublicListingContactCard(props: {
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        if (!isLoggedIn) {
+            setFeedback('Inicia sesión para enviar un mensaje al anunciante.');
+            return;
+        }
+
         setSubmitting(true);
         setFeedback(null);
         setThreadId(null);
 
-        const result = await submitListingLead('propiedades', {
+        const result = await submitListingConversation('propiedades', {
             listingId: props.listingId,
-            contactName,
-            contactEmail,
-            contactPhone: contactPhone || null,
             message,
-            sourcePage: props.sourcePage ?? `/propiedad/${props.listingId}`,
+            contactName: contactName.trim() || undefined,
         });
 
         setSubmitting(false);
-        if (!result.ok || !result.item) {
+        if (!result.ok || !result.thread) {
             setFeedback(result.error || 'No pudimos enviar tu consulta.');
             return;
         }
 
-        setThreadId(result.thread?.id ?? result.item.threadId ?? null);
-        setFeedback(
-            result.thread?.id || result.item.threadId
-                ? 'Mensaje enviado. Ya quedó disponible en tu panel de mensajes.'
-                : 'Consulta enviada. El anunciante la verá en su panel.'
-        );
+        setThreadId(result.thread.id);
+        setFeedback('Mensaje enviado. Ya quedó disponible en tu panel de mensajes.');
     }
 
-    async function handleQuickAction(source: 'whatsapp' | 'phone_call' | 'email') {
-        if (contactName.trim().length < 2 || !contactEmail.includes('@')) {
-            setFeedback('Completa tu nombre y correo antes de contactar al anunciante.');
-            return;
-        }
-
-        setSubmitting(true);
-        setFeedback(null);
-        await submitListingLeadAction('propiedades', {
-            listingId: props.listingId,
-            source,
-            contactName,
-            contactEmail,
-            contactPhone: contactPhone || null,
-            contactWhatsapp: contactPhone || null,
-            message,
-            sourcePage: props.sourcePage ?? `/propiedad/${props.listingId}`,
-        });
-        setSubmitting(false);
-
+    function handleQuickAction(source: 'whatsapp' | 'phone_call' | 'email') {
         if (source === 'whatsapp' && props.seller?.phone) {
             const target = props.seller.phone.replace(/\D/g, '');
             window.open(`https://wa.me/${target}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-            setFeedback('Accion registrada. Abriendo WhatsApp.');
+            setFeedback('Abriendo WhatsApp.');
             return;
         }
 
         if (source === 'phone_call' && props.seller?.phone) {
             window.location.href = `tel:${props.seller.phone}`;
-            setFeedback('Accion registrada. Iniciando llamada.');
+            setFeedback('Iniciando llamada.');
             return;
         }
 
@@ -99,7 +78,7 @@ export default function PublicListingContactCard(props: {
             const subject = encodeURIComponent(`Consulta por ${props.listingTitle}`);
             const body = encodeURIComponent(message);
             window.location.href = `mailto:${props.seller.email}?subject=${subject}&body=${body}`;
-            setFeedback('Accion registrada. Abriendo correo.');
+            setFeedback('Abriendo correo.');
         }
     }
 
@@ -124,8 +103,8 @@ export default function PublicListingContactCard(props: {
                     <textarea className="form-textarea min-h-28 text-sm" value={message} onChange={(event) => setMessage(event.target.value)} required />
                 </label>
                 <div className="space-y-2">
-                    <PanelButton type="submit" className="w-full" disabled={submitting || !message.trim()}>
-                        {submitting ? 'Enviando...' : 'Enviar consulta'}
+                    <PanelButton type="submit" className="w-full" disabled={submitting || !message.trim() || !isLoggedIn}>
+                        {submitting ? 'Enviando...' : isLoggedIn ? 'Enviar mensaje' : 'Inicia sesión para enviar'}
                     </PanelButton>
                     {props.seller?.phone || props.seller?.email ? (
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -134,7 +113,7 @@ export default function PublicListingContactCard(props: {
                                 variant="secondary"
                                 className="w-full"
                                 disabled={submitting || !props.seller?.phone}
-                                onClick={() => void handleQuickAction('whatsapp')}
+                                onClick={() => handleQuickAction('whatsapp')}
                             >
                                 <IconBrandWhatsapp size={16} />
                             </PanelButton>
@@ -143,7 +122,7 @@ export default function PublicListingContactCard(props: {
                                 variant="secondary"
                                 className="w-full"
                                 disabled={submitting || !props.seller?.phone}
-                                onClick={() => void handleQuickAction('phone_call')}
+                                onClick={() => handleQuickAction('phone_call')}
                             >
                                 <IconPhone size={16} />
                             </PanelButton>
@@ -152,7 +131,7 @@ export default function PublicListingContactCard(props: {
                                 variant="secondary"
                                 className="w-full"
                                 disabled={submitting || !props.seller?.email}
-                                onClick={() => void handleQuickAction('email')}
+                                onClick={() => handleQuickAction('email')}
                             >
                                 <IconMail size={16} />
                             </PanelButton>
@@ -168,10 +147,10 @@ export default function PublicListingContactCard(props: {
                             Abrir conversación
                         </PanelButton>
                     ) : null}
-                    <p className="text-xs" style={{ color: feedback?.toLowerCase().includes('no pudimos') ? 'var(--color-error)' : 'var(--fg-muted)' }}>
+                    <p className="text-xs" style={{ color: feedback?.toLowerCase().includes('no pudimos') || feedback?.toLowerCase().includes('inicia sesión') ? 'var(--color-error)' : 'var(--fg-muted)' }}>
                         {feedback || (isLoggedIn
-                            ? 'Si tienes sesión abierta, este mensaje también se guardará en tu panel.'
-                            : 'Si inicias sesión, además podrás seguir la conversación desde tu panel.')}
+                            ? 'Tu mensaje quedará guardado en el panel de mensajes del anunciante y el tuyo.'
+                            : 'Debes iniciar sesión para enviar mensajes por la plataforma. También puedes usar WhatsApp, teléfono o correo.')}
                     </p>
                 </div>
             </form>

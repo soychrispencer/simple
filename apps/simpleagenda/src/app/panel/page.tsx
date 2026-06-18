@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import {
     IconCalendar, IconUsers, IconCreditCard, IconClockHour4, IconTrendingUp, IconTrendingDown, IconMinus, IconChevronRight, IconCheck, IconUser, IconBriefcase, IconClock, IconRocket, IconX, } from '@tabler/icons-react';
 import Link from 'next/link';
-import { fetchAgendaStats, fetchAgendaProfile, isPlanActive, type AgendaStats, type AgendaWeekDay, type AgendaProfile } from '@/lib/agenda-api';
-import { fmtCLP, fmtTime, fmtDateShort as fmtDate } from '@/lib/format';
+import { fetchAgendaStats, fetchAgendaProfile, isAgendaTrialPeriod, agendaTrialDaysRemaining, type AgendaStats, type AgendaProfile } from '@/lib/agenda-api';
+import { fmtCLP, fmtTodayLabel } from '@simple/utils';
+import { usePanelFormatters } from '@simple/auth';
 import { vocab } from '@/lib/vocabulary';
 import { PanelPageHeader } from '@simple/ui/panel';
 import { PanelStatCard } from '@simple/ui/panel';
@@ -171,7 +172,7 @@ function SetupChecklist({
             key: 'publish',
             label: 'Publica tu página',
             description: 'Activa tu link público de reservas',
-            href: '/panel/mi-negocio/link',
+            href: '/panel/mi-negocio/configuraciones',
             icon: IconRocket,
             done: profile.isPublished,
         },
@@ -273,6 +274,7 @@ export default function PanelHomePage() {
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [checklistDismissed, setChecklistDismissed] = useState(false);
+    const fmt = usePanelFormatters();
 
     useEffect(() => {
         const load = async () => {
@@ -299,15 +301,12 @@ export default function PanelHomePage() {
         }
     };
 
-    const isFreePlan = !loading && profile !== null && !isPlanActive(profile);
-    const clientsUsed = stats?.activeClients ?? 0;
-    const appsUsed = stats?.thisMonthAppointments ?? 0;
-    const clientsNearLimit = isFreePlan && clientsUsed >= 3;
-    const appsNearLimit = isFreePlan && appsUsed >= 7;
-    const showFreeBanner = isFreePlan && (clientsNearLimit || appsNearLimit);
+    const isOnTrial = !loading && profile !== null && isAgendaTrialPeriod(profile);
+    const trialDays = profile ? agendaTrialDaysRemaining(profile) : null;
+    const showTrialBanner = isOnTrial && trialDays !== null;
 
     const greeting = profile?.displayName ? `Hola, ${profile.displayName.split(' ')[0]}` : null;
-    const dateLabel = new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
+    const dateLabel = fmtTodayLabel(fmt.timezone);
     const panelDescription = greeting
         ? `${greeting} · ${dateLabel}`
         : `Resumen de citas, clientes y cobros · ${dateLabel}`;
@@ -328,17 +327,17 @@ export default function PanelHomePage() {
             accent: false,
         },
         {
-            label: 'Cobros pendientes',
+            label: 'Pagos pendientes',
             value: loading ? null : fmtCLP(stats?.pendingPayments ?? 0),
             icon: IconCreditCard,
-            href: '/panel/pagos',
+            href: '/panel/finanzas',
             accent: false,
         },
         {
             label: 'Próxima cita',
             value: loading ? null : (
                 stats?.nextAppointment
-                    ? `${fmtDate(stats.nextAppointment.startsAt)} ${fmtTime(stats.nextAppointment.startsAt)}`
+                    ? `${fmt.dateShort(stats.nextAppointment.startsAt)} ${fmt.time(stats.nextAppointment.startsAt)}`
                     : '—'
             ),
             icon: IconClockHour4,
@@ -431,7 +430,7 @@ export default function PanelHomePage() {
                             )}
                         </div>
                         <Link
-                            href="/panel/pagos"
+                            href="/panel/finanzas"
                             className="shrink-0 text-xs font-medium inline-flex items-center gap-1 px-2 py-1.5 -my-1.5 rounded-lg transition-colors active:bg-(--bg-subtle) lg:hover:opacity-70 agenda-home-accent"
                         >
                             Ver cobros <IconChevronRight size={14} />
@@ -450,19 +449,21 @@ export default function PanelHomePage() {
                 />
                 )}
 
-                {/* Free plan limits banner */}
-                {showFreeBanner && (
+                {/* Prueba gratuita activa */}
+                {showTrialBanner && (
                 <Link
                     href="/panel/mi-cuenta/suscripcion"
                     className="flex items-center gap-4 rounded-2xl border p-4 transition-colors hover:border-[--accent-border] agenda-home-warning-banner"
                 >
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 agenda-home-warning-icon">
-                        <IconCreditCard size={17} />
+                        <IconClockHour4 size={17} />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold agenda-home-fg">Acercándote al límite de tu prueba</p>
+                        <p className="text-sm font-semibold agenda-home-fg">Prueba gratuita activa</p>
                         <p className="text-xs mt-0.5 agenda-home-muted">
-                            {clientsNearLimit && `${clientsUsed}/5 ${vocab.clients}`}{clientsNearLimit && appsNearLimit ? ' · ' : ''}{appsNearLimit && `${appsUsed}/10 citas este mes`}. Activa Esencial o Pro para continuar.
+                            {trialDays === 0
+                                ? 'Tu prueba termina hoy. Activa Pro para seguir operando sin interrupciones.'
+                                : `Te ${trialDays === 1 ? 'queda' : 'quedan'} ${trialDays} ${trialDays === 1 ? 'día' : 'días'} con acceso completo. Puedes activar Pro cuando quieras.`}
                         </p>
                     </div>
                     <IconChevronRight size={16} className="agenda-home-warning-chevron" />

@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.17",
+    "country-state-city": "^3.2.1",
     "typescript": "^5.9.3"
   }
 }

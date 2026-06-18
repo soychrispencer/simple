@@ -7,6 +7,9 @@ export type InstagramTone = 'professional' | 'casual' | 'excited' | 'luxury' | '
 export type InstagramTargetAudience = 'young' | 'professional' | 'investors' | 'families' | 'general';
 export type InstagramPriority = 'low' | 'medium' | 'high' | 'urgent';
 
+export type InstagramPublicationContentType = 'image' | 'carousel' | 'reel';
+export type InstagramMediaFormat = 'auto' | 'carousel' | 'reel';
+
 export type InstagramTemplateView = {
     id: string;
     name: string;
@@ -222,6 +225,7 @@ export type InstagramPublicationView = {
     instagramPermalink: string | null;
     caption: string;
     imageUrl: string;
+    contentType: InstagramPublicationContentType;
     status: 'published' | 'failed';
     errorMessage: string | null;
     sourceUpdatedAt: number | null;
@@ -317,6 +321,7 @@ export async function publishListingToInstagramEnhanced(listingId: string, optio
     captionOverride?: string | null;
     templateId?: string | null;
     layoutVariant?: 'square' | 'portrait' | null;
+    mediaFormat?: InstagramMediaFormat;
 } = {}): Promise<{
     ok: boolean;
     result?: InstagramPublishResult;
@@ -348,6 +353,7 @@ export async function publishListingToInstagramEnhanced(listingId: string, optio
             captionOverride: options.captionOverride ?? null,
             templateId: options.templateId ?? null,
             layoutVariant: options.layoutVariant ?? null,
+            mediaFormat: options.mediaFormat ?? 'carousel',
             options
         }),
     });

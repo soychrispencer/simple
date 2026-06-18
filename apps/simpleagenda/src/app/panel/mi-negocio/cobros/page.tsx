@@ -4,13 +4,12 @@ import { Suspense, useEffect, useState } from 'react';
 import {
     IconLink, IconBuildingBank, IconCheck, IconLoader2, IconCreditCard, IconCash, IconExternalLink, IconAlertCircle, IconChevronRight, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelField, PanelButton, PanelSwitch, PanelPageHeader } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelSwitch, PanelBusinessShell, BUSINESS_PAYMENT_METHODS_PAGE, PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE, PanelNotice } from '@simple/ui/panel';
 import Link from 'next/link';
-import { PanelSectionTabs, businessSectionTabs } from '@/components/panel/panel-section-tabs';
+import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaProfile,
     saveAgendaProfile,
-    isPlanActive,
     type AgendaProfile,
     type BankTransferData,
 } from '@/lib/agenda-api';
@@ -24,7 +23,6 @@ const ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta Vista', 'Cuenta RUT', 'Cuenta
 
 function CobrosConfigPageInner() {
     const [loading, setLoading] = useState(true);
-    const [isPro, setIsPro] = useState(false);
     const [mpConnected, setMpConnected] = useState(false);
 
     // Per-method toggles
@@ -52,7 +50,6 @@ function CobrosConfigPageInner() {
         const load = async () => {
             const prof = await fetchAgendaProfile();
             if (prof) {
-                setIsPro(isPlanActive(prof));
                 setMpConnected(!!prof.mpAccessToken);
                 setAcceptsTransfer(prof.acceptsTransfer ?? false);
                 setAcceptsMp(prof.acceptsMp ?? false);
@@ -94,31 +91,28 @@ function CobrosConfigPageInner() {
 
     if (loading) {
         return (
-            <div className="container-app panel-page py-4 lg:py-8">
-                <PanelPageHeader title="Métodos de cobro" description="Configura cómo quieres recibir los pagos de tus pacientes." />
-                <div className="flex items-center gap-2 mt-6 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <PanelBusinessShell
+                activeKey="cobros"
+                tabs={businessSectionTabs}
+                title={BUSINESS_PAYMENT_METHODS_PAGE.title}
+                description="Configura cómo quieres recibir los pagos de tus pacientes."
+            >
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                     <IconLoader2 size={16} className="animate-spin" /> Cargando...
                 </div>
-            </div>
+            </PanelBusinessShell>
         );
     }
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Métodos de cobro"
-                description="Activa los métodos que quieres ofrecer a tus pacientes."
-            />
-
-            <div className="mb-6">
-                <PanelSectionTabs
-                    items={businessSectionTabs}
-                    activeKey="cobros"
-                    ariaLabel="Secciones de mi negocio"
-                />
-            </div>
-
+        <PanelBusinessShell
+            activeKey="cobros"
+            tabs={businessSectionTabs}
+            title={BUSINESS_PAYMENT_METHODS_PAGE.title}
+            description={BUSINESS_PAYMENT_METHODS_PAGE.description}
+        >
             <div className="flex flex-col gap-4">
+                <PanelNotice tone="info">{PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE}</PanelNotice>
 
                 {/* ── Pago anticipado ─────────────────────────────── */}
                 <PanelCard size="md">
@@ -231,27 +225,25 @@ function CobrosConfigPageInner() {
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                     <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>MercadoPago</p>
-                                    {!isPro && (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>Pro</span>
-                                    )}
                                     {acceptsMp && mpConnected && (
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(13,148,136,0.1)', color: 'var(--accent)' }}>
                                             <IconCheck size={10} /> Activo
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Cobros online con tarjeta o débito. Requiere integración.</p>
+                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                                    Cobros online con tarjeta o débito en tu cuenta de MercadoPago. Sin comisión de Simple.
+                                </p>
                             </div>
                         </div>
                         <PanelSwitch
                             checked={acceptsMp}
-                            onChange={(v) => { if (isPro) setAcceptsMp(v); }}
+                            onChange={setAcceptsMp}
                             ariaLabel="Activar MercadoPago"
-                            disabled={!isPro}
                         />
                     </div>
 
-                    {acceptsMp && isPro && !mpConnected && (
+                    {acceptsMp && !mpConnected && (
                         <div className="mt-4 pt-4 flex items-start gap-3" style={{ borderTop: '1px solid var(--border)' }}>
                             <IconAlertCircle size={15} style={{ color: '#b45309', flexShrink: 0, marginTop: 1 }} />
                             <div className="flex-1 min-w-0">
@@ -271,14 +263,6 @@ function CobrosConfigPageInner() {
                         </div>
                     )}
 
-                    {!isPro && (
-                        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                MercadoPago está disponible en el{' '}
-                                <Link href="/panel/mi-cuenta/suscripcion" className="underline" style={{ color: 'var(--accent)' }}>plan Pro</Link>.
-                            </p>
-                        </div>
-                    )}
                 </PanelCard>
 
                 {/* ── Link de pago ────────────────────────────────── */}
@@ -335,19 +319,20 @@ function CobrosConfigPageInner() {
 
             <div className="mt-10 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
                 <Link
-                    href="/panel/mi-negocio/direcciones"
+                    href="/panel/mi-negocio/configuraciones"
                     className="flex items-center gap-3 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
                     <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--accent)' }}>Siguiente paso</p>
-                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Direcciones</p>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Agrega los consultorios donde atiendes presencialmente.</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Configuraciones</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Publica tu página y define las reglas de reserva.</p>
                     </div>
                     <IconChevronRight size={18} style={{ color: 'var(--accent)' }} />
                 </Link>
             </div>
-        </div>
+            </div>
+        </PanelBusinessShell>
     );
 }
 

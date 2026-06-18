@@ -8,15 +8,7 @@ import {
     shouldSendAgendaEmail,
     shouldSendInvitationEmail,
     shouldSendRequestsEmail,
-    shouldSendSerenatasWhatsApp,
-    shouldSendInvitationWhatsApp,
-    shouldSendRequestsWhatsApp,
-    shouldSendAgendaWhatsApp,
-    shouldSendAccountWhatsApp,
-    isSerenatasWhatsAppQuietHours,
-    shouldDeferSerenatasEmailForDigest,
     type UserNotificationPrefs,
-    type EmailDigestFrequency,
 } from './user-notification-prefs-policy.js';
 
 export {
@@ -25,16 +17,8 @@ export {
     shouldSendInvitationEmail,
     shouldSendRequestsEmail,
     shouldSendAgendaEmail,
-    shouldSendSerenatasWhatsApp,
-    shouldSendInvitationWhatsApp,
-    shouldSendRequestsWhatsApp,
-    shouldSendAgendaWhatsApp,
-    shouldSendAccountWhatsApp,
     shouldCreateInAppNotification,
-    isSerenatasWhatsAppQuietHours,
-    shouldDeferSerenatasEmailForDigest,
     type UserNotificationPrefs,
-    type EmailDigestFrequency,
 };
 
 const PREFS_COLUMNS = {
@@ -45,13 +29,7 @@ const PREFS_COLUMNS = {
     emailNotifyInvitations: true,
     emailNotifyRequests: true,
     emailNotifyAgenda: true,
-    whatsappNotifyInvitations: true,
-    whatsappNotifyRequests: true,
-    whatsappNotifyAgenda: true,
-    whatsappNotifyAccount: true,
-    whatsappEnabled: true,
     inAppNotificationsEnabled: true,
-    emailDigestFrequency: true,
 } as const;
 
 export async function getUserNotificationPrefs(userId: string): Promise<UserNotificationPrefs | null> {
@@ -86,13 +64,7 @@ export async function getUserNotificationPrefsBatch(
             emailNotifyInvitations: users.emailNotifyInvitations,
             emailNotifyRequests: users.emailNotifyRequests,
             emailNotifyAgenda: users.emailNotifyAgenda,
-            whatsappNotifyInvitations: users.whatsappNotifyInvitations,
-            whatsappNotifyRequests: users.whatsappNotifyRequests,
-            whatsappNotifyAgenda: users.whatsappNotifyAgenda,
-            whatsappNotifyAccount: users.whatsappNotifyAccount,
-            whatsappEnabled: users.whatsappEnabled,
             inAppNotificationsEnabled: users.inAppNotificationsEnabled,
-            emailDigestFrequency: users.emailDigestFrequency,
         })
         .from(users)
         .where(inArray(users.id, unique));

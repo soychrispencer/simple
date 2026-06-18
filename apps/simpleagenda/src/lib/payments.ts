@@ -20,7 +20,7 @@ export type {
 };
 
 export type CheckoutStartInput = {
-  planId: 'essential' | 'pro';
+  planId: 'pro';
   returnUrl: string;
 };
 

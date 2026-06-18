@@ -21,23 +21,30 @@ export type SerenatasUser = {
     name: string;
     role?: string;
     phone?: string | null;
-    whatsappEnabled?: boolean;
-    whatsappNotifyInvitations?: boolean;
-    whatsappNotifyRequests?: boolean;
-    whatsappNotifyAgenda?: boolean;
-    whatsappNotifyAccount?: boolean;
     emailNotifyInvitations?: boolean;
     emailNotifyRequests?: boolean;
     emailNotifyAgenda?: boolean;
     emailNotifyAccount?: boolean;
     inAppNotificationsEnabled?: boolean;
-    emailDigestFrequency?: 'off' | 'daily' | 'weekly';
     avatarUrl?: string | null;
     avatar?: string | null;
     provider?: string | null;
     hasPassword?: boolean;
     pendingEmail?: string | null;
     status: 'active' | 'verified' | 'suspended';
+    timezone?: string;
+    residenceCountryCode?: string;
+    residenceRegionId?: string | null;
+    residenceRegionName?: string | null;
+    residenceLocalityId?: string | null;
+    residenceLocalityName?: string | null;
+    residence?: {
+        countryCode: string;
+        regionId?: string | null;
+        regionName?: string | null;
+        localityId?: string | null;
+        localityName?: string | null;
+    };
     currentApp?: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | null;
     platformAccesses?: {
         app: 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas';
@@ -103,12 +110,12 @@ export type OwnerProfile = {
     trialEndsAt: string;
 };
 
-export type SerenataBillingPlanId = 'free' | 'essential' | 'pro';
+export type SerenataBillingPlanId = 'free' | 'pro';
 
 export type SerenataMePlan = {
     plan: SerenataBillingPlanId;
     planLabel: string;
-    /** @deprecated El modelo actual es prueba gratis por tiempo limitado + Esencial/Pro. */
+    /** @deprecated El modelo actual es prueba gratis por tiempo limitado + Pro. */
     alwaysFreeMonthly: true;
     /** @deprecated SimpleSerenatas no cobra comisión por serenata. */
     ownerOwnSerenataCommissionPercent: 0;
@@ -120,10 +127,6 @@ export type SerenataMePlan = {
     commissionVatBps: number;
     /** @deprecated Solo aplica a cálculos legacy de comisión, no al modelo comercial actual. */
     commissionVatPercent: number;
-    essentialPriceMonthly: number;
-    essentialPriceMonthlyNet: number;
-    essentialPriceMonthlyWithVat: number;
-    essentialCheckoutAvailable: boolean;
     proPriceMonthly: number;
     proPriceMonthlyNet: number;
     proPriceMonthlyWithVat: number;
@@ -217,6 +220,9 @@ export type ProviderGroup = {
     whatsapp: string | null;
     region: string | null;
     comunaBase: string | null;
+    countryCode?: string;
+    regionId?: string | null;
+    localityId?: string | null;
     serviceComunas: string[];
     status: ProviderGroupStatus;
     isDemo?: boolean;
@@ -409,7 +415,7 @@ export type UserNotificationLogItem = {
 export type SerenatasPanelNotification = {
     id: string;
     /** Tipo para iconografía del header (`@simple/marketplace-header`). */
-    type: 'service_lead' | 'listing_lead' | 'message_thread';
+    type: 'message_thread' | 'activity';
     /** Tipo original en DB (`serenata_notifications.type`). */
     kind?: string;
     title: string;
@@ -572,17 +578,11 @@ export const serenatasApi = {
         name?: string;
         phone?: string | null;
         avatarUrl?: string | null;
-        whatsappEnabled?: boolean;
-        whatsappNotifyInvitations?: boolean;
-        whatsappNotifyRequests?: boolean;
-        whatsappNotifyAgenda?: boolean;
-        whatsappNotifyAccount?: boolean;
         emailNotifyInvitations?: boolean;
         emailNotifyRequests?: boolean;
         emailNotifyAgenda?: boolean;
         emailNotifyAccount?: boolean;
         inAppNotificationsEnabled?: boolean;
-        emailDigestFrequency?: 'off' | 'daily' | 'weekly';
     }): Promise<ApiEnvelope<{ user: SerenatasUser }>> => {
         const response = await apiFetch<ApiEnvelope<{ user: SerenatasUser }>>('/api/auth/me', {
             method: 'PATCH',
@@ -601,14 +601,12 @@ export const serenatasApi = {
         }
         return response.data;
     },
-    sendNotificationTest: async (
-        channel: 'email' | 'whatsapp' = 'email',
-    ): Promise<ApiEnvelope<{ channel: string; message?: string; deferredQuietHours?: boolean }>> => {
+    sendNotificationTest: async (): Promise<ApiEnvelope<{ channel: string; message?: string }>> => {
         const response = await apiFetch<
-            ApiEnvelope<{ channel: string; message?: string; deferredQuietHours?: boolean }>
+            ApiEnvelope<{ channel: string; message?: string }>
         >('/api/auth/me/test-notification', {
             method: 'POST',
-            body: JSON.stringify({ channel }),
+            body: JSON.stringify({ channel: 'email' }),
         });
         if (!response.data) {
             return { ok: false, error: 'No pudimos conectar con el servidor.' } as ApiEnvelope<{
@@ -699,6 +697,7 @@ export const serenatasApi = {
         songSelections?: Array<{ repertoireSongId: string; clientNote?: string | null }>;
     }) => request<{ item: Serenata; offersCount: number }>('/client/serenatas', { method: 'POST', body: JSON.stringify(payload) }),
     marketplaceGroups: (filters?: {
+        country?: string;
         comuna?: string;
         region?: string;
         q?: string;
@@ -708,6 +707,7 @@ export const serenatasApi = {
         offset?: number;
     }) => {
         const params = new URLSearchParams();
+        if (filters?.country) params.set('country', filters.country);
         if (filters?.comuna) params.set('comuna', filters.comuna);
         if (filters?.region) params.set('region', filters.region);
         if (filters?.q) params.set('q', filters.q);

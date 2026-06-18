@@ -30,10 +30,10 @@ export function mapSerenataNotificationPanelType(kind: string): PanelNotificatio
             return 'message_thread';
         case 'platform_serenata_offer':
         case 'provider_group_request':
-            return 'service_lead';
+            return 'activity';
         default:
-            if (kind.startsWith('client_')) return 'service_lead';
-            return 'service_lead';
+            if (kind.startsWith('client_')) return 'activity';
+            return 'activity';
     }
 }
 

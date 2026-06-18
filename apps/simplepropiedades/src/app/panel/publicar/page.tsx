@@ -2067,7 +2067,7 @@ export default function PublishWizardPage() {
         setPublishing(true);
         setMessage(null);
 
-        // Upload media to B2 if they are still base64
+        // Subir media a Cloudflare R2 si aún está en base64
         const uploadedPhotos: PanelMediaAsset[] = [];
         for (const photo of data.media.photos) {
             if (photo.dataUrl.startsWith('data:')) {
@@ -2084,7 +2084,7 @@ export default function PublishWizardPage() {
                         continue;
                     }
                 } catch (e) {
-                    console.error('Failed to upload photo to B2:', e);
+                    console.error('Failed to upload photo to R2:', e);
                 }
             }
             uploadedPhotos.push(photo);
@@ -2101,7 +2101,7 @@ export default function PublishWizardPage() {
                     uploadedVideo.previewUrl = result.result.url;
                 }
             } catch (e) {
-                console.error('Failed to upload video to B2:', e);
+                console.error('Failed to upload video to R2:', e);
             }
         }
 

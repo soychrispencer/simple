@@ -2,7 +2,7 @@
 
 import { useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { IconDotsCircleHorizontal } from '@tabler/icons-react';
-import { joinClasses } from '../shared/join-classes.js';
+import { joinClasses } from '../shared/join-classes';
 
 export type PanelPillNavItem = {
     key: string;

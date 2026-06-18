@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { useAuth } from '@simple/auth';
 import {
     type PublishWizardCatalog, type VehicleCatalogType, getBrandsForVehicleType, getModelsForBrand, loadPublishWizardCatalog, } from '@/lib/publish-wizard-catalog';
+import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
 import {
     createPanelListing, updatePanelListing, fetchPanelListingDetail, fetchPanelListingDraft, deletePanelListingDraft, type CreatePanelListingInput, } from '@/lib/panel-listings';
 import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form';
@@ -28,11 +29,6 @@ import { ColorPicker } from '@/components/ui/color-picker';
 import { fetchAddressBook, uploadMediaFile } from '@simple/utils';
 import type { AddressBookEntry } from '@simple/types';
 import { createEmptyListingLocation } from '@simple/types';
-import {
-    fetchInstagramIntegrationStatus,
-    publishListingToInstagramEnhanced,
-    type InstagramIntegrationStatus,
-} from '@/lib/instagram';
 
 // =============================================================================
 // TIPOS
@@ -184,7 +180,7 @@ export default function PublicarPage() {
     const [form, setForm] = useState<FormData>(EMPTY_FORM);
     const [catalog, setCatalog] = useState<PublishWizardCatalog | null>(null);
     const [loading, setLoading] = useState(false);
-    const [published, setPublished] = useState<{ id: string; href: string; title: string } | null>(null);
+    const [published, setPublished] = useState<{ id: string; href: string; title: string; hasVideo: boolean } | null>(null);
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
         details: false,
         history: false,
@@ -531,7 +527,8 @@ export default function PublicarPage() {
                 setPublished({
                     id: result.item.id,
                     href: result.item.href || `/vehiculo/${result.item.id}`,
-                    title: result.item.title
+                    title: result.item.title,
+                    hasVideo: Boolean(uploadedVideo?.dataUrl),
                 });
                 setStep('success');
                 await deletePanelListingDraft('autos-quick').catch(() => null);
@@ -1014,7 +1011,7 @@ function Step1PhotosAndIdentity({
                             Video opcional para redes
                         </div>
                         <p className="mt-1 text-xs text-[var(--fg-muted)]">
-                            Sube o graba un clip corto para mostrar el vehículo en formato vertical.
+                            Sube el mismo clip que usarías en redes. Aparece en Descubre, en tus tarjetas y puedes publicarlo como Reel en Instagram.
                         </p>
                     </div>
                     <button
@@ -1033,7 +1030,7 @@ function Step1PhotosAndIdentity({
                         <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-[var(--fg)]">{form.reelVideo.name}</p>
                             <p className="mt-1 text-xs text-[var(--fg-muted)]">
-                                Se mostrará primero en cards tipo reel cuando esté disponible.
+                                Visible en Descubre, tarjetas tipo Reel e Instagram.
                             </p>
                         </div>
                         <button
@@ -1968,232 +1965,41 @@ function Step3LocationAndPublish({
 // PASO SUCCESS - Con integración Instagram completa
 // =============================================================================
 
-function StepSuccess({ published }: { published: { id: string; href: string; title: string } }) {
-    const shareText = `¡Mira este ${published.title} que estoy vendiendo! ${typeof window !== 'undefined' ? window.location.origin : ''}${published.href}`;
-    const [igStatus, setIgStatus] = useState<InstagramIntegrationStatus | null>(null);
-    const [igLoading, setIgLoading] = useState(true);
-    const [igPublishing, setIgPublishing] = useState(false);
-    const [igResult, setIgResult] = useState<{ ok: boolean; message: string } | null>(null);
-    const [copied, setCopied] = useState(false);
-
-    useEffect(() => {
-        fetchInstagramIntegrationStatus()
-            .then((s) => setIgStatus(s))
-            .catch(() => setIgStatus(null))
-            .finally(() => setIgLoading(false));
-    }, []);
-
-    async function handleInstagramPost() {
-        setIgPublishing(true);
-        setIgResult(null);
-        const result = await publishListingToInstagramEnhanced(published.id, {
-            useAI: true,
-            tone: 'professional',
-            targetAudience: 'general'
-        });
-        setIgPublishing(false);
-        setIgResult({
-            ok: result.ok,
-            message: result.ok
-                ? '¡Publicado en Instagram con éxito!'
-                : (result.error ?? 'No se pudo publicar en Instagram.'),
-        });
-    }
-
-    async function handleCopy() {
-        try {
-            await navigator.clipboard.writeText(shareText);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2500);
-        } catch {
-            // ignore
-        }
-    }
-
-    const igEligible = igStatus !== null && igStatus.eligible;
-    const igConnected = igStatus !== null && igStatus.eligible && igStatus.account?.status === 'connected';
+function StepSuccess({ published }: { published: { id: string; href: string; title: string; hasVideo: boolean } }) {
+    const [hasVideo, setHasVideo] = useState(published.hasVideo);
 
     return (
         <div className="flex flex-col items-center text-center pt-4 pb-32 px-4">
-            {/* Header de éxito */}
             <div className="w-full max-w-md mx-auto mb-8">
                 <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center mb-6 mx-auto shadow-sm">
                     <div className="w-14 h-14 rounded-full bg-[var(--color-success)] flex items-center justify-center">
                         <IconCheck size={28} className="text-white" strokeWidth={3} />
                     </div>
                 </div>
-                
+
                 <h1 className="text-3xl font-bold mb-2 text-[var(--fg)]">¡Publicado!</h1>
                 <p className="text-[var(--fg-muted)] mb-6">
-                    Tu aviso ya está activo y visible para compradores
+                    Tu aviso ya está activo. Genera un video, elige dónde publicar y comparte cuando quieras.
                 </p>
             </div>
-            
-            {/* Grid de acciones */}
-            <div className="w-full max-w-md mx-auto grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Ver publicación */}
-                <a
-                    href={published.href}
-                    className="sm:col-span-2 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--accent)] text-white font-semibold
-                        hover:bg-[var(--accent)]/90 transition-all shadow-md hover:shadow-lg"
-                >
-                    Ver publicación
-                    <IconExternalLink size={18} />
-                </a>
-                
-                {/* WhatsApp */}
-                <a
-                    href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#25D366] text-white font-medium
-                        hover:bg-[#128C7E] transition-colors"
-                >
-                    <IconBrandWhatsapp size={20} />
-                    WhatsApp
-                </a>
-                
-                {/* Instagram - Integración real */}
-                <InstagramShareButton
-                    loading={igLoading}
-                    eligible={igEligible}
-                    connected={igConnected}
-                    publishing={igPublishing}
-                    result={igResult}
-                    onPublish={handleInstagramPost}
-                />
-                
-                {/* Copiar link */}
-                <button
-                    onClick={handleCopy}
-                    className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-medium transition-all
-                        ${copied 
-                            ? 'border-green-500 bg-green-50 text-green-700' 
-                            : 'border-[var(--border)] hover:bg-[var(--bg-subtle)]'}`}
-                >
-                    {copied ? <IconCheck size={18} /> : <IconShare3 size={18} />}
-                    {copied ? '¡Copiado!' : 'Copiar link'}
-                </button>
-                
-                {/* Nueva publicación */}
-                <button
-                    onClick={() => window.location.reload()}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-[var(--border)] font-medium
-                        hover:bg-[var(--bg-subtle)] transition-colors text-[var(--fg-muted)]"
-                >
-                    <IconPlus size={18} />
-                    Publicar otro
-                </button>
-            </div>
-            
-            {/* Tip */}
-            <div className="mt-8 p-4 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] max-w-md">
-                <p className="text-sm font-medium mb-1">💡 Tip para vender más rápido</p>
-                <p className="text-xs text-[var(--fg-muted)]">
-                    Comparte tu aviso en Instagram para llegar a más compradores potenciales
-                </p>
-            </div>
-        </div>
-    );
-}
 
-// Botón de Instagram con estados
-function InstagramShareButton({
-    loading,
-    eligible,
-    connected,
-    publishing,
-    result,
-    onPublish,
-}: {
-    loading: boolean;
-    eligible: boolean;
-    connected: boolean;
-    publishing: boolean;
-    result: { ok: boolean; message: string } | null;
-    onPublish: () => void;
-}) {
-    // Loading
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#f0f0f0] text-[var(--fg-muted)] animate-pulse">
-                <div className="w-5 h-5 rounded-full bg-[var(--fg-muted)]/20" />
-                Cargando...
-            </div>
-        );
-    }
+            <ShareToSocialPanel
+                listingId={published.id}
+                listingTitle={published.title}
+                listingHref={published.href}
+                hasVideo={hasVideo}
+                onVideoGenerated={() => setHasVideo(true)}
+            />
 
-    // No elegible (plan free)
-    if (!eligible) {
-        return (
-            <Link
-                href="/panel/mi-cuenta/suscripcion"
-                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 font-medium
-                    hover:from-purple-200 hover:to-pink-200 transition-all border border-purple-200"
-            >
-                <IconLock size={16} />
-                Instagram Pro
-            </Link>
-        );
-    }
-
-    // Elegible pero no conectado
-    if (!connected) {
-        return (
-            <Link
-                href="/panel/instagram"
-                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white font-medium
-                    hover:opacity-90 transition-opacity"
-            >
-                <IconBrandInstagram size={18} />
-                Conectar IG
-            </Link>
-        );
-    }
-
-    // Conectado - Publicar - Éxito
-    if (result?.ok) {
-        return (
-            <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-green-100 text-green-700 font-medium border border-green-300">
-                <IconCheck size={18} />
-                ¡Publicado!
-            </div>
-        );
-    }
-    
-    // Conectado - Error
-    if (result && !result.ok) {
-        return (
             <button
-                onClick={onPublish}
-                disabled={publishing}
-                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-red-100 text-red-700 font-medium border border-red-300"
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-6 flex items-center justify-center gap-2 py-3 px-5 rounded-xl border-2 border-[var(--border)] font-medium hover:bg-[var(--bg-subtle)] transition-colors text-[var(--fg-muted)]"
             >
-                <IconBrandInstagram size={18} />
-                Reintentar IG
+                <IconPlus size={18} />
+                Publicar otro
             </button>
-        );
-    }
-
-    return (
-        <button
-            onClick={onPublish}
-            disabled={publishing}
-            className="flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] 
-                text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-        >
-            {publishing ? (
-                <>
-                    <IconLoader2 size={18} className="animate-spin" />
-                    Publicando...
-                </>
-            ) : (
-                <>
-                    <IconBrandInstagram size={18} />
-                    Publicar en IG
-                </>
-            )}
-        </button>
+        </div>
     );
 }
 

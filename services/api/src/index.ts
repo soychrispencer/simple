@@ -43,6 +43,7 @@ import {
     getPaymentById,
     getPreapprovalById,
     isMercadoPagoConfigured,
+    warnMercadoPagoWebhookSecretAtStartup,
 } from './modules/mercadopago/service.js';
 import {
     appendCheckoutParams,
@@ -74,9 +75,8 @@ import { InstagramSchedulerService } from './modules/instagram/scheduler.js';
 import { buildInstagramTemplateOverlaySvg } from './modules/instagram/svg-render.js';
 import { defaultInstagramCaptionTemplate } from './modules/instagram/listing-presentation.js';
 import { loadPaymentOrdersCache } from './modules/payments/load-payment-orders-cache.js';
+import { createPlatformRouter } from './modules/platform/index.js';
 import { createStartupDataLoader } from './modules/cache/startup-load.js';
-import { createListingLeadIngestHelpers } from './modules/listings/listing-lead-ingest.js';
-import { createResolveInitialListingLeadAssignment } from './modules/listings/lead-routing-assignment.js';
 import { buildEnvStatusSnapshot } from './lib/env-status.js';
 import {
     createInstagramAccountStore,
@@ -91,6 +91,7 @@ import { deleteStoredMediaUrls } from './modules/media/stored-object.js';
 import {
     extractAllListingMediaUrls,
     extractListingMediaUrls,
+    extractListingVideoUrl,
     extractR2ObjectKey,
     extractStorageObjectKey,
     isCloudflareR2Url,
@@ -100,13 +101,6 @@ import {
     toDeliveredMediaUrl,
     toPublicMediaUrl,
 } from './modules/listings/media-delivery.js';
-import {
-    applyLeadCountsToListingCache,
-    fetchActiveListingIdsForLeadCountSync,
-    fetchLeadCountByListingId,
-    fetchLeadCountsForListingIds,
-    fetchLeadCountsForListingIdsBatched,
-} from './modules/listings/lead-count.js';
 import { buildSocialFeedClips as buildSocialFeedClipsFromRecords } from './modules/social/feed.js';
 import {
     buildLocationPublicLabel,
@@ -137,17 +131,8 @@ import {
 import {
     embedStoredListingMetadata,
     extractStoredListingIntegrations,
-    getImportedLeadSourceLabel,
-    inferListingLeadChannel,
-    inferPortalFromLeadImportSource,
     isPortalAvailableForVertical,
-    normalizeImportedLeadEmail,
-    normalizeImportedLeadName,
-    parseImportedLeadTimestamp,
-    sanitizeSyntheticLeadEmailToken,
     stripStoredListingMetadata,
-    type ListingLeadChannel,
-    type ListingLeadSource,
     type ListingPortalSyncRecord,
     type PortalKey,
 } from './modules/listings/portals.js';
@@ -171,13 +156,11 @@ import {
     emailVerificationTokens,
     instagramAccounts,
     instagramPublications,
+    socialPublications,
+    tiktokAccounts,
+    youtubeAccounts,
     publicProfiles,
     publicProfileTeamMembers,
-    crmPipelineColumns,
-    serviceLeads,
-    serviceLeadActivities,
-    listingLeads,
-    listingLeadActivities,
     messageThreads,
     messageEntries,
     adCampaigns,
@@ -225,45 +208,16 @@ import {
     serenataGroupMembers,
     serenataGroupInvites,
     userNotificationLog,
-    serenataNotifications,
+    platformNotifications,
     mortgageRates,
 } from './db/schema.js';
 import { createAccountCache } from './modules/accounts/account-cache.js';
 import { createAddressBookService } from './modules/accounts/address-book-service.js';
 import { createAccountsRouter } from './modules/accounts/index.js';
-import { createCrmRouter } from './modules/crm/index.js';
-import { type CrmServiceDeps } from './modules/crm/service.js';
-import { createCrmRuntimeBindings } from './modules/crm/runtime-bindings.js';
-import { type MessageServiceDeps } from './modules/messages/index.js';
 import { createMessageRuntimeBindings } from './modules/messages/runtime-bindings.js';
+import { createMessageServiceDeps } from './modules/messages/message-service-factory.js';
 import { makeInstagramStatePayload, parseInstagramStatePayload } from './modules/instagram/oauth-state.js';
 import { createSubscriptionAccess } from './modules/subscriptions/access.js';
-import {
-    buildLeadQuickFollowUpAt,
-    crmAssigneeValue,
-    createLeadPresentation,
-    listingLeadActivityLabel,
-    listingLeadChannelLabel,
-    listingLeadSourceLabel,
-    listingLeadStatusLabel,
-    serviceLeadServiceLabel,
-} from './modules/crm/lead-presentation.js';
-import {
-    createLeadSlaHelpers,
-    getLeadQuickActionLabel,
-    leadPriorityLabel,
-    normalizeLeadTags,
-    serviceLeadStatusLabel,
-} from './modules/crm/lead-sla.js';
-import {
-    mapListingLeadActivityRow,
-    mapListingLeadRow,
-    mapMessageEntryRow,
-    mapMessageThreadRow,
-    mapPipelineColumnRow,
-    mapServiceLeadActivityRow,
-    mapServiceLeadRow,
-} from './modules/crm/row-mappers.js';
 import { createAdminRouter, listAdminUsersSnapshot, listAdminListingsSnapshot } from './modules/admin/index.js';
 import { createPermanentlyDeleteUser } from './modules/admin/permanently-delete-user.js';
 import {
@@ -355,14 +309,6 @@ import webpush from 'web-push';
 import { googleAuth } from '@hono/oauth-providers/google';
 import { google } from 'googleapis';
 import cron from 'node-cron';
-import {
-    notifyConfirmation,
-    notifyReminder24h,
-    notifyReminder30min,
-    notifyCancellation,
-    notifyProfessionalNewBooking,
-    sendTestMessage,
-} from './modules/whatsapp/service.js';
 import { getStorageProvider } from './storage-providers/index.js';
 import { clearRateLimit, consumeRateLimit } from './lib/auth-rate-limit.js';
 import { rateLimit } from './lib/rate-limit.js';
@@ -399,15 +345,12 @@ import {
     instagramSettingsSchema,
     instagramPublishSchema,
     instagramEnhancedPublishSchema,
+    socialPublishSchema,
+    generateListingReelSchema,
     adCampaignCreateSchema,
     adCampaignUpdateSchema,
     createCheckoutSchema,
     confirmCheckoutSchema,
-    serviceLeadCreateSchema,
-    listingLeadCreateSchema,
-    listingLeadActionCreateSchema,
-    externalListingLeadImportSchema,
-    portalKeySchema,
     emailVerificationRequestSchema,
     emailVerificationConfirmSchema,
     emailChangeRequestSchema,
@@ -416,6 +359,7 @@ import {
     messageThreadUpdateSchema,
 } from './lib/request-schemas.js';
 import { logAudit, logNotification } from './lib/audit.js';
+import { publicResidenceFromUser } from './lib/sync-user-timezone.js';
 import { createAgendaRouter, createPublicAgendaRouter } from './modules/agenda/router.js';
 import { registerAgendaCronJobs } from './modules/agenda/cron.js';
 import { registerSerenatasCronJobs } from './modules/serenatas/cron.js';
@@ -423,12 +367,40 @@ import { createAccountRouter } from './modules/public-profile/index.js';
 import { createAdvertisingRouter } from './modules/advertising/index.js';
 import { getAdvertisingPrice, getAdPaymentStatusFromOrderStatus, normalizeAdCampaigns, getSubscriptionPlans, isValidHttpDestinationUrl, isAdPlacementSectionAllowed } from './modules/advertising/service.js';
 import { AD_FORMAT_LABELS, MAX_CAMPAIGNS_TOTAL, MAX_ACTIVE_HERO_CAMPAIGNS } from './modules/advertising/types.js';
-import { createLeadsRouter } from './modules/leads/index.js';
 import { createMessagesRouter, createPanelNotificationsRouter } from './modules/messages/index.js';
-import { createInstagramRouter, createInstagramPublicImageRouter } from './modules/instagram/index.js';
+import {
+    createInstagramRouter,
+    createInstagramPublicImageRouter,
+} from './modules/instagram/index.js';
+import {
+    createTikTokRouter,
+    createTikTokAccountStore,
+    mapTikTokAccountRow,
+    createPublishListingToTikTok,
+    isTikTokConfigured,
+} from './modules/tiktok/index.js';
+import {
+    createYouTubeRouter,
+    createYouTubeAccountStore,
+    mapYouTubeAccountRow,
+    createPublishListingToYouTube,
+    isYouTubeConfigured,
+} from './modules/youtube/index.js';
+import {
+    createSocialRouter,
+    createSocialHubRouter,
+    createSocialPublicationStore,
+    createPublishListingToFacebookPage,
+    createSocialHubPublisher,
+    mapSocialPublicationRow,
+} from './modules/social/index.js';
 import { createMediaRouter, createStorageRouter } from './modules/media/index.js';
+import {
+    attachGeneratedVideoToListing,
+    generateListingReelVideo,
+    isReelGeneratorAvailable,
+} from './modules/media/generate-listing-reel.js';
 import { createSystemRouter } from './modules/system/index.js';
-import { createSocialRouter } from './modules/social/index.js';
 import { createPublicRouter } from './modules/public/index.js';
 import { attachSerenataPaymentOrder, createSerenatasRouter, getSerenataPaymentTarget, markSerenataPaymentFailed, publishPaidSerenataToOwners } from './modules/serenatas/index.js';
 import type {
@@ -448,16 +420,15 @@ import type {
     BoostPlanId,
     BoostSection,
     CheckoutKind,
-    CrmAssigneeResponse,
-    CrmEntityType,
     FeedClip,
     FollowRecord,
     GeoPoint,
     InstagramAccountRecord,
+    SocialPublicationRecord,
     InstagramPublicationRecord,
+    TikTokAccountRecord,
+    YouTubeAccountRecord,
     ListingDraftRow,
-    ListingLeadActivityRecord,
-    ListingLeadRecord,
     ListingLocation,
     ListingRecord,
     ListingRow,
@@ -470,14 +441,11 @@ import type {
     PaymentOrderMetadata,
     PaymentOrderRecord,
     PaymentVerticalType,
-    PipelineColumnRecord,
     PublicProfileAccountKind,
     PublicProfileRecord,
     PublicProfileTeamMemberRecord,
     PublicUser,
     SavedListingRecord,
-    ServiceLeadActivityRecord,
-    ServiceLeadRecord,
     SubscriptionPlanId,
     UserRole,
     UserStatus,
@@ -496,9 +464,11 @@ import {
     getPublicProfileTeamMembers,
     getPublishedPublicProfileBySlug,
     instagramAccountByUserVertical,
+    tiktokAccountByUserVertical,
+    youtubeAccountByUserVertical,
     instagramPublicationsByUser,
+    socialPublicationsByUser,
     listingIdsByUser,
-    listingLeadCountsByListing,
     listingsById,
     paymentOrdersByUser,
     publicProfileTeamMembersByUserVertical,
@@ -537,6 +507,8 @@ logDebug('--- API RESTARTED ---');
 const SESSION_COOKIE = SESSION_COOKIE_NAME;
 const OAUTH_STATE_COOKIE = 'simple_oauth_state';
 const INSTAGRAM_STATE_COOKIE = 'simple_instagram_state';
+const TIKTOK_STATE_COOKIE = 'simple_tiktok_state';
+const YOUTUBE_STATE_COOKIE = 'simple_youtube_state';
 const SESSION_SECRET = asString(env.SESSION_SECRET);
 
 // ── Web Push (VAPID) ──────────────────────────────────────────────────────────
@@ -745,7 +717,6 @@ const {
     getInstagramRequiredPlanIds,
     userCanUsePublicProfile,
     userCanUseInstagram,
-    userCanUseCrm,
     upsertActiveSubscription,
     cancelActiveSubscriptionForUser,
     makeSubscriptionId,
@@ -765,32 +736,7 @@ function instagramAccountKey(userId: string, vertical: VerticalType): string {
     return `${userId}:${vertical}`;
 }
 
-function isLeadIngestConfigured(): boolean {
-    return Boolean(asString(process.env.LEAD_INGEST_SECRET));
-}
-
-function isLeadIngestAuthorized(c: Context): boolean {
-    const configuredSecret = asString(process.env.LEAD_INGEST_SECRET);
-    if (!configuredSecret) return false;
-
-    const authHeader = asString(c.req.header('authorization'));
-    const headerSecret = asString(c.req.header('x-simple-ingest-secret'));
-    const providedSecret = authHeader.startsWith('Bearer ')
-        ? authHeader.slice('Bearer '.length).trim()
-        : headerSecret;
-
-    if (!providedSecret) return false;
-
-    try {
-        return timingSafeEqual(Buffer.from(providedSecret), Buffer.from(configuredSecret));
-    } catch {
-        return false;
-    }
-}
-
-const mapListingRowToRecord = createMapListingRowToRecord(
-    (listingId) => listingLeadCountsByListing.get(listingId) ?? 0,
-);
+const mapListingRowToRecord = createMapListingRowToRecord(() => 0);
 
 function upsertListingCache(record: ListingRecord): ListingRecord {
     listingsById.set(record.id, record);
@@ -837,17 +783,11 @@ function sanitizeUser(user: AppUser): PublicUser {
         email: runtimeUser.email,
         name: runtimeUser.name,
         phone: runtimeUser.phone ?? null,
-        whatsappEnabled: runtimeUser.whatsappEnabled ?? false,
-        whatsappNotifyInvitations: runtimeUser.whatsappNotifyInvitations ?? false,
-        whatsappNotifyRequests: runtimeUser.whatsappNotifyRequests ?? false,
-        whatsappNotifyAgenda: runtimeUser.whatsappNotifyAgenda ?? false,
-        whatsappNotifyAccount: runtimeUser.whatsappNotifyAccount ?? false,
         emailNotifyInvitations: runtimeUser.emailNotifyInvitations ?? true,
         emailNotifyRequests: runtimeUser.emailNotifyRequests ?? true,
         emailNotifyAgenda: runtimeUser.emailNotifyAgenda ?? true,
         emailNotifyAccount: runtimeUser.emailNotifyAccount ?? true,
         inAppNotificationsEnabled: runtimeUser.inAppNotificationsEnabled ?? true,
-        emailDigestFrequency: runtimeUser.emailDigestFrequency ?? 'off',
         pendingEmail: runtimeUser.pendingEmail ?? null,
         role: runtimeUser.role,
         status: runtimeUser.status,
@@ -859,6 +799,8 @@ function sanitizeUser(user: AppUser): PublicUser {
         hasPassword: Boolean(runtimeUser.passwordHash),
         lastLoginAt: runtimeUser.lastLoginAt ?? null,
         primaryAccountId: runtimeUser.primaryAccountId ?? defaultAccountIdByUserId.get(runtimeUser.id) ?? null,
+        timezone: runtimeUser.timezone ?? 'America/Santiago',
+        ...publicResidenceFromUser(runtimeUser as Record<string, unknown>),
     };
 }
 
@@ -896,6 +838,36 @@ const {
     },
 });
 
+const {
+    getTikTokAccount,
+    tiktokAccountToResponse,
+    upsertTikTokAccountRecord,
+    updateTikTokAccountRecord,
+    disconnectTikTokAccount,
+} = createTikTokAccountStore({
+    tiktokAccountByUserVertical,
+    getPrimaryAccountIdForUser: async (userId) => {
+        const accountId = await getPrimaryAccountIdForUser(userId);
+        if (!accountId) throw new Error('Cuenta primaria no encontrada');
+        return accountId;
+    },
+});
+
+const {
+    getYouTubeAccount,
+    youtubeAccountToResponse,
+    upsertYouTubeAccountRecord,
+    updateYouTubeAccountRecord,
+    disconnectYouTubeAccount,
+} = createYouTubeAccountStore({
+    youtubeAccountByUserVertical,
+    getPrimaryAccountIdForUser: async (userId) => {
+        const accountId = await getPrimaryAccountIdForUser(userId);
+        if (!accountId) throw new Error('Cuenta primaria no encontrada');
+        return accountId;
+    },
+});
+
 const refreshInstagramAccountIfNeeded = (account: InstagramAccountRecord) =>
     refreshInstagramAccountToken(account, updateInstagramAccountSettings);
 
@@ -912,19 +884,11 @@ function mapUserRowToAppUser(user: typeof users.$inferSelect): AppUser {
         passwordHash: user.passwordHash ?? undefined,
         name: user.name,
         phone: user.phone ?? null,
-        whatsappEnabled: user.whatsappEnabled ?? false,
-        whatsappNotifyInvitations: user.whatsappNotifyInvitations ?? false,
-        whatsappNotifyRequests: user.whatsappNotifyRequests ?? false,
-        whatsappNotifyAgenda: user.whatsappNotifyAgenda ?? false,
-        whatsappNotifyAccount: user.whatsappNotifyAccount ?? false,
         emailNotifyInvitations: user.emailNotifyInvitations ?? true,
         emailNotifyRequests: user.emailNotifyRequests ?? true,
         emailNotifyAgenda: user.emailNotifyAgenda ?? true,
         emailNotifyAccount: user.emailNotifyAccount ?? true,
         inAppNotificationsEnabled: user.inAppNotificationsEnabled ?? true,
-        emailDigestFrequency: (user.emailDigestFrequency === 'daily' || user.emailDigestFrequency === 'weekly'
-            ? user.emailDigestFrequency
-            : 'off') as 'off' | 'daily' | 'weekly',
         pendingEmail: user.pendingEmail ?? null,
         role: user.role as UserRole,
         status: user.status as UserStatus,
@@ -936,6 +900,13 @@ function mapUserRowToAppUser(user: typeof users.$inferSelect): AppUser {
         providerId: user.providerId ?? undefined,
         lastLoginAt: user.lastLoginAt ?? null,
         primaryAccountId: defaultAccountIdByUserId.get(user.id) ?? null,
+        timezone: user.timezone ?? 'America/Santiago',
+        dstEnabled: user.dstEnabled ?? false,
+        residenceCountryCode: user.residenceCountryCode ?? 'CL',
+        residenceRegionId: user.residenceRegionId ?? null,
+        residenceRegionName: user.residenceRegionName ?? null,
+        residenceLocalityId: user.residenceLocalityId ?? null,
+        residenceLocalityName: user.residenceLocalityName ?? null,
     };
 }
 
@@ -984,6 +955,15 @@ function parseVertical(raw: string | undefined): VerticalType {
     return 'autos';
 }
 
+type MessageVertical = VerticalType | 'serenatas';
+
+function parseMessageVertical(raw: string | undefined): MessageVertical {
+    if (raw === 'propiedades') return 'propiedades';
+    if (raw === 'agenda') return 'agenda';
+    if (raw === 'serenatas') return 'serenatas';
+    return 'autos';
+}
+
 function parseInstagramStateFromCookie(value: string) {
     return parseInstagramStatePayload(value, { asString, parseVertical });
 }
@@ -1022,89 +1002,14 @@ const upsertBoostListingFromListing = createBoostListingSeedSync({
     extractListingMediaUrls: (listing) => extractListingMediaUrls(listing as ListingRecord),
 });
 
-const {
-    buildLeadSlaSignals,
-    getLeadAttentionLevel,
-    leadAttentionLabel,
-} = createLeadSlaHelpers({ formatAgo, formatRelativeTimestamp });
+const messageDeps = createMessageServiceDeps({ listingsById, usersById });
 
 const {
-    getLeadRoutingCandidates,
-    listingLeadAssigneeToResponse,
-    listListingLeadAssignees,
-    serviceLeadToResponse,
-    serviceLeadActivityToResponse,
-    listingLeadActivityToResponse,
-} = createLeadPresentation({
-    usersById,
-    getEditablePublicProfileTeamMembers,
-    serviceLeadStatusLabel,
-    leadPriorityLabel,
-    buildLeadSlaSignals,
-    getLeadAttentionLevel,
-    leadAttentionLabel,
-    formatRelativeTimestamp,
-    formatAgo,
-});
-
-const crmDeps: CrmServiceDeps = {
-    db,
-    eq,
-    and,
-    or,
-    desc,
-    asc,
-    usersById,
-    listingsById,
-    getPrimaryAccountIdForUser,
-    getEditablePublicProfileTeamMembers,
-    isAdminRole,
-    formatAgo,
-    formatRelativeTimestamp,
-    publicSectionLabel,
-    tables: {
-        crmPipelineColumns,
-        serviceLeads,
-        serviceLeadActivities,
-        listingLeads,
-        listingLeadActivities,
-        users,
-    },
-};
-
-const messageDeps: MessageServiceDeps = {
-    db,
-    eq,
-    and,
-    or,
-    desc,
-    asc,
-    tables: { messageThreads, messageEntries },
-    usersById,
-    listingsById,
-    formatAgo,
-    publicSectionLabel: (section) => publicSectionLabel(section as BoostSection),
-    mapMessageThreadRow,
-    mapMessageEntryRow,
-};
-
-const {
-    listingLeadToResponse,
-    listListingLeadRecords,
-    listServiceLeadRecords,
-    getListingLeadById,
-    createListingLeadActivity,
-    createServiceLeadActivity,
-} = createCrmRuntimeBindings(crmDeps);
-
-const {
+    messageDeps: messageServiceDeps,
     messageThreadToResponse,
     messageEntryToResponse,
-    buildListingLeadNotification,
     buildMessageThreadNotification,
-    buildServiceLeadNotification,
     getMessageThreadById,
-    getMessageThreadByLeadId,
     getMessageThreadByListingAndBuyer,
     listMessageThreadsForUser,
     listMessageEntries,
@@ -1159,11 +1064,110 @@ const {
         instagramPublicationToResponse,
         refreshInstagramAccountIfNeeded,
         extractListingMediaUrls: (listing) => extractListingMediaUrls(listing as ListingRecord),
+        extractListingVideoUrl: (listing) => extractListingVideoUrl(listing as ListingRecord),
         logDebug,
         createInstagramPublicationRecord,
         updateInstagramAccountSettings,
     },
 );
+
+const {
+    getSocialPublicationsForUser,
+    getLatestSocialPublicationForListing,
+    socialPublicationToResponse,
+    createSocialPublicationRecord,
+} = createSocialPublicationStore({
+    socialPublicationsByUser,
+    getPrimaryAccountIdForUser: async (userId) => {
+        const accountId = await getPrimaryAccountIdForUser(userId);
+        if (!accountId) throw new Error('Cuenta primaria no encontrada');
+        return accountId;
+    },
+});
+
+const publishListingToFacebookPage = createPublishListingToFacebookPage({
+    getInstagramAccount,
+    userCanUseInstagram: (user, vertical) =>
+        userCanUseInstagram(user as AppUser, vertical as VerticalType),
+    getLatestSocialPublicationForListing,
+    socialPublicationToResponse,
+    buildListingPublicUrl: buildListingPublicUrlForInstagram,
+    extractListingMediaUrls: (listing) => extractListingMediaUrls(listing as ListingRecord),
+    extractListingVideoUrl: (listing) => extractListingVideoUrl(listing as ListingRecord),
+    buildListingCaption: buildInstagramCaption,
+    createSocialPublicationRecord,
+    updateInstagramAccountSettings,
+});
+
+const publishListingToTikTok = createPublishListingToTikTok({
+    getTikTokAccount,
+    userCanUseInstagram: (user, vertical) =>
+        userCanUseInstagram(user as AppUser, vertical as VerticalType),
+    getLatestSocialPublicationForListing,
+    socialPublicationToResponse,
+    buildListingPublicUrl: buildListingPublicUrlForInstagram,
+    extractListingVideoUrl: (listing) => extractListingVideoUrl(listing as ListingRecord),
+    buildListingCaption: buildInstagramCaption,
+    createSocialPublicationRecord,
+    updateTikTokAccountRecord,
+});
+
+const publishListingToYouTube = createPublishListingToYouTube({
+    getYouTubeAccount,
+    userCanUseInstagram: (user, vertical) =>
+        userCanUseInstagram(user as AppUser, vertical as VerticalType),
+    getLatestSocialPublicationForListing,
+    socialPublicationToResponse,
+    buildListingPublicUrl: buildListingPublicUrlForInstagram,
+    extractListingVideoUrl: (listing) => extractListingVideoUrl(listing as ListingRecord),
+    buildListingCaption: buildInstagramCaption,
+    createSocialPublicationRecord,
+    updateYouTubeAccountRecord,
+});
+
+const publishListingToSocialHub = createSocialHubPublisher({
+    extractListingVideoUrl: (listing) => extractListingVideoUrl(listing as ListingRecord),
+    publishListingToInstagram,
+    publishListingToFacebookPage,
+    publishListingToTikTok,
+    publishListingToYouTube,
+});
+
+async function generateListingReelForUser(input: {
+    user: { id: string; role?: string };
+    listing: ListingRecord;
+    replaceExisting?: boolean;
+}) {
+    const existingVideo = extractListingVideoUrl(input.listing);
+    if (existingVideo && !input.replaceExisting) {
+        throw new Error('Este aviso ya tiene video. Activa reemplazar para generar uno nuevo desde las fotos.');
+    }
+
+    const result = await generateListingReelVideo({
+        title: input.listing.title,
+        price: input.listing.price,
+        imageUrls: extractListingMediaUrls(input.listing),
+        upload: async (file, fileName) => {
+            const storage = getStorageProvider();
+            const uploadResult = await storage.upload({
+                file: new Blob([new Uint8Array(file)], { type: 'video/mp4' }),
+                fileName,
+                mimeType: 'video/mp4',
+                fileType: 'video',
+                userId: input.user.id,
+                listingId: input.listing.id,
+            });
+            const publicUrl = asString(uploadResult?.publicUrl) || asString(uploadResult?.url);
+            if (!publicUrl) throw new Error('No se pudo subir el video generado a almacenamiento.');
+            return { publicUrl };
+        },
+    });
+
+    const updated = attachGeneratedVideoToListing(input.listing, result.publicUrl, result.sizeBytes);
+    const saved = await saveListingRecord(updated as Parameters<typeof saveListingRecord>[0]);
+    upsertBoostListingFromListing(saved as Parameters<typeof upsertBoostListingFromListing>[0]);
+    return result;
+}
 
 function getFollowRecords(userId: string): FollowRecord[] {
     return followsByUser.get(userId) ?? [];
@@ -1219,18 +1223,18 @@ const permanentlyDeleteUser = createPermanentlyDeleteUser({
     tables: {
         agendaProfessionalProfiles,
         listings,
-        listingLeads,
         messageThreads,
         messageEntries,
-        serviceLeads,
         instagramAccounts,
         instagramPublications,
+        socialPublications,
+        tiktokAccounts,
+        youtubeAccounts,
         savedListings,
         boostOrders,
         adCampaigns,
         listingDrafts,
         follows,
-        crmPipelineColumns,
         publicProfileTeamMembers,
         publicProfiles,
         passwordResetTokens,
@@ -1258,15 +1262,13 @@ const permanentlyDeleteUser = createPermanentlyDeleteUser({
         agendaNotificationEvents,
         pushSubscriptions,
         users,
-        listingLeadActivities,
-        serviceLeadActivities,
         agendaClientTags,
         addressBook,
         paymentOrders,
         subscriptions,
         mortgageRates,
         userNotificationLog,
-        serenataNotifications,
+        platformNotifications,
         serenataProviderGroupMemberInvites,
         serenataGroupInvites,
         serenataProviderGroupApplications,
@@ -1297,11 +1299,13 @@ const permanentlyDeleteUser = createPermanentlyDeleteUser({
         paymentOrdersByUser,
         activeSubscriptionsByUser,
         instagramPublicationsByUser,
+        socialPublicationsByUser,
         publicProfilesByUserVertical,
         publicProfileTeamMembersByUserVertical,
         instagramAccountByUserVertical,
+        tiktokAccountByUserVertical,
+        youtubeAccountByUserVertical,
         listingsById,
-        listingLeadCountsByListing,
         publicProfilesByVerticalSlug,
     },
 });
@@ -1329,21 +1333,7 @@ const ensureAgendaProfile = createEnsureAgendaProfile({ ensurePrimaryAccountForU
 const isValidSlug = isValidAgendaSlug;
 const RESERVED_SLUGS = AGENDA_RESERVED_SLUGS;
 
-const resolveInitialListingLeadAssignment = createResolveInitialListingLeadAssignment({
-    db,
-    eq,
-    getPublicProfileRecord,
-    getLeadRoutingCandidates,
-    mapPublicProfileRow,
-    upsertPublicProfileCache,
-});
-
-async function syncListingLeadCountFromDb(listingId: string): Promise<void> {
-    const count = await fetchLeadCountByListingId(listingId);
-    applyLeadCountsToListingCache(listingsById, listingLeadCountsByListing, new Map([[listingId, count]]), [listingId]);
-}
-
-const getEnvStatus = () => buildEnvStatusSnapshot({ leadIngestConfigured: isLeadIngestConfigured() });
+const getEnvStatus = () => buildEnvStatusSnapshot();
 
 const {
     authUser,
@@ -1368,72 +1358,6 @@ const {
     applyRuntimeRole,
 });
 
-async function getListingLeadByExternalReference(input: {
-    listingId: string;
-    source: ListingLeadSource;
-    externalSourceId: string;
-}): Promise<ListingLeadRecord | null> {
-    const rows = await db
-        .select()
-        .from(listingLeads)
-        .where(and(
-            eq(listingLeads.listingId, input.listingId),
-            eq(listingLeads.source, input.source),
-            eq(listingLeads.externalSourceId, input.externalSourceId),
-        ))
-        .limit(1);
-    if (rows.length === 0) return null;
-    return mapListingLeadRow(rows[0]);
-}
-
-async function resolveListingForImportedLead(input: {
-    vertical: VerticalType;
-    portal: PortalKey | null;
-    listingId?: string | null;
-    listingSlug?: string | null;
-    listingHref?: string | null;
-    externalListingId?: string | null;
-}): Promise<ListingRecord | null> {
-    if (input.listingId?.trim()) {
-        const byId = await getListingById(input.listingId.trim());
-        if (byId) return byId;
-    }
-
-    const slugCandidate = input.listingSlug?.trim() || input.listingHref?.trim() || null;
-    if (slugCandidate) {
-        const bySlug = await getListingBySlug(slugCandidate);
-        if (bySlug) return bySlug;
-    }
-
-    if (input.portal && input.externalListingId?.trim()) {
-        return getListingByPortalExternalId(input.vertical, input.portal, input.externalListingId.trim());
-    }
-
-    return null;
-}
-
-const {
-    createListingLeadRecord,
-    createOrRefreshListingLeadAction,
-    upsertImportedListingLead,
-    createOrAppendListingConversation,
-} = createListingLeadIngestHelpers({
-    db,
-    eq,
-    resolveInitialListingLeadAssignment,
-    getPrimaryAccountIdForUser,
-    mapListingLeadRow,
-    syncListingLeadCountFromDb,
-    getListingLeadById,
-    getListingLeadByExternalReference,
-    getMessageThreadByListingAndBuyer,
-    createMessageEntry,
-    touchMessageThreadAfterIncomingMessage,
-    createMessageThread,
-    createListingLeadActivity,
-    listingLeadSourceLabel,
-});
-
 const loadDataFromDB = createStartupDataLoader({
     maps: {
         usersById,
@@ -1447,11 +1371,13 @@ const loadDataFromDB = createStartupDataLoader({
         addressBookByUser,
         paymentOrdersByUser,
         instagramAccountByUserVertical,
+        tiktokAccountByUserVertical,
+        youtubeAccountByUserVertical,
         instagramPublicationsByUser,
+        socialPublicationsByUser,
         publicProfilesByUserVertical,
         publicProfilesByVerticalSlug,
         publicProfileTeamMembersByUserVertical,
-        listingLeadCountsByListing,
     },
     boostListingsSeed,
     mapUserRowToAppUser,
@@ -1466,7 +1392,10 @@ const loadDataFromDB = createStartupDataLoader({
     upsertBoostListingFromListing,
     instagramAccountKey,
     mapInstagramAccountRow,
+    mapTikTokAccountRow,
+    mapYouTubeAccountRow,
     mapInstagramPublicationRow,
+    mapSocialPublicationRow,
 });
 
 const app = new Hono();
@@ -1609,7 +1538,6 @@ app.route('/api/auth', createAuthRouter({
 
 app.use('/api/account/*', requireVerifiedSession);
 app.use('/api/accounts/*', requireVerifiedSession);
-app.use('/api/crm/*', requireVerifiedSession);
 app.use('/api/panel/*', requireVerifiedSession);
 app.use('/api/messages/*', requireVerifiedSession);
 app.use('/api/listing-draft', requireVerifiedSession);
@@ -1662,8 +1590,6 @@ const listingsDeps = {
     getListingByIdFromDb: async (listingId: string) => {
         const row = await fetchListingRowById(listingId);
         if (!row) return null;
-        const leads = await fetchLeadCountByListingId(listingId);
-        listingLeadCountsByListing.set(listingId, leads);
         return upsertListingCache(mapListingRowToRecord(row));
     },
     listListingsFromDb: async (
@@ -1677,11 +1603,7 @@ const listingsDeps = {
             ownerId: user.id,
             includeAllInVertical: !mine && user.role === 'superadmin',
         });
-        const leadCounts = await fetchLeadCountsForListingIds(rows.map((row) => row.id));
-        return rows.map((row) => {
-            listingLeadCountsByListing.set(row.id, leadCounts.get(row.id) ?? 0);
-            return upsertListingCache(mapListingRowToRecord(row));
-        });
+        return rows.map((row) => upsertListingCache(mapListingRowToRecord(row)));
     },
     insertListingRecord,
     saveListingRecord,
@@ -1697,12 +1619,15 @@ const listingsDeps = {
     getListingDraftRecord,
     upsertListingDraftRecord,
     deleteListingDraftRecord,
+    generateListingReel: generateListingReelForUser,
+    isReelGeneratorAvailable,
     schemas: {
         createListingSchema,
         updateListingSchema,
         updateListingStatusSchema,
         publishListingPortalSchema,
         listingDraftWriteSchema,
+        generateListingReelSchema,
     },
 };
 app.route('/api/listings', createListingsRouter(listingsDeps));
@@ -1801,7 +1726,7 @@ app.route('/api', createPaymentsRouter({
     listAdminUsersSnapshot,
     dbQuery: db.query,
     dbSql: sql,
-    tables2: { agendaProfessionalProfiles },
+    tables2: { agendaProfessionalProfiles, serenataOwners },
     schemas: {
         createCheckoutSchema,
         confirmCheckoutSchema,
@@ -1824,6 +1749,8 @@ app.use('/api/advertising/campaigns', requireVerifiedSession);
 app.use('/api/advertising/campaigns/*', requireVerifiedSession);
 app.use('/api/integrations/instagram', requireVerifiedSession);
 app.use('/api/integrations/instagram/*', requireVerifiedSession);
+app.use('/api/integrations/social', requireVerifiedSession);
+app.use('/api/integrations/social/*', requireVerifiedSession);
 
 app.route('/api/admin', createAdminRouter({
     authUser,
@@ -1834,17 +1761,11 @@ app.route('/api/admin', createAdminRouter({
     desc,
     asc,
     sql,
-    usersById,
-    listingsById,
     isAdminRole,
     isAdminForVertical,
     parseVertical,
     getPrimaryAccountIdForUser,
     ensurePrimaryAccountForUser,
-    getEditablePublicProfileTeamMembers,
-    formatAgo,
-    formatRelativeTimestamp,
-    publicSectionLabel,
     getUserById,
     sanitizeUser,
     mapUserRowToAppUser,
@@ -1896,43 +1817,9 @@ app.route('/api/admin', createAdminRouter({
         return c.json({ ok: true, user: sanitizeUser(newUser) }, 201);
     },
     tables: {
-        crmPipelineColumns,
-        serviceLeads,
-        serviceLeadActivities,
-        listingLeads,
-        listingLeadActivities,
         users,
         agendaProfessionalProfiles,
         subscriptions,
-    },
-}));
-
-app.route('/api/crm', createCrmRouter({
-    authUser,
-    db,
-    eq,
-    and,
-    or,
-    desc,
-    asc,
-    usersById,
-    listingsById,
-    isAdminRole,
-    isAdminForVertical,
-    userCanUseCrm,
-    parseVertical,
-    getPrimaryAccountIdForUser,
-    getEditablePublicProfileTeamMembers,
-    formatAgo,
-    formatRelativeTimestamp,
-    publicSectionLabel,
-    tables: {
-        crmPipelineColumns,
-        serviceLeads,
-        serviceLeadActivities,
-        listingLeads,
-        listingLeadActivities,
-        users,
     },
 }));
 
@@ -2009,45 +1896,9 @@ app.route('/api/advertising', createAdvertisingRouter({
     AdStatus: null as any,
 }));
 
-app.route('/', createLeadsRouter({
-    authUser,
-    parseVertical,
-    db,
-    tables: { serviceLeads },
-    serviceLeadCreateSchema,
-    listingLeadCreateSchema,
-    listingLeadActionCreateSchema,
-    externalListingLeadImportSchema,
-    portalKeySchema,
-    mapServiceLeadRow,
-    serviceLeadToResponse,
-    listingLeadToResponse,
-    messageThreadToResponse,
-    messageEntryToResponse,
-    createServiceLeadActivity,
-    isLeadIngestConfigured,
-    isLeadIngestAuthorized,
-    inferPortalFromLeadImportSource,
-    isPortalAvailableForVertical,
-    resolveListingForImportedLead,
-    upsertImportedListingLead,
-    inferListingLeadChannel,
-    getMessageThreadByLeadId,
-    listingsById,
-    getListingById,
-    isPublicListingVisible,
-    createOrAppendListingConversation,
-    createListingLeadRecord,
-    createListingLeadActivity,
-    createOrRefreshListingLeadAction,
-}));
-
 app.route('/api/messages', createMessagesRouter({
     authUser,
-    parseVertical,
-    db,
-    tables: { listingLeads },
-    dbHelpers: { eq },
+    parseVertical: parseMessageVertical,
     messageFolderSchema,
     messageThreadUpdateSchema,
     messageEntryCreateSchema,
@@ -2058,34 +1909,20 @@ app.route('/api/messages', createMessagesRouter({
     getMessageThreadById,
     isThreadParticipant,
     markMessageThreadRead,
-    getListingLeadById,
-    listingLeadToResponse,
     updateMessageThreadViewerState,
     createMessageEntry,
     touchMessageThreadAfterIncomingMessage,
-    mapListingLeadRow,
-    createListingLeadActivity,
-    listingLeadStatusLabel,
-    listListingLeadRecords,
-    listServiceLeadRecords,
-    userCanUseCrm,
-    isAdminRole,
     buildMessageThreadNotification,
-    buildListingLeadNotification,
-    buildServiceLeadNotification,
+    messageDeps: messageServiceDeps,
+    getListingById,
+    isPublicListingVisible,
 }));
 
 app.route('/api/panel', createPanelNotificationsRouter({
     authUser,
-    parseVertical,
+    parseVertical: parseMessageVertical,
     listMessageThreadsForUser,
-    listListingLeadRecords,
-    listServiceLeadRecords,
-    userCanUseCrm,
-    isAdminRole,
     buildMessageThreadNotification,
-    buildListingLeadNotification,
-    buildServiceLeadNotification,
 }));
 
 app.route('/api/integrations/instagram', createInstagramRouter({
@@ -2145,6 +1982,79 @@ app.route('/api/integrations/instagram', createInstagramRouter({
     tables: { instagramAccounts, instagramPublications, listings },
     db: { query: { listings: db.query.listings } },
     dbHelpers: { eq },
+}));
+
+app.route('/api/integrations/social', createSocialHubRouter({
+    authUser,
+    parseVertical,
+    asString,
+    asObject,
+    listingsById,
+    getListingById,
+    isInstagramConfigured,
+    userCanUseInstagram: (user, vertical) =>
+        userCanUseInstagram(user as AppUser, vertical as VerticalType),
+    getEffectivePlanId: (user, vertical) => getEffectivePlanId(user as AppUser, vertical as VerticalType),
+    getInstagramRequiredPlanIds,
+    getInstagramAccount,
+    getTikTokAccount,
+    getYouTubeAccount,
+    resolveBrowserOrigin,
+    instagramAccountToResponse: (account) => instagramAccountToResponse(account as InstagramAccountRecord | null),
+    getSocialPublicationsForUser,
+    socialPublicationToResponse: (item) => socialPublicationToResponse(item as SocialPublicationRecord),
+    socialPublishSchema,
+    publishListingToSocialHub,
+    isTikTokConfigured,
+    isYouTubeConfigured,
+}));
+
+app.route('/api/integrations/tiktok', createTikTokRouter({
+    authUser,
+    parseVertical,
+    asString,
+    resolveBrowserOrigin,
+    userCanUseInstagram: (user, vertical) =>
+        userCanUseInstagram(user as AppUser, vertical as VerticalType),
+    getEffectivePlanId: (user, vertical) => getEffectivePlanId(user as AppUser, vertical as VerticalType),
+    getInstagramRequiredPlanIds,
+    getTikTokAccount,
+    tiktokAccountToResponse: (account) => tiktokAccountToResponse(account as TikTokAccountRecord | null),
+    sanitizeBrowserReturnUrl,
+    randomBytes,
+    defaultOrigin,
+    safeEqualStrings,
+    getUserById,
+    canAuthenticateUser: (user) => canAuthenticateUser(user as AppUser),
+    upsertTikTokAccountRecord: (input) => upsertTikTokAccountRecord(input as Parameters<typeof upsertTikTokAccountRecord>[0]),
+    disconnectTikTokAccount,
+    tiktokStateCookie: TIKTOK_STATE_COOKIE,
+    authCookieSameSite,
+    authCookieSecure,
+}));
+
+app.route('/api/integrations/youtube', createYouTubeRouter({
+    authUser,
+    parseVertical,
+    asString,
+    resolveBrowserOrigin,
+    userCanUseInstagram: (user, vertical) =>
+        userCanUseInstagram(user as AppUser, vertical as VerticalType),
+    getEffectivePlanId: (user, vertical) => getEffectivePlanId(user as AppUser, vertical as VerticalType),
+    getInstagramRequiredPlanIds,
+    getYouTubeAccount,
+    youtubeAccountToResponse: (account) => youtubeAccountToResponse(account as YouTubeAccountRecord | null),
+    sanitizeBrowserReturnUrl,
+    randomBytes,
+    defaultOrigin,
+    safeEqualStrings,
+    getUserById,
+    canAuthenticateUser: (user) => canAuthenticateUser(user as AppUser),
+    upsertYouTubeAccountRecord: (input) => upsertYouTubeAccountRecord(input as Parameters<typeof upsertYouTubeAccountRecord>[0]),
+    disconnectYouTubeAccount,
+    youtubeStateCookie: YOUTUBE_STATE_COOKIE,
+    authCookieSameSite,
+    authCookieSecure,
 }));
 
 app.route('/api/public', createInstagramPublicImageRouter({
@@ -2231,6 +2141,9 @@ app.route('/api/public', createPublicRouter({
     tables: { mortgageRates },
 }));
 
+app.use('/api/platform/*', requireVerifiedSession);
+app.route('/api/platform', createPlatformRouter({ authUser }));
+
 app.route('/api/serenatas', createSerenatasRouter({
     authUser,
     requireVerifiedSession,
@@ -2290,11 +2203,6 @@ app.route('/api/serenatas', createSerenatasRouter({
         sendPushToUser,
         sendBookingConfirmationEmail,
         sendAppointmentReminderEmail,
-        notifyConfirmation,
-        notifyProfessionalNewBooking,
-        notifyCancellation,
-        notifyReminder24h,
-        sendTestMessage,
         ensureNpsForAppointment,
         createCheckoutPreference,
         google,
@@ -2363,6 +2271,8 @@ void refreshVehicleValuationFeeds();
     } catch (error) {
         console.warn('[auth-email] no se pudieron rasterizar logos de correo', error);
     }
+
+    warnMercadoPagoWebhookSecretAtStartup();
 
     serve(
         {

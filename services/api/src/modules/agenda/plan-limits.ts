@@ -1,6 +1,7 @@
 import { and, eq, gte, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { agendaAppointments, agendaClients, agendaProfessionalProfiles } from '../../db/schema.js';
+import { defaultTrialEndsAt } from '../billing/trial-config.js';
 
 export async function getAgendaProfile(userId: string) {
     return db.query.agendaProfessionalProfiles.findFirst({
@@ -8,37 +9,67 @@ export async function getAgendaProfile(userId: string) {
     });
 }
 
-export const FREE_TIER_LIMITS = { maxClientsTotal: 5, maxAppointmentsPerMonth: 10 };
-
-export function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }, userRole?: string): boolean {
-    if (userRole === 'superadmin') return false;
-    const expiresAt = profile.planExpiresAt?.getTime() ?? null;
-    if (profile.plan === 'free') return expiresAt == null || expiresAt < Date.now();
-    if ((profile.plan === 'essential' || profile.plan === 'pro') && profile.planExpiresAt && profile.planExpiresAt < new Date()) return true;
-    return false;
+export function normalizeAgendaBillingPlan(plan: string): 'free' | 'pro' {
+    return plan === 'pro' ? 'pro' : 'free';
 }
 
-export async function checkClientLimit(profileId: string, additionalClients = 1): Promise<string | null> {
-    const [row] = await db
-        .select({ total: sql<number>`count(*)::int` })
-        .from(agendaClients)
-        .where(eq(agendaClients.professionalId, profileId));
-    if ((row?.total ?? 0) + additionalClients > FREE_TIER_LIMITS.maxClientsTotal) {
-        return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxClientsTotal} clientes. Activa Esencial o Pro para continuar.`;
-    }
+/** Asigna fin de prueba a perfiles legacy sin `planExpiresAt`. */
+export async function ensureAgendaProfileTrial(
+    profile: typeof agendaProfessionalProfiles.$inferSelect,
+) {
+    const billingPlan = normalizeAgendaBillingPlan(profile.plan);
+    const needsTrialDate = billingPlan === 'free' && !profile.planExpiresAt;
+    const needsPlanNormalize = profile.plan !== billingPlan;
+
+    if (!needsTrialDate && !needsPlanNormalize) return profile;
+
+    const planExpiresAt = needsTrialDate
+        ? defaultTrialEndsAt(profile.createdAt ?? new Date())
+        : profile.planExpiresAt;
+
+    const [updated] = await db
+        .update(agendaProfessionalProfiles)
+        .set({
+            plan: billingPlan,
+            planExpiresAt,
+            updatedAt: new Date(),
+        })
+        .where(eq(agendaProfessionalProfiles.id, profile.id))
+        .returning();
+
+    return updated ?? profile;
+}
+
+export function isAgendaTrialActive(profile: { plan: string; planExpiresAt: Date | null }): boolean {
+    return normalizeAgendaBillingPlan(profile.plan) === 'free'
+        && Boolean(profile.planExpiresAt && profile.planExpiresAt.getTime() >= Date.now());
+}
+
+export function isAgendaProActive(profile: { plan: string; planExpiresAt: Date | null }): boolean {
+    if (normalizeAgendaBillingPlan(profile.plan) !== 'pro') return false;
+    return !profile.planExpiresAt || profile.planExpiresAt.getTime() >= Date.now();
+}
+
+export function hasAgendaFullAccess(
+    profile: { plan: string; planExpiresAt: Date | null },
+    userRole?: string,
+): boolean {
+    if (userRole === 'superadmin') return true;
+    return isAgendaTrialActive(profile) || isAgendaProActive(profile);
+}
+
+/** Sin trial ni Pro activo: bloquea funciones de pago y aplica límites legacy. */
+export function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }, userRole?: string): boolean {
+    return !hasAgendaFullAccess(profile, userRole);
+}
+
+/** @deprecated El modelo actual es prueba completa + Pro; no hay límites parciales en plan free. */
+export async function checkClientLimit(_profileId: string, _additionalClients = 1): Promise<string | null> {
     return null;
 }
 
-export async function checkAppointmentLimit(profileId: string, additionalAppointments = 1): Promise<string | null> {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const [row] = await db
-        .select({ total: sql<number>`count(*)::int` })
-        .from(agendaAppointments)
-        .where(and(eq(agendaAppointments.professionalId, profileId), gte(agendaAppointments.startsAt, monthStart)));
-    if ((row?.total ?? 0) + additionalAppointments > FREE_TIER_LIMITS.maxAppointmentsPerMonth) {
-        return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxAppointmentsPerMonth} citas mensuales. Activa Esencial o Pro para continuar.`;
-    }
+/** @deprecated El modelo actual es prueba completa + Pro; no hay límites parciales en plan free. */
+export async function checkAppointmentLimit(_profileId: string, _additionalAppointments = 1): Promise<string | null> {
     return null;
 }
 

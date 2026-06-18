@@ -36,8 +36,8 @@ vi.mock('./availability.js', () => ({
     validateGroupForSerenata: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock('../../lib/serenata-in-app-notifications.js', () => ({
-    insertSerenataNotifications: vi.fn().mockResolvedValue(undefined),
+vi.mock('../../lib/platform-in-app-notifications.js', () => ({
+    insertInAppNotifications: vi.fn().mockResolvedValue(undefined),
 }));
 
 function buildTx() {
@@ -73,7 +73,7 @@ describe('assignSerenataMusicianGroup (marketplace)', () => {
         vi.clearAllMocks();
         mockFindFirstSerenata.mockResolvedValue({
             id: 'ser-1',
-            ownerId: 'admin-1',
+            ownerId: 'owner-1',
             providerGroupId: 'pg-1',
             selectedServiceId: 'svc-1',
             packageCode: null,
@@ -89,7 +89,7 @@ describe('assignSerenataMusicianGroup (marketplace)', () => {
             values: () => ({
                 returning: () => Promise.resolve([{
                     id: 'musician-group-1',
-                    ownerId: 'admin-1',
+                    ownerId: 'owner-1',
                     providerGroupId: 'pg-1',
                     name: 'Grupo evento',
                     date: new Date('2026-06-15T20:00:00.000Z'),
@@ -126,7 +126,7 @@ describe('assignSerenataMusicianGroup (marketplace)', () => {
         ]);
 
         const result = await assignSerenataMusicianGroup(buildTx() as never, {
-            ownerId: 'admin-1',
+            ownerId: 'owner-1',
             serenataId: 'ser-1',
             input: {
                 mode: 'new',
@@ -152,7 +152,7 @@ describe('assignSerenataMusicianGroup (marketplace)', () => {
         ]);
 
         const result = await assignSerenataMusicianGroup(buildTx() as never, {
-            ownerId: 'admin-1',
+            ownerId: 'owner-1',
             serenataId: 'ser-1',
             input: { mode: 'new', musicianIds: ['m1', 'm2'] },
             requiredMusiciansForPackage: () => 0,

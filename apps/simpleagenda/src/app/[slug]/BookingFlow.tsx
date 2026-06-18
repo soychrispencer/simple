@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
     IconCalendar,
@@ -19,6 +19,7 @@ import {
 } from '@tabler/icons-react';
 import { fetchPublicSlots, bookAppointment, validatePublicPromo, type TimeSlot, type PaymentMethods, type RecurrenceFrequency } from '@/lib/agenda-api';
 import { useEscapeClose } from '@/lib/use-modal-a11y';
+import { detectBrowserTimezone, timezoneShortLabel } from '@simple/utils';
 
 type PreconsultField = { id: string; label: string; type: 'text' | 'textarea' | 'select' | 'checkbox' | 'number'; required: boolean; placeholder?: string; options?: string[] };
 
@@ -78,6 +79,9 @@ function formattedPrice(price: string | null, currency: string): string {
 export default function BookingFlow({ profile }: { profile: PublicProfile }) {
     const searchParams = useSearchParams();
     const isReschedule = searchParams.get('reprogramar') === '1';
+    const clientTz = useMemo(() => detectBrowserTimezone(), []);
+    const professionalTz = profile.timezone;
+    const showDualTimezone = clientTz !== professionalTz;
     const [step, setStep] = useState<Step>('idle');
     const [selectedService, setSelectedService] = useState<Service | null>(null);
 
@@ -524,16 +528,23 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                        {showDualTimezone ? (
+                                            <p className="text-xs booking-muted mb-3">
+                                                Horarios en tu zona ({timezoneShortLabel(clientTz)}). El profesional opera en {timezoneShortLabel(professionalTz)}.
+                                            </p>
+                                        ) : null}
+                                        <div className="grid grid-cols-3 gap-2">
                                         {slots.map((slot) => (
                                             <button
                                                 key={slot.startsAt}
                                                 onClick={() => handleSlotSelect(slot)}
                                                 className={`py-2.5 rounded-xl border text-sm font-medium transition-colors booking-slot ${selectedSlot?.startsAt === slot.startsAt ? 'booking-slot--selected' : ''}`}
                                             >
-                                                {formatTime(slot.startsAt, profile.timezone)}
+                                                {formatTime(slot.startsAt, clientTz)}
                                             </button>
                                         ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -546,7 +557,12 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                     <div className="flex items-center gap-2 p-3 rounded-xl mb-5 booking-badge-online">
                                         <IconCalendar size={14} />
                                         <span className="text-xs font-medium">
-                                            {formatDate(selectedSlot.startsAt, profile.timezone)} — {formatTime(selectedSlot.startsAt, profile.timezone)}
+                                            {formatDate(selectedSlot.startsAt, clientTz)} — {formatTime(selectedSlot.startsAt, clientTz)}
+                                            {showDualTimezone ? (
+                                                <span className="block text-[11px] font-normal booking-muted mt-0.5">
+                                                    {formatTime(selectedSlot.startsAt, professionalTz)} hora del profesional
+                                                </span>
+                                            ) : null}
                                         </span>
                                     </div>
                                 )}
@@ -936,8 +952,13 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                 </p>
                                 {selectedSlot && (
                                     <p className="text-sm font-medium mb-4 booking-fg">
-                                        {formatDate(selectedSlot.startsAt, profile.timezone)}<br />
-                                        {formatTime(selectedSlot.startsAt, profile.timezone)} — {formatTime(selectedSlot.endsAt, profile.timezone)}
+                                        {formatDate(selectedSlot.startsAt, clientTz)}<br />
+                                        {formatTime(selectedSlot.startsAt, clientTz)} — {formatTime(selectedSlot.endsAt, clientTz)}
+                                        {showDualTimezone ? (
+                                            <span className="block text-xs font-normal booking-muted mt-1">
+                                                {formatTime(selectedSlot.startsAt, professionalTz)} — {formatTime(selectedSlot.endsAt, professionalTz)} hora del profesional
+                                            </span>
+                                        ) : null}
                                     </p>
                                 )}
                                 {confirmedSeries && confirmedSeries.length > 1 && (
@@ -949,7 +970,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                             {confirmedSeries.map((a, i) => (
                                                 <li key={a.id} className="flex items-center gap-2">
                                                     <span className="w-4 text-right booking-muted">{i + 1}.</span>
-                                                    <span>{formatDate(a.startsAt, profile.timezone)} — {formatTime(a.startsAt, profile.timezone)}</span>
+                                                    <span>{formatDate(a.startsAt, clientTz)} — {formatTime(a.startsAt, clientTz)}</span>
                                                 </li>
                                             ))}
                                         </ul>

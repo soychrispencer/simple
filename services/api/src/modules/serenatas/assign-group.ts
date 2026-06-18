@@ -11,7 +11,7 @@ import {
     users,
 } from '../../db/schema.js';
 import { validateGroupForSerenata } from './availability.js';
-import { insertSerenataNotifications } from '../../lib/serenata-in-app-notifications.js';
+import { insertInAppNotifications } from '../../lib/platform-in-app-notifications.js';
 import type { AssignGroupSideEffects } from '../../lib/serenatas-notification-delivery.js';
 
 export type AssignGroupInput = {
@@ -174,7 +174,7 @@ export async function assignSerenataMusicianGroup(
             set: { message: input.message, status: 'invited', updatedAt: new Date() },
         });
 
-        await insertSerenataNotifications(
+        await insertInAppNotifications(
             musicians.map((musician) => ({
                 userId: musician.userId,
                 type: 'group_invitation',
@@ -225,7 +225,7 @@ export async function assignSerenataMusicianGroup(
     if (item.clientId) {
         const client = await tx.query.serenataClients.findFirst({ where: eq(serenataClients.id, item.clientId) });
         if (client) {
-            await insertSerenataNotifications({
+            await insertInAppNotifications({
                 userId: client.userId,
                 type: 'client_serenata_scheduled',
                 title: 'Serenata confirmada',

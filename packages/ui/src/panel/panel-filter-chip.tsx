@@ -1,6 +1,6 @@
 'use client';
 
-import { joinClasses } from '../shared/join-classes.js';
+import { joinClasses } from '../shared/join-classes';
 
 export type PanelFilterChipProps = {
     label: string;

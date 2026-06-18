@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import type { StructuredLocation } from '@simple/types';
 import { API_BASE } from '@simple/config';
-import { AvatarUpload } from '../avatar-upload.js';
+import { AvatarUpload } from '../avatar-upload';
 import { PanelButton } from './panel-button.js';
 import { PanelCard } from './panel-card.js';
 import { PanelField } from './panel-display.js';
@@ -22,6 +23,13 @@ export type PanelAccountPersonalDataUser = {
     hasPassword?: boolean | null;
     currentApp?: string | null;
     platformAccesses?: PanelAccountPlatformAccess[] | null;
+    timezone?: string | null;
+    residence?: StructuredLocation | null;
+    residenceCountryCode?: string | null;
+    residenceRegionId?: string | null;
+    residenceRegionName?: string | null;
+    residenceLocalityId?: string | null;
+    residenceLocalityName?: string | null;
 };
 
 export type PanelAccountPlatformAccess = {
@@ -54,6 +62,7 @@ export type PanelAccountPersonalDataSectionProps = {
     activeSection?: 'personal' | 'security';
     user?: PanelAccountPersonalDataUser | null;
     roleLabel?: string;
+    appLabel?: string;
     onSave: (input: PanelAccountPersonalDataSaveInput) => Promise<PanelAccountPersonalDataSaveResult>;
     onUploadAvatar?: (file: File) => Promise<PanelAccountPersonalDataSaveResult>;
     onRequestEmailChange?: (email: string) => Promise<PanelAccountPersonalDataSaveResult>;
@@ -164,6 +173,7 @@ export function PanelAccountPersonalDataSection({
     activeSection = 'personal',
     user,
     roleLabel,
+    appLabel = 'Simple',
     onSave,
     onUploadAvatar,
     onRequestEmailChange,
@@ -221,6 +231,15 @@ export function PanelAccountPersonalDataSection({
         setAvatarUrl(user?.avatarUrl || user?.avatar || '');
     }, [user?.avatar, user?.avatarUrl, user?.name, user?.phone]);
 
+    const profileDirty = useMemo(() => {
+        const normalizedName = [firstName, lastName].map((part) => part.trim()).filter(Boolean).join(' ');
+        const normalizedPhone = normalizeChileMobilePhone(phone);
+        return normalizedName !== (user?.name ?? '').trim()
+            || normalizedPhone !== normalizeChileMobilePhone(user?.phone ?? '');
+    }, [firstName, lastName, phone, user?.name, user?.phone]);
+
+    const canSavePersonal = profileDirty;
+
     const handleResult = async (
         result: PanelAccountPersonalDataSaveResult,
         successText: string,
@@ -252,10 +271,17 @@ export function PanelAccountPersonalDataSection({
         setSaving(true);
         setNotice(null);
         const result = await onSave({ name: normalizedName, phone: normalizedPhone, avatarUrl: avatarUrl || null });
-        setSaving(false);
-        if (await handleResult(result, 'Datos personales actualizados.')) {
-            setPhone(normalizedPhone);
+        if (!result.ok) {
+            setSaving(false);
+            if (result.unauthorized) onUnauthorized?.();
+            setNotice({ tone: 'error', text: result.error || 'No se pudo completar la acción.' });
+            return;
         }
+
+        setSaving(false);
+        await onSaved?.();
+        setNotice({ tone: 'success', text: 'Datos personales actualizados.' });
+        setPhone(normalizedPhone);
     };
 
     const submitEmailChange = async () => {
@@ -359,7 +385,7 @@ export function PanelAccountPersonalDataSection({
             <PanelCard>
                 <PanelBlockHeader
                     title="Datos personales"
-                    description="Esta información pertenece a tu Cuenta Simple y se comparte con las plataformas que actives."
+                    description="Nombre, contacto y foto de tu Cuenta Simple. Tu residencia y direcciones están en la pestaña Ubicación."
                     actions={
                         <PanelStatusBadge
                             label={isVerified ? 'Correo verificado' : 'Correo pendiente'}
@@ -369,17 +395,21 @@ export function PanelAccountPersonalDataSection({
                     }
                 />
 
-                <div className="grid gap-6 lg:grid-cols-[180px_1fr]">
-                    <div className="flex justify-center">
-                        <div className="flex w-full max-w-[220px] flex-col items-center gap-4 rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-5 text-center shadow-sm shadow-black/5">
-                            <AvatarUpload
-                                currentUrl={avatarUrl}
-                                variant="overlay"
-                                config={{
-                                    maxWidth: 96,
-                                    maxHeight: 96,
-                                    circular: false,
-                                    onUpload: async (file, croppedBlob) => {
+                <div className="flex flex-col gap-5">
+                    <div
+                        className="flex w-full items-start gap-3 rounded-xl border p-2.5"
+                        style={{ borderColor: 'var(--border)' }}
+                    >
+                        <AvatarUpload
+                            currentUrl={avatarUrl}
+                            variant="overlay"
+                            config={{
+                                maxSize: 5120,
+                                maxWidth: 512,
+                                maxHeight: 512,
+                                displaySize: 64,
+                                shape: 'panel',
+                                onUpload: async (file, croppedBlob) => {
                                     if (!onUploadAvatar) throw new Error('Subida de avatar no configurada.');
                                     const uploadFile = new File([croppedBlob], file.name || 'avatar.webp', { type: 'image/webp' });
                                     const result = await onUploadAvatar(uploadFile);
@@ -399,12 +429,14 @@ export function PanelAccountPersonalDataSection({
                             }}
                             onError={(error) => setNotice({ tone: 'error', text: error })}
                         />
-                        <div>
-                            <p className="text-sm font-semibold text-[var(--fg)]">{user?.name || 'Usuario Simple'}</p>
-                            <p className="text-xs text-[var(--fg-muted)]">{accountRole || 'Usuario'}</p>
+                        <div className="min-w-0 flex-1 pt-0.5">
+                            <p className="truncate text-sm font-medium text-[var(--fg)]">{user?.name || 'Usuario Simple'}</p>
+                            <p className="truncate text-xs text-[var(--fg-muted)]">{accountRole || 'Usuario'}</p>
+                            <p className="mt-1.5 text-xs leading-relaxed text-[var(--fg-muted)]">
+                                JPG, PNG o WebP · máx. 5&nbsp;MB · cuadrada hasta 512×512&nbsp;px.
+                            </p>
                         </div>
                     </div>
-                </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <PanelField label="Nombre" required>
@@ -425,7 +457,7 @@ export function PanelAccountPersonalDataSection({
                                 autoComplete="family-name"
                             />
                         </PanelField>
-                        <PanelField label="Teléfono" hint="Usa formato WhatsApp chileno: +569XXXXXXXX.">
+                        <PanelField label="Teléfono">
                             <input
                                 className="form-input"
                                 value={phone}
@@ -445,7 +477,7 @@ export function PanelAccountPersonalDataSection({
                 </div>
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <PanelButton variant="accent" onClick={() => void saveProfile()} disabled={saving}>
+                    <PanelButton variant="accent" onClick={() => void saveProfile()} disabled={saving || !canSavePersonal}>
                         {saving ? 'Guardando...' : 'Guardar datos personales'}
                     </PanelButton>
                     {notice ? (

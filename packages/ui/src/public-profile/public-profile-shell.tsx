@@ -56,7 +56,6 @@ export type PublicProfileShellTeamMember = {
     phone: string | null;
     whatsapp: string | null;
     avatarImageUrl: string | null;
-    isLeadContact: boolean;
     specialties: string[];
     socialLinks: {
         instagram: string | null;
@@ -466,7 +465,6 @@ function PublicProfileTeamMemberCard({ member }: { member: PublicProfileShellTea
                         <p className="text-sm pp-secondary">{member.roleTitle || 'Asesor comercial'}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {member.isLeadContact ? <PanelStatusBadge label="Contacto destacado" tone="info" size="sm" /> : null}
                         {member.specialties.slice(0, 3).map((item) => (
                             <PanelStatusBadge key={`${member.id}-${item}`} label={item} tone="neutral" size="sm" />
                         ))}

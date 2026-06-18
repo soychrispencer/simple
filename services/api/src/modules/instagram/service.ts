@@ -41,6 +41,13 @@ export type InstagramProfile = {
     accountType: string | null;
 };
 
+export type MetaPageWithInstagram = {
+    facebookPageId: string;
+    facebookPageName: string;
+    facebookPageAccessToken: string;
+    instagram: InstagramProfile;
+};
+
 // Importar nuevos servicios de Instagram Intelligence
 import { logger } from '@simple/logger';
 import { InstagramAIService, AIGeneratedContent } from './ai.js';
@@ -102,6 +109,7 @@ export function buildInstagramAuthorizationUrl(input: {
             'instagram_content_publish',
             'pages_show_list',
             'pages_read_engagement',
+            'pages_manage_posts',
         ]).join(','),
         state: input.state,
         // force_authentication: '1',
@@ -180,39 +188,52 @@ export async function refreshInstagramAccessToken(accessToken: string): Promise<
 }
 
 /**
- * Busca las cuentas de Instagram Business vinculadas a las páginas de Facebook del usuario.
+ * Busca páginas de Facebook con cuenta Instagram Business vinculada.
  */
-export async function getInstagramBusinessAccounts(accessToken: string): Promise<InstagramProfile[]> {
+export async function getMetaPagesWithInstagram(accessToken: string): Promise<MetaPageWithInstagram[]> {
     type PageRes = {
         data: Array<{
             id: string;
             name: string;
+            access_token?: string;
             instagram_business_account?: {
                 id: string;
             };
         }>;
     };
 
-    // 1. Obtener las páginas de Facebook del usuario
     const pages = await requestInstagram<PageRes>(
-        `https://graph.facebook.com/${getInstagramApiVersion()}/me/accounts?fields=id,name,instagram_business_account&access_token=${accessToken}`,
-        { method: 'GET' }
+        `https://graph.facebook.com/${getInstagramApiVersion()}/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(accessToken)}`,
+        { method: 'GET' },
     );
 
-    const accounts: InstagramProfile[] = [];
+    const accounts: MetaPageWithInstagram[] = [];
 
     for (const page of pages.data) {
-        if (page.instagram_business_account?.id) {
-            try {
-                const profile = await getInstagramProfile(accessToken, page.instagram_business_account.id);
-                accounts.push(profile);
-            } catch (e) {
-                igLogger.error(`error fetching profile for IG account ${page.instagram_business_account.id}`, e);
-            }
+        const pageToken = asString(page.access_token);
+        if (!page.instagram_business_account?.id || !pageToken) continue;
+        try {
+            const profile = await getInstagramProfile(accessToken, page.instagram_business_account.id);
+            accounts.push({
+                facebookPageId: page.id,
+                facebookPageName: asString(page.name) || page.id,
+                facebookPageAccessToken: pageToken,
+                instagram: profile,
+            });
+        } catch (e) {
+            igLogger.error(`error fetching profile for IG account ${page.instagram_business_account.id}`, e);
         }
     }
 
     return accounts;
+}
+
+/**
+ * Busca las cuentas de Instagram Business vinculadas a las páginas de Facebook del usuario.
+ */
+export async function getInstagramBusinessAccounts(accessToken: string): Promise<InstagramProfile[]> {
+    const pages = await getMetaPagesWithInstagram(accessToken);
+    return pages.map((page) => page.instagram);
 }
 
 export async function getInstagramProfile(accessToken: string, instagramBusinessAccountId: string): Promise<InstagramProfile> {
@@ -348,6 +369,87 @@ export async function publishInstagramCarousel(input: {
     }
 
     if (!mediaId) throw new Error('Instagram no devolvió el ID del carrusel publicado.');
+
+    const mediaInfo = await requestInstagram<InstagramMediaInfoResponse>(
+        `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(mediaId)}?fields=id,permalink&access_token=${tok}`,
+        { method: 'GET' },
+    ).catch(() => null);
+
+    return {
+        mediaId,
+        permalink: mediaInfo ? asNullableString(mediaInfo.permalink) : null,
+    };
+}
+
+export async function publishInstagramReel(input: {
+    instagramUserId: string;
+    accessToken: string;
+    videoUrl: string;
+    caption: string;
+    coverUrl?: string | null;
+    shareToFeed?: boolean;
+}): Promise<{
+    mediaId: string;
+    permalink: string | null;
+}> {
+    const tok = encodeURIComponent(input.accessToken);
+    const videoUrl = asString(input.videoUrl);
+    if (!videoUrl.startsWith('http')) {
+        throw new Error('El video debe tener una URL pública accesible (Cloudflare R2).');
+    }
+
+    let creationUrl = `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(input.instagramUserId)}/media`
+        + `?access_token=${tok}`
+        + `&video_url=${encodeURIComponent(videoUrl)}`
+        + `&media_type=REELS`
+        + `&caption=${encodeURIComponent(input.caption)}`;
+
+    const coverUrl = asString(input.coverUrl);
+    if (coverUrl.startsWith('http')) {
+        creationUrl += `&cover_url=${encodeURIComponent(coverUrl)}`;
+    }
+    if (input.shareToFeed !== false) {
+        creationUrl += '&share_to_feed=true';
+    }
+
+    igLogger.info('creando contenedor reel', { videoUrl });
+
+    const creation = await requestInstagram<InstagramMediaCreateResponse>(creationUrl, { method: 'POST' });
+    const creationId = asString(creation.id);
+    if (!creationId) {
+        throw new Error('Instagram no devolvió un contenedor de Reel válido.');
+    }
+
+    const publishUrl = `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(input.instagramUserId)}/media_publish`
+        + `?access_token=${tok}`
+        + `&creation_id=${encodeURIComponent(creationId)}`;
+
+    igLogger.info('publicando reel (con reintentos si es necesario)', { creationId });
+
+    let mediaId = '';
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+        try {
+            const publish = await requestInstagram<InstagramMediaPublishResponse>(publishUrl, { method: 'POST' });
+            mediaId = asString(publish.id);
+            if (mediaId) break;
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : '';
+            if ((msg.includes('not ready') || msg.includes('not available') || msg.includes('9007') || msg.includes('transcod')) && attempts < maxAttempts - 1) {
+                attempts++;
+                igLogger.info(`reel no listo (intento ${attempts}/${maxAttempts}). esperando 10s...`);
+                await new Promise((resolve) => setTimeout(resolve, 10000));
+                continue;
+            }
+            throw error;
+        }
+    }
+
+    if (!mediaId) {
+        throw new Error('Instagram no devolvió el identificador del Reel publicado tras varios intentos.');
+    }
 
     const mediaInfo = await requestInstagram<InstagramMediaInfoResponse>(
         `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(mediaId)}?fields=id,permalink&access_token=${tok}`,

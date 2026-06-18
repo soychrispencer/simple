@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { asObject, asString } from '../shared/index.js';
-import { listingLeadSourceLabel } from '../crm/lead-presentation.js';
 import type { VerticalType } from '@simple/types';
 
 export type PortalKey = 'yapo' | 'chileautos' | 'mercadolibre' | 'facebook';
@@ -102,6 +101,24 @@ export function getPortalLabel(vertical: VerticalType, portal: PortalKey): strin
     if (portal === 'chileautos') return 'Chileautos';
     if (portal === 'mercadolibre') return 'MercadoLibre';
     return 'Facebook Marketplace';
+}
+
+const LISTING_LEAD_SOURCE_LABELS: Record<ListingLeadSource, string> = {
+    internal_form: 'Formulario',
+    direct_message: 'Mensaje',
+    whatsapp: 'WhatsApp',
+    phone_call: 'Llamada',
+    email: 'Correo',
+    instagram: 'Instagram',
+    facebook: 'Facebook',
+    mercadolibre: 'MercadoLibre',
+    yapo: 'Yapo',
+    chileautos: 'Chileautos',
+    portal: 'Portal',
+};
+
+function listingLeadSourceLabel(source: ListingLeadSource, _vertical?: VerticalType): string {
+    return LISTING_LEAD_SOURCE_LABELS[source] ?? source;
 }
 
 export function inferPortalFromLeadImportSource(

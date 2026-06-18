@@ -1,0 +1,14 @@
+﻿# Evita que Cursor indexe carpetas pesadas (build, deps, caches)
+node_modules/
+.next/
+dist/
+build/
+out/
+.turbo/
+.cache/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+*.tsbuildinfo
+services/api/uploads/

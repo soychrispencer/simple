@@ -18,7 +18,7 @@ import {
     IconMapPin,
     IconTool,
     IconHeartHandshake,
-    IconBuildingSkyscraper,
+    IconDoor,
     IconTree,
     IconBriefcase,
     IconCreditCard,
@@ -60,7 +60,7 @@ const BRAND = {
     propiedades: {
         name: 'SimplePropiedades',
         color: 'var(--fg)',
-        icon: IconBuildingSkyscraper,
+        icon: IconDoor,
         url: 'https://simplepropiedades.app',
     },
     agenda: {

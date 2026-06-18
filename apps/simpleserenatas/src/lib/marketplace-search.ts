@@ -7,6 +7,7 @@ export const DEFAULT_MARKETPLACE_COMUNA = 'Santiago';
 export const MARKETPLACE_CATALOG_PAGE_SIZE = 12;
 
 export type MarketplaceSearchFilters = {
+    country: string;
     region: string;
     comuna: string;
     date: string;
@@ -16,6 +17,7 @@ export type MarketplaceSearchFilters = {
 };
 
 export const EMPTY_MARKETPLACE_SEARCH: MarketplaceSearchFilters = {
+    country: 'CL',
     region: '',
     comuna: '',
     date: '',
@@ -30,6 +32,7 @@ export function parseMarketplaceSortParam(raw: string | null | undefined): Marke
 
 export function defaultLandingSearch(): MarketplaceSearchFilters {
     return {
+        country: 'CL',
         region: DEFAULT_MARKETPLACE_REGION,
         comuna: DEFAULT_MARKETPLACE_COMUNA,
         date: '',
@@ -40,6 +43,7 @@ export function defaultLandingSearch(): MarketplaceSearchFilters {
 
 export function parseMarketplaceSearchParams(params: URLSearchParams): MarketplaceSearchFilters {
     return {
+        country: params.get('country')?.trim() || params.get('pais')?.trim() || 'CL',
         region: params.get('region')?.trim() ?? '',
         comuna: params.get('comuna')?.trim() ?? '',
         date: params.get('fecha')?.trim() ?? params.get('date')?.trim() ?? '',
@@ -50,6 +54,7 @@ export function parseMarketplaceSearchParams(params: URLSearchParams): Marketpla
 
 export function marketplaceSearchToParams(search: MarketplaceSearchFilters): URLSearchParams {
     const params = new URLSearchParams();
+    if (search.country && search.country !== 'CL') params.set('country', search.country);
     if (search.region) params.set('region', search.region);
     if (search.comuna) params.set('comuna', search.comuna);
     if (search.date) params.set('fecha', search.date);

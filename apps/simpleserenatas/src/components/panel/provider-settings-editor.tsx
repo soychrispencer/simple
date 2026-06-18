@@ -9,18 +9,19 @@ import {
     IconPointer,
 } from '@tabler/icons-react';
 import { PanelBlockHeader } from '@simple/ui/panel';
-import { PanelButton, PanelCard, PanelSwitch } from '@simple/ui/panel';
+import { PanelButton, PanelCard } from '@simple/ui/panel';
+import { timezoneOptionLabel } from '@simple/utils';
 import {
     serenatasApi,
     type ProviderBookingMode,
     type ProviderGroup,
 } from '@/lib/serenatas-api';
 import { SolicitudesInboxAlertsSettings } from '@/components/panel/account/solicitudes-inbox-alerts-settings';
+import { OwnerBusinessNotificationSettings } from '@/components/panel/owner-business-notification-settings';
 
 function applyGroupToForm(group: ProviderGroup) {
     return {
         bookingMode: (group.bookingMode ?? 'manual') as ProviderBookingMode,
-        timezone: group.timezone ?? 'America/Santiago',
     };
 }
 
@@ -60,9 +61,9 @@ export function ProviderSettingsEditor({
     }, [group.id]);
 
     const bookingModeDirty = form.bookingMode !== (group.bookingMode ?? 'manual');
-    const timezoneDirty = form.timezone !== (group.timezone ?? 'America/Santiago');
-    const hasChanges = bookingModeDirty || timezoneDirty;
+    const hasChanges = bookingModeDirty;
     const automaticSelected = form.bookingMode === 'auto_if_available';
+    const operatingTimezone = group.timezone ?? 'America/Santiago';
 
     const handleSave = async () => {
         setSaving(true);
@@ -78,7 +79,6 @@ export function ProviderSettingsEditor({
 
         const response = await serenatasApi.updateProviderGroup(group.id, {
             bookingMode: wantsAutoAccept && autoAcceptEligible ? 'auto_if_available' : 'manual',
-            timezone: form.timezone,
         });
 
         setSaving(false);
@@ -171,37 +171,15 @@ export function ProviderSettingsEditor({
                 ) : null}
             </PanelCard>
 
-            <PanelCard size="lg" className="space-y-4">
+            <PanelCard size="lg" className="space-y-3">
                 <div>
-                    <p className="text-base font-semibold text-fg">Zona horaria</p>
+                    <p className="text-base font-semibold text-fg">Zona horaria operativa</p>
                     <p className="mt-1 text-sm leading-relaxed text-fg-muted">
-                        Selecciona tu zona horaria para mostrar horarios correctos en tu agenda.
+                        Se define automáticamente según la región y comuna donde opera tu mariachi. Actualízala
+                        editando la localidad en los datos del grupo.
                     </p>
                 </div>
-                <div>
-                    <select
-                        value={form.timezone}
-                        onChange={(e) => setForm((prev) => ({ ...prev, timezone: e.target.value }))}
-                        className="w-full rounded-xl border border-(--border) bg-(--surface) px-4 py-2.5 text-sm text-fg outline-none focus:border-accent-border"
-                    >
-                        <option value="America/Santiago">Santiago (Chile)</option>
-                        <option value="Europe/Berlin">Berlín (Alemania)</option>
-                        <option value="Europe/Madrid">Madrid (España)</option>
-                        <option value="America/Mexico_City">Ciudad de México (México)</option>
-                        <option value="America/Bogota">Bogotá (Colombia)</option>
-                        <option value="America/Lima">Lima (Perú)</option>
-                        <option value="America/Argentina/Buenos_Aires">Buenos Aires (Argentina)</option>
-                        <option value="America/Montevideo">Montevideo (Uruguay)</option>
-                        <option value="America/Caracas">Caracas (Venezuela)</option>
-                        <option value="America/La_Paz">La Paz (Bolivia)</option>
-                        <option value="America/Quito">Quito (Ecuador)</option>
-                        <option value="America/Sao_Paulo">São Paulo (Brasil)</option>
-                        <option value="America/New_York">New York (EST)</option>
-                        <option value="America/Los_Angeles">Los Angeles (PST)</option>
-                        <option value="Europe/London">Londres (Reino Unido)</option>
-                        <option value="UTC">UTC</option>
-                    </select>
-                </div>
+                <p className="text-sm font-medium text-fg">{timezoneOptionLabel(operatingTimezone)}</p>
             </PanelCard>
 
             <PanelCard size="lg" className="space-y-4">
@@ -213,6 +191,8 @@ export function ProviderSettingsEditor({
                 </div>
                 <SolicitudesInboxAlertsSettings embedded />
             </PanelCard>
+
+            <OwnerBusinessNotificationSettings />
 
             <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-2xl border border-(--border) bg-(--surface) p-3 shadow-sm sm:flex-row sm:items-center sm:justify-end">
                 {saveError ? (
@@ -227,14 +207,13 @@ export function ProviderSettingsEditor({
                         Configuración guardada
                     </p>
                 ) : null}
-                {!saveError && !saved ? (
-                    <p className="text-sm text-fg-muted sm:mr-auto">
-                        {hasChanges ? 'Tienes cambios sin guardar.' : 'Sin cambios pendientes.'}
-                    </p>
-                ) : null}
-                <PanelButton onClick={() => void handleSave()} disabled={saving || !hasChanges} variant="secondary">
+                <PanelButton
+                    variant="accent"
+                    onClick={() => void handleSave()}
+                    disabled={saving || !hasChanges}
+                >
                     {saving ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                    {saving ? 'Guardando...' : 'Guardar'}
+                    {saving ? 'Guardando…' : 'Guardar cambios'}
                 </PanelButton>
             </div>
         </div>

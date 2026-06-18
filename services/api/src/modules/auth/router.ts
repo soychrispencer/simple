@@ -1,3 +1,8 @@
+import { normalizeCountryCode, normalizeStructuredLocation } from '@simple/utils';
+import {
+    publicResidenceFromUser,
+    syncUserTimezoneFromResidence,
+} from '../../lib/sync-user-timezone.js';
 import { Hono } from 'hono';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
@@ -12,7 +17,6 @@ import {
 import { cleanupReplacedMediaUrl } from '../media/stored-object.js';
 import {
     sendNotificationTestEmail,
-    sendNotificationTestWhatsApp,
 } from '../../lib/notification-test-delivery.js';
 import { getRecentUserNotificationLogs } from '../../lib/user-notification-log.js';
 import { resolveAvatarAfterGoogleOAuth } from './google-oauth-avatar.js';
@@ -635,18 +639,12 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             'name',
             'phone',
             'avatarUrl',
-            'timezone',
             'dstEnabled',
-            'whatsappEnabled',
-            'whatsappNotifyInvitations',
-            'whatsappNotifyRequests',
-            'whatsappNotifyAgenda',
-            'whatsappNotifyAccount',
             'emailNotifyInvitations',
             'emailNotifyRequests',
             'emailNotifyAgenda',
             'emailNotifyAccount',
-            'emailDigestFrequency',
+            'inAppNotificationsEnabled',
         ] as const;
         const updates: Record<string, unknown> = {};
 
@@ -654,23 +652,13 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             if (!(key in payload)) continue;
             const value = payload[key as keyof typeof payload];
             if (
-                key === 'whatsappEnabled'
-                || key === 'whatsappNotifyInvitations'
-                || key === 'whatsappNotifyRequests'
-                || key === 'whatsappNotifyAgenda'
-                || key === 'whatsappNotifyAccount'
-                || key === 'emailNotifyInvitations'
+                key === 'emailNotifyInvitations'
                 || key === 'emailNotifyRequests'
                 || key === 'emailNotifyAgenda'
                 || key === 'emailNotifyAccount'
+                || key === 'inAppNotificationsEnabled'
             ) {
                 if (typeof value === 'boolean') updates[key] = value;
-                continue;
-            }
-            if (key === 'emailDigestFrequency') {
-                if (value === 'off' || value === 'daily' || value === 'weekly') {
-                    updates.emailDigestFrequency = value;
-                }
                 continue;
             }
             if (key === 'dstEnabled') {
@@ -702,53 +690,29 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             updates.phone = phone || null;
         }
 
-        if ('timezone' in payload && payload.timezone !== undefined) {
-            const timezone = typeof payload.timezone === 'string' ? payload.timezone.trim() : '';
-            if (timezone) {
-                updates.timezone = timezone;
+        const residenceKeys = [
+            'residenceCountryCode',
+            'residenceRegionId',
+            'residenceRegionName',
+            'residenceLocalityId',
+            'residenceLocalityName',
+        ] as const;
+        let residenceTouched = false;
+        for (const key of residenceKeys) {
+            if (!(key in payload)) continue;
+            residenceTouched = true;
+            const value = payload[key as keyof typeof payload];
+            if (key === 'residenceCountryCode') {
+                updates[key] = typeof value === 'string' ? normalizeCountryCode(value) : 'CL';
+                continue;
             }
-        }
-
-        if (
-            'whatsappNotifyInvitations' in updates
-            || 'whatsappNotifyRequests' in updates
-            || 'whatsappNotifyAgenda' in updates
-            || 'whatsappNotifyAccount' in updates
-        ) {
-            const row = await deps.db.query.users.findFirst({
-                where: deps.eq(deps.tables.users.id, user.id),
-                columns: {
-                    whatsappNotifyInvitations: true,
-                    whatsappNotifyRequests: true,
-                    whatsappNotifyAgenda: true,
-                    whatsappNotifyAccount: true,
-                    whatsappEnabled: true,
-                },
-            });
-            const invitations =
-                (updates.whatsappNotifyInvitations as boolean | undefined)
-                ?? row?.whatsappNotifyInvitations
-                ?? row?.whatsappEnabled
-                ?? false;
-            const requests =
-                (updates.whatsappNotifyRequests as boolean | undefined)
-                ?? row?.whatsappNotifyRequests
-                ?? row?.whatsappEnabled
-                ?? false;
-            const agenda =
-                (updates.whatsappNotifyAgenda as boolean | undefined)
-                ?? row?.whatsappNotifyAgenda
-                ?? row?.whatsappEnabled
-                ?? false;
-            const account =
-                (updates.whatsappNotifyAccount as boolean | undefined)
-                ?? row?.whatsappNotifyAccount
-                ?? false;
-            updates.whatsappNotifyInvitations = invitations;
-            updates.whatsappNotifyRequests = requests;
-            updates.whatsappNotifyAgenda = agenda;
-            updates.whatsappNotifyAccount = account;
-            updates.whatsappEnabled = invitations || requests || agenda || account;
+            if (value === null || value === undefined) {
+                updates[key] = null;
+                continue;
+            }
+            if (typeof value === 'string') {
+                updates[key] = value.trim() || null;
+            }
         }
 
         if (Object.keys(updates).length === 0) {
@@ -763,6 +727,10 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                     updatedAt: new Date(),
                 })
                 .where(deps.eq(deps.tables.users.id, user.id));
+
+            if (residenceTouched) {
+                await syncUserTimezoneFromResidence(user.id);
+            }
 
             const updatedUser = await deps.getUserById(user.id);
             return c.json({ ok: true, user: await sanitizeUserWithPlatformAccess(updatedUser, c) });
@@ -807,34 +775,12 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             );
         }
 
-        const payload = await c.req.json().catch(() => ({}));
-        const channel =
-            payload && typeof payload === 'object' && payload.channel === 'whatsapp'
-                ? 'whatsapp'
-                : 'email';
-
         try {
-            if (channel === 'email') {
-                await sendNotificationTestEmail(user.id, user.email, user.name ?? '');
-                return c.json({
-                    ok: true,
-                    channel: 'email',
-                    message: 'Correo de prueba enviado. Revisa tu bandeja.',
-                });
-            }
-
-            const wa = await sendNotificationTestWhatsApp(user.id);
-            if (wa.deferredQuietHours) {
-                return c.json({
-                    ok: true,
-                    channel: 'whatsapp',
-                    message: 'Prueba registrada en tu historial.',
-                });
-            }
+            await sendNotificationTestEmail(user.id, user.email, user.name ?? '');
             return c.json({
                 ok: true,
-                channel: 'whatsapp',
-                message: 'WhatsApp de prueba enviado.',
+                channel: 'email',
+                message: 'Correo de prueba enviado. Revisa tu bandeja.',
             });
         } catch (error) {
             const message = error instanceof Error ? error.message : 'No pudimos enviar la prueba.';

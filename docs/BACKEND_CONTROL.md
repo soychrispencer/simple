@@ -100,7 +100,7 @@ Al arrancar: `migrate()` (journal 0000–0045) y luego `applyPostJournalMigratio
 | `/api/serenatas` | serenatas |
 | `/api/agenda`, `/api/public/agenda` | agenda |
 
-**Sin router propio:** `mercadopago`, `whatsapp`, `subscriptions` — usados desde payments, agenda/cron e index.
+**Sin router propio:** `mercadopago`, `platform`, `subscriptions` — usados desde payments e index.
 
 ---
 

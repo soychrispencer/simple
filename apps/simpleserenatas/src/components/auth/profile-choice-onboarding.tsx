@@ -19,6 +19,7 @@ import { Footer } from '@/components/layout/footer';
 import { hasAnySerenataProfile } from '@/lib/app-mode';
 import { panelMiNegocioHref } from '@/lib/panel-routes';
 import { serenatasApi, type ActiveProfile, type Profiles } from '@/lib/serenatas-api';
+import { OWNER_ONBOARDING_TITLE } from '@/lib/serenatas-terminology';
 
 type Choice = {
     key: ActiveProfile;
@@ -51,8 +52,8 @@ const CHOICES: Choice[] = [
     },
     {
         key: 'owner',
-        title: 'Soy dueño',
-        description: 'Quiero registrar mi grupo, probar SimpleSerenatas y mantenerlo activo con Esencial o Pro.',
+        title: OWNER_ONBOARDING_TITLE,
+        description: 'Quiero registrar mi grupo, probar SimpleSerenatas 30 días y decidir después si continúo.',
         icon: IconUsersGroup,
         benefits: ['Prueba gratis por 30 días', 'Publicar grupo y servicios', 'Sin comisión por serenata'],
         cta: 'Registrar mi grupo',

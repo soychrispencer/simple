@@ -5,12 +5,11 @@ import {
     updateMessageThreadState as updateMessageThreadStateForVertical,
     type MessageEntry,
     type MessageThread,
-    type ThreadLead,
 } from '@simple/utils';
 
 const VERTICAL = 'propiedades';
 
-export type { MessageEntry, MessageThread, ThreadLead };
+export type { MessageEntry, MessageThread };
 
 export function fetchMessageThreads(folder: MessageThread['folder'] = 'inbox'): Promise<MessageThread[]> {
     return fetchMessageThreadsForVertical(VERTICAL, folder);
@@ -18,14 +17,14 @@ export function fetchMessageThreads(folder: MessageThread['folder'] = 'inbox'): 
 
 export function fetchMessageThreadDetail(
     threadId: string
-): Promise<{ item: MessageThread; entries: MessageEntry[]; lead: ThreadLead | null } | null> {
+): Promise<{ item: MessageThread; entries: MessageEntry[] } | null> {
     return fetchMessageThreadDetailForVertical(VERTICAL, threadId);
 }
 
 export function sendThreadMessage(
     threadId: string,
     body: string
-): Promise<{ ok: boolean; item?: MessageThread; entry?: MessageEntry; lead?: ThreadLead | null; error?: string }> {
+): Promise<{ ok: boolean; item?: MessageThread; entry?: MessageEntry; error?: string }> {
     return sendThreadMessageForVertical(VERTICAL, threadId, body);
 }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -148,10 +149,19 @@ export default function FeedPage() {
 
     const emptyState = useMemo(
         () => (
-            <div className="h-[calc(100vh-12rem)] rounded-2xl border flex items-center justify-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                    No hay publicaciones disponibles en Descubre para esta sección.
+            <div className="h-[calc(100vh-12rem)] rounded-2xl border flex flex-col items-center justify-center gap-4 px-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>
+                    Descubre es solo para videos
                 </p>
+                <p className="max-w-sm text-sm" style={{ color: 'var(--fg-muted)' }}>
+                    Sube un video al publicar tu propiedad para aparecer aquí. Las publicaciones solo con fotos no entran a este feed.
+                </p>
+                <Link
+                    href="/panel/publicar"
+                    className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-5 text-sm font-semibold text-white"
+                >
+                    Publicar con video
+                </Link>
             </div>
         ),
         []
@@ -199,22 +209,18 @@ export default function FeedPage() {
                                 style={{ borderColor: 'var(--border)', background: '#0a0a0a' }}
                                 onClick={() => router.push(clip.href)}
                             >
-                                {clip.mediaType === 'video' ? (
-                                    <video
-                                        ref={(node) => {
-                                            videoRefs.current[clip.id] = node;
-                                        }}
-                                        src={clip.mediaUrl}
-                                        poster={clip.posterUrl}
-                                        muted
-                                        loop
-                                        playsInline
-                                        preload="metadata"
-                                        className="absolute inset-0 w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="absolute inset-0" style={{ background: clip.mediaUrl }} />
-                                )}
+                                <video
+                                    ref={(node) => {
+                                        videoRefs.current[clip.id] = node;
+                                    }}
+                                    src={clip.mediaUrl}
+                                    poster={clip.posterUrl}
+                                    muted
+                                    loop
+                                    playsInline
+                                    preload="metadata"
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                />
 
                                 <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.08) 45%, rgba(0,0,0,0.78) 100%)' }} />
 

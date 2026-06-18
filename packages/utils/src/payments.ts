@@ -6,7 +6,10 @@ export type AdFormat = 'hero' | 'card' | 'inline';
 export type AdDurationDays = 7 | 15 | 30;
 export type PaymentBoostSection = 'sale' | 'rent' | 'auction' | 'project';
 export type PaymentBoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
-export type SubscriptionPlanId = 'free' | 'essential' | 'pro' | 'enterprise';
+export type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
+
+export type PaymentProvider = 'mercadopago';
+export type BillingCurrency = 'CLP' | 'USD';
 
 export type PaymentOrderView = {
     id: string;
@@ -14,7 +17,7 @@ export type PaymentOrderView = {
     kind: 'boost' | 'advertising' | 'subscription';
     title: string;
     amount: number;
-    currency: 'CLP';
+    currency: BillingCurrency;
     status: PaymentOrderStatus;
     providerStatus: string | null;
     providerReferenceId: string | null;
@@ -30,12 +33,11 @@ export type SubscriptionPlan = {
     name: string;
     description: string;
     priceMonthly: number;
-    currency: 'CLP';
+    currency: BillingCurrency;
     maxListings: number;
     maxFeaturedListings: number;
     maxImagesPerListing: number;
     analyticsEnabled: boolean;
-    crmEnabled: boolean;
     prioritySupport: boolean;
     customBranding: boolean;
     apiAccess: boolean;
@@ -47,10 +49,10 @@ export type SubscriptionPlan = {
 export type ActiveSubscription = {
     id: string;
     vertical: PaymentVertical;
-    planId: 'essential' | 'pro' | 'enterprise' | 'free';
+    planId: 'pro' | 'enterprise' | 'free';
     planName: string;
     priceMonthly: number;
-    currency: 'CLP';
+    currency: BillingCurrency;
     features: string[];
     status: 'active' | 'cancelled' | 'paused' | 'expired';
     providerStatus: string | null;
@@ -79,6 +81,9 @@ export type ConfirmCheckoutResponse = {
 export type SubscriptionCatalogResponse = {
     ok: boolean;
     vertical: PaymentVertical;
+    paymentProvider: PaymentProvider;
+    billingCountryCode?: string;
+    checkoutEnabled?: boolean;
     mercadoPagoEnabled: boolean;
     plans: SubscriptionPlan[];
     freePlan: SubscriptionPlan | null;
@@ -148,7 +153,7 @@ export async function startSubscriptionCheckout(
     vertical: PaymentVertical,
     input: {
         returnUrl: string;
-        planId: 'essential' | 'pro' | 'enterprise';
+        planId: 'pro' | 'enterprise';
     }
 ): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
     const { data } = await apiFetch<StartCheckoutResponse>('/api/payments/checkout', {
@@ -174,12 +179,14 @@ export async function startSubscriptionCheckout(
 export async function confirmCheckout(input: {
     orderId: string;
     paymentId?: string | null;
+    sessionId?: string | null;
 }): Promise<ConfirmCheckoutResponse> {
     const { data } = await apiFetch<ConfirmCheckoutResponse>('/api/payments/confirm', {
         method: 'POST',
         body: JSON.stringify({
             orderId: input.orderId,
             ...(input.paymentId ? { paymentId: input.paymentId } : {}),
+            ...(input.sessionId ? { sessionId: input.sessionId } : {}),
         }),
     });
 

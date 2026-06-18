@@ -59,21 +59,7 @@ const envSchema = z.object({
     PGPASSWORD: z.string().optional(),
     SESSION_SECRET: z.string().trim().optional(),
     AUTH_COOKIE_SAMESITE: z.string().trim().optional(),
-    STORAGE_PROVIDER: z.preprocess((raw) => {
-        if (typeof raw !== 'string') return raw;
-        if (raw !== 'backblaze-s3' && raw !== 'backblaze-b2') return raw;
-        if (process.env.NODE_ENV === 'production') {
-            throw new Error(
-                `[simple-api] STORAGE_PROVIDER=${raw} is no longer supported. ` +
-                'Use STORAGE_PROVIDER=cloudflare-r2 (or local). See docs/archive/MIGRATION_BACKBLAZE_TO_CLOUDFLARE.md'
-            );
-        }
-        console.warn(
-            `[simple-api] STORAGE_PROVIDER=${raw} is deprecated; using "local" in development. ` +
-            'Update services/api/.env.local to STORAGE_PROVIDER=local or cloudflare-r2.'
-        );
-        return 'local';
-    }, z.enum(['local', 'cloudflare-r2', 'r2']).optional()),
+    STORAGE_PROVIDER: z.enum(['local', 'cloudflare-r2', 'r2']).optional(),
 }).superRefine((value, ctx) => {
     if (value.NODE_ENV === 'production') {
         if (!value.DATABASE_URL && !value.PGPASSWORD) {
@@ -103,7 +89,6 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
-// Propagar valores normalizados (p. ej. backblaze-* → local en dev) al resto del proceso.
 if (env.STORAGE_PROVIDER) {
     process.env.STORAGE_PROVIDER = env.STORAGE_PROVIDER;
 }

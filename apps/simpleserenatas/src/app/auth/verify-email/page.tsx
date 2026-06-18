@@ -1,11 +1,11 @@
 import { Suspense } from 'react';
-import VerifyEmailRedirectInner from './redirect-inner';
+import { AuthRouteRedirect } from '@simple/auth';
 
-/** Ruta EN legacy → confirmar-correo (ES). */
+/** Ruta legacy en inglés → confirmar-correo (canónica, la que envía la API). */
 export default function VerifyEmailRedirectPage() {
     return (
-        <Suspense fallback={<p className="p-8 text-center text-sm">Redirigiendo…</p>}>
-            <VerifyEmailRedirectInner target="/auth/confirmar-correo" />
+        <Suspense fallback={<p className="auth-text-muted p-8 text-center text-sm">Redirigiendo…</p>}>
+            <AuthRouteRedirect target="/auth/confirmar-correo" />
         </Suspense>
     );
 }

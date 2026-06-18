@@ -10,10 +10,10 @@ import {
     IconCalendar,
     IconMap,
     IconChartBar,
-    IconBrandWhatsapp,
     IconUser,
     IconBriefcase,
     IconBookmark,
+    IconMessageCircle,
 } from '@tabler/icons-react';
 import { serenatasApi, type Profiles } from '@/lib/serenatas-api';
 import { CLIENT_MARKETPLACE_HREF, isClientMarketplaceHref } from '@/lib/client-marketplace';
@@ -22,6 +22,7 @@ import { type Section } from '@/context/serenata-context';
 import { panelSectionHref, sectionFromPanelPath } from '@/lib/panel-routes';
 import { type MarketplacePanelNavItem, type PanelNotification } from '@simple/marketplace-header';
 import { toPanelNotification } from '@/lib/serenata-notifications';
+import { OWNER_ROLE_LABEL } from '@/lib/serenatas-terminology';
 
 export type PanelNavItem = {
     id: Section;
@@ -74,6 +75,7 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
         items.push({ id: 'mariachis', href: CLIENT_MARKETPLACE_HREF, label: 'Explorar', icon: IconUsersGroup });
         items.push({ id: 'guardados', href: panelSectionHref('guardados'), label: 'Guardados', icon: IconBookmark });
         items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis serenatas', icon: IconMusic });
+        items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
         items.push({ id: 'profile', href: panelSectionHref('profile'), label: 'Mi cuenta', icon: IconUser });
         return items;
     }
@@ -82,16 +84,17 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
 
     if (isOwner) {
         items.push({ id: 'solicitudes', href: panelSectionHref('solicitudes'), label: 'Solicitudes', icon: IconBell });
+        items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
         if (profiles.musician) {
             items.push({ id: 'invitations', href: panelSectionHref('invitations'), label: 'Invitaciones', icon: IconUsersGroup });
         }
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
         items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
-        items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconChartBar, badge: 'Pro' });
-        items.push({ id: 'chat', href: panelSectionHref('chat'), label: 'Chat', icon: IconBrandWhatsapp, badge: 'Pro' });
+        items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconChartBar });
         items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
     } else if (profiles.musician) {
         items.push({ id: 'invitations', href: panelSectionHref('invitations'), label: 'Invitaciones', icon: IconUsersGroup });
+        items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
         items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis serenatas', icon: IconMusic });
     }
@@ -122,7 +125,7 @@ export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): Pane
 /** Secciones del panel dueño accesibles desde «Más» en bottom nav móvil (p. ej. Mapa). */
 export function getMobileOverflowNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     if (mode !== 'work' || !ownerFeaturesEnabled(profiles)) return [];
-    return getPanelNavItems(mode, profiles).filter((t) => t.id === 'map' || t.id === 'finanzas' || t.id === 'chat');
+    return getPanelNavItems(mode, profiles).filter((t) => t.id === 'map' || t.id === 'finanzas');
 }
 
 export function getMarketplaceNavItems(mode: AppMode, profiles: Profiles): MarketplacePanelNavItem[] {
@@ -193,7 +196,7 @@ export async function markAllPanelNotificationsRead(): Promise<void> {
 
 /** Etiqueta del tipo de cuenta en sidebar y cabecera del panel. */
 export function panelAccountTypeLabel(profiles: Profiles): string {
-    if (profiles.owner) return 'Dueño';
+    if (profiles.owner) return OWNER_ROLE_LABEL;
     if (profiles.musician) return 'Músico';
     if (profiles.client) return 'Cliente';
     return 'Usuario';

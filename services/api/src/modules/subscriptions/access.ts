@@ -67,13 +67,6 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
         return planId === 'pro' || planId === 'enterprise';
     }
 
-    function userCanUseCrm(user: AppUser, vertical: VerticalType): boolean {
-        if (user.role === 'superadmin' || user.role === 'admin') return true;
-        const planId = getEffectivePlanId(user, vertical);
-        const plan = getSubscriptionPlans(vertical).find((item) => item.id === planId);
-        return Boolean(plan?.crmEnabled);
-    }
-
     function cancelActiveSubscriptionForUser(userId: string, vertical: VerticalType): void {
         const current = activeSubscriptionsByUser.get(userId) ?? [];
         activeSubscriptionsByUser.set(
@@ -123,7 +116,6 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
         getInstagramRequiredPlanIds,
         userCanUsePublicProfile,
         userCanUseInstagram,
-        userCanUseCrm,
         upsertActiveSubscription,
         cancelActiveSubscriptionForUser,
         makeSubscriptionId,

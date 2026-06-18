@@ -4,6 +4,7 @@
  */
 export {
     fmtCLP,
+    fmtCalendarDateYmd,
     fmtDateShort,
     fmtDateLong,
     fmtDateMedium,
@@ -11,4 +12,5 @@ export {
     fmtDateTz,
     fmtDateTimeShort,
     fmtDateTimeLong,
+    fmtTodayLabel,
 } from '@simple/utils';

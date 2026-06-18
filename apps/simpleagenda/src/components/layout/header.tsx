@@ -6,8 +6,9 @@ import { getPanelNavItems, isPanelNavActive } from '@/components/panel/panel-nav
 import { NotificationBell } from '@/components/panel/notification-bell';
 
 const publicLinks = [
+    { href: '/profesionales', label: 'Profesionales' },
     { href: '/#como-funciona', label: 'Funciones' },
-    { href: '/#planes', label: 'Planes' },
+    { href: '/#prueba-gratis', label: 'Prueba gratis' },
 ];
 
 export function Header() {

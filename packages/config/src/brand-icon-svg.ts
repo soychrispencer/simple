@@ -11,8 +11,7 @@ type IconTokens = {
     glyph: string;
 };
 
-/** Tabler IconConfetti (mismo glifo que BrandLogo en @simple/ui). */
-function serenatasSvg(t: IconTokens): string {
+function tablerBrandSvg(t: IconTokens, paths: string[]): string {
     const scale = 14;
     const offset = (512 - 24 * scale) / 2;
     return (
@@ -20,72 +19,69 @@ function serenatasSvg(t: IconTokens): string {
         + '<rect width="512" height="512" rx="128" fill="' + t.accent + '"/>'
         + '<g transform="translate(' + offset + ' ' + offset + ') scale(' + scale + ')"'
         + ' stroke="' + t.glyph + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">'
-        + '<path d="M4 5h2"/>'
-        + '<path d="M5 4v2"/>'
-        + '<path d="M11.5 4l-.5 2"/>'
-        + '<path d="M18 5h2"/>'
-        + '<path d="M19 4v2"/>'
-        + '<path d="M15 9l-1 1"/>'
-        + '<path d="M18 13l2 -.5"/>'
-        + '<path d="M18 19h2"/>'
-        + '<path d="M19 18v2"/>'
-        + '<path d="M14 16.518l-6.518 -6.518l-4.39 9.58a1 1 0 0 0 1.329 1.329l9.579 -4.39"/>'
+        + paths.map((path) => '<path d="' + path + '"/>').join('')
         + '</g>'
         + '</svg>'
     );
 }
 
+/** Tabler IconConfetti (mismo glifo que BrandLogo en @simple/ui). */
+function serenatasSvg(t: IconTokens): string {
+    return tablerBrandSvg(t, [
+        'M4 5h2',
+        'M5 4v2',
+        'M11.5 4l-.5 2',
+        'M18 5h2',
+        'M19 4v2',
+        'M15 9l-1 1',
+        'M18 13l2 -.5',
+        'M18 19h2',
+        'M19 18v2',
+        'M14 16.518l-6.518 -6.518l-4.39 9.58a1 1 0 0 0 1.329 1.329l9.579 -4.39',
+    ]);
+}
+
+/** Tabler IconCalendar (mismo glifo que BrandLogo en @simple/ui). */
 function agendaSvg(t: IconTokens): string {
-    return (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">'
-        + '<rect width="512" height="512" rx="128" fill="' + t.accent + '"/>'
-        + '<rect x="140" y="128" width="232" height="232" rx="24" stroke="' + t.glyph + '" stroke-width="24" fill="none"/>'
-        + '<line x1="260" y1="80" x2="260" y2="128" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<line x1="200" y1="80" x2="200" y2="128" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<line x1="140" y1="200" x2="372" y2="200" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '</svg>'
-    );
+    return tablerBrandSvg(t, [
+        'M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12',
+        'M16 3v4',
+        'M8 3v4',
+        'M4 11h16',
+        'M11 15h1',
+        'M12 15v3',
+    ]);
 }
 
+/** Tabler IconSteeringWheel (mismo glifo que BrandLogo en @simple/ui). */
 function autosSvg(t: IconTokens): string {
-    return (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">'
-        + '<rect width="512" height="512" rx="128" fill="' + t.accent + '"/>'
-        + '<circle cx="256" cy="256" r="96" stroke="' + t.glyph + '" stroke-width="24" fill="none"/>'
-        + '<circle cx="256" cy="256" r="21" fill="' + t.glyph + '"/>'
-        + '<line x1="256" y1="128" x2="256" y2="160" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<line x1="256" y1="352" x2="256" y2="384" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<line x1="128" y1="256" x2="160" y2="256" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<line x1="352" y1="256" x2="384" y2="256" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<line x1="162" y1="162" x2="186" y2="186" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<line x1="326" y1="326" x2="350" y2="350" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<line x1="162" y1="350" x2="186" y2="326" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<line x1="326" y1="186" x2="350" y2="162" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '</svg>'
-    );
+    return tablerBrandSvg(t, [
+        'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0',
+        'M10 12a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+        'M12 14l0 7',
+        'M10 12l-6.75 -2',
+        'M14 12l6.75 -2',
+    ]);
 }
 
+/** Tabler IconDoor (mismo glifo que BrandLogo en @simple/ui). */
 function propiedadesSvg(t: IconTokens): string {
-    return (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">'
-        + '<rect width="512" height="512" rx="128" fill="' + t.accent + '"/>'
-        + '<path d="M140 428 L372 428" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<path d="M172 428 L172 196 L256 128 L340 196 L340 428" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
-        + '<path d="M244 428 L244 340 L292 340 L292 428" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<path d="M220 244 L268 244" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '<path d="M220 292 L268 292" stroke="' + t.glyph + '" stroke-width="24" stroke-linecap="round"/>'
-        + '</svg>'
-    );
+    return tablerBrandSvg(t, [
+        'M14 12v.01',
+        'M3 21h18',
+        'M6 21v-16a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v16',
+    ]);
 }
 
-const DASHBOARD_SVG =
-    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">'
-    + '<rect width="512" height="512" rx="128" fill="#111111"/>'
-    + '<rect x="136" y="128" width="104" height="160" rx="24" stroke="white" stroke-width="24" fill="none"/>'
-    + '<rect x="136" y="336" width="104" height="64" rx="24" stroke="white" stroke-width="24" fill="none"/>'
-    + '<rect x="272" y="128" width="104" height="64" rx="24" stroke="white" stroke-width="24" fill="none"/>'
-    + '<rect x="272" y="240" width="104" height="160" rx="24" stroke="white" stroke-width="24" fill="none"/>'
-    + '</svg>';
+/** Tabler IconLayoutDashboard (mismo glifo que BrandLogo en @simple/ui). */
+function dashboardSvg(t: IconTokens): string {
+    return tablerBrandSvg(t, [
+        'M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1',
+        'M5 16h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1',
+        'M15 12h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1',
+        'M15 4h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1',
+    ]);
+}
 
 export function buildSimpleBrandIconSvg(appId: SimpleAppId, tokens: IconTokens): string {
     switch (appId) {
@@ -99,9 +95,9 @@ export function buildSimpleBrandIconSvg(appId: SimpleAppId, tokens: IconTokens):
             return propiedadesSvg(tokens);
         case 'simpleadmin':
         case 'simpleplataforma':
-            return DASHBOARD_SVG;
+            return dashboardSvg(tokens);
         default:
-            return DASHBOARD_SVG;
+            return dashboardSvg(tokens);
     }
 }
 

@@ -40,11 +40,6 @@ async function clean() {
     await safeDelete('ad_campaigns', db.delete(schema.adCampaigns));
     await safeDelete('message_entries', db.delete(schema.messageEntries));
     await safeDelete('messageThreads', db.delete(schema.messageThreads));
-    await safeDelete('listingLeadActivities', db.delete(schema.listingLeadActivities));
-    await safeDelete('listingLeads', db.delete(schema.listingLeads));
-    await safeDelete('serviceLeadActivities', db.delete(schema.serviceLeadActivities));
-    await safeDelete('serviceLeads', db.delete(schema.serviceLeads));
-    await safeDelete('crmPipelineColumns', db.delete(schema.crmPipelineColumns));
     await safeDelete('publicProfileTeamMembers', db.delete(schema.publicProfileTeamMembers));
     await safeDelete('publicProfiles', db.delete(schema.publicProfiles));
     await safeDelete('instagramPublications', db.delete(schema.instagramPublications));

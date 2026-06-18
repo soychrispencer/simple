@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
     IconArrowLeft,
-    IconCalendar,
+    IconCalendarEvent,
     IconLoader2,
     IconCheck,
     IconNotes,
@@ -53,7 +53,7 @@ import {
     type AgendaClientPack,
     type AgendaPack,
 } from '@/lib/agenda-api';
-import { fmtDateLong as formatDate, fmtTime as formatTime } from '@/lib/format';
+import { usePanelFormatters } from '@simple/auth';
 
 const STATUS_LABELS: Record<string, string> = {
     pending: 'Pendiente',
@@ -72,6 +72,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ClienteFichaPage() {
+    const fmt = usePanelFormatters();
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
@@ -460,7 +461,7 @@ export default function ClienteFichaPage() {
             <div className={`grid gap-4 mb-6 ${age !== null ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
                 <StatCard label="Sesiones" value={String(completedAppts.length)} />
                 <StatCard label="Total cobrado" value={totalPaid > 0 ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(totalPaid) : '$0'} />
-                <StatCard label="Primera cita" value={sortedAppts.length > 0 ? formatDate(sortedAppts[0].startsAt) : '—'} />
+                <StatCard label="Primera cita" value={sortedAppts.length > 0 ? fmt.dateLong(sortedAppts[0].startsAt) : '—'} />
                 {age !== null && <StatCard label="Edad" value={`${age} años`} />}
             </div>
 
@@ -796,7 +797,7 @@ export default function ClienteFichaPage() {
             <>
             {appointments.length === 0 ? (
                 <div className="rounded-2xl border py-10 text-center" style={{ borderColor: 'var(--border)' }}>
-                    <IconCalendar size={20} className="mx-auto mb-2" style={{ color: 'var(--fg-muted)' }} />
+                    <IconCalendarEvent size={20} className="mx-auto mb-2" style={{ color: 'var(--fg-muted)' }} />
                     <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Sin sesiones registradas.</p>
                 </div>
             ) : (
@@ -817,7 +818,7 @@ export default function ClienteFichaPage() {
                                     />
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
-                                            {formatDate(appt.startsAt)} — {formatTime(appt.startsAt)}
+                                            {fmt.dateLong(appt.startsAt)} — {fmt.time(appt.startsAt)}
                                         </p>
                                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                                             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>

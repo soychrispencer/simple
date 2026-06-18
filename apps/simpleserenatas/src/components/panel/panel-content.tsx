@@ -11,7 +11,7 @@ import type { AppMode } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { appearsInOwnerSolicitudes } from '@/lib/serenata-pending';
 import { miNegocioTabFromPanelPath } from '@/lib/panel-routes';
-import { PanelNotice } from '@simple/ui/panel';
+import { PanelNotice, SERENATAS_FINANCE_PAGE } from '@simple/ui/panel';
 import { PanelPageHeader } from '@simple/ui/panel';
 
 const AgendaView = dynamic(() => import('@/components/panel/agenda-view').then((mod) => mod.AgendaView));
@@ -38,11 +38,8 @@ const GuardadosView = dynamic(() =>
 const FinanzasView = dynamic(() =>
     import('@/components/panel/finanzas/finanzas-view').then((mod) => mod.FinanzasView),
 );
-const WhatsAppChatView = dynamic(() =>
-    import('@/components/panel/whatsapp-chat-view').then((mod) => mod.WhatsAppChatView),
-);
-const ProFeatureGate = dynamic(() =>
-    import('@/components/panel/pro-feature-gate').then((mod) => mod.ProFeatureGate),
+const PanelMessagesInbox = dynamic(() =>
+    import('@simple/ui/panel').then((mod) => mod.PanelMessagesInbox),
 );
 const MiNegocioPublishToggle = dynamic(() =>
     import('@/components/panel/mi-negocio-publish-toggle').then((mod) => mod.MiNegocioPublishToggle),
@@ -115,7 +112,7 @@ export function PanelContent(props: PanelContentProps) {
         return props.mode === 'work' && props.ownerFeaturesEnabled ? (
             <PanelSectionPage
                 title="Mi negocio"
-                description="Marca comercial (mariachi), servicios y grupos de músicos."
+                description="Tu página pública en el marketplace: marca, servicios, disponibilidad y medios de pago directos. Sin comisión por serenata."
                 actions={<MiNegocioPublishToggle refresh={props.refresh} />}
             >
                 <MiNegocioView
@@ -208,6 +205,10 @@ export function PanelContent(props: PanelContentProps) {
         );
     }
 
+    if (props.section === 'mensajes') {
+        return <PanelMessagesInbox vertical="serenatas" className="py-4 lg:py-8" />;
+    }
+
     if (props.section === 'agenda') {
         return (
             <PanelSectionPage title="Agenda" description="Resumen de tus serenatas programadas y ganancias.">
@@ -236,38 +237,15 @@ export function PanelContent(props: PanelContentProps) {
     if (props.section === 'finanzas') {
         return props.mode === 'work' && props.ownerFeaturesEnabled ? (
             <PanelSectionPage
-                title="Finanzas"
-                description="Reportes, estadísticas y pagos a músicos."
+                title={SERENATAS_FINANCE_PAGE.title}
+                description={SERENATAS_FINANCE_PAGE.description}
             >
-                <ProFeatureGate
-                    featureName="Finanzas"
-                    description="Reportes, movimientos y pagos a músicos quedan reservados para dueños con plan Pro."
-                >
-                    <FinanzasView
-                        serenatas={props.ownerSerenatas}
-                        groups={props.groups}
-                        accountUser={props.accountUser}
-                        refresh={props.refresh}
-                    />
-                </ProFeatureGate>
-            </PanelSectionPage>
-        ) : (
-            <PanelHomePage {...props} />
-        );
-    }
-
-    if (props.section === 'chat') {
-        return props.mode === 'work' && props.ownerFeaturesEnabled ? (
-            <PanelSectionPage
-                title="Chat"
-                description="Atiende solicitudes con WhatsApp desde el panel."
-            >
-                <ProFeatureGate
-                    featureName="Chat WhatsApp"
-                    description="La bandeja de atención por WhatsApp, plantillas y seguimiento de conversaciones forman parte del plan Pro."
-                >
-                    <WhatsAppChatView serenatas={props.ownerSerenatas} refresh={props.refresh} />
-                </ProFeatureGate>
+                <FinanzasView
+                    serenatas={props.ownerSerenatas}
+                    groups={props.groups}
+                    accountUser={props.accountUser}
+                    refresh={props.refresh}
+                />
             </PanelSectionPage>
         ) : (
             <PanelHomePage {...props} />

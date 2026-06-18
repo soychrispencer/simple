@@ -5,7 +5,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from '@simple/ui/theme';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import {
-  IconBell, IconSun, IconMoon, IconUser, IconPlus, IconLogout, IconSparkles, IconMenu2, IconX, IconUsersGroup, IconMessage, } from '@tabler/icons-react';
+    IconBell, IconSun, IconMoon, IconUser, IconPlus, IconLogout, IconSparkles, IconMenu2, IconX, IconMessage, IconChevronDown,
+} from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
 import { BrandLogo } from '@simple/ui/brand';
 import { PanelButton } from '@simple/ui/panel';
@@ -22,7 +23,7 @@ export type MarketplacePanelNavItem = {
 
 export type PanelNotification = {
   id: string;
-  type: 'service_lead' | 'listing_lead' | 'message_thread';
+  type: 'message_thread' | 'activity';
   title: string;
   time: string;
   href: string;
@@ -32,8 +33,7 @@ export type PanelNotification = {
 };
 
 function notificationListIcon(type: PanelNotification['type']) {
-  if (type === 'message_thread') return IconUsersGroup;
-  if (type === 'listing_lead') return IconMessage;
+  if (type === 'message_thread') return IconMessage;
   return IconSparkles;
 }
 
@@ -70,9 +70,29 @@ const HEADER_POPOVER_MOBILE =
 const HEADER_POPOVER_DESKTOP = 'md:absolute md:right-0 md:top-[calc(100%+8px)]';
 const MOBILE_ACCOUNT_POPOVER_TOP = 'calc(4.75rem + env(safe-area-inset-top, 0px))';
 
+export type MarketplacePublicLinkItem = {
+  href: string;
+  label: string;
+  description?: string;
+};
+
+export type MarketplacePublicLink = {
+  href: string;
+  label: string;
+  isNew?: boolean;
+  items?: MarketplacePublicLinkItem[];
+};
+
+function isPublicLinkActive(pathname: string, link: MarketplacePublicLink): boolean {
+  if (link.items?.length) {
+    return link.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  }
+  return pathname === link.href || pathname.startsWith(`${link.href}/`);
+}
+
 export type MarketplaceHeaderProps = {
   brandAppId: 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin' | 'simpleagenda';
-  publicLinks: Array<{ href: string; label: string; isNew?: boolean }>;
+  publicLinks: MarketplacePublicLink[];
   getPanelNavItems: (role: MarketplacePanelRole) => MarketplacePanelNavItem[];
   isPanelNavActive: (pathname: string, href: string) => boolean;
   fetchPanelNotifications: () => Promise<PanelNotification[]>;
@@ -134,11 +154,13 @@ export function MarketplaceHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [publicNavOpen, setPublicNavOpen] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<PanelNotification[]>([]);
   const [isSmallViewport, setIsSmallViewport] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const accountRef = useRef<HTMLDivElement | null>(null);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
+  const publicNavRef = useRef<HTMLDivElement | null>(null);
   const { user, isLoggedIn, requireAuth, logout: authLogout, openAuth } = useAuth();
   const logout = onLogout ?? authLogout;
 
@@ -159,6 +181,7 @@ export function MarketplaceHeader({
     setMenuOpen(false);
     setAccountOpen(false);
     setNotificationsOpen(false);
+    setPublicNavOpen(null);
   }, [pathname, isLoggedIn]);
 
   useEffect(() => {
@@ -197,6 +220,7 @@ export function MarketplaceHeader({
       if (!menuRef.current?.contains(target)) setMenuOpen(false);
       if (!accountRef.current?.contains(target)) setAccountOpen(false);
       if (!notificationsRef.current?.contains(target)) setNotificationsOpen(false);
+      if (!publicNavRef.current?.contains(target)) setPublicNavOpen(null);
     };
     document.addEventListener('pointerdown', handleOutside);
     return () => document.removeEventListener('pointerdown', handleOutside);
@@ -272,13 +296,65 @@ export function MarketplaceHeader({
             </div>
           </div>
         ) : (
-          <nav className="hidden md:flex items-center gap-1">
-            {publicLinks.map((l) => (
+          <nav className="hidden md:flex items-center gap-1" ref={publicNavRef}>
+            {publicLinks.map((l) => {
+              const active = isPublicLinkActive(pathname, l);
+              if (l.items?.length) {
+                const open = publicNavOpen === l.href;
+                return (
+                  <div key={l.href} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPublicNavOpen((prev) => (prev === l.href ? null : l.href));
+                        setAccountOpen(false);
+                        setNotificationsOpen(false);
+                        setMenuOpen(false);
+                      }}
+                      className="header-nav-link inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium rounded-button transition-colors duration-200"
+                      data-active={active ? 'true' : 'false'}
+                      aria-expanded={open}
+                      aria-haspopup="menu"
+                    >
+                      <span>{l.label}</span>
+                      <IconChevronDown size={14} stroke={2} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                    </button>
+                    {open ? (
+                      <div
+                        role="menu"
+                        className="absolute left-0 top-[calc(100%+8px)] z-[60] min-w-[15rem] rounded-xl border p-1.5 animate-slide-down"
+                        style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                      >
+                        {l.items.map((item) => {
+                          const itemActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              role="menuitem"
+                              onClick={() => setPublicNavOpen(null)}
+                              className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-[var(--bg-subtle)]"
+                              style={{ background: itemActive ? 'var(--bg-subtle)' : 'transparent' }}
+                            >
+                              <span className="block text-sm font-medium" style={{ color: 'var(--fg)' }}>{item.label}</span>
+                              {item.description ? (
+                                <span className="mt-0.5 block text-xs leading-snug" style={{ color: 'var(--fg-muted)' }}>{item.description}</span>
+                              ) : null}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
+
+              return (
               <Link
                 key={l.href}
                 href={l.href}
                 className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-button transition-colors duration-200"
-                data-active={pathname === l.href || pathname.startsWith(`${l.href}/`) ? 'true' : 'false'}
+                data-active={active ? 'true' : 'false'}
               >
                 <span className="inline-flex items-center gap-1.5">
                   <span>{l.label}</span>
@@ -290,7 +366,8 @@ export function MarketplaceHeader({
                   ) : null}
                 </span>
               </Link>
-            ))}
+              );
+            })}
           </nav>
         )}
 
@@ -587,7 +664,32 @@ export function MarketplaceHeader({
 
                 <div className="my-2 border-t" style={{ borderColor: 'var(--border)' }} />
 
-                {publicLinks.map((l) => (
+                {publicLinks.map((l) => {
+                  if (l.items?.length) {
+                    return (
+                      <div key={l.href} className="py-1">
+                        <p className="px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
+                          {l.label}
+                        </p>
+                        {l.items.map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMenuOpen(false)}
+                            className="flex flex-col gap-0.5 rounded-button px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                            style={{ color: 'var(--fg-secondary)' }}
+                          >
+                            <span className="font-medium" style={{ color: 'var(--fg)' }}>{item.label}</span>
+                            {item.description ? (
+                              <span className="text-xs leading-snug" style={{ color: 'var(--fg-muted)' }}>{item.description}</span>
+                            ) : null}
+                          </Link>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return (
                   <Link
                     key={l.href}
                     href={l.href}
@@ -606,7 +708,8 @@ export function MarketplaceHeader({
                       </span>
                     ) : null}
                   </Link>
-                ))}
+                  );
+                })}
                   </>
                 )}
               </div>

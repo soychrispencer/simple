@@ -1,16 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { IconCheck, IconAlertCircle, IconLoader2, IconCamera, IconX, IconSparkles, IconBrandInstagram, IconBrandFacebook, IconBrandLinkedin, IconBrandTiktok, IconBrandYoutube, IconBrandX, IconWorld, IconChevronDown } from '@tabler/icons-react';
+import { IconCheck, IconAlertCircle, IconLoader2, IconCamera, IconX, IconBrandInstagram, IconBrandFacebook, IconBrandLinkedin, IconBrandTiktok, IconBrandYoutube, IconBrandX, IconWorld, IconChevronDown } from '@tabler/icons-react';
 import { fetchAgendaProfile, saveAgendaProfile, uploadAvatar, fetchAgendaLocations, updateAgendaLocation, type AgendaLocation } from '@/lib/agenda-api';
 import { vocab } from '@/lib/vocabulary';
-import { generatePolicies } from '@/actions/generate-policies';
 import Link from 'next/link';
 import { IconChevronRight, IconMapPin, IconPlus, IconLoader2 as IconLoader2Loc } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelPageHeader, PanelSwitch } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelSwitch, PanelBusinessShell, AGENDA_BUSINESS_PAGINA_PAGE, PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE } from '@simple/ui/panel';
 import { AvatarUpload } from '@simple/ui/media';
-import { PanelSectionTabs, businessSectionTabs } from '@/components/panel/panel-section-tabs';
+import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 
 type SocialPlatform = 'instagram' | 'facebook' | 'linkedin' | 'tiktok' | 'youtube' | 'twitter';
 type SocialLink = { platform: SocialPlatform; username: string };
@@ -40,7 +39,6 @@ export default function PerfilConfigPage() {
     const [error, setError] = useState('');
     const [avatarError, setAvatarError] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
-    const [generatingPolicies, setGeneratingPolicies] = useState(false);
     const coverInputRef = useRef<HTMLInputElement>(null);
 
     const [form, setForm] = useState({
@@ -53,14 +51,7 @@ export default function PerfilConfigPage() {
         publicEmail: '',
         publicPhone: '',
         publicWhatsapp: '',
-        confirmationMode: 'auto' as 'auto' | 'manual',
-        allowsRecurrentBooking: true,
-        bookingWindowDays: 30,
-        cancellationHours: 24,
-        currency: 'CLP',
-        encuadre: '',
         websiteUrl: '',
-        timezone: 'America/Santiago',
     });
     const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
     const [showPlatformPicker, setShowPlatformPicker] = useState(false);
@@ -80,14 +71,7 @@ export default function PerfilConfigPage() {
                     publicEmail: profile.publicEmail ?? '',
                     publicPhone: profile.publicPhone ?? '',
                     publicWhatsapp: profile.publicWhatsapp ?? '',
-                    confirmationMode: (profile.confirmationMode as 'auto' | 'manual') ?? 'auto',
-                    allowsRecurrentBooking: profile.allowsRecurrentBooking ?? true,
-                    bookingWindowDays: profile.bookingWindowDays ?? 30,
-                    cancellationHours: profile.cancellationHours ?? 24,
-                    currency: profile.currency ?? 'CLP',
-                    encuadre: profile.encuadre ?? '',
                     websiteUrl: profile.websiteUrl ?? '',
-                    timezone: profile.timezone ?? 'America/Santiago',
                 });
                 const loaded: SocialLink[] = [];
                 for (const p of ALL_PLATFORMS) {
@@ -134,24 +118,6 @@ export default function PerfilConfigPage() {
         if (coverInputRef.current) coverInputRef.current.value = '';
     };
 
-    const handleGeneratePolicies = async () => {
-        setGeneratingPolicies(true);
-        setError('');
-        const result = await generatePolicies({
-            profession: form.profession,
-            displayName: form.displayName,
-            cancellationHours: form.cancellationHours,
-            bookingWindowDays: form.bookingWindowDays,
-            existingText: form.encuadre,
-        });
-        setGeneratingPolicies(false);
-        if (result.text) {
-            set('encuadre', result.text);
-        } else if (result.error) {
-            setError(result.error);
-        }
-    };
-
     const handleSave = async () => {
         if (!form.displayName.trim()) { setError('El nombre visible es requerido.'); return; }
         setSaving(true);
@@ -174,25 +140,19 @@ export default function PerfilConfigPage() {
     if (loading) {
         return (
             <div className="container-app panel-page py-4 lg:py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                <IconLoader2 size={16} className="animate-spin" /> Cargando perfil...
+                <IconLoader2 size={16} className="animate-spin" /> Cargando datos comerciales...
             </div>
         );
     }
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Perfil profesional"
-                description="Esta información aparecerá en tu página pública de reservas."
-            />
-
-            <div className="flex flex-col gap-6">
-                <PanelSectionTabs
-                    items={businessSectionTabs}
-                    activeKey="perfil"
-                    ariaLabel="Secciones de mi negocio"
-                />
-
+        <PanelBusinessShell
+            activeKey="pagina"
+            tabs={businessSectionTabs}
+            title={AGENDA_BUSINESS_PAGINA_PAGE.title}
+            description={AGENDA_BUSINESS_PAGINA_PAGE.description}
+        >
+                <PanelNotice tone="info">{PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE}</PanelNotice>
                 {/* Cover + Avatar Preview */}
                 <PanelCard size="md">
                     <PanelBlockHeader title="Imágenes de perfil" className="mb-3" />
@@ -483,131 +443,6 @@ export default function PerfilConfigPage() {
                     )}
                 </PanelCard>
 
-                {/* Configuracion de reservas */}
-                <PanelCard size="md">
-                    <PanelBlockHeader title="Configuración de reservas" className="mb-3" />
-                    <div className="grid sm:grid-cols-2 gap-4">
-                        <PanelField label="Zona horaria" hint="Para mostrar horarios correctos en tu agenda">
-                            <select
-                                value={form.timezone}
-                                onChange={(e) => set('timezone', e.target.value)}
-                                className="form-input"
-                            >
-                                <option value="America/Santiago">Santiago (Chile)</option>
-                                <option value="Europe/Berlin">Berlín (Alemania)</option>
-                                <option value="Europe/Madrid">Madrid (España)</option>
-                                <option value="America/Mexico_City">Ciudad de México (México)</option>
-                                <option value="America/Bogota">Bogotá (Colombia)</option>
-                                <option value="America/Lima">Lima (Perú)</option>
-                                <option value="America/Argentina/Buenos_Aires">Buenos Aires (Argentina)</option>
-                                <option value="America/Montevideo">Montevideo (Uruguay)</option>
-                                <option value="America/Caracas">Caracas (Venezuela)</option>
-                                <option value="America/La_Paz">La Paz (Bolivia)</option>
-                                <option value="America/Quito">Quito (Ecuador)</option>
-                                <option value="America/Sao_Paulo">São Paulo (Brasil)</option>
-                                <option value="America/New_York">New York (EST)</option>
-                                <option value="America/Los_Angeles">Los Angeles (PST)</option>
-                                <option value="Europe/London">Londres (Reino Unido)</option>
-                                <option value="UTC">UTC</option>
-                            </select>
-                        </PanelField>
-                        <PanelField label="Confirmación de citas" className="sm:col-span-2">
-                            <div className="flex gap-3">
-                                {(['auto', 'manual'] as const).map((mode) => (
-                                    <button
-                                        key={mode}
-                                        onClick={() => set('confirmationMode', mode)}
-                                        className="flex-1 py-2.5 rounded-xl border text-sm transition-colors"
-                                        style={{
-                                            borderColor: form.confirmationMode === mode ? 'var(--accent)' : 'var(--border)',
-                                            background: form.confirmationMode === mode ? 'var(--accent-soft)' : 'transparent',
-                                            color: form.confirmationMode === mode ? 'var(--accent)' : 'var(--fg-secondary)',
-                                            fontWeight: form.confirmationMode === mode ? 600 : 400,
-                                        }}
-                                    >
-                                        {mode === 'auto' ? 'Automatica' : 'Manual'}
-                                    </button>
-                                ))}
-                            </div>
-                            <p className="text-xs mt-1.5" style={{ color: 'var(--fg-muted)' }}>
-                                {form.confirmationMode === 'auto'
-                                    ? 'Las reservas se confirman inmediatamente.'
-                                    : 'Debes aprobar cada reserva manualmente.'}
-                            </p>
-                        </PanelField>
-
-                        <PanelField label="Ventana de reserva (días)" hint="Cuántos días antes pueden reservar">
-                            <input
-                                type="number"
-                                min={1}
-                                max={365}
-                                value={form.bookingWindowDays}
-                                onChange={(e) => set('bookingWindowDays', Number(e.target.value))}
-                                className="form-input"
-                            />
-                        </PanelField>
-                        <PanelField label="Aviso de cancelación (horas)" hint="Mínimo de horas para cancelar">
-                            <input
-                                type="number"
-                                min={0}
-                                max={168}
-                                value={form.cancellationHours}
-                                onChange={(e) => set('cancellationHours', Number(e.target.value))}
-                                className="form-input"
-                            />
-                        </PanelField>
-                    </div>
-
-                    <div className="mt-4 pt-4 flex items-start gap-3" style={{ borderTop: '1px solid var(--border)' }}>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Permitir reservas recurrentes</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                                Tus {vocab.clients} podrán agendar varias sesiones (semanal, quincenal o mensual) desde tu link público.
-                            </p>
-                        </div>
-                        <PanelSwitch
-                            checked={form.allowsRecurrentBooking}
-                            onChange={(v) => set('allowsRecurrentBooking', v)}
-                            size="sm"
-                            ariaLabel={form.allowsRecurrentBooking ? 'Desactivar reservas recurrentes' : 'Activar reservas recurrentes'}
-                        />
-                    </div>
-                </PanelCard>
-
-                {/* Políticas y condiciones */}
-                <PanelCard size="md">
-                    <PanelBlockHeader
-                        title="Políticas y condiciones"
-                        description={`El ${vocab.client} deberá leerlas y aceptarlas antes de reservar.`}
-                        className="mb-3"
-                        actions={
-                            <PanelButton
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => void handleGeneratePolicies()}
-                                disabled={generatingPolicies}
-                            >
-                                {generatingPolicies
-                                    ? <IconLoader2 size={14} className="animate-spin" />
-                                    : <IconSparkles size={14} />}
-                                {generatingPolicies ? 'Generando...' : 'Generar con IA'}
-                            </PanelButton>
-                        }
-                    />
-                    <PanelField
-                        label="Texto de políticas"
-                        hint="Puedes generarlas con IA y luego editarlas a tu gusto."
-                    >
-                        <textarea
-                            value={form.encuadre}
-                            onChange={(e) => set('encuadre', e.target.value)}
-                            placeholder={`Escribe aquí tus políticas y condiciones para los ${vocab.clients}...`}
-                            rows={8}
-                            className="form-textarea"
-                        />
-                    </PanelField>
-                </PanelCard>
-
                 {error && (
                     <PanelNotice tone="error">
                         <span className="flex items-center gap-2"><IconAlertCircle size={15} /> {error}</span>
@@ -624,7 +459,6 @@ export default function PerfilConfigPage() {
                         {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar cambios'}
                     </PanelButton>
                 </div>
-            </div>
 
             {/* Siguiente paso */}
             <div className="mt-10 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
@@ -641,6 +475,6 @@ export default function PerfilConfigPage() {
                     <IconChevronRight size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                 </Link>
             </div>
-        </div>
+        </PanelBusinessShell>
     );
 }

@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IconLock } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
-import { fetchAgendaProfile, isPlanActive, type AgendaProfile } from '@/lib/agenda-api';
+import { fetchAgendaProfile, hasAgendaFullAccess, type AgendaProfile } from '@/lib/agenda-api';
 import Link from 'next/link';
 
 export function SubscriptionGate({ children }: { children: React.ReactNode }) {
@@ -24,9 +24,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
 
     if (loading) return <>{children}</>;
 
-    // Bloqueado si no hay plan activo (venció la prueba o la suscripción)
-    // Usamos 'essential' como mínimo plan para considerar que NO es free/vencido
-    const isBlocked = profile ? !isPlanActive(profile, 'essential') : false;
+    const isBlocked = profile ? !hasAgendaFullAccess(profile) : false;
 
     // Permitir acceso a la página de suscripción
     const isSubscriptionPage = pathname.includes('/panel/mi-cuenta/suscripcion');
@@ -39,12 +37,12 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
                 </div>
                 <h2 className="mb-3 text-2xl font-bold text-fg">Acceso restringido</h2>
                 <p className="mx-auto mb-8 max-w-md text-fg-muted">
-                    Tu periodo de prueba de 30 días ha finalizado. Para seguir gestionando tus citas, clientes y servicios, activa un plan profesional.
+                    Tu periodo de prueba de 30 días ha finalizado. Activa Pro para seguir gestionando tu agenda.
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row">
                     <Link href="/panel/mi-cuenta/suscripcion">
                         <PanelButton variant="primary" className="h-12 px-8">
-                            Ver planes y activar
+                            Activar Pro
                         </PanelButton>
                     </Link>
                 </div>

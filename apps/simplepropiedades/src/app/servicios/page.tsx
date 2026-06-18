@@ -1,35 +1,240 @@
 'use client';
-import Link from 'next/link';
-import { IconSparkles, IconHome2, IconArrowRight, IconCamera, IconCheck, IconBuildingBank } from '@tabler/icons-react';
 
-const serviceCardClassName = 'group flex flex-col rounded-[24px] border p-6 transition-[transform,box-shadow,border-color,opacity] duration-200 hover:-translate-y-0.5 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10';
+import type { ReactNode } from 'react';
+import Link from 'next/link';
+import {
+    IconArrowRight,
+    IconBuilding,
+    IconCalculator,
+    IconCheck,
+    IconHome2,
+    IconKey,
+    IconShieldCheck,
+    IconSparkles,
+} from '@tabler/icons-react';
+import { getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
+
+const STEPS = [
+    { title: 'Evaluamos', desc: 'Revisamos tu propiedad y objetivo.' },
+    { title: 'Publicamos', desc: 'Ficha optimizada y difusión.' },
+    { title: 'Cerramos', desc: 'Visitas, negociación y cierre.' },
+];
 
 export default function ServiciosPage() {
     return (
-        <div className="container-app py-12">
-            <p className="text-sm font-medium mb-3" style={{ color: 'var(--fg-muted)' }}>Servicios SimplePropiedades</p>
-            <h1 className="text-3xl md:text-4xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Servicios inmobiliarios</h1>
-            <p className="text-base mb-10 max-w-xl" style={{ color: 'var(--fg-secondary)' }}>Elige el camino que más te acomode: publicar por tu cuenta, delegarnos la gestión, o potenciar con un pack premium.</p>
+        <div className="flex flex-col">
+            <section style={{ background: 'var(--bg)' }}>
+                <div className="container-app pt-12 sm:pt-16 lg:pt-20 pb-12 sm:pb-16">
+                    <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)] lg:gap-14">
+                        <div className="max-w-xl">
+                            <div
+                                className="mb-6 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider"
+                                style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                            >
+                                <IconSparkles size={13} />
+                                Gestión inmobiliaria
+                            </div>
+                            <h1
+                                className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl"
+                                style={{ color: 'var(--fg)', letterSpacing: '-0.03em' }}
+                            >
+                                Delega tu arriendo o venta
+                            </h1>
+                            <p className="mb-8 text-base leading-relaxed sm:text-lg" style={{ color: 'var(--fg-secondary)' }}>
+                                Publicamos, gestionamos interesados y te acompañamos hasta el cierre. Tú mantienes la propiedad.
+                            </p>
+                            <div className="flex flex-col gap-3 sm:flex-row">
+                                <Link
+                                    href="/servicios/venta-asistida"
+                                    className={getPanelButtonClassName({ className: 'h-12 px-7 text-sm gap-2' })}
+                                    style={getPanelButtonStyle('primary')}
+                                >
+                                    Solicitar evaluación
+                                    <IconArrowRight size={16} />
+                                </Link>
+                                <Link
+                                    href="/servicios/simulador-hipotecario"
+                                    className={getPanelButtonClassName({ className: 'h-12 px-7 text-sm gap-2' })}
+                                    style={getPanelButtonStyle('secondary')}
+                                >
+                                    <IconCalculator size={16} />
+                                    Simular crédito
+                                </Link>
+                            </div>
+                        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {SERVICES.map(s => (
-                    <Link key={s.title} href={s.href} className={serviceCardClassName} style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xs)' }}>
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>{s.icon}</div>
-                        <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--fg)' }}>{s.title}</h2>
-                        <p className="text-sm leading-relaxed mb-4 flex-1" style={{ color: 'var(--fg-secondary)' }}>{s.desc}</p>
-                        {s.price && <p className="text-sm font-semibold mb-3" style={{ color: 'var(--fg)' }}>{s.price}</p>}
-                        <div className="space-y-1.5 mb-4">{s.features.map(f => <div key={f} className="flex items-start gap-2"><IconCheck size={13} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-muted)' }} /><span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{f}</span></div>)}</div>
-                        <div className="mt-auto flex items-center gap-1.5 text-sm font-medium transition-transform duration-200 group-hover:translate-x-0.5" style={{ color: 'var(--fg)' }}>{s.cta} <IconArrowRight size={13} /></div>
-                    </Link>
-                ))}
-            </div>
+                        <div className="relative mx-auto w-full max-w-2xl">
+                            <div
+                                className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
+                            >
+                                <img
+                                    src="/hero/servicios-gestion.svg"
+                                    alt="Gestión inmobiliaria con SimplePropiedades"
+                                    width={1600}
+                                    height={900}
+                                    className="h-full w-full object-cover"
+                                />
+                            </div>
+                            <div
+                                className="absolute -bottom-4 left-4 right-4 rounded-2xl border p-4 sm:left-auto sm:right-6 sm:w-72"
+                                style={{ borderColor: 'var(--border)', background: 'color-mix(in oklab, var(--surface) 94%, transparent)', boxShadow: 'var(--shadow-md)' }}
+                            >
+                                <p className="text-xs font-semibold" style={{ color: 'var(--fg)' }}>Solo pagas si se concreta</p>
+                                <p className="mt-1 text-xs leading-snug" style={{ color: 'var(--fg-muted)' }}>
+                                    Comisión transparente según tipo de operación.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section style={{ background: 'var(--bg-subtle)' }}>
+                <div className="container-app py-14 sm:py-16">
+                    <div className="mx-auto mb-10 max-w-2xl text-center">
+                        <h2 className="text-2xl font-bold sm:text-3xl" style={{ color: 'var(--fg)' }}>Comisiones claras</h2>
+                        <p className="mt-2 text-sm sm:text-base" style={{ color: 'var(--fg-secondary)' }}>
+                            Sin letra chica. Cobro solo cuando la operación se concreta.
+                        </p>
+                    </div>
+                    <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-2">
+                        <CommissionCard
+                            icon={<IconKey size={22} />}
+                            title="Arriendo"
+                            rate="25% + IVA"
+                            points={['Gestión de arrendatarios', 'Coordinación de visitas', 'Acompañamiento al cierre']}
+                        />
+                        <CommissionCard
+                            icon={<IconHome2 size={22} />}
+                            title="Compraventa"
+                            rate="2% + IVA"
+                            points={['Publicación y difusión', 'Filtrado de interesados', 'Negociación y cierre']}
+                        />
+                    </div>
+                </div>
+            </section>
+
+            <section style={{ background: 'var(--bg)' }}>
+                <div className="container-app py-14 sm:py-16">
+                    <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-12">
+                        <div
+                            className="overflow-hidden rounded-[1.5rem] border"
+                            style={{ borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+                        >
+                            <img
+                                src="/hero/servicios-proceso.svg"
+                                alt="Proceso de gestión inmobiliaria"
+                                width={1200}
+                                height={900}
+                                className="w-full h-auto"
+                            />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold sm:text-3xl" style={{ color: 'var(--fg)' }}>Cómo funciona</h2>
+                            <p className="mt-2 mb-8 text-sm sm:text-base" style={{ color: 'var(--fg-secondary)' }}>
+                                Tres pasos. Sin trámites innecesarios.
+                            </p>
+                            <div className="space-y-5">
+                                {STEPS.map((step, index) => (
+                                    <div key={step.title} className="flex gap-4">
+                                        <div
+                                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                                            style={{ background: 'var(--fg)', color: 'var(--bg)' }}
+                                        >
+                                            {index + 1}
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold" style={{ color: 'var(--fg)' }}>{step.title}</p>
+                                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{step.desc}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section style={{ background: 'var(--bg-subtle)' }}>
+                <div className="container-app py-14 sm:py-16">
+                    <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
+                        {[
+                            { icon: <IconShieldCheck size={20} />, title: 'Transparencia', desc: 'Decides con información clara.' },
+                            { icon: <IconBuilding size={20} />, title: 'Tu propiedad', desc: 'La mantienes hasta cerrar.' },
+                            { icon: <IconCheck size={20} />, title: 'Sin riesgo', desc: 'Sin operación, sin cobro.' },
+                        ].map((item) => (
+                            <div
+                                key={item.title}
+                                className="rounded-[20px] border p-5"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                            >
+                                <div className="mb-3" style={{ color: 'var(--accent)' }}>{item.icon}</div>
+                                <h3 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{item.title}</h3>
+                                <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>{item.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <section style={{ background: 'var(--bg)' }}>
+                <div className="container-app py-14 sm:pb-20">
+                    <div
+                        className="mx-auto flex max-w-3xl flex-col items-center rounded-[24px] border px-6 py-10 text-center sm:px-10"
+                        style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}
+                    >
+                        <h2 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>¿Listo para delegar?</h2>
+                        <p className="mt-2 max-w-md text-sm sm:text-base" style={{ color: 'var(--fg-secondary)' }}>
+                            Cuéntanos sobre tu propiedad y te contactamos para evaluarla.
+                        </p>
+                        <Link
+                            href="/servicios/venta-asistida"
+                            className={getPanelButtonClassName({ className: 'mt-6 h-12 px-8 text-sm gap-2' })}
+                            style={getPanelButtonStyle('primary')}
+                        >
+                            Solicitar evaluación
+                            <IconArrowRight size={16} />
+                        </Link>
+                    </div>
+                </div>
+            </section>
         </div>
     );
 }
 
-const SERVICES = [
-    { icon: <IconHome2 size={20} />, title: 'Publicar por tu cuenta', href: '/panel/publicar', price: 'Gratis', desc: 'Crea tu publicación en minutos. Gestiona tus mensajes y potencia con boost.', features: ['Publicación en 3 minutos', 'Estadísticas de visitas', 'Chat con interesados', 'Opción de boost'], cta: 'Publicar ahora' },
-    { icon: <IconSparkles size={20} />, title: 'Gestión inmobiliaria', href: '/servicios/venta-asistida', price: 'Comisión solo al vender', desc: 'Nosotros gestionamos todo: publicación, interesados y negociación. Tú mantienes la propiedad.', features: ['Evaluación personalizada', 'Gestión de interesados', 'Negociación profesional', 'Sin cobro si no se vende'], cta: 'Solicitar evaluación' },
-    { icon: <IconBuildingBank size={20} />, title: 'Simulador Hipotecario', href: '/simulador-hipotecario', price: 'Gratis', desc: 'Herramienta para asesores inmobiliarios: evalúa la capacidad de crédito de tus clientes en segundos.', features: ['Escenarios 25% y 33% DTI', 'Cálculo en UF y pesos', 'Exporta a PDF', 'Comparte con clientes'], cta: 'Simular ahora' },
-    { icon: <IconCamera size={20} />, title: 'Planes Pro', href: '/panel/mi-cuenta/suscripcion', price: 'Desde $14.990 / mes', desc: 'Suscripciones mensuales para publicar más, activar CRM y escalar tu operación inmobiliaria.', features: ['Más publicaciones activas', 'Destacados incluidos', 'CRM y estadísticas', 'Cobro mensual con Mercado Pago'], cta: 'Ver planes' },
-];
+function CommissionCard({
+    icon,
+    title,
+    rate,
+    points,
+}: {
+    icon: ReactNode;
+    title: string;
+    rate: string;
+    points: string[];
+}) {
+    return (
+        <div
+            className="flex flex-col rounded-[24px] border p-6"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xs)' }}
+        >
+            <div
+                className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl"
+                style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+            >
+                {icon}
+            </div>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>{title}</h3>
+            <p className="mt-1 text-2xl font-bold tracking-tight" style={{ color: 'var(--accent)' }}>{rate}</p>
+            <ul className="mt-5 space-y-2">
+                {points.map((point) => (
+                    <li key={point} className="flex items-start gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                        <IconCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-muted)' }} />
+                        {point}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}

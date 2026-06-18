@@ -5,8 +5,10 @@ import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelStatusBadge } from '@simple/ui/panel';
 import type { Invitation, Profiles } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';
-import { EmptyBlock, formatDate, toInputDate } from './shared';
+import { EmptyBlock, toInputDate } from './shared';
+import { useSerenataPanelFormat } from '@/hooks/use-serenata-panel-format';
 import { ProfileIncompleteNotice } from './profile-incomplete-notice';
+import { OWNER_FIELD_LABEL } from '@/lib/serenatas-terminology';
 
 function invitationStatusLabel(status: Invitation['status']) {
     if (status === 'invited') return 'Pendiente';
@@ -36,6 +38,7 @@ export function InvitationsView({
     invitations: Invitation[];
     refresh: () => Promise<void>;
 }) {
+    const fmt = useSerenataPanelFormat(false);
     async function respond(id: string, status: 'accepted' | 'rejected') {
         await serenatasApi.respondInvitation(id, status);
         await refresh();
@@ -82,12 +85,12 @@ export function InvitationsView({
                                     <div>
                                         <p className="font-medium text-(--fg)">{item.groupName}</p>
                                         {item.ownerName ? (
-                                            <p className="mt-1 text-xs text-(--fg-muted)">Dueño: {item.ownerName}</p>
+                                            <p className="mt-1 text-xs text-(--fg-muted)">{OWNER_FIELD_LABEL}: {item.ownerName}</p>
                                         ) : null}
                                         <div className="mt-3 grid gap-2 text-sm text-(--fg-secondary)">
                                             <span className="inline-flex items-center gap-2">
                                                 <IconClock size={16} className="shrink-0 text-(--fg-muted)" />
-                                                {eventTime ? `${eventTime} · ` : ''}{formatDate(eventDate)}
+                                                {eventTime ? `${eventTime} · ` : ''}{fmt.formatDate(eventDate ?? '')}
                                             </span>
                                             {locationLine ? (
                                                 <span className="inline-flex items-start gap-2">
@@ -116,7 +119,7 @@ export function InvitationsView({
                                     </div>
                                 ) : (item.status === 'accepted' || item.status === 'active') && item.serenataId && toInputDate(eventDate) ? (
                                     <p className="mt-3 text-xs text-(--fg-muted)">
-                                        Quedó en tu agenda para el {formatDate(eventDate)}.
+                                        Quedó en tu agenda para el {fmt.formatDate(eventDate ?? '')}.
                                     </p>
                                 ) : null}
                             </div>

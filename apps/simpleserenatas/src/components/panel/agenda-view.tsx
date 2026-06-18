@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelFilterChip } from '@simple/ui/panel';
 import { IconCalendar, IconCheck, IconClock, IconCurrencyDollar, IconMapPin, IconPlus, IconSearch, IconPencil } from '@tabler/icons-react';
-import { needsClosure } from '@/lib/serenata-dates';
+import { normalizeTimezone } from '@simple/utils';
+import { needsClosure, resolveSerenataBusinessTimezone } from '@/lib/serenata-dates';
+import { useMyMariachi } from '@/hooks/use-my-mariachi';
+import { useSerenata } from '@/context/serenata-context';
 import { type Profiles, type Serenata, type SerenataGroup, type SerenataPackage } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
 import { EmptyBlock, FieldDate, FieldInput, money, SerenataAgendaCard, toInputDate } from './shared';
@@ -47,6 +50,11 @@ export function AgendaView({
     clearAction?: () => void;
     closurePendingTotal?: number;
 }) {
+    const { mariachi } = useMyMariachi({ enabled: ownerFeatures });
+    const { accountUser } = useSerenata();
+    const businessTimezone = ownerFeatures
+        ? resolveSerenataBusinessTimezone(mariachi)
+        : normalizeTimezone(accountUser?.timezone);
     const [query, setQuery] = useState('');
     const [filter, setFilter] = useState<AgendaFilter>(mode === 'work' && !ownerFeatures ? 'scheduled' : 'all');
     const [editingSerenata, setEditingSerenata] = useState<Serenata | null>(null);
@@ -67,7 +75,7 @@ export function AgendaView({
     const scheduled = items.filter((item) => item.status === 'scheduled');
     const pending = items.filter((item) => item.status === 'pending' || item.status === 'accepted_pending_group' || item.status === 'payment_pending');
     const completed = items.filter((item) => item.status === 'completed');
-    const toClose = items.filter(needsClosure);
+    const toClose = items.filter((item) => needsClosure(item, businessTimezone));
     const earningsItems = ownerFeatures
         ? items.filter((item) => item.status === 'scheduled' || item.status === 'completed')
         : items.filter((item) => !['cancelled', 'rejected', 'expired'].includes(item.status));
@@ -77,7 +85,7 @@ export function AgendaView({
         return items.filter((item) => {
             const matchesFilter = filter === 'all'
                 || (filter === 'pending' ? pending.some((entry) => entry.id === item.id) : false)
-                || (filter === 'to_close' ? needsClosure(item) : false)
+                || (filter === 'to_close' ? needsClosure(item, businessTimezone) : false)
                 || (filter !== 'pending' && filter !== 'to_close' ? item.status === filter : false);
             const matchesQuery = !normalizedQuery
                 || item.recipientName.toLowerCase().includes(normalizedQuery)
@@ -268,12 +276,14 @@ function AgendaTimelineItem({
                         <IconMapPin size={14} />
                         Mapa
                     </a>
-                    {ownerFeatures ? <SerenataClosureActions item={item} refresh={refresh} inline /> : null}
+                    {ownerFeatures ? (
+                        <SerenataClosureActions item={item} refresh={refresh} inline timezone={businessTimezone} />
+                    ) : null}
                 </>
             }
             footer={
                 ownerFeatures ? (
-                    <SerenataPastDateNotice item={item} />
+                    <SerenataPastDateNotice item={item} timezone={businessTimezone} />
                 ) : (
                     <SerenataSetlistPanel serenata={item} mode="musician" refresh={refresh} />
                 )

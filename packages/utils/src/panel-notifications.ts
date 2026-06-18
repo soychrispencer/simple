@@ -4,7 +4,7 @@ export type PanelNotificationVertical = 'autos' | 'propiedades';
 
 export type PanelNotification = {
     id: string;
-    type: 'service_lead' | 'listing_lead' | 'message_thread';
+    type: 'message_thread';
     title: string;
     time: string;
     href: string;

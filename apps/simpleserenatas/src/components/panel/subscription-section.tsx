@@ -16,7 +16,7 @@ export function SubscriptionSection() {
             startSubscriptionCheckout={(input) =>
                 startSubscriptionCheckout({
                     returnUrl: input.returnUrl,
-                    planId: input.planId as Extract<SubscriptionPlanId, 'essential' | 'pro'>,
+                    planId: input.planId as Extract<SubscriptionPlanId, 'pro'>,
                 })
             }
             subscriptionsPath="/panel/mi-cuenta?account_tab=subscription"

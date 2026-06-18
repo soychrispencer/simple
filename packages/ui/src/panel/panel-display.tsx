@@ -2,7 +2,7 @@
 
 import { useState, type MouseEventHandler, type ReactNode } from 'react';
 import { IconUser } from '@tabler/icons-react';
-import { joinClasses } from '../shared/join-classes.js';
+import { joinClasses } from '../shared/join-classes';
 import { PanelCard } from './panel-card.js';
 
 export type PanelSummaryRowProps = {

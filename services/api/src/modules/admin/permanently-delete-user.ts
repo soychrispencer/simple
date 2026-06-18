@@ -15,11 +15,13 @@ export type PermanentlyDeleteUserDeps = {
         paymentOrdersByUser: Map<string, unknown>;
         activeSubscriptionsByUser: Map<string, unknown>;
         instagramPublicationsByUser: Map<string, unknown>;
+        socialPublicationsByUser: Map<string, unknown>;
         publicProfilesByUserVertical: Map<string, unknown>;
         publicProfileTeamMembersByUserVertical: Map<string, unknown>;
         instagramAccountByUserVertical: Map<string, unknown>;
+        tiktokAccountByUserVertical: Map<string, unknown>;
+        youtubeAccountByUserVertical: Map<string, unknown>;
         listingsById: Map<string, { ownerId: string }>;
-        listingLeadCountsByListing: Map<string, number>;
         publicProfilesByVerticalSlug: Map<string, { userId: string }>;
     };
 };
@@ -38,18 +40,18 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
     const {
         agendaProfessionalProfiles,
         listings,
-        listingLeads,
         messageThreads,
         messageEntries,
-        serviceLeads,
         instagramAccounts,
         instagramPublications,
+        socialPublications,
+        tiktokAccounts,
+        youtubeAccounts,
         savedListings,
         boostOrders,
         adCampaigns,
         listingDrafts,
         follows,
-        crmPipelineColumns,
         publicProfileTeamMembers,
         publicProfiles,
         passwordResetTokens,
@@ -77,15 +79,13 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
         agendaNotificationEvents,
         pushSubscriptions,
         users,
-        listingLeadActivities,
-        serviceLeadActivities,
         agendaClientTags,
         addressBook,
         paymentOrders,
         subscriptions,
         mortgageRates,
         userNotificationLog,
-        serenataNotifications,
+        platformNotifications,
         serenataProviderGroupMemberInvites,
         serenataGroupInvites,
         serenataProviderGroupApplications,
@@ -166,19 +166,6 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
                 extractAllListingMediaUrls(item),
             );
 
-            const listingLeadRows = await tx
-                .select({ id: listingLeads.id })
-                .from(listingLeads)
-                .where(
-                    or(
-                        eq(listingLeads.ownerUserId, userId),
-                        eq(listingLeads.buyerUserId, userId),
-                        eq(listingLeads.assignedToUserId, userId),
-                        ownedListingIds.length > 0 ? inArray(listingLeads.listingId, ownedListingIds) : sql`false`,
-                    ),
-                );
-            const listingLeadIds = listingLeadRows.map((item: { id: string }) => item.id);
-
             const threadRows = await tx
                 .select({ id: messageThreads.id })
                 .from(messageThreads)
@@ -186,16 +173,9 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
                     or(
                         eq(messageThreads.ownerUserId, userId),
                         eq(messageThreads.buyerUserId, userId),
-                        listingLeadIds.length > 0 ? inArray(messageThreads.leadId, listingLeadIds) : sql`false`,
                     ),
                 );
             const threadIds = threadRows.map((item: { id: string }) => item.id);
-
-            const serviceLeadRows = await tx
-                .select({ id: serviceLeads.id })
-                .from(serviceLeads)
-                .where(or(eq(serviceLeads.userId, userId), eq(serviceLeads.assignedToUserId, userId)));
-            const serviceLeadIds = serviceLeadRows.map((item: { id: string }) => item.id);
 
             instagramAccountRows = await tx
                 .select({ id: instagramAccounts.id, vertical: instagramAccounts.vertical })
@@ -211,26 +191,13 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
                 await tx.delete(messageThreads).where(inArray(messageThreads.id, threadIds));
             }
 
-            if (listingLeadIds.length > 0) {
-                await tx.delete(listingLeadActivities).where(inArray(listingLeadActivities.leadId, listingLeadIds));
-            }
-            await tx.delete(listingLeadActivities).where(eq(listingLeadActivities.actorUserId, userId));
-            if (listingLeadIds.length > 0) {
-                await tx.delete(listingLeads).where(inArray(listingLeads.id, listingLeadIds));
-            }
-
-            if (serviceLeadIds.length > 0) {
-                await tx.delete(serviceLeadActivities).where(inArray(serviceLeadActivities.leadId, serviceLeadIds));
-            }
-            await tx.delete(serviceLeadActivities).where(eq(serviceLeadActivities.actorUserId, userId));
-            if (serviceLeadIds.length > 0) {
-                await tx.delete(serviceLeads).where(inArray(serviceLeads.id, serviceLeadIds));
-            }
-
             if (instagramAccountIds.length > 0) {
                 await tx.delete(instagramPublications).where(inArray(instagramPublications.instagramAccountId, instagramAccountIds));
             }
             await tx.delete(instagramPublications).where(eq(instagramPublications.userId, userId));
+            if (socialPublications) {
+                await tx.delete(socialPublications).where(eq(socialPublications.userId, userId));
+            }
 
             if (ownedListingIds.length > 0) {
                 await tx.delete(savedListings).where(inArray(savedListings.listingId, ownedListingIds));
@@ -248,10 +215,15 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
             await tx.delete(adCampaigns).where(eq(adCampaigns.userId, userId));
             await tx.delete(listingDrafts).where(eq(listingDrafts.userId, userId));
             await tx.delete(follows).where(or(eq(follows.followerId, userId), eq(follows.followeeId, userId)));
-            await tx.delete(crmPipelineColumns).where(eq(crmPipelineColumns.userId, userId));
             await tx.delete(publicProfileTeamMembers).where(eq(publicProfileTeamMembers.userId, userId));
             await tx.delete(publicProfiles).where(eq(publicProfiles.userId, userId));
             await tx.delete(instagramAccounts).where(eq(instagramAccounts.userId, userId));
+            if (tiktokAccounts) {
+                await tx.delete(tiktokAccounts).where(eq(tiktokAccounts.userId, userId));
+            }
+            if (youtubeAccounts) {
+                await tx.delete(youtubeAccounts).where(eq(youtubeAccounts.userId, userId));
+            }
             await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
             await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
 
@@ -270,8 +242,8 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
             if (userNotificationLog) {
                 await tx.delete(userNotificationLog).where(eq(userNotificationLog.userId, userId));
             }
-            if (serenataNotifications) {
-                await tx.delete(serenataNotifications).where(eq(serenataNotifications.userId, userId));
+            if (platformNotifications) {
+                await tx.delete(platformNotifications).where(eq(platformNotifications.userId, userId));
             }
             if (serenataProviderGroupMemberInvites) {
                 await tx
@@ -504,6 +476,7 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
         caches.paymentOrdersByUser.delete(userId);
         caches.activeSubscriptionsByUser.delete(userId);
         caches.instagramPublicationsByUser.delete(userId);
+        caches.socialPublicationsByUser.delete(userId);
         caches.publicProfilesByUserVertical.delete(publicProfileUserVerticalKey(userId, 'autos'));
         caches.publicProfilesByUserVertical.delete(publicProfileUserVerticalKey(userId, 'propiedades'));
         caches.publicProfileTeamMembersByUserVertical.delete(publicProfileUserVerticalKey(userId, 'autos'));
@@ -511,12 +484,13 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
 
         for (const account of instagramAccountRows) {
             caches.instagramAccountByUserVertical.delete(instagramAccountKey(userId, account.vertical));
+            caches.tiktokAccountByUserVertical.delete(instagramAccountKey(userId, account.vertical));
+            caches.youtubeAccountByUserVertical.delete(instagramAccountKey(userId, account.vertical));
         }
 
         for (const [listingId, listing] of caches.listingsById.entries()) {
             if (listing.ownerId === userId) {
                 caches.listingsById.delete(listingId);
-                caches.listingLeadCountsByListing.delete(listingId);
             }
         }
 

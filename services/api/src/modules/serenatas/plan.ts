@@ -5,7 +5,6 @@ import {
     APP_COMMISSION_FREE_BPS,
     APP_COMMISSION_PRO_BPS,
     COMMISSION_VAT_BPS,
-    SERENATA_ESSENTIAL_PRICE_MONTHLY_CLP,
     SERENATA_PRO_PRICE_MONTHLY_CLP,
     SERENATA_TRIAL_DAYS,
     serenataPlanMonthlyChargeClp,
@@ -36,17 +35,14 @@ export async function resolveActiveSerenataBillingPlan(userId: string): Promise<
     const inactive = row.status === 'cancelled' || row.status === 'expired' || expired;
     if (inactive) return 'free';
 
-    if (row.planSlug === 'essential') return 'essential';
-    if (row.planSlug === 'pro') return 'pro';
-    // Legacy: filas antiguas con slug enterprise se tratan como Pro hasta migrar.
-    if (row.planSlug === 'enterprise') return 'pro';
+    if (row.planSlug === 'pro' || row.planSlug === 'enterprise') return 'pro';
     return 'free';
 }
 
 export type SerenataMePlanResponse = {
     plan: SerenataBillingPlanId;
     planLabel: string;
-    /** @deprecated Legacy: el modelo actual es prueba gratis por tiempo limitado + Esencial/Pro. */
+    /** @deprecated Legacy: el modelo actual es prueba gratis por tiempo limitado + Pro. */
     alwaysFreeMonthly: true;
     /** @deprecated SimpleSerenatas no cobra comisión por serenata. */
     ownerOwnSerenataCommissionPercent: 0;
@@ -58,12 +54,6 @@ export type SerenataMePlanResponse = {
     commissionVatBps: number;
     /** @deprecated Solo aplica a cálculos legacy de comisión, no al modelo comercial actual. */
     commissionVatPercent: number;
-    essentialPriceMonthly: number;
-    /** Neto mensual antes de IVA. */
-    essentialPriceMonthlyNet: number;
-    /** Total mensual cobrado en checkout (neto + IVA). */
-    essentialPriceMonthlyWithVat: number;
-    essentialCheckoutAvailable: boolean;
     proPriceMonthly: number;
     /** Neto mensual antes de IVA (referencia en UI). */
     proPriceMonthlyNet: number;
@@ -97,9 +87,9 @@ export function buildSerenataMePlanResponse(
     const trialEndsAt = options.trialEndsAt
         ? new Date(options.trialEndsAt)
         : null;
-    const isPaidPlan = plan === 'essential' || plan === 'pro';
-    const trialActive = !isPaidPlan && Boolean(trialEndsAt && trialEndsAt.getTime() >= Date.now());
+    const isPaidPlan = plan === 'pro';
     const subscriptionRequired = !isPaidPlan && Boolean(trialEndsAt && trialEndsAt.getTime() < Date.now());
+    const trialActive = !isPaidPlan && !subscriptionRequired;
     return {
         plan,
         planLabel: planLabel(plan),
@@ -109,10 +99,6 @@ export function buildSerenataMePlanResponse(
         commissionAppPercent: commissionPercentFromBps(commissionAppBps),
         commissionVatBps: COMMISSION_VAT_BPS,
         commissionVatPercent: commissionPercentFromBps(COMMISSION_VAT_BPS),
-        essentialPriceMonthly: SERENATA_ESSENTIAL_PRICE_MONTHLY_CLP,
-        essentialPriceMonthlyNet: SERENATA_ESSENTIAL_PRICE_MONTHLY_CLP,
-        essentialPriceMonthlyWithVat: serenataPlanMonthlyChargeClp('essential'),
-        essentialCheckoutAvailable: options.proCheckoutAvailable,
         proPriceMonthly: SERENATA_PRO_PRICE_MONTHLY_CLP,
         proPriceMonthlyNet: SERENATA_PRO_PRICE_MONTHLY_CLP,
         proPriceMonthlyWithVat: serenataProMonthlyChargeClp(),

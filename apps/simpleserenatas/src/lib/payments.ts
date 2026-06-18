@@ -24,7 +24,7 @@ export async function fetchSubscriptionCatalog(): Promise<SubscriptionCatalogRes
     return data?.ok ? data : null;
 }
 
-export async function startSubscriptionCheckout(input: { planId: 'essential' | 'pro'; returnUrl: string }): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
+export async function startSubscriptionCheckout(input: { planId: 'pro'; returnUrl: string }): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
     const { data } = await apiFetch<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }>('/api/payments/checkout', {
         method: 'POST',
         body: JSON.stringify({

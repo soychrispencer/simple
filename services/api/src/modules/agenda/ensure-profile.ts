@@ -1,9 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
+import { normalizeTimezone } from '@simple/utils';
 import type { AppUser } from '../../lib/domain-types.js';
 import { db } from '../../db/index.js';
 import { agendaProfessionalProfiles } from '../../db/schema.js';
-import { getAgendaProfile } from './plan-limits.js';
+import { getAgendaProfile, ensureAgendaProfileTrial } from './plan-limits.js';
 import { isValidAgendaSlug } from './runtime-support.js';
 
 type EnsurePrimaryAccount = (user: AppUser) => Promise<{ id: string }>;
@@ -55,11 +56,13 @@ export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: E
 
     return async function ensureAgendaProfile(user: AppUser) {
         const existing = await getAgendaProfile(user.id);
-        if (existing) return existing;
+        if (existing) return ensureAgendaProfileTrial(existing);
 
         const account = await ensurePrimaryAccountForUser(user);
         const slug = await pickUniqueSlug(user);
         const displayName = user.name?.trim() || user.email.split('@')[0] || null;
+
+        const residenceCountry = (user.residenceCountryCode ?? 'CL').trim().toUpperCase() || 'CL';
 
         const [profile] = await db
             .insert(agendaProfessionalProfiles)
@@ -68,6 +71,8 @@ export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: E
                 userId: user.id,
                 slug,
                 displayName,
+                countryCode: residenceCountry,
+                timezone: normalizeTimezone(user.timezone),
                 plan: 'free',
                 planExpiresAt: defaultAgendaTrialEndsAt(),
             })

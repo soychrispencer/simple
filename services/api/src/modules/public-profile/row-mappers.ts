@@ -8,7 +8,6 @@ import {
 } from './normalize.js';
 import type {
     PublicProfileAccountKind,
-    PublicProfileLeadRoutingMode,
     PublicProfileRecord,
     PublicProfileTeamMemberRecord,
     VerticalType,
@@ -23,8 +22,6 @@ export function mapPublicProfileRow(profile: typeof publicProfiles.$inferSelect)
         slug: profile.slug,
         isPublished: Boolean(profile.isPublished),
         accountKind: profile.accountKind as PublicProfileAccountKind,
-        leadRoutingMode: (profile.leadRoutingMode as PublicProfileLeadRoutingMode) ?? 'round_robin',
-        leadRoutingCursor: profile.leadRoutingCursor ?? 0,
         displayName: profile.displayName,
         headline: profile.headline ?? null,
         bio: profile.bio ?? null,
@@ -62,8 +59,6 @@ export function mapPublicProfileTeamMemberRow(member: typeof publicProfileTeamMe
         avatarImageUrl: member.avatarImageUrl ?? null,
         socialLinks: normalizePublicProfileTeamSocialLinks(member.socialLinks),
         specialties: normalizePublicProfileTeamMemberSpecialties(member.specialties),
-        isLeadContact: Boolean(member.isLeadContact),
-        receivesLeads: Boolean(member.receivesLeads),
         isPublished: Boolean(member.isPublished),
         position: member.position,
         createdAt: member.createdAt.getTime(),

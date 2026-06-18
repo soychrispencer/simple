@@ -387,3 +387,5 @@ export function buildAddressBookSummary(address: Partial<AddressBookEntry> | nul
         .filter(Boolean)
         .join(' · ');
 }
+
+export * from './structured-location.js';

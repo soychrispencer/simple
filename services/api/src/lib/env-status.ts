@@ -8,14 +8,11 @@ export type EnvStatusSnapshot = {
     smtpConfigured: boolean;
     mercadoPagoConfigured: boolean;
     instagramConfigured: boolean;
-    leadIngestConfigured: boolean;
     googleOAuthConfigured: boolean;
     sessionConfigured: boolean;
 };
 
-export function buildEnvStatusSnapshot(input: {
-    leadIngestConfigured: boolean;
-}): EnvStatusSnapshot {
+export function buildEnvStatusSnapshot(): EnvStatusSnapshot {
     return {
         nodeEnv: env.NODE_ENV,
         databaseConfigured: Boolean(process.env.DATABASE_URL),
@@ -27,7 +24,6 @@ export function buildEnvStatusSnapshot(input: {
         ),
         mercadoPagoConfigured: isMercadoPagoConfigured(),
         instagramConfigured: isInstagramConfigured(),
-        leadIngestConfigured: input.leadIngestConfigured,
         googleOAuthConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         sessionConfigured: Boolean(process.env.SESSION_SECRET),
     };

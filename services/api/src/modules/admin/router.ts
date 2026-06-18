@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { SubscriptionPlanId } from '../../lib/domain-types.js';
+import type { SubscriptionPlanId, AppUser, VerticalType } from '../../lib/domain-types.js';
 import { serenataClients, serenataMusicians, serenataOwners } from '../../db/schema.js';
 import { formatAuthFromAddress, getAuthMailerTransporter } from '../../lib/auth-email.js';
 import { getEmailBrandProfileForVertical, type EmailBrandProfile, type EmailBrandVertical } from '../../lib/email-brand.js';
@@ -7,40 +7,15 @@ import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
 import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from '../../lib/email-template.js';
 import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
 import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
-import {
-    type CrmServiceDeps,
-    type AppUser,
-    type VerticalType,
-    type ListingLeadStatus,
-    type ServiceLeadStatus,
-    serviceLeadUpdateSchema,
-    serviceLeadNoteSchema,
-    listingLeadUpdateSchema,
-    listingLeadNoteSchema,
-    leadQuickActionSchema,
-    listServiceLeadRecords,
-    getServiceLeadById,
-    buildServiceLeadDetailPayload,
-    updateServiceLeadRecord,
-    createServiceLeadActivity,
-    runServiceLeadQuickAction,
-    serviceLeadToResponse,
-    serviceLeadActivityToResponse,
-    listListingLeadRecords,
-    getListingLeadById,
-    buildListingLeadDetailPayload,
-    updateListingLeadRecord,
-    createListingLeadActivity,
-    runListingLeadQuickAction,
-    listingLeadToResponse,
-    listingLeadActivityToResponse,
-    getLeadQuickActionLabel,
-    mapServiceLeadRow,
-    mapListingLeadRow,
-} from '../crm/service.js';
 
-
-export type AdminRouterDeps = CrmServiceDeps & {
+export type AdminRouterDeps = {
+    db: any;
+    eq: any;
+    and: any;
+    or?: any;
+    desc: any;
+    asc?: any;
+    sql: any;
     authUser: (c: any) => Promise<AppUser | null>;
     isAdminRole: (role: any) => boolean;
     parseVertical: (raw: any) => any;
@@ -62,11 +37,11 @@ export type AdminRouterDeps = CrmServiceDeps & {
     activeSubscriptionsByUser: Map<string, any[]>;
     isAdminBootstrapEnabled: () => boolean;
     handleBootstrap: (c: any) => Promise<Response>;
-    tables: CrmServiceDeps['tables'] & {
+    tables: {
+        users: any;
         agendaProfessionalProfiles: any;
         subscriptions?: any;
     };
-    sql: any;
 };
 
 type AdminEmailBrandInput = EmailBrandVertical | 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | null | undefined;
@@ -161,15 +136,13 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
 
         const scopedVertical = adminUser.role === 'superadmin' ? null : (adminUser.primaryVertical ?? null);
-        const [adminUsers, adminListings, recentLeads] = await Promise.all([
+        const [adminUsers, adminListings] = await Promise.all([
             deps.listAdminUsersSnapshot(scopedVertical),
             deps.listAdminListingsSnapshot(scopedVertical),
-            listServiceLeadRecords(deps, { limit: 6, vertical: scopedVertical ?? undefined }),
         ]);
 
         const autosListings = adminListings.filter((item: any) => item.vertical === 'autos');
         const propiedadesListings = adminListings.filter((item: any) => item.vertical === 'propiedades');
-        const newLeads = recentLeads.filter((lead) => lead.status === 'new').length;
 
         return c.json({
             ok: true,
@@ -177,11 +150,9 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 usersTotal: adminUsers.length,
                 autosListingsTotal: autosListings.length,
                 propiedadesListingsTotal: propiedadesListings.length,
-                newServiceLeads: newLeads,
             },
             recentUsers: adminUsers.slice(0, 6),
             recentListings: adminListings.slice(0, 6),
-            recentLeads: recentLeads.map((r) => serviceLeadToResponse(deps, r)),
             systemStatus: deps.getEnvStatus(),
         });
     });
@@ -353,7 +324,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                     .where(deps.eq(deps.tables.agendaProfessionalProfiles.userId, userId))
                     .limit(1);
 
-                const plan = agendaPayload.plan === 'essential' || agendaPayload.plan === 'pro' ? agendaPayload.plan : 'free';
+                const plan = agendaPayload.plan === 'pro' ? 'pro' : 'free';
                 const expiresAt = agendaPayload.expiresAt ? new Date(agendaPayload.expiresAt) : null;
 
                 if (profile.length > 0) {
@@ -361,7 +332,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                         .set({ plan, planExpiresAt: expiresAt, updatedAt: new Date() })
                         .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profile[0].id));
                     results.agenda = { plan, expiresAt: expiresAt?.toISOString() ?? null };
-                } else if (plan === 'essential' || plan === 'pro') {
+                } else if (plan === 'pro') {
                     const slug = `${targetUser.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
                     await deps.db.insert(deps.tables.agendaProfessionalProfiles).values({
                         accountId: await deps.getPrimaryAccountIdForUser(userId),
@@ -388,10 +359,9 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 if (!raw) continue;
 
                 const planSlug = (raw.planId ?? 'free') as SubscriptionPlanId;
-                const allowedPlans =
-                    vertical === 'serenatas'
-                        ? ['free', 'essential', 'pro']
-                        : ['free', 'pro', 'enterprise'];
+                const allowedPlans = vertical === 'serenatas'
+                    ? ['free', 'pro']
+                    : ['free', 'pro', 'enterprise'];
                 if (!allowedPlans.includes(planSlug)) {
                     return c.json({ ok: false, error: `Plan inválido para ${vertical}` }, 400);
                 }
@@ -777,196 +747,6 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         return c.json({ ok: true, items });
     });
 
-    // ── Service leads ─────────────────────────────────────────────────────────
-
-    app.get('/service-leads', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const scopedVertical = adminUser.role === 'superadmin' ? null : (adminUser.primaryVertical ?? null);
-        const vertical = scopedVertical ?? c.req.query('vertical');
-        const status = c.req.query('status');
-        const items = await listServiceLeadRecords(deps, {
-            vertical: vertical === 'autos' || vertical === 'propiedades' || vertical === 'agenda' ? (vertical as VerticalType) : undefined,
-            status: status === 'new' || status === 'contacted' || status === 'qualified' || status === 'closed' ? (status as ServiceLeadStatus) : undefined,
-        });
-        return c.json({ ok: true, items: items.map((r) => serviceLeadToResponse(deps, r)) });
-    });
-
-    app.get('/service-leads/:id', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const lead = await getServiceLeadById(deps, c.req.param('id'));
-        if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-        return c.json({ ok: true, ...(await buildServiceLeadDetailPayload(deps, lead)) });
-    });
-
-    app.patch('/service-leads/:id', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const payload = await c.req.json().catch(() => null);
-        const parsed = serviceLeadUpdateSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-        const lead = await getServiceLeadById(deps, c.req.param('id'));
-        if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-        const result = await updateServiceLeadRecord(deps, { actor: adminUser, lead, changes: parsed.data });
-        if (!result.ok) return c.json({ ok: false, error: result.error }, 400);
-        return c.json({ ok: true, item: serviceLeadToResponse(deps, result.item) });
-    });
-
-    app.post('/service-leads/:id/notes', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const payload = await c.req.json().catch(() => null);
-        const parsed = serviceLeadNoteSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-        const lead = await getServiceLeadById(deps, c.req.param('id'));
-        if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-        await deps.db.update(deps.tables.serviceLeads).set({ updatedAt: new Date() })
-            .where(deps.eq(deps.tables.serviceLeads.id, lead.id));
-
-        const activity = await createServiceLeadActivity(deps, {
-            leadId: lead.id,
-            actorUserId: adminUser.id,
-            type: 'note',
-            body: parsed.data.body.trim(),
-        });
-        const refreshed = await getServiceLeadById(deps, lead.id);
-        return c.json({
-            ok: true,
-            item: serviceLeadToResponse(deps, refreshed ?? lead),
-            activity: serviceLeadActivityToResponse(deps, activity),
-        }, 201);
-    });
-
-    app.post('/service-leads/:id/actions', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const payload = await c.req.json().catch(() => null);
-        const parsed = leadQuickActionSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-        const lead = await getServiceLeadById(deps, c.req.param('id'));
-        if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-        const result = await runServiceLeadQuickAction(deps, { actor: adminUser, lead, action: parsed.data.action });
-        if (!result.ok) return c.json({ ok: false, error: result.error }, 400);
-        return c.json({
-            ok: true,
-            item: serviceLeadToResponse(deps, result.item),
-            activity: serviceLeadActivityToResponse(deps, result.activity),
-            actionLabel: getLeadQuickActionLabel(parsed.data.action),
-        }, 201);
-    });
-
-    // ── Listing leads ─────────────────────────────────────────────────────────
-
-    app.get('/listing-leads', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const scopedVertical = adminUser.role === 'superadmin' ? null : (adminUser.primaryVertical ?? null);
-        const vertical = scopedVertical ?? c.req.query('vertical');
-        const status = c.req.query('status');
-        const items = await listListingLeadRecords(deps, {
-            vertical: vertical === 'autos' || vertical === 'propiedades' || vertical === 'agenda' ? (vertical as VerticalType) : undefined,
-            status: status === 'new' || status === 'contacted' || status === 'qualified' || status === 'closed' ? (status as ListingLeadStatus) : undefined,
-        });
-        return c.json({ ok: true, items: items.map((item) => listingLeadToResponse(deps, item)) });
-    });
-
-    app.get('/listing-leads/:id', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const lead = await getListingLeadById(deps, c.req.param('id'));
-        if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-        return c.json({ ok: true, ...(await buildListingLeadDetailPayload(deps, lead, adminUser.id)) });
-    });
-
-    app.patch('/listing-leads/:id', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const payload = await c.req.json().catch(() => null);
-        const parsed = listingLeadUpdateSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-        const lead = await getListingLeadById(deps, c.req.param('id'));
-        if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-        const result = await updateListingLeadRecord(deps, { actor: adminUser, lead, changes: parsed.data });
-        if (!result.ok) return c.json({ ok: false, error: result.error }, 400);
-        return c.json({ ok: true, item: listingLeadToResponse(deps, result.item) });
-    });
-
-    app.post('/listing-leads/:id/notes', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const payload = await c.req.json().catch(() => null);
-        const parsed = listingLeadNoteSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-        const lead = await getListingLeadById(deps, c.req.param('id'));
-        if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-        await deps.db.update(deps.tables.listingLeads).set({ updatedAt: new Date() })
-            .where(deps.eq(deps.tables.listingLeads.id, lead.id));
-
-        const activity = await createListingLeadActivity(deps, {
-            leadId: lead.id,
-            actorUserId: adminUser.id,
-            type: 'note',
-            body: parsed.data.body.trim(),
-        });
-        const refreshed = await getListingLeadById(deps, lead.id);
-        return c.json({
-            ok: true,
-            item: listingLeadToResponse(deps, refreshed ?? lead),
-            activity: listingLeadActivityToResponse(deps, activity),
-        }, 201);
-    });
-
-    app.post('/listing-leads/:id/actions', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-        const payload = await c.req.json().catch(() => null);
-        const parsed = leadQuickActionSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-        const lead = await getListingLeadById(deps, c.req.param('id'));
-        if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-        const result = await runListingLeadQuickAction(deps, { actor: adminUser, lead, action: parsed.data.action });
-        if (!result.ok) return c.json({ ok: false, error: result.error }, 400);
-        return c.json({
-            ok: true,
-            item: listingLeadToResponse(deps, result.item),
-            activity: listingLeadActivityToResponse(deps, result.activity),
-            actionLabel: getLeadQuickActionLabel(parsed.data.action),
-        }, 201);
-    });
-
     // ── Subscriptions (superadmin) ────────────────────────────────────────────
 
     app.post('/subscriptions/set-plan', async (c) => {
@@ -1055,7 +835,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         const result = profiles.map((p: any) => {
             const u = userMap.get(p.userId) as any;
-            const expired = (p.plan === 'essential' || p.plan === 'pro') && p.planExpiresAt && p.planExpiresAt < new Date();
+            const expired = p.plan === 'pro' && p.planExpiresAt && p.planExpiresAt < new Date();
             return {
                 profileId: p.id,
                 userId: p.userId,
@@ -1066,7 +846,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 plan: p.plan,
                 planExpiresAt: p.planExpiresAt ? p.planExpiresAt.toISOString() : null,
                 isPublished: p.isPublished,
-                status: (p.plan === 'essential' || p.plan === 'pro') && !expired ? 'active' : expired ? 'expired' : 'free',
+                status: p.plan === 'pro' && !expired ? 'active' : expired ? 'expired' : (p.planExpiresAt && p.planExpiresAt >= new Date() ? 'trial' : 'free'),
                 createdAt: p.createdAt.toISOString(),
             };
         });
@@ -1083,7 +863,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const { profileId, plan, expiresAt, notes } = body as { profileId?: string; plan?: string; expiresAt?: string | null; notes?: string };
 
         if (!profileId || !plan) return c.json({ ok: false, error: 'Se requiere profileId y plan' }, 400);
-        if (!['free', 'essential', 'pro'].includes(plan)) return c.json({ ok: false, error: 'Plan debe ser free, essential o pro' }, 400);
+        if (!['free', 'pro'].includes(plan)) return c.json({ ok: false, error: 'Plan debe ser free o pro' }, 400);
 
         const profiles = await deps.db.select().from(deps.tables.agendaProfessionalProfiles)
             .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profileId)).limit(1);

@@ -73,16 +73,19 @@ const PROFESSIONALS = [
     { icon: IconBriefcase, label: 'Consultorías' },
 ];
 
-const ESSENTIAL_FEATURES = ['Perfil público activo', 'Marketplace y link de reservas', 'Servicios y agenda básica', 'Reservas y clientes básicos', 'Notificaciones básicas', 'Sin comisión por reserva'];
-const PRO_FEATURES = ['Todo lo del Esencial', 'Agenda avanzada', 'Clientes, historial y notas', 'Pagos, packs y promociones', 'Recordatorios avanzados', 'Reportes, NPS y referidos', 'Automatización y múltiples ubicaciones', 'Sin comisión por reserva'];
+const TRIAL_BENEFITS = [
+    { icon: IconClockHour4, title: '30 días completos', desc: 'Acceso a agenda, clientes, pagos y recordatorios sin restricciones.' },
+    { icon: IconShieldCheck, title: 'Sin tarjeta', desc: 'Regístrate gratis. Solo pagas si decides continuar después de la prueba.' },
+    { icon: IconHeartHandshake, title: 'Cancela cuando quieras', desc: 'Sin permanencia ni contratos. Tus datos se mantienen guardados.' },
+];
 
 const FAQS: { q: string; a: string }[] = [
-    { q: '¿La prueba es gratis?', a: 'Sí. Al activar tu cuenta tienes 30 días para probar todas las funciones. Después eliges Esencial o Pro para seguir operando.' },
-    { q: '¿Puedo cambiar de plan en cualquier momento?', a: 'Sí. Puedes elegir Esencial o Pro desde tu panel. Si cancelas, tus datos se mantienen guardados.' },
+    { q: '¿La prueba es gratis?', a: 'Sí. Al crear tu cuenta tienes 30 días para probar todas las funciones, sin tarjeta de crédito.' },
+    { q: '¿Necesito pagar para empezar?', a: 'No. El registro es gratuito y la prueba incluye acceso completo. Los planes y precios los ves en tu panel cuando quieras continuar.' },
+    { q: '¿Puedo cancelar cuando quiera?', a: 'Sí. Sin permanencia. Si activas un plan después, puedes cancelarlo en cualquier momento desde tu panel.' },
     { q: '¿Mis clientes necesitan crear una cuenta?', a: 'No. Tus clientes reservan directamente desde tu página pública sin necesidad de registrarse.' },
     { q: '¿Qué métodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus clientes paguen por adelantado.' },
     { q: '¿Funciona para consultas presenciales y online?', a: 'Sí. Puedes configurar servicios presenciales, online o ambos. Cada servicio puede tener duración y precio diferente.' },
-    { q: '¿Puedo cancelar cuando quiera?', a: 'Absolutamente. Sin contratos ni permanencia. Cancela tu suscripción en cualquier momento desde tu panel.' },
 ];
 
 /* ────────────────────────── Helpers ────────────────────────── */
@@ -150,14 +153,14 @@ export default function HomePage() {
                                 className="text-base sm:text-lg leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0 animate-slide-up"
                                 style={{ color: 'var(--fg-secondary)', animationDelay: '80ms' }}
                             >
-                                Citas, clientes y pagos en un solo lugar. Tus reservas llegan online y tú recibes todo organizado.
+                                Citas, clientes y pagos en un solo lugar. Regístrate gratis y prueba todo durante 30 días.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start animate-slide-up" style={{ animationDelay: '140ms' }}>
                                 <button
                                     onClick={handleCTA}
                                     className="btn btn-primary h-12 px-7 text-sm gap-2"
                                 >
-                                    Comenzar gratis
+                                    Probar 30 días gratis
                                     <IconArrowRight size={16} />
                                 </button>
                                 <a
@@ -177,11 +180,11 @@ export default function HomePage() {
                                     <span className="text-sm font-medium ml-1" style={{ color: 'var(--fg)' }}>5.0</span>
                                 </div>
                                 <div className="flex flex-wrap items-center justify-center gap-3 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                    <span>100% gratuito</span>
+                                    <span>30 días gratis</span>
                                     <span style={{ color: 'var(--border)' }}>|</span>
                                     <span>Sin tarjeta</span>
                                     <span style={{ color: 'var(--border)' }}>|</span>
-                                    <span>Listo en 5 min</span>
+                                    <span>Cancela cuando quieras</span>
                                 </div>
                             </div>
                         </div>
@@ -432,85 +435,46 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* ═══════════════ PRICING ═══════════════ */}
-            <section id="planes" className="container-app py-16 sm:py-20 lg:py-24">
-                <div className="text-center mb-10 sm:mb-14">
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Planes</p>
-                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Elige el plan que se adapte a ti</h2>
-                    <p style={{ color: 'var(--fg-muted)' }}>Comienza con 30 días de prueba completa. Después eliges Esencial o Pro.</p>
+            {/* ═══════════════ FREE TRIAL CTA ═══════════════ */}
+            <section id="prueba-gratis" className="container-app py-16 sm:py-20 lg:py-24 scroll-mt-20">
+                <div className="text-center mb-10 sm:mb-12 max-w-2xl mx-auto">
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Empieza hoy</p>
+                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3" style={{ color: 'var(--fg)' }}>
+                        Regístrate gratis y pruébalo 30 días
+                    </h2>
+                    <p style={{ color: 'var(--fg-muted)' }}>
+                        Configura tu agenda, comparte tu link y recibe reservas con acceso completo. Sin tarjeta para registrarte.
+                    </p>
                 </div>
-                <div
-                    className="mb-5 rounded-2xl border p-4 text-center text-sm max-w-3xl mx-auto"
-                    style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-secondary)' }}
-                >
-                    La prueba no es un plan permanente: tienes acceso completo por 30 días, sin tarjeta de crédito. Tus datos se mantienen si luego eliges un plan.
-                </div>
-                <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
-                    {/* Essential */}
-                    <div
-                        className="p-5 sm:p-7 rounded-2xl border flex flex-col gap-5 transition-all duration-200"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}
-                    >
-                        <div>
-                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>Esencial</h3>
-                            <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Para mantener tu agenda activa y recibir reservas.</p>
-                            <div className="flex items-baseline gap-1 mt-4">
-                                <span className="text-4xl font-bold" style={{ color: 'var(--fg)' }}>$9.990</span>
-                                <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>/mes + IVA</span>
-                            </div>
-                        </div>
-                        <hr style={{ borderColor: 'var(--border)' }} />
-                        <ul className="flex flex-col gap-2.5 flex-1">
-                            {ESSENTIAL_FEATURES.map((f) => (
-                                <li key={f} className="flex items-start gap-2.5 text-sm" style={{ color: 'var(--fg)' }}>
-                                    <IconCheck size={15} className="shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
-                                    {f}
-                                </li>
-                            ))}
-                        </ul>
-                        <button
-                            onClick={handleCTA}
-                            className="btn btn-outline w-full h-11 text-sm"
-                        >
-                            Comenzar prueba
-                        </button>
-                    </div>
-
-                    {/* Pro */}
-                    <div
-                        className="p-5 sm:p-7 rounded-2xl border flex flex-col gap-5 relative transition-all duration-200"
-                        style={{ borderColor: 'var(--accent)', background: 'var(--surface)', boxShadow: '0 8px 32px rgba(13,148,136,0.12)' }}
-                    >
+                <div className="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto mb-10">
+                    {TRIAL_BENEFITS.map((item, i) => (
                         <div
-                            className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold"
-                            style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+                            key={item.title}
+                            className="p-5 rounded-xl border text-center stagger-item"
+                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', animationDelay: `${i * 80}ms` }}
                         >
-                            Recomendado
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>Pro</h3>
-                            <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Para profesionales y equipos con operación diaria.</p>
-                            <div className="flex items-baseline gap-1 mt-4">
-                                <span className="text-4xl font-bold" style={{ color: 'var(--fg)' }}>$19.990</span>
-                                <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>/mes + IVA</span>
+                            <div
+                                className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3"
+                                style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                            >
+                                <item.icon size={20} />
                             </div>
+                            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>{item.title}</h3>
+                            <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{item.desc}</p>
                         </div>
-                        <hr style={{ borderColor: 'var(--border)' }} />
-                        <ul className="flex flex-col gap-2.5 flex-1">
-                            {PRO_FEATURES.map((f) => (
-                                <li key={f} className="flex items-start gap-2.5 text-sm" style={{ color: 'var(--fg)' }}>
-                                    <IconCheck size={15} className="shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
-                                    {f}
-                                </li>
-                            ))}
-                        </ul>
-                        <button
-                            onClick={handleCTA}
-                            className="btn btn-primary w-full h-11 text-sm"
-                        >
-                            Suscribirme al plan Pro
-                        </button>
-                    </div>
+                    ))}
+                </div>
+                <div className="text-center">
+                    <button
+                        onClick={handleCTA}
+                        className="btn btn-primary h-12 px-8 text-sm gap-2"
+                    >
+                        Crear cuenta gratis
+                        <IconArrowRight size={16} />
+                    </button>
+                    <p className="mt-4 text-xs max-w-md mx-auto" style={{ color: 'var(--fg-muted)' }}>
+                        Sin comisión por reserva. Planes, precios y cobros los ves en tu panel cuando quieras continuar.
+                    </p>
                 </div>
             </section>
 
@@ -548,13 +512,13 @@ export default function HomePage() {
                             ¿Listo para organizar tu consulta?
                         </h2>
                         <p className="text-base mb-8" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                            Configura tu agenda en menos de 5 minutos. Sin tarjeta de crédito, sin compromiso.
+                            Regístrate gratis, prueba 30 días con todo incluido y cancela cuando quieras.
                         </p>
                         <button
                             onClick={handleCTA}
                             className="btn h-12 px-8 text-sm font-semibold gap-2 transition-all duration-200 bg-[var(--accent-contrast)] text-[var(--accent)] shadow-[var(--shadow-md)]"
                         >
-                            Crear mi cuenta gratis
+                            Probar 30 días gratis
                             <IconArrowRight size={16} />
                         </button>
                     </div>

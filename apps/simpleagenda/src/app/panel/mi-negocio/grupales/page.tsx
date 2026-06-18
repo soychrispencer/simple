@@ -5,7 +5,8 @@ import Link from 'next/link';
 import {
     IconPlus, IconLoader2, IconTrash, IconEdit, IconX, IconCheck, IconAlertCircle, IconUsersGroup, IconChevronRight, IconCalendarEvent, IconUser, IconMapPin, IconVideo, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelPageHeader, PanelEmptyState } from '@simple/ui/panel';
+import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_GRUPALES_PAGE, AGENDA_BUSINESS_SERVICIOS_PAGE } from '@simple/ui/panel';
+import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchGroupSessions,
     createGroupSession,
@@ -194,17 +195,18 @@ export default function GrupalesPage() {
     const visibleServices = useMemo(() => services.filter((s) => s.isActive), [services]);
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Sesiones grupales"
-                description="Talleres y grupos con cupo limitado. Un solo horario, varios participantes."
-                actions={
-                    <PanelButton variant="accent" size="sm" onClick={openNew}>
-                        <IconPlus size={14} /> Nueva
-                    </PanelButton>
-                }
-            />
-
+        <PanelBusinessShell
+            activeKey="servicios"
+            tabs={businessSectionTabs}
+            title={AGENDA_BUSINESS_GRUPALES_PAGE.title}
+            description={AGENDA_BUSINESS_GRUPALES_PAGE.description}
+            subsectionBack={{ href: '/panel/mi-negocio/servicios', label: AGENDA_BUSINESS_SERVICIOS_PAGE.title }}
+            actions={
+                <PanelButton variant="accent" size="sm" onClick={openNew}>
+                    <IconPlus size={14} /> Nueva
+                </PanelButton>
+            }
+        >
             {flash && (
                 <div className="mb-4">
                     <PanelNotice tone="success">
@@ -465,6 +467,6 @@ export default function GrupalesPage() {
                     </div>
                 </div>
             )}
-        </div>
+        </PanelBusinessShell>
     );
 }

@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-    anyWhatsAppCategoryEnabled,
     buildNotificationSaveMessage,
     categoryNotificationPrefsFromUser,
     DEFAULT_CATEGORY_NOTIFICATION_PREFS,
-    emailDigestFrequencyFromUser,
     getNotificationCategoryRowsForContext,
-    notificationPrefsContextDescription,
+    getOwnerBusinessNotificationRows,
     notificationPrefsSnapshotFromUser,
     notificationPrefsSnapshotsEqual,
     notificationPrefsToApiPayload,
-    whatsappPhoneValidation,
 } from './account-notification-prefs';
 
 describe('categoryNotificationPrefsFromUser', () => {
@@ -18,7 +15,7 @@ describe('categoryNotificationPrefsFromUser', () => {
         expect(categoryNotificationPrefsFromUser(null)).toEqual(DEFAULT_CATEGORY_NOTIFICATION_PREFS);
     });
 
-    it('mapea correo y WhatsApp por categoría', () => {
+    it('mapea correo por categoría', () => {
         expect(
             categoryNotificationPrefsFromUser({
                 id: 'u1',
@@ -29,16 +26,12 @@ describe('categoryNotificationPrefsFromUser', () => {
                 emailNotifyRequests: true,
                 emailNotifyAgenda: false,
                 emailNotifyAccount: false,
-                whatsappNotifyInvitations: true,
-                whatsappNotifyRequests: false,
-                whatsappNotifyAgenda: true,
-                whatsappNotifyAccount: false,
             }),
         ).toEqual({
-            invitations: { email: false, whatsapp: true },
-            requests: { email: true, whatsapp: false },
-            agenda: { email: false, whatsapp: true },
-            account: { email: false, whatsapp: false },
+            invitations: { email: false },
+            requests: { email: true },
+            agenda: { email: false },
+            account: { email: false },
         });
     });
 });
@@ -51,18 +44,17 @@ describe('getNotificationCategoryRowsForContext', () => {
                 musician: null,
                 owner: null,
             }).map((r) => r.key),
-        ).toEqual(['requests', 'agenda', 'account']);
+        ).toEqual(['requests', 'agenda']);
     });
 
-    it('dueño: solicitudes y cierre de serenatas por separado', () => {
-        const rows = getNotificationCategoryRowsForContext('work', {
-            client: null,
-            musician: null,
-            owner: { id: 'o1' } as never,
-        });
-        expect(rows.map((r) => r.key)).toEqual(['requests', 'agenda', 'account']);
-        expect(rows.find((r) => r.key === 'requests')?.label).toMatch(/Solicitudes/i);
-        expect(rows.find((r) => r.key === 'agenda')?.label).toMatch(/Cierre/i);
+    it('dueño en Mi cuenta: sin filas de negocio', () => {
+        expect(
+            getNotificationCategoryRowsForContext('work', {
+                client: null,
+                musician: null,
+                owner: { id: 'o1' } as never,
+            }).map((r) => r.key),
+        ).toEqual([]);
     });
 
     it('músico: invitaciones sin fila agenda', () => {
@@ -72,60 +64,63 @@ describe('getNotificationCategoryRowsForContext', () => {
                 musician: { id: 'm1' } as never,
                 owner: null,
             }).map((r) => r.key),
-        ).toEqual(['invitations', 'account']);
+        ).toEqual(['invitations']);
+    });
+});
+
+describe('getOwnerBusinessNotificationRows', () => {
+    it('incluye solicitudes y cierre para Mi negocio', () => {
+        expect(getOwnerBusinessNotificationRows().map((r) => r.key)).toEqual(['requests', 'agenda']);
     });
 });
 
 describe('notificationPrefsToApiPayload', () => {
-    it('serializa flags por categoría incluyendo solicitudes', () => {
-        expect(
-            notificationPrefsToApiPayload({
-                emailDigestFrequency: 'off',
-                categoryPrefs: {
-                    invitations: { email: true, whatsapp: false },
-                    requests: { email: false, whatsapp: true },
-                    agenda: { email: true, whatsapp: false },
-                    account: { email: true, whatsapp: false },
-                },
-            }),
-        ).toMatchObject({
+    it('envía solo flags de correo e in-app', () => {
+        const snapshot = notificationPrefsSnapshotFromUser({
+            id: 'u1',
+            email: 'a@b.com',
+            name: 'Test',
+            status: 'verified',
+            emailNotifyInvitations: true,
             emailNotifyRequests: false,
-            whatsappNotifyRequests: true,
             emailNotifyAgenda: true,
+            emailNotifyAccount: false,
+            inAppNotificationsEnabled: true,
+        });
+        expect(notificationPrefsToApiPayload(snapshot, '+56912345678', true)).toEqual({
+            emailNotifyInvitations: true,
+            emailNotifyRequests: false,
+            emailNotifyAgenda: true,
+            emailNotifyAccount: false,
+            inAppNotificationsEnabled: true,
+            phone: '+56912345678',
         });
     });
 });
 
-describe('whatsappPhoneValidation', () => {
-    it('exige teléfono si hay WhatsApp en solicitudes', () => {
-        const prefs = {
-            ...DEFAULT_CATEGORY_NOTIFICATION_PREFS,
-            requests: { email: true, whatsapp: true },
+describe('notificationPrefsSnapshotsEqual', () => {
+    it('detecta cambios en correo por categoría', () => {
+        const before = notificationPrefsSnapshotFromUser(null);
+        const after = {
+            categoryPrefs: {
+                ...before.categoryPrefs,
+                requests: { email: false },
+            },
         };
-        expect(whatsappPhoneValidation(prefs, '')).toMatch(/teléfono/i);
+        expect(notificationPrefsSnapshotsEqual(before, before)).toBe(true);
+        expect(notificationPrefsSnapshotsEqual(before, after)).toBe(false);
     });
 });
 
-describe('getNotificationCategoryRowsForContext account hint', () => {
-    it('aclara que verificación y reset siempre se envían', () => {
-        const accountRow = getNotificationCategoryRowsForContext('client', {
-            client: { id: 'c1' } as never,
-            musician: null,
-            owner: null,
-        }).find((r) => r.key === 'account');
-        expect(accountRow?.hint).toMatch(/siempre se envían/i);
-        expect(accountRow?.hint).toMatch(/bienvenida/i);
-    });
-});
-
-describe('notificationPrefsContextDescription', () => {
-    it('dueño menciona separación solicitudes/agenda', () => {
-        expect(
-            notificationPrefsContextDescription('work', {
-                client: null,
-                musician: null,
-                owner: { id: 'o1' } as never,
-            }),
-        ).toMatch(/independientes/i);
+describe('buildNotificationSaveMessage', () => {
+    it('resume cambios de correo', () => {
+        const before = notificationPrefsSnapshotFromUser(null);
+        const after = {
+            categoryPrefs: {
+                ...before.categoryPrefs,
+                requests: { email: false },
+            },
+        };
+        expect(buildNotificationSaveMessage(before, after)).toContain('correo desactivado');
     });
 });

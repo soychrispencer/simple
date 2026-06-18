@@ -6,20 +6,14 @@ export function NotificationCategoryRow({
     title,
     hint,
     emailChecked,
-    whatsappChecked,
-    whatsappAvailable = true,
     disabled,
     onEmailChange,
-    onWhatsappChange,
 }: {
     title: string;
     hint?: string;
     emailChecked: boolean;
-    whatsappChecked: boolean;
-    whatsappAvailable?: boolean;
     disabled?: boolean;
     onEmailChange: (value: boolean) => void;
-    onWhatsappChange: (value: boolean) => void;
 }) {
     return (
         <div className={`px-1 py-4 sm:py-5 ${disabled ? 'opacity-60' : ''}`}>
@@ -40,22 +34,6 @@ export function NotificationCategoryRow({
                             ariaLabel={`${title} por correo`}
                             disabled={disabled}
                         />
-                    </div>
-                    <div className="flex min-w-[6.5rem] items-center justify-between gap-3 sm:justify-end">
-                        <span className="text-xs text-(--fg-muted)">WhatsApp</span>
-                        {whatsappAvailable ? (
-                            <PanelSwitch
-                                checked={whatsappChecked}
-                                onChange={onWhatsappChange}
-                                size="sm"
-                                ariaLabel={`${title} por WhatsApp`}
-                                disabled={disabled}
-                            />
-                        ) : (
-                            <span className="text-xs text-(--fg-muted)" title="No disponible para esta categoría">
-                                —
-                            </span>
-                        )}
                     </div>
                 </div>
             </div>

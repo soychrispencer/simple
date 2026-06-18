@@ -9,3 +9,9 @@ export {
     extractOwnedMediaKey,
     isOwnedStorageUrl,
 } from './stored-object.js';
+export {
+    attachGeneratedVideoToListing,
+    createListingReelTitleCard,
+    generateListingReelVideo,
+    isReelGeneratorAvailable,
+} from './generate-listing-reel.js';

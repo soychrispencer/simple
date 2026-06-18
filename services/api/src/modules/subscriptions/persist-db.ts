@@ -3,6 +3,7 @@ import { db } from '../../db/index.js';
 import { serenataOwners, subscriptionPlans, subscriptions } from '../../db/schema.js';
 import type { PaymentVerticalType, SubscriptionPlanId } from '../../lib/domain-types.js';
 import { SUBSCRIPTION_PLANS_BY_VERTICAL } from '../advertising/types.js';
+import type { PaymentProvider } from '../payments/resolve-provider.js';
 import {
     APP_COMMISSION_FREE_BPS,
     APP_COMMISSION_PRO_BPS,
@@ -55,7 +56,6 @@ export async function ensureSubscriptionPlanDbId(
                 maxFeaturedListings: catalog.maxFeaturedListings,
                 maxImagesPerListing: catalog.maxImagesPerListing,
                 analyticsEnabled: catalog.analyticsEnabled,
-                crmEnabled: catalog.crmEnabled,
                 prioritySupport: catalog.prioritySupport,
                 customBranding: catalog.customBranding,
                 apiAccess: catalog.apiAccess,
@@ -82,7 +82,6 @@ export async function ensureSubscriptionPlanDbId(
             maxFeaturedListings: catalog.maxFeaturedListings,
             maxImagesPerListing: catalog.maxImagesPerListing,
             analyticsEnabled: catalog.analyticsEnabled,
-            crmEnabled: catalog.crmEnabled,
             prioritySupport: catalog.prioritySupport,
             customBranding: catalog.customBranding,
             apiAccess: catalog.apiAccess,
@@ -141,11 +140,13 @@ export async function persistUserSubscription(input: {
     accountId: string | null;
     vertical: PaymentVerticalType;
     planSlug: Exclude<SubscriptionPlanId, 'free'>;
+    provider?: PaymentProvider;
     providerSubscriptionId: string;
     providerStatus: string;
     status: 'active' | 'cancelled' | 'paused' | 'expired';
     expiresAt?: Date | null;
 }): Promise<{ subscriptionDbId: string; planSlug: string }> {
+    const provider = input.provider ?? 'mercadopago';
     const planDbId = await ensureSubscriptionPlanDbId(input.vertical, input.planSlug);
     const now = new Date();
 
@@ -162,7 +163,7 @@ export async function persistUserSubscription(input: {
                 accountId: input.accountId,
                 planId: planDbId,
                 status: input.status,
-                provider: 'mercadopago',
+                provider,
                 providerSubscriptionId: input.providerSubscriptionId,
                 providerStatus: input.providerStatus,
                 expiresAt: input.expiresAt ?? null,
@@ -183,7 +184,7 @@ export async function persistUserSubscription(input: {
             planId: planDbId,
             vertical: input.vertical,
             status: input.status,
-            provider: 'mercadopago',
+            provider,
             providerSubscriptionId: input.providerSubscriptionId,
             providerStatus: input.providerStatus,
             startedAt: now,
@@ -274,7 +275,7 @@ async function syncSerenataOwnerCommissionForPlan(
 
     if (!owner[0]) return;
 
-    const isActivePaidPlan = status === 'active' && (planSlug === 'essential' || planSlug === 'pro');
+    const isActivePaidPlan = status === 'active' && planSlug === 'pro';
     const commissionRateBps = isActivePaidPlan ? APP_COMMISSION_PRO_BPS : APP_COMMISSION_FREE_BPS;
 
     await db

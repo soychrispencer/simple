@@ -23,7 +23,6 @@ import {
     type MusicianPayout,
     type SerenatasUser,
     type Serenata,
-    type SerenataBillingOrder,
     type SerenataGroup,
     type SerenataMePlan,
 } from '@/lib/serenatas-api';
@@ -39,8 +38,8 @@ import {
     type FinanzasTab,
     FINANZAS_TABS,
 } from '@/lib/finanzas-tab';
-import { panelSectionHref } from '@/lib/panel-routes';
-import { formatDate, money, serenataStatusLabel, serenataStatusTone } from '../shared';
+import { money, serenataStatusLabel, serenataStatusTone } from '../shared';
+import { useSerenataPanelFormat } from '@/hooks/use-serenata-panel-format';
 import { FinanzasPayoutModal } from './finanzas-payout-modal';
 
 function periodPresets(): Array<{ key: string; label: string; range: FinancePeriodRange }> {
@@ -68,19 +67,6 @@ function periodPresets(): Array<{ key: string; label: string; range: FinancePeri
     ];
 }
 
-function isExampleBillingOrder(order: SerenataBillingOrder): boolean {
-    const title = (order.title ?? '').toLowerCase();
-    return (
-        title.includes('demo')
-        || title.includes('ejemplo')
-        || title.includes('test')
-    );
-}
-
-function billingTitle(order: SerenataBillingOrder): string {
-    return order.title ?? '';
-}
-
 export function FinanzasView({
     serenatas,
     groups,
@@ -92,6 +78,7 @@ export function FinanzasView({
     accountUser: SerenatasUser | null;
     refresh: () => Promise<void>;
 }) {
+    const fmt = useSerenataPanelFormat(true);
     const router = useRouter();
     const pathname = usePathname() ?? '/panel/finanzas';
     const searchParams = useSearchParams();
@@ -100,9 +87,7 @@ export function FinanzasView({
     const [ownerPlan, setOwnerPlan] = useState<SerenataMePlan | null>(null);
     const [payouts, setPayouts] = useState<MusicianPayout[]>([]);
     const [payoutFilter, setPayoutFilter] = useState<'all' | 'pending' | 'paid'>('all');
-    const [billing, setBilling] = useState<SerenataBillingOrder[]>([]);
     const [loadingPayouts, setLoadingPayouts] = useState(false);
-    const [loadingBilling, setLoadingBilling] = useState(false);
     const [payoutSerenata, setPayoutSerenata] = useState<Serenata | null>(null);
     const [payoutUpdatingId, setPayoutUpdatingId] = useState<string | null>(null);
     const canManageOwnerPayout = accountUser?.role === 'admin' || accountUser?.role === 'superadmin';
@@ -140,31 +125,6 @@ export function FinanzasView({
         [serenatas],
     );
 
-    const billingInRange = useMemo(() => billing.filter((item) => {
-        if (isExampleBillingOrder(item)) return false;
-        const raw = item.createdAt as unknown;
-        let ymd = '';
-        if (typeof raw === 'string') {
-            ymd = raw.slice(0, 10);
-        } else if (raw instanceof Date) {
-            ymd = Number.isNaN(raw.getTime()) ? '' : raw.toISOString().slice(0, 10);
-        } else {
-            const parsed = new Date(raw as string | number);
-            ymd = Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
-        }
-        if (!ymd) return false;
-        return ymd >= period.from && ymd <= period.to;
-    }), [billing, period]);
-
-    const billingSubscriptions = useMemo(
-        () => billingInRange.filter((item) => item.kind === 'subscription'),
-        [billingInRange],
-    );
-    const billingBookings = useMemo(
-        () => billingInRange.filter((item) => item.kind === 'serenata_booking'),
-        [billingInRange],
-    );
-
     useEffect(() => {
         void serenatasApi.mePlan().then((response) => {
             if (response.ok) setOwnerPlan(response);
@@ -181,18 +141,6 @@ export function FinanzasView({
         });
         return () => { cancelled = true; };
     }, []);
-
-    useEffect(() => {
-        if (tab !== 'cobros') return;
-        let cancelled = false;
-        setLoadingBilling(true);
-        void serenatasApi.billingHistory().then((response) => {
-            if (cancelled) return;
-            setBilling(response.ok ? response.items : []);
-            setLoadingBilling(false);
-        });
-        return () => { cancelled = true; };
-    }, [tab]);
 
     function setTab(next: FinanzasTab) {
         const params = new URLSearchParams(searchParams.toString());
@@ -256,7 +204,9 @@ export function FinanzasView({
 
     const stats = [
         { label: 'Ingreso bruto', value: money(summary.grossClp), icon: <IconCoin size={16} /> },
-        { label: 'Costo Simple', value: money(summary.commissionClp), icon: <IconReceipt size={16} /> },
+        ...(summary.commissionClp > 0
+            ? [{ label: 'Comisión plataforma', value: money(summary.commissionClp), icon: <IconReceipt size={16} /> }]
+            : []),
         { label: 'Neto estimado', value: money(summary.netEstimatedClp), icon: <IconChartBar size={16} /> },
         { label: 'Serenatas', value: String(summary.serenataCount), icon: <IconCash size={16} /> },
     ];
@@ -343,7 +293,7 @@ export function FinanzasView({
                                     {movements.map((row) => (
                                         <tr key={row.id} className="border-b border-border/60">
                                             <td className="py-2.5 pr-3 text-fg-muted">
-                                                {formatDate(row.eventDate)}
+                                                {fmt.formatDate(row.eventDate)}
                                                 {row.eventTime ? ` ${row.eventTime}` : ''}
                                             </td>
                                             <td className="py-2.5 pr-3 font-medium text-fg">{row.recipientName}</td>
@@ -418,7 +368,7 @@ export function FinanzasView({
                                     >
                                         <p className="font-semibold text-fg">{item.recipientName}</p>
                                         <p className="mt-1 text-xs text-fg-muted">
-                                            {formatDate(item.eventDate)} · {money(item.price)}
+                                            {fmt.formatDate(item.eventDate)} · {money(item.price)}
                                         </p>
                                     </button>
                                 ))}
@@ -465,7 +415,7 @@ export function FinanzasView({
                                                 </span>
                                             </p>
                                             <p className="text-xs text-fg-muted">
-                                                {payout.eventDate ? formatDate(payout.eventDate) : ''}
+                                                {payout.eventDate ? fmt.formatDate(payout.eventDate) : ''}
                                                 {payout.paymentMethod ? ` · ${payout.paymentMethod}` : ''}
                                             </p>
                                         </div>
@@ -483,87 +433,6 @@ export function FinanzasView({
                         )}
                     </PanelCard>
                 </div>
-            ) : null}
-
-            {tab === 'cobros' ? (
-                <PanelCard size="md">
-                    <PanelBlockHeader
-                        title="Cobros Simple"
-                        description="Suscripción Pro y pagos online gestionados desde la aplicación."
-                        className="mb-4"
-                    />
-                    {loadingBilling ? (
-                        <p className="text-sm text-fg-muted">Cargando…</p>
-                    ) : billingInRange.length === 0 ? (
-                        <PanelEmptyState title="Sin cobros" description="Aún no hay órdenes de pago en tu cuenta." />
-                    ) : (
-                        <div className="space-y-5">
-                            <div>
-                                <h3 className="mb-2 text-sm font-semibold text-fg">Suscripción</h3>
-                                {billingSubscriptions.length === 0 ? (
-                                    <PanelNotice tone="neutral">No hay cobros de suscripción en este período.</PanelNotice>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {billingSubscriptions.map((order) => (
-                                            <div
-                                                key={order.id}
-                                                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-4 py-3"
-                                            >
-                                                <div>
-                                                    <p className="font-medium text-fg">{billingTitle(order)}</p>
-                                                    <p className="text-xs text-fg-muted">
-                                                        {new Date(order.createdAt).toLocaleDateString('es-CL')}
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="font-semibold tabular-nums">{money(order.amount)}</p>
-                                                    <p className="text-xs capitalize text-fg-muted">{order.status}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <h3 className="mb-2 text-sm font-semibold text-fg">Pagos online de serenatas</h3>
-                                {billingBookings.length === 0 ? (
-                                    <PanelNotice tone="neutral">No hay cobros de serenatas en este período.</PanelNotice>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {billingBookings.map((order) => (
-                                            <div
-                                                key={order.id}
-                                                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-4 py-3"
-                                            >
-                                                <div>
-                                                    <p className="font-medium text-fg">{billingTitle(order)}</p>
-                                                    <p className="text-xs text-fg-muted">
-                                                        {new Date(order.createdAt).toLocaleDateString('es-CL')}
-                                                    </p>
-                                                    {order.appliedResourceId ? (
-                                                        <button
-                                                            type="button"
-                                                            className="mt-1 text-xs font-medium text-accent hover:underline"
-                                                            onClick={() => {
-                                                                router.push(`${panelSectionHref('solicitudes')}?serenata=${encodeURIComponent(order.appliedResourceId!)}`);
-                                                            }}
-                                                        >
-                                                            Ver solicitud
-                                                        </button>
-                                                    ) : null}
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="font-semibold tabular-nums">{money(order.amount)}</p>
-                                                    <p className="text-xs capitalize text-fg-muted">{order.status}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </PanelCard>
             ) : null}
 
             {payoutSerenata ? (

@@ -1,83 +1,57 @@
 'use client';
 
 import { useMemo } from 'react';
-import { PanelField } from '@simple/ui/panel';
-import { getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
-import { FieldSelect } from '@/components/panel/shared';
+import type { StructuredLocation } from '@simple/types';
+import { StructuredLocationFields } from '@simple/ui/panel';
+import { structuredLocationFromLegacyNames } from '@simple/utils';
 
 type RegionCommuneFieldsProps = {
+    countryCode?: string;
     region: string;
     comuna: string;
+    onCountryChange?: (countryCode: string) => void;
     onRegionChange: (regionName: string) => void;
     onComunaChange: (comunaName: string) => void;
     disabled?: boolean;
     optional?: boolean;
+    showCountry?: boolean;
 };
 
-function findRegionIdByName(regionName: string): string {
-    if (!regionName.trim()) return '';
-    const match = LOCATION_REGIONS.find(
-        (r) => r.name.toLowerCase() === regionName.trim().toLowerCase(),
-    );
-    return match?.id ?? '';
-}
-
 export function RegionCommuneFields({
+    countryCode = 'CL',
     region,
     comuna,
+    onCountryChange,
     onRegionChange,
     onComunaChange,
     disabled,
     optional = false,
+    showCountry = false,
 }: RegionCommuneFieldsProps) {
-    const optionalSuffix = optional ? ' (opcional)' : '';
-    const regionId = useMemo(() => findRegionIdByName(region), [region]);
-    const communes = useMemo(
-        () => (regionId ? getCommunesForRegion(regionId) : []),
-        [regionId],
+    const value = useMemo(
+        () => structuredLocationFromLegacyNames(countryCode, region, comuna),
+        [countryCode, region, comuna],
     );
-    const regionOptions = useMemo(
-        () => [
-            { value: '', label: 'Selecciona región' },
-            ...LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name })),
-        ],
-        [],
-    );
-    const communeOptions = useMemo(
-        () => [
-            { value: '', label: 'Selecciona comuna' },
-            ...communes.map((item) => ({ value: item.id, label: item.name })),
-        ],
-        [communes],
-    );
-    const communeValue =
-        communes.find((c) => c.name.toLowerCase() === comuna.trim().toLowerCase())?.id ?? '';
+
+    const handleChange = (next: StructuredLocation) => {
+        if (next.countryCode !== value.countryCode) {
+            onCountryChange?.(next.countryCode);
+        }
+        onRegionChange(next.regionName ?? '');
+        onComunaChange(next.localityName ?? '');
+    };
+
+    const regionLabel = optional ? 'Región (opcional)' : 'Región';
+    const localityLabel = optional ? 'Comuna (opcional)' : 'Comuna';
 
     return (
-        <div className="grid gap-3 sm:grid-cols-2">
-            <PanelField label={`Región${optionalSuffix}`}>
-                <FieldSelect
-                    value={regionId}
-                    disabled={disabled}
-                    options={regionOptions}
-                    onChange={(event) => {
-                        const next = LOCATION_REGIONS.find((r) => r.id === event.target.value);
-                        onRegionChange(next?.name ?? '');
-                        onComunaChange('');
-                    }}
-                />
-            </PanelField>
-            <PanelField label={`Comuna${optionalSuffix}`}>
-                <FieldSelect
-                    value={communeValue}
-                    disabled={disabled || !regionId}
-                    options={communeOptions}
-                    onChange={(event) => {
-                        const next = communes.find((c) => c.id === event.target.value);
-                        onComunaChange(next?.name ?? '');
-                    }}
-                />
-            </PanelField>
-        </div>
+        <StructuredLocationFields
+            value={value}
+            onChange={handleChange}
+            disabled={disabled}
+            showCountry={showCountry}
+            regionLabel={regionLabel}
+            localityLabel={localityLabel}
+        />
     );
 }

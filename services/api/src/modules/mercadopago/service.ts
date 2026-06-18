@@ -91,6 +91,30 @@ export function isMercadoPagoConfigured(): boolean {
     return getAccessToken().length > 0;
 }
 
+export type MercadoPagoAccessTokenMode = 'production' | 'test' | 'missing';
+
+export function getMercadoPagoAccessTokenMode(): MercadoPagoAccessTokenMode {
+    const token = getAccessToken();
+    if (!token) return 'missing';
+    if (token.startsWith('TEST-')) return 'test';
+    if (token.startsWith('APP_USR-')) return 'production';
+    return 'production';
+}
+
+export function getMercadoPagoPaymentsWebhookUrl(): string | undefined {
+    const base = asString(process.env.API_BASE_URL);
+    if (!base) return undefined;
+    try {
+        const url = new URL('/api/payments/mercadopago/webhook', base.endsWith('/') ? base : `${base}/`);
+        if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
+            return undefined;
+        }
+        return url.toString();
+    } catch {
+        return undefined;
+    }
+}
+
 export async function createCheckoutPreference(input: {
     externalReference: string;
     title: string;
@@ -296,10 +320,36 @@ export function verifyMercadoPagoWebhookSignatureWithSecret(
 }
 
 export function warnMercadoPagoWebhookSecretAtStartup(): void {
-    if (process.env.NODE_ENV !== 'production') return;
-    if (asString(process.env.MERCADO_PAGO_WEBHOOK_SECRET)) return;
-    console.error(
-        '[mercadopago] CRÍTICO: NODE_ENV=production sin MERCADO_PAGO_WEBHOOK_SECRET. '
-        + 'Los webhooks de pago serán rechazados (401).',
-    );
+    const tokenMode = getMercadoPagoAccessTokenMode();
+    if (!isMercadoPagoConfigured()) {
+        console.warn('[mercadopago] Sin MERCADO_PAGO_ACCESS_TOKEN. Checkout deshabilitado.');
+        return;
+    }
+
+    if (process.env.NODE_ENV === 'production' && tokenMode === 'test') {
+        console.error(
+            '[mercadopago] CRÍTICO: token TEST en producción. Usa credenciales live (APP_USR-...) en MERCADO_PAGO_ACCESS_TOKEN.',
+        );
+    } else if (tokenMode === 'production') {
+        console.info('[mercadopago] Token de producción detectado (APP_USR).');
+    }
+
+    const webhookSecret = asString(process.env.MERCADO_PAGO_WEBHOOK_SECRET);
+    if (process.env.NODE_ENV === 'production' && !webhookSecret) {
+        console.error(
+            '[mercadopago] CRÍTICO: NODE_ENV=production sin MERCADO_PAGO_WEBHOOK_SECRET. '
+            + 'Configura el webhook en developers.mercadopago.cl → /api/payments/mercadopago/webhook',
+        );
+    } else if (!webhookSecret) {
+        console.warn(
+            '[mercadopago] Sin MERCADO_PAGO_WEBHOOK_SECRET. '
+            + 'En local puedes usar MERCADO_PAGO_WEBHOOK_ALLOW_UNSIGNED=true o configurar el secret del panel MP.',
+        );
+    }
+
+    if (process.env.NODE_ENV === 'production' && !getMercadoPagoPaymentsWebhookUrl()) {
+        console.error(
+            '[mercadopago] CRÍTICO: API_BASE_URL debe ser HTTPS en producción para notificaciones de pago.',
+        );
+    }
 }

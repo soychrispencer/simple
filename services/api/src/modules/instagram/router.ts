@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { getMetaPagesWithInstagram } from './service.js';
 
 export interface InstagramRouterDeps {
     authUser: (c: Context) => Promise<any>;
@@ -122,7 +123,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         const vertical = parseVertical(c.req.query('vertical'));
         const account = getInstagramAccount(user.id, vertical);
         const origin = resolveBrowserOrigin(c);
-        const fallbackReturn = origin ? `${origin}/panel/configuracion#integraciones` : null;
+        const fallbackReturn = origin ? `${origin}/panel/mi-cuenta/integraciones` : null;
 
         return c.json({
             ok: true,
@@ -158,7 +159,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
         }
 
-        const fallbackReturn = `${origin}/panel/configuracion#integraciones`;
+        const fallbackReturn = `${origin}/panel/mi-cuenta/integraciones`;
         const returnTo = sanitizeBrowserReturnUrl(asString(c.req.query('returnTo')) || fallbackReturn, fallbackReturn);
         const nonce = randomBytes(24).toString('hex');
         setInstagramState(c, makeInstagramStatePayload({
@@ -175,7 +176,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         const rawStatePayload = consumeInstagramState(c);
         const statePayload = parseInstagramStatePayload(rawStatePayload);
         const fallbackOrigin = defaultOrigin;
-        const fallbackReturn = `${fallbackOrigin}/panel/configuracion#integraciones`;
+        const fallbackReturn = `${fallbackOrigin}/panel/mi-cuenta/integraciones`;
         const returnTo = statePayload?.returnTo || fallbackReturn;
 
         const redirectWithStatus = (status: 'connected' | 'error', message?: string) => {
@@ -183,9 +184,6 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             target.searchParams.set('instagram', status);
             if (message) {
                 target.searchParams.set('instagramMessage', message);
-            }
-            if (!target.hash) {
-                target.hash = '#integraciones';
             }
             return c.redirect(target.toString());
         };
@@ -226,12 +224,13 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
                 tokenExpiresAt = longLived.expiresInSeconds ? Date.now() + longLived.expiresInSeconds * 1000 : tokenExpiresAt;
             }
 
-            const accounts = await getInstagramBusinessAccounts(accessToken);
-            if (accounts.length === 0) {
+            const pages = await getMetaPagesWithInstagram(accessToken);
+            if (pages.length === 0) {
                 return redirectWithStatus('error', 'No encontramos ninguna cuenta de Instagram Business vinculada a tus páginas de Facebook. Asegúrate de tener una cuenta Profesional (Business/Creator) vinculada a una Página.');
             }
 
-            const profile = accounts[0];
+            const selected = pages[0];
+            const profile = selected.instagram;
             await upsertInstagramAccountRecord({
                 userId: user.id,
                 vertical: statePayload.vertical,
@@ -246,6 +245,9 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
                 status: 'connected',
                 lastSyncedAt: Date.now(),
                 lastError: null,
+                facebookPageId: selected.facebookPageId,
+                facebookPageName: selected.facebookPageName,
+                facebookPageAccessToken: selected.facebookPageAccessToken,
             });
 
             return redirectWithStatus('connected', `Cuenta @${profile.username} conectada correctamente.`);
@@ -318,6 +320,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         try {
             const publication = await publishListingToInstagram(user, listing, {
                 captionOverride: parsed.data.captionOverride ?? null,
+                mediaFormat: parsed.data.mediaFormat,
             });
             return c.json({ ok: true, publication });
         } catch (error) {
@@ -366,6 +369,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             const publication = await publishListingToInstagram(user, listing, {
                 captionOverride: parsed.data.captionOverride ?? null,
                 template: selectedTemplate,
+                mediaFormat: parsed.data.mediaFormat,
             });
 
             return c.json({

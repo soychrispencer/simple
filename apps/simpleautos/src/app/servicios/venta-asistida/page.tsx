@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import {
     IconArrowRight, IconBrandFacebook, IconBrandInstagram, IconBrandTiktok, IconBrandWhatsapp, IconCheck, IconClock, IconCoin, IconShieldCheck, } from '@tabler/icons-react';
-import { submitServiceLead } from '@/lib/service-leads';
 import { PanelBlockHeader } from '@simple/ui/panel';
 import { PanelButton, PanelCard, PanelNotice, PanelSegmentedToggle } from '@simple/ui/panel';
 
@@ -29,51 +28,25 @@ export default function VentaAsistidaPage() {
     const [error, setError] = useState<string | null>(null);
     const benefits = plan === 'basico' ? BASIC_BENEFITS : PREMIUM_BENEFITS;
 
-    async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setSubmitting(true);
         setMessage(null);
         setError(null);
 
-        const result = await submitServiceLead({
-            vertical: 'autos',
-            serviceType: 'venta_asistida',
-            planId: plan,
-            contactName: form.contactName,
-            contactEmail: form.contactEmail,
-            contactPhone: form.contactPhone,
-            locationLabel: form.locationLabel || null,
-            assetType: 'Auto',
-            assetBrand: form.assetBrand || null,
-            assetModel: form.assetModel || null,
-            assetYear: form.assetYear || null,
-            assetMileage: form.assetMileage || null,
-            expectedPrice: form.expectedPrice || null,
-            notes: form.notes || null,
-            sourcePage: '/servicios/venta-asistida',
-            acceptedTerms: true,
-        });
-
-        setSubmitting(false);
-        if (!result.ok) {
-            setError(result.error || 'No pudimos enviar tu solicitud.');
-            return;
-        }
-
-        setMessage('Solicitud enviada. El lead ya quedo disponible en SimpleAdmin.');
-        setForm({
-            contactName: '',
-            contactPhone: '',
-            contactEmail: '',
-            locationLabel: '',
-            assetBrand: '',
-            assetModel: '',
-            assetYear: '',
-            assetMileage: '',
-            expectedPrice: '',
-            notes: '',
-            acceptedTerms: true,
-        });
+        const subject = encodeURIComponent(`Venta asistida (${plan})`);
+        const body = encodeURIComponent([
+            `Nombre: ${form.contactName}`,
+            `Correo: ${form.contactEmail}`,
+            `Teléfono: ${form.contactPhone}`,
+            `Ubicación: ${form.locationLabel || '—'}`,
+            `Vehículo: ${[form.assetBrand, form.assetModel, form.assetYear].filter(Boolean).join(' ') || '—'}`,
+            `Kilometraje: ${form.assetMileage || '—'}`,
+            `Precio esperado: ${form.expectedPrice || '—'}`,
+            '',
+            form.notes || '',
+        ].join('\n'));
+        window.location.href = `mailto:hola@simpleplataforma.app?subject=${subject}&body=${body}`;
+        setMessage('Abriendo tu cliente de correo para enviar la solicitud.');
     }
 
     return (

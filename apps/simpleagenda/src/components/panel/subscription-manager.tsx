@@ -16,7 +16,7 @@ export default function AppSubscriptionManager() {
             startSubscriptionCheckout={(input) =>
                 startSubscriptionCheckout({
                     returnUrl: input.returnUrl,
-                    planId: input.planId as Extract<SubscriptionPlanId, 'essential' | 'pro'>,
+                    planId: input.planId as Extract<SubscriptionPlanId, 'pro'>,
                 })
             }
             subscriptionsPath="/panel/mi-cuenta/suscripcion"

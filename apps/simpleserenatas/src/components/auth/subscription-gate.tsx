@@ -39,12 +39,12 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
                 </div>
                 <h2 className="mb-3 text-2xl font-bold text-fg">Prueba de 30 días finalizada</h2>
                 <p className="mx-auto mb-8 max-w-md text-fg-muted">
-                    Tu periodo de prueba ha terminado. Para seguir gestionando tu mariachi, recibir solicitudes y aparecer en el catálogo, activa un plan.
+                    Tu periodo de prueba ha terminado. Activa Pro para seguir gestionando tu mariachi, recibir solicitudes y aparecer en el catálogo.
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row">
                     <Link href="/panel/mi-cuenta?account_tab=subscription">
                         <PanelButton variant="primary" className="h-12 px-8">
-                            Ver planes y activar
+                            Activar Pro
                         </PanelButton>
                     </Link>
                 </div>

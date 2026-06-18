@@ -8,7 +8,7 @@ Este playbook reemplaza la necesidad de consultar múltiples documentos para una
 Centraliza los pasos mínimos para:
 
 - Deploy de apps/API.
-- Migración Backblaze B2 -> Cloudflare R2.
+- Migración histórica a Cloudflare R2 (completada).
 - Operación del Worker de overlays para Instagram.
 
 ## Flujo recomendado
@@ -23,8 +23,8 @@ Centraliza los pasos mínimos para:
 
 ## Storage y migración
 
-- Fuente principal: `docs/MIGRATION_BACKBLAZE_TO_CLOUDFLARE.md`
-- Script operativo: `scripts/migrate-to-cloudflare.ts`
+- Fuente principal: `docs/STORAGE_SETUP.md`
+- Migración histórica (solo referencia): `docs/archive/MIGRATION_BACKBLAZE_TO_CLOUDFLARE.md`
 - Worker edge: `infrastructure/cloudflare/workers/instagram-overlay/README.md`
 
 ## Instagram / Cloudflare

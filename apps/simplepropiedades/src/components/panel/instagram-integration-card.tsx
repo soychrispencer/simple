@@ -1,6 +1,7 @@
 'use client';
 
 import { InstagramIntegrationCard } from '@simple/ui/integrations';
+import { usePanelFormatters } from '@simple/auth';
 import {
     buildInstagramConnectUrl,
     disconnectInstagram,
@@ -9,21 +10,17 @@ import {
     type InstagramAccountView,
 } from '@/lib/instagram';
 
-function formatDate(value: number | null): string {
-    if (!value) return 'Aún sin actividad';
-    return new Date(value).toLocaleString('es-CL');
-}
-
 function AccountStats({ account }: { account: InstagramAccountView }) {
+    const fmt = usePanelFormatters();
     return (
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="prop-stat-tile bg-(--surface)">
                 <p className="text-xs uppercase tracking-[0.12em] text-(--fg-muted)">Última sincronización</p>
-                <p className="mt-1 text-sm text-(--fg)">{formatDate(account.lastSyncedAt)}</p>
+                <p className="mt-1 text-sm text-(--fg)">{account.lastSyncedAt ? fmt.dateTimeShort(account.lastSyncedAt) : 'Aún sin actividad'}</p>
             </div>
             <div className="prop-stat-tile bg-(--surface)">
                 <p className="text-xs uppercase tracking-[0.12em] text-(--fg-muted)">Último post</p>
-                <p className="mt-1 text-sm text-(--fg)">{formatDate(account.lastPublishedAt)}</p>
+                <p className="mt-1 text-sm text-(--fg)">{account.lastPublishedAt ? fmt.dateTimeShort(account.lastPublishedAt) : 'Aún sin actividad'}</p>
             </div>
             <div className="prop-stat-tile bg-(--surface)">
                 <p className="text-xs uppercase tracking-[0.12em] text-(--fg-muted)">Scopes</p>

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     IconPlus, IconLoader2, IconTrash, IconEdit, IconX, IconCheck, IconCopy, IconAlertCircle, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelPageHeader, PanelEmptyState } from '@simple/ui/panel';
+import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_PROMOCIONES_PAGE, AGENDA_BUSINESS_SERVICIOS_PAGE } from '@simple/ui/panel';
+import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaPromotions,
     createAgendaPromotion,
@@ -214,17 +215,18 @@ export default function PromocionesPage() {
     const visibleServices = useMemo(() => services.filter((s) => s.isActive), [services]);
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Promociones"
-                description="Crea descuentos por tiempo limitado o cupones para compartir con tus pacientes."
-                actions={
-                    <PanelButton variant="accent" size="sm" onClick={openNew}>
-                        <IconPlus size={14} /> Nueva
-                    </PanelButton>
-                }
-            />
-
+        <PanelBusinessShell
+            activeKey="servicios"
+            tabs={businessSectionTabs}
+            title={AGENDA_BUSINESS_PROMOCIONES_PAGE.title}
+            description={AGENDA_BUSINESS_PROMOCIONES_PAGE.description}
+            subsectionBack={{ href: '/panel/mi-negocio/servicios', label: AGENDA_BUSINESS_SERVICIOS_PAGE.title }}
+            actions={
+                <PanelButton variant="accent" size="sm" onClick={openNew}>
+                    <IconPlus size={14} /> Nueva
+                </PanelButton>
+            }
+        >
             {flash && (
                 <div className="mb-4">
                     <PanelNotice tone="success">
@@ -519,6 +521,6 @@ export default function PromocionesPage() {
                     </div>
                 </div>
             )}
-        </div>
+        </PanelBusinessShell>
     );
 }

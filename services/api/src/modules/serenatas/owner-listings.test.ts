@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ADMIN_MARKETPLACE_INBOX_STATUSES } from './marketplace.js';
 
-describe('admin solicitudes inbox', () => {
+describe('owner solicitudes inbox', () => {
     it('listOwnerMarketplaceSerenatas no incluye scheduled ni completed', () => {
         expect(ADMIN_MARKETPLACE_INBOX_STATUSES).not.toContain('scheduled');
         expect(ADMIN_MARKETPLACE_INBOX_STATUSES).not.toContain('completed');

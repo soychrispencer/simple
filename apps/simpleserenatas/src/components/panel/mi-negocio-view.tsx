@@ -1,17 +1,15 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { PanelPillNav } from '@simple/ui/panel';
 import type { MusicianDirectoryItem } from '@/lib/serenatas-api';
-import { type MiNegocioTab, isMiNegocioTab, miNegocioTabLabel, MI_NEGOCIO_TABS } from '@/lib/mi-negocio-tab';
-import { panelMiNegocioHref } from '@/lib/panel-routes';
+import { type MiNegocioTab } from '@/lib/mi-negocio-tab';
 import { GroupsView } from '@/components/panel/groups-view';
 import { ProviderGroupView } from '@/components/panel/provider-group-view';
 import { ProviderAvailabilityView } from '@/components/panel/provider-availability-view';
 import { ProviderSettingsView } from '@/components/panel/provider-settings-view';
 import { ProviderServicesView } from '@/components/panel/provider-services-view';
 import { ProviderRepertoireView } from '@/components/panel/provider-repertoire-view';
+import { ProviderPaymentMethodsView } from '@/components/panel/provider-payment-methods-view';
+import { PanelBusinessShell, SERENATAS_BUSINESS_TABS } from '@simple/ui/panel';
 
 export function MiNegocioView({
     tab,
@@ -22,47 +20,19 @@ export function MiNegocioView({
     musicians: MusicianDirectoryItem[];
     refresh: () => Promise<void>;
 }) {
-    const router = useRouter();
-    const pillItems = useMemo(
-        () =>
-            MI_NEGOCIO_TABS.map((key) => ({
-                key,
-                label: miNegocioTabLabel(key),
-            })),
-        [],
-    );
-
-    const changeTab = useCallback(
-        (next: MiNegocioTab) => {
-            router.replace(panelMiNegocioHref(next), { scroll: false });
-        },
-        [router],
-    );
-
     return (
-        <div className="grid w-full gap-5 lg:gap-6">
-            <PanelPillNav
-                items={pillItems}
-                activeKey={tab}
-                onChange={(key) => {
-                    if (isMiNegocioTab(key)) changeTab(key);
-                }}
-                ariaLabel="Secciones de mi negocio"
-                showMobileDropdown
-                breakpoint="md"
-                size="sm"
-            />
-
+        <PanelBusinessShell activeKey={tab} tabs={SERENATAS_BUSINESS_TABS} className="w-full">
             {tab === 'datos' ? (
                 <ProviderGroupView refresh={refresh} />
             ) : null}
-            {tab === 'disponibilidad' ? <ProviderAvailabilityView /> : null}
             {tab === 'servicios' ? <ProviderServicesView refresh={refresh} /> : null}
+            {tab === 'medios-pago' ? <ProviderPaymentMethodsView refresh={refresh} /> : null}
+            {tab === 'disponibilidad' ? <ProviderAvailabilityView /> : null}
             {tab === 'repertorio' ? <ProviderRepertoireView refresh={refresh} /> : null}
             {tab === 'grupos' ? (
                 <GroupsView musicians={musicians} refresh={refresh} />
             ) : null}
             {tab === 'configuraciones' ? <ProviderSettingsView refresh={refresh} /> : null}
-        </div>
+        </PanelBusinessShell>
     );
 }

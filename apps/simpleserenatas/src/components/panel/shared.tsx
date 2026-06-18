@@ -13,6 +13,7 @@ import { getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
 import type { Serenata } from '@/lib/serenatas-api';
 import { formatMoney } from '@/lib/marketplace-display';
 import { formatSerenataCollectionMethod } from '@/lib/owner-collection-method';
+import { useSerenataPanelFormat } from '@/hooks/use-serenata-panel-format';
 
 export type FormStatus = {
     loading: boolean;
@@ -392,6 +393,7 @@ export function SerenataAgendaCard({
     actions?: ReactNode;
     footer?: ReactNode;
 }) {
+    const fmt = useSerenataPanelFormat(true);
     const addressLine = item.comuna ? `${item.comuna} · ${item.address}` : item.address;
     const collectionLabel = formatSerenataCollectionMethod(item);
 
@@ -400,7 +402,7 @@ export function SerenataAgendaCard({
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className="text-xl font-bold leading-none tabular-nums text-fg">{item.eventTime}</p>
-                    <p className="mt-1 text-xs text-fg-muted">{formatDate(item.eventDate)}</p>
+                    <p className="mt-1 text-xs text-fg-muted">{fmt.formatDate(item.eventDate)}</p>
                 </div>
                 <div className="shrink-0 text-right">
                     {showPrice ? (
@@ -443,10 +445,11 @@ export function SerenataAgendaCard({
 }
 
 export function SerenataRow({ item, context = 'default' }: { item: Serenata; context?: 'default' | 'client' }) {
+    const fmt = useSerenataPanelFormat(context !== 'client');
     const label = context === 'client' ? clientSerenataStatusLabel(item.status) : serenataStatusLabel(item.status);
     const tone = context === 'client' && item.status === 'scheduled' ? 'success' : serenataStatusTone(item.status);
     const responseDueLabel = item.status === 'pending' && item.responseDueAt
-        ? new Intl.DateTimeFormat('es-CL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(item.responseDueAt))
+        ? fmt.dateTimeShort(item.responseDueAt)
         : null;
 
     return (
@@ -455,7 +458,7 @@ export function SerenataRow({ item, context = 'default' }: { item: Serenata; con
                 <div className="min-w-0">
                     <p className="font-medium text-(--fg)">{item.recipientName}</p>
                     <p className="mt-1 text-sm text-(--fg-muted)">
-                        {formatDate(item.eventDate)} · {item.eventTime} · {item.duration} min
+                        {fmt.formatDate(item.eventDate)} · {item.eventTime} · {item.duration} min
                     </p>
                     {responseDueLabel ? (
                         <p className="mt-1 text-xs text-(--fg-muted)">

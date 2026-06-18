@@ -49,6 +49,10 @@ export function mapProviderGroup(row: typeof serenataProviderGroups.$inferSelect
         acceptsPaymentLink: row.acceptsPaymentLink,
         paymentLinkUrl: row.paymentLinkUrl,
         bankTransferData: row.bankTransferData ?? null,
+        timezone: row.timezone,
+        countryCode: row.countryCode ?? 'CL',
+        regionId: row.regionId ?? null,
+        localityId: row.localityId ?? null,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };

@@ -35,10 +35,80 @@ export {
     type PanelAccountPersonalDataSectionProps,
     type PanelAccountPersonalDataUser,
 } from './account-personal-data-section';
+export {
+    PanelAccountPersonalNotificationsSection,
+    type AccountPersonalNotificationPrefs,
+    type PanelAccountPersonalNotificationsSectionProps,
+} from './account-personal-notifications-section';
+export { PanelAccountPersonalNotificationsConnected } from './account-personal-notifications-connected';
+export { PanelAccountAddressesContent } from './account-addresses-content';
+export { PanelAccountResidenceSection, type PanelAccountResidenceSectionProps } from './account-residence-section';
+export { PanelAccountLocationContent, type PanelAccountLocationContentProps } from './account-location-content';
+export {
+    PanelAccountShell,
+    DEFAULT_ACCOUNT_SECTION_TABS,
+    MARKETPLACE_PUBLIC_PROFILE_BUSINESS_TABS,
+    buildAccountSectionTabs,
+    ACCOUNT_PAGE_DEFAULTS,
+    type PanelAccountShellProps,
+} from './account-shell';
+export {
+    PanelBusinessShell,
+    PanelBusinessSubsectionLink,
+    type PanelBusinessShellProps,
+    type PanelBusinessSubsectionBack,
+} from './business-shell';
+export {
+    AGENDA_BUSINESS_TABS,
+    SERENATAS_BUSINESS_TABS,
+} from './business-tabs';
+export {
+    BUSINESS_PAGE_DEFAULTS,
+    MARKETPLACE_PUBLIC_PROFILE_PAGE,
+    AGENDA_BUSINESS_PAGINA_PAGE,
+    AGENDA_BUSINESS_DATOS_PAGE,
+    PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE,
+    AGENDA_BUSINESS_SERVICIOS_PAGE,
+    AGENDA_BUSINESS_DISPONIBILIDAD_PAGE,
+    AGENDA_BUSINESS_COBROS_PAGE,
+    AGENDA_BUSINESS_CONFIGURACIONES_PAGE,
+    AGENDA_BUSINESS_PACKS_PAGE,
+    AGENDA_BUSINESS_PROMOCIONES_PAGE,
+    AGENDA_BUSINESS_GRUPALES_PAGE,
+    AGENDA_BUSINESS_DOMINIO_PAGE,
+} from './business-copy';
+export {
+    FINANCE_NAV_LABEL,
+    AGENDA_FINANCE_PAGE,
+    SERENATAS_FINANCE_PAGE,
+    SUBSCRIPTION_BILLING_HISTORY,
+    BUSINESS_PAYMENT_METHODS_PAGE,
+} from './finance-copy';
+export { bindAccountProfileSection, type BindAccountProfileSectionInput } from './bind-account-profile-section';
+export {
+    ACCOUNT_LOCATION_PAGE,
+    ACCOUNT_NOTIFICATIONS_PAGE,
+    ACCOUNT_SUBSCRIPTION_PAGE,
+    ACCOUNT_SECURITY_PAGE,
+    ACCOUNT_REFERRALS_PAGE,
+    ACCOUNT_INTEGRATIONS_PAGE,
+    accountIntegrationsDescription,
+    accountSubscriptionDescription,
+    /** @deprecated */ ACCOUNT_CONNECTIONS_PAGE,
+    /** @deprecated */ accountConnectionsDescription,
+    ACCOUNT_ADDRESSES_PAGE,
+    ACCOUNT_RESIDENCE_BLOCK,
+    ACCOUNT_ADDRESSES_BLOCK,
+    ACCOUNT_RESIDENCE_SECTION_TITLE,
+    accountResidenceDescription,
+    accountAddressesBlockDescription,
+} from './account-copy';
+export {
+    StructuredLocationFields,
+    type StructuredLocationFieldsProps,
+} from './structured-location-fields';
 export { resolveActiveNavHref, cleanPanelPath } from './resolve-active-nav';
 export { PublicProfileEditor, type PublicProfileEditorProps, type PublicProfileVertical } from './public-profile-editor';
-export { CrmTeamSettingsManager, type CrmTeamSettingsManagerProps } from './crm-team-settings-manager';
-export { CrmModalShell, type CrmModalShellProps } from './crm-modal-shell';
 export {
     SubscriptionManager,
     type SubscriptionManagerProps,
@@ -98,6 +168,11 @@ export {
     type PanelConfigSectionItem,
     type PanelConfigSectionProps,
 } from './panel-config-section';
+export {
+    PanelMessagesInbox,
+    type PanelMessagesCopy,
+    type PanelMessagesInboxProps,
+} from './panel-messages-inbox.js';
 
 export {
     PanelDocumentUploader,

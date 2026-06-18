@@ -1,14 +1,14 @@
 export { createMessagesRouter, createPanelNotificationsRouter } from './router.js';
 export type { MessagesRouterDeps, PanelNotificationsRouterDeps } from './router.js';
+export { createOrAppendListingConversation } from './listing-conversation.js';
 export {
-    buildListingLeadNotification,
     buildMessageThreadNotification,
-    buildServiceLeadNotification,
     createMessageEntry,
     createMessageThread,
+    createContextMessageThread,
     getMessageThreadById,
-    getMessageThreadByLeadId,
     getMessageThreadByListingAndBuyer,
+    getMessageThreadByContext,
     getMessageThreadFolder,
     isThreadParticipant,
     listMessageEntries,
@@ -20,3 +20,4 @@ export {
     updateMessageThreadViewerState,
     type MessageServiceDeps,
 } from './service.js';
+export type { MessageEntryRecord, MessageSenderRole, MessageThreadRecord } from './row-mappers.js';

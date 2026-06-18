@@ -6,21 +6,22 @@ import {
     resolveMercadoPagoPreferenceCheckoutUrl,
 } from '../mercadopago/checkout-helpers.js';
 import { getPaymentById, getPreapprovalById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
-import {
-    createFintocCheckoutSession,
-    extractFintocEventData,
-    getFintocCheckoutSession,
-    isFintocConfigured,
-    parseFintocPaymentStatus,
-    parseFintocSubscriptionStatus,
-    resolvePaymentsProvider,
-    verifyFintocWebhookSignature,
-} from '../fintoc/service.js';
 import { serenataPlanMonthlyChargeClp } from '../serenatas/plan-config.js';
+import {
+    catalogPaidPlans,
+    filterCatalogPlans,
+    normalizeCatalogSubscription,
+    normalizeLegacyPlanId,
+} from '../billing/plan-catalog.js';
 import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
 import { confirmPaymentFromProvider, findPaymentOrderByExternalReference } from './confirm-from-provider.js';
 import { confirmSubscriptionFromPreapproval } from './confirm-subscription.js';
 import { listUserPaymentOrdersMerged } from './list-user-orders.js';
+import { resolvePaymentProvider } from './resolve-provider.js';
+import {
+    getSubscriptionBillingCharge,
+    localizePaidPlansForBilling,
+} from '../billing/subscription-billing.js';
 
 export type PaymentsRouterDeps = {
     authUser: (c: any) => Promise<any | null>;
@@ -109,15 +110,7 @@ export type PaymentsRouterDeps = {
 export function createPaymentsRouter(deps: PaymentsRouterDeps) {
     const app = new Hono();
 
-    function fintocPaymentMethodTypes(): Array<'bank_transfer' | 'card'> | undefined {
-        const raw = (process.env.FINTOC_PAYMENT_METHOD_TYPES ?? '').trim();
-        if (!raw) return undefined;
-        const methods = raw.split(',').map((item) => item.trim()).filter(Boolean);
-        return methods.filter((item): item is 'bank_transfer' | 'card' => item === 'bank_transfer' || item === 'card');
-    }
-
     async function createHostedCheckout(input: {
-        provider: 'fintoc' | 'mercadopago';
         orderId: string;
         title: string;
         description?: string;
@@ -128,42 +121,12 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         failureUrl: string;
         pendingUrl?: string;
         metadata: Record<string, unknown>;
-        subscription?: boolean;
     }): Promise<{
-        provider: 'fintoc' | 'mercadopago';
         providerOrderId: string | null;
         providerReferenceId: string | null;
         providerStatus: string;
         checkoutUrl: string | null;
     }> {
-        if (input.provider === 'fintoc') {
-            if (!isFintocConfigured()) {
-                throw new Error('Fintoc no está configurado. Falta FINTOC_SECRET_KEY.');
-            }
-            const session = await createFintocCheckoutSession({
-                externalReference: input.orderId,
-                flow: input.subscription ? 'subscription' : 'payment',
-                amount: input.amount,
-                currency: input.currency,
-                customerEmail: input.user.email ?? '',
-                successUrl: input.successUrl,
-                cancelUrl: input.failureUrl,
-                metadata: {
-                    ...input.metadata,
-                    title: input.title,
-                    description: input.description ?? input.title,
-                },
-                paymentMethodTypes: fintocPaymentMethodTypes(),
-            });
-            return {
-                provider: 'fintoc',
-                providerOrderId: session.id,
-                providerReferenceId: session.id,
-                providerStatus: session.status ?? 'created',
-                checkoutUrl: session.redirectUrl,
-            };
-        }
-
         const preference = await deps.createCheckoutPreference({
             externalReference: input.orderId,
             title: input.title,
@@ -180,7 +143,6 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             metadata: input.metadata,
         });
         return {
-            provider: 'mercadopago',
             providerOrderId: preference.id,
             providerReferenceId: null,
             providerStatus: 'created',
@@ -188,46 +150,16 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         };
     }
 
-    function orderProvider(order: { metadata?: unknown }): 'fintoc' | 'mercadopago' {
-        const metadata = order.metadata && typeof order.metadata === 'object'
-            ? order.metadata as Record<string, unknown>
-            : {};
-        return metadata.provider === 'fintoc' ? 'fintoc' : 'mercadopago';
-    }
-
-    function subscriptionConfirmDeps(provider: 'fintoc' | 'mercadopago') {
+    function subscriptionConfirmDeps() {
         return {
             getPaidSubscriptionPlan: deps.getPaidSubscriptionPlan,
             upsertActiveSubscription: deps.upsertActiveSubscription,
             makeSubscriptionId: deps.makeSubscriptionId,
             updatePaymentOrder: deps.updatePaymentOrder,
             getPrimaryAccountIdForUser: deps.getPrimaryAccountIdForUser,
-            parseMercadoPagoPreapprovalStatus: provider === 'fintoc'
-                ? parseFintocSubscriptionStatus
-                : deps.parseMercadoPagoPreapprovalStatus,
+            parseMercadoPagoPreapprovalStatus: deps.parseMercadoPagoPreapprovalStatus,
             cancelActiveSubscriptionForUser: deps.cancelActiveSubscriptionForUser,
         };
-    }
-
-    async function locatePaymentOrder(orderId: string) {
-        let located = findPaymentOrderByExternalReference(deps.paymentOrdersByUser, orderId);
-        if (!located && deps.loadPaymentOrderFromDb) {
-            const hydrated = await deps.loadPaymentOrderFromDb(orderId);
-            if (hydrated) {
-                deps.upsertPaymentOrder(hydrated);
-                located = {
-                    userId: String(hydrated.userId),
-                    order: { id: String(hydrated.id), userId: String(hydrated.userId) },
-                };
-            }
-        } else if (!located && deps.findPaymentOrderByIdFromDb) {
-            located = await deps.findPaymentOrderByIdFromDb(orderId);
-            if (located && deps.loadPaymentOrderFromDb) {
-                const hydrated = await deps.loadPaymentOrderFromDb(orderId);
-                if (hydrated) deps.upsertPaymentOrder(hydrated);
-            }
-        }
-        return located;
     }
 
     // ── Subscriptions ─────────────────────────────────────────────────────────
@@ -238,8 +170,10 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
 
         const rawVertical = c.req.query('vertical');
         const vertical = rawVertical === 'serenatas' ? 'serenatas' : deps.parseVertical(rawVertical);
-        const plans = deps.getSubscriptionPlans(vertical);
+        const allPlans = deps.getSubscriptionPlans(vertical);
+        const plans = filterCatalogPlans(vertical, allPlans);
         const freePlan = plans.find((plan: any) => plan.id === 'free') ?? null;
+        const paidPlans = catalogPaidPlans(vertical, allPlans);
         const orders = deps.getPaymentOrdersForUser(user.id, { vertical, kind: 'subscription' }).map((order: any) => deps.paymentOrderToResponse(order));
 
         let currentSubscription: any = null;
@@ -249,44 +183,46 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 const profile = await deps.dbQuery.agendaProfessionalProfiles.findFirst({
                     where: deps.dbHelpers.eq(deps.tables2.agendaProfessionalProfiles.userId, user.id),
                 });
-                if (profile && profile.plan !== 'free') {
-                    const isExpired = profile.plan === 'pro' && profile.planExpiresAt && profile.planExpiresAt < new Date();
-                    if (!isExpired) {
-                        const matchedPlan = plans.find((p: any) => p.id === profile.plan);
+                if (profile) {
+                    const effectivePlan = normalizeLegacyPlanId('agenda', profile.plan);
+                    if (effectivePlan === 'pro') {
+                        const isExpired = profile.planExpiresAt && profile.planExpiresAt < new Date();
+                        if (!isExpired) {
+                            const matchedPlan = plans.find((p: any) => p.id === 'pro');
+                            currentSubscription = {
+                                id: `agenda-${profile.id}`,
+                                accountId: profile.accountId ?? null,
+                                vertical: 'agenda' as const,
+                                planId: 'pro',
+                                planName: matchedPlan?.name ?? 'Pro',
+                                priceMonthly: matchedPlan?.priceMonthly ?? 0,
+                                currency: 'CLP',
+                                features: matchedPlan?.features ?? [],
+                                status: 'active' as const,
+                                providerStatus: 'manual',
+                                startedAt: profile.createdAt.getTime(),
+                                updatedAt: profile.updatedAt.getTime(),
+                                planExpiresAt: profile.planExpiresAt ? profile.planExpiresAt.getTime() : null,
+                            };
+                        }
+                    } else if (effectivePlan === 'free' && profile.planExpiresAt) {
+                        const matchedPlan = plans.find((p: any) => p.id === 'free');
                         currentSubscription = {
                             id: `agenda-${profile.id}`,
                             accountId: profile.accountId ?? null,
                             vertical: 'agenda' as const,
-                            planId: profile.plan,
-                            planName: matchedPlan?.name ?? profile.plan,
-                            priceMonthly: matchedPlan?.priceMonthly ?? 0,
+                            planId: 'free',
+                            planName: matchedPlan?.name ?? 'Prueba completa',
+                            priceMonthly: 0,
                             currency: 'CLP',
                             features: matchedPlan?.features ?? [],
-                            status: 'active' as const,
-                            providerStatus: 'manual',
+                            status: profile.planExpiresAt < new Date() ? 'expired' as const : 'active' as const,
+                            providerStatus: 'trial',
                             startedAt: profile.createdAt.getTime(),
                             updatedAt: profile.updatedAt.getTime(),
-                            planExpiresAt: profile.planExpiresAt ? profile.planExpiresAt.getTime() : null,
+                            planExpiresAt: profile.planExpiresAt.getTime(),
                         };
                     }
-                } else if (profile && profile.plan === 'free' && profile.planExpiresAt) {
-                    // Mostrar información de la prueba gratuita
-                    const matchedPlan = plans.find((p: any) => p.id === profile.plan);
-                    currentSubscription = {
-                        id: `agenda-${profile.id}`,
-                        accountId: profile.accountId ?? null,
-                        vertical: 'agenda' as const,
-                        planId: profile.plan,
-                        planName: matchedPlan?.name ?? profile.plan,
-                        priceMonthly: matchedPlan?.priceMonthly ?? 0,
-                        currency: 'CLP',
-                        features: matchedPlan?.features ?? [],
-                        status: profile.planExpiresAt < new Date() ? 'expired' as const : 'active' as const,
-                        providerStatus: 'trial',
-                        startedAt: profile.createdAt.getTime(),
-                        updatedAt: profile.updatedAt.getTime(),
-                        planExpiresAt: profile.planExpiresAt.getTime(),
-                    };
                 }
             } catch (dbErr) {
                 console.error('[subscriptions/catalog] agenda DB error:', dbErr);
@@ -316,14 +252,14 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         planExpiresAt: owner.trialEndsAt.getTime(),
                     };
                 } else if (owner && owner.subscriptionStatus === 'active') {
-                    const planId = owner.subscriptionPrice === 9990 ? 'essential' : 'pro';
+                    const planId = 'pro';
                     const matchedPlan = plans.find((p: any) => p.id === planId);
                     currentSubscription = {
                         id: `serenatas-${owner.id}`,
                         accountId: null,
                         vertical: 'serenatas' as const,
                         planId,
-                        planName: matchedPlan?.name ?? (owner.subscriptionPrice === 9990 ? 'Esencial' : 'Pro'),
+                        planName: matchedPlan?.name ?? 'Pro',
                         priceMonthly: owner.subscriptionPrice,
                         currency: 'CLP',
                         features: matchedPlan?.features ?? [],
@@ -367,13 +303,24 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             }
         }
 
+        currentSubscription = normalizeCatalogSubscription(vertical, currentSubscription, plans, freePlan);
+
+        const paymentProvider = resolvePaymentProvider(user.residenceCountryCode);
+        const checkoutEnabled = deps.isMercadoPagoConfigured()
+            || (process.env.NODE_ENV !== 'production' && mercadoPagoDevCheckoutFallbackEnabled());
+
         return c.json({
             ok: true,
             vertical,
-            paymentProvider: resolvePaymentsProvider(),
+            paymentProvider,
+            billingCountryCode: (user.residenceCountryCode ?? 'CL').trim().toUpperCase(),
+            checkoutEnabled,
             mercadoPagoEnabled: deps.isMercadoPagoConfigured(),
-            fintocEnabled: isFintocConfigured(),
-            plans,
+            plans: localizePaidPlansForBilling(
+                paymentProvider,
+                vertical as import('../../lib/domain-types.js').PaymentVerticalType,
+                paidPlans as import('../../lib/domain-types.js').PaidSubscriptionPlanRecord[],
+            ),
             freePlan,
             currentSubscription,
             orders,
@@ -469,15 +416,10 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         const parsed = deps.schemas.createCheckoutSchema.safeParse(payload);
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
         const checkoutData = parsed.data;
-        const paymentsProvider = resolvePaymentsProvider();
         const mercadoPagoConfigured = deps.isMercadoPagoConfigured();
-        const fintocConfigured = isFintocConfigured();
         const allowDevCheckoutFallback =
             process.env.NODE_ENV !== 'production' && process.env.MERCADO_PAGO_DEV_CHECKOUT_FALLBACK !== 'false';
-        if (paymentsProvider === 'fintoc' && !fintocConfigured) {
-            return c.json({ ok: false, error: 'Fintoc no está configurado en el backend.' }, 503);
-        }
-        if (paymentsProvider === 'mercadopago' && !mercadoPagoConfigured && !(allowDevCheckoutFallback && checkoutData.kind === 'serenata_booking')) {
+        if (!mercadoPagoConfigured && !(allowDevCheckoutFallback && checkoutData.kind === 'serenata_booking')) {
             return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
         }
 
@@ -509,11 +451,10 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 let checkout: Awaited<ReturnType<typeof createHostedCheckout>> | null = null;
                 let checkoutUrl: string | null = null;
                 try {
-                    if (paymentsProvider === 'mercadopago' && !mercadoPagoConfigured) {
+                    if (!mercadoPagoConfigured) {
                         throw new Error('Mercado Pago no está configurado en el backend.');
                     }
                     checkout = await createHostedCheckout({
-                        provider: paymentsProvider,
                         orderId,
                         title: target.eventType ?? 'Serenata SimpleSerenatas',
                         description: `${target.recipientName} · ${new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }).format(target.eventDate)}`,
@@ -527,7 +468,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     });
                     checkoutUrl = checkout.checkoutUrl;
                 } catch (error) {
-                    if (paymentsProvider === 'fintoc' || process.env.NODE_ENV === 'production' || process.env.MERCADO_PAGO_DEV_CHECKOUT_FALLBACK === 'false') {
+                    if (process.env.NODE_ENV === 'production' || process.env.MERCADO_PAGO_DEV_CHECKOUT_FALLBACK === 'false') {
                         throw error;
                     }
                     const fallback = new URL(backUrls.success);
@@ -547,13 +488,13 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     status: 'pending',
                     providerStatus: checkout?.providerStatus ?? 'dev_fallback',
                     providerReferenceId: checkout?.providerReferenceId ?? null,
-                    preferenceId: checkout?.provider === 'mercadopago' ? checkout.providerOrderId : null,
+                    preferenceId: checkout?.providerOrderId ?? null,
                     checkoutUrl,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                     appliedAt: null,
                     appliedResourceId: null,
-                    metadata: { kind: 'serenata_booking', serenataId: target.id, recipientName: target.recipientName, provider: checkout?.provider ?? 'mercadopago' },
+                    metadata: { kind: 'serenata_booking', serenataId: target.id, recipientName: target.recipientName, provider: 'mercadopago' },
                 });
 
                 return c.json({ ok: true, orderId: order.id, checkoutUrl: order.checkoutUrl, order: deps.paymentOrderToResponse(order) });
@@ -598,7 +539,6 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 const orderId = deps.makePaymentOrderId('boost');
                 const backUrls = buildMercadoPagoCheckoutBackUrls(deps.appendCheckoutParams, returnUrl, orderId, 'boost');
                 const checkout = await createHostedCheckout({
-                    provider: paymentsProvider,
                     orderId,
                     title: `Boost ${plan.name} · ${listing.title}`,
                     description: `${deps.sectionLabel(section)} por ${plan.days} días`,
@@ -622,13 +562,13 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     status: 'pending',
                     providerStatus: checkout.providerStatus,
                     providerReferenceId: checkout.providerReferenceId,
-                    preferenceId: checkout.provider === 'mercadopago' ? checkout.providerOrderId : null,
+                    preferenceId: checkout.providerOrderId,
                     checkoutUrl: checkout.checkoutUrl,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                     appliedAt: null,
                     appliedResourceId: null,
-                    metadata: { kind: 'boost', listingId: listing.id, section, planId: plan.id, listingTitle: listing.title, provider: checkout.provider },
+                    metadata: { kind: 'boost', listingId: listing.id, section, planId: plan.id, listingTitle: listing.title, provider: 'mercadopago' },
                 });
 
                 return c.json({ ok: true, orderId: order.id, checkoutUrl: order.checkoutUrl, order: deps.paymentOrderToResponse(order) });
@@ -649,7 +589,6 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 const orderId = deps.makePaymentOrderId('advertising');
                 const backUrls = buildMercadoPagoCheckoutBackUrls(deps.appendCheckoutParams, returnUrl, orderId, 'advertising');
                 const checkout = await createHostedCheckout({
-                    provider: paymentsProvider,
                     orderId,
                     title: `Publicidad ${deps.AD_FORMAT_LABELS[campaign.format]} · ${campaign.name}`,
                     description: `${campaign.durationDays} días`,
@@ -678,13 +617,13 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     status: 'pending',
                     providerStatus: checkout.providerStatus,
                     providerReferenceId: checkout.providerReferenceId,
-                    preferenceId: checkout.provider === 'mercadopago' ? checkout.providerOrderId : null,
+                    preferenceId: checkout.providerOrderId,
                     checkoutUrl: checkout.checkoutUrl,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                     appliedAt: null,
                     appliedResourceId: null,
-                    metadata: { kind: 'advertising', campaignId: campaign.id, format: campaign.format, durationDays: campaign.durationDays, campaignName: campaign.name, provider: checkout.provider },
+                    metadata: { kind: 'advertising', campaignId: campaign.id, format: campaign.format, durationDays: campaign.durationDays, campaignName: campaign.name, provider: 'mercadopago' },
                 });
 
                 return c.json({ ok: true, orderId: order.id, checkoutUrl: order.checkoutUrl, order: deps.paymentOrderToResponse(order) });
@@ -694,6 +633,9 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             const resolvedPlanId = checkoutData.planId ?? checkoutData.subscription?.planId;
             if (!resolvedPlanId) {
                 return c.json({ ok: false, error: 'planId es requerido' }, 400);
+            }
+            if ((vertical === 'agenda' || vertical === 'serenatas') && resolvedPlanId === 'essential') {
+                return c.json({ ok: false, error: 'El plan Esencial ya no está disponible. Activa Pro.' }, 400);
             }
             const returnUrl = deps.ensureMercadoPagoSubscriptionReturnUrl(vertical, checkoutData.returnUrl);
             const plan = deps.getPaidSubscriptionPlan(vertical, resolvedPlanId);
@@ -722,14 +664,17 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 return c.json({ ok: false, error: 'Ese plan ya está activo en tu cuenta.' }, 409);
             }
 
-            const orderId = deps.makePaymentOrderId('subscription');
-            const isSerenatas = vertical === 'serenatas';
-            const isAgenda = vertical === 'agenda';
+            const paymentProvider = resolvePaymentProvider(user.residenceCountryCode);
+            if (!mercadoPagoConfigured) {
+                if (process.env.NODE_ENV === 'production' || !mercadoPagoDevCheckoutFallbackEnabled()) {
+                    return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
+                }
+            }
 
-            const subscriptionChargeAmount =
-                (isSerenatas || isAgenda) && (plan.id === 'essential' || plan.id === 'pro')
-                    ? Math.round(plan.priceMonthly * (1 + 1900 / 10_000))
-                    : plan.priceMonthly;
+            const orderId = deps.makePaymentOrderId('subscription');
+            const billing = getSubscriptionBillingCharge(paymentProvider, vertical, plan);
+            const subscriptionChargeAmount = billing.amount;
+            const subscriptionCurrency = billing.currency;
             const subscriptionBackUrl = deps.appendCheckoutParams(returnUrl, {
                 checkout: 'return',
                 purchaseId: orderId,
@@ -741,52 +686,21 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             let checkoutUrl: string | null;
             let providerStatus: string;
             let orderStatus: 'authorized' | 'pending';
-            let orderProvider: 'fintoc' | 'mercadopago';
 
             try {
-                if (paymentsProvider === 'fintoc') {
-                    const checkout = await createHostedCheckout({
-                        provider: 'fintoc',
-                        orderId,
-                        title: subscriptionReason,
-                        amount: subscriptionChargeAmount,
-                        currency: plan.currency,
-                        user,
-                        successUrl: subscriptionBackUrl,
-                        failureUrl: subscriptionBackUrl,
-                        metadata: {
-                            kind: 'subscription',
-                            vertical,
-                            planId: plan.id,
-                            planName: plan.name,
-                            chargeAmountClp: subscriptionChargeAmount,
-                        },
-                        subscription: true,
-                    });
-                    providerReferenceId = checkout.providerReferenceId ?? orderId;
-                    checkoutUrl = checkout.checkoutUrl;
-                    providerStatus = checkout.providerStatus;
-                    orderStatus = parseFintocSubscriptionStatus(providerStatus) === 'authorized' ? 'authorized' : 'pending';
-                    orderProvider = 'fintoc';
-                } else {
-                    const preapproval = await deps.createPreapproval({
-                        externalReference: orderId,
-                        reason: subscriptionReason,
-                        amount: subscriptionChargeAmount,
-                        currencyId: plan.currency,
-                        payerEmail: user.email,
-                        backUrl: subscriptionBackUrl,
-                    });
-                    providerReferenceId = preapproval.id;
-                    checkoutUrl = preapproval.initPoint;
-                    providerStatus = preapproval.status ?? 'pending';
-                    orderStatus = preapproval.status === 'authorized' ? 'authorized' : 'pending';
-                    orderProvider = 'mercadopago';
-                }
+                const preapproval = await deps.createPreapproval({
+                    externalReference: orderId,
+                    reason: subscriptionReason,
+                    amount: subscriptionChargeAmount,
+                    currencyId: subscriptionCurrency,
+                    payerEmail: user.email,
+                    backUrl: subscriptionBackUrl,
+                });
+                providerReferenceId = preapproval.id;
+                checkoutUrl = preapproval.initPoint;
+                providerStatus = preapproval.status ?? 'pending';
+                orderStatus = preapproval.status === 'authorized' ? 'authorized' : 'pending';
             } catch (error) {
-                if (paymentsProvider === 'fintoc') {
-                    throw error;
-                }
                 if (process.env.NODE_ENV === 'production' || !mercadoPagoDevCheckoutFallbackEnabled()) {
                     throw error;
                 }
@@ -794,7 +708,6 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 checkoutUrl = subscriptionBackUrl;
                 providerStatus = 'dev_fallback';
                 orderStatus = 'authorized';
-                orderProvider = 'mercadopago';
             }
 
             const order = deps.upsertPaymentOrder({
@@ -804,7 +717,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 kind: 'subscription',
                 title: `Suscripción ${plan.name}`,
                 amount: subscriptionChargeAmount,
-                currency: plan.currency,
+                currency: subscriptionCurrency,
                 status: orderStatus,
                 providerStatus,
                 providerReferenceId,
@@ -818,8 +731,8 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     kind: 'subscription',
                     planId: plan.id,
                     planName: plan.name,
-                    chargeAmountClp: subscriptionChargeAmount,
-                    provider: orderProvider,
+                    chargeAmountClp: subscriptionCurrency === 'CLP' ? subscriptionChargeAmount : undefined,
+                    provider: paymentProvider,
                 },
             });
 
@@ -852,29 +765,18 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         }
 
         try {
-            const provider = orderProvider(order);
-            if (provider === 'fintoc' && !isFintocConfigured()) {
-                return c.json({ ok: false, error: 'Fintoc no está configurado en el backend.' }, 503);
-            }
-            if (provider === 'mercadopago' && !deps.isMercadoPagoConfigured()) {
-                return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
-            }
-
             if (order.kind === 'subscription') {
+                if (!deps.isMercadoPagoConfigured()) {
+                    return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
+                }
                 if (!order.providerReferenceId) {
                     return c.json({ ok: false, error: 'La suscripción no tiene referencia del proveedor de pago.' }, 409);
                 }
 
-                const providerReferenceId = String(order.providerReferenceId);
+                let providerReferenceId = String(order.providerReferenceId);
                 let providerStatus: string;
-                if (provider === 'fintoc') {
-                    const session = await getFintocCheckoutSession(providerReferenceId);
-                    providerStatus = String(session.status ?? '');
-                    const externalReference = String(session.metadata?.orderExternalId ?? '');
-                    if (externalReference && externalReference !== order.id) {
-                        return c.json({ ok: false, error: 'La respuesta de Fintoc no coincide con esta orden.' }, 409);
-                    }
-                } else if (isDevMercadoPagoPreapprovalId(providerReferenceId)) {
+
+                if (isDevMercadoPagoPreapprovalId(providerReferenceId)) {
                     providerStatus = 'authorized';
                 } else {
                     const providerPayload = await deps.getPreapprovalById(providerReferenceId);
@@ -886,7 +788,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 }
 
                 const confirmed = await confirmSubscriptionFromPreapproval(
-                    subscriptionConfirmDeps(provider),
+                    subscriptionConfirmDeps(),
                     {
                         userId: user.id,
                         order,
@@ -914,27 +816,15 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 });
             }
 
+            if (!deps.isMercadoPagoConfigured()) {
+                return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
+            }
+
             const paymentReferenceId = paymentId || order.providerReferenceId || '';
-            const providerPayload = provider === 'fintoc'
-                ? await (async () => {
-                    const sessionId = paymentReferenceId;
-                    if (!sessionId) return null;
-                    const session = await getFintocCheckoutSession(sessionId);
-                    const externalReference = String(session.metadata?.orderExternalId ?? '');
-                    if (externalReference && externalReference !== order.id) {
-                        throw new Error('La respuesta de Fintoc no coincide con esta orden.');
-                    }
-                    return {
-                        status: parseFintocPaymentStatus(String(session.status ?? '')),
-                        external_reference: order.id,
-                    } as Record<string, unknown>;
-                })()
-                : undefined;
             const confirmed = await confirmPaymentFromProvider(deps, {
                 userId: user.id,
                 orderId: order.id,
                 paymentReferenceId,
-                providerPayload: providerPayload ?? undefined,
             });
             if (!confirmed.ok) {
                 const status = (confirmed.status === 400 || confirmed.status === 404 || confirmed.status === 409)
@@ -1102,93 +992,6 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             return c.json({ ok: true });
         } catch (error) {
             console.error('[payments] MP webhook error:', error);
-            return c.json({ ok: true });
-        }
-    });
-
-    app.post('/payments/fintoc/webhook', async (c) => {
-        try {
-            const rawBody = await c.req.raw.text();
-            const signatureResult = verifyFintocWebhookSignature({
-                rawBody,
-                signatureHeader: c.req.header('Fintoc-Signature') ?? c.req.header('fintoc-signature'),
-            });
-            if (signatureResult === false) {
-                return c.json({ ok: false, error: 'Firma de webhook inválida o no permitida' }, 401);
-            }
-
-            const body = JSON.parse(rawBody || '{}') as Record<string, unknown>;
-            const eventData = extractFintocEventData(body);
-            const rawSessionId = String(
-                eventData.id
-                ?? eventData.checkout_session_id
-                ?? eventData.checkout_session
-                ?? body.checkout_session_id
-                ?? '',
-            );
-
-            let session: Record<string, unknown> | null = null;
-            if (eventData.object === 'checkout_session' || eventData.metadata) {
-                session = eventData;
-            } else if (rawSessionId) {
-                try {
-                    session = await getFintocCheckoutSession(rawSessionId) as unknown as Record<string, unknown>;
-                } catch (err) {
-                    console.warn('[payments] Fintoc webhook: no se pudo consultar checkout session:', err);
-                    return c.json({ ok: true });
-                }
-            }
-            if (!session) return c.json({ ok: true });
-
-            const metadata = session.metadata && typeof session.metadata === 'object'
-                ? session.metadata as Record<string, unknown>
-                : {};
-            const orderId = String(metadata.orderExternalId ?? metadata.externalReference ?? metadata.orderId ?? '');
-            if (!orderId) return c.json({ ok: true });
-
-            const located = await locatePaymentOrder(orderId);
-            if (!located) return c.json({ ok: true });
-
-            const fullOrder = deps.getPaymentOrdersForUser(located.userId).find((o: { id: string }) => o.id === orderId)
-                ?? (await deps.loadPaymentOrderFromDb?.(orderId));
-            if (!fullOrder) return c.json({ ok: true });
-
-            const sessionId = String(session.id ?? rawSessionId);
-            const providerStatus = String(session.status ?? '');
-
-            if (fullOrder.kind === 'subscription') {
-                const result = await confirmSubscriptionFromPreapproval(
-                    subscriptionConfirmDeps('fintoc'),
-                    {
-                        userId: located.userId,
-                        order: fullOrder as Record<string, unknown>,
-                        providerStatus,
-                        providerPreapprovalId: sessionId,
-                    },
-                );
-                if (!result.ok) {
-                    console.warn('[payments] Fintoc webhook subscription: confirmación fallida:', result.error);
-                }
-                return c.json({ ok: true });
-            }
-
-            const result = await confirmPaymentFromProvider(deps, {
-                userId: located.userId,
-                orderId,
-                paymentReferenceId: sessionId,
-                providerPayload: {
-                    status: parseFintocPaymentStatus(providerStatus),
-                    external_reference: orderId,
-                },
-            });
-
-            if (!result.ok) {
-                console.warn('[payments] Fintoc webhook payment: confirmación fallida:', result.error);
-            }
-
-            return c.json({ ok: true });
-        } catch (error) {
-            console.error('[payments] Fintoc webhook error:', error);
             return c.json({ ok: true });
         }
     });

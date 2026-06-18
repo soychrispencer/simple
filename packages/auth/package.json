@@ -21,6 +21,7 @@
     "@simple/config": "workspace:*",
     "@simple/types": "workspace:*",
     "@simple/ui": "workspace:*",
+    "@simple/utils": "workspace:*",
     "@tabler/icons-react": "^3.31.0"
   },
   "peerDependencies": {

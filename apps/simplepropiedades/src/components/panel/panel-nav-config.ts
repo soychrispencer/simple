@@ -9,10 +9,7 @@ import {
     IconPlus,
     IconRocket,
     IconUser,
-    IconSparkles,
     IconMessageCircle,
-    IconUsersGroup,
-    IconTools,
     IconBriefcase,
 } from '@tabler/icons-react';
 
@@ -33,11 +30,8 @@ const PANEL_NAV_ITEMS: PanelNavItem[] = [
     { href: '/panel/publicar', label: 'Nueva publicación', icon: IconPlus },
     { href: '/panel/guardados', label: 'Guardados', icon: IconBookmark },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
-    { href: '/panel/herramientas/simulador', label: 'Herramientas', icon: IconTools },
     { href: '/panel/estadisticas', label: 'Estadísticas', icon: IconChartBar, visibility: 'admin_plus' },
-    { href: '/panel/crm', label: 'CRM', icon: IconSparkles, badge: 'PRO' },
     { href: '/panel/publicidad', label: 'Publicidad', icon: IconRocket, visibility: 'admin_plus', badge: 'PRO' },
-    { href: '/panel/equipo', label: 'Equipo y leads', icon: IconUsersGroup, badge: 'PRO' },
     { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBriefcase },
     { href: '/panel/mi-cuenta', label: 'Mi cuenta', icon: IconUser },
 ];

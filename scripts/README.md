@@ -4,7 +4,6 @@ Este directorio contiene scripts operativos y de soporte para mantenimiento loca
 
 ## Scripts actuales
 
-- `migrate-to-cloudflare.ts`: **legacy** — migración one-off B2 → R2 (requiere credenciales B2; el runtime ya no usa Backblaze).
 - `ensure-ui-built.mjs`: build de `@simple/ui` antes de dev de apps.
 - `restart-simpleautos.ps1`: reinicio rápido de entorno local para `simpleautos` (PowerShell).
 - `restart-simpleautos.bat`: variante CMD del reinicio rápido para `simpleautos`.

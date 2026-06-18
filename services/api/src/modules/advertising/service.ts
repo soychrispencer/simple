@@ -1,3 +1,4 @@
+import { filterCatalogPlans } from '../billing/plan-catalog.js';
 import type {
     VerticalType,
     AdFormat,
@@ -71,5 +72,5 @@ export function isValidHttpDestinationUrl(url: string): boolean {
 }
 
 export function getSubscriptionPlans(vertical: VerticalType): SubscriptionPlanRecord[] {
-    return SUBSCRIPTION_PLANS_BY_VERTICAL[vertical];
+    return filterCatalogPlans(vertical, SUBSCRIPTION_PLANS_BY_VERTICAL[vertical]);
 }

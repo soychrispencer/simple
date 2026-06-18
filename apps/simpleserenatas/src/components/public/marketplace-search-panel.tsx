@@ -1,15 +1,21 @@
 'use client';
 
 import { useMemo, type FormEvent } from 'react';
-import { IconMap2, IconMapPin, IconSearch, IconX } from '@tabler/icons-react';
+import { IconMap2, IconMapPin, IconSearch, IconWorld, IconX } from '@tabler/icons-react';
 import { ModernDateInput, ModernSelect } from '@simple/ui';
-import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
+import {
+    getCommunesForRegion,
+    getCountryByCode,
+    getLocalitiesForRegion,
+    getRegionsForCountry,
+    getSupportedCountries,
+} from '@simple/utils';
 import { type MarketplaceSearchFilters, todayIsoDate } from '@/lib/marketplace-search';
 
 const CONTROL_CLASS = 'h-11 text-sm font-semibold';
 
-function regionIdFromName(name: string) {
-    return LOCATION_REGIONS.find((region) => region.name === name)?.id ?? '';
+function regionIdFromName(country: string, name: string) {
+    return getRegionsForCountry(country).find((region) => region.name === name)?.id ?? '';
 }
 
 export function MarketplaceSearchPanel({
@@ -23,16 +29,23 @@ export function MarketplaceSearchPanel({
     onSubmit: (event: FormEvent<HTMLFormElement>) => void;
     loading?: boolean;
 }) {
-    const regionId = regionIdFromName(value.region);
-    const communes = regionId ? getCommunesForRegion(regionId) : [];
+    const country = value.country || 'CL';
+    const hasCatalog = getCountryByCode(country)?.hasFullCatalog ?? false;
+    const regionId = regionIdFromName(country, value.region);
+    const communes = hasCatalog && regionId ? getLocalitiesForRegion(country, regionId) : [];
     const update = (patch: Partial<MarketplaceSearchFilters>) => onChange({ ...value, ...patch });
+
+    const countryOptions = useMemo(
+        () => getSupportedCountries().map((item) => ({ value: item.code, label: item.name })),
+        [],
+    );
 
     const regionOptions = useMemo(
         () => [
             { value: '', label: 'Todas las regiones' },
-            ...LOCATION_REGIONS.map((region) => ({ value: region.name, label: region.name })),
+            ...getRegionsForCountry(country).map((region) => ({ value: region.name, label: region.name })),
         ],
-        [],
+        [country],
     );
 
     const communeOptions = useMemo(
@@ -55,7 +68,7 @@ export function MarketplaceSearchPanel({
         >
             <div className="space-y-3 p-3 sm:p-4">
                 <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-12">
-                    <label className="relative md:col-span-2 xl:col-span-4">
+                    <label className="relative md:col-span-2 xl:col-span-3">
                         <span className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-fg-muted">
                             <IconSearch size={18} />
                         </span>
@@ -81,12 +94,25 @@ export function MarketplaceSearchPanel({
                     </label>
                     <div className="min-w-0 xl:col-span-2">
                         <ModernSelect
+                            value={country}
+                            onChange={(nextCountry) => update({ country: nextCountry, region: '', comuna: '' })}
+                            options={countryOptions}
+                            dropdownClassName="z-50"
+                            ariaLabel="País"
+                            placeholder="País"
+                            triggerClassName={CONTROL_CLASS}
+                            leadingIcon={<IconWorld size={15} />}
+                        />
+                    </div>
+                    <div className="min-w-0 xl:col-span-2">
+                        <ModernSelect
                             value={value.region}
                             onChange={(nextRegion) => update({ region: nextRegion, comuna: '' })}
                             options={regionOptions}
+                            disabled={!hasCatalog}
                             dropdownClassName="z-50"
                             ariaLabel="Región"
-                            placeholder="Región"
+                            placeholder={hasCatalog ? 'Región' : 'Sin catálogo regional'}
                             triggerClassName={CONTROL_CLASS}
                             leadingIcon={<IconMap2 size={15} />}
                         />
@@ -96,7 +122,7 @@ export function MarketplaceSearchPanel({
                             value={value.comuna}
                             onChange={(comuna) => update({ comuna })}
                             options={communeOptions}
-                            disabled={!regionId}
+                            disabled={!hasCatalog || !regionId}
                             dropdownClassName="z-50"
                             ariaLabel="Comuna"
                             placeholder="Comuna"
@@ -116,7 +142,7 @@ export function MarketplaceSearchPanel({
                     </div>
                     <button
                         type="submit"
-                        className="btn btn-primary h-11 w-full justify-center px-5 text-sm font-semibold md:col-span-2 xl:col-span-2"
+                        className="btn btn-primary h-11 w-full justify-center px-5 text-sm font-semibold md:col-span-2 xl:col-span-1"
                         disabled={loading}
                     >
                         <IconSearch size={18} />
@@ -124,9 +150,10 @@ export function MarketplaceSearchPanel({
                     </button>
                 </div>
                 <p className="text-xs leading-relaxed text-fg-muted">
-                    Elige una fecha para ver grupos con horarios posibles ese día.
+                    Elige país y ubicación para ver mariachis cerca. Con fecha, filtramos grupos con horarios posibles ese día.
                 </p>
             </div>
         </form>
     );
 }
+

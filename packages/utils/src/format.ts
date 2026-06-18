@@ -14,18 +14,33 @@ export function fmtCLP(amount: string | number): string {
 }
 
 /** Formatea una fecha corta: "lun. 3 abr." */
-export function fmtDateShort(iso: string | Date): string {
-    return new Date(iso).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
+export function fmtDateShort(iso: string | Date, tz?: string): string {
+    return new Date(iso).toLocaleDateString('es-CL', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        ...(tz ? { timeZone: tz } : {}),
+    });
 }
 
 /** Formatea una fecha larga: "3 de abril de 2026" */
-export function fmtDateLong(iso: string | Date): string {
-    return new Date(iso).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
+export function fmtDateLong(iso: string | Date, tz?: string): string {
+    return new Date(iso).toLocaleDateString('es-CL', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        ...(tz ? { timeZone: tz } : {}),
+    });
 }
 
 /** Formatea una fecha media: "3 abr. 2026" */
-export function fmtDateMedium(iso: string | Date): string {
-    return new Date(iso).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
+export function fmtDateMedium(iso: string | Date, tz?: string): string {
+    return new Date(iso).toLocaleDateString('es-CL', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        ...(tz ? { timeZone: tz } : {}),
+    });
 }
 
 /** Formatea una hora: "14:30" */
@@ -50,7 +65,32 @@ export function fmtDateTz(iso: string | Date, tz: string): string {
 
 /** Formatea fecha y hora juntas: "lun. 3 abr. a las 14:30" */
 export function fmtDateTimeShort(iso: string | Date, tz?: string): string {
-    return `${fmtDateShort(iso)} a las ${fmtTime(iso, tz)}`;
+    const zone = tz ?? undefined;
+    return `${fmtDateShort(iso, zone)} a las ${fmtTime(iso, zone)}`;
+}
+
+/** Fecha calendario (YYYY-MM-DD) en la zona indicada — para eventos sin timestamp UTC. */
+export function fmtCalendarDateYmd(ymd: string, tz: string): string {
+    const trimmed = ymd.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return new Date(`${trimmed}T12:00:00Z`).toLocaleDateString('es-CL', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short',
+            timeZone: tz,
+        });
+    }
+    return fmtDateShort(trimmed, tz);
+}
+
+/** Etiqueta de «hoy» en la zona del usuario: "miércoles 27 de mayo" */
+export function fmtTodayLabel(tz?: string): string {
+    return new Date().toLocaleDateString('es-CL', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        ...(tz ? { timeZone: tz } : {}),
+    });
 }
 
 /** Formatea fecha completa con timezone: "lunes 3 de abril a las 14:30" */

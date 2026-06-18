@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { joinClasses } from '../shared/join-classes.js';
+import { joinClasses } from '../shared/join-classes';
 import { PanelButton } from './panel-button.js';
 import { PanelNotice } from './panel-primitives.js';
 

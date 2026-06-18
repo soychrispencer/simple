@@ -2,7 +2,6 @@ import { apiFetch } from './api-client.js';
 
 export type PublicProfileVertical = 'autos' | 'propiedades';
 export type PublicProfileAccountKind = 'individual' | 'independent' | 'company';
-export type PublicProfileLeadRoutingMode = 'owner' | 'round_robin' | 'unassigned';
 export type PublicProfileDayId = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 export type PublicProfileSocialLinks = {
@@ -36,8 +35,6 @@ export type EditablePublicProfileTeamMember = {
         linkedin: string | null;
     };
     specialties: string[];
-    isLeadContact: boolean;
-    receivesLeads: boolean;
     isPublished: boolean;
 };
 
@@ -48,7 +45,6 @@ export type EditablePublicProfile = {
     slug: string;
     isPublished: boolean;
     accountKind: PublicProfileAccountKind;
-    leadRoutingMode: PublicProfileLeadRoutingMode;
     displayName: string;
     headline: string | null;
     bio: string | null;

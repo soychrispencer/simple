@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { geoPointSchema, listingLocationSchema } from '../modules/listings/location.js';
-import { inferPortalFromLeadImportSource } from '../modules/listings/portals.js';
 
 export const loginSchema = z.object({
     email: z.string().email(),
@@ -22,7 +21,6 @@ export const updateProfileSchema = z.object({
 });
 
 const publicProfileAccountKindSchema = z.enum(['individual', 'independent', 'company']);
-const publicProfileLeadRoutingModeSchema = z.enum(['owner', 'round_robin', 'unassigned']);
 const publicProfileDayIdSchema = z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
 const publicProfileSocialLinksSchema = z.object({
     instagram: z.string().trim().max(120).nullable().optional().default(null),
@@ -58,8 +56,6 @@ const publicProfileTeamMemberSchema = z.object({
         linkedin: null,
     }),
     specialties: z.array(z.string().trim().min(1).max(40)).max(6).default([]),
-    isLeadContact: z.boolean().default(false),
-    receivesLeads: z.boolean().default(true),
     isPublished: z.boolean().default(true),
 });
 
@@ -67,7 +63,6 @@ export const publicProfileWriteSchema = z.object({
     slug: z.string().trim().min(3).max(80),
     isPublished: z.boolean().default(false),
     accountKind: publicProfileAccountKindSchema.default('individual'),
-    leadRoutingMode: publicProfileLeadRoutingModeSchema.default('round_robin'),
     displayName: z.string().trim().min(2).max(160),
     headline: z.string().trim().max(180).nullable().optional().default(null),
     bio: z.string().trim().max(2400).nullable().optional().default(null),
@@ -135,7 +130,7 @@ const adDurationDaysSchema = z.union([z.literal(7), z.literal(15), z.literal(30)
 const adDestinationTypeSchema = z.enum(['none', 'custom_url', 'listing', 'profile']);
 const adOverlayAlignSchema = z.enum(['left', 'center', 'right']);
 const adPlacementSectionSchema = z.enum(['home', 'ventas', 'arriendos', 'subastas', 'proyectos']);
-const paidSubscriptionPlanIdSchema = z.enum(['essential', 'pro', 'enterprise']);
+const paidSubscriptionPlanIdSchema = z.enum(['pro', 'enterprise']);
 const listingStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
 const listingManageStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
 const addressBookKindSchema = z.enum(['personal', 'shipping', 'billing', 'company', 'branch', 'warehouse', 'pickup', 'other']);
@@ -219,6 +214,7 @@ export const instagramPublishSchema = z.object({
     vertical: instagramVerticalSchema,
     listingId: z.string().trim().min(1),
     captionOverride: z.string().trim().max(2200).nullable().optional(),
+    mediaFormat: z.enum(['auto', 'carousel', 'reel']).optional(),
 });
 
 export const instagramEnhancedPublishSchema = z.object({
@@ -227,6 +223,7 @@ export const instagramEnhancedPublishSchema = z.object({
     captionOverride: z.string().trim().max(2200).nullable().optional(),
     templateId: z.string().trim().max(120).nullable().optional(),
     layoutVariant: z.enum(['square', 'portrait']).nullable().optional(),
+    mediaFormat: z.enum(['auto', 'carousel', 'reel']).optional(),
     options: z.object({
         useAI: z.boolean().optional(),
         enableABTesting: z.boolean().optional(),
@@ -238,6 +235,28 @@ export const instagramEnhancedPublishSchema = z.object({
         targetAudience: z.enum(['young', 'professional', 'investors', 'families', 'general']).optional(),
         priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
     }).optional(),
+});
+
+export const socialPublishTargetSchema = z.enum([
+    'instagram_carousel',
+    'instagram_reel',
+    'facebook',
+    'tiktok',
+    'youtube',
+    'all',
+]);
+
+export const socialPublishSchema = z.object({
+    vertical: instagramVerticalSchema,
+    listingId: z.string().trim().min(1),
+    captionOverride: z.string().trim().max(2200).nullable().optional(),
+    publishAll: z.boolean().optional(),
+    targets: z.array(socialPublishTargetSchema).optional(),
+});
+
+export const generateListingReelSchema = z.object({
+    vertical: z.enum(['autos', 'propiedades']).default('autos'),
+    replaceExisting: z.boolean().optional(),
 });
 
 export const adCampaignCreateSchema = z.object({
@@ -325,155 +344,7 @@ export const createCheckoutSchema = z.discriminatedUnion('kind', [
 export const confirmCheckoutSchema = z.object({
     orderId: z.string().min(1),
     paymentId: z.union([z.string().min(1), z.number().int().positive()]).optional(),
-});
-
-const serviceLeadTypeSchema = z.enum(['venta_asistida', 'gestion_inmobiliaria']);
-const serviceLeadPlanSchema = z.enum(['basico', 'premium']);
-const serviceLeadStatusSchema = z.enum(['new', 'contacted', 'qualified', 'closed']);
-const listingLeadStatusSchema = z.enum(['new', 'contacted', 'qualified', 'closed']);
-const leadPrioritySchema = z.enum(['low', 'medium', 'high']);
-const listingLeadSourceSchema = z.enum(['internal_form', 'direct_message', 'whatsapp', 'phone_call', 'email', 'instagram', 'facebook', 'mercadolibre', 'yapo', 'chileautos', 'portal']);
-const listingLeadChannelSchema = z.enum(['lead', 'message', 'social', 'portal']);
-const listingLeadActionSourceSchema = z.enum(['whatsapp', 'phone_call', 'email']);
-
-export const serviceLeadCreateSchema = z.object({
-    vertical: boostVerticalSchema,
-    serviceType: serviceLeadTypeSchema,
-    planId: serviceLeadPlanSchema,
-    contactName: z.string().trim().min(2).max(120),
-    contactEmail: z.string().email(),
-    contactPhone: z.string().trim().min(6).max(40),
-    contactWhatsapp: z.string().trim().max(40).nullable().optional().default(null),
-    locationLabel: z.string().trim().max(255).nullable().optional().default(null),
-    assetType: z.string().trim().max(120).nullable().optional().default(null),
-    assetBrand: z.string().trim().max(120).nullable().optional().default(null),
-    assetModel: z.string().trim().max(120).nullable().optional().default(null),
-    assetYear: z.string().trim().max(20).nullable().optional().default(null),
-    assetMileage: z.string().trim().max(80).nullable().optional().default(null),
-    assetArea: z.string().trim().max(80).nullable().optional().default(null),
-    expectedPrice: z.string().trim().max(80).nullable().optional().default(null),
-    notes: z.string().trim().max(3000).nullable().optional().default(null),
-    sourcePage: z.string().trim().max(255).nullable().optional().default(null),
-    acceptedTerms: z.literal(true),
-});
-
-export const serviceLeadUpdateSchema = z.object({
-    status: serviceLeadStatusSchema.optional(),
-    priority: leadPrioritySchema.optional(),
-    closeReason: z.string().trim().max(255).nullable().optional(),
-    tags: z.array(z.string().trim().min(1).max(24)).max(8).optional(),
-    assignedToUserId: z.string().uuid().nullable().optional(),
-    nextTaskTitle: z.string().trim().max(255).nullable().optional(),
-    nextTaskAt: z.union([z.string().trim().min(1), z.null()]).optional(),
-});
-
-export const serviceLeadNoteSchema = z.object({
-    body: z.string().trim().min(2).max(4000),
-});
-
-export const leadQuickActionSchema = z.object({
-    action: z.enum(['call', 'whatsapp', 'email', 'follow_up']),
-});
-
-export const listingLeadCreateSchema = z.object({
-    vertical: boostVerticalSchema,
-    listingId: z.string().uuid(),
-    contactName: z.string().trim().min(2).max(120),
-    contactEmail: z.string().email(),
-    contactPhone: z.string().trim().max(40).nullable().optional().default(null),
-    contactWhatsapp: z.string().trim().max(40).nullable().optional().default(null),
-    message: z.string().trim().min(2).max(4000),
-    sourcePage: z.string().trim().max(255).nullable().optional().default(null),
-    createThread: z.boolean().optional().default(true),
-    acceptedTerms: z.literal(true),
-});
-
-export const listingLeadActionCreateSchema = z.object({
-    vertical: boostVerticalSchema,
-    listingId: z.string().uuid(),
-    source: listingLeadActionSourceSchema,
-    contactName: z.string().trim().min(2).max(120),
-    contactEmail: z.string().email(),
-    contactPhone: z.string().trim().max(40).nullable().optional().default(null),
-    contactWhatsapp: z.string().trim().max(40).nullable().optional().default(null),
-    message: z.string().trim().max(4000).nullable().optional().default(null),
-    sourcePage: z.string().trim().max(255).nullable().optional().default(null),
-    acceptedTerms: z.literal(true),
-});
-
-export const externalListingLeadImportSchema = z.object({
-    vertical: boostVerticalSchema,
-    source: listingLeadSourceSchema,
-    channel: listingLeadChannelSchema.optional(),
-    portal: portalKeySchema.nullable().optional().default(null),
-    listingId: z.string().uuid().nullable().optional().default(null),
-    listingSlug: z.string().trim().min(1).max(255).nullable().optional().default(null),
-    listingHref: z.string().trim().min(1).max(500).nullable().optional().default(null),
-    externalListingId: z.string().trim().min(1).max(255).nullable().optional().default(null),
-    externalSourceId: z.string().trim().min(1).max(255).nullable().optional().default(null),
-    contactName: z.string().trim().max(120).nullable().optional().default(null),
-    contactEmail: z.string().trim().email().nullable().optional().default(null),
-    contactPhone: z.string().trim().max(40).nullable().optional().default(null),
-    contactWhatsapp: z.string().trim().max(40).nullable().optional().default(null),
-    message: z.string().trim().max(4000).nullable().optional().default(null),
-    sourcePage: z.string().trim().max(255).nullable().optional().default(null),
-    receivedAt: z.union([z.number().int().positive(), z.string().trim().min(1)]).nullable().optional().default(null),
-    meta: z.record(z.string(), z.unknown()).nullable().optional().default(null),
-}).superRefine((value, ctx) => {
-    if (!value.listingId && !value.listingSlug && !value.listingHref && !value.externalListingId) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['listingId'],
-            message: 'Debes indicar listingId, listingSlug, listingHref o externalListingId.',
-        });
-    }
-
-    const derivedPortal = inferPortalFromLeadImportSource(value.source, value.portal);
-    if (value.source === 'portal' && !derivedPortal) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['portal'],
-            message: 'Portal es obligatorio cuando source es portal.',
-        });
-    }
-
-    if (value.externalListingId && !derivedPortal) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['portal'],
-            message: 'Portal es obligatorio para resolver externalListingId.',
-        });
-    }
-});
-
-export const listingLeadUpdateSchema = z.object({
-    status: listingLeadStatusSchema.optional(),
-    priority: leadPrioritySchema.optional(),
-    closeReason: z.string().trim().max(255).nullable().optional(),
-    tags: z.array(z.string().trim().min(1).max(24)).max(8).optional(),
-    assignedToUserId: z.string().uuid().nullable().optional(),
-    assignedToTeamMemberId: z.string().uuid().nullable().optional(),
-    pipelineColumnId: z.string().uuid().nullable().optional(),
-    nextTaskTitle: z.string().trim().max(255).nullable().optional(),
-    nextTaskAt: z.union([z.string().trim().min(1), z.null()]).optional(),
-});
-
-export const listingLeadNoteSchema = z.object({
-    body: z.string().trim().min(2).max(4000),
-});
-
-export const pipelineColumnCreateSchema = z.object({
-    name: z.string().trim().min(2).max(80),
-    status: listingLeadStatusSchema,
-});
-
-export const pipelineColumnUpdateSchema = z.object({
-    name: z.string().trim().min(2).max(80).optional(),
-    status: listingLeadStatusSchema.optional(),
-});
-
-export const pipelineColumnReorderSchema = z.object({
-    columnIds: z.array(z.string().uuid()).min(1),
+    sessionId: z.string().min(1).optional(),
 });
 
 export const emailVerificationRequestSchema = z.object({

@@ -5,7 +5,7 @@ import { API_BASE } from '@simple/config';
 
 import type { VerticalType } from '@simple/types';
 
-type SimplePlatformApp = 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas';
+type SimplePlatformApp = 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin';
 
 type PlatformAccess = {
     app: SimplePlatformApp;
@@ -31,6 +31,19 @@ type User = {
     provider?: string | null;
     hasPassword?: boolean;
     lastLoginAt?: string | null;
+    timezone?: string;
+    residence?: {
+        countryCode: string;
+        regionId: string | null;
+        regionName: string | null;
+        localityId: string | null;
+        localityName: string | null;
+    };
+    residenceCountryCode?: string;
+    residenceRegionId?: string | null;
+    residenceRegionName?: string | null;
+    residenceLocalityId?: string | null;
+    residenceLocalityName?: string | null;
     currentApp?: SimplePlatformApp | null;
     platformAccesses?: PlatformAccess[];
 } | null;
@@ -81,6 +94,7 @@ function sameUser(a: User, b: User): boolean {
         && a.provider === b.provider
         && a.hasPassword === b.hasPassword
         && a.lastLoginAt === b.lastLoginAt
+        && a.timezone === b.timezone
         && a.currentApp === b.currentApp
         && JSON.stringify(a.platformAccesses ?? []) === JSON.stringify(b.platformAccesses ?? []);
 }
@@ -93,6 +107,7 @@ function resolveAppFromBrowser(): SimplePlatformApp | null {
     if (hostname.includes('simpleautos') || port === '3002') return 'simpleautos';
     if (hostname.includes('simplepropiedades') || port === '3003') return 'simplepropiedades';
     if (hostname.includes('simpleserenatas') || port === '3005') return 'simpleserenatas';
+    if (hostname.includes('simpleadmin') || port === '3000') return 'simpleadmin';
     return null;
 }
 

@@ -7,6 +7,7 @@ import { defaultInstagramCaptionTemplate } from './listing-presentation.js';
 
 export type InstagramAccountStatus = 'connected' | 'error' | 'disconnected';
 export type InstagramPublicationStatus = 'published' | 'failed';
+export type InstagramPublicationContentType = 'image' | 'carousel' | 'reel';
 
 export type InstagramAccountRecord = {
     id: string;
@@ -27,6 +28,9 @@ export type InstagramAccountRecord = {
     lastSyncedAt: number | null;
     lastPublishedAt: number | null;
     lastError: string | null;
+    facebookPageId: string | null;
+    facebookPageName: string | null;
+    facebookPageAccessToken: string | null;
     createdAt: number;
     updatedAt: number;
 };
@@ -43,6 +47,7 @@ export type InstagramPublicationRecord = {
     instagramPermalink: string | null;
     caption: string;
     imageUrl: string;
+    contentType: InstagramPublicationContentType;
     status: InstagramPublicationStatus;
     errorMessage: string | null;
     sourceUpdatedAt: number | null;
@@ -84,6 +89,9 @@ export function mapInstagramAccountRow(account: typeof instagramAccounts.$inferS
         lastSyncedAt: account.lastSyncedAt?.getTime() ?? null,
         lastPublishedAt: account.lastPublishedAt?.getTime() ?? null,
         lastError: account.lastError ?? null,
+        facebookPageId: account.facebookPageId ?? null,
+        facebookPageName: account.facebookPageName ?? null,
+        facebookPageAccessToken: account.facebookPageAccessToken ?? null,
         createdAt: account.createdAt.getTime(),
         updatedAt: account.updatedAt.getTime(),
     };
@@ -102,6 +110,7 @@ export function mapInstagramPublicationRow(publication: typeof instagramPublicat
         instagramPermalink: publication.instagramPermalink ?? null,
         caption: publication.caption,
         imageUrl: publication.imageUrl,
+        contentType: (publication.contentType as InstagramPublicationContentType) || 'carousel',
         status: publication.status as InstagramPublicationStatus,
         errorMessage: publication.errorMessage ?? null,
         sourceUpdatedAt: publication.sourceUpdatedAt?.getTime() ?? null,
@@ -139,6 +148,9 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
             lastSyncedAt: account.lastSyncedAt,
             lastPublishedAt: account.lastPublishedAt,
             lastError: account.lastError,
+            facebookPage: account.facebookPageId
+                ? { id: account.facebookPageId, name: account.facebookPageName }
+                : null,
             createdAt: account.createdAt,
             updatedAt: account.updatedAt,
         };
@@ -154,6 +166,7 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
             instagramPermalink: publication.instagramPermalink,
             caption: publication.caption,
             imageUrl: publication.imageUrl,
+            contentType: publication.contentType,
             status: publication.status,
             errorMessage: publication.errorMessage,
             sourceUpdatedAt: publication.sourceUpdatedAt,
@@ -180,6 +193,9 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         lastSyncedAt?: number | null;
         lastPublishedAt?: number | null;
         lastError?: string | null;
+        facebookPageId?: string | null;
+        facebookPageName?: string | null;
+        facebookPageAccessToken?: string | null;
     }): Promise<InstagramAccountRecord> {
         const existing = getInstagramAccount(input.userId, input.vertical);
         const now = new Date();
@@ -201,6 +217,9 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
                 lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
                 lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : (existing.lastPublishedAt ? new Date(existing.lastPublishedAt) : null),
                 lastError: input.lastError ?? null,
+                facebookPageId: input.facebookPageId === undefined ? existing.facebookPageId : input.facebookPageId,
+                facebookPageName: input.facebookPageName === undefined ? existing.facebookPageName : input.facebookPageName,
+                facebookPageAccessToken: input.facebookPageAccessToken === undefined ? existing.facebookPageAccessToken : input.facebookPageAccessToken,
                 updatedAt: now,
             }).where(eq(instagramAccounts.id, existing.id)).returning();
 
@@ -227,6 +246,9 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
             lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
             lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : null,
             lastError: input.lastError ?? null,
+            facebookPageId: input.facebookPageId ?? null,
+            facebookPageName: input.facebookPageName ?? null,
+            facebookPageAccessToken: input.facebookPageAccessToken ?? null,
         }).returning();
 
         const mapped = mapInstagramAccountRow(row);
@@ -295,6 +317,7 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         instagramPermalink: string | null;
         caption: string;
         imageUrl: string;
+        contentType?: InstagramPublicationContentType;
         status: InstagramPublicationStatus;
         errorMessage: string | null;
         sourceUpdatedAt: number | null;
@@ -312,6 +335,7 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
             instagramPermalink: input.instagramPermalink,
             caption: input.caption,
             imageUrl: input.imageUrl,
+            contentType: input.contentType ?? 'carousel',
             status: input.status,
             errorMessage: input.errorMessage,
             sourceUpdatedAt: input.sourceUpdatedAt ? new Date(input.sourceUpdatedAt) : null,
@@ -328,8 +352,14 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         userId: string,
         vertical: VerticalType,
         listingId: string,
+        contentType?: InstagramPublicationContentType,
     ): InstagramPublicationRecord | null {
-        return getInstagramPublicationsForUser(userId, vertical).find((item) => item.listingId === listingId) ?? null;
+        const matches = getInstagramPublicationsForUser(userId, vertical)
+            .filter((item) => item.listingId === listingId);
+        if (contentType) {
+            return matches.find((item) => item.contentType === contentType) ?? null;
+        }
+        return matches[0] ?? null;
     }
 
     return {

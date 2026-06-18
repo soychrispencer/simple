@@ -86,7 +86,6 @@ export type PublicProfile = {
             linkedin: string | null;
         };
         specialties: string[];
-        isLeadContact: boolean;
     }>;
     teamCount: number;
     activeListings: number;

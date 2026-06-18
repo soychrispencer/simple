@@ -162,3 +162,13 @@ export function extractListingMediaUrls(record: ListingMediaSource): string[] {
     const remoteUrls = urls.filter((url) => !url.startsWith('data:'));
     return remoteUrls.length > 0 ? remoteUrls : urls;
 }
+
+export function extractListingVideoUrl(record: ListingMediaSource): string | null {
+    const payload = asObject(record.rawData);
+    const media = asObject(payload.media);
+    const discoverVideo = asObject(media.discoverVideo);
+    const direct = toPublicMediaUrl(media.videoUrl);
+    if (direct) return direct;
+    const uploaded = toPublicMediaUrl(discoverVideo);
+    return uploaded || null;
+}

@@ -14,9 +14,8 @@ import {
     buildOsmUrls,
     clearResolvedGeo,
     createEmptyGeoPoint,
-    ensureGooglePlacesDropdownStyles,
+    createGooglePlacesAutocomplete,
     fieldError,
-    loadGooglePlacesScript,
     addressSummary,
     buildLocationQuery,
     GoogleMapIcon,
@@ -55,6 +54,8 @@ export type ListingLocationEditorProps = {
     showSimpleVisibilityToggle?: boolean;
     /** Controls helper copy under the address / Places field. */
     addressHintMode?: 'default' | 'minimal' | 'none';
+    /** En simpleMode: selector «Usar dirección» de la libreta. */
+    showSavedAddressPicker?: boolean;
     visibilityOptions?: VisibilityOption[];
     geocoding?: boolean;
     googleMapsApiKey?: string;
@@ -192,6 +193,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         showAddressLine2 = true,
         showSimpleVisibilityToggle = true,
         addressHintMode = 'default',
+        showSavedAddressPicker = simpleMode,
         visibilityOptions = DEFAULT_VISIBILITY_OPTIONS,
         geocoding = false,
         googleMapsApiKey,
@@ -207,11 +209,13 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
     const allCommunesRef = useRef(allCommunes ?? communes);
     const onChangeRef = useRef(onChange);
     const autocompleteRef = useRef<any>(null);
-    const googlePlacesKey = googleMapsApiKey
+    const googlePlacesKey = (
+        googleMapsApiKey?.trim()
         || process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
         || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
         || process.env.NEXT_PUBLIC_GOOGLE_MAPS_EMBED_KEY
-        || '';
+        || ''
+    ).trim();
     const [autocompleteReady, setAutocompleteReady] = useState(false);
 
     const sourceOptions = useMemo(() => {
@@ -255,29 +259,21 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         }
 
         let disposed = false;
-        ensureGooglePlacesDropdownStyles();
 
-        void loadGooglePlacesScript(googlePlacesKey).then((ready) => {
-            if (disposed || !ready || !addressInputElRef.current) {
+        void createGooglePlacesAutocomplete(addressInputEl, googlePlacesKey, {
+            componentRestrictions: { country: 'cl' },
+            fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+            types: ['address'],
+        }).then((autocomplete) => {
+            if (disposed || !autocomplete || !addressInputElRef.current) {
                 setAutocompleteReady(false);
                 return;
             }
 
             const googleMaps = (window as typeof window & { google?: any }).google?.maps;
-            if (!googleMaps?.places?.Autocomplete) {
-                setAutocompleteReady(false);
-                return;
-            }
-
-            if (autocompleteRef.current && googleMaps.event?.clearInstanceListeners) {
+            if (autocompleteRef.current && googleMaps?.event?.clearInstanceListeners) {
                 googleMaps.event.clearInstanceListeners(autocompleteRef.current);
             }
-
-            const autocomplete = new googleMaps.places.Autocomplete(addressInputElRef.current, {
-                componentRestrictions: { country: 'cl' },
-                fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-                types: ['address'],
-            });
 
             autocomplete.addListener('place_changed', () => {
                 const place = autocomplete.getPlace?.() as GooglePlaceResult | undefined;
@@ -296,8 +292,10 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             if (autocompleteRef.current && googleMaps?.event?.clearInstanceListeners) {
                 googleMaps.event.clearInstanceListeners(autocompleteRef.current);
             }
+            autocompleteRef.current = null;
+            setAutocompleteReady(false);
         };
-    }, [googlePlacesKey, location.sourceMode, addressInputEl]);
+    }, [googlePlacesKey, googleMapsApiKey, location.sourceMode, addressInputEl]);
 
     const addressHint = addressHintMode === 'none'
         ? undefined
@@ -416,7 +414,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
     ) : null;
     const addressFields = location.sourceMode !== 'area_only' ? (
         simpleMode ? (
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
                     <div className="flex items-center gap-2">
                         <input
@@ -499,6 +497,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             {simpleMode ? (
                 <>
                     {locationMetaFields}
+                    {showSavedAddressPicker ? (
                     <Field label="Usar dirección" hint={!addressBookLoading && addressBook.length === 0 ? 'Aún no tienes direcciones guardadas. Completa el formulario y usa «Guardar en libreta».' : undefined}>
                         <StyledSelect
                             value={savedAddressSelectValue}
@@ -519,6 +518,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                             }}
                         />
                     </Field>
+                    ) : null}
                     {addressFields}
                     {showAreaFields ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

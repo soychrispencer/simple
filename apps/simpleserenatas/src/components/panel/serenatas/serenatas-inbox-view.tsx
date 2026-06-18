@@ -39,7 +39,7 @@ import { SerenataSetlistPanel } from '../serenata-setlist-panel';
 import { ClientSerenataCancelPrompt } from '../client-serenata-cancel-prompt';
 import { startSerenataCheckout } from '@/lib/payments';
 import { panelMiNegocioHref, panelSectionHref } from '@/lib/panel-routes';
-import { formatSerenataCollectionMethod } from '@/lib/owner-collection-method';
+import { useSerenataPanelFormat } from '@/hooks/use-serenata-panel-format';
 import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
 import { PanelSheet } from '../panel-sheet';
 import {
@@ -49,13 +49,11 @@ import {
     SerenataRow,
     cleanSerenataAddress,
     computeSerenataAppDeduction,
-    formatDate,
     formatSerenataListSummary,
     formatServiceSongsIncludedLabel,
     formatSerenataEventPlace,
     googleMapsUrl,
     ownerCanViewClientPhone,
-    formatShortSerenataDate,
     money,
     serenataLocation,
     serenataStatusLabel,
@@ -95,6 +93,7 @@ type SerenataOriginFilter = 'all' | Serenata['source'];
 type SerenataMode = 'detail' | 'edit';
 
 export function SerenatasView({ serenatas, groups, musicians, packages: packagesProp, selectedSerenataId, action, clearAction, refresh, isSolicitudesMode = false, onAgendaDeepLink }: { serenatas: Serenata[]; groups: SerenataGroup[]; musicians: MusicianDirectoryItem[]; packages?: SerenataPackage[]; selectedSerenataId?: string | null; refresh: () => Promise<void>; isSolicitudesMode?: boolean; onAgendaDeepLink?: (serenataId: string) => void } & PanelActionProps) {
+    const fmt = useSerenataPanelFormat(true);
     const searchParams = useSearchParams();
     const [filter, setFilter] = useState<SerenataFilter>(isSolicitudesMode ? 'inbox' : 'all');
     const [originFilter, setOriginFilter] = useState<SerenataOriginFilter>('all');
@@ -355,7 +354,7 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                                             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg-muted">
                                                 <span className="flex items-center gap-1.5">
                                                     <IconClock size={15} className="shrink-0" />
-                                                    {formatShortSerenataDate(item)}
+                                                    {fmt.formatShortSerenataDate(item)}
                                                 </span>
                                                 <span className="flex items-center gap-1.5">
                                                     <IconMapPin size={15} className="shrink-0" />
@@ -526,9 +525,11 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
                         <p className="text-sm font-semibold text-fg">Solicitud pagada</p>
                         <SolicitudWaitTimer item={item} />
                     </div>
-                    <div className="mt-5 grid min-w-0 gap-4 sm:grid-cols-3">
+                    <div className={`mt-5 grid min-w-0 gap-4 ${commission != null && commission > 0 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
                         <MoneyMetric label="Precio" value={item.price} strong />
-                        <MoneyMetric label="Costo Simple" value={commission} />
+                        {commission != null && commission > 0 ? (
+                            <MoneyMetric label="Comisión plataforma" value={commission} />
+                        ) : null}
                         <MoneyMetric label="Estimado neto" value={net} strong />
                     </div>
                 </div>
@@ -539,7 +540,7 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
                     <SerenataDetailMetric
                         icon={IconClock}
                         label="Fecha y hora"
-                        title={`${formatDate(item.eventDate)} a las ${item.eventTime}`}
+                        title={`${fmt.formatDate(item.eventDate)} a las ${item.eventTime}`}
                     />
                     <SerenataDetailMetric
                         icon={IconMapPin}

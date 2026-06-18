@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { joinClasses } from '../shared/join-classes.js';
+import { joinClasses } from '../shared/join-classes';
 import { PanelPageHeader } from './panel-display.js';
 
 export type PanelConfigSectionItem = {

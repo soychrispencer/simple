@@ -8,7 +8,7 @@ import {
     IconPlus,
     IconX,
     IconLoader2,
-    IconCalendar,
+    IconCalendarEvent,
     IconUser,
     IconClock,
     IconMapPin,
@@ -1051,7 +1051,7 @@ export default function AgendaPage() {
                         <div className="flex flex-col gap-2">
                             <InfoRow icon={<IconUser size={14} />} label={selectedAppt.clientName ?? selectedAppt.client?.firstName ?? '—'} />
                             <InfoRow icon={<IconClock size={14} />} label={`${profile ? formatTimeTz(selectedAppt.startsAt, profile.timezone) : formatTime(selectedAppt.startsAt)} — ${profile ? formatTimeTz(selectedAppt.endsAt, profile.timezone) : formatTime(selectedAppt.endsAt)} (${selectedAppt.durationMinutes} min)`} />
-                            <InfoRow icon={<IconCalendar size={14} />} label={profile ? fmtDateTz(selectedAppt.startsAt, profile.timezone) : formatDate(new Date(selectedAppt.startsAt))} />
+                            <InfoRow icon={<IconCalendarEvent size={14} />} label={profile ? fmtDateTz(selectedAppt.startsAt, profile.timezone) : formatDate(new Date(selectedAppt.startsAt))} />
                             {selectedAppt.modality === 'online' && (
                                 <>
                                     <InfoRow icon={<IconVideo size={14} />} label="Online" />

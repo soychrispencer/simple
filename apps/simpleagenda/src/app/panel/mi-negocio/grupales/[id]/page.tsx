@@ -5,7 +5,8 @@ import { use } from 'react';
 import {
     IconUserPlus, IconLoader2, IconTrash, IconX, IconCheck, IconAlertCircle, IconUsersGroup, IconCalendarEvent, IconMapPin, IconVideo, IconUser, IconUserCheck, IconUserX, IconMail, IconPhone, IconCurrencyDollar, IconEdit, IconPlayerStop, IconCircleCheck, IconArrowBackUp, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelField, PanelNotice, PanelPageHeader, PanelEmptyState } from '@simple/ui/panel';
+import { PanelButton, PanelField, PanelNotice, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_GRUPALES_PAGE } from '@simple/ui/panel';
+import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchGroupSession,
     patchGroupSession,
@@ -252,35 +253,40 @@ export default function GroupSessionDetailPage({ params }: { params: Promise<{ i
 
     if (notFound || !session) {
         return (
-            <div className="container-app panel-page py-4 lg:py-8">
-                <PanelPageHeader title="Sesión no encontrada" />
+            <PanelBusinessShell
+                activeKey="servicios"
+                tabs={businessSectionTabs}
+                title="Sesión no encontrada"
+                subsectionBack={{ href: '/panel/mi-negocio/grupales', label: AGENDA_BUSINESS_GRUPALES_PAGE.title }}
+            >
                 <PanelEmptyState
                     title="No encontramos esta sesión"
                     description="Puede que haya sido eliminada."
                 />
-            </div>
+            </PanelBusinessShell>
         );
     }
 
     const statusTone_ = sessionStatusTone[session.status];
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title={session.title}
-                description={`${taken}/${session.capacity} asistentes`}
-                actions={
-                    <PanelButton
-                        variant="accent"
-                        size="sm"
-                        onClick={openNew}
-                        disabled={capacityFull || session.status !== 'scheduled'}
-                    >
-                        <IconUserPlus size={14} /> Agregar
-                    </PanelButton>
-                }
-            />
-
+        <PanelBusinessShell
+            activeKey="servicios"
+            tabs={businessSectionTabs}
+            title={session.title}
+            description={`${taken}/${session.capacity} asistentes`}
+            subsectionBack={{ href: '/panel/mi-negocio/grupales', label: AGENDA_BUSINESS_GRUPALES_PAGE.title }}
+            actions={
+                <PanelButton
+                    variant="accent"
+                    size="sm"
+                    onClick={openNew}
+                    disabled={capacityFull || session.status !== 'scheduled'}
+                >
+                    <IconUserPlus size={14} /> Agregar
+                </PanelButton>
+            }
+        >
             {flash && (
                 <div className="mb-4">
                     <PanelNotice tone="success">
@@ -579,6 +585,6 @@ export default function GroupSessionDetailPage({ params }: { params: Promise<{ i
                     </div>
                 </div>
             )}
-        </div>
+        </PanelBusinessShell>
     );
 }

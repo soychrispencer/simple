@@ -1,7 +1,7 @@
 # SimpleAutos - Arquitectura Completa de Publicaciones
 
 ## Resumen Ejecutivo
-SimpleAutos es una plataforma de compraventa, arriendo y subastas de vehículos. El flujo de publicaciones sigue un modelo de 3 pasos (fotos → datos básicos → confirmación) que almacena datos en PostgreSQL y archivos de imágenes en Backblaze B2.
+SimpleAutos es una plataforma de compraventa, arriendo y subastas de vehículos. El flujo de publicaciones sigue un modelo de 3 pasos (fotos → datos básicos → confirmación) que almacena datos en PostgreSQL y archivos de imágenes/videos en **Cloudflare R2**.
 
 ---
 
@@ -394,73 +394,16 @@ Muestra:
 
 ---
 
-## 6. ALMACENAMIENTO DE FOTOS (Backblaze B2)
+## 6. ALMACENAMIENTO DE MEDIA (Cloudflare R2)
 
-### 📍 Proveedor: `services/api/src/storage-providers/backblaze-b2.ts`
+### 📍 Proveedor: `services/api/src/storage-providers/cloudflare-r2.ts`
 
-#### Clase: `BackblazeB2Provider`
+- **Desarrollo:** `STORAGE_PROVIDER=local` → `services/api/uploads/`
+- **Producción:** `STORAGE_PROVIDER=cloudflare-r2` → bucket R2 con URL pública (`*.r2.dev` o dominio custom)
+- **Upload API:** `POST /api/media/upload` (imágenes WebP y videos MP4)
+- **Documentación:** `docs/STORAGE_SETUP.md`
 
-**Configuración:**
-```typescript
-new BackblazeB2Provider(
-  appKeyId: string,      // process.env.BACKBLAZE_APP_KEY_ID
-  appKey: string,        // process.env.BACKBLAZE_APP_KEY
-  bucketId: string,      // process.env.BACKBLAZE_BUCKET_ID
-  bucketName: string,    // 'simpleautos-listings'
-  downloadUrl: string    // 'https://f001.backblazeb2.com'
-);
-```
-
-**Métodos principales:**
-
-1. **`async upload(input: StorageUploadInput): Promise<StorageUploadResult>`**
-   ```typescript
-   input: {
-     file: File | Buffer;
-     fileName: string;
-     mimeType: string;
-     userId: string;
-     listingId?: string;
-   }
-   
-   // Ruta en B2:
-   // {bucketName}/[userId]/[listingId || 'temp']/[timestamp]-[fileName]
-   // Ej: simpleautos-listings/uuid-user/uuid-listing/1711276800000-car_photo.jpg
-   ```
-
-2. **`async delete(fileId: string): Promise<void>`**
-   - Elimina archivo por ID
-
-3. **`getUrl(fileId: string): string`**
-   - Genera URL pública
-
-**Flujo de autenticación:**
-```
-1. authorize() → POST https://api001.backblazeb2.com/b2api/v3/auth/authorize
-   └─ Header: Authorization: Basic [base64(appKeyId:appKey)]
-   └─ Retorna: {authorizationToken, apiUrl}
-   └─ Token válido 24h (refresh después 23h)
-
-2. getUploadUrl() → POST {apiUrl}/b2api/v3/b2_get_upload_url
-   └─ Header: Authorization: {authToken}
-   └─ Retorna: {uploadUrl, authorizationToken}
-
-3. Upload → POST {uploadUrl}
-   └─ Header: X-Bz-File-Name: {urlEncodedPath}
-   └─ Body: Binary file data
-```
-
-**URLs públicas generadas:**
-```
-https://f001.backblazeb2.com/file/simpleautos-listings/
-  {userId}/{listingId || 'temp'}/{timestamp}-{fileName}
-
-Ejemplo:
-https://f001.backblazeb2.com/file/simpleautos-listings/
-  550e8400-e29b-41d4-a716-446655440000/
-  5f3e6d20-a5b2-4e8c-9f1a-3b8a7c4d6e2f/
-  1711276800000-DSC_0001.jpg
-```
+Fotos y videos del aviso viven en `rawData.media` (PostgreSQL) con URLs públicas en R2. Instagram Reels usa `media.videoUrl` / `media.discoverVideo`.
 
 ---
 

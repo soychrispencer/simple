@@ -437,7 +437,7 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                 signals.push({
                     vertical: 'serenatas',
                     source: 'serenata_owner',
-                    label: 'Serenatas: proveedor',
+                    label: 'Serenatas: dueño',
                     count: 1,
                     firstSeenAt: timeOrNull(serenataOwner.createdAt),
                     lastSeenAt: timeOrNull(serenataOwner.updatedAt),

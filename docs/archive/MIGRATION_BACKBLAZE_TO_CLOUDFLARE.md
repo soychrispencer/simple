@@ -1,6 +1,6 @@
 # Migración: Backblaze B2 → Cloudflare R2
 
-> **Legacy:** el runtime de Simple ya no soporta Backblaze; este doc y `scripts/migrate-to-cloudflare.ts` son solo referencia histórica / migración one-off.
+> **Legacy:** el runtime de Simple ya no soporta Backblaze. Este documento es solo referencia histórica de la migración one-off (el script de migración fue retirado del repo).
 
 ## Resumen
 

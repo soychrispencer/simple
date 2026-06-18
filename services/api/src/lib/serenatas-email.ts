@@ -8,7 +8,6 @@ import {
 } from './email-template.js';
 import {
     getUserNotificationPrefs,
-    shouldDeferSerenatasEmailForDigest,
     shouldSendAgendaEmail,
     shouldSendInvitationEmail,
     shouldSendRequestsEmail,
@@ -103,13 +102,6 @@ export async function sendSerenataInvitationEmail(
         console.debug('[serenatas-email] invitation skipped (prefs)', { userId: prefs.userId });
         return;
     }
-    if (shouldDeferSerenatasEmailForDigest(prefs, 'invitation')) {
-        console.debug('[serenatas-email] invitation deferred (digest)', {
-            userId: prefs.userId,
-            frequency: prefs.emailDigestFrequency,
-        });
-        return;
-    }
     await sendSerenatasActionEmail(prefs.email, input.title, {
         preheader: input.message,
         eyebrow: 'Invitación',
@@ -131,13 +123,6 @@ export async function sendSerenataRequestEmail(
         console.debug('[serenatas-email] requests skipped (prefs)', { userId: prefs.userId });
         return;
     }
-    if (shouldDeferSerenatasEmailForDigest(prefs, 'requests')) {
-        console.debug('[serenatas-email] requests deferred (digest)', {
-            userId: prefs.userId,
-            frequency: prefs.emailDigestFrequency,
-        });
-        return;
-    }
     await sendSerenatasActionEmail(prefs.email, input.title, {
         preheader: input.message,
         eyebrow: 'Solicitud',
@@ -157,13 +142,6 @@ export async function sendSerenataAgendaEmail(
 ): Promise<void> {
     if (!shouldSendAgendaEmail(prefs)) {
         console.debug('[serenatas-email] agenda skipped (prefs)', { userId: prefs.userId });
-        return;
-    }
-    if (shouldDeferSerenatasEmailForDigest(prefs, 'agenda')) {
-        console.debug('[serenatas-email] agenda deferred (digest)', {
-            userId: prefs.userId,
-            frequency: prefs.emailDigestFrequency,
-        });
         return;
     }
     await sendSerenatasActionEmail(prefs.email, input.title, {

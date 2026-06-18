@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { IconLoader2, IconPlus, IconTrash, IconCalendarOff, IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
 import Link from 'next/link';
 import { PanelCard } from '@simple/ui/panel';
-import { PanelField, PanelButton, PanelSwitch, PanelPageHeader, PanelBlockHeader, PanelEmptyState } from '@simple/ui/panel';
-import { PanelSectionTabs, businessSectionTabs } from '@/components/panel/panel-section-tabs';
+import { PanelField, PanelButton, PanelSwitch, PanelBlockHeader, PanelEmptyState, PanelBusinessShell, AGENDA_BUSINESS_DISPONIBILIDAD_PAGE } from '@simple/ui/panel';
+import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaAvailability,
     createAvailabilityRule,
@@ -288,16 +288,25 @@ export default function DisponibilidadConfigPage() {
 
     if (loading) {
         return (
-            <div className="container-app panel-page py-4 lg:py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                <IconLoader2 size={16} className="animate-spin" /> Cargando disponibilidad...
-            </div>
+            <PanelBusinessShell
+                activeKey="disponibilidad"
+                tabs={businessSectionTabs}
+                title={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.title}
+            >
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                    <IconLoader2 size={16} className="animate-spin" /> Cargando disponibilidad...
+                </div>
+            </PanelBusinessShell>
         );
     }
 
     if (loadError) {
         return (
-            <div className="container-app panel-page py-4 lg:py-8">
-                <PanelPageHeader title="Disponibilidad" />
+            <PanelBusinessShell
+                activeKey="disponibilidad"
+                tabs={businessSectionTabs}
+                title={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.title}
+            >
                 <div className="rounded-2xl border px-5 py-4 text-sm flex items-center gap-3" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
                     <IconAlertCircle size={16} className="shrink-0" />
                     <div>
@@ -307,38 +316,30 @@ export default function DisponibilidadConfigPage() {
                         </button>
                     </div>
                 </div>
-            </div>
+            </PanelBusinessShell>
         );
     }
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Disponibilidad"
-                description="Define tus horarios semanales de atención y bloquea días de descanso."
-                actions={
-                    rules.length === 0 ? (
-                        <PanelButton
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => void handleLoadDefaults()}
-                            disabled={loadingDefault}
-                        >
-                            {loadingDefault ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                            Cargar horario típico
-                        </PanelButton>
-                    ) : null
-                }
-            />
-
-            <div className="mb-6">
-                <PanelSectionTabs
-                    items={businessSectionTabs}
-                    activeKey="disponibilidad"
-                    ariaLabel="Secciones de mi negocio"
-                />
-            </div>
-
+        <PanelBusinessShell
+            activeKey="disponibilidad"
+            tabs={businessSectionTabs}
+            title={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.title}
+            description={AGENDA_BUSINESS_DISPONIBILIDAD_PAGE.description}
+            actions={
+                rules.length === 0 ? (
+                    <PanelButton
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void handleLoadDefaults()}
+                        disabled={loadingDefault}
+                    >
+                        {loadingDefault ? <IconLoader2 size={14} className="animate-spin" /> : null}
+                        Cargar horario típico
+                    </PanelButton>
+                ) : null
+            }
+        >
             {defaultError && (
                 <div className="mb-4 rounded-2xl border px-4 py-3 text-sm flex items-center gap-2" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
                     <IconAlertCircle size={15} className="shrink-0" />
@@ -588,6 +589,6 @@ export default function DisponibilidadConfigPage() {
                     <IconChevronRight size={18} style={{ color: 'var(--accent)' }} />
                 </Link>
             </div>
-        </div>
+        </PanelBusinessShell>
     );
 }

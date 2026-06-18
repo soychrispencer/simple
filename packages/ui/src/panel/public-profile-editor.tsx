@@ -126,8 +126,6 @@ function createEmptyTeamMember(): EditablePublicProfileTeamMember {
             linkedin: null,
         },
         specialties: [],
-        isLeadContact: false,
-        receivesLeads: false,
         isPublished: true,
     };
 }
@@ -299,8 +297,6 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                     linkedin: teamDraft.socialLinks.linkedin?.trim() || null,
                 },
                 specialties: teamDraft.specialties,
-                isLeadContact: teamDraft.isLeadContact,
-                receivesLeads: teamDraft.receivesLeads,
                 isPublished: teamDraft.isPublished,
             };
             const nextTeam = editingTeamMemberId
@@ -387,9 +383,9 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                     <PanelStatusBadge label="Función premium" tone="neutral" />
                 </div>
                 <div className="space-y-2">
-                    <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>La página pública está disponible para planes pagados.</h3>
+                    <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>La página pública está disponible con suscripción.</h3>
                     <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                        Activa una suscripción para mostrar una ficha profesional conectada a tu inventario, datos de contacto, horario y redes sociales.
+                        Activa un plan para publicar tu ficha en el marketplace: contacto, redes, horario e inventario. Los cobros y contactos van directo a ti; Simple no cobra comisión por transacción.
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -410,9 +406,9 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                             <PanelStatusBadge label={form.isPublished ? 'Publicada' : 'Borrador'} tone={form.isPublished ? 'success' : 'neutral'} />
                         </div>
                         <div>
-                            <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Página pública de vendedor</h3>
+                            <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Página pública</h3>
                             <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                Conecta tu cuenta pagada con una presentación pública clara, profesional y enfocada en convertir contactos.
+                                Tu vitrina en el marketplace: contacto, redes y horario visibles para compradores. Sin comisiones por venta ni intermediación en los pagos.
                             </p>
                         </div>
                     </div>
@@ -511,7 +507,7 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                     <PanelCard size="lg" className="space-y-5">
                         <PanelBlockHeader
                             title="Contacto y operación"
-                            description="Estos datos sostienen la credibilidad del perfil y facilitan el lead."
+                            description="Estos datos sostienen la credibilidad del perfil y facilitan el contacto."
                             className="mb-0"
                         />
 
@@ -641,11 +637,11 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
             <PanelCard size="lg" className="space-y-5">
                 <PanelBlockHeader
                     title="Equipo visible"
-                    description="Agrega vendedores o asesores que quieras mostrar en la ficha pública. La asignación y distribución de leads se administra desde CRM."
+                    description="Agrega vendedores o asesores que quieras mostrar en la ficha pública."
                     className="mb-0"
                 />
                 <PanelNotice tone="neutral">
-                    El reparto automático de leads, quién recibe consultas y la organización operativa del equipo ahora se administran desde <Link href="/panel/equipo">Equipo y leads</Link>.
+                    Configura los integrantes visibles en tu perfil público. Las consultas de publicaciones llegan por mensajes en el panel.
                 </PanelNotice>
 
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
@@ -673,7 +669,6 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                                                 </div>
                                             </div>
                                             <div className="flex flex-wrap gap-2">
-                                                {member.isLeadContact ? <PanelStatusBadge label="Contacto destacado" tone="info" size="sm" /> : null}
                                                 {!member.isPublished ? <PanelStatusBadge label="Oculto" tone="neutral" size="sm" /> : null}
                                                 {member.specialties.slice(0, 3).map((item) => (
                                                     <PanelStatusBadge key={`${member.id ?? member.name}-${item}`} label={item} tone="neutral" size="sm" />
@@ -708,7 +703,7 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                                 {editingTeamMemberId ? 'Editar integrante' : 'Agregar integrante'}
                             </p>
                             <p className="text-xs leading-5" style={{ color: 'var(--fg-secondary)' }}>
-                                Estos datos construyen la cara pública de tu equipo. La distribución de leads se define desde el módulo CRM.
+                                Estos datos construyen la cara pública de tu equipo en el perfil.
                             </p>
                         </div>
 
@@ -753,10 +748,6 @@ export function PublicProfileEditor({ vertical }: PublicProfileEditorProps) {
                         </div>
 
                         <div className="flex flex-wrap gap-3">
-                            <label className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                <input type="checkbox" checked={teamDraft.isLeadContact} onChange={(event) => setTeamDraft((current) => ({ ...current, isLeadContact: event.target.checked }))} />
-                                Contacto destacado
-                            </label>
                             <label className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                                 <input type="checkbox" checked={teamDraft.isPublished} onChange={(event) => setTeamDraft((current) => ({ ...current, isPublished: event.target.checked }))} />
                                 Mostrar en ficha pública

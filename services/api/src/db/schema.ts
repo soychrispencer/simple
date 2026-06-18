@@ -8,19 +8,12 @@ export const users = pgTable('users', {
   passwordHash: varchar('password_hash', { length: 255 }),
   name: varchar('name', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 20 }),
-  whatsappEnabled: boolean('whatsapp_enabled').notNull().default(false),
-  whatsappNotifyInvitations: boolean('whatsapp_notify_invitations').notNull().default(false),
-  whatsappNotifyRequests: boolean('whatsapp_notify_requests').notNull().default(false),
-  whatsappNotifyAgenda: boolean('whatsapp_notify_agenda').notNull().default(false),
-  whatsappNotifyAccount: boolean('whatsapp_notify_account').notNull().default(false),
   emailNotifyInvitations: boolean('email_notify_invitations').notNull().default(true),
   emailNotifyRequests: boolean('email_notify_requests').notNull().default(true),
   emailNotifyAgenda: boolean('email_notify_agenda').notNull().default(true),
   emailNotifyAccount: boolean('email_notify_account').notNull().default(true),
   inAppNotificationsEnabled: boolean('in_app_notifications_enabled').notNull().default(true),
-  emailDigestFrequency: varchar('email_digest_frequency', { length: 10 }).notNull().default('off'),
   lastNotificationEmailAt: timestamp('last_notification_email_at'),
-  lastNotificationWhatsappAt: timestamp('last_notification_whatsapp_at'),
   role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'musician' | 'client' | 'admin' | 'superadmin'
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'verified' | 'suspended'
   primaryVertical: varchar('primary_vertical', { length: 20 }), // NULL = platform/superadmin; 'autos' | 'propiedades' | 'agenda'
@@ -29,6 +22,11 @@ export const users = pgTable('users', {
   avatarUrl: varchar('avatar_url', { length: 500 }),
   timezone: varchar('timezone', { length: 50 }).notNull().default('America/Santiago'),
   dstEnabled: boolean('dst_enabled').notNull().default(false),
+  residenceCountryCode: varchar('residence_country_code', { length: 3 }).notNull().default('CL'),
+  residenceRegionId: varchar('residence_region_id', { length: 50 }),
+  residenceRegionName: varchar('residence_region_name', { length: 120 }),
+  residenceLocalityId: varchar('residence_locality_id', { length: 50 }),
+  residenceLocalityName: varchar('residence_locality_name', { length: 120 }),
   // OAuth fields
   provider: varchar('provider', { length: 20 }), // 'local' | 'google' | 'facebook' | etc.
   providerId: varchar('provider_id', { length: 255 }), // ID from OAuth provider
@@ -198,10 +196,80 @@ export const instagramAccounts = pgTable('instagram_accounts', {
   lastSyncedAt: timestamp('last_synced_at'),
   lastPublishedAt: timestamp('last_published_at'),
   lastError: text('last_error'),
+  facebookPageId: varchar('facebook_page_id', { length: 255 }),
+  facebookPageName: varchar('facebook_page_name', { length: 255 }),
+  facebookPageAccessToken: text('facebook_page_access_token'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   uniqueUserVertical: uniqueIndex('instagram_accounts_user_vertical_idx').on(table.userId, table.vertical),
+}));
+
+export const socialPublications = pgTable('social_publications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  listingId: varchar('listing_id', { length: 255 }).notNull(),
+  listingTitle: varchar('listing_title', { length: 255 }).notNull(),
+  platform: varchar('platform', { length: 20 }).notNull(),
+  contentType: varchar('content_type', { length: 20 }).notNull().default('link'),
+  externalId: varchar('external_id', { length: 255 }),
+  permalink: text('permalink'),
+  caption: text('caption').notNull(),
+  mediaUrl: text('media_url'),
+  status: varchar('status', { length: 20 }).notNull().default('published'),
+  errorMessage: text('error_message'),
+  sourceUpdatedAt: timestamp('source_updated_at'),
+  publishedAt: timestamp('published_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const tiktokAccounts = pgTable('tiktok_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  openId: varchar('open_id', { length: 255 }).notNull(),
+  username: varchar('username', { length: 255 }).notNull(),
+  displayName: varchar('display_name', { length: 255 }),
+  avatarUrl: text('avatar_url'),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token'),
+  tokenExpiresAt: timestamp('token_expires_at'),
+  scopes: jsonb('scopes'),
+  status: varchar('status', { length: 20 }).notNull().default('connected'),
+  lastSyncedAt: timestamp('last_synced_at'),
+  lastPublishedAt: timestamp('last_published_at'),
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  uniqueUserVertical: uniqueIndex('tiktok_accounts_user_vertical_idx').on(table.userId, table.vertical),
+}));
+
+export const youtubeAccounts = pgTable('youtube_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  channelId: varchar('channel_id', { length: 255 }).notNull(),
+  channelTitle: varchar('channel_title', { length: 255 }).notNull(),
+  channelHandle: varchar('channel_handle', { length: 255 }),
+  avatarUrl: text('avatar_url'),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token'),
+  tokenExpiresAt: timestamp('token_expires_at'),
+  scopes: jsonb('scopes'),
+  status: varchar('status', { length: 20 }).notNull().default('connected'),
+  lastSyncedAt: timestamp('last_synced_at'),
+  lastPublishedAt: timestamp('last_published_at'),
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  uniqueUserVertical: uniqueIndex('youtube_accounts_user_vertical_idx').on(table.userId, table.vertical),
 }));
 
 export const instagramPublications = pgTable('instagram_publications', {
@@ -216,6 +284,7 @@ export const instagramPublications = pgTable('instagram_publications', {
   instagramPermalink: text('instagram_permalink'),
   caption: text('caption').notNull(),
   imageUrl: text('image_url').notNull(),
+  contentType: varchar('content_type', { length: 20 }).notNull().default('carousel'),
   status: varchar('status', { length: 20 }).notNull().default('published'),
   errorMessage: text('error_message'),
   sourceUpdatedAt: timestamp('source_updated_at'),
@@ -232,8 +301,6 @@ export const publicProfiles = pgTable('public_profiles', {
   slug: varchar('slug', { length: 80 }).notNull(),
   isPublished: boolean('is_published').notNull().default(false),
   accountKind: varchar('account_kind', { length: 20 }).notNull().default('individual'),
-  leadRoutingMode: varchar('lead_routing_mode', { length: 20 }).notNull().default('round_robin'),
-  leadRoutingCursor: integer('lead_routing_cursor').notNull().default(0),
   displayName: varchar('display_name', { length: 160 }).notNull(),
   headline: varchar('headline', { length: 180 }),
   bio: text('bio'),
@@ -272,8 +339,6 @@ export const publicProfileTeamMembers = pgTable('public_profile_team_members', {
   avatarImageUrl: varchar('avatar_image_url', { length: 500 }),
   socialLinks: jsonb('social_links').$type<Record<string, string | null>>().notNull().default(sql`'{}'::jsonb`),
   specialties: jsonb('specialties').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-  isLeadContact: boolean('is_lead_contact').notNull().default(false),
-  receivesLeads: boolean('receives_leads').notNull().default(true),
   isPublished: boolean('is_published').notNull().default(true),
   position: integer('position').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -305,110 +370,15 @@ export const addressBook = pgTable('address_book', {
 }));
 
 
-export const crmPipelineColumns = pgTable('crm_pipeline_columns', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  accountId: uuid('account_id').references(() => accounts.id),
-  userId: uuid('user_id').references(() => users.id).notNull(),
-  vertical: varchar('vertical', { length: 20 }).notNull(),
-  scope: varchar('scope', { length: 20 }).notNull().default('listing'),
-  name: varchar('name', { length: 80 }).notNull(),
-  status: varchar('status', { length: 20 }).notNull(),
-  position: integer('position').notNull().default(0),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-export const serviceLeads = pgTable('service_leads', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  accountId: uuid('account_id').references(() => accounts.id),
-  userId: uuid('user_id').references(() => users.id),
-  vertical: varchar('vertical', { length: 20 }).notNull(),
-  serviceType: varchar('service_type', { length: 40 }).notNull(),
-  planId: varchar('plan_id', { length: 20 }).notNull(),
-  contactName: varchar('contact_name', { length: 255 }).notNull(),
-  contactEmail: varchar('contact_email', { length: 255 }).notNull(),
-  contactPhone: varchar('contact_phone', { length: 40 }).notNull(),
-  contactWhatsapp: varchar('contact_whatsapp', { length: 40 }),
-  locationLabel: varchar('location_label', { length: 255 }),
-  assetType: varchar('asset_type', { length: 120 }),
-  assetBrand: varchar('asset_brand', { length: 120 }),
-  assetModel: varchar('asset_model', { length: 120 }),
-  assetYear: varchar('asset_year', { length: 20 }),
-  assetMileage: varchar('asset_mileage', { length: 80 }),
-  assetArea: varchar('asset_area', { length: 80 }),
-  expectedPrice: varchar('expected_price', { length: 80 }),
-  notes: text('notes'),
-  status: varchar('status', { length: 20 }).notNull().default('new'),
-  priority: varchar('priority', { length: 20 }).notNull().default('medium'),
-  closeReason: varchar('close_reason', { length: 255 }),
-  tags: jsonb('tags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-  assignedToUserId: uuid('assigned_to_user_id').references(() => users.id),
-  nextTaskTitle: varchar('next_task_title', { length: 255 }),
-  nextTaskAt: timestamp('next_task_at'),
-  sourcePage: varchar('source_page', { length: 255 }),
-  lastActivityAt: timestamp('last_activity_at').notNull().defaultNow(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-export const serviceLeadActivities = pgTable('service_lead_activities', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  leadId: uuid('lead_id').references(() => serviceLeads.id).notNull(),
-  actorUserId: uuid('actor_user_id').references(() => users.id),
-  type: varchar('type', { length: 20 }).notNull(),
-  body: text('body').notNull(),
-  meta: jsonb('meta'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
-
-export const listingLeads = pgTable('listing_leads', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  accountId: uuid('account_id').references(() => accounts.id),
-  listingId: uuid('listing_id').references(() => listings.id).notNull(),
-  ownerUserId: uuid('owner_user_id').references(() => users.id).notNull(),
-  buyerUserId: uuid('buyer_user_id').references(() => users.id),
-  vertical: varchar('vertical', { length: 20 }).notNull(),
-  source: varchar('source', { length: 40 }).notNull().default('internal_form'),
-  channel: varchar('channel', { length: 20 }).notNull().default('lead'),
-  contactName: varchar('contact_name', { length: 255 }).notNull(),
-  contactEmail: varchar('contact_email', { length: 255 }).notNull(),
-  contactPhone: varchar('contact_phone', { length: 40 }),
-  contactWhatsapp: varchar('contact_whatsapp', { length: 40 }),
-  message: text('message'),
-  status: varchar('status', { length: 20 }).notNull().default('new'),
-  priority: varchar('priority', { length: 20 }).notNull().default('medium'),
-  closeReason: varchar('close_reason', { length: 255 }),
-  tags: jsonb('tags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-  assignedToUserId: uuid('assigned_to_user_id').references(() => users.id),
-  assignedToTeamMemberId: uuid('assigned_to_team_member_id').references(() => publicProfileTeamMembers.id),
-  pipelineColumnId: uuid('pipeline_column_id').references(() => crmPipelineColumns.id),
-  nextTaskTitle: varchar('next_task_title', { length: 255 }),
-  nextTaskAt: timestamp('next_task_at'),
-  sourcePage: varchar('source_page', { length: 255 }),
-  externalSourceId: varchar('external_source_id', { length: 255 }),
-  lastActivityAt: timestamp('last_activity_at').notNull().defaultNow(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-export const listingLeadActivities = pgTable('listing_lead_activities', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  leadId: uuid('lead_id').references(() => listingLeads.id).notNull(),
-  actorUserId: uuid('actor_user_id').references(() => users.id),
-  type: varchar('type', { length: 20 }).notNull(),
-  body: text('body').notNull(),
-  meta: jsonb('meta'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
-
 export const messageThreads = pgTable('message_threads', {
   id: uuid('id').primaryKey().defaultRandom(),
   accountId: uuid('account_id').references(() => accounts.id),
   vertical: varchar('vertical', { length: 20 }).notNull(),
-  listingId: uuid('listing_id').references(() => listings.id).notNull(),
+  contextType: varchar('context_type', { length: 40 }),
+  contextId: uuid('context_id'),
+  listingId: uuid('listing_id').references(() => listings.id),
   ownerUserId: uuid('owner_user_id').references(() => users.id).notNull(),
   buyerUserId: uuid('buyer_user_id').references(() => users.id).notNull(),
-  leadId: uuid('lead_id').references(() => listingLeads.id).notNull(),
   ownerUnreadCount: integer('owner_unread_count').notNull().default(0),
   buyerUnreadCount: integer('buyer_unread_count').notNull().default(0),
   ownerArchivedAt: timestamp('owner_archived_at'),
@@ -419,7 +389,13 @@ export const messageThreads = pgTable('message_threads', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueListingBuyerThread: uniqueIndex('message_threads_listing_buyer_idx').on(table.listingId, table.buyerUserId),
+  uniqueListingBuyerThread: uniqueIndex('message_threads_listing_buyer_idx')
+    .on(table.listingId, table.buyerUserId)
+    .where(sql`${table.listingId} is not null`),
+  uniqueContextBuyerThread: uniqueIndex('message_threads_context_buyer_idx')
+    .on(table.contextType, table.contextId, table.buyerUserId)
+    .where(sql`${table.contextType} is not null and ${table.contextId} is not null`),
+  contextIdx: index('message_threads_context_idx').on(table.contextType, table.contextId),
 }));
 
 export const messageEntries = pgTable('message_entries', {
@@ -483,6 +459,12 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   city: varchar('city', { length: 100 }),
   region: varchar('region', { length: 100 }),
   address: varchar('address', { length: 255 }),
+  countryCode: varchar('country_code', { length: 3 }).notNull().default('CL'),
+  regionId: varchar('region_id', { length: 50 }),
+  localityId: varchar('locality_id', { length: 50 }),
+  serviceLocalities: jsonb('service_localities').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  servesOnline: boolean('serves_online').notNull().default(true),
+  servesPresential: boolean('serves_presential').notNull().default(false),
   currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
   timezone: varchar('timezone', { length: 50 }).notNull().default('America/Santiago'),
   bookingWindowDays: integer('booking_window_days').notNull().default(30), // how far in advance clients can book
@@ -494,9 +476,6 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   requiresAdvancePayment: boolean('requires_advance_payment').notNull().default(false),
   advancePaymentInstructions: text('advance_payment_instructions'), // Bank transfer info, etc.
   // WhatsApp notification preferences
-  waNotificationsEnabled: boolean('wa_notifications_enabled').notNull().default(true),
-  waNotifyProfessional: boolean('wa_notify_professional').notNull().default(true),
-  waProfessionalPhone: varchar('wa_professional_phone', { length: 30 }),
   // Google Calendar integration
   googleCalendarId: varchar('google_calendar_id', { length: 255 }),
   googleAccessToken: text('google_access_token'),
@@ -810,7 +789,6 @@ export const subscriptionPlans = pgTable('subscription_plans', {
   maxFeaturedListings: integer('max_featured_listings').notNull().default(0),
   maxImagesPerListing: integer('max_images_per_listing').notNull().default(0),
   analyticsEnabled: boolean('analytics_enabled').notNull().default(false),
-  crmEnabled: boolean('crm_enabled').notNull().default(false),
   prioritySupport: boolean('priority_support').notNull().default(false),
   customBranding: boolean('custom_branding').notNull().default(false),
   apiAccess: boolean('api_access').notNull().default(false),
@@ -1173,6 +1151,9 @@ export const serenataProviderGroups = pgTable('serenata_provider_groups', {
   region: varchar('region', { length: 120 }),
   comunaBase: varchar('comuna_base', { length: 120 }),
   serviceComunas: jsonb('service_comunas').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  countryCode: varchar('country_code', { length: 3 }).notNull().default('CL'),
+  regionId: varchar('region_id', { length: 50 }),
+  localityId: varchar('locality_id', { length: 50 }),
   status: varchar('status', { length: 30 }).notNull().default('draft'),
   isVerified: boolean('is_verified').notNull().default(false),
   ratingAverage: decimal('rating_average', { precision: 4, scale: 2 }).notNull().default('0'),
@@ -1546,18 +1527,23 @@ export const userNotificationLog = pgTable('user_notification_log', {
   userCreatedIdx: index('user_notification_log_user_created_idx').on(table.userId, table.createdAt),
 }));
 
-export const serenataNotifications = pgTable('serenata_notifications', {
+export const platformNotifications = pgTable('platform_notifications', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  vertical: varchar('vertical', { length: 20 }),
   type: varchar('type', { length: 60 }).notNull(),
   title: varchar('title', { length: 160 }).notNull(),
-  message: text('message'),
+  body: text('body'),
+  actionUrl: varchar('action_url', { length: 500 }),
+  entityType: varchar('entity_type', { length: 40 }),
+  entityId: uuid('entity_id'),
   metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
   isRead: boolean('is_read').notNull().default(false),
+  readAt: timestamp('read_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
-  userIdx: index('serenata_notifications_user_idx').on(table.userId),
-  readIdx: index('serenata_notifications_read_idx').on(table.isRead),
+  userCreatedIdx: index('platform_notifications_user_created_idx').on(table.userId, table.createdAt),
+  userUnreadIdx: index('platform_notifications_user_unread_idx').on(table.userId, table.isRead),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════════

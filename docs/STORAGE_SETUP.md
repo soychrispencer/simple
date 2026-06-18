@@ -9,7 +9,7 @@ Simple usa dos proveedores de almacenamiento: **`local`** (desarrollo) y **`clou
 
 Todas las subidas de imágenes pasan por `POST /api/media/upload` (Sharp → WebP). Los objetos huérfanos se eliminan al reemplazar URLs en avatares, portadas y publicaciones.
 
-> **Nota:** Backblaze B2 fue retirado del código activo. La migración histórica B2 → R2 está en `docs/archive/MIGRATION_BACKBLAZE_TO_CLOUDFLARE.md` y `scripts/migrate-to-cloudflare.ts`.
+> **Nota:** El storage activo es **Cloudflare R2** (producción) o **local** (desarrollo). La migración histórica desde Backblaze está documentada solo en `docs/archive/MIGRATION_BACKBLAZE_TO_CLOUDFLARE.md`.
 
 ## Cost Estimation (R2)
 

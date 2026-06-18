@@ -8,8 +8,13 @@ export type AvatarUploadConfig = {
     maxSize?: number; // in KB
     maxWidth?: number;
     maxHeight?: number;
+    /** Tamaño del preview en UI; por defecto coincide con maxWidth/maxHeight. */
+    displaySize?: number;
     aspectRatio?: number;
+    /** @deprecated Usa `shape`. */
     circular?: boolean;
+    /** `panel` coincide con el avatar del sidebar (rounded-[10px]). */
+    shape?: 'circle' | 'panel' | 'card';
     onUpload?: (file: File, croppedBlob: Blob) => Promise<{ url: string }>;
 };
 
@@ -52,10 +57,16 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
         maxSize = 5120, // 5MB
         maxWidth = 400,
         maxHeight = 400,
+        displaySize,
         aspectRatio = 1,
         circular = true,
+        shape: shapeInput,
         onUpload,
     } = config;
+
+    const shape = shapeInput ?? (circular ? 'circle' : 'card');
+    const shapeClass = shape === 'circle' ? 'rounded-full' : shape === 'panel' ? 'rounded-[10px]' : 'rounded-[28px]';
+    const cropShape = shape === 'circle' ? 'round' as const : 'rect' as const;
 
     useEffect(() => {
         setImageUrl(currentUrl || null);
@@ -178,13 +189,12 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
         onSuccess?.('');
     }, [onSuccess]);
 
-    const shapeClass = circular ? 'rounded-full' : 'rounded-[28px]';
-    const previewSize = Math.min(maxWidth, maxHeight);
+    const previewSize = displaySize ?? Math.min(maxWidth, maxHeight);
 
     const avatarPreview = (
         <div
-            className={`relative shrink-0 overflow-hidden ${shapeClass} ring-2 ring-[var(--border)]`}
-            style={{ width: previewSize, height: previewSize, background: 'var(--bg-subtle)' }}
+            className={`relative shrink-0 overflow-hidden ${shapeClass}`}
+            style={{ width: previewSize, height: previewSize, background: 'var(--bg-muted)' }}
         >
             {imageUrl ? (
                 <img
@@ -218,7 +228,7 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
                     <button
                         type="button"
                         onClick={openFilePicker}
-                        className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-sm transition-opacity hover:opacity-90"
+                        className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-sm transition-opacity hover:opacity-90"
                         style={{
                             borderColor: 'var(--surface, #fff)',
                             background: 'var(--accent)',
@@ -226,7 +236,7 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
                         }}
                         aria-label={imageUrl ? 'Cambiar foto de perfil' : 'Agregar foto de perfil'}
                     >
-                        <IconPlus size={16} stroke={2.5} aria-hidden />
+                        <IconPlus size={14} stroke={2.5} aria-hidden />
                     </button>
                 </div>
             ) : !hideTrigger ? (
@@ -275,7 +285,7 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
                             </button>
                         </div>
                         <div
-                            className={circular ? undefined : 'avatar-upload-cropper--rounded'}
+                            className={shape === 'circle' ? undefined : 'avatar-upload-cropper--rounded'}
                             style={{
                                 position: 'relative',
                                 width: '100%',
@@ -294,7 +304,7 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
                                 onZoomChange={setZoom}
                                 onCropComplete={handleCropComplete}
                                 showGrid={showGrid}
-                                cropShape={circular ? 'round' : 'rect'}
+                                cropShape={cropShape}
                             />
                         </div>
                         <div className="mt-4">

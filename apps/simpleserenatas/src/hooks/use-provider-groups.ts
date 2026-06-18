@@ -18,7 +18,7 @@ async function fetchProviderGroups(): Promise<ProviderGroupsCache> {
     };
 }
 
-/** Cache compartida de grupos proveedor (Mi Negocio). */
+/** Cache compartida de grupos del mariachi (Mi Negocio). */
 export function useProviderGroups(options?: { enabled?: boolean }) {
     const enabled = options?.enabled !== false;
     const { data, error, isLoading, mutate } = useSWR(

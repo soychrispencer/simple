@@ -1,18 +1,16 @@
 'use client';
 
 /** Mi cuenta — pestañas horizontales compartidas. Sin hub de configuración legacy ni pantalla overview. */
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE } from '@simple/config';
 import { resolveAvatarDisplayUrl } from '@/lib/resolve-avatar-url';
-import type { AddressBookEntry } from '@simple/types';
-import { PanelAccountPersonalDataSection, PanelBlockHeader, PanelSectionTabs } from '@simple/ui/panel';
+import { PanelAccountPersonalDataSection, PanelAccountLocationContent, PanelBlockHeader, PanelPillNav, accountIntegrationsDescription } from '@simple/ui/panel';
+import { IntegrationConnectRow } from '@simple/ui/integrations';
 import { PanelButton, PanelCard, PanelField, PanelNotice, PanelPageHeader, PanelPersonalDataList, PanelPersonalDataRow, PanelStatusBadge, PanelSwitch, usePanelConfirm } from '@simple/ui/panel';
 import { AvatarUpload } from '@simple/ui/media';
-import { fetchAddressBook } from '@simple/utils';
 import {
-    IconBrandGoogle,
     IconCalendar,
     IconCheck,
     IconChevronLeft,
@@ -42,26 +40,14 @@ import {
     resolveAccountTab,
 } from '@/lib/account-tab';
 import {
-    anyWhatsAppCategoryEnabled,
-    buildNotificationSaveMessage,
-    categoryNotificationPrefsFromUser,
-    getNotificationCategoryRowsForContext,
-    notificationPrefsContextDescription,
-    notificationPrefsSnapshotFromUser,
-    notificationPrefsSnapshotsEqual,
-    notificationPrefsToApiPayload,
-    type CategoryNotificationPrefs,
-    type NotificationPrefsSnapshot,
-    whatsappPhoneValidation,
-} from '@/lib/account-notification-prefs';
-import { formatChileMobileHint, validateChileMobilePhone } from '@/lib/chile-phone';
+    validateChileMobilePhone,
+} from '@/lib/chile-phone';
 import { FieldInput, FieldTextarea, FormFeedback, InstrumentSelect, type FormStatus } from './shared';
 import { RegionCommuneFields } from './region-commune-fields';
-import { AddressesSection } from './addresses-section';
 import { PanelSheet } from './panel-sheet';
 import { SubscriptionSection } from './subscription-section';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
-import { NotificationCategoryRow, NotificationPrefsSkeleton } from './account/notification-category-row';
+import { SerenatasPersonalNotificationsSection } from './serenatas-personal-notifications-section';
 import { DeleteAccountSheet } from './account/delete-account-sheet';
 import { syncAccountTabUrl } from '@/lib/sync-account-tab-url';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
@@ -122,13 +108,7 @@ export function ProfileView({
     const router = useRouter();
     const searchParams = useSearchParams();
     const [subsection, setSubsection] = useState<AccountSubsection>(() => resolveAccountTab(searchParams.get('account_tab')));
-    const [categoryNotificationPrefs, setCategoryNotificationPrefs] = useState<CategoryNotificationPrefs>(() =>
-        categoryNotificationPrefsFromUser(accountUser),
-    );
-    const [notificationPrefsSaving, setNotificationPrefsSaving] = useState(false);
-    const [notificationPrefsStatus, setNotificationPrefsStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
-    const [notificationPrefsTouched, setNotificationPrefsTouched] = useState(false);
-    const savedNotificationPrefsRef = useRef<NotificationPrefsSnapshot | null>(null);
+    const [notificationPrefsDirty, setNotificationPrefsDirty] = useState(false);
     const [emailChangeModalOpen, setEmailChangeModalOpen] = useState(false);
     const [newEmail, setNewEmail] = useState('');
     const [emailChangeSaving, setEmailChangeSaving] = useState(false);
@@ -158,33 +138,6 @@ export function ProfileView({
     const logoutAndGoHome = useLogoutAndGoHome();
     const { mariachi: ownerMariachi } = useMyMariachi();
 
-    const notificationPrefsDirty = useMemo(() => {
-        if (!accountUser || !savedNotificationPrefsRef.current) return notificationPrefsTouched;
-        const digestFrequency =
-            savedNotificationPrefsRef.current?.emailDigestFrequency
-            ?? notificationPrefsSnapshotFromUser(accountUser).emailDigestFrequency;
-        const current: NotificationPrefsSnapshot = {
-            emailDigestFrequency: digestFrequency,
-            categoryPrefs: categoryNotificationPrefs,
-        };
-        return (
-            notificationPrefsTouched
-            || !notificationPrefsSnapshotsEqual(current, savedNotificationPrefsRef.current)
-        );
-    }, [
-        accountUser,
-        notificationPrefsTouched,
-        categoryNotificationPrefs,
-    ]);
-
-    const applyNotificationPrefsFromUser = (user: SerenatasUser | null) => {
-        const snapshot = notificationPrefsSnapshotFromUser(user);
-        setCategoryNotificationPrefs(snapshot.categoryPrefs);
-        savedNotificationPrefsRef.current = snapshot;
-    };
-
-    const markNotificationPrefsTouched = () => setNotificationPrefsTouched(true);
-
     const selectSubsection = async (tab: AccountTab) => {
         if (
             subsection === 'notifications'
@@ -198,8 +151,7 @@ export function ProfileView({
                 tone: 'danger',
             });
             if (!leave) return;
-            setNotificationPrefsTouched(false);
-            if (accountUser) applyNotificationPrefsFromUser(accountUser);
+            setNotificationPrefsDirty(false);
         }
         setSubsection(tab);
         if (typeof window !== 'undefined') window.localStorage.setItem('account_tab', tab);
@@ -226,18 +178,8 @@ export function ProfileView({
     const [hasMariachiAttire, setHasMariachiAttire] = useState(false);
     const [experienceYears, setExperienceYears] = useState(0);
     const [saving, setSaving] = useState(false);
-    const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
-    const [addressBookLoading, setAddressBookLoading] = useState(true);
     const appMode: AppMode = mode ?? (profile === 'client' ? 'client' : 'work');
     const accountPillItems = useMemo(() => getAccountPillItems(appMode, profiles), [appMode, profiles]);
-    const accountSectionTabs = useMemo(
-        () => accountPillItems.map((item) => ({ ...item, href: profileSectionHref(item.key) })),
-        [accountPillItems],
-    );
-    const notificationCategoryRows = useMemo(
-        () => getNotificationCategoryRowsForContext(appMode, profiles),
-        [appMode, profiles],
-    );
 
     useEffect(() => {
         if (isAccountTabVisible(subsection, appMode, profiles)) return;
@@ -283,10 +225,7 @@ export function ProfileView({
         setMusicianRegion(profiles.musician?.region ?? '');
         setMusicianComuna(profiles.musician?.comuna ?? '');
         setMusicianBio(profiles.musician?.bio ?? '');
-        if (!notificationPrefsTouched) {
-            applyNotificationPrefsFromUser(accountUser);
-        }
-    }, [accountUser, profiles, appMode, notificationPrefsTouched]);
+    }, [accountUser, profiles, appMode]);
 
     const openEmailChangeModal = () => {
         setNewEmail(accountUser?.pendingEmail ?? '');
@@ -374,48 +313,6 @@ export function ProfileView({
         setAccountStatus({ loading: false, error: null, ok: 'Datos personales guardados.' });
     };
 
-    const handleSaveNotificationPrefs = async () => {
-        const sanitizedPrefs: CategoryNotificationPrefs = { ...categoryNotificationPrefs };
-        for (const row of notificationCategoryRows) {
-            if (row.whatsappAvailable === false) {
-                sanitizedPrefs[row.key] = { ...sanitizedPrefs[row.key], whatsapp: false };
-            }
-        }
-        const whatsappError = whatsappPhoneValidation(sanitizedPrefs, phone);
-        if (whatsappError) {
-            setNotificationPrefsStatus({ loading: false, error: whatsappError, ok: null });
-            return;
-        }
-        const before: NotificationPrefsSnapshot = savedNotificationPrefsRef.current ?? notificationPrefsSnapshotFromUser(accountUser);
-        const after: NotificationPrefsSnapshot = {
-            emailDigestFrequency: before.emailDigestFrequency,
-            categoryPrefs: sanitizedPrefs,
-        };
-        setNotificationPrefsSaving(true);
-        setNotificationPrefsStatus({ loading: true, error: null, ok: null });
-        const trimmedPhone = phone.trim();
-        const response = await serenatasApi.updateUser(
-            notificationPrefsToApiPayload(after, trimmedPhone || accountUser?.phone || ''),
-        );
-        setNotificationPrefsSaving(false);
-        if (!response.ok) {
-            setNotificationPrefsStatus({
-                loading: false,
-                error: response.error ?? 'No pudimos guardar tus preferencias.',
-                ok: null,
-            });
-            return;
-        }
-        setNotificationPrefsTouched(false);
-        savedNotificationPrefsRef.current = after;
-        await refresh();
-        setNotificationPrefsStatus({
-            loading: false,
-            error: null,
-            ok: buildNotificationSaveMessage(before, after, { mode: appMode, profiles }),
-        });
-    };
-
     const handleSaveMusicianProfile = async () => {
         if (experienceYearsError) {
             setStatus({ loading: false, error: experienceYearsError, ok: null });
@@ -462,20 +359,6 @@ export function ProfileView({
         setSaving(false);
         setStatus({ loading: false, error: null, ok: 'Perfil de músico guardado.' });
     };
-
-    async function loadAddressBook() {
-        setAddressBookLoading(true);
-        const result = await fetchAddressBook();
-        setAddressBook(result.items);
-        setAddressBookLoading(false);
-        if (!result.ok) {
-            // ignore; AddressesSection shows empty state
-        }
-    }
-
-    useEffect(() => {
-        void loadAddressBook();
-    }, []);
 
     useEffect(() => {
         const googleError = searchParams.get('google_error');
@@ -775,8 +658,6 @@ export function ProfileView({
     };
 
     const profileLabel = panelAccountTypeLabel(profiles);
-    const notificationsReady = accountUser !== null;
-    const notificationTogglesDisabled = !notificationsReady || notificationPrefsSaving;
 
     return (
         <div className="w-full min-w-0 max-w-full">
@@ -786,163 +667,50 @@ export function ProfileView({
             />
 
             <div className="flex flex-col gap-6">
-                <PanelSectionTabs
-                    items={accountSectionTabs}
+                <PanelPillNav
+                    items={accountPillItems}
                     activeKey={subsection}
                     onChange={(key) => {
                         if (isAccountTab(key)) void selectSubsection(key);
                     }}
                     ariaLabel="Secciones de mi cuenta"
+                    showMobileDropdown
+                    breakpoint="md"
+                    size="sm"
                 />
 
                 {subsection === 'notifications' ? (
-            <PanelCard className="space-y-4">
-                <PanelBlockHeader
-                    title="Notificaciones"
-                    actions={
-                        notificationsReady ? (
-                            <>
-                                {notificationPrefsDirty ? (
-                                    <span className="text-xs text-(--fg-muted)">Sin guardar</span>
-                                ) : null}
-                                <PanelButton
-                                    type="button"
-                                    size="sm"
-                                    className="w-full sm:w-auto"
-                                    disabled={notificationPrefsSaving || !notificationPrefsDirty}
-                                    onClick={() => void handleSaveNotificationPrefs()}
-                                >
-                                    {notificationPrefsSaving ? 'Guardando…' : 'Guardar'}
-                                </PanelButton>
-                            </>
-                        ) : null
-                    }
-                />
-                <p className="text-sm leading-relaxed text-(--fg-muted)">
-                    {notificationPrefsContextDescription(appMode, profiles)}
-                </p>
-                <span className="sr-only">Canales disponibles: por correo y por WhatsApp.</span>
-                {!notificationsReady ? (
-                    <NotificationPrefsSkeleton rows={notificationCategoryRows.length} />
-                ) : (
-                <div className="divide-y divide-(--border) rounded-xl border border-(--border) bg-(--bg-subtle)/30 px-2 sm:px-3">
-                    {notificationCategoryRows.map(({ key, label, hint, whatsappAvailable }) => (
-                        <NotificationCategoryRow
-                            key={key}
-                            title={label}
-                            hint={hint}
-                            emailChecked={categoryNotificationPrefs[key].email}
-                            whatsappChecked={categoryNotificationPrefs[key].whatsapp}
-                            whatsappAvailable={whatsappAvailable !== false}
-                            disabled={notificationTogglesDisabled}
-                            onEmailChange={(email) => {
-                                markNotificationPrefsTouched();
-                                setCategoryNotificationPrefs((p) => ({
-                                    ...p,
-                                    [key]: { ...p[key], email },
-                                }));
-                            }}
-                            onWhatsappChange={(whatsapp) => {
-                                markNotificationPrefsTouched();
-                                setCategoryNotificationPrefs((p) => ({
-                                    ...p,
-                                    [key]: { ...p[key], whatsapp },
-                                }));
-                            }}
-                        />
-                    ))}
-                    {notificationCategoryRows.some(
-                        (row) => row.whatsappAvailable !== false && categoryNotificationPrefs[row.key].whatsapp,
-                    )
-                    && whatsappPhoneValidation(
-                        categoryNotificationPrefs,
-                        phone.trim() || accountUser?.phone || '',
-                    ) ? (
-                        <p className="px-1 py-4 text-xs leading-relaxed text-(--fg-muted)">
-                            Para WhatsApp necesitas un móvil chileno en{' '}
-                            <button
-                                type="button"
-                                className="font-medium text-(--accent) underline-offset-2 hover:underline"
-                                onClick={() => void selectSubsection('data')}
-                            >
-                                Datos personales
-                            </button>
-                            .
-                        </p>
-                    ) : null}
-                </div>
-                )}
-                <FormFeedback status={notificationPrefsStatus} />
-            </PanelCard>
-            ) : null}
+                    <SerenatasPersonalNotificationsSection
+                        accountUser={accountUser}
+                        appMode={appMode}
+                        profiles={profiles}
+                        phone={phone}
+                        onSaved={refresh}
+                        onDirtyChange={setNotificationPrefsDirty}
+                    />
+                ) : null}
 
                 {subsection === 'integrations' ? (
             <PanelCard>
                 <PanelBlockHeader
                     title="Integraciones"
-                    description="Conecta herramientas para coordinar tu negocio (agenda en Google Calendar)."
+                    description={accountIntegrationsDescription('Simple Serenatas')}
                 />
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <div
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                            style={{ background: 'var(--google-brand-bg, rgba(66,133,244,0.1))', color: 'var(--google-brand-fg, #4285F4)' }}
-                            aria-hidden
-                        >
-                            <IconCalendar size={20} />
-                        </div>
-                        <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-sm font-semibold text-(--fg)">Google Calendar</h3>
-                                {!gcLoading && gcConnected ? (
-                                    <PanelStatusBadge tone="success" label="Conectado" size="sm" />
-                                ) : null}
-                                {!gcLoading && !gcConnected ? (
-                                    <PanelStatusBadge tone="neutral" label="No conectado" size="sm" />
-                                ) : null}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="shrink-0 sm:ml-4">
-                        {gcLoading ? (
-                            <p className="flex items-center justify-center gap-2 text-sm text-(--fg-muted) sm:justify-end">
-                                <IconLoader2 size={14} className="animate-spin" aria-hidden />
-                                <span className="hidden sm:inline">Verificando…</span>
-                            </p>
-                        ) : gcConnected ? (
-                            <PanelButton
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                className="w-full sm:w-auto"
-                                disabled={gcDisconnecting}
-                                onClick={() => void handleDisconnectGoogleCalendar()}
-                            >
-                                {gcDisconnecting ? (
-                                    <>
-                                        <IconLoader2 size={14} className="animate-spin" />
-                                        Desconectando…
-                                    </>
-                                ) : (
-                                    <>
-                                        <IconX size={14} />
-                                        Desconectar
-                                    </>
-                                )}
-                            </PanelButton>
-                        ) : (
-                            <a
-                                href={serenatasApi.googleCalendarAuthUrl()}
-                                className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 sm:w-auto"
-                                style={{ background: 'var(--google-brand-fg, #4285F4)' }}
-                            >
-                                <IconBrandGoogle size={15} />
-                                Conectar con Google
-                            </a>
-                        )}
-                    </div>
+                <div className="mt-4 space-y-4">
+                    <IntegrationConnectRow
+                        icon={<IconCalendar size={18} style={{ color: 'var(--google-brand-fg, #4285F4)' }} />}
+                        title="Google Calendar"
+                        description="Sincroniza tu agenda y eventos de serenatas."
+                        connected={gcConnected}
+                        loading={gcLoading}
+                        busy={gcDisconnecting}
+                        onConnect={() => {
+                            window.location.href = serenatasApi.googleCalendarAuthUrl();
+                        }}
+                        onDisconnect={handleDisconnectGoogleCalendar}
+                    />
+                    <FormFeedback status={gcFlash} />
                 </div>
-                <FormFeedback status={gcFlash} />
             </PanelCard>
             ) : null}
 
@@ -957,6 +725,7 @@ export function ProfileView({
                     <PanelAccountPersonalDataSection
                         activeSection={subsection === 'security' ? 'security' : 'personal'}
                         user={accountUser}
+                        appLabel="Simple Serenatas"
                         roleLabel="Cuenta Simple"
                         onSave={saveSharedAccountProfile}
                         onUploadAvatar={uploadSharedAccountAvatar}
@@ -968,6 +737,7 @@ export function ProfileView({
                         onDeleteAccount={serenatasApi.deleteAccount}
                         onSaved={refresh}
                         onAfterDelete={logoutAndGoHome}
+                        onUnauthorized={logoutAndGoHome}
                     />
                 </>
             ) : null}
@@ -1091,24 +861,14 @@ export function ProfileView({
             </PanelCard>
             ) : null}
 
-                {subsection === 'addresses' ? (
-            <PanelCard>
-                <PanelBlockHeader
-                    title="Direcciones"
-                    description={
-                        appMode === 'client'
-                            ? 'Guarda direcciones para contratar serenatas más rápido.'
-                            : 'Direcciones guardadas en tu cuenta (útiles al publicar o coordinar eventos).'
-                    }
-                />
-                <div className="mt-4">
-                    <AddressesSection
-                        entries={addressBook}
-                        loading={addressBookLoading}
-                        onEntriesChange={setAddressBook}
+                {subsection === 'ubicacion' ? (
+                    <PanelAccountLocationContent
+                        user={accountUser}
+                        appLabel="Simple Serenatas"
+                        addressesAppMode={appMode}
+                        onSaved={refresh}
+                        onUnauthorized={logoutAndGoHome}
                     />
-                </div>
-            </PanelCard>
                 ) : null}
             </div>
 

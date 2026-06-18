@@ -165,8 +165,6 @@ export { resolveActiveNavHref, cleanPanelPath } from './panel/resolve-active-nav
 export { PublicProfileEditor, type PublicProfileEditorProps, type PublicProfileVertical } from './panel/public-profile-editor';
 export { AvatarUpload, type AvatarUploadConfig, type AvatarUploadHandle, type AvatarUploadProps } from './avatar-upload';
 export { PanelAddressesPage } from './address-book/panel-addresses-page';
-export { CrmTeamSettingsManager, type CrmTeamSettingsManagerProps } from './panel/crm-team-settings-manager';
-export { CrmModalShell, type CrmModalShellProps } from './panel/crm-modal-shell';
 export {
     SubscriptionManager,
     type SubscriptionManagerProps,

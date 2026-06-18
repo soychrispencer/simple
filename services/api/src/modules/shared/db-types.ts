@@ -7,7 +7,6 @@ import {
     agendaClients,
     agendaProfessionalProfiles,
     listings,
-    listingLeads,
     messageThreads,
     publicProfiles,
     subscriptions,
@@ -20,7 +19,6 @@ export type DbAccount = InferSelectModel<typeof accounts>;
 export type NewDbAccount = InferInsertModel<typeof accounts>;
 export type DbAccountUser = InferSelectModel<typeof accountUsers>;
 export type DbListing = InferSelectModel<typeof listings>;
-export type DbListingLead = InferSelectModel<typeof listingLeads>;
 export type DbMessageThread = InferSelectModel<typeof messageThreads>;
 export type DbPublicProfile = InferSelectModel<typeof publicProfiles>;
 export type DbAddressBookEntry = InferSelectModel<typeof addressBook>;

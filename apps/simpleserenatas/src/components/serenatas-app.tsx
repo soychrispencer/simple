@@ -5,14 +5,11 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { panelPathFromSection } from '@/lib/panel-routes';
 import { PanelButton, PanelConfirmProvider, PanelNotice } from '@simple/ui/panel';
 
-import { useAuth } from '@simple/auth';
+import { useAuth, EmailVerificationGate } from '@simple/auth';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 import { useSerenata, type Section } from '@/context/serenata-context';
 import { ScreenShell } from '@/components/layout/screen-shell';
 import { PublicLanding } from '@/components/auth/public-landing';
-import { EmailVerificationGate } from '@/components/auth/email-verification-gate';
-
-// Modular Panel Parts
 import { PanelContent } from '@/components/panel/panel-content';
 import { SerenataPanelShell } from '@/components/panel/panel-shell';
 import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
@@ -118,6 +115,7 @@ export function SerenatasApp() {
         return (
             <ScreenShell>
                 <EmailVerificationGate
+                    appLabel="SimpleSerenatas"
                     email={user.email}
                     logout={logoutAndGoHome}
                     refreshSession={refreshSession}

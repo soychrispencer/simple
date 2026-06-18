@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { IconCheck, IconCreditCard, IconLoader2 } from '@tabler/icons-react';
+import { IconCheck, IconCreditCard, IconClockHour4, IconLoader2, IconReceipt, IconShieldCheck } from '@tabler/icons-react';
 import type {
     ConfirmCheckoutResponse,
     PaymentOrderStatus,
@@ -12,11 +12,38 @@ import type {
     SubscriptionPlanId,
 } from '@simple/utils';
 import { PanelBlockHeader, PanelNotice, PanelStatusBadge } from './panel-primitives';
+import { SUBSCRIPTION_BILLING_HISTORY } from './finance-copy.js';
 import { PanelButton } from './panel-button';
 import { PanelCard } from './panel-card';
 
-function formatMoney(value: number): string {
+function formatMoney(value: number, currency: 'CLP' | 'USD' = 'CLP'): string {
+    if (currency === 'USD') {
+        return value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
     return value.toLocaleString('es-CL');
+}
+
+function paymentProviderLabel(): string {
+    return 'Mercado Pago';
+}
+
+function monthlyTotalWithVat(netMonthly: number): number {
+    return Math.round(netMonthly * 1.19);
+}
+
+function trialMeta(catalog: SubscriptionCatalogResponse | null, currentPlanId: string) {
+    if (currentPlanId !== 'free' || !catalog?.currentSubscription?.planExpiresAt) return null;
+    const expiresAt = new Date(catalog.currentSubscription.planExpiresAt);
+    const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+    return { daysRemaining, isExpired: daysRemaining === 0, expiresAt };
+}
+
+function normalizeDisplayedPlanId(planId: string): string {
+    return planId === 'essential' ? 'free' : planId;
+}
+
+function isPaidSubscriptionPlan(plan: SubscriptionPlan): boolean {
+    return plan.id === 'pro' || (plan.priceMonthly > 0 && plan.id !== 'free');
 }
 
 function subscriptionTone(status: PaymentOrderStatus): 'success' | 'warning' | 'neutral' | 'info' {
@@ -59,11 +86,11 @@ export function SubscriptionManager({
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-    const [freePlan, setFreePlan] = useState<SubscriptionPlan | null>(null);
     const [currentPlanId, setCurrentPlanId] = useState<string>('free');
     const [currentPlanName, setCurrentPlanName] = useState('Gratuito');
     const [orders, setOrders] = useState<PaymentOrderView[]>([]);
-    const [mercadoPagoEnabled, setMercadoPagoEnabled] = useState(false);
+    const [checkoutEnabled, setCheckoutEnabled] = useState(false);
+    const paymentProvider = 'mercadopago' as const;
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [busyPlanId, setBusyPlanId] = useState<string | null>(null);
@@ -80,12 +107,17 @@ export function SubscriptionManager({
         }
 
         setCatalog(catalogData);
-        setPlans(catalogData.plans);
-        setFreePlan(catalogData.freePlan);
+        setPlans(catalogData.plans.filter(isPaidSubscriptionPlan));
         setOrders(catalogData.orders);
-        setMercadoPagoEnabled(catalogData.mercadoPagoEnabled);
-        setCurrentPlanId(catalogData.currentSubscription?.planId ?? catalogData.freePlan?.id ?? 'free');
-        setCurrentPlanName(catalogData.currentSubscription?.planName ?? catalogData.freePlan?.name ?? 'Gratuito');
+        setCheckoutEnabled(Boolean(catalogData.checkoutEnabled));
+        const rawPlanId = catalogData.currentSubscription?.planId ?? catalogData.freePlan?.id ?? 'free';
+        const normalizedPlanId = normalizeDisplayedPlanId(rawPlanId);
+        setCurrentPlanId(normalizedPlanId);
+        setCurrentPlanName(
+            normalizedPlanId === rawPlanId
+                ? (catalogData.currentSubscription?.planName ?? catalogData.freePlan?.name ?? 'Gratuito')
+                : (catalogData.freePlan?.name ?? 'Prueba gratuita'),
+        );
         setLoading(false);
     };
 
@@ -118,7 +150,7 @@ export function SubscriptionManager({
             if (result.status === 'authorized' || result.status === 'approved') {
                 setMessage('Suscripción activada correctamente.');
             } else if (result.status === 'pending') {
-                setMessage('Tu suscripción quedó pendiente de validación en Mercado Pago.');
+                setMessage(`Tu suscripción quedó pendiente de validación en ${paymentProviderLabel()}.`);
             } else if (result.status === 'cancelled') {
                 setError('La suscripción fue cancelada.');
             } else {
@@ -127,12 +159,15 @@ export function SubscriptionManager({
 
             await load();
         })();
-    }, [handledPurchaseId, searchParams]);
+    }, [handledPurchaseId, paymentProvider, searchParams]);
 
-    const currentPlan = useMemo(
-        () => plans.find((plan) => plan.id === currentPlanId) ?? freePlan,
-        [plans, freePlan, currentPlanId]
+    const paidPlans = useMemo(
+        () => plans.filter((plan) => plan.id === 'pro'),
+        [plans],
     );
+
+    const trial = useMemo(() => trialMeta(catalog, currentPlanId), [catalog, currentPlanId]);
+    const proPlan = paidPlans[0] ?? null;
 
     const startCheckout = async (planId: Exclude<SubscriptionPlanId, 'free'>) => {
         setBusyPlanId(planId);
@@ -157,147 +192,199 @@ export function SubscriptionManager({
         <div className="space-y-6">
             {message ? <PanelNotice tone="success">{message}</PanelNotice> : null}
             {error ? <PanelNotice tone="error">{error}</PanelNotice> : null}
-            {!mercadoPagoEnabled && !loading ? (
-                <PanelNotice tone="warning">Mercado Pago aún no está disponible en este entorno.</PanelNotice>
+            {!checkoutEnabled && !loading ? (
+                <PanelNotice tone="warning">
+                    Mercado Pago aún no está disponible en este entorno.
+                </PanelNotice>
             ) : null}
 
-            {/* Banner de prueba gratuita */}
-            {!loading && currentPlanId === 'free' && catalog?.currentSubscription && catalog.currentSubscription.planExpiresAt ? (
-                (() => {
-                    const expiresAt = new Date(catalog.currentSubscription.planExpiresAt);
-                    const now = new Date();
-                    const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-                    const isExpired = daysRemaining === 0;
-                    return (
-                        <div className={`rounded-2xl border p-5 ${isExpired ? 'bg-red-50 border-red-200' : ''}`} style={!isExpired ? { background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1))', borderColor: 'rgba(59, 130, 246, 0.3)' } : {}}>
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${isExpired ? 'bg-red-200 text-red-700' : ''}`} style={!isExpired ? { background: 'rgba(59, 130, 246, 0.2)', color: 'rgb(59, 130, 246)' } : {}}>
-                                            {isExpired ? 'Prueba expirada' : 'Prueba gratuita activa'}
-                                        </span>
-                                        {!isExpired && (
-                                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white text-gray-700">
-                                                {daysRemaining} {daysRemaining === 1 ? 'día restante' : 'días restantes'}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>
-                                        {isExpired ? 'Tu prueba gratuita ha terminado' : 'Disfruta 30 días de acceso completo'}
-                                    </h3>
-                                    <p className="text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
-                                        {isExpired 
-                                            ? 'Elige Esencial o Pro para continuar operando todas las funciones.' 
-                                            : 'Tu prueba está activa. Elige Esencial o Pro para continuar operando.'}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })()
+            {!loading && trial ? (
+                <div
+                    className={`rounded-2xl border p-5 ${trial.isExpired ? 'border-red-500/40 bg-red-500/10' : 'border-(--accent-border) bg-(--accent-subtle)'}`}
+                >
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <PanelStatusBadge
+                            label={trial.isExpired ? 'Prueba expirada' : 'Prueba gratuita activa'}
+                            tone={trial.isExpired ? 'warning' : 'info'}
+                        />
+                        {!trial.isExpired ? (
+                            <span className="rounded-full border border-(--border) bg-(--surface) px-2.5 py-0.5 text-xs font-semibold text-(--fg-secondary)">
+                                {trial.daysRemaining} {trial.daysRemaining === 1 ? 'día restante' : 'días restantes'}
+                            </span>
+                        ) : null}
+                    </div>
+                    <h3 className="text-lg font-semibold text-(--fg)">
+                        {trial.isExpired ? 'Activa Pro para seguir usando el panel' : 'Tienes acceso completo durante tu prueba'}
+                    </h3>
+                    <p className="mt-1 text-sm text-(--fg-secondary)">
+                        {trial.isExpired
+                            ? 'Tu configuración se mantiene guardada. Solo falta activar Pro para volver a operar.'
+                            : 'Puedes activar Pro ahora o esperar al fin de la prueba. Sin permanencia.'}
+                    </p>
+                </div>
             ) : null}
 
             <PanelCard size="lg">
                 <PanelBlockHeader
-                    title="Plan actual"
-                    description={currentPlanId === 'free' ? 'Estás en prueba gratuita. Elige un plan para continuar.' : 'Gestiona tu suscripción mensual para publicar y vender mejor.'}
+                    title={currentPlanId === 'pro' ? 'Tu plan Pro' : 'Continuar con Pro'}
+                    description={
+                        currentPlanId === 'pro'
+                            ? `Suscripción mensual activa. El cobro se gestiona con ${paymentProviderLabel()}.`
+                            : 'Un solo plan con todo incluido. Facturación mensual y cancelación cuando quieras.'
+                    }
                 />
 
                 {loading ? (
-                    <div className="h-24 rounded-card animate-pulse bg-(--bg-muted)" />
-                ) : (
-                    <div className="rounded-card border border-(--border) bg-(--bg-subtle) p-5">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <p className="text-sm text-(--fg-secondary)">Actualmente activo</p>
-                                <h3 className="text-2xl font-semibold text-(--fg)">{currentPlanName}</h3>
-                                <p className="mt-1 text-sm text-(--fg-secondary)">
-                                    {currentPlan?.priceMonthly ? `$${formatMoney(currentPlan.priceMonthly)} + IVA / mes` : 'Sin costo mensual'}
-                                </p>
+                    <div className="grid gap-5 lg:grid-cols-2">
+                        <div className="h-80 rounded-card animate-pulse bg-(--bg-muted)" />
+                        <div className="h-80 rounded-card animate-pulse bg-(--bg-muted)" />
+                    </div>
+                ) : proPlan ? (
+                    <div className="grid gap-5 lg:grid-cols-2 lg:items-stretch">
+                        <article
+                            className={`flex h-full flex-col rounded-card border p-5 sm:p-6 ${
+                                currentPlanId === 'pro' ? 'border-(--accent-border) bg-(--accent-subtle)' : 'border-(--border) bg-(--surface)'
+                            }`}
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-(--fg-muted)">Plan mensual</p>
+                                    <h3 className="mt-1 text-2xl font-semibold text-(--fg)">{proPlan.name}</h3>
+                                    <p className="mt-2 text-sm leading-relaxed text-(--fg-secondary)">{proPlan.description}</p>
+                                </div>
+                                {currentPlanId === 'pro' ? (
+                                    <PanelStatusBadge label="Activo" tone="success" />
+                                ) : (
+                                    <PanelStatusBadge label="Recomendado" tone="info" size="sm" />
+                                )}
                             </div>
-                            <PanelStatusBadge
-                                label={currentPlanId === 'free' ? 'Prueba gratuita' : 'Suscrito'}
-                                tone={currentPlanId === 'free' ? 'info' : 'success'}
-                            />
-                        </div>
-                        {currentPlan?.features?.length ? (
-                            <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
-                                {currentPlan.features.map((feature) => (
+
+                            <div className="mt-6 rounded-xl border border-(--border) bg-(--bg-subtle) p-4">
+                                <p className="text-3xl font-bold tracking-tight text-(--fg)">
+                                    {proPlan.currency === 'USD' ? 'US$' : '$'}
+                                    {formatMoney(proPlan.priceMonthly, proPlan.currency)}
+                                    <span className="ml-1 text-base font-medium text-(--fg-muted)">
+                                        {proPlan.currency === 'USD' ? '/ mes' : '+ IVA / mes'}
+                                    </span>
+                                </p>
+                                {proPlan.currency === 'CLP' ? (
+                                    <p className="mt-1 text-sm text-(--fg-secondary)">
+                                        Total estimado: ${formatMoney(monthlyTotalWithVat(proPlan.priceMonthly), 'CLP')} / mes
+                                    </p>
+                                ) : (
+                                    <p className="mt-1 text-sm text-(--fg-secondary)">
+                                        Cobro en CLP vía Mercado Pago (tarjetas chilenas e internacionales según tu medio de pago).
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="mt-5 grid flex-1 gap-2 sm:grid-cols-2">
+                                {proPlan.features.map((feature) => (
                                     <div key={feature} className="flex items-start gap-2 text-sm">
-                                        <IconCheck size={14} className="mt-0.5 shrink-0 text-(--fg-secondary)" />
+                                        <IconCheck size={14} className="mt-0.5 shrink-0 text-(--accent)" />
                                         <span className="text-(--fg-secondary)">{feature}</span>
                                     </div>
                                 ))}
                             </div>
-                        ) : null}
+
+                            <div className="mt-6 pt-2">
+                                <PanelButton
+                                    className="w-full"
+                                    variant={currentPlanId === 'pro' ? 'secondary' : 'primary'}
+                                    disabled={
+                                        currentPlanId === 'pro'
+                                        || busyPlanId === proPlan.id
+                                        || !checkoutEnabled
+                                    }
+                                    onClick={() => void startCheckout('pro')}
+                                >
+                                    {busyPlanId === proPlan.id ? (
+                                        <IconLoader2 size={14} className="animate-spin" />
+                                    ) : (
+                                        <IconCreditCard size={14} />
+                                    )}
+                                    {currentPlanId === 'pro'
+                                        ? 'Plan Pro activo'
+                                        : `Activar Pro con ${paymentProviderLabel()}`}
+                                </PanelButton>
+                            </div>
+                        </article>
+
+                        <aside className="flex h-full flex-col gap-4 rounded-card border border-(--border) bg-(--bg-subtle) p-5 sm:p-6">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-(--fg-muted)">Resumen</p>
+                                <h4 className="mt-1 text-lg font-semibold text-(--fg)">
+                                    {currentPlanId === 'pro' ? 'Tu suscripción' : 'Antes de activar'}
+                                </h4>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex gap-3 rounded-xl border border-(--border) bg-(--surface) p-3">
+                                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-(--accent-subtle) text-(--accent)">
+                                        <IconClockHour4 size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-(--fg)">Prueba de 30 días</p>
+                                        <p className="text-xs leading-relaxed text-(--fg-muted)">
+                                            {trial?.isExpired
+                                                ? 'Tu prueba terminó. Pro reactiva el acceso completo.'
+                                                : trial
+                                                    ? `Te quedan ${trial.daysRemaining} días con todo incluido.`
+                                                    : 'Al registrarte tuviste acceso completo para configurar tu cuenta.'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3 rounded-xl border border-(--border) bg-(--surface) p-3">
+                                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-(--accent-subtle) text-(--accent)">
+                                        <IconShieldCheck size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-(--fg)">Sin permanencia</p>
+                                        <p className="text-xs leading-relaxed text-(--fg-muted)">
+                                            Cancela cuando quieras desde {paymentProviderLabel()}. Tus datos permanecen en tu cuenta.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3 rounded-xl border border-(--border) bg-(--surface) p-3">
+                                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-(--accent-subtle) text-(--accent)">
+                                        <IconReceipt size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-(--fg)">Cobro transparente</p>
+                                        <p className="text-xs leading-relaxed text-(--fg-muted)">
+                                            Neto ${formatMoney(proPlan.priceMonthly)} + IVA 19% (${formatMoney(monthlyTotalWithVat(proPlan.priceMonthly) - proPlan.priceMonthly)}).
+                                            El checkout de Mercado Pago muestra el monto final.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-auto rounded-xl border border-dashed border-(--border) p-4 text-xs leading-relaxed text-(--fg-muted)">
+                                {currentPlanId === 'pro' ? (
+                                    <>
+                                        Estás en <strong className="text-(--fg)">{currentPlanName}</strong>.
+                                        {' '}La facturación mensual aparece abajo en el historial.
+                                    </>
+                                ) : (
+                                    <>
+                                        Hoy estás en <strong className="text-(--fg)">{currentPlanName}</strong>.
+                                        {' '}Al activar Pro mantienes tu configuración y sigues operando sin límites.
+                                    </>
+                                )}
+                            </div>
+                        </aside>
                     </div>
+                ) : (
+                    <PanelNotice tone="neutral">No hay planes de pago disponibles en este momento.</PanelNotice>
                 )}
             </PanelCard>
 
             <PanelCard size="lg">
                 <PanelBlockHeader
-                    title="Planes disponibles"
-                    description="Elige el plan que quieres facturar mensualmente con Mercado Pago."
-                />
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 items-stretch">
-                    {plans.filter(plan => plan.id !== 'free').map((plan) => {
-                        const isCurrent = plan.id === currentPlanId;
-                        const isPaid = plan.priceMonthly > 0 && plan.id !== 'free';
-                        return (
-                            <article
-                                key={plan.id}
-                                className={`flex flex-col h-full rounded-card border p-5 ${isCurrent ? 'border-(--fg) bg-(--bg-subtle)' : 'border-(--border) bg-(--surface)'}`}
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="text-lg font-semibold text-(--fg)">{plan.name}</p>
-                                        <p className="mt-1 text-sm text-(--fg-secondary)">{plan.description}</p>
-                                    </div>
-                                    {plan.recommended ? <PanelStatusBadge label="Recomendado" tone="info" size="sm" /> : null}
-                                </div>
-
-                                <p className="mt-4 text-2xl font-semibold text-(--fg)">
-                                    {plan.priceMonthly ? `$${formatMoney(plan.priceMonthly)} + IVA` : 'Gratis'}
-                                </p>
-                                <p className="text-xs text-(--fg-muted)">
-                                    {plan.priceMonthly ? 'facturación mensual + IVA' : 'sin facturación'}
-                                </p>
-
-                                <div className="mt-4 flex-1 space-y-2">
-                                    {plan.features.map((feature) => (
-                                        <div key={feature} className="flex items-start gap-2 text-sm">
-                                            <IconCheck size={14} className="mt-0.5 shrink-0 text-(--fg-secondary)" />
-                                            <span className="text-(--fg-secondary)">{feature}</span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="mt-auto pt-5">
-                                    <PanelButton
-                                        className="w-full"
-                                        variant={isCurrent ? 'secondary' : 'primary'}
-                                        disabled={!isPaid || isCurrent || busyPlanId === plan.id || !mercadoPagoEnabled}
-                                        onClick={() => {
-                                            if (plan.id !== 'free') {
-                                                void startCheckout(plan.id as Exclude<SubscriptionPlanId, 'free'>);
-                                            }
-                                        }}
-                                    >
-                                        {busyPlanId === plan.id ? <IconLoader2 size={14} className="animate-spin" /> : <IconCreditCard size={14} />}
-                                        {isCurrent ? 'Plan activo' : isPaid ? 'Suscribirme' : 'Plan base'}
-                                    </PanelButton>
-                                </div>
-                            </article>
-                        );
-                    })}
-                </div>
-            </PanelCard>
-
-            <PanelCard size="lg">
-                <PanelBlockHeader
-                    title="Historial de cobros"
-                    description="Seguimiento simple de tus órdenes de suscripción."
+                    title={SUBSCRIPTION_BILLING_HISTORY.title}
+                    description={SUBSCRIPTION_BILLING_HISTORY.description}
                 />
 
                 {loading ? (

@@ -5,7 +5,6 @@ import {
 } from './normalize.js';
 import type {
     PublicProfileAccountKind,
-    PublicProfileLeadRoutingMode,
     PublicProfileRecord,
     PublicProfileTeamMemberRecord,
     VerticalType,
@@ -15,12 +14,6 @@ export function accountKindLabel(kind: PublicProfileAccountKind, vertical: Verti
     if (kind === 'company') return vertical === 'autos' ? 'Automotora o empresa' : 'Inmobiliaria o empresa';
     if (kind === 'independent') return vertical === 'autos' ? 'Vendedor independiente' : 'Corredor independiente';
     return vertical === 'autos' ? 'Vendedor particular' : 'Propietario o vendedor';
-}
-
-export function publicProfileLeadRoutingModeLabel(mode: PublicProfileLeadRoutingMode): string {
-    if (mode === 'owner') return 'Cuenta principal';
-    if (mode === 'unassigned') return 'Sin asignar';
-    return 'Round robin del equipo';
 }
 
 type ProfileUser = {
@@ -94,8 +87,6 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
             slug: defaultSlug || `cuenta-${user.id.slice(0, 8)}`,
             isPublished: false,
             accountKind: getDefaultPublicProfileAccountKind(user, vertical),
-            leadRoutingMode: 'round_robin',
-            leadRoutingCursor: 0,
             displayName: user.name,
             headline: vertical === 'autos'
                 ? 'Atención directa y publicaciones activas verificadas.'
@@ -145,8 +136,6 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
             slug: base.slug,
             isPublished: base.isPublished,
             accountKind: base.accountKind,
-            leadRoutingMode: base.leadRoutingMode,
-            leadRoutingCursor: base.leadRoutingCursor,
             displayName: base.displayName,
             headline: base.headline,
             bio: base.bio,
@@ -174,8 +163,6 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
                 avatarImageUrl: item.avatarImageUrl,
                 socialLinks: item.socialLinks,
                 specialties: item.specialties,
-                isLeadContact: item.isLeadContact,
-                receivesLeads: item.receivesLeads,
                 isPublished: item.isPublished,
             })),
             scheduleNote: base.scheduleNote,
@@ -217,8 +204,6 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
                 vertical,
                 accountKind: profile.accountKind,
                 accountKindLabel: accountKindLabel(profile.accountKind, vertical),
-                leadRoutingMode: profile.leadRoutingMode,
-                leadRoutingModeLabel: publicProfileLeadRoutingModeLabel(profile.leadRoutingMode),
                 subscriptionPlanId: getEffectivePlanId(user, vertical),
                 subscriptionPlanName: getCurrentPlanLabel(user, vertical),
                 headline: profile.headline,
@@ -250,7 +235,6 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
                     avatarImageUrl: item.avatarImageUrl,
                     socialLinks: item.socialLinks,
                     specialties: item.specialties,
-                    isLeadContact: item.isLeadContact,
                 })),
                 teamCount: teamMembers.length,
                 activeListings: listings.length,

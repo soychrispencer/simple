@@ -17,7 +17,8 @@ import {
     type AnalyticsData,
     type NpsResponseRow,
 } from '@/lib/agenda-api';
-import { fmtCLP, fmtDateMedium } from '@/lib/format';
+import { fmtCLP } from '@/lib/format';
+import { usePanelFormatters } from '@simple/auth';
 import { Skeleton, SkeletonStat } from '@/components/panel/skeleton';
 
 const MAX_BARS = 12;
@@ -79,6 +80,7 @@ function npsColor(score: number) {
 }
 
 export default function AnalyticsPage() {
+    const fmt = usePanelFormatters();
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [nps, setNps] = useState<NpsResponseRow[]>([]);
     const [loading, setLoading] = useState(true);
@@ -384,7 +386,7 @@ export default function AnalyticsPage() {
                                                     </span>
                                                     {r.submittedAt ? (
                                                         <span className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
-                                                            · {fmtDateMedium(r.submittedAt)}
+                                                            · {fmt.dateMedium(r.submittedAt)}
                                                         </span>
                                                     ) : null}
                                                 </div>

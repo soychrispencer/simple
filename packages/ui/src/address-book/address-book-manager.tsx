@@ -189,7 +189,7 @@ export function AddressBookManager(props: AddressBookManagerProps) {
 
                 {composerOpen ? (
                     <PanelCard tone="surface" size="lg" className="shadow-(--shadow-xs)">
-                        <div className="mx-auto max-w-2xl space-y-5">
+                        <div className="space-y-5">
                             <div className="flex flex-wrap gap-3" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <p className="text-base font-semibold pr-2" style={{ color: 'var(--fg)' }}>{editingId ? 'Editar dirección' : 'Nueva dirección'}</p>
                                 <button type="button" className="btn btn-outline h-9 px-3 text-xs" style={{ marginLeft: 'auto' }} onClick={handleReset}>
@@ -230,6 +230,7 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                                         framed={false}
                                         addressFirst
                                         allowAreaOnly={false}
+                                        showSavedAddressPicker={false}
                                         showSourceSelector={false}
                                         showVisibilityField={false}
                                         showSimpleVisibilityToggle={false}

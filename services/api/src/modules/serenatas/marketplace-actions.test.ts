@@ -35,7 +35,7 @@ vi.mock('../../db/index.js', () => ({
 
 const pendingSerenata = {
     id: 'ser-1',
-    ownerId: 'admin-1',
+    ownerId: 'owner-1',
     providerGroupId: 'group-uuid-1',
     status: 'pending',
     source: 'platform_lead',
@@ -58,7 +58,7 @@ describe('acceptMarketplaceSerenata', () => {
         mockFindFirst.mockResolvedValue(pendingSerenata);
         const validateAvailability = vi.fn().mockResolvedValue(null);
 
-        const result = await acceptMarketplaceSerenata('admin-1', 'ser-1', validateAvailability);
+        const result = await acceptMarketplaceSerenata('owner-1', 'ser-1', validateAvailability);
 
         expect(result.ok).toBe(true);
         if (result.ok) {
@@ -72,7 +72,7 @@ describe('acceptMarketplaceSerenata', () => {
     it('rechaza si la solicitud no tiene providerGroupId en query', async () => {
         mockFindFirst.mockResolvedValue(null);
 
-        const result = await acceptMarketplaceSerenata('admin-1', 'ser-legacy', async () => null);
+        const result = await acceptMarketplaceSerenata('owner-1', 'ser-legacy', async () => null);
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
@@ -94,7 +94,7 @@ describe('rejectMarketplaceSerenata', () => {
     it('rechaza solicitud marketplace con providerGroupId', async () => {
         mockFindFirst.mockResolvedValue(pendingSerenata);
 
-        const result = await rejectMarketplaceSerenata('admin-1', 'ser-1');
+        const result = await rejectMarketplaceSerenata('owner-1', 'ser-1');
 
         expect(result.ok).toBe(true);
         if (result.ok) {
@@ -108,17 +108,17 @@ describe('rejectMarketplaceSerenata', () => {
         mockFindFirst.mockResolvedValue(pendingSerenata);
         const reason = 'No tenemos disponibilidad para la fecha y hora solicitadas.';
 
-        await rejectMarketplaceSerenata('admin-1', 'ser-1', reason);
+        await rejectMarketplaceSerenata('owner-1', 'ser-1', reason);
 
-        const payloads = mockInsertValues.mock.calls.map((call) => call[0]) as Array<{ message?: string } | Array<{ message?: string }>>;
-        const messages = payloads.flatMap((entry) => (Array.isArray(entry) ? entry : [entry]).map((row) => row.message ?? ''));
+        const payloads = mockInsertValues.mock.calls.map((call) => call[0]) as Array<{ body?: string } | Array<{ body?: string }>>;
+        const messages = payloads.flatMap((entry) => (Array.isArray(entry) ? entry : [entry]).map((row) => row.body ?? ''));
         expect(messages.some((message) => message.includes(reason))).toBe(true);
     });
 
     it('falla si ya no está pending', async () => {
         mockFindFirst.mockResolvedValue(null);
 
-        const result = await rejectMarketplaceSerenata('admin-1', 'ser-taken');
+        const result = await rejectMarketplaceSerenata('owner-1', 'ser-taken');
 
         expect(result.ok).toBe(false);
         if (!result.ok) {

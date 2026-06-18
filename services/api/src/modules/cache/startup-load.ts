@@ -11,15 +11,13 @@ import {
     boostOrders,
     instagramAccounts,
     instagramPublications,
+    socialPublications,
+    tiktokAccounts,
+    youtubeAccounts,
     publicProfiles,
     publicProfileTeamMembers,
     addressBook,
 } from '../../db/schema.js';
-import {
-    applyLeadCountsToListingCache,
-    fetchActiveListingIdsForLeadCountSync,
-    fetchLeadCountsForListingIdsBatched,
-} from '../listings/lead-count.js';
 import { loadPaymentOrdersCache } from '../payments/load-payment-orders-cache.js';
 import { makeGeoPoint, type GeoPoint } from '../listings/location.js';
 
@@ -38,11 +36,13 @@ export type StartupCacheMaps = {
     addressBookByUser: Map<string, AnyRecord[]>;
     paymentOrdersByUser: Map<string, AnyRecord[]>;
     instagramAccountByUserVertical: Map<string, AnyRecord>;
+    tiktokAccountByUserVertical: Map<string, AnyRecord>;
+    youtubeAccountByUserVertical: Map<string, AnyRecord>;
     instagramPublicationsByUser: Map<string, AnyRecord[]>;
+    socialPublicationsByUser: Map<string, AnyRecord[]>;
     publicProfilesByUserVertical: Map<string, AnyRecord>;
     publicProfilesByVerticalSlug: Map<string, AnyRecord>;
     publicProfileTeamMembersByUserVertical: Map<string, AnyRecord[]>;
-    listingLeadCountsByListing: Map<string, number>;
 };
 
 export type StartupLoadDeps = {
@@ -60,7 +60,10 @@ export type StartupLoadDeps = {
     upsertBoostListingFromListing: (listing: AnyRecord) => void;
     instagramAccountKey: (userId: string, vertical: VerticalType) => string;
     mapInstagramAccountRow: (row: typeof instagramAccounts.$inferSelect) => AnyRecord;
+    mapTikTokAccountRow: (row: typeof tiktokAccounts.$inferSelect) => AnyRecord;
+    mapYouTubeAccountRow: (row: typeof youtubeAccounts.$inferSelect) => AnyRecord;
     mapInstagramPublicationRow: (row: typeof instagramPublications.$inferSelect) => AnyRecord;
+    mapSocialPublicationRow: (row: typeof socialPublications.$inferSelect) => AnyRecord;
 };
 
 export function createStartupDataLoader(deps: StartupLoadDeps) {
@@ -79,7 +82,10 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
         upsertBoostListingFromListing,
         instagramAccountKey,
         mapInstagramAccountRow,
+        mapTikTokAccountRow,
+        mapYouTubeAccountRow,
         mapInstagramPublicationRow,
+        mapSocialPublicationRow,
     } = deps;
 
     return async function loadDataFromDB() {
@@ -135,20 +141,6 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
             }
         }
         logger.info('Synced boost listings from DB', { count: boostListingsSeed.length });
-
-        maps.listingLeadCountsByListing.clear();
-        const activeListingIdsForLeads = await fetchActiveListingIdsForLeadCountSync();
-        const leadCountsByListing = await fetchLeadCountsForListingIdsBatched(activeListingIdsForLeads);
-        applyLeadCountsToListingCache(
-            maps.listingsById,
-            maps.listingLeadCountsByListing,
-            leadCountsByListing,
-            activeListingIdsForLeads,
-        );
-        logger.info('Synced listing lead counts from DB', {
-            activeListings: activeListingIdsForLeads.length,
-            withLeads: [...leadCountsByListing.values()].filter((count) => count > 0).length,
-        });
 
         const savedResults = await db.select().from(savedListings);
         const savedByUserMap = new Map<string, AnyRecord[]>();
@@ -222,6 +214,26 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
         }
         logger.info('Loaded Instagram accounts', { count: instagramAccountResults.length });
 
+        const tiktokAccountResults = await db.select().from(tiktokAccounts);
+        for (const account of tiktokAccountResults) {
+            const mapped = mapTikTokAccountRow(account);
+            maps.tiktokAccountByUserVertical.set(
+                instagramAccountKey(mapped.userId, mapped.vertical),
+                mapped,
+            );
+        }
+        logger.info('Loaded TikTok accounts', { count: tiktokAccountResults.length });
+
+        const youtubeAccountResults = await db.select().from(youtubeAccounts);
+        for (const account of youtubeAccountResults) {
+            const mapped = mapYouTubeAccountRow(account);
+            maps.youtubeAccountByUserVertical.set(
+                instagramAccountKey(mapped.userId, mapped.vertical),
+                mapped,
+            );
+        }
+        logger.info('Loaded YouTube accounts', { count: youtubeAccountResults.length });
+
         const instagramPublicationResults = await db.select().from(instagramPublications);
         const instagramPublicationsByUserMap = new Map<string, AnyRecord[]>();
         for (const publication of instagramPublicationResults) {
@@ -234,6 +246,19 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
             maps.instagramPublicationsByUser.set(userId, list.sort((a, b) => b.createdAt - a.createdAt));
         }
         logger.info('Loaded Instagram publications', { count: instagramPublicationResults.length });
+
+        const socialPublicationResults = await db.select().from(socialPublications);
+        const socialPublicationsByUserMap = new Map<string, AnyRecord[]>();
+        for (const publication of socialPublicationResults) {
+            const mapped = mapSocialPublicationRow(publication);
+            const current = socialPublicationsByUserMap.get(mapped.userId) ?? [];
+            current.push(mapped);
+            socialPublicationsByUserMap.set(mapped.userId, current);
+        }
+        for (const [userId, list] of socialPublicationsByUserMap) {
+            maps.socialPublicationsByUser.set(userId, list.sort((a, b) => b.createdAt - a.createdAt));
+        }
+        logger.info('Loaded social publications', { count: socialPublicationResults.length });
 
         const addressBookResults = await db.select().from(addressBook);
         const addressBookByUserMap = new Map<string, AnyRecord[]>();

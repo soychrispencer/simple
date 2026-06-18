@@ -11,17 +11,18 @@ import { serenatasApi } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { isOwnerHomePendingMetric } from '@/lib/serenata-pending';
-import { isUpcomingScheduled, needsClosure } from '@/lib/serenata-dates';
+import { normalizeTimezone } from '@simple/utils';
+import { isUpcomingScheduled, needsClosure, resolveSerenataBusinessTimezone } from '@/lib/serenata-dates';
 import {
-    formatDate,
-    formatShortSerenataDate,
     money,
     SerenataRow,
     toInputDate,
 } from './shared';
+import { useSerenataPanelFormat } from '@/hooks/use-serenata-panel-format';
 import { ProfileSetupChecklist, isProfileSetupPending } from './profile-setup-checklist';
 import { OwnerOnboardingCard } from './owner-onboarding-card';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
+import { useSerenata } from '@/context/serenata-context';
 import { MusicianAvailabilityToggle } from './musician-availability-toggle';
 
 export function HomeView(props: {
@@ -67,6 +68,9 @@ function ViewAllAction({ label, onClick }: { label: string; onClick: () => void 
 }
 
 function ClientHome(props: Parameters<typeof HomeView>[0]) {
+    const { accountUser } = useSerenata();
+    const fmt = useSerenataPanelFormat(false);
+    const personalTimezone = normalizeTimezone(accountUser?.timezone);
     const pending = props.serenatas.filter(
         (item) =>
             item.status === 'payment_pending' ||
@@ -75,10 +79,10 @@ function ClientHome(props: Parameters<typeof HomeView>[0]) {
     );
     const confirmed = props.serenatas.filter(isUpcomingScheduled).length;
     const completed = props.serenatas.filter((item) => item.status === 'completed').length;
-    const toClose = props.serenatas.filter(needsClosure);
+    const toClose = props.serenatas.filter((item) => needsClosure(item, personalTimezone));
     const inProgress = [...pending].sort(sortSerenatasByEvent).slice(0, 5);
     const upcoming = props.serenatas
-        .filter(isUpcomingScheduled)
+        .filter((item) => isUpcomingScheduled(item, personalTimezone))
         .sort(sortSerenatasByEvent)
         .slice(0, 3);
     const closurePreview = [...toClose].sort(sortSerenatasByEvent).slice(0, 3);
@@ -228,6 +232,11 @@ function ClosurePendingCard({
 function WorkHome(props: Parameters<typeof HomeView>[0]) {
     const ownerActive = props.ownerFeaturesEnabled;
     const { mariachi } = useMyMariachi();
+    const { accountUser } = useSerenata();
+    const fmt = useSerenataPanelFormat(ownerActive);
+    const businessTimezone = ownerActive
+        ? resolveSerenataBusinessTimezone(mariachi)
+        : normalizeTimezone(accountUser?.timezone);
     const [providerMusicianCount, setProviderMusicianCount] = useState<number | null>(null);
     const [serviceCount, setServiceCount] = useState(0);
 
@@ -284,10 +293,12 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
         : legacyMemberCount;
     const upcomingSource = ownerActive ? props.agendaItems : props.serenatas;
     const upcoming = upcomingSource
-        .filter(isUpcomingScheduled)
+        .filter((item) => isUpcomingScheduled(item, businessTimezone))
         .sort(sortSerenatasByEvent)
         .slice(0, 3);
-    const toClose = ownerActive ? props.ownerClosureSerenatas : props.serenatas.filter(needsClosure);
+    const toClose = ownerActive
+        ? props.ownerClosureSerenatas
+        : props.serenatas.filter((item) => needsClosure(item, businessTimezone));
     const closurePreview = [...toClose].sort(sortSerenatasByEvent).slice(0, 3);
     const showAssignGroupCard = ownerActive && needsGroupSerenatas.length > 0;
     const setupPending = isProfileSetupPending('work', props.profiles, ownerActive ? mariachi : null, serviceCount);
@@ -412,7 +423,7 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
                                                 </div>
                                                 <p className="mt-1 text-xs text-fg-muted">
                                                     {(item.eventTime ? `${item.eventTime} · ` : '')}
-                                                    {formatDate(item.eventDate ?? item.groupDate)}
+                                                    {fmt.formatDate(item.eventDate ?? item.groupDate ?? '')}
                                                     {item.comuna ? ` · ${item.comuna}` : ''}
                                                 </p>
                                             </div>
@@ -453,7 +464,7 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
                                     >
                                         <div className="min-w-0">
                                             <p className="truncate text-sm font-semibold text-fg">{item.recipientName}</p>
-                                            <p className="mt-1 text-xs text-fg-muted">{formatShortSerenataDate(item)}</p>
+                                            <p className="mt-1 text-xs text-fg-muted">{fmt.formatShortSerenataDate(item)}</p>
                                         </div>
                                         <span className="shrink-0 text-sm font-semibold text-accent">Conformar</span>
                                     </button>

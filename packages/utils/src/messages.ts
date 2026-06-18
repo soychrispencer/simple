@@ -1,6 +1,6 @@
 import { apiFetch } from './api-client.js';
 
-export type MessageVertical = 'autos' | 'propiedades';
+export type MessageVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 
 export type MessageThread = {
     id: string;
@@ -24,7 +24,6 @@ export type MessageThread = {
         name: string;
         email: string;
     } | null;
-    leadId: string;
     lastMessageAt: number;
     lastMessageAgo: string;
     lastMessagePreview: string | null;
@@ -47,20 +46,6 @@ export type MessageEntry = {
     } | null;
 };
 
-export type ThreadLead = {
-    id: string;
-    status: 'new' | 'contacted' | 'qualified' | 'closed';
-    statusLabel: string;
-    threadId: string | null;
-    listing: MessageThread['listing'];
-    contactName: string;
-    contactEmail: string;
-    contactPhone: string | null;
-    sourceLabel: string;
-    channelLabel: string;
-    message: string | null;
-};
-
 type ApiResponse<T> = {
     ok?: boolean;
     error?: string;
@@ -81,15 +66,14 @@ export async function fetchMessageThreads(
 export async function fetchMessageThreadDetail(
     vertical: MessageVertical,
     threadId: string
-): Promise<{ item: MessageThread; entries: MessageEntry[]; lead: ThreadLead | null } | null> {
+): Promise<{ item: MessageThread; entries: MessageEntry[] } | null> {
     const { ok, data } = await apiFetch<
-        ApiResponse<{ item?: MessageThread; entries?: MessageEntry[]; lead?: ThreadLead | null }>
+        ApiResponse<{ item?: MessageThread; entries?: MessageEntry[] }>
     >(`/api/messages/threads/${encodeURIComponent(threadId)}?vertical=${vertical}`, { method: 'GET' });
     if (!ok || !data?.ok || !data.item) return null;
     return {
         item: data.item,
         entries: data.entries ?? [],
-        lead: data.lead ?? null,
     };
 }
 
@@ -97,9 +81,9 @@ export async function sendThreadMessage(
     vertical: MessageVertical,
     threadId: string,
     body: string
-): Promise<{ ok: boolean; item?: MessageThread; entry?: MessageEntry; lead?: ThreadLead | null; error?: string }> {
+): Promise<{ ok: boolean; item?: MessageThread; entry?: MessageEntry; error?: string }> {
     const { ok, data } = await apiFetch<
-        ApiResponse<{ item?: MessageThread; entry?: MessageEntry; lead?: ThreadLead | null }>
+        ApiResponse<{ item?: MessageThread; entry?: MessageEntry }>
     >(`/api/messages/threads/${encodeURIComponent(threadId)}/messages?vertical=${vertical}`, {
         method: 'POST',
         body: JSON.stringify({ body }),
@@ -111,7 +95,6 @@ export async function sendThreadMessage(
         ok: true,
         item: data.item,
         entry: data.entry,
-        lead: data.lead ?? null,
     };
 }
 

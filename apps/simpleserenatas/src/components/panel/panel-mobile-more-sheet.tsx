@@ -1,6 +1,6 @@
 'use client';
 
-import { IconBrandWhatsapp, IconBriefcase, IconChartBar, IconMap, IconX } from '@tabler/icons-react';
+import { IconBriefcase, IconChartBar, IconMap, IconX } from '@tabler/icons-react';
 import { PanelSheet } from '@/components/panel/panel-sheet';
 import type { PanelNavItem } from '@/components/panel/panel-nav-config';
 import type { Section } from '@/context/serenata-context';
@@ -18,7 +18,6 @@ export function PanelMobileMoreSheet({ items, activeSection, onNavigate, onClose
     const iconFor = (id: Section) => {
         if (id === 'map') return IconMap;
         if (id === 'finanzas') return IconChartBar;
-        if (id === 'chat') return IconBrandWhatsapp;
         if (id === 'mi-negocio') return IconBriefcase;
         return IconMap;
     };

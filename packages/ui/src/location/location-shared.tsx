@@ -255,22 +255,60 @@ export function applyPlaceToLocation(
     });
 }
 
-async function resolvePlacesAutocompleteReady(): Promise<boolean> {
+type GooglePlacesAutocompleteCtor = new (
+    input: HTMLInputElement,
+    options?: Record<string, unknown>,
+) => {
+    addListener: (event: string, handler: () => void) => void;
+    getPlace: () => GooglePlaceResult | undefined;
+};
+
+export type GooglePlacesAutocompleteInstance = InstanceType<GooglePlacesAutocompleteCtor>;
+
+async function resolvePlacesAutocompleteClass(): Promise<GooglePlacesAutocompleteCtor | null> {
     const googleMaps = (window as typeof window & { google?: { maps?: any } }).google?.maps;
-    if (!googleMaps) return false;
-    if (googleMaps.places?.Autocomplete) return true;
+    if (!googleMaps) return null;
+    if (googleMaps.places?.Autocomplete) return googleMaps.places.Autocomplete;
     if (typeof googleMaps.importLibrary === 'function') {
         try {
-            await googleMaps.importLibrary('places');
+            const places = await googleMaps.importLibrary('places');
+            return places?.Autocomplete ?? googleMaps.places?.Autocomplete ?? null;
         } catch {
-            return false;
+            return null;
         }
     }
-    return Boolean(googleMaps.places?.Autocomplete);
+    return null;
+}
+
+async function resolvePlacesAutocompleteReady(): Promise<boolean> {
+    return Boolean(await resolvePlacesAutocompleteClass());
+}
+
+export async function createGooglePlacesAutocomplete(
+    input: HTMLInputElement,
+    apiKey: string,
+    options: {
+        componentRestrictions?: { country: string };
+        fields?: string[];
+        types?: string[];
+    },
+): Promise<GooglePlacesAutocompleteInstance | null> {
+    const loaded = await loadGooglePlacesScript(apiKey);
+    if (!loaded) return null;
+    const Autocomplete = await resolvePlacesAutocompleteClass();
+    if (!Autocomplete) return null;
+    ensureGooglePlacesDropdownStyles();
+    return new Autocomplete(input, options);
 }
 
 export function loadGooglePlacesScript(apiKey: string): Promise<boolean> {
     if (!apiKey || typeof window === 'undefined') return Promise.resolve(false);
+
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-google-places-script="true"]');
+    if (existingScript?.dataset.googlePlacesKey && existingScript.dataset.googlePlacesKey !== apiKey) {
+        existingScript.remove();
+        googlePlacesScriptPromise = null;
+    }
 
     if (googlePlacesScriptPromise) return googlePlacesScriptPromise;
 

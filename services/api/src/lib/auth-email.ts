@@ -40,11 +40,25 @@ function buildPasswordResetUrl(origin: string, token: string): string {
 }
 
 function buildEmailVerificationUrl(origin: string, token: string): string {
+    const returnTo = defaultEmailVerificationReturnTo(origin);
     const params = new URLSearchParams({
         token,
-        returnTo: '/panel',
+        returnTo,
     });
     return `${origin}/auth/confirmar-correo?${params.toString()}`;
+}
+
+function defaultEmailVerificationReturnTo(origin: string): string {
+    try {
+        const url = new URL(origin);
+        const host = url.hostname.toLowerCase();
+        const port = url.port;
+        if (host.includes('simpleserenatas') || port === '3005') return '/onboarding';
+        if (host.includes('admin.simpleplataforma') || host.includes('simpleadmin') || port === '3000') return '/';
+    } catch {
+        /* origin inválido */
+    }
+    return '/panel';
 }
 
 function isAuthEmailConfigured(): boolean {

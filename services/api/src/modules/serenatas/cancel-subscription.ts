@@ -10,7 +10,7 @@ export async function cancelSerenatasProSubscription(
     | { ok: false; error: string; status: number }
 > {
     const sub = await loadCurrentSubscriptionFromDb(userId, 'serenatas');
-    if (!sub || (sub.planSlug !== 'essential' && sub.planSlug !== 'pro')) {
+    if (!sub || sub.planSlug !== 'pro') {
         return { ok: false, error: 'No tienes una suscripción activa.', status: 400 };
     }
 
@@ -37,6 +37,6 @@ export async function cancelSerenatasProSubscription(
 
     return {
         ok: true,
-        message: 'Suscripción cancelada. Al finalizar el período vigente, tu perfil puede quedar pausado hasta activar Esencial o Pro nuevamente. SimpleSerenatas no cobra comisión por serenata.',
+        message: 'Suscripción cancelada. Al finalizar el período vigente, tu perfil puede quedar pausado hasta activar Pro nuevamente. SimpleSerenatas no cobra comisión por serenata.',
     };
 }

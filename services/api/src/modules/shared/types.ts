@@ -7,9 +7,8 @@ export type * from './db-types.js';
 // Enums / Union Types
 export type UserRole = 'user' | 'admin' | 'superadmin';
 export type UserStatus = 'active' | 'verified' | 'suspended';
-export type AccountType = 'general' | 'autos' | 'propiedades' | 'agenda' | 'crm_only';
+export type AccountType = 'general' | 'autos' | 'propiedades' | 'agenda';
 export type AccountRole = 'owner' | 'admin' | 'agent';
-export type CrmEntityType = 'listing' | 'service' | 'external';
 export type AddressBookKind = 'personal' | 'shipping' | 'billing' | 'company' | 'branch' | 'warehouse' | 'pickup' | 'other';
 export type ListingLocationSourceMode = 'saved_address' | 'custom' | 'area_only';
 export type ListingLocationVisibilityMode = 'exact' | 'approximate' | 'sector_only' | 'commune_only' | 'hidden';
@@ -33,7 +32,6 @@ export type ValuationFeedLicense = 'internal' | 'partner_feed' | 'commercial_fee
 export type ValuationFeedTransport = 'snapshot' | 'remote_json';
 export type ValuationFeedHealth = 'ready' | 'degraded' | 'disabled';
 export type PublicProfileAccountKind = 'individual' | 'independent' | 'company';
-export type PublicProfileLeadRoutingMode = 'owner' | 'round_robin' | 'unassigned';
 export type PublicProfileDayId = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 // Complex Types
@@ -90,8 +88,6 @@ export interface AppUser {
     status: UserStatus;
     phone: string | null;
     imageUrl: string | null;
-    whatsappEnabled: boolean;
-    whatsappPhone: string | null;
     primaryAccountId?: string | null;
 }
 

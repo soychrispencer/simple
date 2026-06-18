@@ -10,8 +10,7 @@ export const ACCOUNT_TAB_VALUES = [
     'data',
     'security',
     'musician',
-    'addresses',
-    'timezone',
+    'ubicacion',
     'notifications',
     'integrations',
     'subscription',
@@ -24,6 +23,16 @@ const LEGACY_ACCOUNT_TAB_ALIASES: Record<string, AccountTab> = {
     seguridad: 'security',
     suscripcion: 'subscription',
     suscripciones: 'subscription',
+    addresses: 'ubicacion',
+    direcciones: 'ubicacion',
+    musico: 'musician',
+    'perfil-publico': 'musician',
+    'datos-musico': 'musician',
+    'datos-personales': 'data',
+    personal: 'data',
+    cuenta: 'data',
+    notificaciones: 'notifications',
+    integraciones: 'integrations',
 };
 
 export function normalizeAccountTab(value: string | null | undefined): AccountTab | null {
@@ -55,18 +64,17 @@ export function profileSectionHref(accountTab?: AccountTab): string {
 export function getAccountPillItems(mode: AppMode, profiles: Profiles): { key: AccountTab; label: string }[] {
     const items: { key: AccountTab; label: string }[] = [
         { key: 'data', label: 'Datos personales' },
-        { key: 'security', label: 'Seguridad' },
         ...(mode === 'work' && profiles.musician
             ? [{ key: 'musician' as const, label: 'Perfil público' }]
             : []),
-        { key: 'addresses', label: 'Direcciones' },
-        { key: 'timezone', label: 'Zona horaria' },
+        { key: 'ubicacion', label: 'Ubicación' },
         { key: 'notifications', label: 'Notificaciones' },
+        { key: 'integrations', label: 'Integraciones' },
     ];
     if (mode === 'work' && ownerFeaturesEnabled(profiles)) {
-        items.push({ key: 'integrations', label: 'Integraciones' });
         items.push({ key: 'subscription', label: 'Suscripción' });
     }
+    items.push({ key: 'security', label: 'Seguridad' });
     return items;
 }
 
@@ -83,7 +91,9 @@ export const CONFIG_SLUG_TO_ACCOUNT_TAB: Record<string, AccountTab> = {
     musico: 'musician',
     'perfil-publico': 'musician',
     'datos-musico': 'musician',
-    direcciones: 'addresses',
+    direcciones: 'ubicacion',
+    ubicacion: 'ubicacion',
+    addresses: 'ubicacion',
     integraciones: 'integrations',
     suscripciones: 'subscription',
     suscripcion: 'subscription',

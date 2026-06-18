@@ -11,6 +11,9 @@ import {
     IconBrandTiktok,
     IconBrandYoutube,
     IconBrandX,
+    IconCreditCard,
+    IconBuildingBank,
+    IconLink,
 } from '@tabler/icons-react';
 import BookingFlow from './BookingFlow';
 
@@ -43,6 +46,9 @@ type PublicProfile = {
     advancePaymentInstructions: string | null;
     paymentMethods: {
         requiresAdvancePayment: boolean;
+        acceptsMp?: boolean;
+        acceptsTransfer?: boolean;
+        acceptsPaymentLink?: boolean;
         mpConnected: boolean;
         paymentLinkUrl: string | null;
         bankTransferData: {
@@ -91,6 +97,12 @@ export default async function PublicBookingPage({ params }: { params: Promise<{ 
     ].filter(Boolean) as Array<{ href: string; Icon: React.ElementType; label: string; color: string }>;
 
     const hasContacts = profile.publicEmail || profile.publicPhone || profile.publicWhatsapp || profile.websiteUrl || socialLinks.length > 0;
+
+    const pm = profile.paymentMethods;
+    const hasMercadoPago = pm.mpConnected || pm.acceptsMp;
+    const hasTransfer = !!pm.bankTransferData;
+    const hasPaymentLink = !!pm.paymentLinkUrl;
+    const hasPaymentMethods = hasMercadoPago || hasTransfer || hasPaymentLink;
 
     return (
         <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
@@ -163,6 +175,66 @@ export default async function PublicBookingPage({ params }: { params: Promise<{ 
                 {profile.bio && (
                     <div className="rounded-2xl p-5 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                         <p className="text-sm leading-relaxed text-center" style={{ color: 'var(--fg-secondary)' }}>{profile.bio}</p>
+                    </div>
+                )}
+
+                {/* ── Medios de pago ───────────────────────────────── */}
+                {hasPaymentMethods && (
+                    <div>
+                        <h2 className="text-sm font-semibold mb-3 px-1" style={{ color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>Medios de pago</h2>
+                        <div className="rounded-2xl p-4 flex flex-col gap-3 shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                            {pm.requiresAdvancePayment && (
+                                <p className="text-xs rounded-xl px-3 py-2" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                    Este profesional puede solicitar pago anticipado al reservar.
+                                </p>
+                            )}
+                            {hasMercadoPago && (
+                                <div className="flex items-start gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--bg)' }}>
+                                    <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(0,158,227,0.12)', color: '#009EE3' }}>
+                                        <IconCreditCard size={15} />
+                                    </span>
+                                    <div>
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>MercadoPago</p>
+                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                            {pm.mpConnected ? 'Pago con tarjeta o débito al reservar.' : 'Acepta pagos con MercadoPago.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                            {hasTransfer && pm.bankTransferData && (
+                                <div className="flex items-start gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--bg)' }}>
+                                    <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                        <IconBuildingBank size={15} />
+                                    </span>
+                                    <div className="min-w-0 text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                        <p className="text-sm font-medium mb-1" style={{ color: 'var(--fg)' }}>Transferencia bancaria</p>
+                                        <p><span className="font-medium">Banco:</span> {pm.bankTransferData.bank}</p>
+                                        <p><span className="font-medium">Tipo:</span> {pm.bankTransferData.accountType}</p>
+                                        <p><span className="font-medium">Cuenta:</span> {pm.bankTransferData.accountNumber}</p>
+                                        <p><span className="font-medium">Titular:</span> {pm.bankTransferData.holderName}</p>
+                                        {pm.bankTransferData.holderRut && <p><span className="font-medium">RUT:</span> {pm.bankTransferData.holderRut}</p>}
+                                        {pm.bankTransferData.alias && <p><span className="font-medium">Referencia:</span> {pm.bankTransferData.alias}</p>}
+                                    </div>
+                                </div>
+                            )}
+                            {hasPaymentLink && pm.paymentLinkUrl && (
+                                <a
+                                    href={pm.paymentLinkUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-(--bg-subtle)"
+                                    style={{ background: 'var(--bg)' }}
+                                >
+                                    <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                        <IconLink size={15} />
+                                    </span>
+                                    <div>
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Link de pago</p>
+                                        <p className="text-xs truncate max-w-[240px]" style={{ color: 'var(--accent)' }}>{pm.paymentLinkUrl}</p>
+                                    </div>
+                                </a>
+                            )}
+                        </div>
                     </div>
                 )}
 

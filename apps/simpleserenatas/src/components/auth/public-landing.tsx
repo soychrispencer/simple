@@ -7,9 +7,12 @@ import {
     IconCalendar,
     IconCheck,
     IconChevronRight,
+    IconClockHour4,
     IconHeart,
+    IconHeartHandshake,
     IconMusic,
     IconSearch,
+    IconShieldCheck,
     IconSparkles,
     IconUsersGroup,
 } from '@tabler/icons-react';
@@ -25,6 +28,7 @@ import {
     type MarketplaceSearchFilters,
 } from '@/lib/marketplace-search';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
+import { OWNER_SECTION_EYEBROW } from '@/lib/serenatas-terminology';
 import { useLandingHashScroll } from '@/hooks/use-landing-hash-scroll';
 
 type PublicLandingProps = {
@@ -44,6 +48,12 @@ const HOW_IT_WORKS = [
     { icon: IconSearch, title: 'Elige un mariachi', desc: 'Revisa fotos, servicios, zonas y precio desde.' },
     { icon: IconCalendar, title: 'Solicita fecha y lugar', desc: 'Indica comuna, dirección, hora y destinatario.' },
     { icon: IconCheck, title: 'Recibe confirmación', desc: 'El dueño revisa disponibilidad y conforma el grupo.' },
+];
+
+const OWNER_TRIAL_BENEFITS = [
+    { icon: IconClockHour4, title: '30 días completos', desc: 'Configura tu grupo, servicios, agenda y solicitudes sin límites.' },
+    { icon: IconShieldCheck, title: 'Sin tarjeta', desc: 'Regístrate gratis. Solo pagas si decides continuar después de la prueba.' },
+    { icon: IconHeartHandshake, title: 'Cancela cuando quieras', desc: 'Sin permanencia. Tus datos y configuración se mantienen guardados.' },
 ];
 
 const FEATURED_COUNT = 3;
@@ -144,7 +154,7 @@ export function PublicLanding({
                                         className="btn h-13 border border-white/28 bg-white/12 px-7 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/20 sm:h-14 sm:px-9"
                                         onClick={onRegister}
                                     >
-                                        Registrarse
+                                        Registrar mi mariachi
                                     </button>
                                 )}
                             </div>
@@ -254,14 +264,57 @@ export function PublicLanding({
                     </div>
                 </section>
 
+                <section id="para-duenos" className="border-b py-14 border-border bg-bg-subtle scroll-mt-20 sm:py-18">
+                    <div className="container-app max-w-6xl">
+                        <div className="mx-auto max-w-2xl text-center">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+                                {OWNER_SECTION_EYEBROW}
+                            </p>
+                            <h2 className="mt-2 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
+                                Regístrate gratis y pruébalo 30 días
+                            </h2>
+                            <p className="mt-3 text-sm leading-relaxed text-fg-muted sm:text-base">
+                                Publica tu grupo, recibe solicitudes y opera tu negocio con acceso completo. Sin tarjeta para empezar.
+                            </p>
+                        </div>
+                        <div className="mt-8 grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto">
+                            {OWNER_TRIAL_BENEFITS.map((item) => (
+                                <div
+                                    key={item.title}
+                                    className="rounded-card border p-5 text-center border-border bg-surface"
+                                >
+                                    <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-button bg-accent-soft text-accent">
+                                        <item.icon size={20} />
+                                    </div>
+                                    <h3 className="text-sm font-semibold text-fg">{item.title}</h3>
+                                    <p className="mt-1 text-xs leading-relaxed text-fg-muted">{item.desc}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-8 text-center">
+                            <button
+                                type="button"
+                                className="btn btn-primary h-12 px-8 text-sm font-semibold"
+                                onClick={onRegister}
+                            >
+                                Probar 30 días gratis
+                                <IconChevronRight size={17} />
+                            </button>
+                            <p className="mt-4 text-xs text-fg-muted max-w-md mx-auto">
+                                Sin comisión por serenata. Planes, precios y cobros los ves en Mi cuenta → Suscripción.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="musicos" className="py-14 scroll-mt-20 sm:py-18">
                     <div className="container-app max-w-6xl">
                         <div className="grid gap-5 lg:grid-cols-2">
                             <AudienceCard
                                 icon={IconUsersGroup}
                                 title="¿Tienes un mariachi?"
-                                description="Prueba gratis por 30 días. Publica tu grupo y luego activa Esencial o Pro para mantener tu perfil visible sin comisión por serenata."
-                                cta="Registrarme"
+                                description="Crea tu cuenta de dueño, configura tu perfil y prueba el panel completo durante 30 días."
+                                cta="Empezar gratis"
                                 onClick={onRegister}
                             />
                             <AudienceCard

@@ -9,21 +9,22 @@ import { isEventBeforeToday, needsClosure } from '@/lib/serenata-dates';
 import { PanelSheet } from './panel-sheet';
 import { FieldTextarea, FormFeedback, type FormStatus } from './shared';
 
-export function canOwnerCompleteSerenata(item: Serenata): boolean {
-    return item.status === 'scheduled' || needsClosure(item);
+export function canOwnerCompleteSerenata(item: Serenata, timezone?: string): boolean {
+    return item.status === 'scheduled' || needsClosure(item, timezone);
 }
 
-export function canOwnerCancelSerenata(item: Serenata): boolean {
-    return (item.status === 'scheduled' || item.status === 'accepted_pending_group') && !isEventBeforeToday(item.eventDate);
-}
-
-export function shouldShowSerenataPastDateNotice(item: Serenata): boolean {
+export function canOwnerCancelSerenata(item: Serenata, timezone?: string): boolean {
     return (item.status === 'scheduled' || item.status === 'accepted_pending_group')
-        && isEventBeforeToday(item.eventDate);
+        && !isEventBeforeToday(item.eventDate, timezone);
 }
 
-export function SerenataPastDateNotice({ item }: { item: Serenata }) {
-    if (!shouldShowSerenataPastDateNotice(item)) return null;
+export function shouldShowSerenataPastDateNotice(item: Serenata, timezone?: string): boolean {
+    return (item.status === 'scheduled' || item.status === 'accepted_pending_group')
+        && isEventBeforeToday(item.eventDate, timezone);
+}
+
+export function SerenataPastDateNotice({ item, timezone }: { item: Serenata; timezone?: string }) {
+    if (!shouldShowSerenataPastDateNotice(item, timezone)) return null;
     return (
         <p className="text-xs text-fg-muted">
             La fecha ya pasó: completa la serenata o contacta soporte.
@@ -36,19 +37,21 @@ export function SerenataClosureActions({
     refresh,
     size = 'sm',
     inline = false,
+    timezone,
 }: {
     item: Serenata;
     refresh: () => Promise<void>;
     size?: 'sm' | 'default';
     /** Botones en la misma fila que otras acciones; aviso de fecha pasada va fuera (p. ej. footer de la card). */
     inline?: boolean;
+    timezone?: string;
 }) {
     const [loadingAction, setLoadingAction] = useState<'complete' | 'cancel' | null>(null);
     const [cancelOpen, setCancelOpen] = useState(false);
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [cancelReason, setCancelReason] = useState('');
-    const showActions = canOwnerCompleteSerenata(item) || canOwnerCancelSerenata(item);
-    const cancelBlocked = shouldShowSerenataPastDateNotice(item);
+    const showActions = canOwnerCompleteSerenata(item, timezone) || canOwnerCancelSerenata(item, timezone);
+    const cancelBlocked = shouldShowSerenataPastDateNotice(item, timezone);
 
     if (!showActions) return null;
 

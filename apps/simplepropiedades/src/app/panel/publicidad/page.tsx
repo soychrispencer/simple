@@ -26,6 +26,7 @@ import {
 import { confirmCheckout, startAdvertisingCheckout } from '@/lib/payments';
 import { PanelActions } from '@simple/ui/panel';
 import { PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelPillNav, PanelSegmentedToggle, PanelStatusBadge, PanelStepNav, PanelSummaryCard, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
+import { usePanelFormatters } from '@simple/auth';
 
 type Duration = 7 | 15 | 30;
 type Step = 0 | 1 | 2;
@@ -102,12 +103,6 @@ const INLINE_SECTION_OPTIONS: Array<{ id: AdPlacementSection; label: string }> =
 function toIsoDateToday() {
   const d = new Date();
   return `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, '0')}-${`${d.getDate()}`.padStart(2, '0')}`;
-}
-
-function formatDate(iso: string) {
-  const value = new Date(iso);
-  if (Number.isNaN(value.getTime())) return '-';
-  return value.toLocaleDateString('es-CL');
 }
 
 function statusLabel(status: AdCampaign['status']) {
@@ -237,6 +232,7 @@ async function optimizeImageForStorage(params: {
 }
 
 export default function PublicidadPage() {
+  const fmt = usePanelFormatters();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -542,7 +538,7 @@ export default function PublicidadPage() {
       }
 
       const created = await createAdCampaign({
-        name: campaignName.trim() || `Campaña ${new Date().toLocaleDateString('es-CL')}`,
+        name: campaignName.trim() || `Campaña ${fmt.dateMedium(new Date())}`,
         format,
         destinationType,
         destinationUrl: destinationType === 'custom_url' ? customUrl.trim() : null,
@@ -1011,7 +1007,7 @@ export default function PublicidadPage() {
                         ) : null}
                       </div>
                       <p className="type-caption mt-1 prop-text-secondary">
-                        {campaign.format.toUpperCase()} · {campaign.durationDays} días · {formatDate(campaign.startAt)} - {formatDate(campaign.endAt)}
+                        {campaign.format.toUpperCase()} · {campaign.durationDays} días · {fmt.dateMedium(campaign.startAt)} - {fmt.dateMedium(campaign.endAt)}
                       </p>
                       {campaign.paymentStatus !== 'paid' ? (
                         <p className="type-caption mt-1 text-[var(--fg-muted)]">

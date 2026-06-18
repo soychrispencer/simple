@@ -11,6 +11,7 @@ import {
     updateAddressBookEntry,
 } from '@simple/utils';
 import type { AddressBookManagerSubmitInput } from './address-book-manager';
+import { useGoogleMapsBrowserKey } from '../hooks/use-google-maps-browser-key';
 
 function draftToPayload(draft: AddressBookManagerSubmitInput) {
     return {
@@ -61,11 +62,11 @@ export function useAddressBookPage() {
             : await createAddressBookEntry(payload);
         setSaving(false);
         if (!result.ok) {
-            setMessage(result.error || 'No se pudo guardar la direccion.');
+            setMessage(result.error || 'No se pudo guardar la dirección.');
             return false;
         }
         setAddressBook(result.items);
-        setMessage(draft.id ? 'Direccion actualizada.' : 'Direccion agregada.');
+        setMessage(draft.id ? 'Dirección actualizada.' : 'Dirección agregada.');
         return true;
     }, []);
 
@@ -74,16 +75,14 @@ export function useAddressBookPage() {
         const result = await deleteAddressBookEntry(entryId);
         setDeletingId(null);
         if (!result.ok) {
-            setMessage(result.error || 'No se pudo eliminar la direccion.');
+            setMessage(result.error || 'No se pudo eliminar la dirección.');
             return;
         }
         setAddressBook(result.items);
-        setMessage('Direccion eliminada.');
+        setMessage('Dirección eliminada.');
     }, []);
 
-    const googleMapsApiKey =
-        process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ||
-        process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const googleMapsApiKey = useGoogleMapsBrowserKey();
 
     const regions = LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name }));
     const getCommunes = useCallback(

@@ -3,20 +3,14 @@ export const APP_COMMISSION_FREE_BPS = 0;
 /** @deprecated Compatibilidad legacy. SimpleSerenatas ya no cobra comisión por serenata. */
 export const APP_COMMISSION_PRO_BPS = 0;
 export const COMMISSION_VAT_BPS = 1900;
-export const SERENATA_ESSENTIAL_PRICE_MONTHLY_CLP = 9_990;
 export const SERENATA_PRO_PRICE_MONTHLY_CLP = 19_990;
 export const SERENATA_TRIAL_DAYS = 30;
 
-export function defaultSerenataTrialEndsAt(from = new Date()): Date {
-    const trialEndsAt = new Date(from);
-    trialEndsAt.setDate(trialEndsAt.getDate() + SERENATA_TRIAL_DAYS);
-    return trialEndsAt;
-}
+export { BILLING_TRIAL_DAYS, defaultTrialEndsAt as defaultSerenataTrialEndsAt } from '../billing/trial-config.js';
 
 /** Monto mensual cobrado en checkout (neto + IVA 19 %). */
-export function serenataPlanMonthlyChargeClp(plan: Extract<SerenataBillingPlanId, 'essential' | 'pro'>): number {
-    const net = plan === 'essential' ? SERENATA_ESSENTIAL_PRICE_MONTHLY_CLP : SERENATA_PRO_PRICE_MONTHLY_CLP;
-    return Math.round(net * (1 + COMMISSION_VAT_BPS / 10_000));
+export function serenataPlanMonthlyChargeClp(plan: Extract<SerenataBillingPlanId, 'pro'> = 'pro'): number {
+    return Math.round(SERENATA_PRO_PRICE_MONTHLY_CLP * (1 + COMMISSION_VAT_BPS / 10_000));
 }
 
 /** @deprecated Usar `serenataPlanMonthlyChargeClp('pro')`. */
@@ -24,7 +18,7 @@ export function serenataProMonthlyChargeClp(): number {
     return serenataPlanMonthlyChargeClp('pro');
 }
 
-export type SerenataBillingPlanId = 'free' | 'essential' | 'pro';
+export type SerenataBillingPlanId = 'free' | 'pro';
 
 export function commissionPercentFromBps(bps: number): number {
     return bps / 100;
@@ -36,7 +30,6 @@ export function appCommissionBpsForPlan(plan: SerenataBillingPlanId): number {
 
 export function planLabel(plan: SerenataBillingPlanId): string {
     if (plan === 'pro') return 'Pro';
-    if (plan === 'essential') return 'Esencial';
     return 'Prueba gratis';
 }
 

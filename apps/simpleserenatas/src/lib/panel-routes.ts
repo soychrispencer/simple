@@ -32,8 +32,6 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     mapa: 'map',
     map: 'map',
     finanzas: 'finanzas',
-    chat: 'chat',
-    whatsapp: 'chat',
     perfil: 'profile',
     profile: 'profile',
     'mi-cuenta': 'profile',
@@ -41,6 +39,7 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     explorar: 'mariachis',
     'nuevo-evento': 'mariachis',
     notificaciones: 'home',
+    mensajes: 'mensajes',
 };
 
 /** Sección → slug canónico en `/panel/{slug}`. */
@@ -61,8 +60,8 @@ export const SECTION_TO_PANEL_SLUG: Record<Section, string> = {
     agenda: 'agenda',
     map: 'mapa',
     finanzas: 'finanzas',
-    chat: 'chat',
     profile: 'mi-cuenta',
+    mensajes: 'mensajes',
 };
 
 const ALL_SECTIONS = new Set<string>(Object.keys(SECTION_TO_PANEL_SLUG));
@@ -286,10 +285,23 @@ export function resolveGrupoQueryRedirect(pathname: string, search: string): str
     return null;
 }
 
-/** Sin rutas anidadas legacy: Mi cuenta vive solo en `/panel/mi-cuenta`. */
+/** Rutas anidadas legacy de Mi cuenta → `/panel/mi-cuenta?account_tab=…`. */
+const LEGACY_MI_CUENTA_NESTED: Record<string, AccountTab> = {
+    '/panel/mi-cuenta/timezone': 'ubicacion',
+    '/panel/mi-cuenta/direcciones': 'ubicacion',
+    '/panel/mi-cuenta/ubicacion': 'ubicacion',
+    '/panel/mi-cuenta/seguridad': 'security',
+    '/panel/mi-cuenta/notificaciones': 'notifications',
+    '/panel/mi-cuenta/suscripcion': 'subscription',
+    '/panel/mi-cuenta/integraciones': 'integrations',
+    '/panel/mi-cuenta/datos-personales': 'data',
+};
+
 export function resolveNestedPanelRedirect(pathname: string): string | null {
-    void pathname;
-    return null;
+    const normalized = pathname.replace(/\/$/, '');
+    const tab = LEGACY_MI_CUENTA_NESTED[normalized];
+    if (!tab) return null;
+    return profilePanelHref(tab);
 }
 
 export function accountTabFromSearch(search: string): AccountTab | null {

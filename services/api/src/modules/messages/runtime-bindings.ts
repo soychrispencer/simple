@@ -1,21 +1,15 @@
 import type {
-    ListingLeadRecord,
     MessageEntryRecord,
-    MessageFolder,
     MessageSenderRole,
     MessageThreadRecord,
-    ServiceLeadRecord,
-    VerticalType,
-} from '../../lib/domain-types.js';
+} from './row-mappers.js';
+import type { MessageFolder } from './service.js';
 import {
     type MessageServiceDeps,
-    buildListingLeadNotification as buildListingLeadNotificationFromMessages,
     buildMessageThreadNotification as buildMessageThreadNotificationFromMessages,
-    buildServiceLeadNotification as buildServiceLeadNotificationFromMessages,
     createMessageEntry as createMessageEntryFromMessages,
     createMessageThread as createMessageThreadFromMessages,
     getMessageThreadById as getMessageThreadByIdFromMessages,
-    getMessageThreadByLeadId as getMessageThreadByLeadIdFromMessages,
     getMessageThreadByListingAndBuyer as getMessageThreadByListingAndBuyerFromMessages,
     isThreadParticipant as isThreadParticipantFromMessages,
     listMessageEntries as listMessageEntriesFromMessages,
@@ -29,6 +23,7 @@ import {
 
 export function createMessageRuntimeBindings(deps: MessageServiceDeps) {
     return {
+        messageDeps: deps,
         messageThreadToResponse: (
             thread: MessageThreadRecord,
             viewerUserId: string,
@@ -36,25 +31,14 @@ export function createMessageRuntimeBindings(deps: MessageServiceDeps) {
         ) => messageThreadToResponseFromMessages(deps, thread, viewerUserId, entries),
         messageEntryToResponse: (entry: MessageEntryRecord, viewerUserId: string) =>
             messageEntryToResponseFromMessages(deps, entry, viewerUserId),
-        buildListingLeadNotification: (record: ListingLeadRecord) =>
-            buildListingLeadNotificationFromMessages(
-                deps,
-                record as Parameters<typeof buildListingLeadNotificationFromMessages>[1],
-            ),
         buildMessageThreadNotification: (thread: MessageThreadRecord, viewerUserId: string) =>
             buildMessageThreadNotificationFromMessages(deps, thread, viewerUserId),
-        buildServiceLeadNotification: (record: ServiceLeadRecord) =>
-            buildServiceLeadNotificationFromMessages(
-                deps,
-                record as Parameters<typeof buildServiceLeadNotificationFromMessages>[1],
-            ),
         getMessageThreadById: (id: string) => getMessageThreadByIdFromMessages(deps, id),
-        getMessageThreadByLeadId: (leadId: string) => getMessageThreadByLeadIdFromMessages(deps, leadId),
         getMessageThreadByListingAndBuyer: (listingId: string, buyerUserId: string) =>
             getMessageThreadByListingAndBuyerFromMessages(deps, listingId, buyerUserId),
         listMessageThreadsForUser: (
             userId: string,
-            vertical?: VerticalType,
+            vertical?: string,
             folder: MessageFolder = 'inbox',
         ) => listMessageThreadsForUserFromMessages(deps, userId, vertical, folder),
         listMessageEntries: (threadId: string) => listMessageEntriesFromMessages(deps, threadId),

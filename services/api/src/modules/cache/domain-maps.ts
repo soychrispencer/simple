@@ -8,6 +8,8 @@ import type {
     FollowRecord,
     InstagramAccountRecord,
     InstagramPublicationRecord,
+    TikTokAccountRecord,
+    YouTubeAccountRecord,
     ListingRecord,
     PaymentOrderRecord,
     SavedListingRecord,
@@ -27,8 +29,10 @@ export const addressBookByUser = new Map<string, AddressBookEntry[]>();
 export const paymentOrdersByUser = new Map<string, PaymentOrderRecord[]>();
 export const activeSubscriptionsByUser = new Map<string, ActiveSubscription[]>();
 export const instagramAccountByUserVertical = new Map<string, InstagramAccountRecord>();
+export const tiktokAccountByUserVertical = new Map<string, TikTokAccountRecord>();
+export const youtubeAccountByUserVertical = new Map<string, YouTubeAccountRecord>();
 export const instagramPublicationsByUser = new Map<string, InstagramPublicationRecord[]>();
-export const listingLeadCountsByListing = new Map<string, number>();
+export const socialPublicationsByUser = new Map<string, import('../../lib/domain-types.js').SocialPublicationRecord[]>();
 export const listingIdsByUser = new Map<string, string[]>();
 
 export const {

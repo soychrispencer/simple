@@ -2,12 +2,17 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { IconBell, IconCalendar, IconCash, IconCheck, IconChevronRight, IconLoader2, IconX } from '@tabler/icons-react';
 import {
-    IconBrandGoogle, IconCheck, IconLoader2, IconX, IconCalendar, IconLock, IconCash, IconBell, IconChevronRight, } from '@tabler/icons-react';
-import { PanelCard } from '@simple/ui/panel';
-import { PanelButton, PanelNotice, PanelPageHeader } from '@simple/ui/panel';
+    ACCOUNT_INTEGRATIONS_PAGE,
+    PanelAccountShell,
+    PanelCard,
+    PanelNotice,
+    accountIntegrationsDescription,
+} from '@simple/ui/panel';
+import { IntegrationConnectRow } from '@simple/ui/integrations';
 import Link from 'next/link';
-import { PanelSectionTabs, accountSectionTabs } from '@/components/panel/panel-section-tabs';
+import { accountSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaProfile,
     fetchGoogleCalendarStatus,
@@ -16,25 +21,10 @@ import {
     fetchMercadoPagoStatus,
     getMercadoPagoAuthUrl,
     disconnectMercadoPago,
-    isPlanActive,
+    hasAgendaFullAccess,
 } from '@/lib/agenda-api';
 
-function ProGate({ feature }: { feature: string }) {
-    return (
-        <div
-            className="flex items-center gap-3 rounded-xl px-4 py-3 mt-2"
-            style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-border, var(--border))' }}
-        >
-            <IconLock size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                <strong style={{ color: 'var(--fg)' }}>{feature}</strong> está disponible en el plan Pro.{' '}
-                <Link href="/panel/mi-cuenta/suscripcion" className="underline" style={{ color: 'var(--accent)' }}>
-                    Ver planes →
-                </Link>
-            </p>
-        </div>
-    );
-}
+type FlashState = { type: 'success' | 'error' | 'warning'; message: string } | null;
 
 function IntegracionesPageInner() {
     const searchParams = useSearchParams();
@@ -42,39 +32,37 @@ function IntegracionesPageInner() {
     const mpParam = searchParams.get('mp');
 
     const [loading, setLoading] = useState(true);
-    const [isPro, setIsPro] = useState(false);
+    const [planLocked, setPlanLocked] = useState(false);
 
-    // Google Calendar
     const [gcConnected, setGcConnected] = useState(false);
     const [gcCalendarId, setGcCalendarId] = useState<string | null>(null);
     const [gcDisconnecting, setGcDisconnecting] = useState(false);
 
-    // MercadoPago
     const [mpConnected, setMpConnected] = useState(false);
     const [mpUserId, setMpUserId] = useState<string | null>(null);
     const [mpDisconnecting, setMpDisconnecting] = useState(false);
 
-    const [flash, setFlash] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [flash, setFlash] = useState<FlashState>(null);
 
     useEffect(() => {
         const message = searchParams.get('message');
         if (gcParam === 'connected') setFlash({ type: 'success', message: 'Google Calendar conectado correctamente.' });
-        else if (gcParam === 'error') setFlash({ type: 'error', message: message || 'Error al conectar con Google Calendar.' });
-        else if (gcParam === 'upgrade') setFlash({ type: 'error', message: 'Necesitas el plan Pro para conectar Google Calendar.' });
+        else if (gcParam === 'upgrade') {
+            setFlash({ type: 'warning', message: 'Google Calendar requiere plan Pro o un periodo de prueba activo.' });
+        } else if (gcParam === 'error') setFlash({ type: 'error', message: message || 'Error al conectar con Google Calendar.' });
 
         if (mpParam === 'connected') setFlash({ type: 'success', message: 'MercadoPago conectado correctamente.' });
-        else if (mpParam === 'error') setFlash({ type: 'error', message: 'Error al conectar con MercadoPago.' });
-        else if (mpParam === 'upgrade') setFlash({ type: 'error', message: 'Necesitas el plan Pro para conectar MercadoPago.' });
+        else if (mpParam === 'upgrade') {
+            setFlash({ type: 'warning', message: 'MercadoPago requiere plan Pro o un periodo de prueba activo.' });
+        } else if (mpParam === 'error') setFlash({ type: 'error', message: 'Error al conectar con MercadoPago.' });
 
         const load = async () => {
-            const [prof, gcStatus, mpStatus] = await Promise.all([
+            const [profile, gcStatus, mpStatus] = await Promise.all([
                 fetchAgendaProfile(),
                 fetchGoogleCalendarStatus(),
                 fetchMercadoPagoStatus(),
             ]);
-            if (prof) {
-                setIsPro(isPlanActive(prof));
-            }
+            setPlanLocked(profile ? !hasAgendaFullAccess(profile) : false);
             setGcConnected(gcStatus.connected);
             setGcCalendarId(gcStatus.calendarId);
             setMpConnected(mpStatus.connected);
@@ -82,7 +70,7 @@ function IntegracionesPageInner() {
             setLoading(false);
         };
         void load();
-    }, [gcParam, mpParam]);
+    }, [gcParam, mpParam, searchParams]);
 
     const handleDisconnectGc = async () => {
         setGcDisconnecting(true);
@@ -102,145 +90,73 @@ function IntegracionesPageInner() {
         setFlash({ type: 'success', message: 'MercadoPago desconectado.' });
     };
 
+    const planHint = 'Requiere plan Pro o periodo de prueba activo.';
+
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader
-                title="Integraciones"
-                description="Conecta tus herramientas externas para automatizar tu agenda."
-            />
-
-            <div className="mb-6">
-                <PanelSectionTabs
-                    items={accountSectionTabs}
-                    activeKey="integraciones"
-                    ariaLabel="Secciones de mi cuenta"
-                />
-            </div>
-
-            {flash && (
+        <PanelAccountShell
+            activeKey="integraciones"
+            tabs={accountSectionTabs}
+            title={ACCOUNT_INTEGRATIONS_PAGE.title}
+            description={accountIntegrationsDescription('Simple Agenda')}
+        >
+            {flash ? (
                 <div className="mb-6">
-                    <PanelNotice tone={flash.type === 'success' ? 'success' : 'error'}>
+                    <PanelNotice tone={flash.type}>
                         <span className="flex items-center gap-2">
                             {flash.type === 'success' ? <IconCheck size={15} /> : <IconX size={15} />}
                             {flash.message}
                         </span>
                     </PanelNotice>
                 </div>
-            )}
+            ) : null}
 
             <div className="flex flex-col gap-4">
-
-                {/* MercadoPago */}
                 <PanelCard size="md">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(0,158,227,0.1)', color: '#009EE3' }}>
-                            <IconCash size={22} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>MercadoPago</h2>
-                                {!loading && mpConnected && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(13,148,136,0.1)', color: 'var(--accent)' }}>
-                                        <IconCheck size={10} /> Conectado
-                                    </span>
-                                )}
-                                {!loading && !isPro && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
-                                        Pro
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>
-                                Conecta tu cuenta de MercadoPago para cobros en línea. Los pagos llegan directamente a ti.
+                    <IntegrationConnectRow
+                        icon={<IconCash size={18} style={{ color: '#009EE3' }} />}
+                        title="MercadoPago"
+                        description="Cobros en línea; los pagos llegan directamente a tu cuenta."
+                        connected={mpConnected}
+                        loading={loading}
+                        busy={mpDisconnecting}
+                        locked={planLocked && !mpConnected}
+                        lockedHint={planHint}
+                        onConnect={() => {
+                            window.location.href = getMercadoPagoAuthUrl();
+                        }}
+                        onDisconnect={handleDisconnectMp}
+                        footer={mpConnected && mpUserId ? (
+                            <p className="border-t border-(--border) pt-3 text-xs text-(--fg-muted)">
+                                ID de usuario: <span className="text-(--fg)">{mpUserId}</span>
                             </p>
-                            {loading ? (
-                                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                    <IconLoader2 size={14} className="animate-spin" /> Verificando...
-                                </div>
-                            ) : !isPro ? (
-                                <ProGate feature="MercadoPago" />
-                            ) : mpConnected ? (
-                                <div className="flex flex-col gap-2">
-                                    {mpUserId && (
-                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>ID de usuario: <span style={{ color: 'var(--fg)' }}>{mpUserId}</span></p>
-                                    )}
-                                    <PanelButton variant="secondary" size="sm" onClick={() => void handleDisconnectMp()} disabled={mpDisconnecting}>
-                                        {mpDisconnecting ? <IconLoader2 size={14} className="animate-spin" /> : <IconX size={14} />}
-                                        Desconectar
-                                    </PanelButton>
-                                </div>
-                            ) : (
-                                <a
-                                    href={getMercadoPagoAuthUrl()}
-                                    className="self-start inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                                    style={{ background: '#009EE3', color: '#fff' }}
-                                >
-                                    <IconCash size={15} />
-                                    Conectar con MercadoPago
-                                </a>
-                            )}
-                        </div>
-                    </div>
+                        ) : undefined}
+                    />
                 </PanelCard>
 
-                {/* Google Calendar */}
                 <PanelCard size="md">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(66,133,244,0.1)', color: '#4285F4' }}>
-                            <IconCalendar size={22} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Google Calendar</h2>
-                                {!loading && gcConnected && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(13,148,136,0.1)', color: 'var(--accent)' }}>
-                                        <IconCheck size={10} /> Conectado
-                                    </span>
-                                )}
-                                {!loading && !isPro && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
-                                        Pro
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>
-                                Sincroniza tus citas y <strong style={{ color: 'var(--fg)' }}>genera enlaces de Google Meet automáticamente</strong> para cada sesión online. Cada reserva o cancelación se refleja en tu calendario.
+                    <IntegrationConnectRow
+                        icon={<IconCalendar size={18} style={{ color: '#4285F4' }} />}
+                        title="Google Calendar"
+                        description="Sincroniza citas y genera enlaces de Google Meet para sesiones online."
+                        connected={gcConnected}
+                        loading={loading}
+                        busy={gcDisconnecting}
+                        locked={planLocked && !gcConnected}
+                        lockedHint={planHint}
+                        onConnect={() => {
+                            window.location.href = getGoogleCalendarAuthUrl();
+                        }}
+                        onDisconnect={handleDisconnectGc}
+                        footer={gcConnected && gcCalendarId ? (
+                            <p className="border-t border-(--border) pt-3 text-xs text-(--fg-muted)">
+                                Calendario: <span className="text-(--fg)">{gcCalendarId}</span>
                             </p>
-                            {loading ? (
-                                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                    <IconLoader2 size={14} className="animate-spin" /> Verificando conexión...
-                                </div>
-                            ) : !isPro ? (
-                                <ProGate feature="Google Calendar" />
-                            ) : gcConnected ? (
-                                <div className="flex flex-col gap-3">
-                                    {gcCalendarId && (
-                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                            Calendario: <span style={{ color: 'var(--fg)' }}>{gcCalendarId}</span>
-                                        </p>
-                                    )}
-                                    <PanelButton variant="secondary" size="sm" onClick={() => void handleDisconnectGc()} disabled={gcDisconnecting}>
-                                        {gcDisconnecting ? <IconLoader2 size={14} className="animate-spin" /> : <IconX size={14} />}
-                                        Desconectar
-                                    </PanelButton>
-                                </div>
-                            ) : (
-                                <a
-                                    href={getGoogleCalendarAuthUrl()}
-                                    className="self-start inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
-                                    style={{ background: '#4285F4', color: '#fff' }}
-                                >
-                                    <IconBrandGoogle size={15} />
-                                    Conectar con Google
-                                </a>
-                            )}
-                        </div>
-                    </div>
+                        ) : undefined}
+                    />
                 </PanelCard>
 
-                {/* Atajo a Notificaciones */}
                 <Link
-                    href="/panel/mi-cuenta/notificaciones"
+                    href="/panel/mi-negocio/configuraciones"
                     className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
@@ -248,16 +164,15 @@ function IntegracionesPageInner() {
                         <IconBell size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>¿Buscas WhatsApp y avisos?</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>¿WhatsApp a pacientes?</p>
                         <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                            Las notificaciones a pacientes ahora viven en <strong>Notificaciones</strong>.
+                            La comunicación con pacientes está en Mi negocio → Configuraciones.
                         </p>
                     </div>
                     <IconChevronRight size={16} style={{ color: 'var(--fg-muted)' }} />
                 </Link>
-
             </div>
-        </div>
+        </PanelAccountShell>
     );
 }
 

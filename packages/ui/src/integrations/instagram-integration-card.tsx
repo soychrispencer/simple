@@ -1,17 +1,16 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import Link from 'next/link';
 import {
     IconBrandInstagram,
     IconExternalLink,
     IconLoader2,
     IconPlugConnected,
-    IconTrash,
 } from '@tabler/icons-react';
-import { PanelBlockHeader, PanelNotice, PanelStatusBadge, PanelSwitch } from '../panel/panel-primitives';
 import { PanelButton } from '../panel/panel-button';
 import { PanelCard } from '../panel/panel-card';
+import { PanelNotice, PanelStatusBadge, PanelSwitch } from '../panel/panel-primitives';
+import { IntegrationConnectRow } from './integration-connect-row';
 
 export type InstagramIntegrationAccount = {
     username: string;
@@ -182,13 +181,11 @@ export function InstagramIntegrationCard({
 
     return (
         <PanelCard size="lg">
-            <PanelBlockHeader title="Instagram" description={panelDescription} className="mb-4" />
-
             {message ? <PanelNotice tone="success" className="mb-4">{message}</PanelNotice> : null}
             {error ? <PanelNotice tone="error" className="mb-4">{error}</PanelNotice> : null}
 
             {loading ? (
-                <div className="h-32 animate-pulse rounded-card bg-(--bg-muted)" />
+                <div className="h-20 animate-pulse rounded-card bg-(--bg-muted)" />
             ) : !status ? (
                 <PanelNotice tone="warning">No pudimos cargar el estado de Instagram.</PanelNotice>
             ) : !status.configured ? (
@@ -197,76 +194,48 @@ export function InstagramIntegrationCard({
                     `INSTAGRAM_REDIRECT_URI`.
                 </PanelNotice>
             ) : !status.eligible ? (
-                <div className="space-y-4 rounded-card border border-(--border) bg-(--bg-subtle) p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-(--border) bg-(--surface) text-(--fg)">
-                                <IconBrandInstagram size={18} />
-                            </span>
-                            <div>
-                                <p className="text-sm font-semibold text-(--fg)">Disponible para Pro y Empresa</p>
-                                <p className="text-sm text-(--fg-secondary)">
-                                    Tu plan actual es <span className="font-medium">{status.currentPlanId}</span>. Actualiza la
-                                    suscripción para conectar Instagram y activar autopost.
-                                </p>
-                            </div>
-                        </div>
-                        <PanelStatusBadge label="Bloqueado" tone="warning" size="sm" />
-                    </div>
-                    <Link href={subscriptionsHref}>
-                        <PanelButton variant="primary" className="w-full sm:w-auto">
-                            <IconPlugConnected size={14} /> Ver suscripciones
-                        </PanelButton>
-                    </Link>
-                </div>
+                <IntegrationConnectRow
+                    icon={<IconBrandInstagram size={18} />}
+                    title="Instagram"
+                    description={panelDescription}
+                    connected={false}
+                    locked
+                    lockedHint={`Tu plan actual es ${status.currentPlanId}. Disponible en Pro y Empresa para conectar y autopublicar.`}
+                    subscriptionsHref={subscriptionsHref}
+                    onConnect={onConnect}
+                    onDisconnect={onDisconnect}
+                />
             ) : !status.account ? (
-                <div className="space-y-4 rounded-card border border-(--border) bg-(--bg-subtle) p-5">
-                    <div className="flex items-start gap-3">
-                        <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-(--border) bg-(--surface) text-(--fg)">
-                            <IconBrandInstagram size={18} />
-                        </span>
-                        <div>
-                            <p className="text-sm font-semibold text-(--fg)">Conecta tu cuenta profesional</p>
-                            <p className="text-sm text-(--fg-secondary)">
-                                Requiere una cuenta profesional de Instagram. Después podrás publicar {listingNoun} activos sin salir del panel.
-                            </p>
-                        </div>
-                    </div>
-                    <PanelButton variant="primary" onClick={onConnect} className="w-full sm:w-auto">
-                        <IconPlugConnected size={14} /> Conectar Instagram
-                    </PanelButton>
-                </div>
+                <IntegrationConnectRow
+                    icon={<IconBrandInstagram size={18} />}
+                    title="Instagram"
+                    description={`Cuenta profesional requerida. Publica ${listingNoun} activos sin salir del panel.`}
+                    connected={false}
+                    onConnect={onConnect}
+                    onDisconnect={onDisconnect}
+                />
             ) : (
                 <div className="space-y-5">
-                    <div className="rounded-card border border-(--border) bg-(--bg-subtle) p-5">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                                {renderProfileImage ? renderProfileImage(status.account) : defaultProfileImage(status.account)}
-                                <div>
-                                    <p className="text-sm font-semibold text-(--fg)">@{status.account.username}</p>
-                                    <p className="text-sm text-(--fg-secondary)">
-                                        {status.account.displayName || 'Cuenta profesional'}
-                                        {status.account.accountType ? ` · ${status.account.accountType}` : ''}
-                                    </p>
-                                </div>
+                    <IntegrationConnectRow
+                        icon={renderProfileImage ? renderProfileImage(status.account) : defaultProfileImage(status.account)}
+                        title="Instagram"
+                        description={panelDescription}
+                        connected={status.account.status === 'connected'}
+                        busy={disconnecting}
+                        onConnect={onConnect}
+                        onDisconnect={onDisconnect}
+                        footer={(
+                            <div className="space-y-3 border-t border-(--border) pt-3">
+                                <p className="text-sm text-(--fg-secondary)">
+                                    @{status.account.username}
+                                    {status.account.displayName ? ` · ${status.account.displayName}` : ''}
+                                    {status.account.accountType ? ` · ${status.account.accountType}` : ''}
+                                </p>
+                                {renderConnectedAccountExtra?.(status.account)}
+                                {status.account.lastError ? <PanelNotice tone="warning">{status.account.lastError}</PanelNotice> : null}
                             </div>
-                            <div className="flex items-center gap-2">
-                                <PanelStatusBadge
-                                    label={status.account.status === 'connected' ? 'Conectada' : 'Revisar'}
-                                    tone={status.account.status === 'connected' ? 'success' : 'warning'}
-                                    size="sm"
-                                />
-                                <PanelButton variant="secondary" size="sm" onClick={onConnect}>
-                                    <IconPlugConnected size={13} /> Reconectar
-                                </PanelButton>
-                                <PanelButton variant="secondary" size="sm" onClick={() => void onDisconnect()} disabled={disconnecting}>
-                                    {disconnecting ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />}
-                                </PanelButton>
-                            </div>
-                        </div>
-                        {renderConnectedAccountExtra?.(status.account)}
-                        {status.account.lastError ? <PanelNotice tone="warning" className="mt-4">{status.account.lastError}</PanelNotice> : null}
-                    </div>
+                        )}
+                    />
 
                     <div className="space-y-4 rounded-card border border-(--border) bg-(--bg-subtle) p-5">
                         <div className="flex items-center justify-between gap-3">

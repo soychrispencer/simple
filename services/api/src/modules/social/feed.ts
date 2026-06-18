@@ -2,6 +2,7 @@ import { asObject, asString } from '../shared/helpers.js';
 
 export type SocialFeedListingSection = 'sale' | 'rent' | 'auction' | 'project';
 
+/** Clip de Descubre: solo publicaciones con video (formato Reel). */
 export type SocialFeedClip = {
     id: string;
     vertical: string;
@@ -11,7 +12,7 @@ export type SocialFeedClip = {
     price: string;
     location: string;
     authorId: string;
-    mediaType: 'video' | 'image';
+    mediaType: 'video';
     mediaUrl: string;
     posterUrl?: string;
     views: number;
@@ -56,50 +57,22 @@ function socialSectionFromListing(section: SocialFeedListingSection): SocialFeed
     return null;
 }
 
-function buildSocialPlaceholderMedia(record: SocialFeedListingRecord): string {
-    const autosPalettes = [
-        ['#0f172a', '#1d4ed8'],
-        ['#111827', '#374151'],
-        ['#1f2937', '#475569'],
-    ];
-    const propiedadesPalettes = [
-        ['#111827', '#1e3a8a'],
-        ['#0f172a', '#334155'],
-        ['#1e293b', '#475569'],
-    ];
-    const palettes = record.vertical === 'autos' ? autosPalettes : propiedadesPalettes;
-    const seed = Array.from(record.title).reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    const pair = palettes[seed % palettes.length];
-    return `linear-gradient(135deg, ${pair[0]} 0%, ${pair[1]} 100%)`;
+function readMediaUrl(value: unknown): string {
+    if (typeof value === 'string') return value.trim();
+    const obj = asObject(value);
+    return asString(obj.dataUrl) || asString(obj.previewUrl) || asString(obj.url);
 }
 
-function extractListingFeedMedia(
-    deps: SocialFeedDeps,
-    record: SocialFeedListingRecord,
-): {
-    mediaType: SocialFeedClip['mediaType'];
-    mediaUrl: string;
-    posterUrl?: string;
-} {
+/** Descubre solo incluye avisos con video público (http/https). */
+export function extractListingDiscoverVideoUrl(record: SocialFeedListingRecord): string | null {
     const payload = asObject(record.rawData);
     const media = asObject(payload.media);
     const discoverVideo = asObject(media.discoverVideo);
-    const videoUrl = asString(discoverVideo.dataUrl) || asString(discoverVideo.url);
-    const imageUrls = deps.extractListingMediaUrls(record);
-    const posterUrl = asString(discoverVideo.previewUrl) || imageUrls[0] || undefined;
-
-    if (videoUrl) {
-        return {
-            mediaType: 'video',
-            mediaUrl: videoUrl,
-            posterUrl,
-        };
-    }
-
-    return {
-        mediaType: 'image',
-        mediaUrl: imageUrls[0] || buildSocialPlaceholderMedia(record),
-    };
+    const direct = readMediaUrl(media.videoUrl);
+    if (direct.startsWith('http')) return direct;
+    const uploaded = readMediaUrl(discoverVideo);
+    if (uploaded.startsWith('http')) return uploaded;
+    return null;
 }
 
 export function buildSocialFeedClips(
@@ -117,7 +90,13 @@ export function buildSocialFeedClips(
             if (!socialSection) return [];
             if (section && section !== 'todos' && socialSection !== section) return [];
 
-            const media = extractListingFeedMedia(deps, record);
+            const videoUrl = extractListingDiscoverVideoUrl(record);
+            if (!videoUrl) return [];
+
+            const imageUrls = deps.extractListingMediaUrls(record);
+            const discoverVideo = asObject(asObject(record.rawData).media).discoverVideo;
+            const posterUrl = asString(asObject(discoverVideo).previewUrl) || imageUrls[0] || undefined;
+
             const rawData = record.rawData as Record<string, unknown> | null;
 
             const specs: Array<{ label: string; value: string; icon?: string }> = [];
@@ -158,9 +137,9 @@ export function buildSocialFeedClips(
                 price: record.price || deps.publicSectionLabel(record.section),
                 location: record.location || 'Chile',
                 authorId: record.ownerId,
-                mediaType: media.mediaType,
-                mediaUrl: media.mediaUrl,
-                posterUrl: media.posterUrl,
+                mediaType: 'video',
+                mediaUrl: videoUrl,
+                posterUrl,
                 views: record.views,
                 saves: record.favs,
                 publishedAt: record.updatedAt,

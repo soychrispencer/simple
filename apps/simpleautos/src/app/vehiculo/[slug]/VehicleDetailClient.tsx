@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useMemo, type ReactNode } from 'react';
 import { 
-    IconClock, IconEye, IconMapPin, IconUser, IconBookmark, IconBookmarkFilled, IconCalendar, IconGauge, IconManualGearbox, IconGasStation, IconShare3, IconChevronLeft, IconChevronRight, IconPhoto
+    IconClock, IconEye, IconMapPin, IconUser, IconBookmark, IconBookmarkFilled, IconCalendar, IconGauge, IconManualGearbox, IconGasStation, IconShare3, IconChevronLeft, IconChevronRight, IconPhoto, IconVideo
 } from '@tabler/icons-react';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
@@ -22,17 +22,34 @@ interface VehicleDetailClientProps {
     item: PublicListing;
 }
 
+type GallerySlide =
+    | { type: 'video'; url: string }
+    | { type: 'image'; url: string };
+
 export default function VehicleDetailClient({ item }: VehicleDetailClientProps) {
-    const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const images = item.images ?? [];
+    const gallerySlides = useMemo<GallerySlide[]>(() => {
+        const slides: GallerySlide[] = [];
+        if (item.videoUrl) slides.push({ type: 'video', url: item.videoUrl });
+        for (const url of images) slides.push({ type: 'image', url });
+        return slides;
+    }, [images, item.videoUrl]);
+
+    const [activeSlideIndex, setActiveSlideIndex] = useState(0);
     const [isSaved, setIsSaved] = useState(() => {
         if (typeof window === 'undefined') return false;
         const saved = localStorage.getItem(`saved-listing-${item.id}`);
         return saved === 'true';
     });
     const [showCopied, setShowCopied] = useState(false);
-    
-    const images = item.images ?? [];
-    const coverImage = images[activeImageIndex] ?? images[0] ?? null;
+
+    const currentSlide = gallerySlides[activeSlideIndex] ?? null;
+    const hasVideo = Boolean(item.videoUrl);
+    const heroAspectClass = currentSlide?.type === 'video'
+        ? 'aspect-[9/16] max-w-md mx-auto'
+        : hasVideo
+            ? 'aspect-[9/16] max-w-md mx-auto'
+            : 'aspect-[16/9]';
 
     const handleSave = useCallback(() => {
         setIsSaved((s) => {
@@ -44,13 +61,15 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
         });
     }, [item.id]);
 
-    const handleNextImage = useCallback(() => {
-        setActiveImageIndex((prev) => (prev + 1) % images.length);
-    }, [images.length]);
+    const handleNextSlide = useCallback(() => {
+        if (gallerySlides.length <= 1) return;
+        setActiveSlideIndex((prev) => (prev + 1) % gallerySlides.length);
+    }, [gallerySlides.length]);
 
-    const handlePrevImage = useCallback(() => {
-        setActiveImageIndex((prev) => (prev - 1 + images.length) % images.length);
-    }, [images.length]);
+    const handlePrevSlide = useCallback(() => {
+        if (gallerySlides.length <= 1) return;
+        setActiveSlideIndex((prev) => (prev - 1 + gallerySlides.length) % gallerySlides.length);
+    }, [gallerySlides.length]);
 
     const handleShare = useCallback(async () => {
         const url = typeof window === 'undefined' ? item.href : `${window.location.origin}${item.href}`;
@@ -101,18 +120,29 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                             className="relative overflow-hidden rounded-[32px] border transition-all duration-500 shadow-sm"
                             style={{
                                 borderColor: 'var(--border)',
-                                background: coverImage ? 'var(--bg-muted)' : 'var(--surface)',
+                                background: currentSlide ? 'var(--bg-muted)' : 'var(--surface)',
                             }}
                         >
-                            {coverImage ? (
-                                <div className="relative aspect-[16/9]">
-                                    <Image
-                                        src={coverImage}
-                                        alt={item.title}
-                                        fill
-                                        className="object-cover"
-                                        priority
-                                    />
+                            {currentSlide ? (
+                                <div className={`relative ${heroAspectClass}`}>
+                                    {currentSlide.type === 'video' ? (
+                                        <video
+                                            src={currentSlide.url}
+                                            className="absolute inset-0 h-full w-full object-cover"
+                                            controls
+                                            playsInline
+                                            preload="metadata"
+                                            poster={images[0]}
+                                        />
+                                    ) : (
+                                        <Image
+                                            src={currentSlide.url}
+                                            alt={item.title}
+                                            fill
+                                            className="object-cover"
+                                            priority={activeSlideIndex === 0}
+                                        />
+                                    )}
                                     {/* Desktop overlay gradient */}
                                     <div className="hidden md:block absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                                     
@@ -147,29 +177,28 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                                     </div>
 
                                     {/* Carousel arrows - desktop only, subtle on mobile */}
-                                    {images.length > 1 && (
+                                    {gallerySlides.length > 1 && (
                                         <>
                                             <button
-                                                onClick={handlePrevImage}
+                                                onClick={handlePrevSlide}
                                                 className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 items-center justify-center text-white hover:bg-black/60 transition-colors z-10"
-                                                aria-label="Imagen anterior"
+                                                aria-label="Anterior"
                                             >
                                                 <IconChevronLeft size={20} />
                                             </button>
                                             <button
-                                                onClick={handleNextImage}
+                                                onClick={handleNextSlide}
                                                 className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 items-center justify-center text-white hover:bg-black/60 transition-colors z-10"
-                                                aria-label="Siguiente imagen"
+                                                aria-label="Siguiente"
                                             >
                                                 <IconChevronRight size={20} />
                                             </button>
                                         </>
                                     )}
 
-                                    {/* Image counter - bottom right corner (mobile only) */}
-                                    {images.length > 1 && (
+                                    {gallerySlides.length > 1 && (
                                         <div className="md:hidden absolute bottom-4 right-4 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-xs font-medium z-10">
-                                            {activeImageIndex + 1} / {images.length}
+                                            {activeSlideIndex + 1} / {gallerySlides.length}
                                         </div>
                                     )}
 
@@ -198,18 +227,24 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                         </div>
 
                         {/* Thumbnails - Directly below image (Baymard best practice) */}
-                        {images.length > 1 && (
+                        {gallerySlides.length > 1 && (
                             <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar px-1 -mt-1">
-                                {images.map((img, idx) => (
+                                {gallerySlides.map((slide, idx) => (
                                     <button
-                                        key={`${img}-${idx}`}
-                                        onClick={() => setActiveImageIndex(idx)}
-                                        aria-label={`Ver imagen ${idx + 1} de ${images.length}`}
+                                        key={`${slide.type}-${slide.url}-${idx}`}
+                                        onClick={() => setActiveSlideIndex(idx)}
+                                        aria-label={slide.type === 'video' ? 'Ver video' : `Ver imagen ${idx}`}
                                         className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                                            activeImageIndex === idx ? 'border-[var(--accent)] shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
+                                            activeSlideIndex === idx ? 'border-[var(--accent)] shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
                                         }`}
                                     >
-                                        <Image src={img} alt={`${item.title} - ${idx + 1}`} width={96} height={64} className="h-full w-full object-cover" loading="lazy" />
+                                        {slide.type === 'video' ? (
+                                            <div className="flex h-full w-full items-center justify-center bg-black text-white">
+                                                <IconVideo size={22} />
+                                            </div>
+                                        ) : (
+                                            <Image src={slide.url} alt={`${item.title} - ${idx + 1}`} width={96} height={64} className="h-full w-full object-cover" loading="lazy" />
+                                        )}
                                     </button>
                                 ))}
                             </div>

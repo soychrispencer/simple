@@ -1,7 +1,5 @@
 import type { listings, listingDrafts } from '../db/schema.js';
 import type {
-    ListingLeadChannel,
-    ListingLeadSource,
     ListingPortalSyncRecord,
     PortalKey,
 } from '../modules/listings/portals.js';
@@ -12,9 +10,8 @@ export type UserRole = 'user' | 'admin' | 'superadmin';
 export type UserStatus = 'active' | 'verified' | 'suspended';
 export type VerticalType = 'autos' | 'propiedades' | 'agenda';
 export type PaymentVerticalType = VerticalType | 'serenatas';
-export type AccountType = 'general' | 'autos' | 'propiedades' | 'agenda' | 'crm_only';
+export type AccountType = 'general' | 'autos' | 'propiedades' | 'agenda';
 export type AccountRole = 'owner' | 'admin' | 'agent';
-export type CrmEntityType = 'listing' | 'service' | 'external';
 export type AddressBookKind = 'personal' | 'shipping' | 'billing' | 'company' | 'branch' | 'warehouse' | 'pickup' | 'other';
 export type ListingLocationSourceMode = 'saved_address' | 'custom' | 'area_only';
 export type ListingLocationVisibilityMode = 'exact' | 'approximate' | 'sector_only' | 'commune_only' | 'hidden';
@@ -74,17 +71,11 @@ export type AppUser = {
     passwordHash?: string; // Optional for OAuth users
     name: string;
     phone?: string | null;
-    whatsappEnabled?: boolean;
-    whatsappNotifyInvitations?: boolean;
-    whatsappNotifyRequests?: boolean;
-    whatsappNotifyAgenda?: boolean;
-    whatsappNotifyAccount?: boolean;
     emailNotifyInvitations?: boolean;
     emailNotifyRequests?: boolean;
     emailNotifyAgenda?: boolean;
     emailNotifyAccount?: boolean;
     inAppNotificationsEnabled?: boolean;
-    emailDigestFrequency?: 'off' | 'daily' | 'weekly';
     pendingEmail?: string | null;
     role: UserRole;
     status: UserStatus;
@@ -97,6 +88,13 @@ export type AppUser = {
     hasPassword?: boolean;
     lastLoginAt?: Date | null;
     primaryAccountId?: string | null;
+    timezone?: string;
+    residenceCountryCode?: string;
+    residenceRegionId?: string | null;
+    residenceRegionName?: string | null;
+    residenceLocalityId?: string | null;
+    residenceLocalityName?: string | null;
+    dstEnabled?: boolean;
 };
 
 export type PublicUser = {
@@ -104,17 +102,11 @@ export type PublicUser = {
     email: string;
     name: string;
     phone?: string | null;
-    whatsappEnabled?: boolean;
-    whatsappNotifyInvitations?: boolean;
-    whatsappNotifyRequests?: boolean;
-    whatsappNotifyAgenda?: boolean;
-    whatsappNotifyAccount?: boolean;
     emailNotifyInvitations?: boolean;
     emailNotifyRequests?: boolean;
     emailNotifyAgenda?: boolean;
     emailNotifyAccount?: boolean;
     inAppNotificationsEnabled?: boolean;
-    emailDigestFrequency?: 'off' | 'daily' | 'weekly';
     pendingEmail?: string | null;
     role: UserRole;
     status: UserStatus;
@@ -126,6 +118,14 @@ export type PublicUser = {
     hasPassword?: boolean;
     lastLoginAt?: Date | null;
     primaryAccountId?: string | null;
+    timezone?: string;
+    residence?: {
+        countryCode: string;
+        regionId: string | null;
+        regionName: string | null;
+        localityId: string | null;
+        localityName: string | null;
+    };
 };
 
 export type AccountRecord = {
@@ -149,7 +149,6 @@ export type AccountUserRecord = {
 };
 
 export type PublicProfileAccountKind = 'individual' | 'independent' | 'company';
-export type PublicProfileLeadRoutingMode = 'owner' | 'round_robin' | 'unassigned';
 export type PublicProfileDayId = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 export type PublicProfileSocialLinks = {
     instagram: string | null;
@@ -186,8 +185,6 @@ export type PublicProfileTeamMember = {
     avatarImageUrl: string | null;
     socialLinks: PublicProfileTeamSocialLinks;
     specialties: string[];
-    isLeadContact: boolean;
-    receivesLeads: boolean;
     isPublished: boolean;
     position: number;
     createdAt: number;
@@ -317,26 +314,11 @@ export type AdCampaignVerticalType = VerticalType | 'serenatas' | 'plataforma';
 export type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'subastas' | 'proyectos';
 export type CheckoutKind = 'boost' | 'advertising' | 'subscription' | 'serenata_booking';
 export type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
-export type SubscriptionPlanId = 'free' | 'essential' | 'pro' | 'enterprise';
+export type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
 export type ActiveSubscriptionStatus = 'active' | 'cancelled' | 'paused';
 export type InstagramAccountStatus = 'connected' | 'error' | 'disconnected';
 export type InstagramPublicationStatus = 'published' | 'failed';
-export type ServiceLeadType = 'venta_asistida' | 'gestion_inmobiliaria';
-export type ServiceLeadPlanId = 'basico' | 'premium';
-export type ServiceLeadStatus = 'new' | 'contacted' | 'qualified' | 'closed';
-export type LeadPriority = 'low' | 'medium' | 'high';
-export type LeadAttentionLevel = 'fresh' | 'attention' | 'urgent';
-export type LeadSlaSignalKey = 'response_overdue' | 'task_due_today' | 'task_overdue' | 'hot_lead' | 'idle_follow_up';
-export type LeadSlaSignal = {
-    key: LeadSlaSignalKey;
-    label: string;
-    tone: Exclude<LeadAttentionLevel, 'fresh'>;
-};
-export type LeadQuickAction = 'call' | 'whatsapp' | 'email' | 'follow_up';
-export type PipelineColumnScope = 'listing';
-export type ServiceLeadActivityType = 'created' | 'note' | 'status' | 'assignment' | 'task' | 'contact';
-export type ListingLeadStatus = 'new' | 'contacted' | 'qualified' | 'closed';
-export type ListingLeadActivityType = 'created' | 'note' | 'status' | 'assignment' | 'task' | 'message' | 'contact';
+export type InstagramPublicationContentType = 'image' | 'carousel' | 'reel';
 export type MessageSenderRole = 'buyer' | 'seller' | 'system';
 export type MessageFolder = 'inbox' | 'archived' | 'spam';
 
@@ -350,7 +332,6 @@ export type SubscriptionPlanRecord = {
     maxFeaturedListings: number;
     maxImagesPerListing: number;
     analyticsEnabled: boolean;
-    crmEnabled: boolean;
     prioritySupport: boolean;
     customBranding: boolean;
     apiAccess: boolean;
@@ -447,6 +428,80 @@ export type InstagramAccountRecord = {
     lastSyncedAt: number | null;
     lastPublishedAt: number | null;
     lastError: string | null;
+    facebookPageId: string | null;
+    facebookPageName: string | null;
+    facebookPageAccessToken: string | null;
+    createdAt: number;
+    updatedAt: number;
+};
+
+export type SocialPlatform = 'facebook' | 'tiktok' | 'youtube';
+export type SocialPublicationStatus = 'published' | 'failed';
+export type SocialPublicationContentType = 'video' | 'link' | 'image';
+
+export type TikTokAccountStatus = 'connected' | 'error' | 'disconnected';
+
+export type TikTokAccountRecord = {
+    id: string;
+    accountId?: string | null;
+    userId: string;
+    vertical: VerticalType;
+    openId: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    accessToken: string;
+    refreshToken: string | null;
+    tokenExpiresAt: number | null;
+    scopes: string[];
+    status: TikTokAccountStatus;
+    lastSyncedAt: number | null;
+    lastPublishedAt: number | null;
+    lastError: string | null;
+    createdAt: number;
+    updatedAt: number;
+};
+
+export type YouTubeAccountStatus = 'connected' | 'error' | 'disconnected';
+
+export type YouTubeAccountRecord = {
+    id: string;
+    accountId?: string | null;
+    userId: string;
+    vertical: VerticalType;
+    channelId: string;
+    channelTitle: string;
+    channelHandle: string | null;
+    avatarUrl: string | null;
+    accessToken: string;
+    refreshToken: string | null;
+    tokenExpiresAt: number | null;
+    scopes: string[];
+    status: YouTubeAccountStatus;
+    lastSyncedAt: number | null;
+    lastPublishedAt: number | null;
+    lastError: string | null;
+    createdAt: number;
+    updatedAt: number;
+};
+
+export type SocialPublicationRecord = {
+    id: string;
+    accountId?: string | null;
+    userId: string;
+    vertical: VerticalType;
+    listingId: string;
+    listingTitle: string;
+    platform: SocialPlatform;
+    contentType: SocialPublicationContentType;
+    externalId: string | null;
+    permalink: string | null;
+    caption: string;
+    mediaUrl: string | null;
+    status: SocialPublicationStatus;
+    errorMessage: string | null;
+    sourceUpdatedAt: number | null;
+    publishedAt: number | null;
     createdAt: number;
     updatedAt: number;
 };
@@ -463,6 +518,7 @@ export type InstagramPublicationRecord = {
     instagramPermalink: string | null;
     caption: string;
     imageUrl: string;
+    contentType: InstagramPublicationContentType;
     status: InstagramPublicationStatus;
     errorMessage: string | null;
     sourceUpdatedAt: number | null;
@@ -479,8 +535,6 @@ export type PublicProfileRecord = {
     slug: string;
     isPublished: boolean;
     accountKind: PublicProfileAccountKind;
-    leadRoutingMode: PublicProfileLeadRoutingMode;
-    leadRoutingCursor: number;
     displayName: string;
     headline: string | null;
     bio: string | null;
@@ -504,18 +558,6 @@ export type PublicProfileRecord = {
 };
 
 export type PublicProfileTeamMemberRecord = PublicProfileTeamMember;
-
-export type CrmAssigneeResponse = {
-    id: string;
-    kind: 'user' | 'team_member';
-    value: string;
-    name: string;
-    email: string | null;
-    phone: string | null;
-    role: UserRole | null;
-    roleTitle: string | null;
-    isLeadContact: boolean;
-};
 
 export type AdCampaignRecord = {
     id: string;
@@ -546,114 +588,15 @@ export type AdCampaignRecord = {
     updatedAt: number;
 };
 
-export type PipelineColumnRecord = {
-    id: string;
-    accountId?: string | null;
-    userId: string;
-    vertical: VerticalType;
-    scope: PipelineColumnScope;
-    name: string;
-    status: ListingLeadStatus;
-    position: number;
-    createdAt: number;
-    updatedAt: number;
-};
-
-export type ServiceLeadRecord = {
-    id: string;
-    accountId?: string | null;
-    userId: string | null;
-    entityType: CrmEntityType;
-    entityId: string;
-    vertical: VerticalType;
-    serviceType: ServiceLeadType;
-    planId: ServiceLeadPlanId;
-    contactName: string;
-    contactEmail: string;
-    contactPhone: string;
-    contactWhatsapp: string | null;
-    locationLabel: string | null;
-    assetType: string | null;
-    assetBrand: string | null;
-    assetModel: string | null;
-    assetYear: string | null;
-    assetMileage: string | null;
-    assetArea: string | null;
-    expectedPrice: string | null;
-    notes: string | null;
-    status: ServiceLeadStatus;
-    priority: LeadPriority;
-    closeReason: string | null;
-    tags: string[];
-    assignedToUserId: string | null;
-    nextTaskTitle: string | null;
-    nextTaskAt: number | null;
-    sourcePage: string | null;
-    lastActivityAt: number;
-    createdAt: number;
-    updatedAt: number;
-};
-
-export type ServiceLeadActivityRecord = {
-    id: string;
-    leadId: string;
-    actorUserId: string | null;
-    type: ServiceLeadActivityType;
-    body: string;
-    meta: Record<string, unknown> | null;
-    createdAt: number;
-};
-
-export type ListingLeadRecord = {
-    id: string;
-    accountId?: string | null;
-    listingId: string;
-    entityType: CrmEntityType;
-    entityId: string;
-    ownerUserId: string;
-    buyerUserId: string | null;
-    vertical: VerticalType;
-    source: ListingLeadSource;
-    channel: ListingLeadChannel;
-    contactName: string;
-    contactEmail: string;
-    contactPhone: string | null;
-    contactWhatsapp: string | null;
-    message: string | null;
-    status: ListingLeadStatus;
-    priority: LeadPriority;
-    closeReason: string | null;
-    tags: string[];
-    assignedToUserId: string | null;
-    assignedToTeamMemberId: string | null;
-    pipelineColumnId: string | null;
-    nextTaskTitle: string | null;
-    nextTaskAt: number | null;
-    sourcePage: string | null;
-    externalSourceId: string | null;
-    lastActivityAt: number;
-    createdAt: number;
-    updatedAt: number;
-};
-
-export type ListingLeadActivityRecord = {
-    id: string;
-    leadId: string;
-    actorUserId: string | null;
-    type: ListingLeadActivityType;
-    body: string;
-    meta: Record<string, unknown> | null;
-    createdAt: number;
-};
-
 export type MessageThreadRecord = {
     id: string;
     accountId?: string | null;
-    vertical: VerticalType;
-    listingId: string;
+    vertical: string;
+    contextType: string | null;
+    contextId: string | null;
+    listingId: string | null;
     ownerUserId: string;
     buyerUserId: string;
-    leadId: string;
     ownerUnreadCount: number;
     buyerUnreadCount: number;
     ownerArchivedAt: number | null;
