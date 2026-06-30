@@ -1,4 +1,5 @@
 import { API_BASE } from '@simple/config';
+import { publicFetch } from '@simple/utils';
 
 export type PublicListingSection = 'sale' | 'rent' | 'project';
 
@@ -149,29 +150,19 @@ export type PublicProfileCatalog = {
     promotions: ProfileCatalogPromotion[];
 };
 
-async function apiRequest<T>(path: string): Promise<T | null> {
-    try {
-        const response = await fetch(`${API_BASE}${path}`, { cache: 'no-store' });
-        if (!response.ok) return null;
-        return (await response.json().catch(() => null)) as T | null;
-    } catch {
-        return null;
-    }
-}
-
 export async function fetchPublicListings(section?: PublicListingSection): Promise<PublicListing[]> {
     const suffix = section ? `&section=${encodeURIComponent(section)}` : '';
-    const data = await apiRequest<ListingsResponse>(`/api/public/listings?vertical=propiedades${suffix}`);
+    const data = await publicFetch<ListingsResponse>(`/api/public/listings?vertical=propiedades${suffix}`);
     return Array.isArray(data?.items) ? data.items : [];
 }
 
 export async function fetchPublicListing(slug: string): Promise<PublicListing | null> {
-    const data = await apiRequest<ListingResponse>(`/api/public/listings/${encodeURIComponent(slug)}?vertical=propiedades`);
+    const data = await publicFetch<ListingResponse>(`/api/public/listings/${encodeURIComponent(slug)}?vertical=propiedades`);
     return data?.item ?? null;
 }
 
 export async function fetchPublicProfile(username: string): Promise<{ profile: PublicProfile; listings: PublicListing[]; catalog: PublicProfileCatalog } | null> {
-    const data = await apiRequest<ProfileResponse>(`/api/public/profiles/${encodeURIComponent(username)}?vertical=propiedades`);
+    const data = await publicFetch<ProfileResponse>(`/api/public/profiles/${encodeURIComponent(username)}?vertical=propiedades`);
     if (!data?.profile || !Array.isArray(data.listings)) return null;
     return {
         profile: data.profile,

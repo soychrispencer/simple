@@ -1,4 +1,5 @@
 import { API_BASE } from '@simple/config';
+import { publicFetch } from '@simple/utils';
 
 export type PublicListingSection = 'sale' | 'rent' | 'auction';
 
@@ -149,16 +150,6 @@ export type PublicProfileCatalog = {
     promotions: ProfileCatalogPromotion[];
 };
 
-async function apiRequest<T>(path: string): Promise<T | null> {
-    try {
-        const response = await fetch(`${API_BASE}${path}`, { cache: 'no-store' });
-        if (!response.ok) return null;
-        return (await response.json().catch(() => null)) as T | null;
-    } catch {
-        return null;
-    }
-}
-
 export type PublicListingsFilters = {
     q?: string;
     region?: string;
@@ -203,17 +194,17 @@ export async function fetchPublicListings(section?: PublicListingSection, filter
     if (filters?.nautical_type) params.set('nautical_type', filters.nautical_type);
     if (filters?.aerial_type) params.set('aerial_type', filters.aerial_type);
 
-    const data = await apiRequest<ListingsResponse>(`/api/public/listings?${params.toString()}`);
+    const data = await publicFetch<ListingsResponse>(`/api/public/listings?${params.toString()}`);
     return Array.isArray(data?.items) ? data.items : [];
 }
 
 export async function fetchPublicListing(slug: string): Promise<PublicListing | null> {
-    const data = await apiRequest<ListingResponse>(`/api/public/listings/${encodeURIComponent(slug)}?vertical=autos`);
+    const data = await publicFetch<ListingResponse>(`/api/public/listings/${encodeURIComponent(slug)}?vertical=autos`);
     return data?.item ?? null;
 }
 
 export async function fetchPublicProfile(username: string): Promise<{ profile: PublicProfile; listings: PublicListing[]; catalog: PublicProfileCatalog } | null> {
-    const data = await apiRequest<ProfileResponse>(`/api/public/profiles/${encodeURIComponent(username)}?vertical=autos`);
+    const data = await publicFetch<ProfileResponse>(`/api/public/profiles/${encodeURIComponent(username)}?vertical=autos`);
     if (!data?.profile || !Array.isArray(data.listings)) return null;
     return {
         profile: data.profile,

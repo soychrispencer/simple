@@ -47,3 +47,16 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<{
     const result = await apiFetch<T>(path, init);
     return { status: result.status, data: result.data };
 }
+
+/**
+ * Simple public fetch (no credentials, no auth). Returns parsed JSON or null.
+ */
+export async function publicFetch<T>(path: string): Promise<T | null> {
+    try {
+        const response = await fetch(`${API_BASE}${path}`, { cache: 'no-store' });
+        if (!response.ok) return null;
+        return (await response.json().catch(() => null)) as T | null;
+    } catch {
+        return null;
+    }
+}
