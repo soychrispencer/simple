@@ -1,0 +1,273 @@
+@import "tailwindcss";
+@source "../../../../packages/ui/src";
+@source "../../../../packages/auth/src";
+@source "../../../../packages/marketplace-header/src";
+@import "../../../../packages/ui/src/theme-base.css";
+@import "leaflet/dist/leaflet.css";
+
+:root {
+    --accent: #E11D48;
+    --accent-subtle: rgba(225, 29, 72, 0.12);
+    --accent-soft: rgba(225, 29, 72, 0.06);
+    --accent-border: rgba(225, 29, 72, 0.22);
+    --accent-contrast: #ffffff;
+}
+
+.dark,
+[data-theme="dark"] {
+    --accent: #E11D48;
+    --accent-subtle: rgba(225, 29, 72, 0.18);
+    --accent-soft: rgba(225, 29, 72, 0.10);
+    --accent-border: rgba(225, 29, 72, 0.34);
+    --accent-contrast: #ffffff;
+}
+
+.leaflet-container {
+    background: var(--bg-subtle);
+    color: var(--fg);
+    font-family: inherit;
+}
+
+.leaflet-control-zoom a {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--fg) !important;
+}
+
+.leaflet-control-attribution {
+    background: color-mix(in srgb, var(--surface) 86%, transparent) !important;
+    color: var(--fg-muted) !important;
+}
+
+@keyframes solicitud-wait-breathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+@keyframes solicitud-wait-ring {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50% { box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent); }
+}
+
+.solicitud-wait {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 100%;
+    white-space: nowrap;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.25;
+    transition: color 0.45s ease, background-color 0.45s ease, border-color 0.45s ease;
+}
+
+.solicitud-wait-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: currentColor;
+}
+
+.solicitud-wait-time {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+
+.solicitud-wait-suffix {
+    font-weight: 500;
+    opacity: 0.92;
+}
+
+.solicitud-wait--ok {
+    border-color: var(--accent-border);
+    background: var(--surface);
+    color: var(--accent);
+}
+
+.solicitud-wait--ok .solicitud-wait-dot {
+    animation: solicitud-wait-breathe 2.8s ease-in-out infinite;
+}
+
+.solicitud-wait--warning {
+    border-color: color-mix(in srgb, #d97706 40%, transparent);
+    background: color-mix(in srgb, #f59e0b 14%, var(--surface));
+    color: #b45309;
+    animation: solicitud-wait-ring 2.2s ease-in-out infinite;
+}
+
+.solicitud-wait--warning .solicitud-wait-dot {
+    animation: solicitud-wait-breathe 1.4s ease-in-out infinite;
+}
+
+.solicitud-wait--danger {
+    border-color: color-mix(in srgb, #dc2626 45%, transparent);
+    background: color-mix(in srgb, #ef4444 12%, var(--surface));
+    color: #b91c1c;
+    animation: solicitud-wait-ring 1.1s ease-in-out infinite;
+}
+
+.solicitud-wait--danger .solicitud-wait-dot {
+    animation: solicitud-wait-breathe 0.9s ease-in-out infinite;
+}
+
+.dark .solicitud-wait--warning,
+[data-theme="dark"] .solicitud-wait--warning {
+    color: #fbbf24;
+    background: color-mix(in srgb, #f59e0b 18%, var(--surface));
+}
+
+.dark .solicitud-wait--danger,
+[data-theme="dark"] .solicitud-wait--danger {
+    color: #fca5a5;
+    background: color-mix(in srgb, #ef4444 16%, var(--surface));
+}
+
+.solicitud-card--urgent {
+    border-color: var(--accent-border);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.solicitud-card--urgent-warning {
+    border-color: color-mix(in srgb, #f59e0b 55%, var(--border));
+    background: color-mix(in srgb, #f59e0b 6%, var(--surface));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #f59e0b 22%, transparent);
+}
+
+.solicitud-card--urgent-danger {
+    border-color: color-mix(in srgb, #ef4444 55%, var(--border));
+    background: color-mix(in srgb, #ef4444 5%, var(--surface));
+    box-shadow: 0 0 0 1px color-mix(in srgb, #ef4444 24%, transparent);
+}
+
+.leaflet-control-attribution a {
+    color: var(--fg-secondary);
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+    background: var(--surface) !important;
+    color: var(--fg) !important;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+}
+
+.text-balance {
+    text-wrap: balance;
+}
+
+/* Panel — utilidades de texto (bordes/superficies en @simple/ui theme-base.css) */
+
+.panel-text-muted {
+    color: var(--fg-muted);
+}
+
+.panel-text-secondary {
+    color: var(--fg-secondary);
+}
+
+.panel-text-fg {
+    color: var(--fg);
+}
+
+.panel-accent-soft {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.panel-accent-btn {
+    background: var(--accent);
+    color: var(--accent-contrast);
+}
+
+.panel-accent-btn:disabled {
+    opacity: 0.5;
+}
+
+/* Auth — overlays y superficies tokenizados (sin rgba hardcoded) */
+.auth-overlay {
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    backdrop-filter: blur(4px);
+}
+
+.dark .auth-overlay,
+[data-theme="dark"] .auth-overlay {
+    background: color-mix(in srgb, var(--bg) 48%, transparent);
+}
+
+.auth-surface {
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+
+.auth-title {
+    color: var(--fg);
+}
+
+.auth-text-muted {
+    color: var(--fg-muted);
+}
+
+.auth-spinner {
+    border-color: var(--accent);
+}
+
+.auth-icon-accent {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.auth-icon-muted {
+    background: var(--bg-muted);
+    color: var(--fg-muted);
+}
+
+.auth-icon-success {
+    background: color-mix(in oklab, var(--accent) 14%, transparent);
+    color: var(--accent);
+}
+
+.auth-icon-error {
+    background: color-mix(in oklab, var(--danger) 14%, transparent);
+    color: var(--danger);
+}
+
+.auth-text-danger {
+    color: var(--danger);
+}
+
+.auth-text-success {
+    color: var(--success);
+}
+
+/* Panel sheet — bottom sheet móvil / modal desktop */
+.panel-sheet-scrim {
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
+    backdrop-filter: blur(4px);
+}
+
+.dark .panel-sheet-scrim,
+[data-theme="dark"] .panel-sheet-scrim {
+    background: color-mix(in srgb, var(--bg) 38%, transparent);
+}
+
+.panel-sheet-panel {
+    background: var(--surface);
+}
+
+/* Panel — evitar scroll horizontal en móvil */
+@media (max-width: 1023px) {
+    .panel-content-frame {
+        min-width: 0;
+        overflow-x: clip;
+    }
+
+    .panel-page {
+        min-width: 0;
+        max-width: 100%;
+    }
+}

@@ -1,0 +1,19 @@
+name = "simple-instagram-overlay"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Configurar el subdominio workers.dev
+# Si aún no lo tienes, regístralo primero en: https://dash.cloudflare.com/workers/subdomain
+workers_dev = true
+
+[vars]
+R2_BUCKET_NAME = "simple-media"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "simple-media"
+
+# Para producción, configura tus secrets:
+# wrangler secret put INSTAGRAM_APP_ID
+# wrangler secret put INSTAGRAM_APP_SECRET

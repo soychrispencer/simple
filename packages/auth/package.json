@@ -1,0 +1,39 @@
+{
+  "name": "@simple/auth",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@simple/config": "workspace:*",
+    "@simple/types": "workspace:*",
+    "@simple/ui": "workspace:*",
+    "@simple/utils": "workspace:*",
+    "@tabler/icons-react": "^3.44.0"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "next": "^16.2.9",
+    "typescript": "^6.0.3"
+  }
+}

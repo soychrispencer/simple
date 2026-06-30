@@ -1,0 +1,63 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="146" y1="74" x2="1403" y2="833" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#181520"/>
+      <stop offset="0.5" stop-color="#2A2540"/>
+      <stop offset="1" stop-color="#0C0A12"/>
+    </linearGradient>
+    <linearGradient id="stage" x1="800" y1="488" x2="800" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F2843"/>
+      <stop offset="1" stop-color="#100D17"/>
+    </linearGradient>
+    <linearGradient id="carBody" x1="434" y1="468" x2="1048" y2="468" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4BA3FF"/>
+      <stop offset="0.45" stop-color="#2471FF"/>
+      <stop offset="1" stop-color="#1234B9"/>
+    </linearGradient>
+    <radialGradient id="spotlight" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(796 126) rotate(90) scale(278 574)">
+      <stop stop-color="#9CBEFF" stop-opacity="0.33"/>
+      <stop offset="1" stop-color="#9CBEFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="798" cy="131" r="318" fill="url(#spotlight)"/>
+  <rect x="0" y="488" width="1600" height="412" fill="url(#stage)"/>
+  <path d="M0 602C239 558 503 540 794 547C1077 554 1345 587 1600 647V900H0V602Z" fill="#171221"/>
+  <path d="M0 669C270 624 523 613 815 623C1096 633 1325 661 1600 726V900H0V669Z" fill="#211A2F"/>
+  <g opacity="0.54">
+    <circle cx="465" cy="222" r="26" fill="#AFC5FF"/>
+    <circle cx="565" cy="149" r="16" fill="#6B7EFF"/>
+    <circle cx="1107" cy="201" r="22" fill="#8AB6FF"/>
+    <circle cx="1200" cy="152" r="14" fill="#7287FF"/>
+    <path d="M449 437H482L542 273H509L449 437Z" fill="#4F4160"/>
+    <path d="M551 437H584L644 237H611L551 437Z" fill="#473B57"/>
+    <path d="M1094 437H1127L1187 273H1154L1094 437Z" fill="#4F4160"/>
+    <path d="M1191 437H1224L1284 236H1251L1191 437Z" fill="#473B57"/>
+  </g>
+  <ellipse cx="742" cy="659" rx="398" ry="75" fill="#09070E" fill-opacity="0.9"/>
+  <path d="M474 546C507 494 557 456 631 445L787 419C865 405 929 417 978 454L1013 465C1034 473 1048 492 1048 513V544C1048 571 1028 591 998 595L494 606C456 607 432 572 455 542L474 546Z" fill="url(#carBody)"/>
+  <path d="M621 446C652 394 699 364 768 352L857 336C917 326 971 343 1018 392L1039 419L621 446Z" fill="#0F5AE0"/>
+  <path d="M654 438C686 395 728 369 785 359L843 349C895 340 937 352 973 382L1002 414L654 438Z" fill="#C0D9FF" fill-opacity="0.28"/>
+  <path d="M491 602H1001V623C1001 639 988 652 972 652H522C504 652 491 638 491 621V602Z" fill="#171127"/>
+  <circle cx="604" cy="605" r="68" fill="#09070E"/>
+  <circle cx="604" cy="605" r="44" fill="#D8DCE8"/>
+  <circle cx="604" cy="605" r="22" fill="#828AA3"/>
+  <circle cx="908" cy="605" r="68" fill="#09070E"/>
+  <circle cx="908" cy="605" r="44" fill="#D8DCE8"/>
+  <circle cx="908" cy="605" r="22" fill="#828AA3"/>
+  <path d="M462 553H516L503 574H447L462 553Z" fill="#F4D37C"/>
+  <path d="M995 484H1032L1042 512H1008L995 484Z" fill="#FF9186"/>
+  <g opacity="0.96">
+    <rect x="1184" y="452" width="44" height="162" rx="18" transform="rotate(18 1184 452)" fill="#8E5A34"/>
+    <rect x="1150" y="396" width="150" height="58" rx="18" transform="rotate(18 1150 396)" fill="#C38A56"/>
+    <circle cx="1272" cy="602" r="78" fill="#281E35"/>
+    <path d="M1237 629V554H1288L1310 579V629H1237Z" fill="#E7D0B2"/>
+    <path d="M1261 629V578H1286V629H1261Z" fill="#B88A59"/>
+    <path d="M1237 590H1310" stroke="#A07A55" stroke-width="12"/>
+  </g>
+  <g opacity="0.88">
+    <path d="M206 640L242 548H290L252 640H206Z" fill="#C89A64"/>
+    <path d="M244 640L280 548H328L290 640H244Z" fill="#E2B47C"/>
+    <path d="M289 640L325 548H373L335 640H289Z" fill="#C89A64"/>
+  </g>
+</svg>

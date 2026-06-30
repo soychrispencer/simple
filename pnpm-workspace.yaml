@@ -1,0 +1,8 @@
+packages:
+  - 'packages/*'
+  - 'apps/simple*'
+  - 'services/*'
+
+overrides:
+  shell-quote: '>=1.8.4'
+  vite: '>=6.4.3'

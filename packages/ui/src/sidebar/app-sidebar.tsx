@@ -1,0 +1,256 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { IconChevronLeft, IconChevronRight, IconUser } from '@tabler/icons-react';
+import { resolveAccountAvatarUrl } from '@simple/utils';
+import { cleanPanelPath, resolveActiveNavHref } from '../panel/resolve-active-nav';
+
+type TablerIcon = ComponentType<{ size?: number; stroke?: number }>;
+
+export interface NavItem {
+    href: string;
+    label: string;
+    icon: TablerIcon;
+    badge?: string;
+}
+
+export interface UserInfo {
+    name: string;
+    role: string;
+    avatar?: string;
+}
+
+export interface SidebarProps {
+    navItems: NavItem[];
+    user: UserInfo;
+    collapsed: boolean;
+    onToggle?: () => void;
+    activeHref?: string | null;
+    fixed?: boolean;
+    storageKey?: string;
+    footerHref?: string | null;
+    footerLabel?: string;
+    footerIcon?: TablerIcon;
+}
+
+function cleanHref(href: string): string {
+    return href.split('#')[0] ?? href;
+}
+
+function SidebarAvatar({ user, className = 'w-8 h-8 rounded-[10px]' }: { user: UserInfo; className?: string }) {
+    const userName = user?.name || 'Usuario';
+    const userInitial = userName.charAt(0).toUpperCase();
+    const baseClass = `${className} flex items-center justify-center overflow-hidden text-sm font-semibold`;
+    const avatarSrc = resolveAccountAvatarUrl(user.avatar);
+    const [imageFailed, setImageFailed] = useState(false);
+
+    useEffect(() => {
+        setImageFailed(false);
+    }, [avatarSrc]);
+
+    if (avatarSrc && !imageFailed) {
+        return (
+            <span className={baseClass} style={{ background: 'var(--bg-muted)' }}>
+                <img
+                    src={avatarSrc}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={() => setImageFailed(true)}
+                />
+            </span>
+        );
+    }
+    return (
+        <span className={baseClass} style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
+            {userInitial}
+        </span>
+    );
+}
+
+export function Sidebar({
+    navItems,
+    user,
+    collapsed,
+    onToggle,
+    activeHref = null,
+    fixed = false,
+    footerHref = null,
+    footerLabel = 'Mi cuenta',
+    footerIcon,
+}: SidebarProps) {
+    const pathname = usePathname() ?? '';
+    const [hovered, setHovered] = useState(false);
+
+    const resolvedActiveHref = useMemo(() => {
+        if (activeHref) return activeHref;
+        return resolveActiveNavHref(pathname, navItems);
+    }, [activeHref, pathname, navItems]);
+
+    const isActive = (href: string) =>
+        resolvedActiveHref != null && cleanPanelPath(resolvedActiveHref) === cleanPanelPath(href);
+
+    const showExpanded = !collapsed || hovered;
+    const userName = user?.name || 'Usuario';
+    const userRoleLabel = user?.role || 'Usuario';
+    const FooterIcon = footerIcon || IconUser;
+
+    const asideClassName = useMemo(() => {
+        if (fixed) {
+            return 'hidden md:flex fixed left-0 top-0 bottom-0 z-40 flex-col transition-all duration-300';
+        }
+        return `hidden lg:block px-2 pt-3 pb-2 shrink-0 transition-[width] duration-200 ${collapsed ? 'w-29' : 'w-73'}`;
+    }, [collapsed, fixed]);
+
+    const outerStyle = fixed
+        ? {
+            width: showExpanded ? '16rem' : '4rem',
+            background: 'var(--surface)',
+            borderRight: '1px solid var(--border)',
+        }
+        : undefined;
+
+    const innerClassName = fixed
+        ? 'flex items-center h-16 px-4 border-b flex-shrink-0'
+        : 'sticky top-4 rounded-card border p-3 flex flex-col';
+
+    const innerStyle = fixed
+        ? { borderColor: 'var(--border)' }
+        : {
+            borderColor: 'var(--border)',
+            background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
+            boxShadow: 'var(--shadow-md)',
+        };
+
+    return (
+        <aside
+            className={asideClassName}
+            style={outerStyle}
+            onMouseEnter={() => fixed && collapsed && setHovered(true)}
+            onMouseLeave={() => fixed && setHovered(false)}
+        >
+            <div className={innerClassName} style={innerStyle}>
+                <div className={`mb-3 flex ${collapsed ? 'justify-center' : 'justify-end'}`}>
+                    {onToggle ? (
+                        <button
+                            type="button"
+                            onClick={onToggle}
+                            className="flex h-8 w-8 items-center justify-center rounded-[10px] border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                            style={{
+                                borderColor: 'var(--border)',
+                                background: 'var(--surface)',
+                                color: 'var(--fg-muted)',
+                                boxShadow: 'var(--shadow-xs)',
+                            }}
+                            aria-label={collapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
+                        >
+                            {collapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
+                        </button>
+                    ) : null}
+                </div>
+
+                <div
+                    className={`mb-3 rounded-xl border ${collapsed ? 'p-1.5 flex justify-center' : 'p-2.5 flex items-center gap-2.5'}`}
+                    style={{ borderColor: 'var(--border)' }}
+                    title={collapsed ? `${userName} · ${userRoleLabel}` : undefined}
+                >
+                    <SidebarAvatar user={user} />
+                    {!collapsed ? (
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-sm truncate" style={{ color: 'var(--fg)' }}>
+                                {userName}
+                            </span>
+                            <span className="block text-xs truncate" style={{ color: 'var(--fg-muted)' }}>
+                                {userRoleLabel}
+                            </span>
+                        </span>
+                    ) : null}
+                </div>
+
+                <nav className="pr-1 space-y-2">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const active = isActive(item.href);
+
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                prefetch
+                                scroll={false}
+                                aria-current={active ? 'page' : undefined}
+                                className={`group relative flex h-11 items-center rounded-xl text-sm transition-colors hover:bg-[var(--bg-subtle)] ${
+                                    collapsed ? 'justify-center px-1.5' : 'gap-2.5 px-2.5'
+                                }`}
+                                style={{
+                                    background: active ? 'var(--bg-subtle)' : 'transparent',
+                                    color: active ? 'var(--fg)' : 'var(--fg-secondary)',
+                                }}
+                            >
+                                <span
+                                    className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
+                                    style={{
+                                        borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
+                                        background: active ? 'var(--button-primary-bg)' : 'transparent',
+                                        color: active ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
+                                        boxShadow: active ? 'var(--shadow-xs)' : 'none',
+                                    }}
+                                >
+                                    <Icon size={17} stroke={1.9} />
+                                </span>
+
+                                {!collapsed ? (
+                                    <span className="min-w-0 flex-1 flex items-center justify-between gap-2">
+                                        <span className="truncate text-sm font-medium">{item.label}</span>
+                                        {item.badge ? (
+                                            <span
+                                                className="text-[10px] font-medium px-1.5 py-[0.2rem] rounded-[5px] border uppercase tracking-[0.04em]"
+                                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                            >
+                                                {item.badge}
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                ) : (
+                                    <span
+                                        className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-60 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-[10px] border px-2.5 py-1.5 text-sm font-medium opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                                        style={{
+                                            background: 'var(--surface)',
+                                            borderColor: 'var(--border)',
+                                            color: 'var(--fg)',
+                                            boxShadow: 'var(--shadow-sm)',
+                                        }}
+                                    >
+                                        {item.label}
+                                    </span>
+                                )}
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                {footerHref ? (
+                    <div className="pt-3 mt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                        <Link
+                            href={footerHref}
+                            className={`group flex h-10 items-center rounded-[10px] border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)] ${
+                                collapsed ? 'justify-center' : 'gap-2 px-2.5'
+                            }`}
+                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            title={collapsed ? footerLabel : undefined}
+                        >
+                            <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-[var(--bg-muted)]">
+                                <FooterIcon size={13} stroke={1.9} />
+                            </span>
+                            {!collapsed ? <span className="text-sm">{footerLabel}</span> : null}
+                        </Link>
+                    </div>
+                ) : null}
+            </div>
+        </aside>
+    );
+}
+
+export type AppSidebarProps = SidebarProps;
+export { Sidebar as AppSidebar };

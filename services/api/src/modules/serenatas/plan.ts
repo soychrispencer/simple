@@ -1,0 +1,114 @@
+import { eq } from 'drizzle-orm';
+import { db } from '../../db/index.js';
+import { serenataOwners } from '../../db/schema.js';
+import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
+import {
+    APP_COMMISSION_FREE_BPS,
+    APP_COMMISSION_PRO_BPS,
+    COMMISSION_VAT_BPS,
+    SERENATA_PRO_PRICE_MONTHLY_CLP,
+    SERENATA_TRIAL_DAYS,
+    serenataPlanMonthlyChargeClp,
+    serenataProMonthlyChargeClp,
+    appCommissionBpsForPlan,
+    commissionPercentFromBps,
+    exampleAppCommissionClp,
+    planLabel,
+    type SerenataBillingPlanId,
+} from './plan-config.js';
+
+export async function resolveActiveSerenataBillingPlan(userId: string): Promise<SerenataBillingPlanId> {
+    const dbSub = await loadCurrentSubscriptionFromDb(userId, 'serenatas');
+    if (dbSub && (dbSub.planSlug === 'pro' || dbSub.planSlug === 'enterprise') && dbSub.status === 'active') {
+        return 'pro';
+    }
+
+    const owner = await db.query.serenataOwners.findFirst({
+        where: eq(serenataOwners.userId, userId),
+        columns: { subscriptionStatus: true },
+    });
+    if (owner?.subscriptionStatus === 'active') {
+        return 'pro';
+    }
+
+    return 'free';
+}
+
+export type SerenataMePlanResponse = {
+    plan: SerenataBillingPlanId;
+    planLabel: string;
+    /** @deprecated Legacy: el modelo actual es prueba gratis por tiempo limitado + Pro. */
+    alwaysFreeMonthly: true;
+    /** @deprecated SimpleSerenatas no cobra comisión por serenata. */
+    ownerOwnSerenataCommissionPercent: 0;
+    /** @deprecated SimpleSerenatas no cobra comisión por serenata. */
+    commissionAppBps: number;
+    /** @deprecated SimpleSerenatas no cobra comisión por serenata. */
+    commissionAppPercent: number;
+    /** @deprecated Solo aplica a cálculos legacy de comisión, no al modelo comercial actual. */
+    commissionVatBps: number;
+    /** @deprecated Solo aplica a cálculos legacy de comisión, no al modelo comercial actual. */
+    commissionVatPercent: number;
+    proPriceMonthly: number;
+    /** Neto mensual antes de IVA (referencia en UI). */
+    proPriceMonthlyNet: number;
+    /** Total mensual cobrado en checkout MP (neto + IVA). */
+    proPriceMonthlyWithVat: number;
+    proCheckoutAvailable: boolean;
+    trialDays: number;
+    trialEndsAt: string | null;
+    trialActive: boolean;
+    subscriptionRequired: boolean;
+    profileVisibilityStatus: 'trial' | 'active' | 'paused';
+    exampleGrossClp: number;
+    example: ReturnType<typeof exampleAppCommissionClp>;
+    constants: {
+        APP_COMMISSION_FREE_BPS: number;
+        APP_COMMISSION_PRO_BPS: number;
+        COMMISSION_VAT_BPS: number;
+    };
+};
+
+export function buildSerenataMePlanResponse(
+    plan: SerenataBillingPlanId,
+    options: {
+        proCheckoutAvailable: boolean;
+        exampleGrossClp?: number;
+        trialEndsAt?: Date | string | null;
+    },
+): SerenataMePlanResponse {
+    const commissionAppBps = appCommissionBpsForPlan(plan);
+    const exampleGrossClp = options.exampleGrossClp ?? 100_000;
+    const trialEndsAt = options.trialEndsAt
+        ? new Date(options.trialEndsAt)
+        : null;
+    const isPaidPlan = plan === 'pro';
+    const subscriptionRequired = !isPaidPlan && Boolean(trialEndsAt && trialEndsAt.getTime() < Date.now());
+    const trialActive = !isPaidPlan && !subscriptionRequired;
+    return {
+        plan,
+        planLabel: planLabel(plan),
+        alwaysFreeMonthly: true,
+        ownerOwnSerenataCommissionPercent: 0,
+        commissionAppBps,
+        commissionAppPercent: commissionPercentFromBps(commissionAppBps),
+        commissionVatBps: COMMISSION_VAT_BPS,
+        commissionVatPercent: commissionPercentFromBps(COMMISSION_VAT_BPS),
+        proPriceMonthly: SERENATA_PRO_PRICE_MONTHLY_CLP,
+        proPriceMonthlyNet: SERENATA_PRO_PRICE_MONTHLY_CLP,
+        proPriceMonthlyWithVat: serenataProMonthlyChargeClp(),
+        proCheckoutAvailable: options.proCheckoutAvailable,
+        trialDays: SERENATA_TRIAL_DAYS,
+        trialEndsAt: trialEndsAt && !Number.isNaN(trialEndsAt.getTime()) ? trialEndsAt.toISOString() : null,
+        trialActive,
+        subscriptionRequired,
+        profileVisibilityStatus: isPaidPlan ? 'active' : subscriptionRequired ? 'paused' : 'trial',
+        exampleGrossClp,
+        example: exampleAppCommissionClp(exampleGrossClp, plan),
+        constants: {
+            APP_COMMISSION_FREE_BPS,
+            APP_COMMISSION_PRO_BPS,
+            COMMISSION_VAT_BPS,
+        },
+    };
+}

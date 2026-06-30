@@ -1,0 +1,68 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="140" y1="120" x2="1380" y2="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#132531"/>
+      <stop offset="0.55" stop-color="#1D3444"/>
+      <stop offset="1" stop-color="#0C1720"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="800" y1="520" x2="800" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#203544"/>
+      <stop offset="1" stop-color="#091219"/>
+    </linearGradient>
+    <linearGradient id="carBody" x1="462" y1="443" x2="1124" y2="443" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7FAFC"/>
+      <stop offset="0.45" stop-color="#DCE7F1"/>
+      <stop offset="1" stop-color="#96B0C3"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1108 310) rotate(125) scale(338 350)">
+      <stop stop-color="#7BD7FF" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#7BD7FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="0" y="520" width="1600" height="380" fill="url(#floor)"/>
+  <path d="M0 612C281 559 476 545 751 547C1042 548 1318 580 1600 651V900H0V612Z" fill="#11202A"/>
+  <path d="M0 652C290 599 543 583 837 596C1090 606 1319 642 1600 709V900H0V652Z" fill="#172A36"/>
+  <g opacity="0.42">
+    <path d="M117 235H209V520H117V235Z" fill="#384E5F"/>
+    <path d="M261 170H408V520H261V170Z" fill="#324758"/>
+    <path d="M421 118H559V520H421V118Z" fill="#3A5366"/>
+    <path d="M1318 184H1454V520H1318V184Z" fill="#32485A"/>
+    <path d="M1157 140H1293V520H1157V140Z" fill="#415C70"/>
+    <path d="M1001 202H1119V520H1001V202Z" fill="#304657"/>
+  </g>
+  <g opacity="0.55">
+    <rect x="149" y="258" width="29" height="22" fill="#D8ECFA"/>
+    <rect x="182" y="258" width="29" height="22" fill="#A9D7F7"/>
+    <rect x="293" y="218" width="30" height="24" fill="#D8ECFA"/>
+    <rect x="329" y="218" width="30" height="24" fill="#B3DCF8"/>
+    <rect x="365" y="218" width="30" height="24" fill="#D8ECFA"/>
+    <rect x="455" y="166" width="32" height="24" fill="#D8ECFA"/>
+    <rect x="492" y="166" width="32" height="24" fill="#B3DCF8"/>
+    <rect x="529" y="166" width="32" height="24" fill="#D8ECFA"/>
+    <rect x="1191" y="190" width="30" height="24" fill="#C9E6F8"/>
+    <rect x="1226" y="190" width="30" height="24" fill="#93CDEB"/>
+    <rect x="1261" y="190" width="30" height="24" fill="#C9E6F8"/>
+    <rect x="1348" y="236" width="28" height="22" fill="#D8ECFA"/>
+    <rect x="1382" y="236" width="28" height="22" fill="#A9D7F7"/>
+  </g>
+  <circle cx="1122" cy="316" r="270" fill="url(#glow)"/>
+  <ellipse cx="802" cy="649" rx="413" ry="76" fill="#071117" fill-opacity="0.9"/>
+  <path d="M473 540C505 488 555 454 639 442L836 410C904 399 959 412 998 455L1088 476C1105 480 1117 491 1121 509L1127 532C1132 550 1122 567 1103 571L493 586C465 588 450 566 463 545L473 540Z" fill="url(#carBody)"/>
+  <path d="M614 447C650 395 699 362 778 354L904 340C960 334 1005 351 1046 390L1093 446L614 447Z" fill="#CEE1EF"/>
+  <path d="M652 446C689 390 739 362 803 357L893 348C943 343 979 357 1017 390L1050 437L652 446Z" fill="#557186"/>
+  <path d="M676 445C708 397 753 374 811 370L880 363C921 358 951 367 980 392L1007 434L676 445Z" fill="#7EBDE2" fill-opacity="0.4"/>
+  <path d="M491 583H1101V604C1101 619 1089 631 1074 631H522C505 631 491 617 491 600V583Z" fill="#111E28"/>
+  <circle cx="620" cy="585" r="74" fill="#0C151C"/>
+  <circle cx="620" cy="585" r="49" fill="#C7D4DE"/>
+  <circle cx="620" cy="585" r="26" fill="#667A89"/>
+  <circle cx="974" cy="585" r="74" fill="#0C151C"/>
+  <circle cx="974" cy="585" r="49" fill="#C7D4DE"/>
+  <circle cx="974" cy="585" r="26" fill="#667A89"/>
+  <path d="M474 541H535L523 559H467L474 541Z" fill="#F4C96A"/>
+  <path d="M1042 483H1101L1120 513H1052L1042 483Z" fill="#F2786A"/>
+  <path d="M828 335L905 326C960 320 1008 337 1053 378L1124 392L1132 418L1096 420L1049 392C1008 364 962 352 908 356L828 363V335Z" fill="#DDEAF2" fill-opacity="0.72"/>
+  <path d="M482 537L453 583H431L458 535L482 537Z" fill="#8AA3B5"/>
+  <rect x="266" y="612" width="230" height="4" rx="2" fill="#79BFE6" fill-opacity="0.33"/>
+  <rect x="1126" y="643" width="194" height="4" rx="2" fill="#79BFE6" fill-opacity="0.28"/>
+</svg>

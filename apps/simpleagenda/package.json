@@ -1,0 +1,33 @@
+{
+  "name": "@simple/agenda",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3004",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@simple/auth": "workspace:*",
+    "@simple/config": "workspace:*",
+    "@simple/marketplace-header": "workspace:*",
+    "@simple/types": "workspace:*",
+    "@simple/ui": "workspace:*",
+    "@simple/utils": "workspace:*",
+    "@tabler/icons-react": "^3.44.0",
+    "next": "^16.2.9",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/node": "^26.0.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^6.0.3"
+  }
+}

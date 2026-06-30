@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+.next/
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Environment variables
+.env.local
+.env.*.local
+.env
+.env.deploy
+
+# IDE/Editor
+.cursor/
+.vscode/
+.idea/
+.mimocode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+
+# Logs
+.logs/
+logs/
+*.log
+api_debug.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS Files
+Thumbs.db
+.DS_Store
+
+# Temporary files
+tmp_*.ps1
+tmp_*.txt
+tmp_*.sql
+tmp_*.log
+**/tsclog*.txt
+/tmp
+/temp
+/.temp
+
+# Accidental saves
+instagram-auth.html
+*.resolved
+seed.txt
+
+# Development
+.cache/
+.turbo/
+playwright-report/
+test-results/
+blob-report/
+
+# Local uploads
+services/api/uploads/

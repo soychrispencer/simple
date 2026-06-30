@@ -1,0 +1,2 @@
+ALTER TABLE "listing_leads" ADD COLUMN "assigned_to_team_member_id" uuid;--> statement-breakpoint
+ALTER TABLE "listing_leads" ADD CONSTRAINT "listing_leads_assigned_to_team_member_id_public_profile_team_members_id_fk" FOREIGN KEY ("assigned_to_team_member_id") REFERENCES "public"."public_profile_team_members"("id") ON DELETE no action ON UPDATE no action;
