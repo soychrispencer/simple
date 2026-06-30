@@ -7,21 +7,15 @@ import { touchUserLastNotificationAt } from './notification-delivery-meta.js';
 import { logUserNotificationDelivery } from './user-notification-log.js';
 import { getUserNotificationPrefs, shouldSendAccountEmail } from './user-notification-prefs.js';
 
-const TEST_EMAIL_SUBJECT = 'Prueba de notificaciones';
+import { serenatasAppBaseUrl } from './url.js';
 
-function appPanelUrl(): string {
-    return (
-        process.env.SERENATAS_APP_URL
-        ?? process.env.MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS
-        ?? 'http://localhost:3005'
-    ).replace(/\/$/, '');
-}
+const TEST_EMAIL_SUBJECT = 'Prueba de notificaciones';
 
 export async function sendNotificationTestEmail(userId: string, email: string, name: string): Promise<void> {
     const transporter = getAuthMailerTransporter();
-    const brand = getEmailBrandProfile(appPanelUrl());
+    const brand = getEmailBrandProfile(serenatasAppBaseUrl());
     await ensureEmailLogoCache();
-    const panelUrl = `${appPanelUrl()}/panel?account_tab=notifications`;
+    const panelUrl = `${serenatasAppBaseUrl()}/panel?account_tab=notifications`;
     const body = `Hola ${name || 'equipo'}, este es un correo de prueba desde ${brand.appName}. Si lo recibiste, el canal de correo funciona.`;
 
     if (!transporter) {

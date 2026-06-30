@@ -8,8 +8,3 @@ export async function insertInAppNotifications(
 ): Promise<void> {
     await insertPlatformNotifications(values, options);
 }
-
-/** @deprecated Use insertInAppNotifications */
-export const insertSerenataNotifications = insertInAppNotifications;
-
-export type SerenataNotificationInsert = InAppNotificationInsert;

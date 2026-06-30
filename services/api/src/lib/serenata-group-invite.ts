@@ -4,13 +4,7 @@ export function createGroupInviteToken(): string {
     return randomBytes(24).toString('base64url');
 }
 
-export function serenatasAppBaseUrl(): string {
-    return (
-        process.env.SERENATAS_APP_URL
-        ?? process.env.MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS
-        ?? 'http://localhost:3005'
-    ).replace(/\/$/, '');
-}
+import { serenatasAppBaseUrl } from './url.js';
 
 export function buildGroupInviteSignupUrl(token: string): string {
     const base = serenatasAppBaseUrl();

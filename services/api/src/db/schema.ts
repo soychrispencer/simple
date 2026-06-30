@@ -1211,9 +1211,6 @@ export const serenataOwners = pgTable('serenata_owners', {
   userIdx: uniqueIndex('serenata_owners_user_idx').on(table.userId),
 }));
 
-/** @deprecated Usar `serenataOwners`. Alias temporal para migraciones antiguas ya aplicadas. */
-export const serenataAdmins = serenataOwners;
-
 export const serenataProviderGroups = pgTable('serenata_provider_groups', {
   id: uuid('id').primaryKey().defaultRandom(),
   ownerUserId: uuid('owner_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),

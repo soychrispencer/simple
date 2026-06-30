@@ -57,3 +57,4 @@ export * from './agenda-promotion-display.js';
 export * from './business-service-modality.js';
 export * from './geocoding.js';
 export * from './valuation.js';
+export * from './advertising.js';

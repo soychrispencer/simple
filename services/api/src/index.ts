@@ -1392,7 +1392,7 @@ const {
     applyRuntimeRole,
 });
 
-const loadDataFromDB = createStartupDataLoader({
+export const loadDataFromDB = createStartupDataLoader({
     maps: {
         usersById,
         accountsById,
@@ -1431,7 +1431,7 @@ const loadDataFromDB = createStartupDataLoader({
     mapSocialPublicationRow,
 });
 
-const app = new Hono();
+export const app = new Hono();
 
 // CORS middleware - MUST be applied FIRST before any other middleware or routes
 app.use(
@@ -2414,68 +2414,3 @@ app.route('/api/serenatas', createSerenatasRouter({
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Cron jobs moved to modules/agenda/cron.ts
-
-const port = env.PORT;
-const hostname = env.API_HOST;
-void refreshValuationFeeds();
-void refreshVehicleValuationFeeds();
-
-// Run DB migrations, register jobs, preload data, then start the HTTP server
-(async () => {
-    try {
-        const migrationsFolder = path.resolve(__dirname, '../drizzle');
-        await migrate(db, { migrationsFolder });
-        console.info('[simple-api] DB migrations checked');
-    } catch (error) {
-        console.error('[simple-api] DB migration failed', error);
-        if (!isProduction) {
-            logger.warn(
-                '[simple-api] En local: ejecuta `pnpm run db:migrate` en services/api y revisa que .env.local y esta app usen la MISMA DATABASE_URL (orden .env→.env.local).'
-            );
-        }
-    }
-
-    try {
-        const postJournal = await applyPostJournalMigrations(pgClient, {
-            migrationsFolder: path.resolve(API_ROOT_DIR, 'drizzle'),
-            log: (message) => {
-                if (message.startsWith('  ya aplicado:')) return;
-                console.info(`[simple-api] post-journal ${message}`);
-            },
-        });
-        if (postJournal.appliedNow > 0) {
-            console.info(`[simple-api] post-journal: ${postJournal.appliedNow} migración(es) aplicadas`);
-        }
-    } catch (error) {
-        console.warn('[simple-api] post-journal migrations skipped or failed (non-blocking)', error);
-    }
-
-    registerAgendaCronJobs();
-    registerSerenatasCronJobs();
-
-    try {
-        await loadDataFromDB();
-    } catch (error) {
-        console.error('[simple-api] failed to preload DB data', error);
-    }
-
-    try {
-        await warmEmailLogoCache();
-        console.info('[auth-email] logos PNG listos para correo');
-    } catch (error) {
-        console.warn('[auth-email] no se pudieron rasterizar logos de correo', error);
-    }
-
-    warnMercadoPagoWebhookSecretAtStartup();
-
-    serve(
-        {
-            fetch: app.fetch,
-            hostname,
-            port,
-        },
-        (info) => {
-            console.info(`[simple-api] listening on http://${hostname}:${info.port}`);
-        }
-    );
-})();

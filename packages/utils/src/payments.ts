@@ -2,7 +2,6 @@ import { apiFetch } from './api-client.js';
 
 export type PaymentVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 export type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
-export type AdFormat = 'hero' | 'card' | 'inline';
 export type AdDurationDays = 7 | 15 | 30;
 export type PaymentBoostSection = 'sale' | 'rent' | 'auction' | 'project';
 export type PaymentBoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';

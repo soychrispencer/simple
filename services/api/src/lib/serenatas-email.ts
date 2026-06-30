@@ -16,17 +16,10 @@ import {
 import { logUserNotificationDelivery } from './user-notification-log.js';
 import { touchUserLastNotificationAt } from './notification-delivery-meta.js';
 import { formatAuthFromAddress, getAuthMailerTransporter, isAuthEmailConfigured } from './auth-email.js';
-
-function serenatasAppUrl(): string {
-    return (
-        process.env.SERENATAS_APP_URL
-        ?? process.env.MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS
-        ?? 'http://localhost:3005'
-    ).replace(/\/$/, '');
-}
+import { serenatasAppBaseUrl } from './url.js';
 
 function panelUrl(path = '/panel'): string {
-    return `${serenatasAppUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+    return `${serenatasAppBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 async function sendSerenatasActionEmail(
@@ -43,7 +36,7 @@ async function sendSerenatasActionEmail(
     },
 ): Promise<'sent' | 'skipped_dev'> {
     const transporter = getAuthMailerTransporter();
-    const brand = getEmailBrandProfile(serenatasAppUrl());
+    const brand = getEmailBrandProfile(serenatasAppBaseUrl());
     await ensureEmailLogoCache();
 
     if (!transporter) {
