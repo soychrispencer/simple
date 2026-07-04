@@ -34,4 +34,4 @@ node dist/db/apply-post-journal-migrations-cli.js || {
 
 echo "[Entrypoint] Starting API server..."
 cd /app
-exec node services/api/dist/index.js
+exec node services/api/dist/server.js
