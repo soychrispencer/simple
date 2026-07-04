@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
-import { IconClock, IconEye, IconHeart, IconMapPin, IconUser } from '@tabler/icons-react';
+import { IconClock, IconEye, IconHeart, IconMapPin, IconUser, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
 import { fetchPublicListing, type PublicListing } from '@/lib/public-listings';
@@ -27,8 +27,6 @@ export default function PropertyDetailPage() {
         })();
     }, [slug]);
 
-    const coverImage = item?.images[0] ?? null;
-
     return (
         <div className="container-app py-8">
             {item && <JsonLd data={buildPropertyJsonLd(item)} />}
@@ -46,23 +44,7 @@ export default function PropertyDetailPage() {
             ) : (
                 <div className="flex flex-col gap-6 lg:flex-row">
                     <div className="min-w-0 flex-1 space-y-4">
-                        <div
-                            className="overflow-hidden rounded-[24px] border"
-                            style={{
-                                borderColor: 'var(--border)',
-                                background: coverImage
-                                    ? `linear-gradient(to bottom, rgba(15,23,42,0.12), rgba(15,23,42,0.38)), url(${coverImage}) center / cover no-repeat`
-                                    : 'var(--bg-muted)',
-                            }}
-                        >
-                            <div className="aspect-16/9 flex items-end p-6">
-                                <div className="max-w-2xl">
-                                    <PanelStatusBadge label={item.sectionLabel} tone={item.section === 'project' ? 'info' : item.section === 'rent' ? 'warning' : 'success'} size="sm" />
-                                    <h1 className="mt-3 text-2xl font-semibold text-white md:text-4xl">{item.title}</h1>
-                                    <p className="mt-2 text-sm text-white/85">{item.location || 'Ubicación por confirmar'}</p>
-                                </div>
-                            </div>
-                        </div>
+                        <ImageGallery images={item.images} title={item.title} sectionLabel={item.sectionLabel} section={item.section} />
 
                         <PanelCard size="lg">
                             <PanelBlockHeader title="Resumen" className="mb-4" />
@@ -137,6 +119,86 @@ export default function PropertyDetailPage() {
                     </aside>
                 </div>
             )}
+        </div>
+    );
+}
+
+function ImageGallery({ images, title, sectionLabel, section }: { images: string[]; title: string; sectionLabel: string; section: string }) {
+    const [current, setCurrent] = useState(0);
+    const touchStart = useRef<number | null>(null);
+    const validImages = images.filter((img) => img && img.length > 0);
+    const hasMultiple = validImages.length > 1;
+
+    const prev = useCallback(() => {
+        setCurrent((c) => (c > 0 ? c - 1 : validImages.length - 1));
+    }, [validImages.length]);
+
+    const next = useCallback(() => {
+        setCurrent((c) => (c < validImages.length - 1 ? c + 1 : 0));
+    }, [validImages.length]);
+
+    const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (touchStart.current === null) return;
+        const diff = touchStart.current - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50) { diff > 0 ? next() : prev(); }
+        touchStart.current = null;
+    };
+
+    if (validImages.length === 0) {
+        return (
+            <div className="overflow-hidden rounded-[24px] border" style={{ borderColor: 'var(--border)', background: 'var(--bg-muted)' }}>
+                <div className="aspect-16/9 flex items-end p-6">
+                    <div className="max-w-2xl">
+                        <PanelStatusBadge label={sectionLabel} tone={section === 'project' ? 'info' : section === 'rent' ? 'warning' : 'success'} size="sm" />
+                        <h1 className="mt-3 text-2xl font-semibold text-white md:text-4xl">{title}</h1>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="overflow-hidden rounded-[24px] border relative" style={{ borderColor: 'var(--border)' }}
+            onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <div className="aspect-16/9 relative">
+                <img src={validImages[current]} alt={`${title} ${current + 1}`} className="w-full h-full object-cover" />
+
+                {/* Overlay info */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute bottom-0 left-0 right-0 p-6 pointer-events-none">
+                    <PanelStatusBadge label={sectionLabel} tone={section === 'project' ? 'info' : section === 'rent' ? 'warning' : 'success'} size="sm" />
+                    <h1 className="mt-3 text-2xl font-semibold text-white md:text-4xl">{title}</h1>
+                </div>
+
+                {/* Navigation arrows */}
+                {hasMultiple && (
+                    <>
+                        <button onClick={(e) => { e.stopPropagation(); prev(); }}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors z-10">
+                            <IconChevronLeft size={20} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); next(); }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors z-10">
+                            <IconChevronRight size={20} />
+                        </button>
+                        {/* Counter badge */}
+                        <span className="absolute top-3 right-3 text-xs px-2 py-1 rounded-full bg-black/50 text-white z-10">
+                            {current + 1} / {validImages.length}
+                        </span>
+                    </>
+                )}
+
+                {/* Dot indicators */}
+                {hasMultiple && validImages.length <= 12 && (
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                        {validImages.map((_, idx) => (
+                            <button key={idx} onClick={(e) => { e.stopPropagation(); setCurrent(idx); }}
+                                className={`h-1.5 rounded-full transition-all ${idx === current ? 'w-5 bg-white' : 'w-1.5 bg-white/50'}`} />
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

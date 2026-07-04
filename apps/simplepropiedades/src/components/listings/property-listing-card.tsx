@@ -149,15 +149,15 @@ function extractPropertyInfo(meta: string[], title: string, data: PropertyListin
     
     // Dormitorios
     const bedMatch = allText.match(/(\d+)\s*(dorm|dormitorio|hab|habitacion|habitación)/);
-    const bedrooms = data.bedrooms ? `${data.bedrooms} dorm` : (bedMatch ? `${bedMatch[1]} dorm` : 'N/A');
-    
+    const bedrooms = data.bedrooms ? `${data.bedrooms} dorm` : (bedMatch ? `${bedMatch[1]} dorm` : '');
+
     // Baños
     const bathMatch = allText.match(/(\d+)\s*(baño|bano|baños)/);
-    const bathrooms = data.bathrooms ? `${data.bathrooms} baños` : (bathMatch ? `${bathMatch[1]} baños` : 'N/A');
-    
+    const bathrooms = data.bathrooms ? `${data.bathrooms} baños` : (bathMatch ? `${bathMatch[1]} baños` : '');
+
     // Superficie
     const surfaceMatch = allText.match(/(\d+[\d.]*)\s*(m2|m²|metros)/);
-    const surface = data.surface ? data.surface : (surfaceMatch ? `${surfaceMatch[1]} m²` : 'N/A');
+    const surface = data.surface ? data.surface : (surfaceMatch ? `${surfaceMatch[1]} m²` : '');
     
     // Tipo de propiedad
     const type = data.propertyType || 
@@ -584,13 +584,13 @@ export default function PropertyListingCard({ data, mode }: Props) {
                     {propertyInfo.bedrooms && (
                         <div className="flex flex-col items-center gap-0.5">
                             <IconBed size={14} className="text-white/60" />
-                            <span className="text-[10px] text-white/90">{propertyInfo.bedrooms} dorm</span>
+                            <span className="text-[10px] text-white/90">{propertyInfo.bedrooms}</span>
                         </div>
                     )}
                     {propertyInfo.bathrooms && (
                         <div className="flex flex-col items-center gap-0.5">
                             <IconBath size={14} className="text-white/60" />
-                            <span className="text-[10px] text-white/90">{propertyInfo.bathrooms} baños</span>
+                            <span className="text-[10px] text-white/90">{propertyInfo.bathrooms}</span>
                         </div>
                     )}
                     {propertyInfo.surface && (

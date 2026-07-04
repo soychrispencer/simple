@@ -1616,7 +1616,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Arrastra para reordenar</p>
                         </div>
                     )}
-                    <input ref={fileInputRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => handleFiles(e.target.files)} className="hidden" />
+                    <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" />
                     {errors['media.photos'] ? <ErrorText text={errors['media.photos']} /> : null}
                 </PanelCard>
                 <div className="xl:sticky xl:top-24 xl:self-start">
