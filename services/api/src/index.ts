@@ -1431,7 +1431,7 @@ export const loadDataFromDB = createStartupDataLoader({
     mapSocialPublicationRow,
 });
 
-export const app = new Hono({ bodyLimit: { maxSize: 50 * 1024 * 1024 } });
+export const app = new Hono();
 
 // CORS middleware - MUST be applied FIRST before any other middleware or routes
 app.use(

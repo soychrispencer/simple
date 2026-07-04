@@ -91,7 +91,7 @@ export function createMediaRouter(deps: MediaRouterDeps) {
     });
 
     // Subir archivos (requiere autenticación) — 50MB limit para videos
-    app.post('/upload', bodyLimit({ limit: 50 * 1024 * 1024 }), requireVerifiedSession, async (c) => {
+    app.post('/upload', bodyLimit({ maxSize: 50 * 1024 * 1024 }), requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) {
             logDebug(`[AUTH FAIL] /api/media/upload - user not found`);
