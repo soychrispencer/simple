@@ -74,6 +74,7 @@ void refreshVehicleValuationFeeds();
             fetch: app.fetch,
             hostname,
             port,
+            maxRequestBodySize: 50 * 1024 * 1024, // 50MB for video uploads
         },
         (info) => {
             console.info(`[simple-api] listening on http://${hostname}:${info.port}`);
