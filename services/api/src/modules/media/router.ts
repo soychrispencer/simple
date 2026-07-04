@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { logger } from '@simple/logger';
 import { readUploadBuffer } from '../../storage-providers/file-buffer.js';
@@ -89,8 +90,8 @@ export function createMediaRouter(deps: MediaRouterDeps) {
         }
     });
 
-    // Subir archivos (requiere autenticación)
-    app.post('/upload', requireVerifiedSession, async (c) => {
+    // Subir archivos (requiere autenticación) — 50MB limit para videos
+    app.post('/upload', bodyLimit({ limit: 50 * 1024 * 1024 }), requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) {
             logDebug(`[AUTH FAIL] /api/media/upload - user not found`);
