@@ -29,6 +29,10 @@ RUN pnpm install
 
 FROM deps AS builder
 
+# API URL inyectada en Coolify para que next.config.ts la lea durante `next build`.
+ARG API_INTERNAL_URL=http://localhost:4000
+ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+
 RUN pnpm --filter=@simple/types run build
 RUN pnpm --filter=@simple/config run build
 RUN pnpm --filter=@simple/utils run build

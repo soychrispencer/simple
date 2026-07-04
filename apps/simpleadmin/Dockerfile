@@ -1,5 +1,10 @@
 FROM node:22-bookworm-slim
 
+# API URL inyectada en Coolify para que next.config.ts la lea durante `next build`.
+# En local, fallback a localhost:4000 (ver .env.local).
+ARG API_INTERNAL_URL=http://localhost:4000
+ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
