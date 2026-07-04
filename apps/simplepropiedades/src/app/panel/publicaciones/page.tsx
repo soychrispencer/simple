@@ -37,7 +37,7 @@ import PanelSectionHeader from '@/components/panel/panel-section-header';
 import { ModernSelect } from '@simple/ui/forms';
 import { fetchInstagramIntegrationStatus, generateSmartTemplates, publishListingToInstagramEnhanced, type InstagramPublicationView, type InstagramTemplateView, } from '@/lib/instagram';
 import {
-    type ListingStatus, type PanelListing, type PortalKey, fetchMyPanelListings, publishListingToPortal, renewPanelListing, updatePanelListingStatus, } from '@/lib/panel-listings';
+    type ListingStatus, type PanelListing, type PortalKey, fetchMyPanelListings, publishListingToPortal, renewPanelListing, updatePanelListingStatus, deletePanelListing, } from '@/lib/panel-listings';
 import { InstagramTemplatePreview } from '@simple/ui/integrations';
 import { PanelIconButton } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
@@ -333,7 +333,7 @@ export default function PublicacionesPage() {
         }
 
         setStatusBusyKey(`${listing.id}:delete`);
-        const result = await updatePanelListingStatus(listing.id, 'archived');
+        const result = await deletePanelListing(listing.id);
         setStatusBusyKey(null);
         if (!result.ok) {
             if (result.unauthorized) {

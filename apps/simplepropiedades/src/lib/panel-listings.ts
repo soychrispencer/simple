@@ -133,6 +133,17 @@ export async function updatePanelListingStatus(
     return { ok: !!data.ok, item: data.item, error: data.error };
 }
 
+export async function deletePanelListing(
+    listingId: string
+): Promise<{ ok: boolean; error?: string; unauthorized?: boolean }> {
+    const { status, data } = await apiRequest<{ ok: boolean; error?: string }>(`/api/listings/${encodeURIComponent(listingId)}`, {
+        method: 'DELETE',
+    });
+    if (status === 401) return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.', unauthorized: true };
+    if (!data) return { ok: false, error: 'No pudimos conectar con el backend.' };
+    return { ok: !!data.ok, error: data.error };
+}
+
 export async function fetchPanelListingDetail(
     listingId: string
 ): Promise<{ ok: boolean; item?: PanelListing; error?: string; unauthorized?: boolean }> {
