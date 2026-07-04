@@ -46,6 +46,7 @@ type ModalState =
     | { type: 'email'; user?: AdminUserSnapshot; userIds?: string[] }
     | { type: 'subscriptions'; user: AdminUserSnapshot }
     | { type: 'delete'; user: AdminUserSnapshot }
+    | { type: 'serenatas-profile'; user: AdminUserSnapshot; profileType: 'client' | 'musician' | 'owner' }
     | null;
 
 type PrimaryVerticalValue = 'none' | 'autos' | 'propiedades' | 'agenda';
@@ -306,118 +307,131 @@ function Drawer({ user, onClose, onEdit, onEmail, onSubscriptions, onDelete, onS
     const distinctActivity = user.verticalSignals.filter((signal) => (
         !activePlatforms.some((access) => access.vertical === signal.vertical && signal.source === 'signup_app')
     ));
+    const currentSerenatasProfile = user.serenatas?.owner ? 'owner' : user.serenatas?.musician ? 'musician' : user.serenatas?.client ? 'client' : null;
+
     return (
         <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l shadow-2xl" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-            <div className="flex items-start justify-between gap-4 border-b p-5" style={{ borderColor: 'var(--border)' }}>
-                <div className="flex min-w-0 items-center gap-3">
-                    <UserAvatar user={user} />
-                    <div className="min-w-0">
-                        <h2 className="truncate text-base font-semibold" style={{ color: 'var(--fg)' }}>{user.name}</h2>
-                        <p className="truncate text-sm" style={{ color: 'var(--fg-muted)' }}>{user.email}</p>
-                    </div>
-                </div>
-                <PanelIconButton label="Cerrar" onClick={onClose} variant="soft" size="md"><IconX size={16} /></PanelIconButton>
-            </div>
-
-            <div className="flex-1 space-y-5 overflow-y-auto p-5">
-                <section>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Resumen</p>
-                    <div className="grid gap-2 text-sm">
-                        <div className="rounded-card border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                            <div className="flex flex-wrap items-center gap-2">
-                                {neutralBadge(roleLabel(user.role))}
-                                {neutralBadge(statusLabel(user.status))}
-                                {user.provider === 'google' ? neutralBadge('Google') : neutralBadge('Email')}
-                            </div>
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                <Info label="Teléfono" value={user.phone || 'Sin teléfono'} />
-                                <Info label="Actividad" value={activitySummary(user)} />
-                            </div>
+            {/* Header */}
+            <div className="border-b p-5" style={{ borderColor: 'var(--border)' }}>
+                <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <UserAvatar user={user} />
+                        <div className="min-w-0">
+                            <h2 className="truncate text-base font-semibold" style={{ color: 'var(--fg)' }}>{user.name}</h2>
+                            <p className="truncate text-sm" style={{ color: 'var(--fg-muted)' }}>{user.email}</p>
                         </div>
                     </div>
-                </section>
+                    <PanelIconButton label="Cerrar" onClick={onClose} variant="soft" size="md"><IconX size={16} /></PanelIconButton>
+                </div>
+                {/* Badges + info inline */}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {neutralBadge(roleLabel(user.role))}
+                    {neutralBadge(statusLabel(user.status))}
+                    {user.provider === 'google' ? neutralBadge('Google') : neutralBadge('Email')}
+                    {user.phone ? <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user.phone}</span> : null}
+                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{activitySummary(user)}</span>
+                </div>
+                {/* Action buttons */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                    <button className="btn btn-primary btn-sm" type="button" onClick={onEdit}><IconEdit size={14} /> Editar</button>
+                    <button className="btn btn-outline btn-sm" type="button" onClick={onEmail}><IconMail size={14} /> Correo</button>
+                    <button className="btn btn-outline btn-sm" type="button" onClick={onSubscriptions}>Suscripción</button>
+                    <button className="btn btn-outline btn-sm" type="button" onClick={onDelete} style={{ color: 'var(--color-error)' }}><IconTrash size={14} /> Eliminar</button>
+                </div>
+            </div>
 
+            <div className="flex-1 space-y-4 overflow-y-auto p-5">
+                {/* Plataformas */}
                 <section>
                     <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Plataformas</p>
-                    <div className="space-y-2">
-                        {activePlatforms.length ? activePlatforms.map((access) => (
-                            <div key={access.app} className="rounded-card border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{access.label}</p>
-                                    {neutralBadge(platformStatusLabel(access.status))}
-                                </div>
-                                <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                    {platformRoleLabel(access.role)} · Activada {formatDateTime(access.activatedAt)}
-                                </p>
-                            </div>
-                        )) : (
-                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>No tiene plataformas activadas todavía.</p>
-                        )}
-                    </div>
-                </section>
-
-                {!activePlatforms.length && distinctActivity.length ? (
-                    <section>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Actividad detectada</p>
+                    {activePlatforms.length ? (
                         <div className="space-y-2">
-                            {distinctActivity.map((signal, index) => (
-                                <div key={`${signal.vertical}-${signal.source}-${index}`} className="rounded-card border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                            {activePlatforms.map((access) => (
+                                <div key={access.app} className="rounded-card border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
                                     <div className="flex items-center justify-between gap-3">
-                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{verticalLabel(signal.vertical)}</p>
-                                        {neutralBadge(String(signal.count))}
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{access.label}</p>
+                                        {neutralBadge(platformStatusLabel(access.status))}
                                     </div>
-                                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>{signal.label}</p>
+                                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                        {platformRoleLabel(access.role)} · Activada {formatDateTime(access.activatedAt)}
+                                    </p>
                                 </div>
                             ))}
                         </div>
-                    </section>
-                ) : null}
+                    ) : (
+                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>No tiene plataformas activadas todavía.</p>
+                    )}
+                </section>
 
+                {/* Suscripciones */}
                 <section>
                     <div className="mb-2 flex items-center justify-between gap-3">
                         <p className="text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Suscripciones</p>
-                        <button type="button" className="text-sm font-medium" style={{ color: 'var(--fg)' }} onClick={onSubscriptions}>
+                        <button type="button" className="text-xs font-medium" style={{ color: 'var(--fg)' }} onClick={onSubscriptions}>
                             Editar
                         </button>
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-1.5">
                         {(['agenda', 'autos', 'propiedades', 'serenatas'] as const).map((vertical) => {
                             const value = getSubscriptionSummary(user, vertical);
                             return (
-                                <div key={vertical} className="flex items-center justify-between gap-3 rounded-card border px-3 py-2" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                                    <span className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{verticalLabel(vertical)}</span>
-                                    <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>{value}</span>
+                                <div key={vertical} className="flex items-center justify-between gap-3 rounded-card border px-3 py-1.5" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                                    <span className="text-sm" style={{ color: 'var(--fg)' }}>{verticalLabel(vertical)}</span>
+                                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{value}</span>
                                 </div>
                             );
                         })}
                     </div>
                 </section>
 
-                {user.likelySignupVertical === 'serenatas' || user.serenatas ? (
-                    <section>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>SimpleSerenatas</p>
-                        <div className="grid gap-2 sm:grid-cols-3">
-                            {SERENATAS_PROFILE_OPTIONS.map((option) => (
+                {/* SimpleSerenatas — perfil */}
+                <section>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>SimpleSerenatas — Perfil</p>
+                    <div className="grid gap-1.5 sm:grid-cols-3">
+                        {SERENATAS_PROFILE_OPTIONS.map((option) => {
+                            const isActive = currentSerenatasProfile === option.value;
+                            return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     onClick={() => onSerenatasProfile(option.value)}
-                                    className="rounded-button border px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg)', background: 'var(--bg)' }}
+                                    className="rounded-button border px-3 py-2 text-sm font-medium transition-all"
+                                    style={{
+                                        borderColor: isActive ? 'var(--button-primary-border)' : 'var(--border)',
+                                        color: isActive ? 'var(--button-primary-color)' : 'var(--fg)',
+                                        background: isActive ? 'var(--button-primary-bg)' : 'var(--bg)',
+                                        boxShadow: isActive ? 'var(--shadow-xs)' : 'none',
+                                    }}
                                 >
                                     {option.label}
                                 </button>
+                            );
+                        })}
+                    </div>
+                    {currentSerenatasProfile && (
+                        <p className="mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                            Perfil actual: {SERENATAS_PROFILE_OPTIONS.find((o) => o.value === currentSerenatasProfile)?.label}
+                        </p>
+                    )}
+                </section>
+
+                {/* Actividad detectada (solo si no tiene plataformas) */}
+                {!activePlatforms.length && distinctActivity.length ? (
+                    <section>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Actividad detectada</p>
+                        <div className="space-y-1.5">
+                            {distinctActivity.map((signal, index) => (
+                                <div key={`${signal.vertical}-${signal.source}-${index}`} className="rounded-card border px-3 py-2" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="text-sm" style={{ color: 'var(--fg)' }}>{verticalLabel(signal.vertical)}</span>
+                                        {neutralBadge(String(signal.count))}
+                                    </div>
+                                    <p className="mt-0.5 text-xs" style={{ color: 'var(--fg-muted)' }}>{signal.label}</p>
+                                </div>
                             ))}
                         </div>
                     </section>
                 ) : null}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t p-4" style={{ borderColor: 'var(--border)' }}>
-                <button className="btn btn-outline" type="button" onClick={onEmail}><IconMail size={15} /> Correo</button>
-                <button className="btn btn-outline" type="button" onClick={onEdit}><IconEdit size={15} /> Editar</button>
-                <button className="btn btn-outline" type="button" onClick={onSubscriptions}>Suscripción</button>
-                <button className="btn btn-outline" type="button" onClick={onDelete}><IconTrash size={15} /> Eliminar</button>
             </div>
         </aside>
     );
@@ -751,9 +765,57 @@ function DeleteModal({ user, onCancel, onDeleted }: { user: AdminUserSnapshot; o
     );
 }
 
+const SERENATAS_PROFILE_LABELS: Record<string, string> = {
+    client: 'Cliente',
+    musician: 'Músico',
+    owner: 'Dueño',
+};
+
+function SerenatasProfileModal({ user, profileType, onCancel, onConfirm }: {
+    user: AdminUserSnapshot;
+    profileType: 'client' | 'musician' | 'owner';
+    onCancel: () => void;
+    onConfirm: () => void;
+}) {
+    const currentProfile = user.serenatas?.client ? 'client' : user.serenatas?.musician ? 'musician' : user.serenatas?.owner ? 'owner' : null;
+    const [saving, setSaving] = useState(false);
+
+    const handleConfirm = async () => {
+        setSaving(true);
+        await onConfirm();
+        setSaving(false);
+    };
+
+    return (
+        <AdminModal title="Cambiar perfil de Serenatas" onCancel={onCancel} widthClassName="max-w-md">
+            <div className="space-y-4">
+                <p className="text-sm" style={{ color: 'var(--fg)' }}>
+                    Cambiar el perfil de <strong>{user.name}</strong> a <strong>{SERENATAS_PROFILE_LABELS[profileType]}</strong>.
+                </p>
+                {currentProfile && currentProfile !== profileType && (
+                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                        Perfil actual: {SERENATAS_PROFILE_LABELS[currentProfile]}
+                    </p>
+                )}
+                {profileType !== 'client' && (
+                    <p className="text-xs rounded-card border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--fg-muted)' }}>
+                        Se eliminarán los otros perfiles (cliente, músico o dueño) al cambiar a {SERENATAS_PROFILE_LABELS[profileType]}.
+                    </p>
+                )}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+                <button className="btn btn-outline" type="button" onClick={onCancel}>Cancelar</button>
+                <button className="btn btn-primary" type="button" onClick={handleConfirm} disabled={saving}>
+                    {saving ? 'Guardando...' : 'Confirmar'}
+                </button>
+            </div>
+        </AdminModal>
+    );
+}
+
 function AdminModal({ title, children, onCancel, widthClassName = 'max-w-2xl' }: { title: string; children: ReactNode; onCancel: () => void; widthClassName?: string }) {
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.62)' }} onClick={onCancel}>
+        <button type="button" aria-label="Cerrar" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]" onClick={onCancel}>
             <div className={`w-full ${widthClassName} rounded-card border p-5 shadow-2xl`} style={{ borderColor: 'var(--border)', background: 'var(--surface)' }} onClick={(event) => event.stopPropagation()}>
                 <div className="mb-5 flex items-center justify-between gap-3">
                     <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{title}</h2>
@@ -761,7 +823,7 @@ function AdminModal({ title, children, onCancel, widthClassName = 'max-w-2xl' }:
                 </div>
                 {children}
             </div>
-        </div>
+        </button>
     );
 }
 
@@ -840,12 +902,23 @@ export function AdminUsersDashboard() {
     };
 
     const applySerenatasProfile = async (user: AdminUserSnapshot, profileType: 'client' | 'musician' | 'owner') => {
-        await updateSerenatasProfile(user.id, {
-            profileType,
-            removeClientProfile: profileType !== 'client',
-            note: 'Ajustado desde SimpleAdmin.',
-        });
-        await loadUsers();
+        setModal({ type: 'serenatas-profile', user, profileType });
+    };
+
+    const confirmSerenatasProfile = async () => {
+        if (modal?.type !== 'serenatas-profile') return;
+        const { user, profileType } = modal;
+        try {
+            await updateSerenatasProfile(user.id, {
+                profileType,
+                note: 'Ajustado desde SimpleAdmin.',
+            });
+            await loadUsers();
+            setModal(null);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'No se pudo cambiar el perfil');
+            setModal(null);
+        }
     };
 
     return (
@@ -971,6 +1044,14 @@ export function AdminUsersDashboard() {
             {modal?.type === 'email' ? <EmailModal user={modal.user} userIds={modal.userIds} onCancel={() => setModal(null)} onSent={refreshAfterAction} /> : null}
             {modal?.type === 'subscriptions' ? <SubscriptionModal user={modal.user} onCancel={() => setModal(null)} onSaved={refreshAfterAction} /> : null}
             {modal?.type === 'delete' ? <DeleteModal user={modal.user} onCancel={() => setModal(null)} onDeleted={refreshAfterAction} /> : null}
+            {modal?.type === 'serenatas-profile' ? (
+                <SerenatasProfileModal
+                    user={modal.user}
+                    profileType={modal.profileType}
+                    onCancel={() => setModal(null)}
+                    onConfirm={confirmSerenatasProfile}
+                />
+            ) : null}
         </div>
     );
 }

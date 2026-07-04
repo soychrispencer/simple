@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconCalendarEvent, IconMenu2, IconX } from '@tabler/icons-react';
+import { IconCalendarEvent, IconMenu2, IconMoon, IconSun, IconX } from '@tabler/icons-react';
+import { useOperatorSiteTheme } from './operator-site-theme-shell.js';
 
 export type OperatorSiteNavItem = {
     id: string;
@@ -26,6 +27,7 @@ export function OperatorSiteNav({
     reserveSectionId = 'servicios',
 }: OperatorSiteNavProps) {
     const [menuOpen, setMenuOpen] = useState(false);
+    const theme = useOperatorSiteTheme();
 
     useEffect(() => {
         if (!menuOpen) return undefined;
@@ -68,6 +70,17 @@ export function OperatorSiteNav({
                     </nav>
 
                     <div className="os-nav__actions">
+                        {theme ? (
+                            <button
+                                type="button"
+                                className="os-nav__theme-toggle"
+                                onClick={theme.onToggle}
+                                aria-label={theme.color === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                                title={theme.color === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+                            >
+                                {theme.color === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
+                            </button>
+                        ) : null}
                         <button
                             type="button"
                             className="os-nav__menu"
@@ -75,7 +88,7 @@ export function OperatorSiteNav({
                             aria-label="Abrir menú de secciones"
                             aria-expanded={menuOpen}
                         >
-                            <IconMenu2 size={20} />
+                            <IconMenu2 size={18} />
                         </button>
                         <button type="button" className="os-nav__cta" onClick={() => navigate(reserveSectionId)}>
                             <IconCalendarEvent size={16} />
@@ -117,10 +130,23 @@ export function OperatorSiteNav({
                                 </button>
                             ))}
                         </nav>
-                        <button type="button" className="os-nav-drawer__cta" onClick={() => navigate(reserveSectionId)}>
-                            <IconCalendarEvent size={18} />
-                            {reserveLabel}
-                        </button>
+                        <div className="os-nav-drawer__footer">
+                            {theme ? (
+                                <button
+                                    type="button"
+                                    className="os-nav-drawer__theme-toggle"
+                                    onClick={theme.onToggle}
+                                    aria-label={theme.color === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                                >
+                                    {theme.color === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+                                    <span>{theme.color === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
+                                </button>
+                            ) : null}
+                            <button type="button" className="os-nav-drawer__cta" onClick={() => navigate(reserveSectionId)}>
+                                <IconCalendarEvent size={18} />
+                                {reserveLabel}
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : null}

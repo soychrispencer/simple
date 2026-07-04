@@ -1,6 +1,7 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
+import { IconLoader2 } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
 
 export type PanelButtonProps = {
@@ -8,9 +9,11 @@ export type PanelButtonProps = {
     onClick?: React.MouseEventHandler<HTMLButtonElement>;
     type?: 'button' | 'submit' | 'reset';
     disabled?: boolean;
+    loading?: boolean;
     className?: string;
     size?: PanelButtonSize;
     variant?: PanelButtonVariant;
+    ariaLabel?: string;
 };
 
 
@@ -25,20 +28,23 @@ export function PanelButton(props: PanelButtonProps) {
         onClick,
         type = 'button',
         disabled = false,
+        loading = false,
         className,
         size = 'md',
         variant = 'secondary',
+        ariaLabel,
     } = props;
 
     return (
         <button
             type={type}
             onClick={onClick}
-            disabled={disabled}
+            disabled={disabled || loading}
+            aria-label={ariaLabel}
             className={getPanelButtonClassName({ size, className })}
             style={getPanelButtonStyle(variant)}
         >
-            {children}
+            {loading ? <IconLoader2 className="animate-spin" size={16} /> : children}
         </button>
     );
 }

@@ -588,7 +588,7 @@ export default function ClienteFichaPage() {
                     </div>
 
                     {packModalOpen && (
-                        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={closePackModal}>
+                        <button type="button" aria-label="Cerrar" className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={closePackModal}>
                             <div
                                 className="w-full max-w-md rounded-3xl overflow-hidden"
                                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
@@ -596,7 +596,7 @@ export default function ClienteFichaPage() {
                             >
                                 <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
                                     <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Asignar pack a {`${client.firstName} ${client.lastName ?? ''}`.trim()}</h2>
-                                    <button type="button" onClick={closePackModal} className="p-1 rounded-button hover:bg-(--bg-muted)">
+                                    <button type="button" onClick={closePackModal} aria-label="Cerrar" className="p-1 rounded-button hover:bg-(--bg-muted)">
                                         <IconX size={16} style={{ color: 'var(--fg-muted)' }} />
                                     </button>
                                 </div>
@@ -642,7 +642,7 @@ export default function ClienteFichaPage() {
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                        </button>
                     )}
                 </>
             )}

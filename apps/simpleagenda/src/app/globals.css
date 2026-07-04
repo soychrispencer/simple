@@ -83,12 +83,15 @@
 .booking-muted { color: var(--fg-muted); }
 .booking-secondary { color: var(--fg-secondary); }
 .booking-accent-banner { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-.booking-badge-online { background: var(--accent-soft); color: var(--accent); }
-.booking-badge-presential { background: var(--bg-subtle); color: var(--fg-muted); }
-.booking-btn-primary { background: var(--accent); color: #fff; }
-.booking-modal { background: var(--surface); border-color: var(--border); box-shadow: var(--shadow-md); }
-.booking-btn-outline { border-color: var(--border); color: var(--fg-muted); }
-.booking-btn-secondary { border-color: var(--border); color: var(--fg-secondary); }
+.booking-badge-online { background: var(--accent-soft); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); }
+.booking-badge-presential { background: var(--bg-subtle); color: var(--fg-muted); border: 1px solid var(--border); }
+.booking-btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 30%, transparent); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.booking-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 40%, transparent); }
+.booking-modal { background: var(--surface); border-color: var(--border); box-shadow: var(--shadow-lg); border-top: 2px solid var(--accent); }
+.booking-btn-outline { border-color: var(--border); color: var(--fg-muted); transition: background 0.15s ease, border-color 0.15s ease; }
+.booking-btn-outline:hover { background: var(--bg-subtle); border-color: var(--border-strong); }
+.booking-btn-secondary { border-color: var(--border); color: var(--fg-secondary); transition: background 0.15s ease; }
+.booking-btn-secondary:hover { background: var(--bg-subtle); }
 .booking-info-banner { background: var(--accent-soft); color: var(--accent); }
 .booking-error { color: #dc2626; }
 .booking-error-banner { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
@@ -188,13 +191,16 @@
 .agenda-home-warning-icon { background: rgba(234, 179, 8, 0.12); color: rgb(161, 120, 0); }
 .agenda-home-warning-chevron { color: rgb(161, 120, 0); }
 .agenda-home-chart-overflow { overflow: visible; }
+.activation-checklist { background: var(--surface); border-color: var(--accent-border); }
 
 .booking-modal-scroll { max-height: 90vh; overflow-y: auto; }
 .booking-required { color: var(--accent); }
-.booking-day { background: transparent; color: var(--fg); cursor: pointer; font-weight: 400; opacity: 1; }
-.booking-day--selected { background: var(--accent); color: #fff; font-weight: 600; }
-.booking-day--disabled { color: var(--fg-muted); opacity: 0.35; cursor: not-allowed; }
-.booking-slot { border-color: var(--border); background: transparent; color: var(--fg); }
-.booking-slot--selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-.booking-checkbox { border: 2px solid var(--border); background: transparent; }
+.booking-day { background: transparent; color: var(--fg); cursor: pointer; font-weight: 400; opacity: 1; transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease; border-radius: 0.75rem; }
+.booking-day:hover:not(.booking-day--disabled):not(.booking-day--selected) { background: var(--bg-subtle); }
+.booking-day--selected { background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent); }
+.booking-day--disabled { color: var(--fg-muted); opacity: 0.3; cursor: not-allowed; }
+.booking-slot { border-color: var(--border); background: transparent; color: var(--fg); transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease; }
+.booking-slot:hover:not(.booking-slot--selected) { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+.booking-slot--selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.booking-checkbox { border: 2px solid var(--border); background: transparent; transition: border-color 0.15s ease, background 0.15s ease; }
 .booking-checkbox--checked { border-color: var(--accent); background: var(--accent); }

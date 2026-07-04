@@ -304,7 +304,7 @@ export default function ClientesPage() {
                         </div>
 
                         <div className="flex flex-col gap-4">
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="Nombre *">
                                     <input type="text" value={form.firstName} onChange={(e) => set('firstName', e.target.value)} placeholder="María" className="field-input" />
                                 </Field>

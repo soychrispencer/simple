@@ -50,17 +50,14 @@ const siteSchema = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="es" suppressHydrationWarning>
-            <head>
-                <script
-                    type="application/ld+json"
-                     
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(siteSchema) }}
-                />
-            </head>
             <body className={`${inter.variable} font-sans antialiased`}>
                 <ThemeProvider>
                     <ClientProviders>{children}</ClientProviders>
                 </ThemeProvider>
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(siteSchema) }}
+                />
             </body>
         </html>
     );

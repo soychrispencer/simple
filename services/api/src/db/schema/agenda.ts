@@ -83,6 +83,7 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   planExpiresAt: timestamp('plan_expires_at'),
   operatorSiteLayout: varchar('operator_site_layout', { length: 20 }).notNull().default('booking'),
   operatorSiteColorMode: varchar('operator_site_color_mode', { length: 10 }).notNull().default('system'),
+  operatorSiteAccentColor: varchar('operator_site_accent_color', { length: 20 }).notNull().default('teal'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({

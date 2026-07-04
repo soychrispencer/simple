@@ -466,7 +466,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
                     {/* Mute toggle */}
                     <button
                         onClick={toggleMute}
-                        className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center active:scale-95 transition-transform"
+                        className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center active:scale-95 transition-transform"
                     >
                         {isMuted ? <IconVolumeOff size={16} className="text-white" /> : <IconVolume size={16} className="text-white" />}
                     </button>
@@ -544,7 +544,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
                     onClick={handleSave}
                     className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
                 >
-                    <div className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
+                    <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
                         {favorite ? <IconBookmarkFilled size={20} className="text-yellow-400" /> : <IconBookmark size={20} className="text-white" />}
                     </div>
                     {data.engagement?.saves !== undefined && (

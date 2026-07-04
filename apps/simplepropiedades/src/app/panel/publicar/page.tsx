@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+    DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
     IconArrowLeft,
     IconArrowRight,
     IconBath,
@@ -21,9 +28,15 @@ import {
     IconKey,
     IconMapPin,
     IconPhoto,
+    IconPlus,
+    IconRuler,
     IconShare3,
     IconSparkles,
+    IconStar,
+    IconTrash,
     IconVideo,
+    IconX,
+    IconGripVertical,
 } from '@tabler/icons-react';
 import { MarketplacePublishSuccess, MarketplacePublishWizard, MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint } from '@simple/ui/publish';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
@@ -40,7 +53,7 @@ import {
 import {
     estimatePropertyValue, fetchAddressBook, fetchPropertyValuationSources, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, refreshPropertyValuationSources, resolveLocationNames,
 } from '@simple/utils';
-import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelDocumentUploader, PanelMediaUploader, PanelNotice, PanelSummaryCard, PanelVideoUploader, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
+import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelSummaryCard, PanelVideoUploader, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
 import { ListingLocationEditor } from '@simple/ui/location';
 
 type StepId = 'media' | 'details' | 'publish';
@@ -163,19 +176,6 @@ interface PersistedDraft {
 }
 
 const MAX_PHOTOS = 20;
-const PROPERTY_MEDIA_GUIDE_SLOTS = [
-    { key: 'cover', label: 'Portada' },
-    { key: 'facade', label: 'Fachada' },
-    { key: 'living', label: 'Living' },
-    { key: 'kitchen', label: 'Cocina' },
-    { key: 'bedroom', label: 'Dormitorio' },
-    { key: 'bathroom', label: 'Baño' },
-    { key: 'terrace', label: 'Terraza / patio' },
-    { key: 'parking', label: 'Estacionamiento' },
-    { key: 'view', label: 'Vista / entorno' },
-    { key: 'amenities', label: 'Amenities' },
-] as const;
-
 const STEPS: Array<{ id: StepId; label: string; helper: string }> = [
     { id: 'media', label: 'Multimedia', helper: 'Sube fotos y video para tu aviso' },
     { id: 'details', label: 'Detalles', helper: 'Tipo, ficha principal, precio y oferta' },
@@ -205,6 +205,7 @@ const ORIENTATION_OPTIONS = ['Norte', 'Sur', 'Oriente', 'Poniente', 'Nororiente'
 const DEPARTMENT_TYPE_OPTIONS = ['Estudio', 'Tradicional', 'Dúplex', 'Tríplex', 'Loft', 'Penthouse'].map((value) => ({ value, label: value }));
 const SECURITY_TYPE_OPTIONS = ['Conserjería 24/7', 'Control de acceso', 'Circuito cerrado', 'Seguridad privada', 'Portería simple', 'Sin seguridad formal'].map((value) => ({ value, label: value }));
 const COMMON_EXPENSE_TYPE_OPTIONS = ['No informa', 'Fijo', 'Variable', 'Incluido', 'No aplica'].map((value) => ({ value, label: value }));
+const COMMERCIAL_USE_OPTIONS = ['Retail', 'Oficinas', 'Restaurant/Cafetería', 'Bodega/Logística', 'Industria', 'Salud', 'Educación', 'Servicios'].map((value) => ({ value, label: value }));
 const PROJECT_SALES_STAGE_OPTIONS = ['Lanzamiento', 'Preventa', 'En verde', 'En blanco', 'Últimas unidades', 'Entrega inmediata'].map((value) => ({ value, label: value }));
 const PROJECT_DELIVERY_STATUS_OPTIONS = ['Entrega inmediata', 'Entrega este año', 'Entrega futura', 'Por confirmar'].map((value) => ({ value, label: value }));
 
@@ -668,9 +669,14 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
                 errors['project.models'] = 'Agrega al menos una tipología del proyecto.';
             }
         } else {
-            if (parseNumber(data.basic.totalArea) == null) errors['basic.totalArea'] = 'La superficie total es obligatoria.';
-            if (parseNumber(data.basic.rooms) == null) errors['basic.rooms'] = 'Ingresa la cantidad de dormitorios.';
-            if (parseNumber(data.basic.bathrooms) == null) errors['basic.bathrooms'] = 'Ingresa la cantidad de baños.';
+            const pt = data.setup.propertyType;
+            const isLand = pt === 'Terreno' || pt === 'Parcela';
+            const isResidential = pt === 'Casa' || pt === 'Departamento';
+            if (parseNumber(data.basic.totalArea) == null) errors['basic.totalArea'] = isLand ? 'La superficie del terreno es obligatoria.' : 'La superficie total es obligatoria.';
+            if (isResidential) {
+                if (parseNumber(data.basic.rooms) == null) errors['basic.rooms'] = 'Ingresa la cantidad de dormitorios.';
+                if (parseNumber(data.basic.bathrooms) == null) errors['basic.bathrooms'] = 'Ingresa la cantidad de baños.';
+            }
         }
         if (parseNumber(data.commercial.price) == null) errors['commercial.price'] = 'Ingresa un precio válido.';
     }
@@ -849,54 +855,62 @@ function ListingLivePreview(props: { data: WizardData; compact?: boolean }) {
     const photo = data.media.photos[0];
     const video = data.media.discoverVideo;
     const location = buildPreviewLocation(data);
-    const program = buildProgramLabel(data);
     const operation = getOperationLabel(data.setup.operationType);
     const price = data.commercial.price.trim() ? buildPriceLabel(data) : 'Precio pendiente';
 
+    const specs: Array<{ icon: React.ReactNode; label: string }> = [];
+    if (data.setup.operationType !== 'project') {
+        if (data.basic.rooms) specs.push({ icon: <IconBed size={13} />, label: `${data.basic.rooms} dorm` });
+        if (data.basic.bathrooms) specs.push({ icon: <IconBath size={13} />, label: `${data.basic.bathrooms} baños` });
+        if (data.basic.totalArea) specs.push({ icon: <IconRuler size={13} />, label: `${data.basic.totalArea} m²` });
+    }
+
     return (
-        <div className={`prop-live-preview ${compact ? 'prop-live-preview--compact' : ''}`}>
-            <div className="prop-live-preview__media">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden shadow-md">
+            {/* Media area — 9:14 like real card */}
+            <div className="relative aspect-[9/14] bg-[#09090b] overflow-hidden">
                 {video?.previewUrl || video?.dataUrl ? (
-                    <video
-                        src={video.previewUrl || video.dataUrl}
-                        className="h-full w-full object-cover"
-                        muted
-                        playsInline
-                        loop
-                    />
+                    <video src={video.previewUrl || video.dataUrl} className="h-full w-full object-cover" muted playsInline loop />
                 ) : photo?.previewUrl || photo?.dataUrl ? (
-                    <img
-                        src={photo.previewUrl || photo.dataUrl}
-                        alt={title}
-                        className="h-full w-full object-cover"
-                    />
+                    <img src={photo.previewUrl || photo.dataUrl} alt={title} className="h-full w-full object-cover" />
                 ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center prop-live-preview__empty">
-                        <IconCamera size={28} />
-                        <span className="text-sm font-semibold">Sube la portada</span>
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-center" style={{ background: 'radial-gradient(circle at 50% 20%, color-mix(in oklab, var(--accent) 20%, transparent), transparent 42%), #111827' }}>
+                        <IconCamera size={28} className="text-white/60" />
+                        <span className="text-xs font-semibold text-white/80">Sube la portada</span>
                     </div>
                 )}
-                <div className="absolute inset-0 prop-live-preview__shade" />
-                <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                    <span className="prop-live-preview__badge">{operation}</span>
-                    {video ? <span className="prop-live-preview__badge">Video</span> : null}
+                {/* Gradient overlay — matches real card */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                {/* Badge */}
+                <div className="absolute top-3 left-3 z-10">
+                    <span className="inline-flex items-center text-[11px] px-2 py-1 rounded-full border border-white/20 bg-black/35 text-white backdrop-blur font-bold">
+                        {operation}
+                    </span>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <p className="text-2xl font-bold leading-tight text-white drop-shadow-sm">{price}</p>
-                    <h3 className="mt-1 line-clamp-2 text-base font-semibold leading-tight text-white">{title}</h3>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/85">
-                        <span>{program}</span>
-                        <span>·</span>
+                {/* Bottom info — centered like real card */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
+                    <p className="text-white font-bold text-xl text-center drop-shadow-sm">{price}</p>
+                    <h3 className="text-white font-semibold text-sm leading-tight text-center line-clamp-1 mt-0.5">{title}</h3>
+                    {specs.length > 0 && (
+                        <div className="flex items-center justify-center gap-3 mt-2">
+                            {specs.map((s, i) => (
+                                <div key={i} className="flex flex-col items-center gap-0.5">
+                                    <span className="text-white/50">{s.icon}</span>
+                                    <span className="text-[10px] text-white/80">{s.label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="flex items-center justify-center gap-1 text-white/60 text-[10px] mt-2">
+                        <IconMapPin size={10} />
                         <span className="truncate">{location}</span>
                     </div>
                 </div>
             </div>
-            <div className="flex items-center justify-between gap-3 p-3">
-                <div className="min-w-0">
-                    <p className="text-xs font-semibold text-(--fg)">Vista previa</p>
-                    <p className="truncate text-[11px] text-(--fg-muted)">Así verá el cliente tu publicación vertical.</p>
-                </div>
-                <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold prop-media-pill">Simple</span>
+            {/* Footer label */}
+            <div className="flex items-center justify-between px-3 py-2">
+                <p className="text-[10px] text-[var(--fg-muted)]">Así verá tu publicación</p>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent)] text-white font-medium">Simple</span>
             </div>
         </div>
     );
@@ -1215,20 +1229,49 @@ function StepBasic(props: {
                             <p className="text-xs mt-1 prop-field-hint">{data.basic.description.length} / 2500</p>
                         </Field>
                         ) : null}
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
-                            <Field label="Dormitorios" required error={errors['basic.rooms']}><div className="relative"><IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" /></div></Field>
-                            <Field label="Baños" required error={errors['basic.bathrooms']}><div className="relative"><IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" /></div></Field>
-                            <Field label="Superficie total (m²)" required error={errors['basic.totalArea']}><input className="form-input" type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder="92" /></Field>
-                            <Field label="Superficie útil (m²)" required error={errors['basic.usableArea']}><input className="form-input" type="number" min={0} value={data.basic.usableArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, usableArea: event.target.value } }))} placeholder="84" /></Field>
-                            <Field label="Estacionamientos" required error={errors['basic.parkingSpaces']}><input className="form-input" type="number" min={0} value={data.basic.parkingSpaces} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, parkingSpaces: event.target.value } }))} placeholder="1" /></Field>
-                            <Field label="Bodegas" required error={errors['basic.storageUnits']}><input className="form-input" type="number" min={0} value={data.basic.storageUnits} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, storageUnits: event.target.value } }))} placeholder="1" /></Field>
-                            <Field label="Admite mascotas" required error={errors['basic.petsAllowed']}>
-                                <ModernSelect value={data.basic.petsAllowed} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, petsAllowed: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si admite mascotas" />
-                            </Field>
-                            <Field label="Amoblado" required error={errors['basic.furnished']}>
-                                <ModernSelect value={data.basic.furnished} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, furnished: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si está amoblado" />
-                            </Field>
-                        </div>
+                        {(() => {
+                            const pt = data.setup.propertyType;
+                            const isLand = pt === 'Terreno' || pt === 'Parcela';
+                            const isOficina = pt === 'Oficina';
+                            const isResidential = pt === 'Casa' || pt === 'Departamento';
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+                                    {/* Superficie total — always visible */}
+                                    <Field label={isLand ? 'Superficie del terreno (m²)' : 'Superficie total (m²)'} required error={errors['basic.totalArea']}><input className="form-input" type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder={isLand ? '500' : '92'} /></Field>
+
+                                    {/* Residential-only fields */}
+                                    {isResidential && (
+                                        <>
+                                            <Field label="Dormitorios" required error={errors['basic.rooms']}><div className="relative"><IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" /></div></Field>
+                                            <Field label="Baños" required error={errors['basic.bathrooms']}><div className="relative"><IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" /></div></Field>
+                                            <Field label="Superficie útil (m²)"><input className="form-input" type="number" min={0} value={data.basic.usableArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, usableArea: event.target.value } }))} placeholder="84" /></Field>
+                                            <Field label="Estacionamientos"><input className="form-input" type="number" min={0} value={data.basic.parkingSpaces} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, parkingSpaces: event.target.value } }))} placeholder="1" /></Field>
+                                            <Field label="Bodegas"><input className="form-input" type="number" min={0} value={data.basic.storageUnits} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, storageUnits: event.target.value } }))} placeholder="1" /></Field>
+                                            <Field label="Admite mascotas">
+                                                <ModernSelect value={data.basic.petsAllowed} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, petsAllowed: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si admite mascotas" />
+                                            </Field>
+                                            <Field label="Amoblado">
+                                                <ModernSelect value={data.basic.furnished} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, furnished: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si está amoblado" />
+                                            </Field>
+                                        </>
+                                    )}
+
+                                    {/* Commercial-use field for land and commercial types */}
+                                    {(isLand || !isResidential) && (
+                                        <Field label="Uso de suelo / tipo de local">
+                                            <ModernSelect value={data.basic.commercialUse} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, commercialUse: value } }))} placeholder="Seleccionar" options={COMMERCIAL_USE_OPTIONS} ariaLabel="Seleccionar uso de suelo" />
+                                        </Field>
+                                    )}
+
+                                    {/* Floor number for Oficina */}
+                                    {isOficina && (
+                                        <Field label="Nro. piso">
+                                            <input className="form-input" type="number" min={0} value={data.basic.floorNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, floorNumber: event.target.value } }))} placeholder="5" />
+                                        </Field>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </>
                 )}
             </AccordionGroup>
@@ -1444,100 +1487,162 @@ function StepSpecs(props: { data: WizardData; setData: WizardSetter }) {
     );
 }
 
+function SortablePhotoTile({ photo, index, onRemove }: { photo: PanelMediaAsset; index: number; onRemove: (id: string) => void }) {
+    const { setNodeRef, transform, transition, isDragging, attributes, listeners } = useSortable({ id: photo.id });
+    return (
+        <div
+            ref={setNodeRef}
+            style={{ transform: CSS.Transform.toString(transform), transition: transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)', touchAction: 'none' }}
+            className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all group cursor-move ${photo.isCover ? 'border-[var(--accent)] shadow-md' : 'border-[var(--border)]'} ${isDragging ? 'opacity-30 shadow-none z-50' : ''}`}
+            {...attributes}
+            {...listeners}
+        >
+            <img src={photo.previewUrl || photo.dataUrl} alt={`Foto ${index + 1}`} className="w-full h-full object-cover pointer-events-none" />
+            {index === 0 && (
+                <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}>
+                    <IconStar size={8} fill="currentColor" /> Portada
+                </div>
+            )}
+            <div className="absolute bottom-1.5 left-1.5 w-5 h-5 rounded-full bg-black/50 text-white text-[10px] flex items-center justify-center font-medium">{index + 1}</div>
+            <button onClick={(e) => { e.stopPropagation(); onRemove(photo.id); }} onPointerDown={(e) => e.stopPropagation()} className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <IconX size={12} />
+            </button>
+        </div>
+    );
+}
+
 function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
     const { data, setData, errors } = props;
-    const isProject = data.setup.operationType === 'project';
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [dragOver, setDragOver] = useState(false);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    );
+
+    const handleFiles = (files: FileList | null) => {
+        if (!files) return;
+        Array.from(files).slice(0, MAX_PHOTOS - data.media.photos.length).forEach((file) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const dataUrl = reader.result as string;
+                const newPhoto: PanelMediaAsset = {
+                    id: Math.random().toString(36).slice(2),
+                    name: file.name,
+                    dataUrl,
+                    previewUrl: dataUrl,
+                    isCover: data.media.photos.length === 0,
+                    width: 0, height: 0, sizeBytes: file.size, mimeType: file.type || 'image/jpeg',
+                };
+                setData((current) => ({ ...current, media: { ...current.media, photos: [...current.media.photos, newPhoto] } }));
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+
+    const removePhoto = (id: string) => {
+        const newPhotos = data.media.photos.filter((p) => p.id !== id);
+        if (newPhotos.length > 0 && !newPhotos.some((p) => p.isCover)) newPhotos[0].isCover = true;
+        setData((current) => ({ ...current, media: { ...current.media, photos: newPhotos } }));
+    };
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const oldIndex = data.media.photos.findIndex((p) => p.id === active.id);
+        const newIndex = data.media.photos.findIndex((p) => p.id === over.id);
+        const newPhotos = arrayMove(data.media.photos, oldIndex, newIndex);
+        if (newPhotos.length > 0) { newPhotos[0].isCover = true; newPhotos.slice(1).forEach((p) => (p.isCover = false)); }
+        setData((current) => ({ ...current, media: { ...current.media, photos: newPhotos } }));
+    };
+
+    const photos = data.media.photos;
+    const RECOMMENDED = 8;
+    const missingRecommended = Math.max(RECOMMENDED - photos.length, 0);
+    const progressPercent = Math.min((photos.length / RECOMMENDED) * 100, 100);
 
     return (
         <section className="space-y-4">
-            <div className="rounded-[28px] border p-4 sm:p-5 prop-media-hero">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0">
-                        <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold prop-media-pill">
-                            <IconCamera size={14} />
-                            Primero captura el contenido
-                        </span>
-                        <h2 className="mt-3 text-2xl font-semibold leading-tight text-(--fg)">
-                            Fotos y video de la propiedad
-                        </h2>
-                        <p className="mt-2 max-w-2xl text-sm text-(--fg-secondary)">
-                            Empieza como lo harías en terreno: toma fotos, sube un clip vertical y ordena el material. La primera foto será la portada de la publicación.
-                        </p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[310px]">
-                        <div className="rounded-2xl border p-3 prop-media-mini-card">
-                            <IconPhoto size={18} className="mx-auto mb-1" />
-                            <p className="text-[11px] font-semibold">Fotos</p>
-                        </div>
-                        <div className="rounded-2xl border p-3 prop-media-mini-card">
-                            <IconVideo size={18} className="mx-auto mb-1" />
-                            <p className="text-[11px] font-semibold">Video</p>
-                        </div>
-                        <div className="rounded-2xl border p-3 prop-media-mini-card">
-                            <IconSparkles size={18} className="mx-auto mb-1" />
-                            <p className="text-[11px] font-semibold">Compartir</p>
-                        </div>
-                    </div>
-                </div>
+            <div>
+                <p className="text-xs font-semibold tracking-[0.08em] uppercase" style={{ color: 'var(--fg-muted)' }}>PASO 1 · MULTIMEDIA</p>
+                <h2 className="text-2xl lg:text-3xl font-bold tracking-tight mt-1" style={{ color: 'var(--fg)' }}>Fotos y video primero</h2>
+                <p className="text-sm mt-2 max-w-lg" style={{ color: 'var(--fg-muted)' }}>Sube lo esencial para la tarjeta. La primera foto será la portada.</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
-                <PanelCard tone="surface" size="lg" className="prop-media-card">
-                    <div className="space-y-4">
-                        <PanelMediaUploader
-                            className="prop-mobile-media-uploader"
-                            items={data.media.photos}
-                            onChange={(photos) => setData((current) => ({ ...current, media: { ...current.media, photos } }))}
-                            minItems={1}
-                            recommendedItems={12}
-                            maxItems={MAX_PHOTOS}
-                            minWidth={600}
-                            minHeight={400}
-                            maxWidth={2000}
-                            maxHeight={1500}
-                            targetBytes={450_000}
-                            dropzoneTitle="Fotos de la publicación"
-                            helperText={isProject ? 'Toma o sube fotos del proyecto, piloto, amenities y entorno.' : 'Toma o sube fotos de fachada, espacios principales y detalles.'}
-                            guidedSlots={PROPERTY_MEDIA_GUIDE_SLOTS}
-                            emptyHint="Tomar o subir fotos"
-                        />
-                        {errors['media.photos'] ? <ErrorText text={errors['media.photos']} /> : null}
-                    </div>
+                <PanelCard tone="surface" size="lg">
+                    <label className="block text-sm font-medium mb-3">Fotos y portada *</label>
+                    {photos.length === 0 ? (
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                            onDragLeave={() => setDragOver(false)}
+                            onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
+                            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${dragOver ? 'border-[var(--accent)]' : 'border-[var(--border)] hover:border-[var(--accent)]/50'}`}
+                        >
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-subtle)' }}>
+                                <IconCamera size={28} style={{ color: 'var(--accent)' }} />
+                            </div>
+                            <p className="font-medium" style={{ color: 'var(--fg)' }}>Tomar fotos o seleccionar de tu galería</p>
+                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>La primera será portada · Máximo {MAX_PHOTOS} · Arrastra para ordenar</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                <SortableContext items={photos.map((p) => p.id)} strategy={rectSortingStrategy}>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                        {photos.map((photo, idx) => (
+                                            <SortablePhotoTile key={photo.id} photo={photo} index={idx} onRemove={removePhoto} />
+                                        ))}
+                                        {photos.length < MAX_PHOTOS && (
+                                            <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>
+                                                <IconPlus size={20} /><span className="text-[10px] font-medium">Agregar</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </SortableContext>
+                            </DndContext>
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    <span>{missingRecommended > 0 ? `${photos.length} / ${RECOMMENDED} fotos · Faltan ${missingRecommended} recomendadas` : `${photos.length} fotos · Cobertura recomendada completa`}</span>
+                                    <span>Portada = primera foto</span>
+                                </div>
+                                <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--bg-muted)' }}>
+                                    <div className="h-full rounded-full transition-[width] duration-200" style={{ width: `${progressPercent}%`, background: 'var(--fg)' }} />
+                                </div>
+                            </div>
+                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Arrastra para reordenar</p>
+                        </div>
+                    )}
+                    <input ref={fileInputRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => handleFiles(e.target.files)} className="hidden" />
+                    {errors['media.photos'] ? <ErrorText text={errors['media.photos']} /> : null}
                 </PanelCard>
                 <div className="xl:sticky xl:top-24 xl:self-start">
                     <ListingLivePreview data={data} />
                 </div>
             </div>
 
-            <PanelCard tone="surface" size="lg" className="prop-media-card">
-                <div className="space-y-5">
-                    <PanelBlockHeader
-                        title="Video y material adicional"
-                        description="Agrega un video del aviso o un clip vertical para mostrarlo como contenido social."
-                    />
-                    <div className="space-y-4">
-                        <Field label="Video del aviso" error={errors['media.videoUrl']}>
-                            <input className="form-input" placeholder="https://www.youtube.com/... o https://vimeo.com/..." value={data.media.videoUrl} onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, videoUrl: event.target.value } }))} />
-                            <p className="text-xs mt-1 prop-field-hint">Solo YouTube o Vimeo.</p>
-                        </Field>
-                        <Field label="Tour 360" error={errors['media.tour360Url']}>
-                            <input className="form-input" placeholder="https://..." value={data.media.tour360Url} onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, tour360Url: event.target.value } }))} />
-                            <p className="text-xs mt-1 prop-field-hint">Opcional. Puedes enlazar Matterport, Kuula u otra vista 360 externa.</p>
-                        </Field>
-                        <PanelVideoUploader
-                            asset={data.media.discoverVideo}
-                            onChange={(discoverVideo) => setData((current) => ({ ...current, media: { ...current.media, discoverVideo } }))}
-                            title="Clip para Descubre"
-                            description=""
-                            helperText="MP4, WEBM o MOV · hasta 10 MB · 9:16."
-                        />
-                        <PanelDocumentUploader
-                            items={data.media.documents}
-                            onChange={(documents) => setData((current) => ({ ...current, media: { ...current.media, documents } }))}
-                            title="Documentos y PDF"
-                            description={isProject ? 'Brochure, memoria de terminaciones, documentos legales o material comercial del proyecto.' : 'Documentos legales, reglamentos, brochure o antecedentes del inmueble.'}
-                        />
+            <PanelCard tone="surface" size="lg">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                        <div className="inline-flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                            <IconVideo size={17} style={{ color: 'var(--accent)' }} /> Video opcional para redes
+                        </div>
+                        <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>Sube el mismo clip que usarías en redes. Aparece en Descubre y tus tarjetas.</p>
                     </div>
+                </div>
+                <div className="mt-3 space-y-3">
+                    <Field label="URL del video" error={errors['media.videoUrl']}>
+                        <input className="form-input" placeholder="https://www.youtube.com/... o https://vimeo.com/..." value={data.media.videoUrl} onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, videoUrl: event.target.value } }))} />
+                    </Field>
+                    <PanelVideoUploader
+                        asset={data.media.discoverVideo}
+                        onChange={(discoverVideo) => setData((current) => ({ ...current, media: { ...current.media, discoverVideo } }))}
+                        title="Clip para Descubre"
+                        description=""
+                    />
                 </div>
             </PanelCard>
         </section>
@@ -2401,11 +2506,11 @@ export default function PublishWizardPage() {
                     right={step === 'publish' ? (
                         <PanelButton type="button" variant="primary" onClick={() => void publishNow()} disabled={publishing || editingLoading || publishBlocked}>
                             <IconCheck size={14} />
-                            {publishing ? (isEditing ? 'Guardando...' : 'Publicando...') : (isEditing ? 'Guardar cambios' : 'Publicar')}
+                            {publishing ? (isEditing ? 'Guardando...' : 'Publicando...') : (isEditing ? 'Guardar cambios' : 'Publicar propiedad')}
                         </PanelButton>
                     ) : (
                         <PanelButton type="button" variant="primary" onClick={goNext}>
-                            Siguiente
+                            {step === 'media' ? 'Ver detalles' : 'Ver resumen'}
                             <IconArrowRight size={14} />
                         </PanelButton>
                     )}

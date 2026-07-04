@@ -238,21 +238,21 @@ export function FinanzasView({
                     <div className="grid gap-4 lg:grid-cols-2">
                         <PanelCard size="md">
                             <PanelBlockHeader title="Por origen" className="mb-3" />
-                            <p className="text-sm text-fg-muted">
-                                Propias: <span className="font-semibold text-fg">{summary.ownCount}</span>
+                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                Propias: <span className="font-semibold" style={{ color: 'var(--fg)' }}>{summary.ownCount}</span>
                                 {' · '}
-                                Aplicación: <span className="font-semibold text-fg">{summary.platformCount}</span>
+                                Aplicación: <span className="font-semibold" style={{ color: 'var(--fg)' }}>{summary.platformCount}</span>
                             </p>
                         </PanelCard>
                         <PanelCard size="md">
                             <PanelBlockHeader title="Pagos a músicos" className="mb-3" />
-                            <p className="text-sm text-fg-muted">
-                                Pendiente: <span className="font-semibold text-fg">{money(payoutTotals.pending)}</span>
+                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                Pendiente: <span className="font-semibold" style={{ color: 'var(--fg)' }}>{money(payoutTotals.pending)}</span>
                                 {' · '}
-                                Pagado: <span className="font-semibold text-fg">{money(payoutTotals.paid)}</span>
+                                Pagado: <span className="font-semibold" style={{ color: 'var(--fg)' }}>{money(payoutTotals.paid)}</span>
                             </p>
-                            <p className="mt-1 text-xs text-fg-muted">
-                                Neto tras pagos realizados: <span className="font-semibold text-fg">{money(summary.netAfterMusiciansClp)}</span>
+                            <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                Neto tras pagos realizados: <span className="font-semibold" style={{ color: 'var(--fg)' }}>{money(summary.netAfterMusiciansClp)}</span>
                             </p>
                             <PanelButton className="mt-3" variant="secondary" size="sm" onClick={() => setTab('musicos')}>
                                 Ir a pagos músicos
@@ -276,7 +276,7 @@ export function FinanzasView({
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[640px] text-left text-sm">
                                 <thead>
-                                    <tr className="border-b border-border text-xs text-fg-muted">
+                                    <tr className="border-b text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                         <th className="py-2 pr-3 font-medium">Fecha</th>
                                         <th className="py-2 pr-3 font-medium">Destinatario</th>
                                         <th className="py-2 pr-3 font-medium">Origen</th>
@@ -291,13 +291,13 @@ export function FinanzasView({
                                 </thead>
                                 <tbody>
                                     {movements.map((row) => (
-                                        <tr key={row.id} className="border-b border-border/60">
-                                            <td className="py-2.5 pr-3 text-fg-muted">
+                                        <tr key={row.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
+                                            <td className="py-2.5 pr-3" style={{ color: 'var(--fg-muted)' }}>
                                                 {fmt.formatDate(row.eventDate)}
                                                 {row.eventTime ? ` ${row.eventTime}` : ''}
                                             </td>
-                                            <td className="py-2.5 pr-3 font-medium text-fg">{row.recipientName}</td>
-                                            <td className="py-2.5 pr-3 text-fg-muted">
+                                            <td className="py-2.5 pr-3 font-medium" style={{ color: 'var(--fg)' }}>{row.recipientName}</td>
+                                            <td className="py-2.5 pr-3" style={{ color: 'var(--fg-muted)' }}>
                                                 {row.source === 'own_lead' ? 'Propia' : 'App'}
                                             </td>
                                             <td className="py-2.5 pr-3">
@@ -310,7 +310,7 @@ export function FinanzasView({
                                             {canManageOwnerPayout ? (
                                                 <td className="py-2.5 pr-3">
                                                     {row.source !== 'platform_lead' ? (
-                                                        <span className="text-xs text-fg-muted">No aplica</span>
+                                                        <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>No aplica</span>
                                                     ) : (
                                                         <div className="flex flex-wrap items-center gap-2">
                                                             <PanelStatusBadge
@@ -334,8 +334,8 @@ export function FinanzasView({
                                                 </td>
                                             ) : null}
                                             <td className="py-2.5 pr-3 text-right tabular-nums">{money(row.price)}</td>
-                                            <td className="py-2.5 pr-3 text-right tabular-nums text-accent">{money(row.netClp)}</td>
-                                            <td className="py-2.5 text-fg-muted">{row.collectionMethod ?? '—'}</td>
+                                            <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: 'var(--accent)' }}>{money(row.netClp)}</td>
+                                            <td className="py-2.5" style={{ color: 'var(--fg-muted)' }}>{row.collectionMethod ?? '—'}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -363,11 +363,12 @@ export function FinanzasView({
                                     <button
                                         key={item.id}
                                         type="button"
-                                        className="rounded-xl border border-border bg-surface px-4 py-3 text-left transition hover:border-accent/40"
+                                        className="rounded-card border px-4 py-3 text-left transition-colors hover:border-[var(--accent-border)] hover:bg-[var(--bg-subtle)]"
+                                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                                         onClick={() => setPayoutSerenata(item)}
                                     >
-                                        <p className="font-semibold text-fg">{item.recipientName}</p>
-                                        <p className="mt-1 text-xs text-fg-muted">
+                                        <p className="font-semibold" style={{ color: 'var(--fg)' }}>{item.recipientName}</p>
+                                        <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
                                             {fmt.formatDate(item.eventDate)} · {money(item.price)}
                                         </p>
                                     </button>
@@ -393,7 +394,7 @@ export function FinanzasView({
                             />
                         </div>
                         {loadingPayouts ? (
-                            <p className="text-sm text-fg-muted">Cargando…</p>
+                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando…</p>
                         ) : filteredPayouts.length === 0 ? (
                             <PanelEmptyState
                                 title="Sin pagos registrados"
@@ -404,23 +405,24 @@ export function FinanzasView({
                                 {filteredPayouts.map((payout) => (
                                     <div
                                         key={payout.id}
-                                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-4 py-3"
+                                        className="flex flex-wrap items-center justify-between gap-2 rounded-card border px-4 py-3"
+                                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                                     >
                                         <div className="min-w-0">
-                                            <p className="font-medium text-fg">
+                                            <p className="font-medium" style={{ color: 'var(--fg)' }}>
                                                 {payout.musicianName ?? 'Músico'}
-                                                <span className="font-normal text-fg-muted">
+                                                <span className="font-normal" style={{ color: 'var(--fg-muted)' }}>
                                                     {' · '}
                                                     {payout.recipientName}
                                                 </span>
                                             </p>
-                                            <p className="text-xs text-fg-muted">
+                                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                                                 {payout.eventDate ? fmt.formatDate(payout.eventDate) : ''}
                                                 {payout.paymentMethod ? ` · ${payout.paymentMethod}` : ''}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="font-semibold tabular-nums text-fg">{money(payout.amount)}</span>
+                                            <span className="font-semibold tabular-nums" style={{ color: 'var(--fg)' }}>{money(payout.amount)}</span>
                                             <PanelStatusBadge
                                                 size="sm"
                                                 tone={payout.status === 'paid' ? 'success' : 'warning'}

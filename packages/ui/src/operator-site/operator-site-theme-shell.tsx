@@ -1,17 +1,30 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
+    operatorSiteAccentValue,
     operatorSiteThemeStorageKey,
     operatorSiteVisitorColorMode,
+    type OperatorSiteAccentColor,
     type OperatorSiteColorMode,
 } from '@simple/utils';
-import { OperatorSiteThemeToggle } from './operator-site-theme-toggle.js';
+
+type OperatorSiteThemeContextValue = {
+    color: 'light' | 'dark';
+    onToggle: () => void;
+};
+
+const OperatorSiteThemeContext = createContext<OperatorSiteThemeContextValue | null>(null);
+
+export function useOperatorSiteTheme() {
+    return useContext(OperatorSiteThemeContext);
+}
 
 type OperatorSiteThemeShellProps = {
     slug: string;
     layout: string;
     defaultColorMode: OperatorSiteColorMode;
+    accentColor?: OperatorSiteAccentColor;
     children: ReactNode;
 };
 
@@ -19,6 +32,7 @@ export function OperatorSiteThemeShell({
     slug,
     layout,
     defaultColorMode,
+    accentColor = 'teal',
     children,
 }: OperatorSiteThemeShellProps) {
     const [visitorColor, setVisitorColor] = useState<'light' | 'dark' | null>(null);
@@ -48,18 +62,19 @@ export function OperatorSiteThemeShell({
         }
     };
 
+    const accentValue = operatorSiteAccentValue(accentColor);
+
     return (
-        <div
-            className="os-page"
-            data-os-layout={layout}
-            data-os-color={resolvedColor}
-            suppressHydrationWarning
-        >
-            <OperatorSiteThemeToggle
-                color={resolvedColor}
-                onToggle={handleToggle}
-            />
-            {children}
-        </div>
+        <OperatorSiteThemeContext.Provider value={{ color: resolvedColor, onToggle: handleToggle }}>
+            <div
+                className="os-page"
+                data-os-layout={layout}
+                data-os-color={resolvedColor}
+                style={{ '--accent': accentValue } as React.CSSProperties}
+                suppressHydrationWarning
+            >
+                {children}
+            </div>
+        </OperatorSiteThemeContext.Provider>
     );
 }

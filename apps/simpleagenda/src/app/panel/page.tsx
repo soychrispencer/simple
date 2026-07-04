@@ -10,6 +10,7 @@ import { usePanelFormatters } from '@simple/auth';
 import { vocab } from '@/lib/vocabulary';
 import { PanelPageHeader } from '@simple/ui/panel';
 import { PanelStatCard } from '@simple/ui/panel';
+import { ActivationChecklist } from '@/components/panel/activation-checklist';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,11 @@ export default function PanelHomePage() {
             <PanelPageHeader title="Mi panel" description={panelDescription} />
 
             <div className="grid gap-4">
+                {/* Activation checklist — only shows when setup is incomplete */}
+                {stats && profile && !loading && (
+                    <ActivationChecklist stats={stats} profile={profile} />
+                )}
+
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 {statCards.map((stat) => (
                     <Link

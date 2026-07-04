@@ -1,6 +1,7 @@
 'use client';
 
 import type { MouseEventHandler, ReactNode } from 'react';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
 
 export type PanelBlockHeaderProps = {
@@ -58,13 +59,13 @@ export function PanelBlockHeader(props: PanelBlockHeaderProps) {
 export function PanelNotice(props: PanelNoticeProps) {
     const { children, className, tone = 'neutral' } = props;
     const toneStyle = tone === 'success'
-        ? { borderColor: 'rgba(4,120,87,0.25)', background: 'rgba(4,120,87,0.06)', color: '#047857' }
+        ? { borderColor: 'var(--color-success-border)', background: 'var(--color-success-bg)', color: 'var(--color-success-text)' }
         : tone === 'warning'
-            ? { borderColor: 'rgba(180,83,9,0.22)', background: 'rgba(180,83,9,0.06)', color: '#92400e' }
+            ? { borderColor: 'var(--color-warning-border)', background: 'var(--color-warning-bg)', color: 'var(--color-warning-text)' }
             : tone === 'error'
-                ? { borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }
+                ? { borderColor: 'var(--color-error-border)', background: 'var(--color-error-bg)', color: 'var(--color-error-text)' }
                 : tone === 'info'
-                    ? { borderColor: 'rgba(37,99,235,0.22)', background: 'rgba(37,99,235,0.06)', color: '#1d4ed8' }
+                    ? { borderColor: 'var(--color-info-border)', background: 'var(--color-info-bg)', color: 'var(--color-info-text)' }
                     : { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg-secondary)' };
     return (
         <div className={joinClasses('rounded-card border px-4 py-3 text-sm', className)} style={toneStyle}>
@@ -157,5 +158,20 @@ export function PanelSwitch(props: PanelSwitchProps) {
                 }}
             />
         </button>
+    );
+}
+
+export type FormErrorProps = {
+    children: ReactNode;
+    className?: string;
+};
+
+export function FormError(props: FormErrorProps) {
+    const { children, className } = props;
+    return (
+        <p className={joinClasses('text-xs flex items-center gap-1', className)} style={{ color: 'var(--color-error-text)' }}>
+            <IconAlertCircle size={14} className="shrink-0" />
+            {children}
+        </p>
     );
 }

@@ -47,7 +47,7 @@ export function MarketplaceMiNegocioSectionPage({
                     vertical={vertical}
                     section={section}
                     publicLinkBelowBrand={
-                        section === 'pagina' ? (
+                        section === 'pagina' || section === 'apariencia' ? (
                             <PanelMarketplacePublicLinkPanel
                                 vertical={vertical}
                                 appBaseUrl={resolvedAppBaseUrl}
@@ -86,6 +86,21 @@ export function createMarketplaceMiNegocioHorariosPage(vertical: PublicProfileVe
                 section="horarios"
                 title={MARKETPLACE_BUSINESS_HORARIOS_PAGE.title}
                 description={MARKETPLACE_BUSINESS_HORARIOS_PAGE.description}
+            />
+        );
+    };
+}
+
+/** Factory: Mi negocio → Apariencia (Autos / Propiedades). */
+export function createMarketplaceMiNegocioAparienciaPage(vertical: PublicProfileVertical) {
+    return function MarketplaceMiNegocioAparienciaPage() {
+        return (
+            <MarketplaceMiNegocioSectionPage
+                vertical={vertical}
+                activeKey="apariencia"
+                section="apariencia"
+                title="Apariencia"
+                description="Personaliza el diseño y colores de tu página pública."
             />
         );
     };

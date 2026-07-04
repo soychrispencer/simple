@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
-import type { OperatorSiteColorMode, OperatorSiteLayout } from '@simple/utils';
+import type { OperatorSiteAccentColor, OperatorSiteColorMode, OperatorSiteLayout } from '@simple/utils';
+
+export type { OperatorSiteLayout } from '@simple/utils';
 
 export type OperatorSiteSocialLink = {
     href: string;
@@ -118,6 +120,7 @@ export type AgendaOperatorSiteProps = {
     appearance?: {
         layout: OperatorSiteLayout;
         colorMode: OperatorSiteColorMode;
+        accentColor?: OperatorSiteAccentColor;
     };
     brandName?: string;
     brandHref?: string;

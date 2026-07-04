@@ -1,17 +1,19 @@
 'use client';
 
-import { OperatorSiteReveal } from './operator-site-reveal.js';
+import { OperatorSiteReveal, type OperatorSiteRevealVariant } from './operator-site-reveal.js';
 
 export function OperatorSiteAboutSection({
     bio,
     variant = 'standard',
+    revealVariant = 'fade-up',
 }: {
     bio: string;
     variant?: 'standard' | 'editorial';
+    revealVariant?: OperatorSiteRevealVariant;
 }) {
     if (variant === 'editorial') {
         return (
-            <OperatorSiteReveal>
+            <OperatorSiteReveal variant={revealVariant}>
                 <section id="sobre-mi" className="os-section os-section--editorial">
                     <div className="os-section__inner">
                         <div className="os-about-editorial">
@@ -25,7 +27,7 @@ export function OperatorSiteAboutSection({
     }
 
     return (
-        <OperatorSiteReveal>
+        <OperatorSiteReveal variant={revealVariant}>
             <section id="sobre-mi" className="os-section">
                 <div className="os-section__inner">
                     <p className="os-section__label">Sobre mí</p>

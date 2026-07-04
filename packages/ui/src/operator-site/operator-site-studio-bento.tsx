@@ -2,13 +2,7 @@
 
 import Link from 'next/link';
 import {
-    IconBrandFacebook,
-    IconBrandInstagram,
-    IconBrandLinkedin,
-    IconBrandTiktok,
     IconBrandWhatsapp,
-    IconBrandX,
-    IconBrandYoutube,
     IconBuildingBank,
     IconCreditCard,
     IconLink,
@@ -19,23 +13,12 @@ import {
 } from '@tabler/icons-react';
 import { OperatorSiteReveal } from './operator-site-reveal.js';
 import { OperatorSiteScheduleSidebar } from './operator-site-schedule.js';
+import { socialIcon } from './operator-site-icons.js';
 import type {
     AgendaOperatorSiteProfile,
     OperatorSiteSchedule,
     OperatorSiteSocialLink,
 } from './types.js';
-
-function socialIcon(kind: OperatorSiteSocialLink['kind']) {
-    const size = 16;
-    switch (kind) {
-        case 'instagram': return <IconBrandInstagram size={size} />;
-        case 'facebook': return <IconBrandFacebook size={size} />;
-        case 'linkedin': return <IconBrandLinkedin size={size} />;
-        case 'tiktok': return <IconBrandTiktok size={size} />;
-        case 'youtube': return <IconBrandYoutube size={size} />;
-        case 'x': return <IconBrandX size={size} />;
-    }
-}
 
 type OperatorSiteStudioBentoProps = {
     profile: AgendaOperatorSiteProfile;
@@ -64,7 +47,7 @@ export function OperatorSiteStudioBento({
     const hasPaymentLink = Boolean(pm.paymentLinkUrl);
 
     return (
-        <OperatorSiteReveal delayMs={60}>
+        <OperatorSiteReveal delayMs={60} variant="fade-up">
             <section className="os-section os-section--bento">
                 <div className="os-section__inner">
                     <p className="os-section__label">Tu consulta</p>

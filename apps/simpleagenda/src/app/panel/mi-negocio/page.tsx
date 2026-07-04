@@ -1,14 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { IconCheck, IconChevronRight, IconPalette } from '@tabler/icons-react';
 import {
     fetchAgendaLocations,
     fetchAgendaProfile,
     saveAgendaProfile,
     updateAgendaLocation,
-    uploadAvatar,
     type AgendaLocation,
 } from '@/lib/agenda-api';
 import {
@@ -29,18 +26,14 @@ import {
 } from '@simple/utils';
 import {
     PanelCard,
-    PanelProfileBrandImages,
     PanelField,
-    PanelNotice,
     PanelBlockHeader,
     PanelSectionSaveFooter,
     OperatorProfileFields,
     AGENDA_BUSINESS_PERFIL_PAGE,
-    BUSINESS_BRAND_IMAGES_SECTION,
     BUSINESS_DESCRIPTION_FIELD,
     BUSINESS_PUBLIC_INFO_SECTION,
     BUSINESS_PUBLIC_NAME_FIELD,
-    businessBrandImageSavedMessage,
     businessProfileSaveSuccessMessage,
 } from '@simple/ui/panel';
 import { AgendaMiNegocioShell, AgendaMiNegocioLoading } from '@/components/panel/agenda-mi-negocio-shell';
@@ -50,7 +43,6 @@ import {
     agendaBusinessLocationFromProfile,
     agendaBusinessLocationToProfilePayload,
 } from '@/components/panel/agenda-business-location-fields';
-import { AgendaPublicLinkPanel } from '@/components/panel/agenda-public-link-panel';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app';
@@ -59,16 +51,12 @@ export default function PerfilConfigPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
-    const [brandSaving, setBrandSaving] = useState(false);
-    const [imageFeedback, setImageFeedback] = useState('');
     const [error, setError] = useState('');
     const [slug, setSlug] = useState('');
 
     const [form, setForm] = useState({
         displayName: '',
         bio: '',
-        avatarUrl: '',
-        coverUrl: '',
     });
     const [operator, setOperator] = useState<{ accountKind: OperatorTier; operatorSubtype: string | null; operatorSubtypeCustom: string }>({
         accountKind: 'individual',
@@ -91,26 +79,6 @@ export default function PerfilConfigPage() {
     const formRef = useRef(form);
     formRef.current = form;
 
-    const persistBrandImages = useCallback(async (
-        avatarUrl: string | null,
-        coverUrl: string | null,
-        kind: 'logo' | 'cover',
-    ) => {
-        setBrandSaving(true);
-        setError('');
-        const result = await saveAgendaProfile({
-            avatarUrl: avatarUrl ?? '',
-            coverUrl: coverUrl ?? '',
-        });
-        setBrandSaving(false);
-        if (!result.ok) {
-            setError(result.error ?? 'No pudimos guardar la imagen.');
-            return;
-        }
-        setImageFeedback(businessBrandImageSavedMessage(kind));
-        window.setTimeout(() => setImageFeedback(''), 3000);
-    }, []);
-
     useEffect(() => {
         const load = async () => {
             const [profile, loadedLocations] = await Promise.all([
@@ -122,8 +90,6 @@ export default function PerfilConfigPage() {
                 setForm({
                     displayName: profile.displayName ?? '',
                     bio: profile.bio ?? '',
-                    avatarUrl: profile.avatarUrl ?? '',
-                    coverUrl: profile.coverUrl ?? '',
                 });
                 setOperator(resolveAgendaOperatorFields(profile));
                 setContactForm({
@@ -275,7 +241,7 @@ export default function PerfilConfigPage() {
     if (loading) {
         return (
             <AgendaMiNegocioLoading
-                activeKey="pagina"
+                activeKey="datos"
                 title={AGENDA_BUSINESS_PERFIL_PAGE.title}
                 description={AGENDA_BUSINESS_PERFIL_PAGE.description}
                 message="Cargando datos comerciales..."
@@ -285,79 +251,12 @@ export default function PerfilConfigPage() {
 
     return (
         <AgendaMiNegocioShell
-            activeKey="pagina"
+            activeKey="datos"
             tabs={businessSectionTabs}
             title={AGENDA_BUSINESS_PERFIL_PAGE.title}
             description={AGENDA_BUSINESS_PERFIL_PAGE.description}
         >
             <div className="grid min-w-0 gap-5">
-                <PanelCard size="lg" className="space-y-4">
-                    <PanelBlockHeader
-                        title={BUSINESS_BRAND_IMAGES_SECTION.title}
-                        description={BUSINESS_BRAND_IMAGES_SECTION.description}
-                        className="mb-0"
-                    />
-                    <PanelProfileBrandImages
-                        previewVariant="profile-page"
-                        displayName={form.displayName}
-                        profession={businessLabel}
-                        logoUrl={form.avatarUrl || null}
-                        coverUrl={form.coverUrl || null}
-                        previewHref={publicPreviewHref}
-                        disabled={brandSaving}
-                        onLogoChange={(url) => {
-                            set('avatarUrl', url);
-                            void persistBrandImages(url, formRef.current.coverUrl || null, 'logo');
-                        }}
-                        onCoverChange={(url) => {
-                            set('coverUrl', url);
-                            void persistBrandImages(formRef.current.avatarUrl || null, url, 'cover');
-                        }}
-                        onUploadLogo={async (_file, croppedBlob) => {
-                            const uploadFile = new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
-                            const result = await uploadAvatar(uploadFile);
-                            if (!result.ok || !result.url) {
-                                throw new Error(result.error ?? 'Error al subir el logo.');
-                            }
-                            return { url: result.url };
-                        }}
-                        onUploadCover={async (_file, croppedBlob) => {
-                            const uploadFile = new File([croppedBlob], 'cover.webp', { type: 'image/webp' });
-                            const result = await uploadAvatar(uploadFile);
-                            if (!result.ok || !result.url) {
-                                throw new Error(result.error ?? 'Error al subir la imagen.');
-                            }
-                            return { url: result.url };
-                        }}
-                        onError={(message) => setError(message)}
-                    />
-                </PanelCard>
-
-                <AgendaPublicLinkPanel />
-
-                <PanelCard size="md">
-                    <Link
-                        href="/panel/mi-negocio/apariencia"
-                        className="flex items-center gap-4 group"
-                    >
-                        <div
-                            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors group-hover:opacity-90"
-                            style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-                        >
-                            <IconPalette size={22} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                                Personalizar apariencia
-                            </p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                                Elige el estilo Reserva, Portafolio o Estudio y el modo claro/oscuro.
-                            </p>
-                        </div>
-                        <IconChevronRight size={18} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} />
-                    </Link>
-                </PanelCard>
-
                 <PanelCard size="lg" className="space-y-5">
                     <PanelBlockHeader
                         title={BUSINESS_PUBLIC_INFO_SECTION.title}
@@ -430,19 +329,12 @@ export default function PerfilConfigPage() {
                     contactResetKey={slug}
                 />
 
-                {imageFeedback ? (
-                    <PanelNotice tone="success">
-                        <span className="flex items-center gap-2"><IconCheck size={15} /> {imageFeedback}</span>
-                    </PanelNotice>
-                ) : null}
-
                 <PanelSectionSaveFooter
                     saving={saving}
                     saved={saved}
                     saveError={error || null}
-                    disabled={brandSaving}
                     onSave={handleSave}
-                    savedMessage={businessProfileSaveSuccessMessage('pagina')}
+                    savedMessage={businessProfileSaveSuccessMessage('datos')}
                 />
             </div>
         </AgendaMiNegocioShell>

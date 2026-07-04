@@ -153,7 +153,7 @@ export async function sendAdminBulkEmail(input: { userIds: string[]; subject: st
     });
 }
 
-export async function updateSerenatasProfile(userId: string, input: { profileType: 'client' | 'musician' | 'owner'; removeClientProfile?: boolean; note?: string }): Promise<void> {
+export async function updateSerenatasProfile(userId: string, input: { profileType: 'client' | 'musician' | 'owner'; note?: string }): Promise<void> {
     await expectOk(`/api/admin/users/${encodeURIComponent(userId)}/serenatas-profile`, {
         method: 'PATCH',
         body: JSON.stringify(input),

@@ -308,13 +308,20 @@ function VerticalCard({
                     <Icon size={22} stroke={1.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold mb-0.5 plt-fg">
-                        {brand.name}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <span
+                            className={`plt-brand-dot plt-brand-dot--${id}`}
+                        />
+                        <h3 className="font-semibold plt-fg">
+                            {brand.name}
+                        </h3>
+                    </div>
                     <p className="text-xs plt-muted">
                         {id === 'autos' && 'Compra, vende y arrienda vehículos'}
                         {id === 'propiedades' && 'Encuentra tu hogar ideal'}
                         {id === 'agenda' && 'Gestión de citas y servicios'}
+                        {id === 'serenatas' && 'Música en vivo para tus eventos'}
+                        {id === 'admin' && 'Panel de administración del ecosistema'}
                     </p>
                 </div>
                 <IconChevronRight
@@ -348,8 +355,8 @@ export default function LandingPage() {
     }, [isLoggedIn, user]);
 
     const stats = [
-        { value: '33,000+', label: 'Publicaciones activas' },
-        { value: '25,000+', label: 'Usuarios registrados' },
+        { value: '40,000+', label: 'Publicaciones activas' },
+        { value: '30,000+', label: 'Usuarios registrados' },
         { value: '50,000+', label: 'Citas agendadas' },
         { value: '4', label: 'Verticales conectadas' },
     ];
@@ -516,7 +523,8 @@ export default function LandingPage() {
 
             {/* HERO SECTION */}
             <section className="relative overflow-hidden">
-                {/* Background gradient */}
+                {/* Background gradient mesh */}
+                <div className="absolute inset-0 pointer-events-none plt-hero-mesh" />
                 <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
@@ -528,11 +536,16 @@ export default function LandingPage() {
                     <div className="max-w-3xl mx-auto text-center">
                         {/* Badge */}
                         <div
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6 border"
+                            className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-xs font-medium mb-6 border"
                             style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--fg)' }}
                         >
-                            <IconSparkles size={12} />
-                            <span>Ecosistema de Marketplaces</span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="plt-brand-dot plt-brand-dot--autos" />
+                                <span className="plt-brand-dot plt-brand-dot--propiedades" />
+                                <span className="plt-brand-dot plt-brand-dot--agenda" />
+                                <span className="plt-brand-dot plt-brand-dot--serenatas" />
+                            </span>
+                            <span>Ecosistema Simple &mdash; 4 verticales conectadas</span>
                         </div>
 
                         {/* Headline */}
@@ -544,7 +557,7 @@ export default function LandingPage() {
 
                         {/* Subheadline */}
                         <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto plt-secondary">
-                            SimplePlataforma conecta <strong>autos, propiedades y agenda</strong> bajo una
+                            SimplePlataforma conecta <strong>autos, propiedades, agenda y serenatas</strong> bajo una
                             identidad única. Una cuenta, un ecosistema infinito de posibilidades.
                         </p>
 
@@ -553,6 +566,9 @@ export default function LandingPage() {
                             <ButtonPrimary onClick={() => openAuth('login')}>
                                 Iniciar sesión <IconArrowRight size={15} />
                             </ButtonPrimary>
+                            <ButtonOutline href="#verticales">
+                                Explorar verticales
+                            </ButtonOutline>
                         </div>
 
                         {/* Trust indicators */}
@@ -562,6 +578,9 @@ export default function LandingPage() {
                             </span>
                             <span className="flex items-center gap-1.5">
                                 <IconCheck size={14} className="plt-check" /> Una cuenta, todo Simple
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <IconCheck size={14} className="plt-check" /> 4 verticales conectadas
                             </span>
                             <span className="flex items-center gap-1.5">
                                 <IconCheck size={14} className="plt-check" /> Hecho en Chile
@@ -594,7 +613,7 @@ export default function LandingPage() {
                 <div className="container-app">
                     <SectionHeading
                         eyebrow="Nuestros Productos"
-                        title="Tres verticales, infinitas posibilidades"
+                        title="Cuatro verticales, infinitas posibilidades"
                         description="Cada vertical está diseñada específicamente para su industria, con herramientas profesionales y una experiencia optimizada."
                     />
 
@@ -624,7 +643,14 @@ export default function LandingPage() {
                                     <div className="flex items-center gap-4 mb-4">
                                         <div
                                             className="w-14 h-14 rounded-xl flex items-center justify-center"
-                                            style={{ background: 'var(--fg)', color: 'var(--bg)' }}
+                                            style={{
+                                                background: activeVertical !== 'admin'
+                                                    ? `color-mix(in srgb, var(--brand-${activeVertical}) 14%, var(--bg-subtle))`
+                                                    : 'var(--fg)',
+                                                color: activeVertical !== 'admin'
+                                                    ? `var(--brand-${activeVertical})`
+                                                    : 'var(--bg)',
+                                            }}
                                         >
                                             <activeBrand.icon size={28} stroke={1.5} />
                                         </div>
@@ -633,9 +659,17 @@ export default function LandingPage() {
                                                 {activeBrand.name}
                                             </h3>
                                             <span
-                                                className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-                                                style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}
+                                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                                                style={{
+                                                    background: activeVertical !== 'admin'
+                                                        ? `color-mix(in srgb, var(--brand-${activeVertical}) 10%, transparent)`
+                                                        : 'var(--bg-subtle)',
+                                                    color: activeVertical !== 'admin'
+                                                        ? `var(--brand-${activeVertical})`
+                                                        : 'var(--fg)',
+                                                }}
                                             >
+                                                <span className={`plt-brand-dot plt-brand-dot--${activeVertical}`} style={{ width: 6, height: 6 }} />
                                                 Activo
                                             </span>
                                         </div>
@@ -647,6 +681,10 @@ export default function LandingPage() {
                                             'El marketplace inmobiliario que conecta compradores, arrendatarios y corredores. Casas, departamentos, oficinas, terrenos y proyectos nuevos en un solo lugar.'}
                                         {activeVertical === 'agenda' &&
                                             'El sistema de agendamiento preferido por profesionales y negocios. Desde peluquerías hasta consultas médicas, gestiona tu tiempo y el de tus clientes sin complicaciones.'}
+                                        {activeVertical === 'serenatas' &&
+                                            'La plataforma para coordinar serenatas y música en vivo en Chile. Contrata grupos musicales, gestiona eventos y sorprende a tus seres queridos con música en cualquier celebración.'}
+                                        {activeVertical === 'admin' &&
+                                            'El panel de administración centralizado para gestionar usuarios, suscripciones, moderación y operaciones de todo el ecosistema Simple.'}
                                     </p>
                                 </div>
 
@@ -662,7 +700,14 @@ export default function LandingPage() {
                                             <div key={i} className="flex items-start gap-3">
                                                 <div
                                                     className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                                                    style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}
+                                                    style={{
+                                                        background: activeVertical !== 'admin'
+                                                            ? `color-mix(in srgb, var(--brand-${activeVertical}) 10%, transparent)`
+                                                            : 'var(--bg-subtle)',
+                                                        color: activeVertical !== 'admin'
+                                                            ? `var(--brand-${activeVertical})`
+                                                            : 'var(--fg)',
+                                                    }}
                                                 >
                                                     <feature.icon size={16} stroke={1.5} />
                                                 </div>
@@ -685,7 +730,12 @@ export default function LandingPage() {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="inline-flex items-center gap-2 h-11 px-6 rounded-button text-sm font-medium transition-all duration-200 hover:opacity-90"
-                                            style={{ background: 'var(--fg)', color: 'var(--bg)' }}
+                                            style={{
+                                                background: activeVertical !== 'admin'
+                                                    ? `var(--brand-${activeVertical})`
+                                                    : 'var(--fg)',
+                                                color: '#ffffff',
+                                            }}
                                         >
                                             Visitar {activeBrand.name}
                                             <IconExternalLink size={14} />
@@ -711,8 +761,8 @@ export default function LandingPage() {
                                 Por qué SimplePlataforma es diferente
                             </h2>
                             <p className="text-base mb-10 plt-secondary">
-                                No somos solo otra plataforma. Somos un ecosistema pensado para que crezcas. Tu perfil,
-                                tus preferencias y tu actividad te siguen en cada vertical.
+                                No somos solo otra plataforma. Somos un ecosistema pensado para que crezcas. Compra tu auto,
+                                busca tu próximo hogar, agenda tus servicios y celebra con música en vivo — todo desde la misma cuenta.
                             </p>
 
                             <div className="grid sm:grid-cols-2 gap-4">
@@ -732,11 +782,15 @@ export default function LandingPage() {
                                     {(Object.keys(BRAND) as Array<keyof typeof BRAND>).map((id) => {
                                         const b = BRAND[id];
                                         const Icon = b.icon;
+                                        const colorVar = id !== 'admin' ? `var(--brand-${id})` : 'var(--fg)';
                                         return (
                                             <div
                                                 key={id}
                                                 className="w-12 h-12 rounded-xl flex items-center justify-center"
-                                                style={{ background: 'var(--fg)', color: 'var(--bg)' }}
+                                                style={{
+                                                    background: id !== 'admin' ? `color-mix(in srgb, ${colorVar} 12%, var(--bg-subtle))` : 'var(--fg)',
+                                                    color: id !== 'admin' ? colorVar : 'var(--bg)',
+                                                }}
                                             >
                                                 <Icon size={24} stroke={1.5} />
                                             </div>
@@ -800,13 +854,13 @@ export default function LandingPage() {
                             {
                                 step: '02',
                                 title: 'Elige tu vertical',
-                                description: 'Navega entre SimpleAutos, SimplePropiedades y SimpleAgenda.',
+                                description: 'Explora SimpleAutos, SimplePropiedades, SimpleAgenda o SimpleSerenatas.',
                                 icon: IconBuilding,
                             },
                             {
                                 step: '03',
                                 title: 'Empieza a usar',
-                                description: 'Publica, agenda, compra o vende. Tu perfil y preferencias te siguen automáticamente.',
+                                description: 'Publica, agenda, compra, vende o celebra. Tu perfil y preferencias te siguen automáticamente.',
                                 icon: IconBolt,
                             },
                         ].map((item, i) => (
@@ -845,7 +899,7 @@ export default function LandingPage() {
                             ¿Listo para simplificar?
                         </h2>
                         <p className="text-base mb-8 max-w-lg mx-auto plt-secondary">
-                            Únete a miles de chilenos que ya usan SimplePlataforma para comprar, vender, agendar y celebrar.
+                            Únete a miles de chilenos que ya usan SimplePlataforma para comprar, vender, agendar servicios y celebrar con música en vivo.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                             <ButtonPrimary onClick={() => openAuth('login')}>
@@ -870,7 +924,7 @@ export default function LandingPage() {
                         <div className="md:col-span-1">
                             <Logo />
                             <p className="mt-4 text-sm plt-muted">
-                                Ecosistema de marketplaces para Chile. Una cuenta, infinitas posibilidades.
+                                Ecosistema de marketplaces para Chile. Autos, propiedades, agenda y serenatas en una sola cuenta.
                             </p>
                         </div>
 

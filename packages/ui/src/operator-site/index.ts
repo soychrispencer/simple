@@ -1,5 +1,6 @@
 export { AgendaOperatorSite } from './agenda-operator-site.js';
 export { OperatorSiteReveal } from './operator-site-reveal.js';
+export type { OperatorSiteRevealVariant } from './operator-site-reveal.js';
 export { OperatorSiteScheduleSection, OperatorSiteScheduleSidebar } from './operator-site-schedule.js';
 export { OperatorSiteServiceGrid } from './operator-site-service-grid.js';
 export { OperatorSiteOffersBlock, OperatorSiteCatalogSection } from './operator-site-catalog.js';

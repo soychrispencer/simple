@@ -24,8 +24,10 @@ import {
     serializeBookingTermsWrite,
     normalizeOperatorSiteLayout,
     normalizeOperatorSiteColorMode,
+    normalizeOperatorSiteAccent,
     OPERATOR_SITE_LAYOUTS,
     OPERATOR_SITE_COLOR_MODES,
+    OPERATOR_SITE_ACCENT_COLORS,
     type OperatorTier,
 } from '@simple/utils';
 
@@ -278,6 +280,7 @@ function mapPublicAgendaProfile(
         appearance: {
             layout: normalizeOperatorSiteLayout(profile.operatorSiteLayout),
             colorMode: normalizeOperatorSiteColorMode(profile.operatorSiteColorMode),
+            accentColor: normalizeOperatorSiteAccent(profile.operatorSiteAccentColor),
         },
     };
 }
@@ -381,7 +384,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                 typeof body.bookingTermsText === 'string' ? body.bookingTermsText : null,
             ).bookingTermsText;
         }
-        const allowed = ['displayName','profession','headline','bio','avatarUrl','address','city','region','countryCode','regionId','localityId','serviceLocalities','servesOnline','servesPresential','publicEmail','publicPhone','publicWhatsapp','isPublished','slug','currency','bookingWindowDays','cancellationHours','confirmationMode','encuadre','requiresAdvancePayment','advancePaymentInstructions','acceptsTransfer','acceptsMp','acceptsPaymentLink','paymentLinkUrl','bankTransferData','coverUrl','websiteUrl','instagramUrl','facebookUrl','linkedinUrl','tiktokUrl','youtubeUrl','twitterUrl','allowsRecurrentBooking','accountKind','operatorSubtype','operatorSiteLayout','operatorSiteColorMode'] as const;
+        const allowed = ['displayName','profession','headline','bio','avatarUrl','address','city','region','countryCode','regionId','localityId','serviceLocalities','servesOnline','servesPresential','publicEmail','publicPhone','publicWhatsapp','isPublished','slug','currency','bookingWindowDays','cancellationHours','confirmationMode','encuadre','requiresAdvancePayment','advancePaymentInstructions','acceptsTransfer','acceptsMp','acceptsPaymentLink','paymentLinkUrl','bankTransferData','coverUrl','websiteUrl','instagramUrl','facebookUrl','linkedinUrl','tiktokUrl','youtubeUrl','twitterUrl','allowsRecurrentBooking','accountKind','operatorSubtype','operatorSiteLayout','operatorSiteColorMode','operatorSiteAccentColor'] as const;
         for (const key of allowed) {
             if (key === 'avatarUrl' || key === 'coverUrl' || key === 'accountKind' || key === 'operatorSubtype' || key === 'profession') continue;
             if (key in body) patch[key] = body[key];
@@ -399,6 +402,13 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                 return c.json({ ok: false, error: 'Modo de color no válido.' }, 400);
             }
             patch.operatorSiteColorMode = colorMode;
+        }
+        if ('operatorSiteAccentColor' in body) {
+            const accent = typeof body.operatorSiteAccentColor === 'string' ? body.operatorSiteAccentColor : '';
+            if (!OPERATOR_SITE_ACCENT_COLORS.includes(accent as typeof OPERATOR_SITE_ACCENT_COLORS[number])) {
+                return c.json({ ok: false, error: 'Color de acento no válido.' }, 400);
+            }
+            patch.operatorSiteAccentColor = accent;
         }
         if ('accountKind' in body || 'operatorSubtype' in body || 'profession' in body) {
             const rawKind = 'accountKind' in body ? body.accountKind : profile.accountKind;
@@ -2095,8 +2105,16 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
 
     app.get('/:slug', publicReadLimit, async (c) => {
         const slug = c.req.param('slug') ?? '';
-        const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)) });
+        const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: eq(agendaProfessionalProfiles.slug, slug) });
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (!profile.isPublished) {
+            return c.json({
+                ok: false,
+                error: 'Este perfil aún no está publicado.',
+                reason: 'not_published',
+                displayName: profile.displayName,
+            }, 403);
+        }
         const [services, locations, rules, packRows, promotionRows, operationalTz] = await Promise.all([
             db.select().from(agendaServices).where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true), eq(agendaServices.kind, 'appointment'))).orderBy(asc(agendaServices.position)),
             db.select().from(agendaLocations).where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true))).orderBy(asc(agendaLocations.position)),

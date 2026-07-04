@@ -136,6 +136,7 @@ export type AgendaProfile = {
     twitterUrl: string | null;
     operatorSiteLayout?: string | null;
     operatorSiteColorMode?: string | null;
+    operatorSiteAccentColor?: string | null;
     createdAt: string;
     updatedAt: string;
 };

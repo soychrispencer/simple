@@ -32,6 +32,7 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     mapa: 'map',
     map: 'map',
     finanzas: 'finanzas',
+    estadisticas: 'estadisticas',
     perfil: 'profile',
     profile: 'profile',
     'mi-cuenta': 'profile',
@@ -60,6 +61,7 @@ export const SECTION_TO_PANEL_SLUG: Record<Section, string> = {
     agenda: 'agenda',
     map: 'mapa',
     finanzas: 'finanzas',
+    estadisticas: 'estadisticas',
     profile: 'mi-cuenta',
     mensajes: 'mensajes',
 };
@@ -70,11 +72,11 @@ export function isPanelSection(value: string | null | undefined): value is Secti
     return Boolean(value && ALL_SECTIONS.has(value));
 }
 
-/** Ruta canónica de Mi Negocio con pestaña opcional. */
+/** Ruta canónica de Mi Negocio con sub-ruta. */
 export function panelMiNegocioHref(tab: MiNegocioTab = 'datos'): string {
     const path = '/panel/mi-negocio';
     if (tab === 'datos') return path;
-    return `${path}?tab=${tab}`;
+    return `${path}/${tab}`;
 }
 
 /** Slug del grupo en `/panel/grupo/{slug}`. */
@@ -174,8 +176,15 @@ export function profilePanelHref(accountTab?: AccountTab): string {
     return panelSectionHref('profile', accountTab ? { account_tab: accountTab } : undefined);
 }
 
-/** Pestaña de Mi Negocio según slug legacy o query `tab`. */
+/** Pestaña de Mi Negocio según sub-ruta, slug legacy o query `tab`. */
 export function miNegocioTabFromPanelPath(pathname: string, search: string): MiNegocioTab {
+    // Sub-ruta directa: /panel/mi-negocio/{tab}
+    const subRouteMatch = pathname.match(/^\/panel\/mi-negocio\/([^/?#]+)/);
+    if (subRouteMatch?.[1]) {
+        const sub = normalizeMiNegocioTab(subRouteMatch[1]);
+        if (sub) return sub;
+    }
+    // Slugs legacy
     const match = pathname.match(/^\/panel\/([^/?#]+)/);
     const slug = match?.[1];
     if (slug === 'disponibilidad' || slug === 'horarios') return 'horarios';
@@ -205,6 +214,8 @@ export function resolveCanonicalMarketplaceRedirect(pathname: string, search: st
 
 /** Redirige slugs legacy de Mi Negocio / servicios a la ruta canónica. */
 export function resolveCanonicalMiNegocioRedirect(pathname: string, search: string): string | null {
+    // Already on a valid sub-route or canonical path — no redirect needed
+    if (/^\/panel\/mi-negocio(\/[^/?#]*)?$/.test(pathname)) return null;
     const match = pathname.match(/^\/panel\/([^/?#]+)/);
     if (!match) return null;
     const slug = match[1];

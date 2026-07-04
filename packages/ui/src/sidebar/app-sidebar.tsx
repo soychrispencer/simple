@@ -136,7 +136,7 @@ export function Sidebar({
                         <button
                             type="button"
                             onClick={onToggle}
-                            className="flex h-8 w-8 items-center justify-center rounded-[10px] border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                            className="flex h-10 w-10 items-center justify-center rounded-[10px] border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
                             style={{
                                 borderColor: 'var(--border)',
                                 background: 'var(--surface)',

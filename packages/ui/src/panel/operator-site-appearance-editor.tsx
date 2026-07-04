@@ -3,8 +3,10 @@
 import { useState, type CSSProperties } from 'react';
 import { IconCheck, IconLoader2 } from '@tabler/icons-react';
 import {
+    OPERATOR_SITE_ACCENT_OPTIONS,
     OPERATOR_SITE_COLOR_MODE_OPTIONS,
     OPERATOR_SITE_LAYOUT_OPTIONS,
+    type OperatorSiteAccentColor,
     type OperatorSiteColorMode,
     type OperatorSiteLayout,
 } from '@simple/utils';
@@ -15,6 +17,7 @@ import { PanelButton } from './panel-button.js';
 export type OperatorSiteAppearanceValue = {
     layout: OperatorSiteLayout;
     colorMode: OperatorSiteColorMode;
+    accentColor: OperatorSiteAccentColor;
 };
 
 const LAYOUT_PREVIEW_STYLES: Record<OperatorSiteLayout, CSSProperties> = {
@@ -81,6 +84,11 @@ export function OperatorSiteAppearanceEditor({
         onChange({ ...value, colorMode });
     };
 
+    const handleSelectAccent = (accentColor: OperatorSiteAccentColor) => {
+        setLocalSaveError('');
+        onChange({ ...value, accentColor });
+    };
+
     return (
         <div className="space-y-6">
             <PanelBlockHeader
@@ -136,6 +144,37 @@ export function OperatorSiteAppearanceEditor({
                                     ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
                                     : 'border-[var(--border)] text-fg-secondary hover:text-fg'}`}
                             >
+                                {option.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            </PanelCard>
+
+            <PanelCard size="lg" className="space-y-4">
+                <PanelBlockHeader
+                    title="Color de acento"
+                    description="Color principal de botones, links y elementos destacados de tu página."
+                    className="mb-0"
+                />
+                <div className="flex flex-wrap gap-3">
+                    {OPERATOR_SITE_ACCENT_OPTIONS.map((option) => {
+                        const active = value.accentColor === option.id;
+                        return (
+                            <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => handleSelectAccent(option.id)}
+                                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium border transition-all ${active
+                                    ? 'border-[var(--accent)] ring-2 ring-[var(--accent-subtle)]'
+                                    : 'border-[var(--border)] hover:border-[var(--accent-border)]'}`}
+                                title={option.label}
+                            >
+                                <span
+                                    className="w-4 h-4 rounded-full shrink-0"
+                                    style={{ backgroundColor: option.value }}
+                                    aria-hidden
+                                />
                                 {option.label}
                             </button>
                         );

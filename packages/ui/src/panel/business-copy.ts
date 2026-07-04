@@ -128,7 +128,7 @@ export const BUSINESS_BRAND_IMAGES_SECTION = {
 export const BUSINESS_BRAND_IMAGES_HINT =
     'Logo y portada se guardan solas al subirlas. Sugerencia: portada 16:9 (1600×900 px) y logo cuadrado 512×512 px.';
 
-export type BusinessProfileSaveSection = 'pagina' | 'horarios';
+export type BusinessProfileSaveSection = 'pagina' | 'datos' | 'horarios';
 
 export function businessProfileSaveButtonLabel(section?: BusinessProfileSaveSection): string {
     switch (section) {
@@ -400,8 +400,14 @@ export const SERENATAS_BUSINESS_CONFIGURACIONES_PAGE = {
     description: 'Medios de pago, respuesta a solicitudes, políticas y avisos operativos.',
 } as const;
 
+export const SERENATAS_BUSINESS_APARIENCIA_PAGE = {
+    title: 'Apariencia',
+    description: 'Personaliza el diseño y colores de tu página pública.',
+} as const;
+
 export type SerenatasBusinessTabKey =
     | 'datos'
+    | 'apariencia'
     | 'direcciones'
     | 'horarios'
     | 'servicios'
@@ -411,6 +417,7 @@ export type SerenatasBusinessTabKey =
 
 const SERENATAS_BUSINESS_PAGE_BY_TAB = {
     datos: SERENATAS_BUSINESS_DATOS_PAGE,
+    apariencia: SERENATAS_BUSINESS_APARIENCIA_PAGE,
     direcciones: SERENATAS_BUSINESS_DIRECCIONES_PAGE,
     horarios: SERENATAS_BUSINESS_HORARIOS_PAGE,
     servicios: SERENATAS_BUSINESS_SERVICIOS_PAGE,

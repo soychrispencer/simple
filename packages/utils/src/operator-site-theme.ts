@@ -82,3 +82,33 @@ export function operatorSiteVisitorColorMode(
 export function operatorSiteThemeStorageKey(slug: string): string {
     return `simple:operator-site-color:${slug}`;
 }
+
+/* ── Accent color ────────────────────────────────────────────────────────── */
+
+export const OPERATOR_SITE_ACCENT_COLORS = ['teal', 'blue', 'purple', 'rose', 'amber', 'emerald'] as const;
+export type OperatorSiteAccentColor = (typeof OPERATOR_SITE_ACCENT_COLORS)[number];
+
+export const OPERATOR_SITE_ACCENT_OPTIONS: Array<{
+    id: OperatorSiteAccentColor;
+    label: string;
+    value: string;
+}> = [
+    { id: 'teal', label: 'Teal', value: '#0d9488' },
+    { id: 'blue', label: 'Azul', value: '#2563eb' },
+    { id: 'purple', label: 'Púrpura', value: '#9333ea' },
+    { id: 'rose', label: 'Rosa', value: '#e11d48' },
+    { id: 'amber', label: 'Ámbar', value: '#d97706' },
+    { id: 'emerald', label: 'Esmeralda', value: '#059669' },
+];
+
+export const DEFAULT_OPERATOR_SITE_ACCENT: OperatorSiteAccentColor = 'teal';
+
+export function normalizeOperatorSiteAccent(raw: unknown): OperatorSiteAccentColor {
+    return OPERATOR_SITE_ACCENT_COLORS.includes(raw as OperatorSiteAccentColor)
+        ? (raw as OperatorSiteAccentColor)
+        : DEFAULT_OPERATOR_SITE_ACCENT;
+}
+
+export function operatorSiteAccentValue(accent: OperatorSiteAccentColor): string {
+    return OPERATOR_SITE_ACCENT_OPTIONS.find((o) => o.id === accent)?.value ?? '#0d9488';
+}

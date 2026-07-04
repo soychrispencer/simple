@@ -1,4 +1,4 @@
-export const MI_NEGOCIO_TABS = ['datos', 'direcciones', 'horarios', 'servicios', 'repertorio', 'grupos', 'configuraciones'] as const;
+export const MI_NEGOCIO_TABS = ['datos', 'apariencia', 'direcciones', 'horarios', 'servicios', 'repertorio', 'grupos', 'configuraciones'] as const;
 
 export type MiNegocioTab = (typeof MI_NEGOCIO_TABS)[number];
 
@@ -33,7 +33,9 @@ export function miNegocioTabFromSearch(search: string): MiNegocioTab {
 export function miNegocioTabLabel(tab: MiNegocioTab): string {
     switch (tab) {
         case 'datos':
-            return 'Perfil público';
+            return 'Datos del negocio';
+        case 'apariencia':
+            return 'Apariencia';
         case 'direcciones':
             return 'Direcciones';
         case 'horarios':

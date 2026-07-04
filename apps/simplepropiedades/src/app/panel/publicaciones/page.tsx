@@ -778,6 +778,7 @@ export default function PublicacionesPage() {
                             </h3>
                             <button 
                                 onClick={() => setInstagramPreviewOpen(false)}
+                                aria-label="Cerrar vista previa"
                                 className="rounded-full p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                                 style={{ color: 'var(--fg-muted)' }}
                             >

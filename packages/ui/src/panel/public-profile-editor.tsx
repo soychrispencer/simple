@@ -41,6 +41,12 @@ import {
     validateBusinessScheduleRange,
     validateBusinessScheduleBreak,
     buildTypicalMarketplaceBusinessHours,
+    DEFAULT_OPERATOR_SITE_LAYOUT,
+    DEFAULT_OPERATOR_SITE_COLOR_MODE,
+    DEFAULT_OPERATOR_SITE_ACCENT,
+    normalizeOperatorSiteLayout,
+    normalizeOperatorSiteColorMode,
+    normalizeOperatorSiteAccent,
 } from '@simple/utils';
 import type { AddressBookEntry } from '@simple/types';
 import { PanelButton } from './panel-button.js';
@@ -53,6 +59,8 @@ import { BusinessPublicLocationCard, resolveDefaultBusinessAddress } from './bus
 import { BusinessPublicContactCard } from './business-public-contact-card.js';
 import { BusinessSchedulePanel } from './business-schedule-panel.js';
 import { type BusinessBlockedDaysFormState } from './business-blocked-days-section.js';
+import { OperatorSiteAppearanceEditor } from './operator-site-appearance-editor.js';
+import type { OperatorSiteAppearanceValue } from './operator-site-appearance-editor.js';
 import {
     BUSINESS_BRAND_IMAGES_SECTION,
     BUSINESS_DESCRIPTION_FIELD,
@@ -65,7 +73,7 @@ import {
 
 export type PublicProfileVertical = 'autos' | 'propiedades';
 
-export type PublicProfileEditorSection = 'pagina' | 'contacto' | 'redes' | 'horarios';
+export type PublicProfileEditorSection = 'pagina' | 'contacto' | 'redes' | 'horarios' | 'apariencia';
 
 export type PublicProfileEditorProps = {
     vertical: PublicProfileVertical;
@@ -226,6 +234,12 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
         reason: '',
     });
     const [scheduleStatus, setScheduleStatus] = useState('');
+    const [appearanceValue, setAppearanceValue] = useState<OperatorSiteAppearanceValue>({
+        layout: DEFAULT_OPERATOR_SITE_LAYOUT,
+        colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
+        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+    });
+    const [appearanceSaving, setAppearanceSaving] = useState(false);
 
     useEffect(() => {
         let active = true;
@@ -239,6 +253,11 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                 const loaded = normalizeLoadedProfile(response.profile);
                 setForm(loaded);
                 setScheduleSavedSnapshot(buildScheduleSnapshot(loaded));
+                setAppearanceValue({
+                    layout: normalizeOperatorSiteLayout((response.profile as Record<string, unknown>).operatorSiteLayout as string),
+                    colorMode: normalizeOperatorSiteColorMode((response.profile as Record<string, unknown>).operatorSiteColorMode as string),
+                    accentColor: normalizeOperatorSiteAccent((response.profile as Record<string, unknown>).operatorSiteAccentColor as string),
+                });
             }
             setLoading(false);
         })();
@@ -679,6 +698,50 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
         setScheduleStatus('');
     };
 
+    const handleAppearanceChange = (next: OperatorSiteAppearanceValue) => {
+        setAppearanceValue(next);
+        void persistAppearance(next);
+    };
+
+    const persistAppearance = async (next: OperatorSiteAppearanceValue) => {
+        setAppearanceSaving(true);
+        setNotice(null);
+        try {
+            if (!form) return;
+            const fresh = await fetchAccountPublicProfile(vertical);
+            const isPublished = fresh?.ok ? fresh.profile.isPublished : form.isPublished;
+            const updatedForm = {
+                ...form,
+                operatorSiteLayout: next.layout,
+                operatorSiteColorMode: next.colorMode,
+                operatorSiteAccentColor: next.accentColor,
+            };
+            const response = await updateAccountPublicProfile(
+                vertical,
+                buildPublicProfileSavePayload(updatedForm, vertical, isPublished),
+            );
+            setAppearanceSaving(false);
+            if (!response.ok) {
+                setNotice(response.error ?? 'No se pudo guardar la apariencia.');
+                return;
+            }
+            setForm(normalizeLoadedProfile(response.profile));
+        } catch {
+            setAppearanceSaving(false);
+        }
+    };
+
+    const appearanceCard = (
+        <OperatorSiteAppearanceEditor
+            value={appearanceValue}
+            publicPreviewUrl={publicPreview}
+            saving={appearanceSaving}
+            saveError={undefined}
+            onChange={handleAppearanceChange}
+            onSave={() => Promise.resolve()}
+        />
+    );
+
     const handleSaveSchedule = async () => {
         if (!form) return;
         if (!form.alwaysOpen) {
@@ -829,6 +892,20 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                     </PanelCard>
     );
 
+    const appearanceLinkCard = (
+        <Link
+            href="/panel/mi-negocio/apariencia"
+            className="group flex items-center justify-between rounded-xl border p-4 transition-colors hover:bg-[var(--bg-subtle)]"
+            style={{ borderColor: 'var(--border)' }}
+        >
+            <div className="min-w-0">
+                <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Apariencia</p>
+                <p className="mt-0.5 text-xs" style={{ color: 'var(--fg-muted)' }}>Personaliza el diseño y colores de tu página pública.</p>
+            </div>
+            <svg className="ml-3 h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: 'var(--fg-muted)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </Link>
+    );
+
     const saveSection: BusinessProfileSaveSection | undefined = section === 'horarios'
         ? section
         : section === 'pagina' || section === undefined
@@ -851,12 +928,13 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
         <div className="space-y-6">
             {tabbed ? (
                 <>
-                    {show('pagina') ? brandImagesCard : null}
-                    {show('pagina') ? publicLinkBelowBrand : null}
                     {show('pagina') ? identityCard : null}
                     {show('pagina') ? locationCard : null}
                     {show('pagina') ? contactCard : null}
                     {show('horarios') ? hoursCard : null}
+                    {show('apariencia') ? brandImagesCard : null}
+                    {show('apariencia') ? publicLinkBelowBrand : null}
+                    {show('apariencia') ? appearanceCard : null}
                     {saveFooter}
                 </>
             ) : (
@@ -872,6 +950,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                         <div className="space-y-6">
                             {hoursCard}
                             {summaryCard}
+                            {appearanceCard}
                         </div>
                     </div>
                     {saveFooter}

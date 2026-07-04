@@ -159,33 +159,6 @@ const FUEL_TYPES = ['Bencina', 'Diésel', 'Eléctrico', 'Híbrido', 'Gas'];
 const TRANSMISSIONS = ['Manual', 'Automática', 'CVT'];
 const CONDITIONS = ['Nuevo', 'Seminuevo', 'Usado'];
 
-// Regiones de Chile (simplificado)
-const REGIONS = [
-    { id: 'RM', name: 'Metropolitana' },
-    { id: 'VA', name: 'Valparaíso' },
-    { id: 'BI', name: 'Biobío' },
-    { id: 'AR', name: 'La Araucanía' },
-    { id: 'LL', name: 'Los Lagos' },
-    { id: 'AN', name: 'Antofagasta' },
-    { id: 'CO', name: 'Coquimbo' },
-    { id: 'ML', name: 'Maule' },
-    { id: 'LI', name: "O'Higgins" },
-    { id: 'TA', name: 'Tarapacá' },
-    { id: 'AT', name: 'Atacama' },
-    { id: 'VS', name: 'Ñuble' },
-    { id: 'RI', name: 'Los Ríos' },
-    { id: 'AI', name: 'Aysén' },
-    { id: 'MA', name: 'Magallanes' },
-    { id: 'AP', name: 'Arica y Parinacota' },
-];
-
-// Comunas principales por región (simplificado)
-const COMMUNES: Record<string, string[]> = {
-    'RM': ['Santiago', 'Providencia', 'Las Condes', 'Vitacura', 'La Reina', 'Ñuñoa', 'La Florida', 'Puente Alto', 'Maipú', 'Pudahuel', 'Quilicura', 'Independencia', 'Recoleta', 'Estación Central', 'San Miguel', 'La Cisterna', 'El Bosque', 'Lo Prado', 'Cerro Navia', 'Quinta Normal', 'Lo Espejo', 'Pedro Aguirre Cerda', 'San Joaquín', 'Macul', 'Peñalolén', 'La Granja', 'San Ramón', 'San Bernardo', 'Calera de Tango', 'Paine', 'Buin', 'Isla de Maipo', 'El Monte', 'Talagante', 'Peñaflor', 'Curacaví', 'María Pinto', 'Melipilla', 'San Pedro', 'Alhué'],
-    'VA': ['Valparaíso', 'Viña del Mar', 'Concón', 'Quilpué', 'Villa Alemana', 'Limache', 'Olmué', 'Quillota', 'La Calera', 'Nogales', 'San Antonio', 'Cartagena', 'El Tabo', 'El Quisco', 'Algarrobo', 'Casablanca', 'San Felipe', 'Los Andes', 'San Esteban', 'Calle Larga', 'Rinconada', 'Cabrero', 'Placilla'],
-    'BI': ['Concepción', 'Talcahuano', 'Chiguayante', 'San Pedro de la Paz', 'Hualpén', 'Hualqui', 'Coronel', 'Lota', 'Santa Juana', 'Tomé', 'Penco', 'Florida', 'Cabrero', 'Yumbel', 'San Rosendo', 'Laja', 'Negrete', 'Nacimiento', 'Mulchén', 'Santa Bárbara'],
-};
-
 // =============================================================================
 // COMPONENTE PRINCIPAL
 // =============================================================================
@@ -226,7 +199,15 @@ export default function PublicarPage() {
             // Intentar cargar borrador
             fetchPanelListingDraft('autos-quick').then((result) => {
                 if (result.ok && result.draft) {
-                    setDraftNotice('Hay un borrador guardado. Usa «Continuar» cuando esté disponible o publica una nueva.');
+                    const draft = result.draft as any;
+                    const brandName = draft.brandId === '__custom__' ? draft.customBrand : draft.brandName ?? '';
+                    const modelName = draft.modelId === '__custom__' ? draft.customModel : draft.modelName ?? '';
+                    const vehicleLabel = [brandName, modelName, draft.year].filter(Boolean).join(' ') || null;
+                    const stepNum = draft.photos?.length > 0 ? (draft.regionId ? 3 : 2) : 1;
+                    const detailText = vehicleLabel
+                        ? `${vehicleLabel} · Paso ${stepNum} de 3`
+                        : `Paso ${stepNum} de 3`;
+                    setDraftNotice(detailText);
                 }
             }).catch(() => null);
         } else {
@@ -422,14 +403,11 @@ export default function PublicarPage() {
             const modelName = form.modelId === '__custom__' ? form.customModel : 
                 catalog?.models.find(m => m.id === form.modelId)?.name || form.modelId;
             
-            // Buscar región y comuna en el catálogo para obtener IDs correctos
-            const catalogRegion = catalog?.regions.find(r => r.name === REGIONS.find(r2 => r2.id === form.regionId)?.name);
-            const catalogCommune = catalog?.communes.find(c => c.name === form.communeId && c.regionId === catalogRegion?.id);
-            
-            const regionId = catalogRegion?.id || form.regionId;
-            const regionName = catalogRegion?.name || REGIONS.find(r => r.id === form.regionId)?.name || '';
-            const communeId = catalogCommune?.id || form.communeId;
-            const communeName = catalogCommune?.name || form.communeId;
+            // Región y comuna del catálogo (form ya guarda IDs del catálogo)
+            const regionId = form.regionId;
+            const regionName = catalog?.regions.find(r => r.id === regionId)?.name || '';
+            const communeId = form.communeId;
+            const communeName = catalog?.communes.find(c => c.id === communeId)?.name || communeId;
             
             const locationData = createEmptyListingLocation({
                 sourceMode: 'area_only',
@@ -642,7 +620,22 @@ export default function PublicarPage() {
                     <MarketplacePublishPlanLimitNotice vertical="autos" isEditing={isEditing} planLimit={planLimit} />
                     {!isEditing ? <MarketplaceOperatorPublishHint message={operatorHint} /> : null}
                     {publishError ? <MarketplacePublishMessageNotice message={publishError} /> : null}
-                    {draftNotice ? <PanelNotice tone="warning">{draftNotice}</PanelNotice> : null}
+                    {draftNotice ? (
+                        <PanelNotice tone="warning">
+                            <div className="flex items-center gap-2">
+                                <span className="flex-1">
+                                    <strong>Borrador guardado.</strong> {draftNotice}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setDraftNotice(null)}
+                                    className="text-xs underline shrink-0"
+                                >
+                                    Descartar
+                                </button>
+                            </div>
+                        </PanelNotice>
+                    ) : null}
                 </>
             )}
             footer={(
@@ -660,16 +653,21 @@ export default function PublicarPage() {
                         {loading ? (
                             <>
                                 <IconLoader2 size={18} className="animate-spin" />
-                                {step === 3 ? 'Publicando...' : 'Continuar'}
+                                {step === 3 ? 'Publicando...' : 'Avanzando...'}
                             </>
                         ) : step === 3 ? (
                             <>
                                 <IconRocket size={18} />
-                                Publicar
+                                Publicar aviso
+                            </>
+                        ) : step === 1 ? (
+                            <>
+                                Agregar fotos
+                                <IconArrowRight size={18} />
                             </>
                         ) : (
                             <>
-                                Continuar
+                                Ver resumen
                                 <IconArrowRight size={18} />
                             </>
                         )}
@@ -677,6 +675,7 @@ export default function PublicarPage() {
                 </div>
             )}
         >
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(220px,260px)]">
             <PanelCard size="lg">
                 {step === 1 && (
                     <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="media" />
@@ -702,6 +701,11 @@ export default function PublicarPage() {
                     />
                 )}
             </PanelCard>
+            <div className="hidden xl:block xl:sticky xl:top-24 xl:self-start">
+                <p className="text-xs text-[var(--fg-muted)] mb-2">Vista previa</p>
+                <ListingPreviewCard form={form} catalog={catalog} />
+            </div>
+            </div>
         </MarketplacePublishWizard>
         )}
         </>
@@ -1001,9 +1005,35 @@ function Step1PhotosAndIdentity({
                         </div>
                         </SortableContext>
                         </DndContext>
-                        
+
+                        {/* Progress indicator */}
+                        {(() => {
+                            const RECOMMENDED = 5;
+                            const count = form.photos.length;
+                            const missing = Math.max(RECOMMENDED - count, 0);
+                            const pct = Math.min((count / RECOMMENDED) * 100, 100);
+                            return (
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-xs text-[var(--fg-muted)]">
+                                        <span>
+                                            {missing > 0
+                                                ? `${count} / ${RECOMMENDED} fotos · Faltan ${missing} recomendadas`
+                                                : `${count} fotos · Cobertura recomendada completa`}
+                                        </span>
+                                        <span>Portada = primera foto</span>
+                                    </div>
+                                    <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]">
+                                        <div
+                                            className="h-full rounded-full transition-[width] duration-200"
+                                            style={{ width: `${pct}%`, background: 'var(--fg)' }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         <p className="text-xs text-[var(--fg-muted)]">
-                            Primera foto = portada · Arrastra para reordenar
+                            Arrastra para reordenar
                         </p>
                     </div>
                 )}
@@ -1384,18 +1414,34 @@ function Step2Condition({
         return model?.name || modelId;
     };
     
-    // Auto-generar título si está vacío (Marca + Modelo + Año + Color)
+    // Auto-generar título cuando cambian marca/modelo/año
+    // Solo actualiza si el título actual parece autogenerado (no fue editado manualmente)
     useEffect(() => {
-        if (!form.title && form.brandId) {
-            const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
-            const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
-            const parts = [brand, model, form.year, form.color].filter(Boolean);
-            const newTitle = parts.join(' ').trim() || '';
-            if (newTitle) {
-                updateForm('title', newTitle);
-            }
+        if (!form.brandId) return;
+        const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
+        const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
+        const newTitle = [brand, model, form.year].filter(Boolean).join(' ').trim();
+        if (!newTitle) return;
+
+        // Si el título está vacío, generar directamente
+        if (!form.title) {
+            updateForm('title', newTitle);
+            return;
         }
-    }, [form.brandId, form.modelId, form.year, form.color, catalog]);
+
+        // Si el título actual coincide con un patrón autogenerado anterior, actualizarlo
+        // (esto permite que se actualice cuando el usuario cambia marca/modelo/año)
+        const previousBrand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
+        const previousModel = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
+        const previousTitles = [
+            [previousBrand, previousModel, form.year, form.color].filter(Boolean).join(' ').trim(),
+            [previousBrand, previousModel, form.year].filter(Boolean).join(' ').trim(),
+            [previousBrand, previousModel].filter(Boolean).join(' ').trim(),
+        ];
+        if (previousTitles.includes(form.title.trim())) {
+            updateForm('title', newTitle);
+        }
+    }, [form.brandId, form.modelId, form.year, form.color, form.customBrand, form.customModel, catalog]);
     return (
         <div className="space-y-8 pb-32">
             {/* Header Premium */}
@@ -1471,8 +1517,9 @@ function Step2Condition({
             </section>
             
             {/* Expandible: Condición y dueños */}
-            <ExpandibleSection 
-                title="Condición del vehículo" 
+            <ExpandibleSection
+                title="Condición del vehículo"
+                subtitle="Estos datos aumentan las visitas a tu aviso"
                 expanded={expandedSections.details}
                 onToggle={() => toggleSection('details')}
             >
@@ -1518,9 +1565,9 @@ function Step2Condition({
             </ExpandibleSection>
             
             {/* Expandible: Historial (chips toggles) */}
-            <ExpandibleSection 
-                title="Historial del vehículo" 
-                subtitle="Estos datos generan confianza"
+            <ExpandibleSection
+                title="Historial del vehículo"
+                subtitle="Los avisos con historial completo generan más confianza"
                 expanded={expandedSections.history}
                 onToggle={() => toggleSection('history')}
             >
@@ -1584,7 +1631,8 @@ function Step3LocationAndPublish({
     user: any;
     catalog: PublishWizardCatalog | null;
 }) {
-    const communes = COMMUNES[form.regionId] || [];
+    const regions = catalog?.regions ?? [];
+    const communes = catalog?.communes.filter(c => c.regionId === form.regionId) ?? [];
     const [savedAddresses, setSavedAddresses] = useState<AddressBookEntry[]>([]);
     const [selectedAddressId, setSelectedAddressId] = useState<string>('');
     
@@ -1629,8 +1677,8 @@ function Step3LocationAndPublish({
     
     // Obtener nombres de la dirección seleccionada
     const selectedAddress = savedAddresses.find(a => a.id === selectedAddressId);
-    const regionName = selectedAddress?.regionName || REGIONS.find(r => r.id === form.regionId)?.name;
-    const communeName = selectedAddress?.communeName || form.communeId;
+    const regionName = selectedAddress?.regionName || regions.find(r => r.id === form.regionId)?.name;
+    const communeName = selectedAddress?.communeName || communes.find(c => c.id === form.communeId)?.name || form.communeId;
     
     return (
         <div className="space-y-8 pb-32">
@@ -1710,7 +1758,7 @@ function Step3LocationAndPublish({
                                 }}
                                 options={[
                                     { value: '', label: 'Selecciona región' },
-                                    ...REGIONS.map(r => ({ value: r.id, label: r.name }))
+                                    ...regions.map(r => ({ value: r.id, label: r.name }))
                                 ]}
                             />
                         )}
@@ -1735,7 +1783,7 @@ function Step3LocationAndPublish({
                                 disabled={!form.regionId}
                                 options={[
                                     { value: '', label: form.regionId ? 'Selecciona comuna' : 'Primero región' },
-                                    ...communes.map(c => ({ value: c, label: c }))
+                                    ...communes.map(c => ({ value: c.id, label: c.name }))
                                 ]}
                             />
                         )}
@@ -1771,8 +1819,7 @@ function Step3LocationAndPublish({
                         onClick={() => {
                             const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
                             const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
-                            const parts = [brand, model, form.year, form.color].filter(Boolean);
-                            const newTitle = parts.join(' ').trim() || 'Vehículo en venta';
+                            const newTitle = [brand, model, form.year].filter(Boolean).join(' ').trim() || 'Vehículo en venta';
                             updateForm('title', newTitle);
                         }}
                         className="text-xs text-[var(--accent)] flex items-center gap-1 hover:underline"
@@ -1785,11 +1832,11 @@ function Step3LocationAndPublish({
                     type="text"
                     value={form.title}
                     onChange={(e) => updateForm('title', e.target.value)}
-                    placeholder={`${form.brandId === '__custom__' ? form.customBrand : 'Marca'} ${form.modelId === '__custom__' ? form.customModel : 'Modelo'} ${form.year || ''}`.trim()}
+                    placeholder="Toyota Yaris 2020"
                     className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-sm font-medium"
                 />
                 <p className="text-xs text-[var(--fg-muted)] mt-1">
-                    Se genera automáticamente con marca, modelo, año y color
+                    Se genera automáticamente con marca, modelo y año. Puedes editarlo.
                 </p>
             </section>
             
@@ -1904,127 +1951,90 @@ function Step3LocationAndPublish({
                     {form.description.length}/1000 caracteres · Lista para Instagram y WhatsApp
                 </p>
             </section>
-            
-            {/* Preview de publicación - Tarjeta vertical tipo marketplace */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-lg bg-[var(--accent-subtle)] flex items-center justify-center">
-                        <IconPhoto size={18} className="text-[var(--accent)]" />
-                    </div>
-                    <p className="text-sm font-semibold">Así se verá tu aviso</p>
-                </div>
-                
-                {/* Tarjeta vertical estilo marketplace */}
-                <div className="max-w-sm mx-auto rounded-2xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden shadow-md">
-                    {/* Imagen - aspecto más vertical tipo móvil */}
-                    {form.photos[0] ? (
-                        <div className="aspect-square relative">
-                            <img 
-                                src={form.photos[0].preview} 
-                                alt="Preview"
-                                className="w-full h-full object-cover"
-                            />
-                            {form.photos.length > 1 && (
-                                <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-black/70 text-white text-xs font-medium">
-                                    1 / {form.photos.length}
-                                </div>
-                            )}
-                            {/* Badge de tipo */}
-                            <div className="absolute top-2 left-2 px-2 py-1 rounded-lg bg-white/90 backdrop-blur-sm text-xs font-semibold text-[var(--fg)]">
-                                {form.listingType === 'sale' ? 'Venta' : form.listingType === 'rent' ? 'Arriendo' : 'Subasta'}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="aspect-square bg-[var(--bg-subtle)] flex items-center justify-center">
-                            <IconPhoto size={64} className="text-[var(--fg-muted)] opacity-40" />
-                        </div>
-                    )}
-                    
-                    {/* Info de la tarjeta */}
-                    <div className="p-4 space-y-3">
-                        {/* Precio destacado */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {form.offerPrice ? (
-                                <>
-                                    <span className="text-2xl font-bold text-[var(--accent)]">${form.offerPrice}</span>
-                                    <span className="text-sm text-[var(--fg-muted)] line-through">${form.price}</span>
-                                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--accent)] text-white font-bold">
-                                        -{form.discountPercent}%
-                                    </span>
-                                </>
-                            ) : (
-                                <span className="text-2xl font-bold text-[var(--accent)]">${form.price || 'Consultar'}</span>
-                            )}
-                        </div>
-                        
-                        {/* Título */}
-                        <h3 className="font-semibold text-base leading-snug text-[var(--fg)] line-clamp-2">
-                            {form.title || `${form.brandId === '__custom__' ? form.customBrand : 'Marca'} ${form.modelId === '__custom__' ? form.customModel : 'Modelo'} ${form.year || ''}`.trim() || 'Título del vehículo'}
-                        </h3>
-                        
-                        {/* Ubicación */}
-                        <div className="flex items-center gap-1.5 text-xs text-[var(--fg-muted)]">
-                            <IconMapPin size={14} />
-                            <span>
-                                {selectedAddress?.communeName || communeName || 'Comuna'}, {selectedAddress?.regionName || regionName || 'Región'}
-                            </span>
-                        </div>
-                        
-                        {/* Specs en grid de 2 columnas */}
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                            {form.year && (
-                                <div className="flex items-center gap-1.5 text-sm text-[var(--fg-secondary)]">
-                                    <IconCalendar size={16} className="text-[var(--fg-muted)]" />
-                                    <span>{form.year}</span>
-                                </div>
-                            )}
-                            {form.mileage && (
-                                <div className="flex items-center gap-1.5 text-sm text-[var(--fg-secondary)]">
-                                    <IconGauge size={16} className="text-[var(--fg-muted)]" />
-                                    <span>{form.mileage} km</span>
-                                </div>
-                            )}
-                            {form.fuelType && (
-                                <div className="flex items-center gap-1.5 text-sm text-[var(--fg-secondary)]">
-                                    <IconGasStation size={16} className="text-[var(--fg-muted)]" />
-                                    <span>{form.fuelType}</span>
-                                </div>
-                            )}
-                            {form.transmission && (
-                                <div className="flex items-center gap-1.5 text-sm text-[var(--fg-secondary)]">
-                                    <IconManualGearbox size={16} className="text-[var(--fg-muted)]" />
-                                    <span>{form.transmission}</span>
-                                </div>
-                            )}
-                        </div>
-                        
-                        {/* Opciones de venta */}
-                        {(form.negotiable || form.financing || form.exchange) && (
-                            <div className="flex flex-wrap gap-1.5 pt-1">
-                                {form.negotiable && (
-                                    <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] font-medium">
-                                        Conversable
-                                    </span>
-                                )}
-                                {form.financing && (
-                                    <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] font-medium">
-                                        Financiamiento
-                                    </span>
-                                )}
-                                {form.exchange && (
-                                    <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] font-medium">
-                                        Permuta
-                                    </span>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </section>
         </div>
     );
 }
 
+// =============================================================================
+// LISTING PREVIEW CARD - Vista previa en vivo del aviso
+// =============================================================================
+
+function ListingPreviewCard({ form, catalog }: { form: FormData; catalog: PublishWizardCatalog | null }) {
+    const brandName = form.brandId === '__custom__' ? form.customBrand : catalog?.brands.find(b => b.id === form.brandId)?.name || '';
+    const modelName = form.modelId === '__custom__' ? form.customModel : catalog?.models.find(m => m.id === form.modelId)?.name || '';
+    const title = form.title || [brandName, modelName, form.year].filter(Boolean).join(' ') || 'Título del vehículo';
+    const regionName = catalog?.regions.find(r => r.id === form.regionId)?.name || '';
+    const communeName = catalog?.communes.find(c => c.id === form.communeId)?.name || '';
+    const location = [communeName, regionName].filter(Boolean).join(', ') || 'Ubicación pendiente';
+    const listingLabel = form.listingType === 'sale' ? 'Venta' : form.listingType === 'rent' ? 'Arriendo' : 'Subasta';
+
+    const specs: Array<{ icon: React.ReactNode; label: string }> = [];
+    if (form.year) specs.push({ icon: <IconCalendar size={13} />, label: form.year });
+    if (form.mileage) specs.push({ icon: <IconGauge size={13} />, label: `${form.mileage} km` });
+    if (form.fuelType) specs.push({ icon: <IconGasStation size={13} />, label: form.fuelType });
+    if (form.transmission) specs.push({ icon: <IconManualGearbox size={13} />, label: form.transmission });
+
+    return (
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden shadow-md">
+            {/* Media area — 9:14 like real card */}
+            <div className="relative aspect-[9/14] bg-[#09090b] overflow-hidden">
+                {form.photos[0] ? (
+                    <img src={form.photos[0].preview} alt="Preview" className="h-full w-full object-cover" />
+                ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-center" style={{ background: 'radial-gradient(circle at 50% 20%, color-mix(in oklab, var(--accent) 20%, transparent), transparent 42%), #111827' }}>
+                        <IconCamera size={28} className="text-white/60" />
+                        <span className="text-xs font-semibold text-white/80">Sube la portada</span>
+                    </div>
+                )}
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                {/* Badge */}
+                <div className="absolute top-3 left-3 z-10">
+                    <span className="inline-flex items-center text-[11px] px-2 py-1 rounded-full border border-white/20 bg-black/35 text-white backdrop-blur font-bold">
+                        {listingLabel}
+                    </span>
+                </div>
+                {/* Photo count */}
+                {form.photos.length > 1 && (
+                    <div className="absolute top-3 right-3 z-10">
+                        <span className="inline-flex items-center text-[11px] px-2 py-1 rounded-full bg-black/40 text-white backdrop-blur font-medium">
+                            1 / {form.photos.length}
+                        </span>
+                    </div>
+                )}
+                {/* Bottom info — centered like real card */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
+                    <p className="text-white font-bold text-xl text-center drop-shadow-sm">
+                        {form.offerPrice ? `$${form.offerPrice}` : `$${form.price || 'Consultar'}`}
+                    </p>
+                    <h3 className="text-white font-semibold text-sm leading-tight text-center line-clamp-1 mt-0.5">{title}</h3>
+                    {specs.length > 0 && (
+                        <div className="flex items-center justify-center gap-3 mt-2">
+                            {specs.map((s, i) => (
+                                <div key={i} className="flex flex-col items-center gap-0.5">
+                                    <span className="text-white/50">{s.icon}</span>
+                                    <span className="text-[10px] text-white/80">{s.label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="flex items-center justify-center gap-1 text-white/60 text-[10px] mt-2">
+                        <IconMapPin size={10} />
+                        <span className="truncate">{location}</span>
+                    </div>
+                </div>
+            </div>
+            {/* Footer label */}
+            <div className="flex items-center justify-between px-3 py-2">
+                <p className="text-[10px] text-[var(--fg-muted)]">Así verá tu aviso el comprador</p>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent)] text-white font-medium">Simple</span>
+            </div>
+        </div>
+    );
+}
+
+// =============================================================================
+// COMPONENTES AUXILIARES
 // =============================================================================
 // PASO SUCCESS - Con integración Instagram completa
 // =============================================================================

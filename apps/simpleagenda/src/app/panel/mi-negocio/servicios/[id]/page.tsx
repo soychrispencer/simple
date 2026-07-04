@@ -479,7 +479,7 @@ export default function GroupServiceDetailPage({ params }: { params: Promise<{ i
             )}
 
             {formOpen && (
-                <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={closeForm}>
+                <button type="button" aria-label="Cerrar" className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={closeForm}>
                     <div
                         className="w-full rounded-3xl overflow-hidden max-h-[90vh] flex flex-col"
                         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
@@ -586,7 +586,7 @@ export default function GroupServiceDetailPage({ params }: { params: Promise<{ i
                             </PanelButton>
                         </div>
                     </div>
-                </div>
+                </button>
             )}
         </AgendaMiNegocioShell>
     );

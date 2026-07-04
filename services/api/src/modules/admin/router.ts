@@ -458,6 +458,11 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 });
                 result.client = 'created';
             }
+            // Remove musician and owner profiles when switching to client-only
+            await deps.db.delete(serenataMusicians).where(deps.eq(serenataMusicians.userId, userId));
+            await deps.db.delete(serenataOwners).where(deps.eq(serenataOwners.userId, userId));
+            result.musicianRemoved = true;
+            result.ownerRemoved = true;
         }
 
         if (profileType === 'musician') {
@@ -482,6 +487,11 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 });
                 result.musician = 'created';
             }
+            // Remove client and owner profiles when switching to musician-only
+            await deps.db.delete(serenataClients).where(deps.eq(serenataClients.userId, userId));
+            await deps.db.delete(serenataOwners).where(deps.eq(serenataOwners.userId, userId));
+            result.clientRemoved = true;
+            result.ownerRemoved = true;
         }
 
         if (profileType === 'owner') {
@@ -523,11 +533,11 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 });
                 result.owner = 'created';
             }
-        }
-
-        if (payload?.removeClientProfile && profileType !== 'client') {
+            // Remove client and musician profiles when switching to owner-only
             await deps.db.delete(serenataClients).where(deps.eq(serenataClients.userId, userId));
+            await deps.db.delete(serenataMusicians).where(deps.eq(serenataMusicians.userId, userId));
             result.clientRemoved = true;
+            result.musicianRemoved = true;
         }
 
         await createAdminAudit({

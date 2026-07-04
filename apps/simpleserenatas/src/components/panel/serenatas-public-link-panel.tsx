@@ -56,8 +56,20 @@ export function SerenatasPublicLinkPanel({ refresh }: { refresh: () => Promise<v
         return <p className="text-sm text-fg-muted">Cargando link público…</p>;
     }
 
-    if (error || !adapter) {
-        return null;
+    if (error) {
+        return (
+            <p className="text-xs text-(--color-error-text)" style={{ color: 'var(--color-error-text)' }}>
+                Error cargando link público: {error}
+            </p>
+        );
+    }
+
+    if (!adapter) {
+        return (
+            <p className="text-xs text-(--fg-muted)">
+                No se pudo cargar el perfil del grupo. Verifica que tengas un grupo creado en tu cuenta.
+            </p>
+        );
     }
 
     return <BusinessPublicLinkPanel adapter={adapter} variant="minimal" />;

@@ -19,6 +19,7 @@ import {
 } from './shared';
 import { useSerenataPanelFormat } from '@/hooks/use-serenata-panel-format';
 import { MusicianAvailabilityToggle } from './musician-availability-toggle';
+import { SerenatasPublicLinkPanel } from './serenatas-public-link-panel';
 
 export function HomeView(props: {
     mode: AppMode;
@@ -271,12 +272,19 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
         : props.serenatas.filter((item) => needsClosure(item, businessTimezone));
     const closurePreview = [...toClose].sort(sortSerenatasByEvent).slice(0, 3);
     const showAssignGroupCard = ownerActive && needsGroupSerenatas.length > 0;
+    const isOwnerNew = ownerActive && pendingApp.length === 0 && upcoming.length === 0 && closurePreview.length === 0;
 
     return (
         <div className="grid gap-4">
             {props.profiles.musician && !ownerActive ? (
                 <MusicianAvailabilityToggle musician={props.profiles.musician} refresh={props.refresh} />
             ) : null}
+
+            {/* Public link — show when owner has no activity yet */}
+            {isOwnerNew && (
+                <SerenatasPublicLinkPanel refresh={props.refresh} />
+            )}
+
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <PanelStatCard label="Mis serenatas" value={String(props.serenatas.length)} />
                 <PanelStatCard

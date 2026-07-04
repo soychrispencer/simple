@@ -9,12 +9,10 @@ import {
     PanelNotice,
     PanelBlockHeader,
     PanelSectionSaveFooter,
-    BUSINESS_BRAND_IMAGES_SECTION,
     BUSINESS_PUBLIC_INFO_SECTION,
     SERENATAS_BUSINESS_WORK_ZONES_SECTION,
     BUSINESS_DESCRIPTION_FIELD,
     BUSINESS_PUBLIC_NAME_FIELD,
-    businessBrandImageSavedMessage,
     businessProfileSaveSuccessMessage,
     BusinessPublicContactCard,
     BusinessPublicLocationCard,
@@ -38,8 +36,6 @@ import { ensureProviderGroupDraft, PROVIDER_GROUP_DRAFT_NAME } from '@/lib/ensur
 import { useProviderGroupScope } from '@/hooks/use-provider-group-scope';
 import { WorkZonesPicker } from '@/components/panel/work-zones-picker';
 import { FieldInput, FieldTextarea, type FormStatus } from './shared';
-import { ProviderGroupBrandImages } from './provider-group-brand-images';
-import { SerenatasPublicLinkPanel } from './serenatas-public-link-panel';
 import { publicMariachiProfileUrl } from '@/lib/public-mariachi-routes';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
@@ -249,26 +245,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
         });
     }
 
-    async function saveImages(
-        nextLogoUrl: string | null,
-        nextCoverUrl: string | null,
-        kind: 'logo' | 'cover',
-    ) {
-        if (!mariachi) return;
-        const response = await serenatasApi.updateProviderGroup(mariachi.id, {
-            ...profilePayload(),
-            logoUrl: nextLogoUrl,
-            coverUrl: nextCoverUrl,
-        });
-        if (!response.ok) {
-            setSaveStatus({ loading: false, error: response.error ?? 'No pudimos guardar la imagen', ok: null });
-            return;
-        }
-        await refreshAll();
-        setSaveStatus({ loading: false, error: null, ok: businessBrandImageSavedMessage(kind) });
-        window.setTimeout(() => setSaveStatus((current) => ({ ...current, ok: null })), 3000);
-    }
-
     if (loading) {
         return <p className="text-sm text-(--fg-muted)">Cargando…</p>;
     }
@@ -287,28 +263,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     return (
         <div className="grid w-full gap-6">
             <div className="grid min-w-0 gap-5">
-                <PanelCard size="lg" className="space-y-4">
-                    <PanelBlockHeader
-                        title={BUSINESS_BRAND_IMAGES_SECTION.title}
-                        description={BUSINESS_BRAND_IMAGES_SECTION.description}
-                        className="mb-0"
-                    />
-                    <ProviderGroupBrandImages
-                        name={name}
-                        logoUrl={logoUrl}
-                        coverUrl={coverUrl}
-                        profession="Mariachi"
-                        location={previewSubtitle}
-                        previewHref={publicPreviewHref}
-                        onLogoChange={setLogoUrl}
-                        onCoverChange={setCoverUrl}
-                        onError={(message) => setSaveStatus({ loading: false, error: message, ok: null })}
-                        onSave={mariachi ? saveImages : undefined}
-                    />
-                </PanelCard>
-
-                <SerenatasPublicLinkPanel refresh={refresh} />
-
                 <PanelCard size="lg" className="space-y-5">
                     <PanelBlockHeader
                         title={BUSINESS_PUBLIC_INFO_SECTION.title}

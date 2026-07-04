@@ -1,7 +1,6 @@
 import type { PanelBusinessSubsectionBack } from './business-shell.js';
 import {
     AGENDA_BUSINESS_CONFIGURACIONES_PAGE,
-    AGENDA_BUSINESS_PERFIL_PAGE,
     AGENDA_BUSINESS_SERVICIOS_PAGE,
 } from './business-copy.js';
 
@@ -9,7 +8,7 @@ export type AgendaBusinessSubsectionKey = 'packs' | 'promociones' | 'dominio' | 
 
 export type AgendaBusinessSubsectionShellProps = {
     activeKey: string;
-    subsectionBack: PanelBusinessSubsectionBack;
+    subsectionBack?: PanelBusinessSubsectionBack;
 };
 
 const AGENDA_BUSINESS_SUBSECTIONS: Record<AgendaBusinessSubsectionKey, AgendaBusinessSubsectionShellProps> = {
@@ -36,10 +35,6 @@ const AGENDA_BUSINESS_SUBSECTIONS: Record<AgendaBusinessSubsectionKey, AgendaBus
     },
     apariencia: {
         activeKey: 'apariencia',
-        subsectionBack: {
-            href: '/panel/mi-negocio',
-            label: AGENDA_BUSINESS_PERFIL_PAGE.title,
-        },
     },
 };
 

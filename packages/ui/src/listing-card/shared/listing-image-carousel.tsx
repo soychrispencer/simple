@@ -97,7 +97,7 @@ export default function ListingImageCarousel({
                         type="button"
                         aria-label="Imagen anterior"
                         onClick={(e) => goTo(-1, e)}
-                        className="absolute left-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-md"
+                        className="absolute left-2 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-md"
                     >
                         <IconChevronLeft size={16} />
                     </button>
@@ -105,7 +105,7 @@ export default function ListingImageCarousel({
                         type="button"
                         aria-label="Imagen siguiente"
                         onClick={(e) => goTo(1, e)}
-                        className="absolute right-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-md"
+                        className="absolute right-2 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-md"
                     >
                         <IconChevronRight size={16} />
                     </button>

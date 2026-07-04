@@ -71,6 +71,7 @@ export function ColorPicker({
             {/* Trigger button */}
             <button
                 type="button"
+                aria-label="Seleccionar color"
                 className="form-input w-full flex items-center gap-2 text-left cursor-pointer"
                 onClick={() => setOpen((o) => !o)}
             >

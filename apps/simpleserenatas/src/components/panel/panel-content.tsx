@@ -38,6 +38,9 @@ const GuardadosView = dynamic(() =>
 const FinanzasView = dynamic(() =>
     import('@/components/panel/finanzas/finanzas-view').then((mod) => mod.FinanzasView),
 );
+const EstadisticasView = dynamic(() =>
+    import('@/components/panel/estadisticas-view').then((mod) => mod.EstadisticasView),
+);
 const PanelMessagesInbox = dynamic(() =>
     import('@simple/ui/panel').then((mod) => mod.PanelMessagesInbox),
 );
@@ -237,6 +240,19 @@ export function PanelContent(props: PanelContentProps) {
                     accountUser={props.accountUser}
                     refresh={props.refresh}
                 />
+            </PanelSectionPage>
+        ) : (
+            <PanelHomePage {...props} />
+        );
+    }
+
+    if (props.section === 'estadisticas') {
+        return props.mode === 'work' && props.ownerFeaturesEnabled ? (
+            <PanelSectionPage
+                title="Estadísticas"
+                description="Resumen de serenatas, ingresos y calificaciones."
+            >
+                <EstadisticasView />
             </PanelSectionPage>
         ) : (
             <PanelHomePage {...props} />

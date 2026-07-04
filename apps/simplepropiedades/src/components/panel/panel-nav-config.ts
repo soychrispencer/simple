@@ -3,6 +3,7 @@
 import type { ComponentType } from 'react';
 import {
     IconChartBar,
+    IconCash,
     IconFileText,
     IconBookmark,
     IconLayoutDashboard,
@@ -30,6 +31,7 @@ const PANEL_NAV_ITEMS: PanelNavItem[] = [
     { href: '/panel/publicar', label: 'Nueva publicación', icon: IconPlus },
     { href: '/panel/guardados', label: 'Guardados', icon: IconBookmark },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
+    { href: '/panel/finanzas', label: 'Finanzas', icon: IconCash, visibility: 'admin_plus' },
     { href: '/panel/estadisticas', label: 'Estadísticas', icon: IconChartBar, visibility: 'admin_plus' },
     { href: '/panel/publicidad', label: 'Publicidad', icon: IconRocket, visibility: 'admin_plus', badge: 'PRO' },
     { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBriefcase },

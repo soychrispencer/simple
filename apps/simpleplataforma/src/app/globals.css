@@ -4,20 +4,31 @@
 @import "../../../../packages/ui/src/theme-base.css";
 
 :root {
-    --accent: #111111;
-    --accent-subtle: rgba(17, 17, 17, 0.12);
-    --accent-soft: rgba(17, 17, 17, 0.06);
-    --accent-border: rgba(17, 17, 17, 0.22);
+    --accent: #09090b;
+    --accent-subtle: rgba(9, 9, 11, 0.08);
+    --accent-soft: rgba(9, 9, 11, 0.04);
+    --accent-border: rgba(9, 9, 11, 0.16);
     --accent-contrast: #ffffff;
+
+    /* Ecosystem brand palette */
+    --brand-autos: #ff3600;
+    --brand-propiedades: #3232ff;
+    --brand-agenda: #0d9488;
+    --brand-serenatas: #e11d48;
 }
 
 .dark,
 [data-theme="dark"] {
-    --accent: #ffffff;
-    --accent-subtle: rgba(255, 255, 255, 0.18);
-    --accent-soft: rgba(255, 255, 255, 0.10);
-    --accent-border: rgba(255, 255, 255, 0.34);
-    --accent-contrast: #111111;
+    --accent: #fafafa;
+    --accent-subtle: rgba(250, 250, 250, 0.12);
+    --accent-soft: rgba(250, 250, 250, 0.06);
+    --accent-border: rgba(250, 250, 250, 0.24);
+    --accent-contrast: #09090b;
+
+    --brand-autos: #ff5733;
+    --brand-propiedades: #5555ff;
+    --brand-agenda: #14b8a6;
+    --brand-serenatas: #f43f5e;
 }
 
 .plt-fg { color: var(--fg); }
@@ -46,3 +57,34 @@
 .plt-cta-card { border-color: var(--border); }
 .plt-divider { border-top: 1px solid var(--border); }
 .plt-blur-accent { background: var(--accent); }
+
+/* Ecosystem brand dots */
+.plt-brand-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.plt-brand-dot--autos { background: var(--brand-autos); }
+.plt-brand-dot--propiedades { background: var(--brand-propiedades); }
+.plt-brand-dot--agenda { background: var(--brand-agenda); }
+.plt-brand-dot--serenatas { background: var(--brand-serenatas); }
+
+/* Hero gradient mesh */
+.plt-hero-mesh {
+    background:
+        radial-gradient(ellipse 60% 50% at 20% 20%, var(--brand-autos), transparent),
+        radial-gradient(ellipse 50% 40% at 80% 30%, var(--brand-propiedades), transparent),
+        radial-gradient(ellipse 40% 50% at 50% 80%, var(--brand-agenda), transparent),
+        radial-gradient(ellipse 50% 40% at 30% 70%, var(--brand-serenatas), transparent);
+    opacity: 0.06;
+}
+
+.dark .plt-hero-mesh {
+    opacity: 0.08;
+}
+
+/* Vertical brand ring animation */
+@keyframes brand-ring-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.plt-brand-ring {
+    animation: brand-ring-spin 40s linear infinite;
+}

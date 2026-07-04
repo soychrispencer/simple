@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type MouseEventHandler, type ReactNode } from 'react';
+import React, { useId, useState, type MouseEventHandler, type ReactNode } from 'react';
 import { IconUser } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
 import { PanelCard } from './panel-card.js';
@@ -297,12 +297,15 @@ export function PanelAccountProfileCard(props: PanelAccountProfileCardProps) {
 
 export function PanelField(props: PanelFieldProps) {
     const { label, hint, required, children, className } = props;
+    const fieldId = useId();
     return (
         <div className={joinClasses('flex flex-col gap-1.5', className)}>
-            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
+            <label htmlFor={fieldId} className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
                 {label}{required ? <span style={{ color: 'var(--color-error)' }} className="ml-0.5">*</span> : null}
             </label>
-            {children}
+            {React.isValidElement(children)
+                ? React.cloneElement(children as React.ReactElement<Record<string, unknown>>, { id: fieldId })
+                : children}
             {hint ? <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{hint}</p> : null}
         </div>
     );

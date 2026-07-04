@@ -117,19 +117,16 @@ export default function RootLayout({
 }) {
     return (
         <html lang="es" suppressHydrationWarning>
-            <head>
-                <script
-                    type="application/ld+json"
-                     
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(siteSchema) }}
-                />
-            </head>
             <body className={`${(inter as any).variable} font-sans antialiased`}>
                 <ThemeProvider>
                     <ClientProviders>
                         {children}
                     </ClientProviders>
                 </ThemeProvider>
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(siteSchema) }}
+                />
             </body>
         </html>
     );

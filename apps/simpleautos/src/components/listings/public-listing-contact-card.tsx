@@ -114,6 +114,7 @@ export default function PublicListingContactCard(props: {
                                 className="w-full"
                                 disabled={submitting || !props.seller?.phone}
                                 onClick={() => handleQuickAction('whatsapp')}
+                                ariaLabel="Contactar por WhatsApp"
                             >
                                 <IconBrandWhatsapp size={16} />
                             </PanelButton>
@@ -123,6 +124,7 @@ export default function PublicListingContactCard(props: {
                                 className="w-full"
                                 disabled={submitting || !props.seller?.phone}
                                 onClick={() => handleQuickAction('phone_call')}
+                                ariaLabel="Llamar por teléfono"
                             >
                                 <IconPhone size={16} />
                             </PanelButton>
@@ -132,6 +134,7 @@ export default function PublicListingContactCard(props: {
                                 className="w-full"
                                 disabled={submitting || !props.seller?.email}
                                 onClick={() => handleQuickAction('email')}
+                                ariaLabel="Enviar email"
                             >
                                 <IconMail size={16} />
                             </PanelButton>

@@ -376,8 +376,8 @@ export function AuthModal({
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-5 sm:p-6" onClick={handleClose}>
-            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }} />
+        <button type="button" aria-label="Cerrar" className="fixed inset-0 z-50 flex items-center justify-center p-5 sm:p-6 bg-black/40 backdrop-blur-[2px]" onClick={handleClose}>
+            <div className="absolute inset-0" />
             <div
                 ref={dialogRef}
                 role="dialog"
@@ -693,7 +693,7 @@ export function AuthModal({
                 )}
                 </div>
             </div>
-        </div>,
+        </button>,
         portalElement
     );
 }

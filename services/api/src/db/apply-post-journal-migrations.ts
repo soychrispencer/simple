@@ -73,6 +73,7 @@ export const POST_JOURNAL_TAGS = [
     '0107_drop_crm',
     '0108_billing_purge_essential',
     '0109_public_profile_operator_subtype',
+    '0110_agenda_accent_color',
     '0110_public_profile_trial_ends_at',
     '0111_accounts_business_legal',
     '0112_agenda_operator_profile',

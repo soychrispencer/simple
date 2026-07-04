@@ -4,13 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-    IconBrandFacebook,
-    IconBrandInstagram,
-    IconBrandLinkedin,
-    IconBrandTiktok,
     IconBrandWhatsapp,
-    IconBrandX,
-    IconBrandYoutube,
     IconBuildingBank,
     IconCalendarEvent,
     IconCreditCard,
@@ -37,6 +31,8 @@ import { OperatorSiteOffersBlock } from './operator-site-catalog.js';
 import { OperatorSiteServiceGrid } from './operator-site-service-grid.js';
 import { OperatorSiteStudioBento } from './operator-site-studio-bento.js';
 import { OperatorSiteNav } from './operator-site-nav.js';
+import { OperatorSiteFooter } from './operator-site-footer.js';
+import { socialIcon } from './operator-site-icons.js';
 import type { AgendaOperatorSiteProps, OperatorSiteCatalog, OperatorSiteSocialLink } from './types.js';
 
 const ALL_NAV_ITEMS = [
@@ -51,23 +47,16 @@ const ALL_NAV_ITEMS = [
 
 const BOOKING_SECTION_ID = 'servicios';
 
-function socialIcon(kind: OperatorSiteSocialLink['kind']) {
-    const size = 18;
-    switch (kind) {
-        case 'instagram': return <IconBrandInstagram size={size} />;
-        case 'facebook': return <IconBrandFacebook size={size} />;
-        case 'linkedin': return <IconBrandLinkedin size={size} />;
-        case 'tiktok': return <IconBrandTiktok size={size} />;
-        case 'youtube': return <IconBrandYoutube size={size} />;
-        case 'x': return <IconBrandX size={size} />;
-    }
-}
-
 function scrollToSection(id: string) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function PaymentMethodsBlock({ pm }: { pm: AgendaOperatorSiteProps['profile']['paymentMethods'] }) {
+type HeroSignal = {
+    label: string;
+    value: string;
+};
+
+function PaymentMethodsBlock({ pm, layout }: { pm: AgendaOperatorSiteProps['profile']['paymentMethods']; layout: OperatorSiteLayout }) {
     const hasMercadoPago = pm.mpConnected || pm.acceptsMp;
     const hasTransfer = Boolean(pm.bankTransferData);
     const hasPaymentLink = Boolean(pm.paymentLinkUrl);
@@ -75,8 +64,8 @@ function PaymentMethodsBlock({ pm }: { pm: AgendaOperatorSiteProps['profile']['p
     if (!hasMercadoPago && !hasTransfer && !hasPaymentLink) return null;
 
     return (
-        <OperatorSiteReveal>
-            <section id="pagos" className="os-section">
+        <OperatorSiteReveal variant={layout === 'portfolio' ? 'fade-right' : 'fade-up'}>
+            <section id="pagos" className="os-section os-section--payments">
                 <div className="os-section__inner">
                     <p className="os-section__label">Pagos</p>
                     <h2 className="os-section__title">Medios de pago</h2>
@@ -132,10 +121,10 @@ function PaymentMethodsBlock({ pm }: { pm: AgendaOperatorSiteProps['profile']['p
     );
 }
 
-function LocationSection({ profile }: { profile: AgendaOperatorSiteProps['profile'] }) {
+function LocationSection({ profile, layout }: { profile: AgendaOperatorSiteProps['profile']; layout: OperatorSiteLayout }) {
     return (
-        <OperatorSiteReveal delayMs={80}>
-            <section id="ubicacion" className="os-section">
+        <OperatorSiteReveal delayMs={80} variant={layout === 'studio' ? 'fade-right' : 'fade-up'}>
+            <section id="ubicacion" className="os-section os-section--location">
                 <div className="os-section__inner">
                     <p className="os-section__label">Ubicación</p>
                     <h2 className="os-section__title">Dónde atiendo</h2>
@@ -190,14 +179,16 @@ function ContactSection({
     profile,
     socialLinks,
     whatsappHref,
+    layout,
 }: {
     profile: AgendaOperatorSiteProps['profile'];
     socialLinks: OperatorSiteSocialLink[];
     whatsappHref: string | null;
+    layout: OperatorSiteLayout;
 }) {
     return (
-        <OperatorSiteReveal delayMs={120}>
-            <section id="contacto" className="os-section">
+        <OperatorSiteReveal delayMs={120} variant={layout === 'portfolio' ? 'scale-in' : 'fade-up'}>
+            <section id="contacto" className="os-section os-section--contact">
                 <div className="os-section__inner">
                     <p className="os-section__label">Contacto</p>
                     <h2 className="os-section__title">Hablemos</h2>
@@ -258,6 +249,7 @@ function HeroIntro({
     typeLabel,
     businessLabel,
     modalityBadges,
+    signals,
     whatsappHref,
     hasContact,
     layout,
@@ -266,6 +258,7 @@ function HeroIntro({
     typeLabel: string;
     businessLabel: string;
     modalityBadges: string[];
+    signals: HeroSignal[];
     whatsappHref: string | null;
     hasContact: boolean;
     layout: OperatorSiteLayout;
@@ -298,6 +291,16 @@ function HeroIntro({
                         <p className="os-hero__headline">{profile.profession}</p>
                     ) : null}
                     <p className="os-hero__subtitle">{businessLabel}</p>
+                    {signals.length > 0 ? (
+                        <div className="os-hero__signals" aria-label="Resumen del negocio">
+                            {signals.map((signal) => (
+                                <span key={`${signal.label}-${signal.value}`} className="os-hero__signal">
+                                    <strong>{signal.value}</strong>
+                                    <span>{signal.label}</span>
+                                </span>
+                            ))}
+                        </div>
+                    ) : null}
                     {layout === 'booking' ? (
                         <div className="os-hero__actions os-hero__actions--compact">
                             {whatsappHref ? (
@@ -342,6 +345,7 @@ function HeroSection({
     typeLabel,
     businessLabel,
     modalityBadges,
+    signals,
     whatsappHref,
     hasContact,
     layout,
@@ -352,6 +356,7 @@ function HeroSection({
     typeLabel: string;
     businessLabel: string;
     modalityBadges: string[];
+    signals: HeroSignal[];
     whatsappHref: string | null;
     hasContact: boolean;
     layout: OperatorSiteLayout;
@@ -392,6 +397,7 @@ function HeroSection({
                             typeLabel={typeLabel}
                             businessLabel={businessLabel}
                             modalityBadges={modalityBadges}
+                            signals={signals}
                             whatsappHref={whatsappHref}
                             hasContact={hasContact}
                             layout={layout}
@@ -410,6 +416,7 @@ function HeroSection({
                         typeLabel={typeLabel}
                         businessLabel={businessLabel}
                         modalityBadges={modalityBadges}
+                        signals={signals}
                         whatsappHref={whatsappHref}
                         hasContact={hasContact}
                         layout={layout}
@@ -446,9 +453,11 @@ function ServicesSection({
             ? 'Servicios disponibles con reserva en línea.'
             : 'Conoce mis servicios y reserva en línea en pocos pasos.';
 
+    const revealVariant = layout === 'portfolio' ? 'fade-left' as const : 'fade-up' as const;
+
     return (
-        <OperatorSiteReveal delayMs={40}>
-            <section id={BOOKING_SECTION_ID} className="os-section os-section--flush">
+        <OperatorSiteReveal delayMs={40} variant={revealVariant}>
+            <section id={BOOKING_SECTION_ID} className={`os-section os-section--flush os-section--services os-section--services-${layout}`}>
                 <div className="os-section__inner os-section__inner--flush">
                     <p className="os-section__label">Servicios</p>
                     <h2 className="os-section__title">
@@ -551,6 +560,43 @@ export function AgendaOperatorSite({
         return items;
     }, [profile.servesOnline, profile.servesPresential]);
 
+    const heroSignals = useMemo<HeroSignal[]>(() => {
+        const items: HeroSignal[] = [];
+        const serviceCount = catalog?.services.length ?? 0;
+        const offerCount = (catalog?.packs.length ?? 0) + (catalog?.promotions.length ?? 0);
+        const activeDays = schedule?.days.filter((day) => day.isActive).length ?? 0;
+
+        if (serviceCount > 0) {
+            items.push({
+                value: String(serviceCount),
+                label: serviceCount === 1 ? 'servicio' : 'servicios',
+            });
+        }
+
+        if (profile.city || profile.servesOnline || profile.servesPresential) {
+            items.push({
+                value: profile.city ?? (profile.servesOnline ? 'Online' : 'Presencial'),
+                label: profile.city ? 'zona' : 'atencion',
+            });
+        }
+
+        if (schedule) {
+            items.push({
+                value: schedule.alwaysOpen ? '24/7' : `${activeDays}`,
+                label: schedule.alwaysOpen ? 'disponible' : activeDays === 1 ? 'dia activo' : 'dias activos',
+            });
+        }
+
+        if (offerCount > 0) {
+            items.push({
+                value: String(offerCount),
+                label: offerCount === 1 ? 'beneficio' : 'beneficios',
+            });
+        }
+
+        return items.slice(0, 4);
+    }, [catalog, profile.city, profile.servesOnline, profile.servesPresential, schedule]);
+
     const showInlineBooking = !isBooking;
     const useScheduleSidebar = hasSchedule && isBooking;
     const useContentLayout = !isStudio;
@@ -584,6 +630,7 @@ export function AgendaOperatorSite({
             slug={profile.slug}
             layout={layout}
             defaultColorMode={colorMode}
+            accentColor={appearance?.accentColor}
         >
             <OperatorSiteNav
                 brandLabel={profile.displayName}
@@ -599,6 +646,7 @@ export function AgendaOperatorSite({
                 typeLabel={typeLabel}
                 businessLabel={businessLabel}
                 modalityBadges={modalityBadges}
+                signals={heroSignals}
                 whatsappHref={whatsappHref}
                 hasContact={hasContact}
                 layout={layout}
@@ -611,6 +659,7 @@ export function AgendaOperatorSite({
                     <OperatorSiteAboutSection
                         bio={profile.bio!}
                         variant={isPortfolio ? 'editorial' : 'standard'}
+                        revealVariant={isPortfolio ? 'fade-left' : 'fade-up'}
                     />
                 ) : null}
 
@@ -633,15 +682,16 @@ export function AgendaOperatorSite({
                                 </OperatorSiteReveal>
                             ) : null}
 
-                            {hasLocation ? <LocationSection profile={profile} /> : null}
+                            {hasLocation ? <LocationSection profile={profile} layout={layout} /> : null}
                             {hasContact ? (
                                 <ContactSection
                                     profile={profile}
                                     socialLinks={socialLinks}
                                     whatsappHref={whatsappHref}
+                                    layout={layout}
                                 />
                             ) : null}
-                            <PaymentMethodsBlock pm={profile.paymentMethods} />
+                            <PaymentMethodsBlock pm={profile.paymentMethods} layout={layout} />
                         </div>
                     </div>
                 ) : (
@@ -663,12 +713,14 @@ export function AgendaOperatorSite({
 
             {isBooking ? booking : null}
 
-            <footer className="os-footer">
-                <p>
-                    Página profesional con{' '}
-                    <Link href={brandHref} target="_blank" rel="noopener noreferrer">{brandName}</Link>
-                </p>
-            </footer>
+            <OperatorSiteFooter
+                brandName={brandName}
+                brandHref={brandHref}
+                displayName={profile.displayName}
+                socialLinks={socialLinks}
+                layout={layout}
+                navItems={navItems.map((item) => ({ id: item.id, label: item.label }))}
+            />
 
             <button
                 type="button"

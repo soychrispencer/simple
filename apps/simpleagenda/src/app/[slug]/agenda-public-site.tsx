@@ -3,11 +3,13 @@
 import { useRef } from 'react';
 import {
     buildOperatorSiteScheduleDays,
+    normalizeOperatorSiteAccent,
     normalizeOperatorSiteColorMode,
     normalizeOperatorSiteLayout,
     resolveAgendaOperatorFields,
     resolveOperatorDisplayLabel,
     resolveOperatorTierLabel,
+    type OperatorSiteAccentColor,
     type OperatorSiteColorMode,
     type OperatorSiteLayout,
 } from '@simple/utils';
@@ -69,6 +71,7 @@ export type AgendaPublicProfile = AgendaOperatorSiteProfile & {
     appearance?: {
         layout: OperatorSiteLayout | string;
         colorMode: OperatorSiteColorMode | string;
+        accentColor?: OperatorSiteAccentColor | string;
     };
     services: Array<{
         id: string;
@@ -178,6 +181,7 @@ export function AgendaPublicSite({ profile }: { profile: AgendaPublicProfile }) 
         ? {
             layout: normalizeOperatorSiteLayout(profile.appearance.layout),
             colorMode: normalizeOperatorSiteColorMode(profile.appearance.colorMode),
+            accentColor: normalizeOperatorSiteAccent(profile.appearance.accentColor),
         }
         : undefined;
 

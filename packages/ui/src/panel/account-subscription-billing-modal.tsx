@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { IconLoader2 } from '@tabler/icons-react';
 import type { AddressBookEntry } from '@simple/types';
 import {
@@ -31,6 +31,7 @@ export function AccountSubscriptionBillingModal({
 }: AccountSubscriptionBillingModalProps) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [isPending, startTransition] = useTransition();
     const [saveError, setSaveError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
     const [form, setForm] = useState({ businessLegalName: '', businessTaxId: '' });
@@ -71,7 +72,7 @@ export function AccountSubscriptionBillingModal({
         [addressOptions],
     );
 
-    const handleSave = async () => {
+    const handleSave = () => {
         setSaveError(null);
         setSaved(false);
         if (!form.businessLegalName.trim()) {
@@ -86,26 +87,20 @@ export function AccountSubscriptionBillingModal({
             setSaveError('Selecciona una dirección tributaria.');
             return;
         }
-        setSaving(true);
-        const result = await updateAccountBusinessBilling({
-            businessLegalName: form.businessLegalName,
-            businessTaxId: form.businessTaxId,
-            billingAddressId,
-        });
-        setSaving(false);
-        if (!result.ok) {
-            setSaveError(result.error ?? 'No pudimos guardar los datos de facturación.');
-            return;
-        }
-        if (result.account) {
-            setForm({
-                businessLegalName: result.account.businessLegalName ?? '',
-                businessTaxId: result.account.businessTaxId ?? '',
+        startTransition(async () => {
+            setSaving(true);
+            const result = await updateAccountBusinessBilling({
+                businessLegalName: form.businessLegalName,
+                businessTaxId: form.businessTaxId,
+                billingAddressId,
             });
-            setBillingAddressId(result.account.billingAddressId ?? null);
-        }
-        setSaved(true);
-        onSaved?.();
+            setSaving(false);
+            if (!result.ok) {
+                setSaveError(result.error ?? 'No pudimos guardar los datos de facturación.');
+                return;
+            }
+            setSaved(true);
+        });
     };
 
     return (
@@ -119,12 +114,12 @@ export function AccountSubscriptionBillingModal({
                     {saveError ? (
                         <p className="w-full text-sm text-(--color-error,#dc2626) sm:mr-auto sm:w-auto">{saveError}</p>
                     ) : null}
-                    <PanelButton variant="secondary" size="sm" onClick={onClose} disabled={saving}>
-                        Cancelar
+                    <PanelButton variant="secondary" size="sm" onClick={onClose} disabled={isPending}>
+                        Cerrar
                     </PanelButton>
-                    <PanelButton variant="accent" size="sm" onClick={() => void handleSave()} disabled={saving || loading}>
-                        {saving ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                        {saving ? 'Guardando…' : saved ? 'Guardado' : 'Guardar'}
+                    <PanelButton variant="accent" size="sm" onClick={handleSave} disabled={isPending || loading}>
+                        {isPending ? <IconLoader2 size={14} className="animate-spin" /> : null}
+                        {isPending ? 'Guardando…' : saved ? 'Guardado' : 'Guardar'}
                     </PanelButton>
                 </>
             )}
