@@ -48,7 +48,7 @@ ENV PORT=3000
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl \
+  && apt-get install -y --no-install-recommends ca-certificates curl wget \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/apps/simplepropiedades/public ./apps/simplepropiedades/public
