@@ -38,7 +38,10 @@ import {
     IconX,
     IconGripVertical,
 } from '@tabler/icons-react';
-import { MarketplacePublishSuccess, MarketplacePublishWizard, MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint } from '@simple/ui/publish';
+import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
+import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { useAuth } from '@simple/auth';
@@ -53,11 +56,12 @@ import {
 import {
     estimatePropertyValue, fetchAddressBook, fetchPropertyValuationSources, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, refreshPropertyValuationSources, resolveLocationNames,
 } from '@simple/utils';
-import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelSummaryCard, PanelVideoUploader, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
+import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelSummaryCard, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
 import { ListingLocationEditor } from '@simple/ui/location';
+import { PROPERTY_PUBLISH_STEPS } from '@/components/panel/publish/publish-steps';
 
 type StepId = 'media' | 'details' | 'publish';
-type PublishedListing = { id: string; href: string; title: string };
+type PublishedListing = { id: string; href: string; title: string; hasVideo?: boolean };
 type PropertyOperation = 'sale' | 'rent' | 'project';
 type Currency = 'UF' | 'CLP' | 'USD';
 type ProjectUnitModel = {
@@ -176,11 +180,53 @@ interface PersistedDraft {
 }
 
 const MAX_PHOTOS = 20;
-const STEPS: Array<{ id: StepId; label: string; helper: string }> = [
-    { id: 'media', label: 'Multimedia', helper: 'Sube fotos y video para tu aviso' },
-    { id: 'details', label: 'Detalles', helper: 'Tipo, ficha principal, precio y oferta' },
-    { id: 'publish', label: 'Publicar', helper: 'Ubicación, revisión y compartir' },
-];
+const STEPS = PROPERTY_PUBLISH_STEPS;
+
+const PROPERTY_STEP_COPY: Record<StepId, { title: string; description: string }> = {
+    media: {
+        title: 'Fotos y video',
+        description: 'Sube lo esencial para tu tarjeta. La primera foto será la portada.',
+    },
+    details: {
+        title: 'Detalles del inmueble',
+        description: 'Tipo de operación, atributos, precio y opciones avanzadas.',
+    },
+    publish: {
+        title: 'Revisar y publicar',
+        description: 'Ubicación, título, descripción y confirmación final.',
+    },
+};
+
+function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCardProps {
+    const title = data.setup.operationType === 'project'
+        ? data.project.projectName || data.basic.title || 'Título del aviso'
+        : data.basic.title || 'Título del aviso';
+    const video = data.media.discoverVideo;
+    const location = buildPreviewLocation(data);
+    const badge = getOperationLabel(data.setup.operationType);
+    const price = data.commercial.price.trim() ? buildPriceLabel(data) : '$Consultar';
+
+    const specs: SimplePublishPreviewCardProps['specs'] = [];
+    if (data.setup.operationType !== 'project') {
+        if (data.basic.rooms) specs.push({ icon: <IconBed size={13} />, label: `${data.basic.rooms} dorm` });
+        if (data.basic.bathrooms) specs.push({ icon: <IconBath size={13} />, label: `${data.basic.bathrooms} baños` });
+        if (data.basic.totalArea) specs.push({ icon: <IconRuler size={13} />, label: `${data.basic.totalArea} m²` });
+    }
+
+    return {
+        badge,
+        price,
+        title,
+        location,
+        photoUrls: data.media.photos
+            .map((photo) => photo.previewUrl || photo.dataUrl)
+            .filter(Boolean),
+        videoUrl: video?.previewUrl || video?.dataUrl || null,
+        specs,
+        brandLabel: 'Simple',
+        footerHint: 'Así se verá en SimplePropiedades',
+    };
+}
 
 const OPERATION_CARDS: Array<{ value: PropertyOperation; label: string; icon: React.ReactNode }> = [
     { value: 'sale', label: 'Venta', icon: <IconHome2 size={15} /> },
@@ -208,22 +254,6 @@ const COMMON_EXPENSE_TYPE_OPTIONS = ['No informa', 'Fijo', 'Variable', 'Incluido
 const COMMERCIAL_USE_OPTIONS = ['Retail', 'Oficinas', 'Restaurant/Cafetería', 'Bodega/Logística', 'Industria', 'Salud', 'Educación', 'Servicios'].map((value) => ({ value, label: value }));
 const PROJECT_SALES_STAGE_OPTIONS = ['Lanzamiento', 'Preventa', 'En verde', 'En blanco', 'Últimas unidades', 'Entrega inmediata'].map((value) => ({ value, label: value }));
 const PROJECT_DELIVERY_STATUS_OPTIONS = ['Entrega inmediata', 'Entrega este año', 'Entrega futura', 'Por confirmar'].map((value) => ({ value, label: value }));
-
-function isSupportedExternalVideoUrl(value: string): boolean {
-    const trimmed = value.trim();
-    if (!trimmed) return true;
-    try {
-        const url = new URL(trimmed);
-        const host = url.hostname.replace(/^www\./, '').toLowerCase();
-        return host === 'youtube.com'
-            || host === 'youtu.be'
-            || host === 'm.youtube.com'
-            || host === 'vimeo.com'
-            || host.endsWith('.vimeo.com');
-    } catch {
-        return false;
-    }
-}
 
 const AMENITY_OPTIONS = [
     { code: 'wheelchair_ramp', label: 'Rampa para silla de ruedas' },
@@ -694,7 +724,9 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
 
     if (step === 'media') {
         if (data.media.photos.length < 1) errors['media.photos'] = 'Sube al menos 1 foto.';
-        if (data.media.videoUrl.trim() && !isSupportedExternalVideoUrl(data.media.videoUrl.trim())) errors['media.videoUrl'] = 'Usa un enlace externo de YouTube o Vimeo.';
+        if (data.media.videoUrl.trim() && !isSupportedExternalVideoUrl(data.media.videoUrl.trim())) {
+            errors['media.video'] = 'Usa un enlace de YouTube o Vimeo.';
+        }
         if (data.media.tour360Url.trim()) {
             try {
                 new URL(data.media.tour360Url.trim());
@@ -1097,7 +1129,7 @@ function StepBasic(props: {
     const { data, setData, errors, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding, variant = 'full', showRentAdminFields = false } = props;
     const [openSections, setOpenSections] = useState<Record<'main' | 'secondary' | 'location', boolean>>({
         main: true,
-        secondary: true,
+        secondary: variant !== 'details',
         location: true,
     });
     const isProject = data.setup.operationType === 'project';
@@ -1118,7 +1150,9 @@ function StepBasic(props: {
     return (
         <section className="space-y-4">
             {showDetails ? (
+                variant === 'details' ? null : (
                 <h2 className="type-section-title">{isProject ? 'Datos del proyecto' : 'Datos del inmueble'}</h2>
+                )
             ) : (
                 <h2 className="type-section-title">Ubicación</h2>
             )}
@@ -1167,8 +1201,8 @@ function StepBasic(props: {
             {showDetails ? (
             <>
             <AccordionGroup
-                title={isProject ? 'Identidad y estado del proyecto' : 'Datos principales'}
-                description={isProject ? 'Nombre del proyecto, inmobiliaria, etapa, entrega y descripción comercial.' : 'Titular, descripción y atributos obligatorios del inmueble.'}
+                title={isProject ? 'Identidad del proyecto' : variant === 'details' ? 'Datos esenciales' : 'Datos principales'}
+                description={isProject ? 'Nombre del proyecto, inmobiliaria, etapa, entrega y descripción comercial.' : variant === 'details' ? 'Programa, superficie y condición. Lo mínimo para publicar rápido.' : 'Titular, descripción y atributos obligatorios del inmueble.'}
                 open={openSections.main}
                 onToggle={() => setOpenSections((current) => ({ ...current, main: !current.main }))}
             >
@@ -1216,9 +1250,6 @@ function StepBasic(props: {
                 ) : (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                            <Field label="Título" required error={errors['basic.title']} hint="Titular claro con tipología, programa y sector.">
-                                <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Departamento 3D+2B con terraza en Providencia" />
-                            </Field>
                             <Field label="Condición">
                                 <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
                             </Field>
@@ -1277,8 +1308,8 @@ function StepBasic(props: {
             </AccordionGroup>
 
             <AccordionGroup
-                title={isProject ? 'Tipologías y rangos del proyecto' : 'Características secundarias'}
-                description={isProject ? 'Rangos generales del proyecto y detalle por tipología o unidad modelo.' : 'Campos adicionales para alinear la ficha con portales inmobiliarios grandes.'}
+                title={isProject ? 'Tipologías y rangos del proyecto' : variant === 'details' ? 'Más detalles (opcional)' : 'Características secundarias'}
+                description={isProject ? 'Rangos generales del proyecto y detalle por tipología o unidad modelo.' : variant === 'details' ? 'Completa solo si quieres enriquecer la ficha. No es obligatorio para publicar.' : 'Campos adicionales para alinear la ficha con portales inmobiliarios grandes.'}
                 open={openSections.secondary}
                 onToggle={() => setOpenSections((current) => ({ ...current, secondary: !current.secondary }))}
             >
@@ -1513,17 +1544,9 @@ function SortablePhotoTile({ photo, index, onRemove }: { photo: PanelMediaAsset;
 
 function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
     const { data, setData, errors } = props;
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [dragOver, setDragOver] = useState(false);
+    const videoInputRef = useRef<HTMLInputElement>(null);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-    );
-
-    const handleFiles = (files: FileList | null) => {
-        if (!files) return;
+    const handleFiles = (files: FileList) => {
         Array.from(files).slice(0, MAX_PHOTOS - data.media.photos.length).forEach((file) => {
             const reader = new FileReader();
             reader.onload = () => {
@@ -1543,109 +1566,106 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
     };
 
     const removePhoto = (id: string) => {
-        const newPhotos = data.media.photos.filter((p) => p.id !== id);
-        if (newPhotos.length > 0 && !newPhotos.some((p) => p.isCover)) newPhotos[0].isCover = true;
+        const newPhotos = data.media.photos.filter((photo) => photo.id !== id);
+        if (newPhotos.length > 0 && !newPhotos.some((photo) => photo.isCover)) newPhotos[0].isCover = true;
         setData((current) => ({ ...current, media: { ...current.media, photos: newPhotos } }));
     };
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
-        const oldIndex = data.media.photos.findIndex((p) => p.id === active.id);
-        const newIndex = data.media.photos.findIndex((p) => p.id === over.id);
-        const newPhotos = arrayMove(data.media.photos, oldIndex, newIndex);
-        if (newPhotos.length > 0) { newPhotos[0].isCover = true; newPhotos.slice(1).forEach((p) => (p.isCover = false)); }
-        setData((current) => ({ ...current, media: { ...current.media, photos: newPhotos } }));
+    const handleVideoFile = (files: FileList | null) => {
+        const file = files?.[0];
+        if (!file) return;
+        const previewUrl = URL.createObjectURL(file);
+        setData((current) => ({
+            ...current,
+            media: {
+                ...current.media,
+                videoUrl: '',
+                discoverVideo: {
+                    id: Math.random().toString(36).slice(2),
+                    name: file.name,
+                    dataUrl: previewUrl,
+                    previewUrl,
+                    width: 0,
+                    height: 0,
+                    sizeBytes: file.size,
+                    mimeType: file.type || 'video/mp4',
+                    durationSeconds: 0,
+                },
+            },
+        }));
     };
 
-    const photos = data.media.photos;
-    const RECOMMENDED = 8;
-    const missingRecommended = Math.max(RECOMMENDED - photos.length, 0);
-    const progressPercent = Math.min((photos.length / RECOMMENDED) * 100, 100);
+    const clearUploadVideo = () => {
+        const preview = data.media.discoverVideo?.previewUrl || data.media.discoverVideo?.dataUrl;
+        if (preview?.startsWith('blob:')) URL.revokeObjectURL(preview);
+        setData((current) => ({
+            ...current,
+            media: { ...current.media, discoverVideo: null },
+        }));
+    };
+
+    const handleExternalVideoUrl = (value: string) => {
+        setData((current) => {
+            if (value.trim() && current.media.discoverVideo) {
+                const preview = current.media.discoverVideo.previewUrl || current.media.discoverVideo.dataUrl;
+                if (preview?.startsWith('blob:')) URL.revokeObjectURL(preview);
+            }
+            return {
+                ...current,
+                media: {
+                    ...current.media,
+                    videoUrl: value,
+                    discoverVideo: value.trim() ? null : current.media.discoverVideo,
+                },
+            };
+        });
+    };
+
+    const uploadPreview = data.media.discoverVideo?.previewUrl || data.media.discoverVideo?.dataUrl || null;
 
     return (
-        <section className="space-y-4">
-            <div>
-                <p className="text-xs font-semibold tracking-[0.08em] uppercase" style={{ color: 'var(--fg-muted)' }}>PASO 1 · MULTIMEDIA</p>
-                <h2 className="text-2xl lg:text-3xl font-bold tracking-tight mt-1" style={{ color: 'var(--fg)' }}>Fotos y video primero</h2>
-                <p className="text-sm mt-2 max-w-lg" style={{ color: 'var(--fg-muted)' }}>Sube lo esencial para la tarjeta. La primera foto será la portada.</p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
-                <PanelCard tone="surface" size="lg">
-                    <label className="block text-sm font-medium mb-3">Fotos y portada *</label>
-                    {photos.length === 0 ? (
-                        <div
-                            onClick={() => fileInputRef.current?.click()}
-                            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                            onDragLeave={() => setDragOver(false)}
-                            onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
-                            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${dragOver ? 'border-[var(--accent)]' : 'border-[var(--border)] hover:border-[var(--accent)]/50'}`}
-                        >
-                            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-subtle)' }}>
-                                <IconCamera size={28} style={{ color: 'var(--accent)' }} />
-                            </div>
-                            <p className="font-medium" style={{ color: 'var(--fg)' }}>Tomar fotos o seleccionar de tu galería</p>
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>La primera será portada · Máximo {MAX_PHOTOS} · Arrastra para ordenar</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                                <SortableContext items={photos.map((p) => p.id)} strategy={rectSortingStrategy}>
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                        {photos.map((photo, idx) => (
-                                            <SortablePhotoTile key={photo.id} photo={photo} index={idx} onRemove={removePhoto} />
-                                        ))}
-                                        {photos.length < MAX_PHOTOS && (
-                                            <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>
-                                                <IconPlus size={20} /><span className="text-[10px] font-medium">Agregar</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </SortableContext>
-                            </DndContext>
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                    <span>{missingRecommended > 0 ? `${photos.length} / ${RECOMMENDED} fotos · Faltan ${missingRecommended} recomendadas` : `${photos.length} fotos · Cobertura recomendada completa`}</span>
-                                    <span>Portada = primera foto</span>
-                                </div>
-                                <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--bg-muted)' }}>
-                                    <div className="h-full rounded-full transition-[width] duration-200" style={{ width: `${progressPercent}%`, background: 'var(--fg)' }} />
-                                </div>
-                            </div>
-                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Arrastra para reordenar</p>
-                        </div>
-                    )}
-                    <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" />
-                    {errors['media.photos'] ? <ErrorText text={errors['media.photos']} /> : null}
-                </PanelCard>
-                <div className="xl:sticky xl:top-24 xl:self-start">
-                    <ListingLivePreview data={data} />
-                </div>
-            </div>
-
-            <PanelCard tone="surface" size="lg">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                        <div className="inline-flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                            <IconVideo size={17} style={{ color: 'var(--accent)' }} /> Video opcional para redes
-                        </div>
-                        <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>Sube el mismo clip que usarías en redes. Aparece en Descubre y tus tarjetas.</p>
-                    </div>
-                </div>
-                <div className="mt-3 space-y-3">
-                    <Field label="URL del video" error={errors['media.videoUrl']}>
-                        <input className="form-input" placeholder="https://www.youtube.com/... o https://vimeo.com/..." value={data.media.videoUrl} onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, videoUrl: event.target.value } }))} />
-                    </Field>
-                    <PanelVideoUploader
-                        asset={data.media.discoverVideo}
-                        onChange={(discoverVideo) => setData((current) => ({ ...current, media: { ...current.media, discoverVideo } }))}
-                        title="Clip para Descubre"
-                        description=""
-                    />
-                </div>
-            </PanelCard>
-        </section>
+        <>
+            <SimplePublishMediaScreen
+                photos={data.media.photos.map((photo) => ({
+                    id: photo.id,
+                    previewUrl: photo.previewUrl || photo.dataUrl,
+                    isCover: photo.isCover,
+                }))}
+                maxPhotos={MAX_PHOTOS}
+                recommendedPhotos={8}
+                photoError={errors['media.photos']}
+                onAddFiles={handleFiles}
+                onRemovePhoto={removePhoto}
+                onReorderPhotos={(photos) => {
+                    const reordered = photos.map((photo, index) => {
+                        const existing = data.media.photos.find((item) => item.id === photo.id);
+                        if (!existing) return null;
+                        return { ...existing, isCover: index === 0 };
+                    }).filter(Boolean) as PanelMediaAsset[];
+                    setData((current) => ({ ...current, media: { ...current.media, photos: reordered } }));
+                }}
+                videoBlock={(
+                    <>
+                        <SimplePublishVideoBlock
+                            uploadPreviewUrl={uploadPreview}
+                            uploadFileName={data.media.discoverVideo?.name ?? null}
+                            externalUrl={data.media.videoUrl}
+                            error={errors['media.video']}
+                            onPickUpload={() => videoInputRef.current?.click()}
+                            onClearUpload={clearUploadVideo}
+                            onExternalUrlChange={handleExternalVideoUrl}
+                        />
+                        <input
+                            ref={videoInputRef}
+                            type="file"
+                            accept="video/mp4,video/webm,video/quicktime,video/*"
+                            onChange={(event) => handleVideoFile(event.target.files)}
+                            className="hidden"
+                        />
+                    </>
+                )}
+            />
+        </>
     );
 }
 
@@ -1665,6 +1685,45 @@ function StepCommercial(props: {
 }) {
     const { data, setData, errors, estimate, estimating, valuationRequest, onRunValuation, lifecyclePolicy, compact = false } = props;
     const isProject = data.setup.operationType === 'project';
+
+    if (compact) {
+        return (
+            <section className="space-y-4">
+                <h2 className="type-section-title">Precio</h2>
+                <PanelCard size="md" className="space-y-4">
+                    {isProject ? (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <Field label="Precio desde" required error={errors['commercial.price']}>
+                                <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
+                                    <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder="4200" />
+                                    <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
+                                </div>
+                            </Field>
+                            <Field label="Precio hasta">
+                                <input className="form-input" type="number" min={0} value={data.commercial.priceTo} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: event.target.value } }))} placeholder="5600" />
+                            </Field>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <Field label="Precio" required error={errors['commercial.price']}>
+                                <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
+                                    <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder={data.setup.operationType === 'rent' ? '650000' : '5200'} />
+                                    <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
+                                </div>
+                            </Field>
+                            <Field label="Disponible desde">
+                                <input className="form-input" type="date" value={data.commercial.availableFrom} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, availableFrom: event.target.value } }))} />
+                            </Field>
+                        </div>
+                    )}
+                    {!isProject ? (
+                        <ToggleCard title="Precio negociable" description="Indica si el valor es conversable." active={data.commercial.negotiable} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, negotiable: !current.commercial.negotiable } }))} />
+                    ) : null}
+                </PanelCard>
+                <PanelNotice tone="neutral">{lifecyclePolicy.notice}</PanelNotice>
+            </section>
+        );
+    }
 
     return (
         <section className={compact ? 'space-y-4' : 'grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]'}>
@@ -1821,7 +1880,7 @@ function StepDetails(props: {
 }) {
     const { data, setData, errors, operatorHint, operatorContext, lifecyclePolicy, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding, ...commercialProps } = props;
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             <StepSetup data={data} setData={setData} errors={errors} operatorHint={operatorHint} operatorContext={operatorContext} />
             <StepBasic
                 data={data}
@@ -1856,8 +1915,6 @@ function StepPublish(props: {
     communes: Array<{ id: string; name: string }>;
     onGeocodeLocation: () => void | Promise<void>;
     geocoding: boolean;
-    estimate: PropertyValuationEstimate | null;
-    score: number;
     lifecyclePolicy: PublicationLifecyclePolicy;
 }) {
     const {
@@ -1869,26 +1926,53 @@ function StepPublish(props: {
         communes,
         onGeocodeLocation,
         geocoding,
-        estimate,
-        score,
         lifecyclePolicy,
     } = props;
 
+    const propertyCopyInput = {
+        operationType: data.setup.operationType,
+        propertyType: data.setup.propertyType,
+        rooms: data.basic.rooms,
+        bathrooms: data.basic.bathrooms,
+        totalArea: data.basic.totalArea,
+        usableArea: data.basic.usableArea,
+        communeName: data.location.communeName || communes.find((item) => item.id === data.location.communeId)?.name,
+        regionName: data.location.regionName,
+        priceLabel: buildPriceLabel(data),
+        condition: data.basic.condition,
+        projectName: data.project.projectName,
+        developerName: data.project.developerName,
+        platformName: 'SimplePropiedades',
+    };
+
     return (
         <div className="space-y-8">
-            <section className="space-y-3">
-                <h2 className="type-section-title">Descripción</h2>
-                <Field label="Descripción" required error={errors['basic.description']} hint="Texto que verán los interesados en la ficha pública.">
-                    <textarea
-                        className="form-textarea"
-                        rows={4}
-                        value={data.basic.description}
-                        onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, description: event.target.value } }))}
-                        placeholder="Distribución, terminaciones, entorno y ventajas del inmueble."
-                    />
-                    <p className="text-xs mt-1 prop-field-hint">{data.basic.description.length} / 2500</p>
-                </Field>
-            </section>
+            <div className="space-y-2">
+                <h2 className="type-section-title">Revisa y publica</h2>
+                <p className="text-sm text-(--fg-secondary)">
+                    Confirma título, descripción y ubicación. Simple es tu canal principal; después podrás compartir donde tengas integraciones activas.
+                </p>
+            </div>
+
+            <MarketplaceListingCopyFields
+                title={data.basic.title}
+                description={data.basic.description}
+                titleError={errors['basic.title']}
+                descriptionError={errors['basic.description']}
+                onTitleChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, title: value } }))}
+                onDescriptionChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, description: value } }))}
+                onRegenerateTitle={() => setData((current) => ({
+                    ...current,
+                    basic: { ...current.basic, title: generatePropertyListingTitle(propertyCopyInput) },
+                }))}
+                onRegenerateDescription={() => setData((current) => ({
+                    ...current,
+                    basic: { ...current.basic, description: generatePropertyListingDescription(propertyCopyInput) },
+                }))}
+                titlePlaceholder="Ej: Departamento 3D+2B en Providencia"
+                descriptionPlaceholder="Describe distribución, entorno y ventajas del inmueble."
+            />
+
             <StepBasic
                 data={data}
                 setData={setData}
@@ -1900,10 +1984,9 @@ function StepPublish(props: {
                 geocoding={geocoding}
                 variant="location"
             />
+
             <StepReview
                 data={data}
-                estimate={estimate}
-                score={score}
                 errors={errors}
                 setData={setData}
                 lifecyclePolicy={lifecyclePolicy}
@@ -1912,43 +1995,17 @@ function StepPublish(props: {
     );
 }
 
-function StepReview(props: { data: WizardData; estimate: PropertyValuationEstimate | null; score: number; errors: Record<string, string>; setData: WizardSetter; lifecyclePolicy: PublicationLifecyclePolicy }) {
-    const { data, estimate, score, errors, setData, lifecyclePolicy } = props;
-    const priceNumber = parseNumber(data.commercial.price) ?? 0;
-    const featureCount = data.specs.amenityCodes.length + data.specs.serviceCodes.length + data.specs.environmentCodes.length + data.specs.securityCodes.length;
-    const isProject = data.setup.operationType === 'project';
-    const projectModels = data.project.models.filter((model) => model.label.trim());
+function StepReview(props: { data: WizardData; errors: Record<string, string>; setData: WizardSetter; lifecyclePolicy: PublicationLifecyclePolicy }) {
+    const { data, errors, setData, lifecyclePolicy } = props;
 
     return (
         <section className="space-y-5">
-            <h2 className="type-section-title">Revisión final</h2>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <PanelSummaryCard eyebrow="Resumen" title={isProject ? (data.project.projectName || data.basic.title || 'Sin nombre') : (data.basic.title || 'Sin título')} rows={isProject ? [
-                        { label: 'Tipo', value: `${data.setup.propertyType || 'Pendiente'} · Proyecto` },
-                        { label: 'Proyecto', value: `${projectModels.length} tipologías · ${data.project.availableUnits || '0'} unidades disponibles` },
-                        { label: 'Precio', value: buildPriceLabel(data) },
-                    ] : [{ label: 'Tipo', value: `${data.setup.propertyType || 'Pendiente'} · ${getOperationLabel(data.setup.operationType)}` }, { label: 'Programa', value: buildProgramLabel(data) }, { label: 'Precio', value: formatAmount(priceNumber, data.commercial.currency) }]} />
-                    <PanelSummaryCard eyebrow="Ubicación" title={data.location.publicLabel || 'Pendiente'} rows={[{ label: 'Dirección interna', value: data.location.addressLine1 || 'Pendiente' }, { label: 'Visibilidad pública', value: data.location.visibilityMode === 'exact' ? 'Exacta' : data.location.visibilityMode === 'approximate' ? 'Aproximada' : data.location.visibilityMode === 'sector_only' ? 'Solo sector' : 'Solo comuna' }, { label: 'Fotos cargadas', value: data.media.photos.length }]} />
-                    <PanelSummaryCard eyebrow="Calidad del aviso" title={`${score}% completado`} rows={isProject ? [{ label: 'Amenities y servicios', value: featureCount }, { label: 'Entrega', value: data.project.deliveryStatus || 'Pendiente' }, { label: 'Tipologías', value: projectModels.length > 0 ? String(projectModels.length) : 'Pendiente' }] : [{ label: 'Amenities y servicios', value: featureCount }, { label: 'Tasador', value: estimate ? 'Calculado' : 'Pendiente' }, { label: 'Precio', value: data.commercial.price.trim() ? 'Listo' : 'Pendiente' }]} />
-                    <PanelSummaryCard eyebrow="Vigencia" title="Activo por defecto" rows={[{ label: 'Revisión', value: lifecyclePolicy.summaryLabel }, { label: 'Si no se renueva', value: 'Requiere renovación' }, { label: 'Estado inicial', value: 'Activo' }]} />
-                </div>
-                <ListingLivePreview data={data} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                <QualityItem label={isProject ? 'Ficha del proyecto completa' : 'Datos principales completos'} ok={!!data.basic.title.trim() && data.basic.description.trim().length >= 80 && (!isProject || (!!data.project.projectName.trim() && !!data.project.developerName.trim()))} />
-                <QualityItem label="Ubicación lista para publicar" ok={!!data.location.regionId && !!data.location.communeId && !!data.location.addressLine1} />
-                <QualityItem label="Fotos suficientes" ok={data.media.photos.length >= 5} />
-                <QualityItem label="Precio configurado" ok={!!data.commercial.price.trim()} />
-                <QualityItem label={isProject ? 'Tipologías y rangos' : 'Características secundarias'} ok={isProject ? projectModels.length > 0 : countPropertyAttributes(data) >= 4} />
-                <QualityItem label={isProject ? 'Tasador no requerido' : 'Tasador ejecutado'} ok={isProject ? true : !!estimate} />
-            </div>
+            <ListingLivePreview data={data} />
 
             <label className={`flex items-start gap-3 rounded-2xl border px-4 py-3 prop-terms-box ${errors['review.acceptTerms'] ? 'prop-terms-box--error' : ''}`}>
                 <input type="checkbox" checked={data.review.acceptTerms} onChange={(event) => setData((current) => ({ ...current, review: { ...current.review, acceptTerms: event.target.checked } }))} className="mt-1" />
                 <span className="text-sm text-(--fg-secondary)">
-                    Confirmo que la información del inmueble, su ubicación y sus condiciones comerciales fueron revisadas y pueden publicarse en Simple y futuros portales integrados.
+                    Confirmo que la información puede publicarse en {lifecyclePolicy.summaryLabel ? lifecyclePolicy.summaryLabel.toLowerCase() : 'SimplePropiedades'}.
                 </span>
             </label>
             {errors['review.acceptTerms'] ? <p className="text-xs prop-field-error-text">{errors['review.acceptTerms']}</p> : null}
@@ -2060,6 +2117,7 @@ export default function PublishWizardPage() {
     const publishBlocked = isMarketplacePublishBlockedByPlan(planLimit, isEditing);
     const { hint: operatorHint, defaults: operatorDefaults, context: operatorContext, ready: operatorDefaultsReady } = useMarketplaceOperatorPublishDefaults('propiedades', { enabled: !isEditing });
     const [editingLoading, setEditingLoading] = useState(false);
+    const [editLoadFailed, setEditLoadFailed] = useState(false);
     const [step, setStep] = useState<StepId>('media');
     const [data, setData] = useState<WizardData>(() => createDefaultData());
     const [operatorDefaultsApplied, setOperatorDefaultsApplied] = useState(false);
@@ -2155,7 +2213,10 @@ export default function PublishWizardPage() {
             if (!active) return;
             if (result.ok && result.draft) {
                 const merged = mergeDraft(result.draft);
-                if (!merged) return;
+                if (!merged) {
+                    setStorageError('El borrador guardado está dañado y no se pudo restaurar.');
+                    return;
+                }
                 const persisted = result.draft as Partial<PersistedDraft>;
                 setDraftLoaded(true);
                 setData(merged.data);
@@ -2184,12 +2245,14 @@ export default function PublishWizardPage() {
         if (!editingId) return;
         let mounted = true;
         setEditingLoading(true);
+        setEditLoadFailed(false);
         setMessage(null);
         (async () => {
             const result = await fetchPanelListingDetail(editingId);
             if (!mounted) return;
             setEditingLoading(false);
             if (!result.ok || !result.item) {
+                setEditLoadFailed(true);
                 if (result.unauthorized) {
                     requireAuth(() => {
                         router.refresh();
@@ -2214,6 +2277,34 @@ export default function PublishWizardPage() {
         const timer = window.setTimeout(() => setDraftSavedNote(null), 2400);
         return () => window.clearTimeout(timer);
     }, [draftSavedNote]);
+
+    useEffect(() => {
+        if (step !== 'publish') return;
+        if (data.basic.title.trim() && data.basic.description.trim()) return;
+        const copyInput = {
+            operationType: data.setup.operationType,
+            propertyType: data.setup.propertyType,
+            rooms: data.basic.rooms,
+            bathrooms: data.basic.bathrooms,
+            totalArea: data.basic.totalArea,
+            usableArea: data.basic.usableArea,
+            communeName: data.location.communeName,
+            regionName: data.location.regionName,
+            priceLabel: buildPriceLabel(data),
+            condition: data.basic.condition,
+            projectName: data.project.projectName,
+            developerName: data.project.developerName,
+            platformName: 'SimplePropiedades',
+        };
+        setData((current) => ({
+            ...current,
+            basic: {
+                ...current.basic,
+                title: current.basic.title.trim() || generatePropertyListingTitle(copyInput),
+                description: current.basic.description.trim() || generatePropertyListingDescription(copyInput),
+            },
+        }));
+    }, [step]);
 
     useEffect(() => {
         setErrors(validateStep(step, data));
@@ -2330,6 +2421,7 @@ export default function PublishWizardPage() {
                 setMessage('Inicia sesión para publicar en tu cuenta real.');
                 return;
             }
+            return;
         }
 
         const { regionName, communeName } = resolveLocationNames(data.location.regionId, data.location.communeId);
@@ -2344,6 +2436,7 @@ export default function PublishWizardPage() {
         setPublishing(true);
         setMessage(null);
 
+        try {
         // Subir media a Cloudflare R2 si aún está en base64
         const uploadedPhotos: PanelMediaAsset[] = [];
         for (const photo of data.media.photos) {
@@ -2353,15 +2446,20 @@ export default function PublishWizardPage() {
                     const file = new File([blob], photo.name, { type: photo.mimeType });
                     const result = await uploadMediaFile(file, { fileType: 'image' });
                     if (result.ok && result.result) {
+                        const url = result.result.publicUrl || result.result.url;
                         uploadedPhotos.push({
                             ...photo,
-                            dataUrl: result.result.url,
-                            previewUrl: result.result.url,
+                            dataUrl: url,
+                            previewUrl: url,
                         });
                         continue;
                     }
+                    setMessage(result.error || `No se pudo subir la foto "${photo.name}".`);
+                    return;
                 } catch (e) {
                     console.error('Failed to upload photo to R2:', e);
+                    setMessage(`No se pudo subir la foto "${photo.name}".`);
+                    return;
                 }
             }
             uploadedPhotos.push(photo);
@@ -2374,11 +2472,17 @@ export default function PublishWizardPage() {
                 const file = new File([blob], uploadedVideo.name, { type: uploadedVideo.mimeType });
                 const result = await uploadMediaFile(file, { fileType: 'video' });
                 if (result.ok && result.result) {
-                    uploadedVideo.dataUrl = result.result.url;
-                    uploadedVideo.previewUrl = result.result.url;
+                    const url = result.result.publicUrl || result.result.url;
+                    uploadedVideo.dataUrl = url;
+                    uploadedVideo.previewUrl = url;
+                } else {
+                    setMessage(result.error || 'No se pudo subir el video.');
+                    return;
                 }
             } catch (e) {
                 console.error('Failed to upload video to R2:', e);
+                setMessage('No se pudo subir el video.');
+                return;
             }
         }
 
@@ -2388,6 +2492,7 @@ export default function PublishWizardPage() {
                 ...data.media,
                 photos: uploadedPhotos,
                 discoverVideo: uploadedVideo,
+                videoUrl: uploadedVideo?.dataUrl ?? data.media.videoUrl.trim(),
             },
         };
 
@@ -2417,7 +2522,6 @@ export default function PublishWizardPage() {
                 vertical: 'propiedades',
                 ...payload,
             });
-        setPublishing(false);
 
         if (!result.ok) {
             if (result.unauthorized) {
@@ -2442,7 +2546,14 @@ export default function PublishWizardPage() {
             id: result.item?.id ?? editingId ?? '',
             href: result.item?.href ?? payload.href ?? '/panel/publicaciones',
             title: result.item?.title ?? payload.title,
+            hasVideo: listingHasPublishVideo({
+                uploadPreviewUrl: data.media.discoverVideo?.dataUrl || data.media.discoverVideo?.previewUrl,
+                externalUrl: data.media.videoUrl,
+            }),
         });
+        } finally {
+            setPublishing(false);
+        }
     };
 
     const resetForNewListing = () => {
@@ -2456,23 +2567,33 @@ export default function PublishWizardPage() {
 
     if (published) {
         return (
-            <MarketplacePublishSuccess
+            <SimplePublishSuccessScreen
                 title={published.title}
-                publishedHref={published.href}
-                shareText={`Mira esta propiedad en SimplePropiedades: ${published.title}`}
+                brandName="SimplePropiedades"
+                shareHub={(
+                    <ShareToSocialPanel
+                        listingId={published.id}
+                        listingTitle={published.title}
+                        listingHref={published.href}
+                        hasVideo={published.hasVideo}
+                        shareText={`Mira esta propiedad en SimplePropiedades: ${published.title}`}
+                    />
+                )}
                 onReset={resetForNewListing}
                 onGoToListings={() => { window.location.href = '/panel/publicaciones'; }}
-                extraActions={<MarketplacePublishProfileCta />}
             />
         );
     }
 
+    const continueLabel = step === 'publish'
+        ? (isEditing ? 'Guardar en Simple' : 'Publicar en Simple')
+        : 'Continuar';
+
     return (
-        <MarketplacePublishWizard
+        <SimplePublishLayout
             title="Nueva publicación"
-            subtitle="Publica en 3 pasos: multimedia, detalles y ubicación."
+            subtitle={isEditing ? 'Actualiza los datos de tu aviso.' : 'Multimedia, detalles y publicación.'}
             steps={STEPS.map((item) => ({ key: item.id, label: item.label, helper: item.helper }))}
-            activeStepKey={step}
             stepIndex={stepIndex}
             isEditing={isEditing}
             onBack={goBack}
@@ -2486,6 +2607,15 @@ export default function PublishWizardPage() {
                     <IconDeviceFloppy size={16} />
                 </PanelButton>
             )}
+            headerContinue={{
+                label: continueLabel,
+                onClick: () => {
+                    if (step === 'publish') void publishNow();
+                    else goNext();
+                },
+                disabled: publishing || editingLoading || editLoadFailed || (step === 'publish' && publishBlocked),
+                loading: publishing,
+            }}
             notices={(
                 <>
                     <MarketplacePublishPlanLimitNotice vertical="propiedades" isEditing={isEditing} planLimit={planLimit} />
@@ -2495,29 +2625,14 @@ export default function PublishWizardPage() {
                     {editingLoading ? <PanelNotice tone="neutral">Cargando publicación para editar...</PanelNotice> : null}
                 </>
             )}
-            footer={(
-                <PanelActions
-                    left={(
-                        <PanelButton type="button" variant="secondary" onClick={goBack} disabled={stepIndex === 0}>
-                            <IconArrowLeft size={14} />
-                            Anterior
-                        </PanelButton>
-                    )}
-                    right={step === 'publish' ? (
-                        <PanelButton type="button" variant="primary" onClick={() => void publishNow()} disabled={publishing || editingLoading || publishBlocked}>
-                            <IconCheck size={14} />
-                            {publishing ? (isEditing ? 'Guardando...' : 'Publicando...') : (isEditing ? 'Guardar cambios' : 'Publicar propiedad')}
-                        </PanelButton>
-                    ) : (
-                        <PanelButton type="button" variant="primary" onClick={goNext}>
-                            {step === 'media' ? 'Ver detalles' : 'Ver resumen'}
-                            <IconArrowRight size={14} />
-                        </PanelButton>
-                    )}
-                />
-            )}
         >
-            <PanelCard size="lg">
+            <SimplePublishScreenHeader
+                title={PROPERTY_STEP_COPY[step].title}
+                description={PROPERTY_STEP_COPY[step].description}
+            />
+            <SimplePublishPageFrame
+                preview={<SimplePublishPreviewCard {...buildPropertyPreviewCardProps(data)} />}
+            >
                 {step === 'media' && <StepMedia data={data} setData={setData} errors={errors} />}
                 {step === 'details' && (
                     <StepDetails
@@ -2551,12 +2666,24 @@ export default function PublishWizardPage() {
                         communes={communes}
                         onGeocodeLocation={refreshLocationMap}
                         geocoding={geocoding}
-                        estimate={estimate}
-                        score={score}
                         lifecyclePolicy={lifecyclePolicy}
                     />
                 )}
-            </PanelCard>
-        </MarketplacePublishWizard>
+                <SimplePublishCtaCard
+                    label={continueLabel}
+                    loadingLabel={step === 'publish'
+                        ? (isEditing ? 'Guardando...' : 'Publicando...')
+                        : undefined}
+                    onClick={() => {
+                        if (step === 'publish') void publishNow();
+                        else goNext();
+                    }}
+                    disabled={publishing || editingLoading || editLoadFailed || (step === 'publish' && publishBlocked)}
+                    loading={publishing}
+                    hint={step === 'publish' ? 'Al publicar, tu aviso quedará visible en SimplePropiedades de inmediato.' : undefined}
+                    icon={step === 'publish' ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
+                />
+            </SimplePublishPageFrame>
+        </SimplePublishLayout>
     );
 }

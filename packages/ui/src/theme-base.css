@@ -378,6 +378,20 @@ h4 {
         padding-left: clamp(1rem, 4vw, 1.4rem);
         padding-right: clamp(1rem, 4vw, 1.4rem);
     }
+
+    .panel-content-frame {
+        min-width: 0;
+        overflow-x: clip;
+    }
+
+    .panel-page {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .panel-section-save-footer {
+        bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px) + 0.75rem);
+    }
 }
 
 .panel-media-grid {

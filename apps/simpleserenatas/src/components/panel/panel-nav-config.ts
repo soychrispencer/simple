@@ -106,8 +106,8 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
 }
 
 /**
- * Tabs visibles en bottom nav móvil (máx. 4 + perfil aparte).
- * Admin: Mapa no cabe como quinta pestaña — va en sheet «Más» (`getMobileOverflowNavItems`).
+ * Tabs visibles en bottom nav móvil (5 ítems: acción principal + Mi cuenta al final).
+ * El resto del panel queda en el menú lateral / hamburguesa del header.
  */
 export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     if (mode === 'client') {
@@ -116,17 +116,19 @@ export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): Pane
         );
     }
     if (ownerFeaturesEnabled(profiles)) {
-        const tabIds = ['home', 'solicitudes', 'mi-negocio', 'agenda', 'profile'];
-        if (profiles.musician) tabIds.splice(2, 0, 'invitations');
-        return getPanelNavItems(mode, profiles).filter((t) => tabIds.includes(t.id));
+        return getPanelNavItems(mode, profiles).filter((t) =>
+            ['home', 'solicitudes', 'agenda', 'mi-negocio', 'profile'].includes(t.id),
+        );
     }
-    return getPanelNavItems(mode, profiles).filter((t) => ['home', 'invitations', 'agenda', 'serenatas', 'profile'].includes(t.id));
+    return getPanelNavItems(mode, profiles).filter((t) =>
+        ['home', 'invitations', 'agenda', 'serenatas', 'profile'].includes(t.id),
+    );
 }
 
-/** Secciones del panel dueño accesibles desde «Más» en bottom nav móvil (p. ej. Mapa). */
+/** @deprecated El footer ya no usa «Más»; secciones extra vía drawer del header. */
 export function getMobileOverflowNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
-    if (mode !== 'work' || !ownerFeaturesEnabled(profiles)) return [];
-    return getPanelNavItems(mode, profiles).filter((t) => t.id === 'map' || t.id === 'finanzas');
+    const bottomIds = new Set(getMobileBottomNavItems(mode, profiles).map((t) => t.id));
+    return getPanelNavItems(mode, profiles).filter((t) => !bottomIds.has(t.id));
 }
 
 export function getMarketplaceNavItems(mode: AppMode, profiles: Profiles): MarketplacePanelNavItem[] {

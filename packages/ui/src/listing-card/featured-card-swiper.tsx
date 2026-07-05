@@ -32,6 +32,9 @@ export default function FeaturedCardSwiper({
 
     if (items.length === 0) return null;
 
+    // Swiper loop exige slideCount >= slidesPerView * 2; el breakpoint máximo usa slidesPerView: 4.
+    const loopEnabled = items.length >= 8;
+
     return (
         <div className="relative px-12 md:px-14">
             {showProgress && items.length > 1 && (
@@ -62,7 +65,7 @@ export default function FeaturedCardSwiper({
                 onSlideChange={(s) => setActiveIndex(s.realIndex)}
                 slidesPerView={1.15}
                 spaceBetween={12}
-                loop={true}
+                loop={loopEnabled}
                 speed={500}
                 grabCursor={true}
                 keyboard={{ enabled: true }}

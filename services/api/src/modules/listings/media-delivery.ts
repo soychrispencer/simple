@@ -1,10 +1,24 @@
 import { isProduction } from '../../env.js';
 import { asObject, asString } from '../shared/helpers.js';
 
+function getR2PublicHostname(): string | null {
+    const publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL?.trim();
+    if (!publicUrl) return null;
+    try {
+        return new URL(publicUrl.replace(/\/+$/, '')).hostname;
+    } catch {
+        return null;
+    }
+}
+
 export function isCloudflareR2Url(url: string): boolean {
     try {
         const hostname = new URL(url).hostname;
-        return hostname.endsWith('.r2.cloudflarestorage.com') || hostname.endsWith('.r2.dev');
+        if (hostname.endsWith('.r2.cloudflarestorage.com') || hostname.endsWith('.r2.dev')) {
+            return true;
+        }
+        const customHost = getR2PublicHostname();
+        return customHost ? hostname === customHost : false;
     } catch {
         return false;
     }
@@ -45,6 +59,11 @@ export function extractR2ObjectKey(url: string): string {
     try {
         const parsed = new URL(url);
         const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media';
+        const customHost = getR2PublicHostname();
+
+        if (customHost && parsed.hostname === customHost) {
+            return decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+        }
 
         if (parsed.hostname.endsWith('.r2.dev')) {
             return decodeURIComponent(parsed.pathname.slice(1));

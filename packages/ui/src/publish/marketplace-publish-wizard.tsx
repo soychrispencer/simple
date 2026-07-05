@@ -19,7 +19,6 @@ export type MarketplacePublishWizardProps = {
     activeStepKey: string;
     stepIndex: number;
     isEditing?: boolean;
-    withBottomNav?: boolean;
     notices?: ReactNode;
     headerActions?: ReactNode;
     children: ReactNode;
@@ -36,7 +35,6 @@ export function MarketplacePublishWizard({
     activeStepKey,
     stepIndex,
     isEditing = false,
-    withBottomNav = true,
     notices,
     headerActions,
     children,
@@ -123,10 +121,9 @@ export function MarketplacePublishWizard({
 
             <footer
                 className={joinClasses(
-                    'fixed left-0 right-0 z-40 border-t border-(--border) p-4 backdrop-blur-md',
-                    withBottomNav ? 'bottom-16 lg:bottom-0' : 'bottom-0',
+                    'fixed bottom-0 left-0 right-0 z-50 border-t border-(--border) p-4 backdrop-blur-md',
                 )}
-                style={{ background: 'color-mix(in oklab, var(--surface) 94%, transparent)' }}
+                style={{ background: 'color-mix(in oklab, var(--surface) 94%, transparent)', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
             >
                 <div className="mx-auto max-w-3xl lg:max-w-5xl">{footer}</div>
             </footer>

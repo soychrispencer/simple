@@ -249,7 +249,7 @@ export function PanelPageHeader(props: PanelPageHeaderProps) {
                         {title}
                     </h1>
                     {description ? (
-                        <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>
+                        <p className="mt-1 text-sm break-words" style={{ color: 'var(--fg-muted)' }}>
                             {description}
                         </p>
                     ) : null}

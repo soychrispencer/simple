@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconCheck, IconLoader2 } from '@tabler/icons-react';
 import {
     PanelMiNegocioShell,
@@ -9,6 +9,7 @@ import {
     PanelCard,
     PanelBlockHeader,
     PanelNotice,
+    PanelSectionSaveFooter,
     type OperatorSiteAppearanceValue,
     BUSINESS_BRAND_IMAGES_SECTION,
     businessBrandImageSavedMessage,
@@ -33,7 +34,14 @@ export default function AparienciaPage() {
         colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
         accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
     });
+    const [baseline, setBaseline] = useState<OperatorSiteAppearanceValue>({
+        layout: DEFAULT_OPERATOR_SITE_LAYOUT,
+        colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
+        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+    });
     const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [saveError, setSaveError] = useState('');
     const [imageFeedback, setImageFeedback] = useState('');
 
     const [logoUrl, setLogoUrl] = useState('');
@@ -48,13 +56,25 @@ export default function AparienciaPage() {
 
     const handleChange = (next: OperatorSiteAppearanceValue) => {
         setValue(next);
+        setSaved(false);
+        setSaveError('');
     };
+
+    const hasChanges = useMemo(
+        () => JSON.stringify(value) !== JSON.stringify(baseline),
+        [value, baseline],
+    );
 
     const handleSave = async () => {
         setSaving(true);
+        setSaveError('');
+        setSaved(false);
         // TODO: Persist appearance settings via serenatasApi when backend support is added
         await new Promise((r) => setTimeout(r, 500));
+        setBaseline(value);
         setSaving(false);
+        setSaved(true);
+        window.setTimeout(() => setSaved(false), 2500);
     };
 
     const publicPreviewHref = group?.slug
@@ -125,6 +145,7 @@ export default function AparienciaPage() {
                         saving={saving}
                         onChange={handleChange}
                         onSave={handleSave}
+                        hideSaveButton
                     />
 
                     {imageFeedback ? (
@@ -132,6 +153,14 @@ export default function AparienciaPage() {
                             <span className="flex items-center gap-2"><IconCheck size={15} /> {imageFeedback}</span>
                         </PanelNotice>
                     ) : null}
+
+                    <PanelSectionSaveFooter
+                        saving={saving}
+                        saved={saved}
+                        saveError={saveError || null}
+                        disabled={!hasChanges}
+                        onSave={handleSave}
+                    />
                 </div>
             )}
         </PanelMiNegocioShell>

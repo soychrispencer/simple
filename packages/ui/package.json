@@ -68,6 +68,10 @@
       "types": "./dist/publish/index.d.ts",
       "default": "./dist/publish/index.js"
     },
+    "./simple-publish": {
+      "types": "./dist/simple-publish/index.d.ts",
+      "default": "./dist/simple-publish/index.js"
+    },
     "./public-profile": {
       "types": "./dist/public-profile/index.d.ts",
       "default": "./dist/public-profile/index.js"
@@ -101,6 +105,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@simple/config": "workspace:*",
     "@simple/types": "workspace:*",
     "@simple/utils": "workspace:*",

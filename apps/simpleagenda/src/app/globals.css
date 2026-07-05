@@ -191,7 +191,6 @@
 .agenda-home-warning-icon { background: rgba(234, 179, 8, 0.12); color: rgb(161, 120, 0); }
 .agenda-home-warning-chevron { color: rgb(161, 120, 0); }
 .agenda-home-chart-overflow { overflow: visible; }
-.activation-checklist { background: var(--surface); border-color: var(--accent-border); }
 
 .booking-modal-scroll { max-height: 90vh; overflow-y: auto; }
 .booking-required { color: var(--accent); }

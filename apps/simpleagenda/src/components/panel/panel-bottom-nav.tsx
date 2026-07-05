@@ -7,41 +7,32 @@ import {
     IconCalendar,
     IconUsers,
     IconPlus,
+    IconUser,
 } from '@tabler/icons-react';
 import { PanelBottomNav as SharedPanelBottomNav } from '@simple/ui/panel';
+import { applyBottomNavPrimaryHighlight, createPanelAccountNavItem } from '@simple/ui/layout';
 import { isPanelNavActive } from '@/components/panel/panel-nav-config';
+
+const PRIMARY_HREF = '/panel/agenda?nueva=1';
 
 const items = [
     { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
     { href: '/panel/agenda', label: 'Agenda', icon: IconCalendar },
-    { href: '/panel/agenda?nueva=1', label: 'Nueva', icon: IconPlus, highlight: true },
+    { href: PRIMARY_HREF, label: 'Nueva', icon: IconPlus },
     { href: '/panel/clientes', label: 'Pacientes', icon: IconUsers },
+    createPanelAccountNavItem(IconUser),
 ];
 
 export function PanelBottomNav() {
     const pathname = usePathname() ?? '';
 
-    const navItems = items.map((item) => ({
-        ...item,
-        active: isPanelNavActive(pathname, item.href),
-    }));
-
-    const moreActive =
-        !items.some((item) => isPanelNavActive(pathname, item.href)) &&
-        pathname.startsWith('/panel');
-
-    const openDrawer = () => {
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('simple:panel-mobile-open'));
-        }
-    };
-
-    return (
-        <SharedPanelBottomNav
-            items={navItems}
-            LinkComponent={Link}
-            moreActive={moreActive}
-            onMoreClick={openDrawer}
-        />
+    const navItems = applyBottomNavPrimaryHighlight(
+        items.map((item) => ({
+            ...item,
+            active: isPanelNavActive(pathname, item.href),
+        })),
+        PRIMARY_HREF,
     );
+
+    return <SharedPanelBottomNav items={navItems} LinkComponent={Link} />;
 }

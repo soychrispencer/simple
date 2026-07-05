@@ -58,3 +58,5 @@ export * from './business-service-modality.js';
 export * from './geocoding.js';
 export * from './valuation.js';
 export * from './advertising.js';
+export * from './publish/index.js';
+export * from './simple-publish/index.js';

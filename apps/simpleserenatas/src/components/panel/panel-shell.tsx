@@ -1,23 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { isClientMarketplaceHref } from '@/lib/client-marketplace';
 import { PanelShell as SharedPanelShell } from '@simple/ui/panel';
 import { PanelBottomNav, resolveActiveNavHref } from '@simple/ui/panel';
+import { applyBottomNavPrimaryHighlight } from '@simple/ui/layout';
 import { useSerenata } from '@/context/serenata-context';
 import {
     getPanelNavItems,
     getMobileBottomNavItems,
-    getMobileOverflowNavItems,
+    getPrimaryActionConfig,
     panelAccountTypeLabel,
 } from '@/components/panel/panel-nav-config';
-import { PanelMobileMoreSheet } from '@/components/panel/panel-mobile-more-sheet';
 import type { Section } from '@/context/serenata-context';
 import { panelSectionHref, resolvePanelActivePathname } from '@/lib/panel-routes';
 
 const STORAGE_COLLAPSED = 'simpleserenatas:panel:collapsed';
+
+function shouldUsePanelLink(href: string): boolean {
+    if (isClientMarketplaceHref(href)) return true;
+    const path = href.split('?')[0] ?? href;
+    return path !== '/panel' && path.startsWith('/panel/');
+}
 
 type SerenataPanelShellProps = {
     children: ReactNode;
@@ -28,7 +34,6 @@ type SerenataPanelShellProps = {
 export function SerenataPanelShell({ children, section, onSectionChange }: SerenataPanelShellProps) {
     const { user, accountUser, mode, profiles, solicitudesPendingCount } = useSerenata();
     const routerPathname = usePathname() ?? '';
-    const [moreOpen, setMoreOpen] = useState(false);
 
     const navItems = useMemo(
         () =>
@@ -44,16 +49,33 @@ export function SerenataPanelShell({ children, section, onSectionChange }: Seren
     );
 
     const visibleBottomTabs = useMemo(
-        () => getMobileBottomNavItems(mode, profiles).filter((t) => t.id !== 'profile'),
+        () => getMobileBottomNavItems(mode, profiles),
         [mode, profiles],
     );
 
-    const overflowNavItems = useMemo(
-        () => getMobileOverflowNavItems(mode, profiles),
-        [mode, profiles],
+    const primaryAction = useMemo(
+        () => getPrimaryActionConfig(mode, profiles, routerPathname),
+        [mode, profiles, routerPathname],
     );
 
-    const moreActive = overflowNavItems.some((item) => item.id === section);
+    const bottomNavItems = useMemo(
+        () =>
+            applyBottomNavPrimaryHighlight(
+                visibleBottomTabs.map((item) => ({
+                    href: item.href,
+                    label: item.label,
+                    icon: item.icon,
+                    active:
+                        item.id === 'profile'
+                            ? section === 'profile' || routerPathname.startsWith('/panel/mi-cuenta')
+                            : isClientMarketplaceHref(item.href)
+                              ? routerPathname.startsWith(item.href)
+                              : section === item.id,
+                })),
+                primaryAction.show ? primaryAction.href : null,
+            ),
+        [primaryAction.href, primaryAction.show, routerPathname, section, visibleBottomTabs],
+    );
 
     const activePathname = resolvePanelActivePathname(routerPathname, section);
     const activeHref = useMemo(() => {
@@ -75,46 +97,29 @@ export function SerenataPanelShell({ children, section, onSectionChange }: Seren
             activeHref={activeHref}
             isVerified={user?.status === 'verified'}
             bottomNav={
-                <>
-                    <PanelBottomNav
-                        items={visibleBottomTabs.map((item) => ({
-                            href: item.href,
-                            label: item.label,
-                            icon: item.icon,
-                            active: isClientMarketplaceHref(item.href) ? false : section === item.id,
-                        }))}
-                        moreActive={moreActive}
-                        onMoreClick={overflowNavItems.length > 0 ? () => setMoreOpen(true) : undefined}
-                        LinkComponent={({ href, className, children, 'aria-current': ariaCurrent }) => {
-                            const tab = visibleBottomTabs.find((item) => item.href === href);
-                            if (tab && isClientMarketplaceHref(tab.href)) {
-                                return (
-                                    <Link href={tab.href} className={className} aria-current={ariaCurrent}>
-                                        {children}
-                                    </Link>
-                                );
-                            }
+                <PanelBottomNav
+                    items={bottomNavItems}
+                    LinkComponent={({ href, className, children, 'aria-current': ariaCurrent }) => {
+                        const tab = visibleBottomTabs.find((item) => item.href === href);
+                        if (tab && shouldUsePanelLink(tab.href)) {
                             return (
-                                <button
-                                    type="button"
-                                    className={className}
-                                    aria-current={ariaCurrent}
-                                    onClick={() => onSectionChange((tab?.id ?? href) as Section)}
-                                >
+                                <Link href={tab.href} className={className} aria-current={ariaCurrent}>
                                     {children}
-                                </button>
+                                </Link>
                             );
-                        }}
-                    />
-                    {moreOpen ? (
-                        <PanelMobileMoreSheet
-                            items={overflowNavItems}
-                            activeSection={section}
-                            onNavigate={onSectionChange}
-                            onClose={() => setMoreOpen(false)}
-                        />
-                    ) : null}
-                </>
+                        }
+                        return (
+                            <button
+                                type="button"
+                                className={className}
+                                aria-current={ariaCurrent}
+                                onClick={() => onSectionChange((tab?.id ?? href) as Section)}
+                            >
+                                {children}
+                            </button>
+                        );
+                    }}
+                />
             }
         >
             {children}

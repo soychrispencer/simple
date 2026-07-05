@@ -3,6 +3,19 @@
 import { useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { IconDotsCircleHorizontal } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
+import { BottomNavPrimaryAction, BottomNavStandardItem } from '../layout/bottom-nav-primary-action';
+import {
+    BOTTOM_NAV_BAR_CLASS,
+    BOTTOM_NAV_ITEM_CLASS,
+    BOTTOM_NAV_ITEM_COMPACT_CLASS,
+    BOTTOM_NAV_LABEL_CLASS,
+    BOTTOM_NAV_LABEL_COMPACT_CLASS,
+    BOTTOM_NAV_PRIMARY_LIFT_CLASS,
+    bottomNavIsCompact,
+    bottomNavPanelVisibilityClass,
+    bottomNavShellClassName,
+    bottomNavShellStyle,
+} from '../layout/bottom-nav-styles';
 
 export type PanelPillNavItem = {
     key: string;
@@ -418,19 +431,17 @@ export function PanelBottomNav({
     ariaLabel = 'Navegación del panel',
     highlightStyle,
 }: PanelBottomNavProps) {
+    const compact = bottomNavIsCompact(items.length, !!onMoreClick);
+    const itemClass = compact ? BOTTOM_NAV_ITEM_COMPACT_CLASS : BOTTOM_NAV_ITEM_CLASS;
+    const labelClass = compact ? BOTTOM_NAV_LABEL_COMPACT_CLASS : BOTTOM_NAV_LABEL_CLASS;
+
     return (
         <nav
-            className="fixed bottom-0 left-0 right-0 z-40 border-t lg:hidden"
-            style={{
-                background: 'color-mix(in oklab, var(--surface) 86%, transparent)',
-                backdropFilter: 'blur(14px)',
-                WebkitBackdropFilter: 'blur(14px)',
-                borderColor: 'var(--border)',
-                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-            }}
+            className={`${bottomNavShellClassName} ${bottomNavPanelVisibilityClass}`}
+            style={bottomNavShellStyle}
             aria-label={ariaLabel}
         >
-            <div className="flex items-center justify-around h-16 px-2">
+            <div className={BOTTOM_NAV_BAR_CLASS}>
                 {items.map((item) => {
                     const Icon = item.icon;
                     const active = !!item.active;
@@ -440,29 +451,16 @@ export function PanelBottomNav({
                             <LinkComponent
                                 key={item.href}
                                 href={item.href}
-                                className="flex flex-col items-center justify-center flex-1 h-full"
+                                className={`${itemClass} ${BOTTOM_NAV_PRIMARY_LIFT_CLASS}`}
                                 aria-current={active ? 'page' : undefined}
                             >
-                                <span
-                                    className="w-11 h-11 rounded-full flex items-center justify-center -mt-1"
-                                    style={{
-                                        background: 'var(--accent)',
-                                        color: 'var(--accent-contrast, #fff)',
-                                        boxShadow: highlightStyle?.boxShadow ?? '0 4px 12px color-mix(in oklab, var(--accent) 25%, transparent)',
-                                        ...highlightStyle,
-                                    }}
-                                >
-                                    <Icon size={22} stroke={2} />
-                                </span>
-                                <span
-                                    className="text-[10px] mt-0.5"
-                                    style={{
-                                        color: active ? 'var(--accent)' : 'var(--fg-muted)',
-                                        fontWeight: active ? 500 : 400,
-                                    }}
-                                >
-                                    {item.label}
-                                </span>
+                                <BottomNavPrimaryAction
+                                    icon={Icon}
+                                    label={item.label}
+                                    active={active}
+                                    boxShadow={highlightStyle?.boxShadow}
+                                    labelClassName={labelClass}
+                                />
                             </LinkComponent>
                         );
                     }
@@ -471,23 +469,10 @@ export function PanelBottomNav({
                         <LinkComponent
                             key={item.href}
                             href={item.href}
-                            className="flex flex-col items-center justify-center flex-1 h-full"
+                            className={itemClass}
                             aria-current={active ? 'page' : undefined}
                         >
-                            <Icon
-                                size={22}
-                                stroke={active ? 2 : 1.5}
-                                style={{ color: active ? 'var(--accent)' : 'var(--fg-muted)' }}
-                            />
-                            <span
-                                className="text-[11px] mt-0.5"
-                                style={{
-                                    color: active ? 'var(--accent)' : 'var(--fg-muted)',
-                                    fontWeight: active ? 500 : 400,
-                                }}
-                            >
-                                {item.label}
-                            </span>
+                            <BottomNavStandardItem icon={Icon} label={item.label} active={active} labelClassName={labelClass} />
                         </LinkComponent>
                     );
                 })}
@@ -496,23 +481,15 @@ export function PanelBottomNav({
                     <button
                         type="button"
                         onClick={onMoreClick}
-                        className="flex flex-col items-center justify-center flex-1 h-full"
+                        className={itemClass}
                         aria-label={moreLabel}
                     >
-                        <IconDotsCircleHorizontal
-                            size={22}
-                            stroke={moreActive ? 2 : 1.5}
-                            style={{ color: moreActive ? 'var(--accent)' : 'var(--fg-muted)' }}
+                        <BottomNavStandardItem
+                            icon={IconDotsCircleHorizontal}
+                            label={moreLabel}
+                            active={moreActive}
+                            labelClassName={labelClass}
                         />
-                        <span
-                            className="text-[11px] mt-0.5"
-                            style={{
-                                color: moreActive ? 'var(--accent)' : 'var(--fg-muted)',
-                                fontWeight: moreActive ? 500 : 400,
-                            }}
-                        >
-                            {moreLabel}
-                        </span>
                     </button>
                 ) : null}
             </div>

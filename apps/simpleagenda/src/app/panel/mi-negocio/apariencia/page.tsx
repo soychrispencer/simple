@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconCheck, IconLoader2 } from '@tabler/icons-react';
 import {
     AGENDA_BUSINESS_APARIENCIA_PAGE,
@@ -40,6 +40,12 @@ export default function AparienciaPage() {
         colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
         accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
     });
+    const [baseline, setBaseline] = useState<OperatorSiteAppearanceValue>({
+        layout: DEFAULT_OPERATOR_SITE_LAYOUT,
+        colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
+        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+    });
+    const [saved, setSaved] = useState(false);
     const [slug, setSlug] = useState<string | null>(null);
     const [displayName, setDisplayName] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
@@ -54,11 +60,13 @@ export default function AparienciaPage() {
         void (async () => {
             const profile = await fetchAgendaProfile();
             if (profile) {
-                setValue({
+                const appearance = {
                     layout: normalizeOperatorSiteLayout(profile.operatorSiteLayout),
                     colorMode: normalizeOperatorSiteColorMode(profile.operatorSiteColorMode),
                     accentColor: normalizeOperatorSiteAccent(profile.operatorSiteAccentColor),
-                });
+                };
+                setValue(appearance);
+                setBaseline(appearance);
                 setSlug(profile.slug ?? null);
                 setDisplayName(profile.displayName ?? '');
                 setAvatarUrl(profile.avatarUrl ?? '');
@@ -68,34 +76,27 @@ export default function AparienciaPage() {
         })();
     }, []);
 
-    const persistAppearance = useCallback(async (next: OperatorSiteAppearanceValue) => {
-        setSaving(true);
+    const persistAppearance = useCallback(async (next: OperatorSiteAppearanceValue): Promise<OperatorSiteAppearanceValue> => {
         setSaveError('');
-        try {
-            const result = await saveAgendaProfile({
-                operatorSiteLayout: next.layout,
-                operatorSiteColorMode: next.colorMode,
-                operatorSiteAccentColor: next.accentColor,
-            });
-            if (!result.ok) {
-                const message = result.error ?? 'No se pudo guardar la apariencia.';
-                setSaveError(message);
-                throw new Error(message);
-            }
-            if (result.profile) {
-                setValue({
-                    layout: normalizeOperatorSiteLayout(result.profile.operatorSiteLayout),
-                    colorMode: normalizeOperatorSiteColorMode(result.profile.operatorSiteColorMode),
-                    accentColor: normalizeOperatorSiteAccent(result.profile.operatorSiteAccentColor),
-                });
-            }
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'No se pudo guardar la apariencia.';
+        const result = await saveAgendaProfile({
+            operatorSiteLayout: next.layout,
+            operatorSiteColorMode: next.colorMode,
+            operatorSiteAccentColor: next.accentColor,
+        });
+        if (!result.ok) {
+            const message = result.error ?? 'No se pudo guardar la apariencia.';
             setSaveError(message);
-            throw err;
-        } finally {
-            setSaving(false);
+            throw new Error(message);
         }
+        const saved = result.profile
+            ? {
+                layout: normalizeOperatorSiteLayout(result.profile.operatorSiteLayout),
+                colorMode: normalizeOperatorSiteColorMode(result.profile.operatorSiteColorMode),
+                accentColor: normalizeOperatorSiteAccent(result.profile.operatorSiteAccentColor),
+            }
+            : next;
+        setValue(saved);
+        return saved;
     }, []);
 
     const persistBrandImages = useCallback(async (
@@ -118,13 +119,31 @@ export default function AparienciaPage() {
         window.setTimeout(() => setImageFeedback(''), 3000);
     }, []);
 
+    const hasChanges = useMemo(
+        () => JSON.stringify(value) !== JSON.stringify(baseline),
+        [value, baseline],
+    );
+
     const handleChange = (next: OperatorSiteAppearanceValue) => {
         setValue(next);
-        void persistAppearance(next);
+        setSaved(false);
+        setSaveError('');
     };
 
     const handleSave = async () => {
-        await persistAppearance(value);
+        setSaving(true);
+        setSaveError('');
+        setSaved(false);
+        try {
+            const saved = await persistAppearance(value);
+            setBaseline(saved);
+            setSaved(true);
+            window.setTimeout(() => setSaved(false), 2500);
+        } catch {
+            // persistAppearance already sets saveError
+        } finally {
+            setSaving(false);
+        }
     };
 
     const publicPreviewHref = slug ? `${APP_URL}/${slug}` : null;
@@ -189,9 +208,9 @@ export default function AparienciaPage() {
                         value={value}
                         publicPreviewUrl={publicPreviewHref}
                         saving={saving}
-                        saveError={saveError}
                         onChange={handleChange}
                         onSave={handleSave}
+                        hideSaveButton
                     />
 
                     {imageFeedback ? (
@@ -199,6 +218,14 @@ export default function AparienciaPage() {
                             <span className="flex items-center gap-2"><IconCheck size={15} /> {imageFeedback}</span>
                         </PanelNotice>
                     ) : null}
+
+                    <PanelSectionSaveFooter
+                        saving={saving}
+                        saved={saved}
+                        saveError={saveError || null}
+                        disabled={!hasChanges || brandSaving}
+                        onSave={handleSave}
+                    />
                 </div>
             )}
         </AgendaMiNegocioShell>

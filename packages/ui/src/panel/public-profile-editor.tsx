@@ -239,7 +239,11 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
         colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
         accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
     });
-    const [appearanceSaving, setAppearanceSaving] = useState(false);
+    const [appearanceBaseline, setAppearanceBaseline] = useState<OperatorSiteAppearanceValue>({
+        layout: DEFAULT_OPERATOR_SITE_LAYOUT,
+        colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
+        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+    });
 
     useEffect(() => {
         let active = true;
@@ -253,11 +257,13 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                 const loaded = normalizeLoadedProfile(response.profile);
                 setForm(loaded);
                 setScheduleSavedSnapshot(buildScheduleSnapshot(loaded));
-                setAppearanceValue({
+                const appearance = {
                     layout: normalizeOperatorSiteLayout((response.profile as Record<string, unknown>).operatorSiteLayout as string),
                     colorMode: normalizeOperatorSiteColorMode((response.profile as Record<string, unknown>).operatorSiteColorMode as string),
                     accentColor: normalizeOperatorSiteAccent((response.profile as Record<string, unknown>).operatorSiteAccentColor as string),
-                });
+                };
+                setAppearanceValue(appearance);
+                setAppearanceBaseline(appearance);
             }
             setLoading(false);
         })();
@@ -370,6 +376,11 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
     const marketplaceSocialLinks = useMemo(
         () => (form ? loadMarketplaceSocialLinks(form.socialLinks) : []),
         [form?.socialLinks],
+    );
+
+    const appearanceDirty = useMemo(
+        () => JSON.stringify(appearanceValue) !== JSON.stringify(appearanceBaseline),
+        [appearanceValue, appearanceBaseline],
     );
 
     const handleMarketplaceSocialLinksChange = (links: BusinessSocialLink[]) => {
@@ -700,45 +711,55 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
 
     const handleAppearanceChange = (next: OperatorSiteAppearanceValue) => {
         setAppearanceValue(next);
-        void persistAppearance(next);
+        setProfileSaved(false);
+        setSaveError(null);
     };
 
-    const persistAppearance = async (next: OperatorSiteAppearanceValue) => {
-        setAppearanceSaving(true);
+    const handleSaveAppearance = async () => {
+        if (!form || !appearanceDirty) return;
+        setSaving(true);
+        setSaveError(null);
+        setProfileSaved(false);
         setNotice(null);
-        try {
-            if (!form) return;
-            const fresh = await fetchAccountPublicProfile(vertical);
-            const isPublished = fresh?.ok ? fresh.profile.isPublished : form.isPublished;
-            const updatedForm = {
-                ...form,
-                operatorSiteLayout: next.layout,
-                operatorSiteColorMode: next.colorMode,
-                operatorSiteAccentColor: next.accentColor,
-            };
-            const response = await updateAccountPublicProfile(
-                vertical,
-                buildPublicProfileSavePayload(updatedForm, vertical, isPublished),
-            );
-            setAppearanceSaving(false);
-            if (!response.ok) {
-                setNotice(response.error ?? 'No se pudo guardar la apariencia.');
-                return;
-            }
-            setForm(normalizeLoadedProfile(response.profile));
-        } catch {
-            setAppearanceSaving(false);
+        const fresh = await fetchAccountPublicProfile(vertical);
+        const isPublished = fresh?.ok ? fresh.profile.isPublished : form.isPublished;
+        const updatedForm = {
+            ...form,
+            operatorSiteLayout: appearanceValue.layout,
+            operatorSiteColorMode: appearanceValue.colorMode,
+            operatorSiteAccentColor: appearanceValue.accentColor,
+        };
+        const response = await updateAccountPublicProfile(
+            vertical,
+            buildPublicProfileSavePayload(updatedForm, vertical, isPublished),
+        );
+        setSaving(false);
+        if (!response.ok) {
+            setSaveError(response.error ?? 'No se pudo guardar la apariencia.');
+            return;
         }
+        const saved = normalizeLoadedProfile(response.profile);
+        setForm(saved);
+        const nextAppearance = {
+            layout: normalizeOperatorSiteLayout((response.profile as Record<string, unknown>).operatorSiteLayout as string),
+            colorMode: normalizeOperatorSiteColorMode((response.profile as Record<string, unknown>).operatorSiteColorMode as string),
+            accentColor: normalizeOperatorSiteAccent((response.profile as Record<string, unknown>).operatorSiteAccentColor as string),
+        };
+        setAppearanceValue(nextAppearance);
+        setAppearanceBaseline(nextAppearance);
+        setProfileSaved(true);
+        window.setTimeout(() => setProfileSaved(false), 2500);
+        window.dispatchEvent(new CustomEvent('simple:marketplace-profile-changed', { detail: { vertical } }));
     };
 
     const appearanceCard = (
         <OperatorSiteAppearanceEditor
             value={appearanceValue}
             publicPreviewUrl={publicPreview}
-            saving={appearanceSaving}
-            saveError={undefined}
+            saving={saving}
             onChange={handleAppearanceChange}
-            onSave={() => Promise.resolve()}
+            onSave={handleSaveAppearance}
+            hideSaveButton
         />
     );
 
@@ -908,7 +929,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
 
     const saveSection: BusinessProfileSaveSection | undefined = section === 'horarios'
         ? section
-        : section === 'pagina' || section === undefined
+        : section === 'pagina' || section === 'apariencia' || section === undefined
             ? 'pagina'
             : undefined;
 
@@ -917,8 +938,8 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
             saving={saving}
             saved={profileSaved}
             saveError={saveError}
-            disabled={brandSaving}
-            onSave={handleSave}
+            disabled={section === 'apariencia' ? !appearanceDirty || brandSaving : brandSaving}
+            onSave={section === 'apariencia' ? handleSaveAppearance : handleSave}
             saveLabel={panelSectionSaveLabel(saveSection)}
             savedMessage={businessProfileSaveSuccessMessage(saveSection)}
         />

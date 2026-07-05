@@ -18,6 +18,15 @@ export {
     type MarketplaceOperatorPublishHintProps,
 } from './marketplace-operator-publish-hint';
 export {
+    MarketplacePublishSharePanel,
+    type MarketplacePublishSharePanelProps,
+    type MarketplaceShareChannel,
+} from './marketplace-publish-share-panel';
+export {
+    MarketplaceListingCopyFields,
+    type MarketplaceListingCopyFieldsProps,
+} from './marketplace-listing-copy-fields';
+export {
     MarketplaceAutosFleetRentFields,
     MarketplaceAutosConsignmentFields,
     MarketplacePropiedadesRentAdminHint,

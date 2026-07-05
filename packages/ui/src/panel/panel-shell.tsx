@@ -149,6 +149,7 @@ export function PanelShell({
         [activeHrefOverride, pathname, navItems],
     );
     const showChrome = chromeEnabled;
+    const hasBottomNav = showChrome && bottomNav != null;
     const userName = user?.name?.trim() || 'Usuario';
 
     useEffect(() => {
@@ -273,7 +274,7 @@ export function PanelShell({
                 </div>
             ) : null}
 
-            <section className="min-w-0 flex-1">
+            <section className="min-w-0 flex-1 overflow-x-clip">
                 {showVerificationBanner && !isVerified ? (
                     <div
                         className="flex items-center justify-between border-b px-4 py-3"
@@ -293,10 +294,10 @@ export function PanelShell({
                     </div>
                 ) : null}
 
-                <div className={`panel-content-frame pt-3 ${showChrome ? 'pb-20 lg:pb-0' : ''}`}>{children}</div>
+                <div className={`panel-content-frame min-w-0 overflow-x-clip pt-3 ${hasBottomNav ? 'pb-24 lg:pb-0' : ''}`}>{children}</div>
             </section>
 
-            {showChrome ? bottomNav : null}
+            {hasBottomNav ? bottomNav : null}
         </div>
     );
 }

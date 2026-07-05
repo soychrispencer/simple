@@ -1,5 +1,6 @@
 import type { PanelListing } from '@/lib/panel-listings';
 import type { VehicleCatalogType } from '@/lib/publish-wizard-catalog';
+import { isSupportedExternalVideoUrl } from '@simple/utils';
 
 export type PublishFormPhoto = {
     id: string;
@@ -11,6 +12,7 @@ export type PublishFormPhoto = {
 export type PublishFormData = {
     photos: PublishFormPhoto[];
     reelVideo: { id: string; preview: string; name: string; mimeType: string; sizeBytes: number } | null;
+    videoExternalUrl: string;
     listingType: 'sale' | 'rent' | 'auction';
     vehicleType: VehicleCatalogType;
     brandId: string;
@@ -86,8 +88,33 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
             isCover: photo.isCover === true || index === 0,
         };
     });
+
     const rawVideo = asRecord(media.discoverVideo);
-    const videoPreview = asString(rawVideo.previewUrl) || asString(rawVideo.dataUrl) || asString(media.videoUrl);
+    const videoUrlStr = asString(media.videoUrl).trim();
+    const uploadUrl = asString(rawVideo.previewUrl) || asString(rawVideo.dataUrl);
+
+    let reelVideo: PublishFormData['reelVideo'] = null;
+    let videoExternalUrl = '';
+
+    if (videoUrlStr && isSupportedExternalVideoUrl(videoUrlStr)) {
+        videoExternalUrl = videoUrlStr;
+    } else if (uploadUrl) {
+        reelVideo = {
+            id: asString(rawVideo.id, 'video-1'),
+            preview: uploadUrl,
+            name: asString(rawVideo.name, 'video-publicacion'),
+            mimeType: asString(rawVideo.mimeType, 'video/mp4'),
+            sizeBytes: Number(rawVideo.sizeBytes ?? 0),
+        };
+    } else if (videoUrlStr.startsWith('http')) {
+        reelVideo = {
+            id: asString(rawVideo.id, 'video-1'),
+            preview: videoUrlStr,
+            name: asString(rawVideo.name, 'video-publicacion'),
+            mimeType: asString(rawVideo.mimeType, 'video/mp4'),
+            sizeBytes: Number(rawVideo.sizeBytes ?? 0),
+        };
+    }
 
     const priceDigits = asString(listing.price).replace(/\D/g, '') || asString(commercial.price).replace(/\D/g, '');
     const offerDigits = asString(commercial.offerPrice).replace(/\D/g, '');
@@ -100,13 +127,8 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
 
     return {
         photos,
-        reelVideo: videoPreview ? {
-            id: asString(rawVideo.id, 'video-1'),
-            preview: videoPreview,
-            name: asString(rawVideo.name, 'video-publicacion'),
-            mimeType: asString(rawVideo.mimeType, 'video/mp4'),
-            sizeBytes: Number(rawVideo.sizeBytes ?? 0),
-        } : null,
+        reelVideo,
+        videoExternalUrl,
         listingType: listingType === 'rent' || listingType === 'auction' ? listingType : 'sale',
         vehicleType: (setup.vehicleType as VehicleCatalogType) ?? 'car',
         brandId: asString(basic.brandId),

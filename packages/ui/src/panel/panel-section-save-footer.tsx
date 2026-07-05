@@ -27,7 +27,7 @@ export function PanelSectionSaveFooter({
     savingLabel = 'Guardando…',
 }: PanelSectionSaveFooterProps) {
     return (
-        <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-2xl border border-(--border) bg-(--surface) p-3 shadow-sm sm:flex-row sm:items-center sm:justify-end">
+        <div className="panel-section-save-footer sticky z-10 flex flex-col gap-3 rounded-2xl border border-(--border) bg-(--surface) p-3 shadow-sm sm:flex-row sm:items-center sm:justify-end lg:bottom-3">
             {saveError ? (
                 <p className="flex items-center gap-1.5 text-sm text-(--color-error,#dc2626) sm:mr-auto">
                     <IconAlertCircle size={14} className="shrink-0" />

@@ -10,7 +10,6 @@ import { usePanelFormatters } from '@simple/auth';
 import { vocab } from '@/lib/vocabulary';
 import { PanelPageHeader } from '@simple/ui/panel';
 import { PanelStatCard } from '@simple/ui/panel';
-import { ActivationChecklist } from '@/components/panel/activation-checklist';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -171,16 +170,11 @@ export default function PanelHomePage() {
     ];
 
     return (
-        <div className="container-app panel-page py-4 lg:py-8">
-            <PanelPageHeader title="Mi panel" description={panelDescription} />
+        <div className="panel-page container-app min-w-0 max-w-full py-4 pb-6 lg:py-8 lg:pb-8">
+            <PanelPageHeader title="Mi panel" description={panelDescription} className="min-w-0" />
 
-            <div className="grid gap-4">
-                {/* Activation checklist — only shows when setup is incomplete */}
-                {stats && profile && !loading && (
-                    <ActivationChecklist stats={stats} profile={profile} />
-                )}
-
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid gap-4 pb-2">
+                <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-4">
                 {statCards.map((stat) => (
                     <Link
                         key={stat.label}
@@ -198,11 +192,10 @@ export default function PanelHomePage() {
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
 
-                {/* Weekly bar chart — 3 cols */}
                 <div
-                    className="lg:col-span-3 rounded-2xl border p-4 sm:p-5 agenda-home-surface"
+                    className="lg:col-span-3 rounded-2xl border p-4 sm:p-5 agenda-home-surface min-w-0"
                 >
-                    <div className="flex items-center justify-between mb-5 gap-2">
+                    <div className="flex items-center justify-between mb-4 gap-2 sm:mb-5">
                         <div className="min-w-0">
                             <p className="text-sm font-semibold agenda-home-fg">Citas esta semana</p>
                             <p className="text-xs mt-0.5 agenda-home-muted">Lunes a domingo</p>
@@ -214,17 +207,18 @@ export default function PanelHomePage() {
                             Ver agenda <IconChevronRight size={14} />
                         </Link>
                     </div>
-                    <WeekBarChart data={stats?.weeklyData ?? []} loading={loading} />
+                    <div className="w-full overflow-x-auto -mx-1 px-1">
+                        <WeekBarChart data={stats?.weeklyData ?? []} loading={loading} />
+                    </div>
                 </div>
 
-                {/* Revenue summary — 2 cols */}
                 <div
-                    className="lg:col-span-2 rounded-2xl border p-4 sm:p-5 flex flex-col justify-between agenda-home-surface"
+                    className="lg:col-span-2 rounded-2xl border p-4 sm:p-5 flex flex-col justify-between agenda-home-surface min-w-0"
                 >
                     <div>
                         <p className="text-sm font-semibold mb-0.5 agenda-home-fg">Ingresos del mes</p>
-                        <p className="text-xs mb-4 agenda-home-muted">Cobros confirmados</p>
-                        <p className="text-3xl font-bold tracking-tight agenda-home-fg">
+                        <p className="text-xs mb-3 sm:mb-4 agenda-home-muted">Cobros confirmados</p>
+                        <p className="text-2xl sm:text-3xl font-bold tracking-tight agenda-home-fg break-words">
                             {loading ? '—' : fmtCLP(stats?.thisMonthRevenue ?? 0)}
                         </p>
                         <div className="mt-2">

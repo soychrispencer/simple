@@ -49,6 +49,8 @@ type OperatorSiteAppearanceEditorProps = {
     saveError?: string;
     onChange: (next: OperatorSiteAppearanceValue) => void;
     onSave: () => void | Promise<void>;
+    /** Oculta el botón inline; usar PanelSectionSaveFooter en la página. */
+    hideSaveButton?: boolean;
 };
 
 export function OperatorSiteAppearanceEditor({
@@ -58,6 +60,7 @@ export function OperatorSiteAppearanceEditor({
     saveError: externalSaveError = '',
     onChange,
     onSave,
+    hideSaveButton = false,
 }: OperatorSiteAppearanceEditorProps) {
     const [savedFlash, setSavedFlash] = useState(false);
     const [localSaveError, setLocalSaveError] = useState('');
@@ -67,8 +70,10 @@ export function OperatorSiteAppearanceEditor({
         setLocalSaveError('');
         try {
             await onSave();
-            setSavedFlash(true);
-            window.setTimeout(() => setSavedFlash(false), 2000);
+            if (!hideSaveButton) {
+                setSavedFlash(true);
+                window.setTimeout(() => setSavedFlash(false), 2000);
+            }
         } catch (err) {
             setLocalSaveError(err instanceof Error ? err.message : 'No se pudo guardar.');
         }
@@ -93,7 +98,7 @@ export function OperatorSiteAppearanceEditor({
         <div className="space-y-6">
             <PanelBlockHeader
                 title="Estilo de tu página"
-                description="Elige un diseño. Se guarda al seleccionar; recarga tu página pública para verlo."
+                description="Elige un diseño, modo de color y acento. Usa Guardar cambios al final de la página."
             />
 
             <div className="grid gap-4 lg:grid-cols-3">
@@ -195,18 +200,20 @@ export function OperatorSiteAppearanceEditor({
                 </PanelNotice>
             )}
 
-            {saveError ? (
+            {saveError && !hideSaveButton ? (
                 <PanelNotice tone="error">{saveError}</PanelNotice>
             ) : null}
 
-            <div className="flex items-center gap-3">
-                <PanelButton onClick={() => void handleSave()} disabled={saving}>
-                    {saving ? <IconLoader2 size={16} className="animate-spin" /> : null}
-                    Guardar ahora
-                </PanelButton>
-                {saving ? <span className="text-sm text-fg-muted">Guardando…</span> : null}
-                {!saving && savedFlash ? <span className="text-sm text-[var(--accent)]">Guardado</span> : null}
-            </div>
+            {hideSaveButton ? null : (
+                <div className="flex items-center gap-3">
+                    <PanelButton onClick={() => void handleSave()} disabled={saving}>
+                        {saving ? <IconLoader2 size={16} className="animate-spin" /> : null}
+                        Guardar ahora
+                    </PanelButton>
+                    {saving ? <span className="text-sm text-fg-muted">Guardando…</span> : null}
+                    {!saving && savedFlash ? <span className="text-sm text-[var(--accent)]">Guardado</span> : null}
+                </div>
+            )}
         </div>
     );
 }

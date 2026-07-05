@@ -1,10 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { IconHome } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
-import { PanelShell as SharedPanelShell } from '@simple/ui/panel';
+import { PanelShell as SharedPanelShell, PanelBottomNav } from '@simple/ui/panel';
+import { applyBottomNavPrimaryHighlight, createPanelAccountNavItem } from '@simple/ui/layout';
 import {
     IconLayoutDashboard,
     IconBell,
@@ -18,6 +20,23 @@ import {
 } from '@tabler/icons-react';
 
 const STORAGE_COLLAPSED = 'simpleserenatas:panel:collapsed';
+const PRIMARY_HREF = '/panel/agenda';
+
+const MOBILE_TABS = [
+    { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
+    { href: '/panel/serenatas', label: 'Solicitudes', icon: IconBell },
+    { href: PRIMARY_HREF, label: 'Agenda', icon: IconCalendar },
+    { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBriefcase },
+    createPanelAccountNavItem(IconUser),
+] as const;
+
+function isDedicatedPanelNavActive(pathname: string, href: string): boolean {
+    if (href === '/panel') return pathname === '/panel' || pathname === '/panel/';
+    if (href === '/panel/mi-cuenta') {
+        return pathname === href || pathname.startsWith('/panel/mi-cuenta/');
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 /**
  * Panel shell simplificado para rutas dedicadas (/panel/mi-negocio/*).
@@ -42,11 +61,20 @@ export function PanelLayoutShell({ children }: { children: ReactNode }) {
         return items.map(({ href, ...rest }) => ({ ...rest, href }));
     }, []);
 
+    const bottomNavItems = useMemo(
+        () =>
+            applyBottomNavPrimaryHighlight(
+                MOBILE_TABS.map((item) => ({
+                    ...item,
+                    active: isDedicatedPanelNavActive(pathname, item.href),
+                })),
+                PRIMARY_HREF,
+            ),
+        [pathname],
+    );
+
     const activeHref = useMemo(() => {
-        const match = navItems.find((item) => {
-            if (item.href === '/panel') return pathname === '/panel' || pathname === '/panel/';
-            return pathname.startsWith(item.href);
-        });
+        const match = navItems.find((item) => isDedicatedPanelNavActive(pathname, item.href));
         return match?.href ?? '/panel/mi-negocio';
     }, [navItems, pathname]);
 
@@ -63,6 +91,7 @@ export function PanelLayoutShell({ children }: { children: ReactNode }) {
             footerIcon={IconHome}
             activeHref={activeHref}
             isVerified={user?.status === 'verified'}
+            bottomNav={<PanelBottomNav items={bottomNavItems} LinkComponent={Link} />}
         >
             {children}
         </SharedPanelShell>

@@ -24,7 +24,9 @@ import {
 import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
-import { MarketplacePublishSuccess, MarketplacePublishWizard, MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields } from '@simple/ui/publish';
+import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { ColorPicker } from '@/components/ui/color-picker';
@@ -43,6 +45,7 @@ interface FormData {
     // Paso 1: Identidad
     photos: Array<{ id: string; file?: File; preview: string; isCover: boolean }>;
     reelVideo: { id: string; file?: File; preview: string; name: string; mimeType: string; sizeBytes: number } | null;
+    videoExternalUrl: string;
     listingType: ListingType;
     vehicleType: VehicleCatalogType;
     brandId: string;
@@ -94,6 +97,7 @@ interface FormData {
 const EMPTY_FORM: FormData = {
     photos: [],
     reelVideo: null,
+    videoExternalUrl: '',
     listingType: 'sale',
     vehicleType: 'car',
     brandId: '',
@@ -134,10 +138,55 @@ const EMPTY_FORM: FormData = {
 };
 
 const PUBLISH_STEPS = [
-    { key: '1', label: 'Multimedia', helper: 'Fotos y video para tu aviso' },
-    { key: '2', label: 'Detalles', helper: 'Tipo, vehículo, precio y oferta' },
-    { key: '3', label: 'Publicar', helper: 'Ubicación, revisión y compartir' },
+    { key: '1', label: 'Multimedia', helper: 'Fotos y video' },
+    { key: '2', label: 'Detalles', helper: 'Vehículo y precio' },
+    { key: '3', label: 'Publicar', helper: 'Ubicación y revisión' },
 ] as const;
+
+const AUTOS_STEP_COPY: Record<number, { title: string; description: string }> = {
+    1: {
+        title: 'Fotos y video',
+        description: 'Sube lo esencial para tu tarjeta. La primera foto será la portada.',
+    },
+    2: {
+        title: 'Detalles del vehículo',
+        description: 'Tipo de operación, marca, modelo, año y precio.',
+    },
+    3: {
+        title: 'Revisar y publicar',
+        description: 'Ubicación, título, descripción y confirmación final.',
+    },
+};
+
+function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalog | null): SimplePublishPreviewCardProps {
+    const brandName = form.brandId === '__custom__' ? form.customBrand : catalog?.brands.find((b) => b.id === form.brandId)?.name || '';
+    const modelName = form.modelId === '__custom__' ? form.customModel : catalog?.models.find((m) => m.id === form.modelId)?.name || '';
+    const title = form.title || [brandName, modelName, form.year].filter(Boolean).join(' ') || 'Título del aviso';
+    const regionName = catalog?.regions.find((r) => r.id === form.regionId)?.name || '';
+    const communeName = catalog?.communes.find((c) => c.id === form.communeId)?.name || '';
+    const location = [communeName, regionName].filter(Boolean).join(', ') || 'Ubicación pendiente';
+    const badge = form.listingType === 'sale' ? 'Venta' : form.listingType === 'rent' ? 'Arriendo' : 'Subasta';
+    const priceValue = form.offerPrice || form.price;
+    const price = priceValue ? `$${priceValue}` : '$Consultar';
+
+    const specs: SimplePublishPreviewCardProps['specs'] = [];
+    if (form.year) specs.push({ icon: <IconCalendar size={13} />, label: form.year });
+    if (form.mileage) specs.push({ icon: <IconGauge size={13} />, label: `${form.mileage} km` });
+    if (form.fuelType) specs.push({ icon: <IconGasStation size={13} />, label: form.fuelType });
+    if (form.transmission) specs.push({ icon: <IconManualGearbox size={13} />, label: form.transmission });
+
+    return {
+        badge,
+        price,
+        title,
+        location,
+        photoUrls: form.photos.map((photo) => photo.preview).filter(Boolean),
+        videoUrl: form.reelVideo?.preview ?? null,
+        specs,
+        brandLabel: 'Simple',
+        footerHint: 'Así se verá en SimpleAutos',
+    };
+}
 
 const VEHICLE_TYPES = [
     { value: 'car', label: 'Auto / SUV', Icon: IconCar },
@@ -187,6 +236,8 @@ export default function PublicarPage() {
     });
     const [draftNotice, setDraftNotice] = useState<string | null>(null);
     const [publishError, setPublishError] = useState<string | null>(null);
+    const [editingLoading, setEditingLoading] = useState(false);
+    const [editLoadFailed, setEditLoadFailed] = useState(false);
     
     // Cargar catálogo
     useEffect(() => {
@@ -211,15 +262,22 @@ export default function PublicarPage() {
                 }
             }).catch(() => null);
         } else {
-            // Cargar para edición
-            setLoading(true);
+            setEditingLoading(true);
+            setEditLoadFailed(false);
             setPublishError(null);
             fetchPanelListingDetail(editingId!).then((result) => {
                 if (result.ok && result.item) {
                     setForm(mapPanelListingToPublishForm(result.item));
+                } else {
+                    setEditLoadFailed(true);
+                    setPublishError(result.error || 'No se pudo cargar la publicación para editar.');
                 }
-                setLoading(false);
-            }).catch(() => setLoading(false));
+                setEditingLoading(false);
+            }).catch(() => {
+                setEditLoadFailed(true);
+                setPublishError('No se pudo cargar la publicación para editar.');
+                setEditingLoading(false);
+            });
         }
     }, [editingId]);
 
@@ -234,7 +292,9 @@ export default function PublicarPage() {
     }, []);
     
     const hasIdentityFields = Boolean(
-        form.brandId && form.modelId && form.year && form.price,
+        form.year && form.price && form.brandId && form.modelId
+        && (form.brandId !== '__custom__' || form.customBrand.trim())
+        && (form.modelId !== '__custom__' || form.customModel.trim()),
     );
 
     const canProceed = () => {
@@ -262,6 +322,19 @@ export default function PublicarPage() {
         setLoading(true);
         setPublishError(null);
         try {
+            if (form.photos.length < 1) {
+                setPublishError('Agrega al menos una foto antes de publicar.');
+                return;
+            }
+            if (!hasIdentityFields) {
+                setPublishError('Completa marca, modelo, año y precio antes de publicar.');
+                return;
+            }
+            if (!form.regionId || !form.communeId) {
+                setPublishError('Selecciona región y comuna antes de publicar.');
+                return;
+            }
+
             // PASO 1: Subir fotos primero
             const uploadedPhotos: Array<{
                 id: string;
@@ -292,27 +365,33 @@ export default function PublicarPage() {
             }
             
             for (const photo of photoFiles) {
-                try {
-                    const uploadResult = await uploadMediaFile(photo.file as File, {
-                        fileType: 'image',
-                    });
-                    
-                    if (uploadResult.ok && uploadResult.result) {
-                        uploadedPhotos.push({
-                            id: photo.id,
-                            name: (photo.file as File).name,
-                            dataUrl: uploadResult.result.publicUrl || uploadResult.result.url,
-                            previewUrl: uploadResult.result.publicUrl || uploadResult.result.url,
-                            isCover: photo.isCover,
-                            width: 0,
-                            height: 0,
-                            sizeBytes: (photo.file as File).size,
-                            mimeType: (photo.file as File).type,
-                        });
-                    }
-                } catch (err) {
-                    console.error('Error uploading photo:', err);
+                const uploadResult = await uploadMediaFile(photo.file as File, {
+                    fileType: 'image',
+                });
+
+                if (!uploadResult.ok || !uploadResult.result) {
+                    setPublishError(
+                        uploadResult.error || `No se pudo subir la foto "${(photo.file as File).name}".`,
+                    );
+                    return;
                 }
+
+                uploadedPhotos.push({
+                    id: photo.id,
+                    name: (photo.file as File).name,
+                    dataUrl: uploadResult.result.publicUrl || uploadResult.result.url,
+                    previewUrl: uploadResult.result.publicUrl || uploadResult.result.url,
+                    isCover: photo.isCover,
+                    width: 0,
+                    height: 0,
+                    sizeBytes: (photo.file as File).size,
+                    mimeType: (photo.file as File).type,
+                });
+            }
+
+            if (uploadedPhotos.length < 1) {
+                setPublishError('Debes tener al menos una foto subida para publicar.');
+                return;
             }
 
             let uploadedVideo: {
@@ -327,29 +406,33 @@ export default function PublicarPage() {
                 durationSeconds: number;
             } | null = null;
 
+            const externalVideoUrl = form.videoExternalUrl.trim();
+            if (externalVideoUrl && !isSupportedExternalVideoUrl(externalVideoUrl)) {
+                setPublishError('Usa un enlace de YouTube o Vimeo para el video.');
+                return;
+            }
+
             if (form.reelVideo) {
                 if (form.reelVideo.file) {
-                    try {
-                        const uploadResult = await uploadMediaFile(form.reelVideo.file, {
-                            fileType: 'video',
-                        });
-                        if (uploadResult.ok && uploadResult.result) {
-                            const url = uploadResult.result.publicUrl || uploadResult.result.url;
-                            uploadedVideo = {
-                                id: form.reelVideo.id,
-                                name: form.reelVideo.name,
-                                dataUrl: url,
-                                previewUrl: url,
-                                width: 0,
-                                height: 0,
-                                sizeBytes: form.reelVideo.sizeBytes,
-                                mimeType: form.reelVideo.mimeType,
-                                durationSeconds: 0,
-                            };
-                        }
-                    } catch (err) {
-                        console.error('Error uploading video:', err);
+                    const uploadResult = await uploadMediaFile(form.reelVideo.file, {
+                        fileType: 'video',
+                    });
+                    if (!uploadResult.ok || !uploadResult.result) {
+                        setPublishError(uploadResult.error || 'No se pudo subir el video.');
+                        return;
                     }
+                    const url = uploadResult.result.publicUrl || uploadResult.result.url;
+                    uploadedVideo = {
+                        id: form.reelVideo.id,
+                        name: form.reelVideo.name,
+                        dataUrl: url,
+                        previewUrl: url,
+                        width: 0,
+                        height: 0,
+                        sizeBytes: form.reelVideo.sizeBytes,
+                        mimeType: form.reelVideo.mimeType,
+                        durationSeconds: 0,
+                    };
                 } else {
                     uploadedVideo = {
                         id: form.reelVideo.id,
@@ -391,11 +474,11 @@ export default function PublicarPage() {
                 return `$ ${Number(digits).toLocaleString('es-CL')}${suffix}`;
             };
             
-            const priceLabel = form.listingType === 'rent' 
+            const priceLabel = (form.listingType === 'rent' 
                 ? renderMoney(form.price, ' / mes') || '$0'
                 : form.listingType === 'auction'
                     ? renderMoney(form.price) || '$0'
-                    : renderMoney(offerPriceValue || form.price) || '$0';
+                    : renderMoney(offerPriceValue || form.price) || '$0').slice(0, 100);
             
             // PASO 4: Construir datos
             const brandName = form.brandId === '__custom__' ? form.customBrand : 
@@ -477,7 +560,7 @@ export default function PublicarPage() {
                         sizeBytes: p.sizeBytes,
                         mimeType: p.mimeType,
                     })),
-                    videoUrl: uploadedVideo?.dataUrl ?? '',
+                    videoUrl: uploadedVideo?.dataUrl ?? externalVideoUrl,
                     discoverVideo: uploadedVideo,
                     documents: [],
                 },
@@ -540,20 +623,22 @@ export default function PublicarPage() {
                 rawData,
             };
             
-            // PASO 7: Crear el listing
-            const result = await createPanelListing(payload);
+            // PASO 7: Crear o actualizar el listing
+            const result = isEditing && editingId
+                ? await updatePanelListing(editingId, payload)
+                : await createPanelListing(payload);
             
             if (result.ok && result.item) {
                 setPublished({
                     id: result.item.id,
                     href: result.item.href || `/vehiculo/${result.item.id}`,
                     title: result.item.title,
-                    hasVideo: Boolean(uploadedVideo?.dataUrl),
+                    hasVideo: Boolean(uploadedVideo?.dataUrl || externalVideoUrl),
                 });
                 setStep('success');
                 await deletePanelListingDraft('autos-quick').catch(() => null);
             } else {
-                setPublishError(result.error || 'No se pudo publicar. Intenta de nuevo.');
+                setPublishError(result.error || (isEditing ? 'No se pudo guardar la publicación.' : 'No se pudo publicar. Intenta de nuevo.'));
             }
         } catch (error) {
             console.error('Error al publicar:', error);
@@ -563,6 +648,40 @@ export default function PublicarPage() {
         }
     };
     
+    useEffect(() => {
+        if (step !== 3 || !catalog) return;
+        if (form.title.trim() && form.description.trim()) return;
+        const brand = form.brandId === '__custom__' ? form.customBrand : catalog.brands.find((b) => b.id === form.brandId)?.name || form.brandId;
+        const model = form.modelId === '__custom__' ? form.customModel : catalog.models.find((m) => m.id === form.modelId)?.name || form.modelId;
+        setForm((current) => ({
+            ...current,
+            title: current.title.trim() || generateAutosListingTitle({ brandName: brand, modelName: model, year: current.year }),
+            description: current.description.trim() || generateAutosListingDescription({
+                brandName: brand,
+                modelName: model,
+                year: current.year,
+                vehicleType: current.vehicleType,
+                condition: current.condition,
+                color: current.color,
+                mileage: current.mileage,
+                transmission: current.transmission,
+                fuelType: current.fuelType,
+                ownerCount: current.ownerCount,
+                price: current.price,
+                negotiable: current.negotiable,
+                financing: current.financing,
+                exchange: current.exchange,
+                maintenanceUpToDate: current.maintenanceUpToDate,
+                technicalReviewUpToDate: current.technicalReviewUpToDate,
+                papersUpToDate: current.papersUpToDate,
+                noAccidents: current.noAccidents,
+                warranty: current.warranty,
+                listingType: current.listingType,
+                platformName: 'SimpleAutos',
+            }).slice(0, 1000),
+        }));
+    }, [step, catalog, form.brandId, form.modelId, form.customBrand, form.customModel, form.year, form.title, form.description]);
+
     const toggleSection = (key: string) => {
         setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
     };
@@ -583,30 +702,26 @@ export default function PublicarPage() {
     return (
         <>
         {step === 'success' && published ? (
-            <MarketplacePublishSuccess
+            <SimplePublishSuccessScreen
                 title={published.title}
-                publishedHref={published.href}
-                shareText={`Mira este vehículo en SimpleAutos: ${published.title}`}
+                brandName="SimpleAutos"
+                shareHub={(
+                    <ShareToSocialPanel
+                        listingId={published.id}
+                        listingHref={published.href}
+                        listingTitle={published.title}
+                        hasVideo={published.hasVideo}
+                        shareText={`Mira este vehículo en SimpleAutos: ${published.title}`}
+                    />
+                )}
                 onReset={() => window.location.reload()}
                 onGoToListings={() => router.push('/panel/publicaciones')}
-                extraActions={(
-                    <>
-                        <MarketplacePublishProfileCta />
-                        <ShareToSocialPanel
-                            listingId={published.id}
-                            listingHref={published.href}
-                            listingTitle={published.title}
-                            hasVideo={published.hasVideo}
-                        />
-                    </>
-                )}
             />
         ) : (
-        <MarketplacePublishWizard
+        <SimplePublishLayout
             title="Nueva publicación"
-            subtitle="Publica en 3 pasos: multimedia, detalles y ubicación."
+            subtitle={isEditing ? 'Actualiza los datos de tu aviso.' : 'Multimedia, detalles y publicación.'}
             steps={PUBLISH_STEPS.map((item) => ({ key: item.key, label: item.label, helper: item.helper }))}
-            activeStepKey={String(step)}
             stepIndex={stepIndex}
             isEditing={isEditing}
             onBack={() => setStep((prev) => ((prev as number) - 1) as Step)}
@@ -615,10 +730,22 @@ export default function PublicarPage() {
                 const target = Number(key);
                 if (!Number.isNaN(target) && target <= (step as number)) setStep(target as Step);
             }}
+            headerContinue={{
+                label: step === 3
+                    ? (isEditing ? 'Guardar en Simple' : 'Publicar en Simple')
+                    : 'Continuar',
+                onClick: () => {
+                    if (step === 3) void handlePublish();
+                    else setStep((prev) => ((prev as number) + 1) as Step);
+                },
+                disabled: !canProceed() || loading || editingLoading || editLoadFailed || (step === 3 && publishBlocked),
+                loading,
+            }}
             notices={(
                 <>
                     <MarketplacePublishPlanLimitNotice vertical="autos" isEditing={isEditing} planLimit={planLimit} />
                     {!isEditing ? <MarketplaceOperatorPublishHint message={operatorHint} /> : null}
+                    {editingLoading ? <PanelNotice tone="neutral">Cargando publicación para editar...</PanelNotice> : null}
                     {publishError ? <MarketplacePublishMessageNotice message={publishError} /> : null}
                     {draftNotice ? (
                         <PanelNotice tone="warning">
@@ -638,75 +765,61 @@ export default function PublicarPage() {
                     ) : null}
                 </>
             )}
-            footer={(
-                <div className="flex justify-end">
-                    <PanelButton
-                        type="button"
-                        variant="primary"
-                        className="w-full sm:w-auto min-w-[200px]"
-                        onClick={() => {
-                            if (step === 3) void handlePublish();
-                            else setStep((prev) => ((prev as number) + 1) as Step);
-                        }}
-                        disabled={!canProceed() || loading || (step === 3 && publishBlocked)}
-                    >
-                        {loading ? (
-                            <>
-                                <IconLoader2 size={18} className="animate-spin" />
-                                {step === 3 ? 'Publicando...' : 'Avanzando...'}
-                            </>
-                        ) : step === 3 ? (
-                            <>
-                                <IconRocket size={18} />
-                                Publicar aviso
-                            </>
-                        ) : step === 1 ? (
-                            <>
-                                Agregar fotos
-                                <IconArrowRight size={18} />
-                            </>
-                        ) : (
-                            <>
-                                Ver resumen
-                                <IconArrowRight size={18} />
-                            </>
-                        )}
-                    </PanelButton>
-                </div>
-            )}
         >
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(220px,260px)]">
-            <PanelCard size="lg">
-                {step === 1 && (
-                    <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="media" />
-                )}
-                {step === 2 && (
-                    <div className="space-y-8">
-                        <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="identity" operatorContext={operatorContext as AutosOperatorPublishContext} />
-                        <Step2Condition
-                            form={form}
-                            updateForm={updateForm}
-                            expandedSections={expandedSections}
-                            toggleSection={toggleSection}
-                            catalog={catalog}
-                        />
-                    </div>
-                )}
-                {step === 3 && (
-                    <Step3LocationAndPublish
-                        form={form}
-                        updateForm={updateForm}
-                        user={user}
-                        catalog={catalog}
+            {typeof step === 'number' ? (
+                <>
+                    <SimplePublishScreenHeader
+                        title={AUTOS_STEP_COPY[step].title}
+                        description={AUTOS_STEP_COPY[step].description}
                     />
-                )}
-            </PanelCard>
-            <div className="hidden xl:block xl:sticky xl:top-24 xl:self-start">
-                <p className="text-xs text-[var(--fg-muted)] mb-2">Vista previa</p>
-                <ListingPreviewCard form={form} catalog={catalog} />
-            </div>
-            </div>
-        </MarketplacePublishWizard>
+                    <SimplePublishPageFrame
+                        preview={<SimplePublishPreviewCard {...buildAutosPreviewCardProps(form, catalog)} />}
+                    >
+                        {step === 1 && (
+                            <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="media" />
+                        )}
+                        {step === 2 && (
+                            <div className="space-y-5">
+                                <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="identity" operatorContext={operatorContext as AutosOperatorPublishContext} />
+                                <Step2Condition
+                                    form={form}
+                                    updateForm={updateForm}
+                                    expandedSections={expandedSections}
+                                    toggleSection={toggleSection}
+                                    catalog={catalog}
+                                />
+                            </div>
+                        )}
+                        {step === 3 && (
+                            <Step3LocationAndPublish
+                                form={form}
+                                updateForm={updateForm}
+                                user={user}
+                                catalog={catalog}
+                            />
+                        )}
+                        <SimplePublishCtaCard
+                            label={step === 3
+                                ? (isEditing ? 'Guardar en Simple' : 'Publicar en Simple')
+                                : step === 1
+                                    ? 'Continuar'
+                                    : 'Continuar'}
+                            loadingLabel={step === 3
+                                ? (isEditing ? 'Guardando...' : 'Publicando...')
+                                : 'Avanzando...'}
+                            onClick={() => {
+                                if (step === 3) void handlePublish();
+                                else setStep((prev) => ((prev as number) + 1) as Step);
+                            }}
+                            disabled={!canProceed() || editingLoading || editLoadFailed || (step === 3 && publishBlocked)}
+                            loading={loading}
+                            hint={step === 3 ? 'Al publicar, tu aviso quedará visible en SimpleAutos de inmediato.' : undefined}
+                            icon={step === 3 ? <IconRocket size={18} /> : <IconArrowRight size={18} />}
+                        />
+                    </SimplePublishPageFrame>
+                </>
+            ) : null}
+        </SimplePublishLayout>
         )}
         </>
     );
@@ -842,6 +955,7 @@ function Step1PhotosAndIdentity({
         if (form.reelVideo?.preview?.startsWith('blob:')) {
             URL.revokeObjectURL(form.reelVideo.preview);
         }
+        updateForm('videoExternalUrl', '');
         updateForm('reelVideo', {
             id: Math.random().toString(36).slice(2),
             file,
@@ -850,6 +964,16 @@ function Step1PhotosAndIdentity({
             mimeType: file.type || 'video/mp4',
             sizeBytes: file.size,
         });
+    };
+
+    const handleExternalVideoUrl = (value: string) => {
+        if (value.trim() && form.reelVideo) {
+            if (form.reelVideo.preview?.startsWith('blob:')) {
+                URL.revokeObjectURL(form.reelVideo.preview);
+            }
+            updateForm('reelVideo', null);
+        }
+        updateForm('videoExternalUrl', value);
     };
 
     const removeVideo = () => {
@@ -899,224 +1023,55 @@ function Step1PhotosAndIdentity({
     return (
         <div className="space-y-8 pb-8">
             {showMedia ? (
-            <>
-            <div className="text-center lg:text-left">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--fg-muted)]">
-                    Paso 1 · Multimedia
-                </p>
-                <h1 className="text-2xl lg:text-3xl font-bold text-[var(--fg)] tracking-tight mt-1">
-                    Fotos y video primero
-                </h1>
-                <p className="text-[var(--fg-muted)] text-sm mt-2 max-w-lg">
-                    Sube lo esencial para la tarjeta. Puedes reordenar y marcar portada.
-                </p>
-            </div>
-            
-            {/* Fotos - Grid con slots guía */}
-            <section>
-                <label className="block text-sm font-medium mb-3">Fotos y portada *</label>
-                
-                {form.photos.length === 0 ? (
-                    <div
-                        onClick={() => fileInputRef.current?.click()}
-                        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                        onDragLeave={() => setDragOver(false)}
-                        onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
-                        className={`qp-photo-start border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all
-                            ${dragOver ? 'border-[var(--accent)] bg-[color-mix(in oklab, var(--accent) 6%, var(--bg))]' : 'border-[var(--border)] hover:border-[var(--accent)]/50'}`}
-                    >
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--bg-subtle)] flex items-center justify-center">
-                            <IconCamera size={28} className="text-[var(--accent)]" />
-                        </div>
-                        <p className="font-medium">Tomar fotos o seleccionar de tu galería</p>
-                        <p className="text-xs text-[var(--fg-muted)] mt-1">
-                            La primera será portada · Máximo 20 · Arrastra para ordenar
-                        </p>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {/* Grid premium con drag & drop */}
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <SortableContext
-                                items={form.photos.map(p => p.id)}
-                                strategy={rectSortingStrategy}
-                            >
-                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                    {/* Fotos subidas - sortable */}
-                                    {form.photos.map((photo, idx) => (
-                                        <SortablePhotoItem
-                                            key={photo.id}
-                                            photo={photo}
-                                            index={idx}
-                                            onRemove={removePhoto}
-                                            isCover={idx === 0}
-                                        />
-                                    ))}
-                                    
-                                    {/* Slot guía - una sugerencia a la vez */}
-                            {(() => {
-                                const suggestions = [
-                                    { label: 'Frontal', Icon: IconCar, desc: 'Vista de frente' },
-                                    { label: 'Trasera', Icon: IconCar, desc: 'Vista trasera' },
-                                    { label: 'Lado Izquierdo', Icon: IconCar, desc: 'Perfil izquierdo' },
-                                    { label: 'Lado Derecho', Icon: IconCar, desc: 'Perfil derecho' },
-                                    { label: 'Interior', Icon: IconSteeringWheel, desc: 'Cabina/puesto' },
-                                    { label: 'Asientos', Icon: IconCar, desc: 'Tapicería/interior' },
-                                    { label: 'Motor', Icon: IconEngine, desc: 'Compartimiento motor' },
-                                    { label: 'Kilometraje', Icon: IconGauge, desc: 'Tablero/odómetro' },
-                                    { label: 'Adicional', Icon: IconPhoto, desc: 'Otro ángulo' },
-                                ];
-                                const suggestion = suggestions[Math.min(form.photos.length, suggestions.length - 1)];
-                                
-                                if (form.photos.length < 10) {
-                                    return (
-                                        <button
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="aspect-square rounded-2xl border-2 border-dashed border-[var(--accent)]/40 
-                                                flex flex-col items-center justify-center gap-1.5 
-                                                transition-all hover:border-[var(--accent)] hover:bg-[color-mix(in oklab, var(--accent) 6%, var(--bg))] active:scale-95"
-                                            style={{ background: 'var(--bg-subtle)' }}
-                                        >
-                                            <div className="w-8 h-8 rounded-full bg-[var(--accent)]/10 flex items-center justify-center">
-                                                <suggestion.Icon size={16} strokeWidth={1.5} className="text-[var(--accent)]" />
-                                            </div>
-                                            <span className="text-[10px] font-semibold text-[var(--accent)]">{suggestion.label}</span>
-                                            <span className="text-[9px] text-[var(--fg-muted)] opacity-70">{suggestion.desc}</span>
-                                        </button>
-                                    );
-                                }
-                                return null;
-                            })()}
-                            
-                            {/* Botón agregar más (+) */}
-                            {form.photos.length < 20 && (
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="aspect-square rounded-2xl border-2 border-dashed border-[var(--border)]
-                                        flex flex-col items-center justify-center gap-1 hover:border-[var(--accent)] hover:bg-[color-mix(in oklab, var(--accent) 6%, var(--bg))] transition-all"
-                                >
-                                    <IconPlus size={20} className="text-[var(--fg-muted)]" />
-                                </button>
-                            )}
-                        </div>
-                        </SortableContext>
-                        </DndContext>
-
-                        {/* Progress indicator */}
-                        {(() => {
-                            const RECOMMENDED = 5;
-                            const count = form.photos.length;
-                            const missing = Math.max(RECOMMENDED - count, 0);
-                            const pct = Math.min((count / RECOMMENDED) * 100, 100);
-                            return (
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between text-xs text-[var(--fg-muted)]">
-                                        <span>
-                                            {missing > 0
-                                                ? `${count} / ${RECOMMENDED} fotos · Faltan ${missing} recomendadas`
-                                                : `${count} fotos · Cobertura recomendada completa`}
-                                        </span>
-                                        <span>Portada = primera foto</span>
-                                    </div>
-                                    <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]">
-                                        <div
-                                            className="h-full rounded-full transition-[width] duration-200"
-                                            style={{ width: `${pct}%`, background: 'var(--fg)' }}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        <p className="text-xs text-[var(--fg-muted)]">
-                            Arrastra para reordenar
-                        </p>
-                    </div>
-                )}
-                
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => handleFiles(e.target.files)}
-                    className="hidden"
-                />
-            </section>
-
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                        <div className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--fg)]">
-                            <IconVideo size={17} className="text-[var(--accent)]" />
-                            Video opcional para redes
-                        </div>
-                        <p className="mt-1 text-xs text-[var(--fg-muted)]">
-                            Sube el mismo clip que usarías en redes. Aparece en Descubre, en tus tarjetas y puedes publicarlo como Reel en Instagram.
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => videoInputRef.current?.click()}
-                        className="h-10 rounded-xl border px-4 text-sm font-semibold transition hover:border-[var(--accent)]"
-                        style={{ borderColor: 'var(--border)', color: 'var(--fg)', background: 'var(--bg)' }}
-                    >
-                        {form.reelVideo ? 'Cambiar video' : 'Agregar video'}
-                    </button>
-                </div>
-
-                {form.reelVideo ? (
-                    <div className="mt-4 grid grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border p-3 qp-video-preview">
-                        <video src={form.reelVideo.preview} className="h-28 w-24 rounded-xl object-cover bg-black" muted playsInline />
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-[var(--fg)]">{form.reelVideo.name}</p>
-                            <p className="mt-1 text-xs text-[var(--fg-muted)]">
-                                Visible en Descubre, tarjetas tipo Reel e Instagram.
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={removeVideo}
-                            className="h-9 w-9 rounded-full border flex items-center justify-center"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
-                            aria-label="Quitar video"
-                        >
-                            <IconX size={16} />
-                        </button>
-                    </div>
-                ) : null}
-
-                <input
-                    ref={videoInputRef}
-                    type="file"
-                    accept="video/*"
-                    capture="environment"
-                    onChange={(e) => handleVideoFile(e.target.files)}
-                    className="hidden"
-                />
-            </section>
-            </>
+                <>
+                    <SimplePublishMediaScreen
+                        photos={form.photos.map((photo) => ({
+                            id: photo.id,
+                            previewUrl: photo.preview,
+                            isCover: photo.isCover,
+                        }))}
+                        recommendedPhotos={5}
+                        onAddFiles={(files) => handleFiles(files)}
+                        onRemovePhoto={removePhoto}
+                        onReorderPhotos={(photos) => {
+                            const reordered = photos.map((photo, index) => {
+                                const existing = form.photos.find((item) => item.id === photo.id);
+                                if (!existing) return null;
+                                return { ...existing, isCover: index === 0 };
+                            }).filter(Boolean) as FormData['photos'];
+                            updateForm('photos', reordered);
+                        }}
+                        videoBlock={(
+                            <>
+                                <SimplePublishVideoBlock
+                                    uploadPreviewUrl={form.reelVideo?.preview ?? null}
+                                    uploadFileName={form.reelVideo?.name ?? null}
+                                    externalUrl={form.videoExternalUrl}
+                                    error={
+                                        form.videoExternalUrl.trim() && !isSupportedExternalVideoUrl(form.videoExternalUrl.trim())
+                                            ? 'Usa un enlace de YouTube o Vimeo.'
+                                            : undefined
+                                    }
+                                    onPickUpload={() => videoInputRef.current?.click()}
+                                    onClearUpload={removeVideo}
+                                    onExternalUrlChange={handleExternalVideoUrl}
+                                />
+                                <input
+                                    ref={videoInputRef}
+                                    type="file"
+                                    accept="video/*"
+                                    capture="environment"
+                                    onChange={(event) => handleVideoFile(event.target.files)}
+                                    className="hidden"
+                                />
+                            </>
+                        )}
+                    />
+                </>
             ) : null}
             
             {showIdentity ? (
             <>
-            {section === 'identity' ? (
-                <div className="text-center lg:text-left">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--fg-muted)]">
-                        Paso 2 · Detalles
-                    </p>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-[var(--fg)] tracking-tight mt-1">
-                        Datos para la tarjeta
-                    </h1>
-                    <p className="text-[var(--fg-muted)] text-sm mt-2 max-w-lg">
-                        Tipo de operación, vehículo, precio y oferta opcional.
-                    </p>
-                </div>
-            ) : null}
             
             {/* Tipo de publicación - Premium cards */}
             <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm">
@@ -1654,10 +1609,11 @@ function Step3LocationAndPublish({
             const result = await fetchAddressBook();
             if (result.ok) {
                 setSavedAddresses(result.items);
-                // Si hay una dirección por defecto, preseleccionarla
                 const defaultAddr = result.items.find(a => a.isDefault);
-                if (defaultAddr && !form.regionId) {
-                    handleSelectAddress(defaultAddr.id);
+                if (defaultAddr?.regionId && defaultAddr.communeId && !form.regionId) {
+                    setSelectedAddressId(defaultAddr.id);
+                    updateForm('regionId', defaultAddr.regionId);
+                    updateForm('communeId', defaultAddr.communeId);
                 }
             }
         };
@@ -1810,146 +1766,47 @@ function Step3LocationAndPublish({
                 />
             </section>
             
-            {/* Título autogenerado - Premium card */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm">
-                <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-sm font-medium">Título del aviso</label>
-                    <button
-                        onClick={() => {
-                            const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
-                            const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
-                            const newTitle = [brand, model, form.year].filter(Boolean).join(' ').trim() || 'Vehículo en venta';
-                            updateForm('title', newTitle);
-                        }}
-                        className="text-xs text-[var(--accent)] flex items-center gap-1 hover:underline"
-                    >
-                        <IconSparkles size={12} />
-                        Regenerar
-                    </button>
-                </div>
-                <input
-                    type="text"
-                    value={form.title}
-                    onChange={(e) => updateForm('title', e.target.value)}
-                    placeholder="Toyota Yaris 2020"
-                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-sm font-medium"
-                />
-                <p className="text-xs text-[var(--fg-muted)] mt-1">
-                    Se genera automáticamente con marca, modelo y año. Puedes editarlo.
-                </p>
-            </section>
-            
-            {/* Descripción autogenerada - Premium card */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm">
-                <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-sm font-medium">Descripción para redes sociales</label>
-                    <button
-                        onClick={() => {
-                            const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
-                            const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
-                            const vehicleEmoji = form.vehicleType === 'motorcycle' ? '🏍️' : 
-                                form.vehicleType === 'truck' ? '🚛' : 
-                                form.vehicleType === 'bus' ? '🚌' : 
-                                form.vehicleType === 'nautical' ? '⛵' : 
-                                form.vehicleType === 'aerial' ? '✈️' : 
-                                form.vehicleType === 'machinery' ? '🚜' : '🚗';
-                            
-                            // Headline persuasiva según condición
-                            const yearNum = form.year ? parseInt(form.year) : null;
-                            const currentYear = new Date().getFullYear();
-                            const age = yearNum ? currentYear - yearNum : null;
-                            const kmNum = form.mileage ? parseInt(form.mileage.replace(/\D/g, '')) : null;
-                            
-                            let hook = '';
-                            if (form.condition === 'Nuevo') {
-                                hook = `✨ ${brand} ${model} 0km, sin uso y con todos sus accesorios de fábrica. ¡Aprovecha antes de que se vaya!`;
-                            } else if (form.condition === 'Seminuevo' || (age !== null && age <= 3)) {
-                                hook = `🌟 ${form.condition === 'Seminuevo' ? 'Seminuevo' : 'Poco uso'}, en excelente estado${kmNum && kmNum < 50000 ? ' y con bajo kilometraje' : ''}. Calidad sin precio de cero.`;
-                            } else if (form.ownerCount === '1') {
-                                hook = `👤 Único dueño, mantenido al día y en muy buen estado. Un auto cuidado que se nota desde el primer vistazo.`;
-                            } else if (kmNum && kmNum < 80000) {
-                                hook = `🛣️ Con solo ${kmNum.toLocaleString('es-CL')} km recorridos, este vehículo tiene mucha vida por delante. Revisado y listo.`;
-                            } else {
-                                hook = `✅ Vehículo en buen estado, revisado y listo para transferir. Ideal para quien busca confianza a buen precio.`;
-                            }
-                            
-                            // Ficha técnica con emojis
-                            const ficha = [
-                                form.year ? `📅 Año: ${form.year}` : null,
-                                form.color ? `🎨 Color: ${form.color}` : null,
-                                form.mileage ? `🛣️ Kilometraje: ${parseInt(form.mileage.replace(/\D/g, '')).toLocaleString('es-CL')} km` : null,
-                                form.transmission ? `⚙️ Transmisión: ${form.transmission}` : null,
-                                form.fuelType ? `⛽ Combustible: ${form.fuelType}` : null,
-                                form.condition ? `🔧 Estado: ${form.condition}` : null,
-                                form.ownerCount ? `👤 Dueños: ${form.ownerCount === '1' ? '1° dueño' : form.ownerCount + ' dueños'}` : null,
-                            ].filter(Boolean).join('\n');
-                            
-                            // Precio y opciones
-                            const priceLines = [];
-                            if (form.price) {
-                                const priceNum = parseInt(form.price.replace(/\D/g, ''));
-                                priceLines.push(`💰 Precio: $${priceNum.toLocaleString('es-CL')}`);
-                            }
-                            if (form.offerPrice) {
-                                if (form.offerPriceMode === '%') {
-                                    const pct = parseInt(form.discountPercent || form.offerPrice);
-                                    const priceNum = parseInt(form.price.replace(/\D/g, ''));
-                                    const offerPrice = Math.round(priceNum * (1 - pct / 100));
-                                    priceLines.push(`🏷️ Oferta: $${offerPrice.toLocaleString('es-CL')} (-${pct}%)`);
-                                } else {
-                                    const offerNum = parseInt(form.offerPrice.replace(/\D/g, ''));
-                                    const pct = Math.round((1 - offerNum / parseInt(form.price.replace(/\D/g, ''))) * 100);
-                                    priceLines.push(`🏷️ Oferta: $${offerNum.toLocaleString('es-CL')} (-${pct}%)`);
-                                }
-                            }
-                            if (form.negotiable) priceLines.push('💸 Precio conversable');
-                            if (form.financing) priceLines.push('🏦 Financiamiento disponible');
-                            if (form.exchange) priceLines.push('🔄 Acepto permuta');
-                            
-                            // Features destacados
-                            const features = [
-                                form.maintenanceUpToDate && '✅ Mantenciones al día',
-                                form.technicalReviewUpToDate && '✅ Revisión técnica vigente',
-                                form.papersUpToDate && '✅ Papeles al día',
-                                form.noAccidents && '✅ Sin accidentes',
-                                form.warranty && '✅ Con garantía'
-                            ].filter(Boolean);
-                            
-                            const cta = '📲 ¡Consulta sin compromiso en SimpleAutos! Te respondemos de inmediato.';
-                            
-                            // Construir descripción completa
-                            const parts = [
-                                `${vehicleEmoji} ${brand} ${model} ${form.year || ''} – ¡En venta!`.trim(),
-                                '',
-                                hook,
-                                '',
-                                ficha,
-                                priceLines.length > 0 ? '\n' + priceLines.join('\n') : '',
-                                features.length > 0 ? '\n' + features.join('\n') : '',
-                                '',
-                                cta
-                            ].filter(p => p !== '' || p === ''); // Keep empty strings for line breaks
-                            
-                            const autoDesc = parts.join('\n').trim();
-                            updateForm('description', autoDesc.slice(0, 1000));
-                        }}
-                        className="text-xs text-[var(--accent)] flex items-center gap-1 hover:underline"
-                    >
-                        <IconSparkles size={12} />
-                        Generar descripción completa
-                    </button>
-                </div>
-                <textarea
-                    placeholder="Se generará automáticamente con todos los datos del vehículo o puedes escribir tu propia descripción..."
-                    value={form.description}
-                    onChange={(e) => updateForm('description', e.target.value.slice(0, 1000))}
-                    rows={8}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-sm resize-none"
-                />
-                <p className="text-xs text-[var(--fg-muted)] mt-1">
-                    {form.description.length}/1000 caracteres · Lista para Instagram y WhatsApp
-                </p>
-            </section>
+            <MarketplaceListingCopyFields
+                title={form.title}
+                description={form.description}
+                onTitleChange={(value) => updateForm('title', value)}
+                onDescriptionChange={(value) => updateForm('description', value.slice(0, 1000))}
+                onRegenerateTitle={() => {
+                    const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
+                    const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
+                    updateForm('title', generateAutosListingTitle({ brandName: brand, modelName: model, year: form.year }));
+                }}
+                onRegenerateDescription={() => {
+                    const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
+                    const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
+                    updateForm('description', generateAutosListingDescription({
+                        brandName: brand,
+                        modelName: model,
+                        year: form.year,
+                        vehicleType: form.vehicleType,
+                        condition: form.condition,
+                        color: form.color,
+                        mileage: form.mileage,
+                        transmission: form.transmission,
+                        fuelType: form.fuelType,
+                        ownerCount: form.ownerCount,
+                        price: form.price,
+                        negotiable: form.negotiable,
+                        financing: form.financing,
+                        exchange: form.exchange,
+                        maintenanceUpToDate: form.maintenanceUpToDate,
+                        technicalReviewUpToDate: form.technicalReviewUpToDate,
+                        papersUpToDate: form.papersUpToDate,
+                        noAccidents: form.noAccidents,
+                        warranty: form.warranty,
+                        listingType: form.listingType,
+                        platformName: 'SimpleAutos',
+                    }).slice(0, 1000));
+                }}
+                titlePlaceholder="Toyota Yaris 2020"
+                descriptionPlaceholder="Descripción para tu ficha y redes sociales"
+                descriptionMaxLength={1000}
+            />
         </div>
     );
 }
@@ -2033,49 +1890,6 @@ function ListingPreviewCard({ form, catalog }: { form: FormData; catalog: Publis
 }
 
 // =============================================================================
-// COMPONENTES AUXILIARES
-// =============================================================================
-// PASO SUCCESS - Con integración Instagram completa
-// =============================================================================
-
-function StepSuccess({ published }: { published: { id: string; href: string; title: string; hasVideo: boolean } }) {
-    const [hasVideo, setHasVideo] = useState(published.hasVideo);
-
-    return (
-        <div className="flex flex-col items-center text-center pt-4 pb-32 px-4">
-            <div className="w-full max-w-md mx-auto mb-8">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center mb-6 mx-auto shadow-sm">
-                    <div className="w-14 h-14 rounded-full bg-[var(--color-success)] flex items-center justify-center">
-                        <IconCheck size={28} className="text-white" strokeWidth={3} />
-                    </div>
-                </div>
-
-                <h1 className="text-3xl font-bold mb-2 text-[var(--fg)]">¡Publicado!</h1>
-                <p className="text-[var(--fg-muted)] mb-6">
-                    Tu aviso ya está activo. Genera un video, elige dónde publicar y comparte cuando quieras.
-                </p>
-            </div>
-
-            <ShareToSocialPanel
-                listingId={published.id}
-                listingTitle={published.title}
-                listingHref={published.href}
-                hasVideo={hasVideo}
-                onVideoGenerated={() => setHasVideo(true)}
-            />
-
-            <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="mt-6 flex items-center justify-center gap-2 py-3 px-5 rounded-xl border-2 border-[var(--border)] font-medium hover:bg-[var(--bg-subtle)] transition-colors text-[var(--fg-muted)]"
-            >
-                <IconPlus size={18} />
-                Publicar otro
-            </button>
-        </div>
-    );
-}
-
 // =============================================================================
 // COMPONENTES AUXILIARES
 // =============================================================================

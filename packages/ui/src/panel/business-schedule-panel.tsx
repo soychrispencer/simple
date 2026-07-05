@@ -179,7 +179,8 @@ export function BusinessSchedulePanel({
     const breakDisabled = globalDisabled || !hasActiveDays;
 
     return (
-        <PanelCard size="lg" className={className}>
+        <>
+            <PanelCard size="lg" className={className}>
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                     {hideTitle ? null : (
@@ -315,6 +316,7 @@ export function BusinessSchedulePanel({
                     />
                 </section>
             </div>
+            </PanelCard>
 
             <PanelSectionSaveFooter
                 saving={batchSave.saving}
@@ -325,6 +327,6 @@ export function BusinessSchedulePanel({
                 saveLabel={batchSave.label ?? panelSectionSaveLabel('horarios')}
                 savedMessage="Horario guardado."
             />
-        </PanelCard>
+        </>
     );
 }

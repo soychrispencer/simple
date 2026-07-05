@@ -16,6 +16,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
     const { user } = useAuth();
     const role: PanelRole = user?.role ?? 'user';
     const pathname = usePathname() ?? '';
+    const hidePanelBottomNav = pathname.startsWith('/panel/publicar');
     const { billing } = useMarketplacePanelBilling(SUBSCRIPTION_HREF, fetchSubscriptionCatalog);
 
     const navItems = useMemo(
@@ -43,7 +44,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             footerHref="/ventas"
             footerLabel="Ir al marketplace"
             footerIcon={IconArrowLeft}
-            bottomNav={<PanelBottomNav />}
+            bottomNav={hidePanelBottomNav ? undefined : <PanelBottomNav />}
             isVerified={user?.status === 'verified'}
             activeHref={activeHref}
         >
