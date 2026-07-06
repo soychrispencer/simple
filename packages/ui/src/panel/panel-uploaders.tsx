@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { joinClasses } from '../shared/join-classes';
 import { PanelButton } from './panel-button.js';
 import { PanelNotice } from './panel-primitives.js';
+import { optimizeListingPhotoFile } from './client-image-optimize.js';
 
 export type PanelMediaAsset = {
     id: string;
@@ -88,27 +89,12 @@ function createPanelMediaId() {
     return `media-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function estimateDataUrlBytes(dataUrl: string): number {
-    const commaIndex = dataUrl.indexOf(',');
-    const payload = commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl;
-    return Math.ceil((payload.length * 3) / 4);
-}
-
 async function fileToDataUrl(file: File): Promise<string> {
     return await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result ?? ''));
         reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
         reader.readAsDataURL(file);
-    });
-}
-
-async function loadImage(dataUrl: string): Promise<HTMLImageElement> {
-    return await new Promise((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('No se pudo leer la imagen.'));
-        image.src = dataUrl;
     });
 }
 
@@ -175,23 +161,6 @@ async function loadVideoMetadata(file: File): Promise<{ width: number; height: n
     });
 }
 
-function renderImageToWebpDataUrl(
-    image: HTMLImageElement,
-    width: number,
-    height: number,
-    quality: number
-): string {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(image, 0, 0, width, height);
-    return canvas.toDataURL('image/webp', quality);
-}
-
 async function optimizeImageToWebp(params: {
     file: File;
     maxWidth: number;
@@ -200,50 +169,24 @@ async function optimizeImageToWebp(params: {
     minHeight: number;
     targetBytes: number;
 }): Promise<PanelMediaAsset> {
-    const sourceDataUrl = await fileToDataUrl(params.file);
-    const image = await loadImage(sourceDataUrl);
-
-    if (image.width < params.minWidth || image.height < params.minHeight) {
-        throw new Error(`La imagen ${params.file.name} debe tener al menos ${params.minWidth} x ${params.minHeight} px.`);
-    }
-
-    let width = image.width;
-    let height = image.height;
-    const initialScale = Math.min(1, params.maxWidth / width, params.maxHeight / height);
-    width = Math.max(1, Math.round(width * initialScale));
-    height = Math.max(1, Math.round(height * initialScale));
-
-    let quality = 0.86;
-    let currentDataUrl = renderImageToWebpDataUrl(image, width, height, quality);
-    if (!currentDataUrl) {
-        throw new Error(`No se pudo procesar la imagen ${params.file.name}.`);
-    }
-
-    while (estimateDataUrlBytes(currentDataUrl) > params.targetBytes && quality > 0.54) {
-        quality -= 0.07;
-        currentDataUrl = renderImageToWebpDataUrl(image, width, height, quality);
-        if (!currentDataUrl) break;
-    }
-
-    while (estimateDataUrlBytes(currentDataUrl) > params.targetBytes && width > 720 && height > 480) {
-        width = Math.max(params.minWidth, Math.round(width * 0.9));
-        height = Math.max(params.minHeight, Math.round(height * 0.9));
-        currentDataUrl = renderImageToWebpDataUrl(image, width, height, quality);
-        if (!currentDataUrl) break;
-    }
-
-    const normalizedName = params.file.name.replace(/\.[^.]+$/, '') || 'imagen';
+    const optimized = await optimizeListingPhotoFile(params.file, {
+        maxWidth: params.maxWidth,
+        maxHeight: params.maxHeight,
+        minWidth: params.minWidth,
+        minHeight: params.minHeight,
+        targetBytes: params.targetBytes,
+    });
 
     return {
         id: createPanelMediaId(),
-        name: `${normalizedName}.webp`,
-        dataUrl: currentDataUrl,
-        previewUrl: currentDataUrl,
+        name: optimized.name,
+        dataUrl: optimized.dataUrl,
+        previewUrl: optimized.previewUrl,
         isCover: false,
-        width,
-        height,
-        sizeBytes: estimateDataUrlBytes(currentDataUrl),
-        mimeType: 'image/webp',
+        width: optimized.width,
+        height: optimized.height,
+        sizeBytes: optimized.sizeBytes,
+        mimeType: optimized.mimeType,
     };
 }
 

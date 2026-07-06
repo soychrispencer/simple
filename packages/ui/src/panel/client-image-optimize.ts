@@ -65,9 +65,7 @@ function renderImageToWebpDataUrl(
     return canvas.toDataURL('image/webp', quality);
 }
 
-/**
- * Comprime una foto de listado a WebP en el navegador (mismos límites que PanelMediaUploader).
- */
+/** Comprime una foto de listado a WebP en el navegador. */
 export async function optimizeListingPhotoFile(
     file: File,
     options: OptimizeListingPhotoOptions = {},

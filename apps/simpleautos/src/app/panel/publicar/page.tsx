@@ -22,7 +22,7 @@ import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
 import {
     createPanelListing, updatePanelListing, fetchPanelListingDetail, fetchPanelListingDraft, deletePanelListingDraft, type CreatePanelListingInput, } from '@/lib/panel-listings';
 import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form';
-import { PanelButton } from '@simple/ui/panel';
+import { PanelButton, optimizeListingPhotoFile } from '@simple/ui/panel';
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
@@ -30,7 +30,7 @@ import { generateAutosListingDescription, generateAutosListingTitle, isSupported
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { ColorPicker } from '@/components/ui/color-picker';
-import { fetchAddressBook, uploadMediaFile, optimizeListingPhotoFile } from '@simple/utils';
+import { fetchAddressBook, uploadMediaFile } from '@simple/utils';
 import type { AddressBookEntry } from '@simple/types';
 import { createEmptyListingLocation } from '@simple/types';
 

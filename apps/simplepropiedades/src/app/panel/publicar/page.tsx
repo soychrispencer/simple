@@ -41,7 +41,7 @@ import {
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
-import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, optimizeListingPhotoFile } from '@simple/utils';
+import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { useAuth } from '@simple/auth';
@@ -56,7 +56,7 @@ import {
 import {
     estimatePropertyValue, fetchAddressBook, fetchPropertyValuationSources, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, refreshPropertyValuationSources, resolveLocationNames,
 } from '@simple/utils';
-import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelSummaryCard, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
+import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelSummaryCard, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, optimizeListingPhotoFile, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
 import { ListingLocationEditor } from '@simple/ui/location';
 import { useGoogleMapsBrowserKey } from '@simple/ui/address-book';
 import { PROPERTY_PUBLISH_STEPS } from '@/components/panel/publish/publish-steps';

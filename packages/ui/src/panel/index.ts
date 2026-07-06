@@ -565,6 +565,13 @@ export {
     type PanelVideoUploaderProps,
 } from './panel-uploaders';
 
+export {
+    DEFAULT_LISTING_PHOTO_OPTS,
+    optimizeListingPhotoFile,
+    type OptimizedListingPhoto,
+    type OptimizeListingPhotoOptions,
+} from './client-image-optimize.js';
+
 export { useDebounce } from '../shared/use-debounce';
 
 export { ToastProvider, useToast } from './toast';
