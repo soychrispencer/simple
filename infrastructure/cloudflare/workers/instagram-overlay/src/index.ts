@@ -31,10 +31,10 @@ interface OverlayData {
 // Paletas de colores (matching templates.ts)
 const COLOR_PALETTES = {
   essential: {
-    primary: '#111111',
-    secondary: '#f5f5f5',
-    accent: '#111111',
-    textPrimary: '#111111',
+    primary: '#0C0C0E',
+    secondary: '#F0F0ED',
+    accent: '#0C0C0E',
+    textPrimary: '#0C0C0E',
     textInverse: '#ffffff',
   },
   professional: {
@@ -54,8 +54,8 @@ const COLOR_PALETTES = {
 };
 
 const BRAND_COLORS = {
-  simpleautos: '#ff3600',
-  simplepropiedades: '#3232FF',
+  simpleautos: '#E84A1F',
+  simplepropiedades: '#4F46E5',
 };
 
 export default {
@@ -162,7 +162,7 @@ function generateOverlaySvg(
       ? COLOR_PALETTES.signature 
       : COLOR_PALETTES.professional;
 
-  const brandColor = BRAND_COLORS[data.brand as keyof typeof BRAND_COLORS] || '#ff3600';
+  const brandColor = BRAND_COLORS[data.brand as keyof typeof BRAND_COLORS] || '#E84A1F';
 
   // Base SVG
   let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;

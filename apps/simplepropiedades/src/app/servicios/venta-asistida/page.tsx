@@ -72,17 +72,14 @@ export default function GestionInmobiliariaPage() {
                 <div className="container-app py-10 sm:py-12">
                     <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]">
                         <div className="max-w-xl">
-                            <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg-muted)' }}>Servicios · Gestión inmobiliaria</p>
-                            <h1 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl" style={{ color: 'var(--fg)' }}>
+                            <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg-muted)' }}>Vender · Gestión inmobiliaria</p>
+                            <h1 className="mb-3 text-3xl font-semibold tracking-tight sm:text-4xl text-(--fg)">
                                 Delega tu {serviceKind === 'arriendo' ? 'arriendo' : 'venta'}
                             </h1>
                             <p className="text-sm sm:text-base" style={{ color: 'var(--fg-secondary)' }}>
                                 Publicamos, filtramos interesados y te acompañamos al cierre. Comisión {commission.rate}.
                             </p>
-                            <div
-                                className="mt-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold"
-                                style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-subtle)', color: 'var(--accent)' }}
-                            >
+                            <div className="panel-accent-pill mt-6">
                                 {serviceKind === 'arriendo' ? <IconKey size={16} /> : <IconHome2 size={16} />}
                                 {commission.rate}
                             </div>
@@ -103,7 +100,7 @@ export default function GestionInmobiliariaPage() {
                 </div>
             </section>
 
-            <section style={{ background: 'var(--bg-subtle)' }}>
+            <section className="marketplace-section-bg">
                 <div className="container-app py-10 sm:py-12">
                     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
                         <div className="space-y-6">
@@ -117,9 +114,9 @@ export default function GestionInmobiliariaPage() {
                                     activeKey={serviceKind}
                                     onChange={(value) => setServiceKind(value as ServiceKind)}
                                 />
-                                <div className="mt-5 rounded-2xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Comisión: {commission.rate}</p>
-                                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>{commission.summary}</p>
+                                <div className="panel-inset-box mt-5">
+                                    <p className="text-sm font-semibold text-(--fg)">Comisión: {commission.rate}</p>
+                                    <p className="mt-1 text-sm text-(--fg-muted)">{commission.summary}</p>
                                 </div>
                                 <ul className="mt-5 space-y-2">
                                     {['Evaluación de la propiedad', 'Publicación y difusión', 'Gestión de interesados', 'Acompañamiento al cierre'].map((item) => (
@@ -139,9 +136,9 @@ export default function GestionInmobiliariaPage() {
                                         { title: '2. Publicación', desc: 'Activamos la gestión.' },
                                         { title: '3. Cierre', desc: 'Negociamos y concretamos.' },
                                     ].map((step) => (
-                                        <div key={step.title} className="rounded-2xl p-4" style={{ border: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
-                                            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{step.title}</p>
-                                            <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>{step.desc}</p>
+                                        <div key={step.title} className="panel-benefit-cell">
+                                            <p className="text-sm font-semibold text-(--fg)">{step.title}</p>
+                                            <p className="mt-1 text-xs text-(--fg-muted)">{step.desc}</p>
                                         </div>
                                     ))}
                                 </div>

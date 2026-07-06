@@ -15,7 +15,6 @@ import { CSS } from '@dnd-kit/utilities';
 import {
     IconArrowLeft, IconArrowRight, IconCheck, IconCamera, IconPhoto, IconX, IconUpload, IconMapPin, IconCurrencyDollar, IconCar, IconMotorbike, IconTruck, IconBus, IconTractor, IconAnchor, IconPlane, IconTag, IconKey, IconHammer, IconChevronDown, IconChevronUp, IconSparkles, IconShare3, IconBrandWhatsapp, IconLoader2, IconPlus, IconTrash, IconGripVertical, IconStar, IconGauge, IconEngine, IconSteeringWheel, IconRocket, IconCalendar, IconGasStation, IconManualGearbox, IconBrandInstagram, IconExternalLink, IconLock, IconVideo, } from '@tabler/icons-react';
 import Link from 'next/link';
-import { useAuth } from '@simple/auth';
 import {
     type PublishWizardCatalog, type VehicleCatalogType, getBrandsForVehicleType, getModelsForBrand, loadPublishWizardCatalog, } from '@/lib/publish-wizard-catalog';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
@@ -25,13 +24,14 @@ import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form'
 import { PanelButton, optimizeListingPhotoFile } from '@simple/ui/panel';
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishSection, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { fetchAddressBook, uploadMediaFile } from '@simple/utils';
 import type { AddressBookEntry } from '@simple/types';
+import { AUTOS_PUBLISH_STEPS } from '@/components/panel/publish/publish-steps';
 import { createEmptyListingLocation } from '@simple/types';
 
 // =============================================================================
@@ -137,11 +137,7 @@ const EMPTY_FORM: FormData = {
     consignmentTerms: '',
 };
 
-const PUBLISH_STEPS = [
-    { key: '1', label: 'Multimedia', helper: 'Fotos y video' },
-    { key: '2', label: 'Detalles', helper: 'Vehículo y precio' },
-    { key: '3', label: 'Publicar', helper: 'Ubicación y revisión' },
-] as const;
+const PUBLISH_STEPS = AUTOS_PUBLISH_STEPS;
 
 const AUTOS_STEP_COPY: Record<number, { title: string; description: string }> = {
     1: {
@@ -149,12 +145,12 @@ const AUTOS_STEP_COPY: Record<number, { title: string; description: string }> = 
         description: 'Sube lo esencial para tu tarjeta. La primera foto será la portada.',
     },
     2: {
-        title: 'Detalles del vehículo',
-        description: 'Tipo de operación, marca, modelo, año y precio.',
+        title: 'Datos del vehículo',
+        description: 'Operación, marca, precio y ubicación.',
     },
     3: {
         title: 'Revisar y publicar',
-        description: 'Ubicación, título, descripción y confirmación final.',
+        description: 'Opcional: detalles extra. Al final generamos título y descripción.',
     },
 };
 
@@ -215,7 +211,6 @@ const CONDITIONS = ['Nuevo', 'Seminuevo', 'Usado'];
 export default function PublicarPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { user } = useAuth();
     
     const editingId = searchParams.get('edit');
     const isEditing = Boolean(editingId);
@@ -305,10 +300,10 @@ export default function PublicarPage() {
             if (!hasIdentityFields) {
                 return false;
             }
-            return true; // Todo opcional en paso 2
+            return Boolean(form.regionId && form.communeId);
         }
         if (step === 3) {
-            return form.regionId && form.communeId;
+            return true;
         }
         return false;
     };
@@ -720,7 +715,7 @@ export default function PublicarPage() {
         ) : (
         <SimplePublishLayout
             title="Nueva publicación"
-            subtitle={isEditing ? 'Actualiza los datos de tu aviso.' : 'Multimedia, detalles y publicación.'}
+            subtitle={isEditing ? 'Actualiza los datos de tu aviso.' : 'Multimedia, datos básicos y publicación.'}
             steps={PUBLISH_STEPS.map((item) => ({ key: item.key, label: item.label, helper: item.helper }))}
             stepIndex={stepIndex}
             isEditing={isEditing}
@@ -781,21 +776,16 @@ export default function PublicarPage() {
                         {step === 2 && (
                             <div className="space-y-5">
                                 <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="identity" operatorContext={operatorContext as AutosOperatorPublishContext} />
-                                <Step2Condition
-                                    form={form}
-                                    updateForm={updateForm}
-                                    expandedSections={expandedSections}
-                                    toggleSection={toggleSection}
-                                    catalog={catalog}
-                                />
+                                <StepAutosLocation form={form} updateForm={updateForm} catalog={catalog} />
                             </div>
                         )}
                         {step === 3 && (
-                            <Step3LocationAndPublish
+                            <StepAutosPublish
                                 form={form}
                                 updateForm={updateForm}
-                                user={user}
                                 catalog={catalog}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
                             />
                         )}
                         <SimplePublishCtaCard
@@ -814,7 +804,7 @@ export default function PublicarPage() {
                             disabled={!canProceed() || editingLoading || editLoadFailed || (step === 3 && publishBlocked)}
                             loading={loading}
                             hint={step === 3 ? 'Al publicar, tu aviso quedará visible en SimpleAutos de inmediato.' : undefined}
-                            icon={step === 3 ? <IconRocket size={18} /> : <IconArrowRight size={18} />}
+                            icon={step === 3 ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
                         />
                     </SimplePublishPageFrame>
                 </>
@@ -1100,57 +1090,46 @@ function Step1PhotosAndIdentity({
             {showIdentity ? (
             <>
             
-            {/* Tipo de publicación - Premium cards */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm">
-                <label className="block text-sm font-semibold mb-4 text-[var(--fg)]">Tipo de publicación *</label>
+            {/* Tipo de publicación */}
+            <SimplePublishSection title="Tipo de publicación *">
                 <div className="grid grid-cols-3 gap-3">
                     {LISTING_TYPES.map(({ value, label, Icon, color }) => (
                         <button
                             key={value}
+                            type="button"
                             onClick={() => updateForm('listingType', value as ListingType)}
-                            className={`group p-4 rounded-xl border-2 text-center transition-all duration-200
-                                ${form.listingType === value 
-                                    ? 'border-[var(--accent)] bg-[var(--accent-subtle)] shadow-md' 
-                                    : 'border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)]/50 hover:shadow-sm'}`}
+                            className={`panel-publish-choice p-4 ${form.listingType === value ? 'panel-publish-choice--active' : ''}`}
                         >
-                            <div className={`w-12 h-12 mx-auto mb-2 rounded-xl flex items-center justify-center transition-all
-                                ${form.listingType === value
-                                    ? 'bg-[var(--accent)] text-[var(--accent-contrast,white)]'
-                                    : 'bg-[var(--bg-subtle)] group-hover:bg-[var(--accent-subtle)]'}`}
+                            <div
+                                className={`panel-publish-choice__icon ${form.listingType === value ? 'panel-publish-choice__icon--active' : ''}`}
                                 style={form.listingType === value ? undefined : { color }}
                             >
                                 <Icon size={24} />
                             </div>
-                            <span className={`text-sm font-semibold ${form.listingType === value ? 'text-[var(--accent)]' : 'text-[var(--fg)]'}`}>
-                                {label}
-                            </span>
+                            <span className="panel-publish-choice__label">{label}</span>
                         </button>
                     ))}
                 </div>
-            </section>
+            </SimplePublishSection>
             
-            {/* Categoría - Premium cards */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm">
-                <label className="block text-sm font-semibold mb-4 text-[var(--fg)]">Categoría *</label>
+            {/* Categoría */}
+            <SimplePublishSection title="Categoría *">
                 <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 lg:gap-3">
                     {VEHICLE_TYPES.slice(0, 4).map(({ value, label, Icon }) => (
                         <button
                             key={value}
+                            type="button"
                             onClick={() => updateForm('vehicleType', value)}
-                            className={`group p-3 lg:p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all duration-200
-                                ${form.vehicleType === value 
-                                    ? 'border-[var(--accent)] bg-[var(--accent-subtle)] shadow-md' 
-                                    : 'border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)]/50 hover:shadow-sm'}`}
+                            className={`panel-publish-choice flex flex-col items-center gap-2 p-3 lg:p-4 ${form.vehicleType === value ? 'panel-publish-choice--active' : ''}`}
                         >
-                            <Icon size={22} className={`transition-colors ${form.vehicleType === value ? 'text-[var(--accent)]' : 'text-[var(--fg-muted)] group-hover:text-[var(--accent)]'}`} />
-                            <span className={`text-xs font-medium leading-tight text-center ${form.vehicleType === value ? 'text-[var(--accent)]' : 'text-[var(--fg)]'}`}>
+                            <Icon size={22} className={form.vehicleType === value ? 'text-(--accent)' : 'text-(--fg-muted)'} />
+                            <span className={`text-xs font-medium leading-tight text-center ${form.vehicleType === value ? 'text-(--accent)' : 'text-(--fg)'}`}>
                                 {label}
                             </span>
                         </button>
                     ))}
                 </div>
                 
-                {/* Dropdown para más categorías */}
                 <div className="mt-4">
                     <ModernSelect
                         value={VEHICLE_TYPES.slice(4).some(v => v.value === form.vehicleType) ? form.vehicleType : ''}
@@ -1161,14 +1140,13 @@ function Step1PhotosAndIdentity({
                         ]}
                     />
                 </div>
-            </section>
+            </SimplePublishSection>
             
-            {/* Marca y Modelo - Premium layout */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm space-y-4">
-                <label className="block text-sm font-semibold text-[var(--fg)]">Marca y Modelo *</label>
+            {/* Marca y Modelo */}
+            <SimplePublishSection title="Marca y Modelo *">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1.5">Marca *</label>
+                        <label className="block text-sm font-medium mb-1.5 text-(--fg)">Marca *</label>
                         <ModernSelect
                             value={form.brandId}
                             onChange={(v) => {
@@ -1187,13 +1165,13 @@ function Step1PhotosAndIdentity({
                                 placeholder="Nombre marca"
                                 value={form.customBrand}
                                 onChange={(e) => updateForm('customBrand', e.target.value)}
-                                className="mt-2 w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-sm"
+                                className="form-input mt-2"
                             />
                         )}
                     </div>
                     
                     <div>
-                        <label className="block text-sm font-medium mb-1.5">Modelo *</label>
+                        <label className="block text-sm font-medium mb-1.5 text-(--fg)">Modelo *</label>
                         <ModernSelect
                             value={form.modelId}
                             onChange={(v) => updateForm('modelId', v)}
@@ -1210,15 +1188,15 @@ function Step1PhotosAndIdentity({
                                 placeholder="Nombre modelo"
                                 value={form.customModel}
                                 onChange={(e) => updateForm('customModel', e.target.value)}
-                                className="mt-2 w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-sm"
+                                className="form-input mt-2"
                             />
                         )}
                     </div>
                 </div>
-            </section>
+            </SimplePublishSection>
             
-            {/* Año, Color, Precio y Oferta - Premium layout */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm space-y-4">
+            {/* Año, Color, Precio y Oferta */}
+            <SimplePublishSection className="space-y-4">
                 {/* Año y Color - en la misma fila */}
                 <div className="grid grid-cols-2 gap-3">
                     {/* Año */}
@@ -1238,7 +1216,7 @@ function Step1PhotosAndIdentity({
                                     updateForm('year', val);
                                 }
                             }}
-                            className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-sm"
+                            className="form-input"
                         />
                     </div>
                     
@@ -1258,7 +1236,7 @@ function Step1PhotosAndIdentity({
                         placeholder="18.990.000"
                         value={form.price}
                         onChange={(e) => updateForm('price', formatPrice(e.target.value))}
-                        className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-sm"
+                        className="form-input"
                     />
                 </div>
                 
@@ -1330,7 +1308,7 @@ function Step1PhotosAndIdentity({
                         </div>
                     )}
                 </div>
-            </section>
+            </SimplePublishSection>
 
             {operatorContext?.showFleetRentFields ? (
                 <MarketplaceAutosFleetRentFields
@@ -1374,76 +1352,19 @@ function Step2Condition({
     updateForm,
     expandedSections,
     toggleSection,
-    catalog
 }: {
     form: FormData;
     updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
     expandedSections: Record<string, boolean>;
     toggleSection: (key: string) => void;
-    catalog: PublishWizardCatalog | null;
+    catalog?: PublishWizardCatalog | null;
 }) {
-    // Helper functions to get names
-    const getBrandName = (brandId: string) => {
-        if (brandId === '__custom__') return form.customBrand || 'Marca personalizada';
-        const brand = catalog?.brands.find(b => b.id === brandId);
-        return brand?.name || brandId;
-    };
-    
-    const getModelName = (modelId: string) => {
-        if (modelId === '__custom__') return form.customModel || 'Modelo personalizado';
-        const model = catalog?.models.find(m => m.id === modelId);
-        return model?.name || modelId;
-    };
-    
-    // Auto-generar título cuando cambian marca/modelo/año
-    // Solo actualiza si el título actual parece autogenerado (no fue editado manualmente)
-    useEffect(() => {
-        if (!form.brandId) return;
-        const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
-        const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
-        const newTitle = [brand, model, form.year].filter(Boolean).join(' ').trim();
-        if (!newTitle) return;
-
-        // Si el título está vacío, generar directamente
-        if (!form.title) {
-            updateForm('title', newTitle);
-            return;
-        }
-
-        // Si el título actual coincide con un patrón autogenerado anterior, actualizarlo
-        // (esto permite que se actualice cuando el usuario cambia marca/modelo/año)
-        const previousBrand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
-        const previousModel = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
-        const previousTitles = [
-            [previousBrand, previousModel, form.year, form.color].filter(Boolean).join(' ').trim(),
-            [previousBrand, previousModel, form.year].filter(Boolean).join(' ').trim(),
-            [previousBrand, previousModel].filter(Boolean).join(' ').trim(),
-        ];
-        if (previousTitles.includes(form.title.trim())) {
-            updateForm('title', newTitle);
-        }
-    }, [form.brandId, form.modelId, form.year, form.color, form.customBrand, form.customModel, catalog]);
     return (
-        <div className="space-y-8 pb-32">
-            {/* Header Premium */}
-            <div className="text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] text-xs font-semibold mb-3">
-                    <IconGauge size={14} />
-                    Paso 2 de 3
-                </div>
-                <h1 className="text-3xl lg:text-4xl font-bold text-[var(--fg)] tracking-tight">
-                    ¿En qué estado está?
-                </h1>
-                <p className="text-[var(--fg-muted)] text-base mt-2 max-w-lg">
-                    Los compradores buscan estos datos. Los avisos completos generan 3x más confianza.
-                </p>
-            </div>
-            
+        <div className="space-y-4">
             {/* Datos básicos - Premium card */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm space-y-5">
-                {/* Kilometraje */}
+            <SimplePublishSection className="space-y-5">
                 <div>
-                    <label className="block text-sm font-medium mb-1.5">Kilometraje</label>
+                    <label className="block text-sm font-medium mb-1.5 text-(--fg)">Kilometraje</label>
                     <div className="relative">
                         <input
                             type="text"
@@ -1451,25 +1372,21 @@ function Step2Condition({
                             placeholder="45.000"
                             value={form.mileage}
                             onChange={(e) => updateForm('mileage', formatNumber(e.target.value))}
-                            className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-sm pr-12"
+                            className="form-input pr-12"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--fg-muted)]">km</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-(--fg-muted)">km</span>
                     </div>
                 </div>
                 
-                
-                {/* Combustible - Premium chips */}
                 <div>
-                    <label className="block text-sm font-semibold mb-3 text-[var(--fg)]">Combustible</label>
+                    <label className="block text-sm font-semibold mb-3 text-(--fg)">Combustible</label>
                     <div className="flex flex-wrap gap-2">
                         {FUEL_TYPES.map(fuel => (
                             <button
                                 key={fuel}
+                                type="button"
                                 onClick={() => updateForm('fuelType', fuel)}
-                                className={`px-4 py-2.5 rounded-full text-sm font-medium border-2 transition-all duration-200
-                                    ${form.fuelType === fuel 
-                                        ? 'border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--accent)] shadow-sm' 
-                                        : 'border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)]/50'}`}
+                                className={`panel-publish-pill px-4 py-2.5 ${form.fuelType === fuel ? 'panel-publish-pill--active' : ''}`}
                             >
                                 {fuel}
                             </button>
@@ -1477,25 +1394,22 @@ function Step2Condition({
                     </div>
                 </div>
                 
-                {/* Transmisión - Premium buttons */}
                 <div>
-                    <label className="block text-sm font-semibold mb-3 text-[var(--fg)]">Transmisión</label>
+                    <label className="block text-sm font-semibold mb-3 text-(--fg)">Transmisión</label>
                     <div className="grid grid-cols-3 gap-3">
                         {TRANSMISSIONS.map(trans => (
                             <button
                                 key={trans}
+                                type="button"
                                 onClick={() => updateForm('transmission', trans)}
-                                className={`py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200
-                                    ${form.transmission === trans 
-                                        ? 'border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--accent)] shadow-sm' 
-                                        : 'border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)]/50'}`}
+                                className={`panel-publish-pill py-3 ${form.transmission === trans ? 'panel-publish-pill--active' : ''}`}
                             >
                                 {trans}
                             </button>
                         ))}
                     </div>
                 </div>
-            </section>
+            </SimplePublishSection>
             
             {/* Expandible: Condición y dueños */}
             <ExpandibleSection
@@ -1580,63 +1494,34 @@ function Step2Condition({
                     />
                 </div>
             </ExpandibleSection>
-            
-            {/* Mensaje de calidad */}
-            <PanelCard className="bg-[var(--accent-subtle)] border-[var(--accent-border)]">
-                <div className="flex items-start gap-3">
-                    <IconSparkles size={20} className="text-[var(--accent)] shrink-0 mt-0.5" />
-                    <div>
-                        <p className="text-sm font-medium">Tip para vender más rápido</p>
-                        <p className="text-xs text-[var(--fg-muted)] mt-0.5">
-                            Los avisos con historial verificado reciben 3x más contactos
-                        </p>
-                    </div>
-                </div>
-            </PanelCard>
         </div>
     );
 }
 
 // =============================================================================
-// PASO 3: UBICACIÓN Y PUBLICAR
+// PASO 2: UBICACIÓN (datos básicos)
 // =============================================================================
 
-function Step3LocationAndPublish({
+function StepAutosLocation({
     form,
     updateForm,
-    user,
-    catalog
+    catalog,
 }: {
     form: FormData;
     updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
-    user: any;
     catalog: PublishWizardCatalog | null;
 }) {
     const regions = catalog?.regions ?? [];
-    const communes = catalog?.communes.filter(c => c.regionId === form.regionId) ?? [];
+    const communes = catalog?.communes.filter((c) => c.regionId === form.regionId) ?? [];
     const [savedAddresses, setSavedAddresses] = useState<AddressBookEntry[]>([]);
     const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-    
-    // Helper functions to get names
-    const getBrandName = (brandId: string) => {
-        if (brandId === '__custom__') return form.customBrand || 'Marca personalizada';
-        const brand = catalog?.brands.find(b => b.id === brandId);
-        return brand?.name || brandId;
-    };
-    
-    const getModelName = (modelId: string) => {
-        if (modelId === '__custom__') return form.customModel || 'Modelo personalizado';
-        const model = catalog?.models.find(m => m.id === modelId);
-        return model?.name || modelId;
-    };
-    
-    // Cargar direcciones guardadas
+
     useEffect(() => {
         const loadAddresses = async () => {
             const result = await fetchAddressBook();
             if (result.ok) {
                 setSavedAddresses(result.items);
-                const defaultAddr = result.items.find(a => a.isDefault);
+                const defaultAddr = result.items.find((a) => a.isDefault);
                 if (defaultAddr?.regionId && defaultAddr.communeId && !form.regionId) {
                     setSelectedAddressId(defaultAddr.id);
                     updateForm('regionId', defaultAddr.regionId);
@@ -1646,62 +1531,43 @@ function Step3LocationAndPublish({
         };
         void loadAddresses();
     }, []);
-    
-    // Seleccionar dirección guardada
+
     const handleSelectAddress = (addressId: string) => {
         setSelectedAddressId(addressId);
-        const address = savedAddresses.find(a => a.id === addressId);
-        if (address && address.regionId && address.communeId) {
+        const address = savedAddresses.find((a) => a.id === addressId);
+        if (address?.regionId && address.communeId) {
             updateForm('regionId', address.regionId);
             updateForm('communeId', address.communeId);
         }
     };
-    
-    // Obtener nombres de la dirección seleccionada
-    const selectedAddress = savedAddresses.find(a => a.id === selectedAddressId);
-    const regionName = selectedAddress?.regionName || regions.find(r => r.id === form.regionId)?.name;
-    const communeName = selectedAddress?.communeName || communes.find(c => c.id === form.communeId)?.name || form.communeId;
-    
+
+    const selectedAddress = savedAddresses.find((a) => a.id === selectedAddressId);
+    const regionName = selectedAddress?.regionName || regions.find((r) => r.id === form.regionId)?.name;
+    const communeName = selectedAddress?.communeName || communes.find((c) => c.id === form.communeId)?.name || form.communeId;
+
     return (
-        <div className="space-y-8 pb-32">
-            {/* Header Premium */}
-            <div className="text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] text-xs font-semibold mb-3">
-                    <IconMapPin size={14} />
-                    Paso 3 de 3
-                </div>
-                <h1 className="text-3xl lg:text-4xl font-bold text-[var(--fg)] tracking-tight">
-                    ¿Dónde está el vehículo?
-                </h1>
-                <p className="text-[var(--fg-muted)] text-base mt-2 max-w-lg">
-                    Los compradores cercanos te verán primero. Revisa tu aviso antes de publicar.
-                </p>
-            </div>
-            
-            {/* Direcciones guardadas */}
-            {savedAddresses.length > 0 && (
-                <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm space-y-4">
-                    <label className="block text-sm font-medium">Direcciones guardadas</label>
+        <div className="space-y-4">
+            {savedAddresses.length > 0 ? (
+                <SimplePublishSection title="Direcciones guardadas">
                     <div className="flex flex-wrap gap-2">
                         {savedAddresses.map((addr) => (
                             <button
                                 key={addr.id}
+                                type="button"
                                 onClick={() => handleSelectAddress(addr.id)}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all
-                                    ${selectedAddressId === addr.id
-                                        ? 'border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--accent)]'
-                                        : 'border-[var(--border)] hover:border-[var(--fg-muted)]'}`}
+                                className={`panel-publish-pill flex items-center gap-2 px-3 py-2 ${selectedAddressId === addr.id ? 'panel-publish-pill--active' : ''}`}
                             >
                                 <IconMapPin size={16} />
                                 <span className="font-medium">{addr.label}</span>
                                 <span className="text-xs opacity-70">{addr.communeName}, {addr.regionName}</span>
-                                {addr.isDefault && (
+                                {addr.isDefault ? (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--accent)] text-white">Default</span>
-                                )}
+                                ) : null}
                             </button>
                         ))}
                     </div>
                     <button
+                        type="button"
                         onClick={() => {
                             setSelectedAddressId('');
                             updateForm('regionId', '');
@@ -1711,25 +1577,17 @@ function Step3LocationAndPublish({
                     >
                         + Usar ubicación diferente
                     </button>
-                </section>
-            )}
-            
-            {/* Ubicación - autocompletada o manual */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm space-y-4">
-                <label className="text-sm font-semibold text-[var(--fg)]">Ubicación del vehículo</label>
-                
+                </SimplePublishSection>
+            ) : null}
+
+            <SimplePublishSection title="Ubicación del vehículo *">
                 <div className="grid grid-cols-2 gap-3">
-                    {/* Región */}
                     <div>
-                        <label className="block text-sm font-medium mb-1.5 text-[var(--fg-muted)]">
-                            Región
-                        </label>
+                        <label className="block text-sm font-medium mb-1.5 text-[var(--fg-muted)]">Región</label>
                         {selectedAddressId ? (
                             <div className="w-full h-11 px-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] text-sm flex items-center gap-2 overflow-hidden">
                                 <IconMapPin size={16} className="text-[var(--accent)] shrink-0" />
-                                <span className="font-medium text-[var(--fg)] truncate">
-                                    {regionName}
-                                </span>
+                                <span className="font-medium text-[var(--fg)] truncate">{regionName}</span>
                             </div>
                         ) : (
                             <ModernSelect
@@ -1740,23 +1598,17 @@ function Step3LocationAndPublish({
                                 }}
                                 options={[
                                     { value: '', label: 'Selecciona región' },
-                                    ...regions.map(r => ({ value: r.id, label: r.name }))
+                                    ...regions.map((r) => ({ value: r.id, label: r.name })),
                                 ]}
                             />
                         )}
                     </div>
-                    
-                    {/* Comuna */}
                     <div>
-                        <label className="block text-sm font-medium mb-1.5 text-[var(--fg-muted)]">
-                            Comuna
-                        </label>
+                        <label className="block text-sm font-medium mb-1.5 text-[var(--fg-muted)]">Comuna</label>
                         {selectedAddressId ? (
                             <div className="w-full h-11 px-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] text-sm flex items-center gap-2 overflow-hidden">
                                 <IconMapPin size={16} className="text-[var(--accent)] shrink-0" />
-                                <span className="font-medium text-[var(--fg)] truncate">
-                                    {communeName}
-                                </span>
+                                <span className="font-medium text-[var(--fg)] truncate">{communeName}</span>
                             </div>
                         ) : (
                             <ModernSelect
@@ -1765,75 +1617,124 @@ function Step3LocationAndPublish({
                                 disabled={!form.regionId}
                                 options={[
                                     { value: '', label: form.regionId ? 'Selecciona comuna' : 'Primero región' },
-                                    ...communes.map(c => ({ value: c.id, label: c.name }))
+                                    ...communes.map((c) => ({ value: c.id, label: c.name })),
                                 ]}
                             />
                         )}
                     </div>
                 </div>
-            </section>
-            
-            {/* Opciones - Premium card */}
-            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm space-y-3">
-                <p className="text-sm font-medium mb-2">Opciones de venta</p>
-                <ToggleChip 
+            </SimplePublishSection>
+        </div>
+    );
+}
+
+// =============================================================================
+// PASO 3: DETALLES OPCIONALES + PUBLICAR
+// =============================================================================
+
+function StepAutosPublish({
+    form,
+    updateForm,
+    catalog,
+    expandedSections,
+    toggleSection,
+}: {
+    form: FormData;
+    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
+    catalog: PublishWizardCatalog | null;
+    expandedSections: Record<string, boolean>;
+    toggleSection: (key: string) => void;
+}) {
+    const getBrandName = (brandId: string) => {
+        if (brandId === '__custom__') return form.customBrand || 'Marca personalizada';
+        return catalog?.brands.find((b) => b.id === brandId)?.name || brandId;
+    };
+
+    const getModelName = (modelId: string) => {
+        if (modelId === '__custom__') return form.customModel || 'Modelo personalizado';
+        return catalog?.models.find((m) => m.id === modelId)?.name || modelId;
+    };
+
+    return (
+        <div className="space-y-5">
+            <ExpandibleSection
+                title="Estado y detalles"
+                subtitle="Kilometraje, combustible, condición e historial (opcional)"
+                expanded={expandedSections.vehicleDetails ?? false}
+                onToggle={() => toggleSection('vehicleDetails')}
+            >
+                <Step2Condition
+                    form={form}
+                    updateForm={updateForm}
+                    expandedSections={expandedSections}
+                    toggleSection={toggleSection}
+                />
+            </ExpandibleSection>
+
+            <SimplePublishSection title="Opciones de venta">
+                <ToggleChip
                     label="Precio conversable"
                     checked={form.negotiable}
                     onChange={(v) => updateForm('negotiable', v)}
                 />
-                <ToggleChip 
+                <ToggleChip
                     label="Acepto permuta"
                     checked={form.exchange}
                     onChange={(v) => updateForm('exchange', v)}
                 />
-                <ToggleChip 
+                <ToggleChip
                     label="Ofrezco financiamiento"
                     checked={form.financing}
                     onChange={(v) => updateForm('financing', v)}
                 />
-            </section>
-            
-            <MarketplaceListingCopyFields
-                title={form.title}
-                description={form.description}
-                onTitleChange={(value) => updateForm('title', value)}
-                onDescriptionChange={(value) => updateForm('description', value.slice(0, 1000))}
-                onRegenerateTitle={() => {
-                    const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
-                    const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
-                    updateForm('title', generateAutosListingTitle({ brandName: brand, modelName: model, year: form.year }));
-                }}
-                onRegenerateDescription={() => {
-                    const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
-                    const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
-                    updateForm('description', generateAutosListingDescription({
-                        brandName: brand,
-                        modelName: model,
-                        year: form.year,
-                        vehicleType: form.vehicleType,
-                        condition: form.condition,
-                        color: form.color,
-                        mileage: form.mileage,
-                        transmission: form.transmission,
-                        fuelType: form.fuelType,
-                        ownerCount: form.ownerCount,
-                        price: form.price,
-                        negotiable: form.negotiable,
-                        financing: form.financing,
-                        exchange: form.exchange,
-                        maintenanceUpToDate: form.maintenanceUpToDate,
-                        technicalReviewUpToDate: form.technicalReviewUpToDate,
-                        papersUpToDate: form.papersUpToDate,
-                        noAccidents: form.noAccidents,
-                        warranty: form.warranty,
-                        listingType: form.listingType,
-                        platformName: 'SimpleAutos',
-                    }).slice(0, 1000));
-                }}
-                titlePlaceholder="Toyota Yaris 2020"
-                descriptionPlaceholder="Descripción para tu ficha y redes sociales"
-                descriptionMaxLength={1000}
-            />
+            </SimplePublishSection>
+
+            <SimplePublishSection
+                title="Título y descripción"
+                description="Se generan según los datos que ingresaste. Puedes editarlos antes de publicar."
+            >
+                <MarketplaceListingCopyFields
+                    title={form.title}
+                    description={form.description}
+                    onTitleChange={(value) => updateForm('title', value)}
+                    onDescriptionChange={(value) => updateForm('description', value.slice(0, 1000))}
+                    onRegenerateTitle={() => {
+                        const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
+                        const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
+                        updateForm('title', generateAutosListingTitle({ brandName: brand, modelName: model, year: form.year }));
+                    }}
+                    onRegenerateDescription={() => {
+                        const brand = form.brandId === '__custom__' ? form.customBrand : getBrandName(form.brandId);
+                        const model = form.modelId === '__custom__' ? form.customModel : getModelName(form.modelId);
+                        updateForm('description', generateAutosListingDescription({
+                            brandName: brand,
+                            modelName: model,
+                            year: form.year,
+                            vehicleType: form.vehicleType,
+                            condition: form.condition,
+                            color: form.color,
+                            mileage: form.mileage,
+                            transmission: form.transmission,
+                            fuelType: form.fuelType,
+                            ownerCount: form.ownerCount,
+                            price: form.price,
+                            negotiable: form.negotiable,
+                            financing: form.financing,
+                            exchange: form.exchange,
+                            maintenanceUpToDate: form.maintenanceUpToDate,
+                            technicalReviewUpToDate: form.technicalReviewUpToDate,
+                            papersUpToDate: form.papersUpToDate,
+                            noAccidents: form.noAccidents,
+                            warranty: form.warranty,
+                            listingType: form.listingType,
+                            platformName: 'SimpleAutos',
+                        }).slice(0, 1000));
+                    }}
+                    titlePlaceholder="Toyota Yaris 2020"
+                    descriptionPlaceholder="Descripción para tu ficha y redes sociales"
+                    descriptionMaxLength={1000}
+                />
+            </SimplePublishSection>
         </div>
     );
 }
@@ -1860,11 +1761,11 @@ function ListingPreviewCard({ form, catalog }: { form: FormData; catalog: Publis
     return (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden shadow-md">
             {/* Media area — 9:14 like real card */}
-            <div className="relative aspect-[9/14] bg-[#09090b] overflow-hidden">
+            <div className="relative aspect-[9/14] bg-(--bg) overflow-hidden">
                 {form.photos[0] ? (
                     <img src={form.photos[0].preview} alt="Preview" className="h-full w-full object-cover" />
                 ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-center" style={{ background: 'radial-gradient(circle at 50% 20%, color-mix(in oklab, var(--accent) 20%, transparent), transparent 42%), #111827' }}>
+                    <div className="autos-subtle-box flex h-full w-full flex-col items-center justify-center gap-2 text-center" style={{ background: 'radial-gradient(circle at 50% 20%, color-mix(in oklab, var(--accent) 20%, transparent), transparent 42%), var(--bg-muted)' }}>
                         <IconCamera size={28} className="text-white/60" />
                         <span className="text-xs font-semibold text-white/80">Sube la portada</span>
                     </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { IconArrowsSort, IconGridDots, IconList } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
@@ -147,6 +148,14 @@ export default function PublicPropertyListingPage(props: {
 
             <p className="mb-5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                 {props.description}
+                {props.section === 'sale' ? (
+                    <>
+                        {' '}
+                        <Link href="/simulador-hipotecario" className="font-medium underline underline-offset-2" style={{ color: 'var(--fg)' }}>
+                            Simula tu crédito hipotecario
+                        </Link>
+                    </>
+                ) : null}
             </p>
 
             <InlineResultAd section={props.section === 'project' ? 'proyectos' : props.section === 'rent' ? 'arriendos' : 'ventas'} className="mb-5" />
@@ -158,7 +167,7 @@ export default function PublicPropertyListingPage(props: {
                     </PanelNotice>
                 </PanelCard>
             ) : (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' : 'space-y-3'}>
+                <div className={viewMode === 'grid' ? 'listings-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'space-y-3'}>
                     {cards.map((item) => (
                         <PropertyListingCard key={item.id} data={item} mode={viewMode} />
                     ))}

@@ -20,31 +20,20 @@ export function ErrorView({
     errorDigest,
 }: ErrorViewProps) {
     return (
-        <div
-            className="min-h-screen flex flex-col items-center justify-center px-4 py-10 text-center"
-            style={{ background: 'var(--bg)' }}
-        >
+        <div className="error-view-page">
             {code ? (
-                <p className="text-5xl sm:text-6xl font-bold mb-3" style={{ color: 'var(--accent)' }}>
-                    {code}
-                </p>
+                <p className="error-view-page__code">{code}</p>
             ) : null}
-            <h1 className="text-xl sm:text-2xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
-                {title}
-            </h1>
+            <h1 className="error-view-page__title">{title}</h1>
             {description ? (
-                <p className="text-sm mb-8 max-w-sm" style={{ color: 'var(--fg-muted)' }}>
-                    {description}
-                </p>
-            ) : <div className="mb-8" />}
-            <div className="flex flex-col sm:flex-row items-center gap-3">
+                <p className="error-view-page__description">{description}</p>
+            ) : <div className="error-view-page__spacer" />}
+            <div className="error-view-page__actions">
                 {primaryAction}
                 {secondaryAction}
             </div>
             {errorDigest ? (
-                <p className="mt-6 text-[10px] font-mono" style={{ color: 'var(--fg-muted)' }}>
-                    ref: {errorDigest}
-                </p>
+                <p className="error-view-page__digest">ref: {errorDigest}</p>
             ) : null}
         </div>
     );

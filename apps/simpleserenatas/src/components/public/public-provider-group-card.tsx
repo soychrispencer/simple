@@ -10,6 +10,7 @@ import {
     IconMapPin,
     IconMusic,
 } from '@tabler/icons-react';
+import { getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
 import {
     baseLocationMetaLine,
@@ -213,7 +214,10 @@ export function PublicProviderGroupCard({
                     </div>
                 )}
 
-                <span className="btn btn-primary mt-auto h-10 w-full justify-center text-sm font-semibold">
+                <span
+                    className={getPanelButtonClassName({ className: 'mt-auto h-10 w-full' })}
+                    style={getPanelButtonStyle('accent')}
+                >
                     Ver mariachi
                     <IconChevronRight
                         size={16}

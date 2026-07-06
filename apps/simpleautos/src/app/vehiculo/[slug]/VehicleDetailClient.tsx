@@ -8,6 +8,7 @@ import {
 } from '@tabler/icons-react';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
+import { buildPrecheckHrefFromListing } from '@/lib/financing-precheck';
 import { type PublicListing } from '@/lib/public-listings';
 import { buildVehicleJsonLd, JsonLd } from '@/lib/schema';
 import { PanelBlockHeader } from '@simple/ui/panel';
@@ -268,9 +269,9 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
 
                         {/* Mobile Price - Card similar a desktop */}
                         <div className="md:hidden mb-4">
-                            <div className="rounded-[24px] border border-t-4 shadow-sm p-5 text-center" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)', background: 'var(--surface)' }}>
-                                <p className="text-xs uppercase font-black tracking-widest mb-2" style={{ color: 'var(--fg-muted)' }}>Precio</p>
-                                <p className="text-3xl font-black tracking-tight" style={{ color: 'var(--fg)' }}>
+                            <div className="rounded-card border border-t-2 shadow-sm p-5 text-center" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)', background: 'var(--surface)' }}>
+                                <p className="text-xs uppercase font-semibold tracking-widest mb-2" style={{ color: 'var(--fg-muted)' }}>Precio</p>
+                                <p className="text-3xl font-semibold tracking-tight" style={{ color: 'var(--fg)' }}>
                                     {formatPrice(item.price)}
                                 </p>
                                 <div className="mt-4 space-y-2.5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
@@ -316,7 +317,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                     <div className="md:hidden space-y-4">
                         <PanelCard size="md">
                             <PanelBlockHeader title="Vendedor" className="mb-4" />
-                            <div className="flex items-center gap-3 rounded-[20px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                            <div className="flex items-center gap-3 rounded-card border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: 'var(--bg)', color: 'var(--fg-muted)', border: '1px solid var(--border)' }}>
                                     <IconUser size={20} />
                                 </div>
@@ -325,7 +326,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                                         {item.seller?.name ?? 'Cuenta SimpleAutos'}
                                     </p>
                                     {item.seller && (
-                                        <p className="text-[10px] uppercase font-black tracking-widest mt-0.5" style={{ color: 'var(--color-success)' }}>
+                                        <p className="text-[10px] uppercase font-semibold tracking-widest mt-0.5" style={{ color: 'var(--color-success)' }}>
                                             En SimpleAutos
                                         </p>
                                     )}
@@ -344,26 +345,44 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                             sourcePage={item.href}
                             seller={item.seller ? { email: item.seller.email, phone: item.seller.phone } : null}
                         />
+                        {item.section === 'sale' ? (
+                            <Link
+                                href={buildPrecheckHrefFromListing(item)}
+                                className="flex w-full items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                            >
+                                Precalificar financiamiento
+                            </Link>
+                        ) : null}
                     </div>
                 </div>
 
                 {/* Desktop Sidebar - Right side only */}
                 <aside className="hidden lg:block w-full shrink-0 lg:w-80">
                     <div className="space-y-4 lg:sticky lg:top-20">
-                        <div className="rounded-[24px] border border-t-4 shadow-sm p-5 md:p-6" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)', background: 'var(--surface)' }}>
+                        <div className="rounded-card border border-t-2 shadow-sm p-5 md:p-6" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)', background: 'var(--surface)' }}>
                             <PanelBlockHeader title="Precio" className="mb-4" />
-                            <p className="text-4xl font-black tracking-tight" style={{ color: 'var(--fg)' }}>
+                            <p className="text-4xl font-semibold tracking-tight" style={{ color: 'var(--fg)' }}>
                                 {formatPrice(item.price)}
                             </p>
                             <div className="mt-5 space-y-3.5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                                 <p className="flex items-center gap-3"><IconClock size={16} style={{ color: 'var(--fg-muted)' }} /> Publicado {item.publishedAgo}</p>
                                 <p className="flex items-center gap-3"><IconEye size={16} style={{ color: 'var(--fg-muted)' }} /> {item.views.toLocaleString('es-CL')} visualizaciones</p>
                             </div>
+                            {item.section === 'sale' ? (
+                                <Link
+                                    href={buildPrecheckHrefFromListing(item)}
+                                    className="mt-5 flex w-full items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition-colors hover:bg-[var(--bg-subtle)]"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                >
+                                    Precalificar financiamiento
+                                </Link>
+                            ) : null}
                         </div>
 
                         <PanelCard size="md">
                             <PanelBlockHeader title="Vendedor" className="mb-4" />
-                            <div className="flex items-center gap-3 rounded-[20px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                            <div className="flex items-center gap-3 rounded-card border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: 'var(--bg)', color: 'var(--fg-muted)', border: '1px solid var(--border)' }}>
                                     <IconUser size={20} />
                                 </div>
@@ -372,7 +391,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                                         {item.seller?.name ?? 'Cuenta SimpleAutos'}
                                     </p>
                                     {item.seller && (
-                                        <p className="text-[10px] uppercase font-black tracking-widest mt-0.5" style={{ color: 'var(--color-success)' }}>
+                                        <p className="text-[10px] uppercase font-semibold tracking-widest mt-0.5" style={{ color: 'var(--color-success)' }}>
                                             En SimpleAutos
                                         </p>
                                     )}
@@ -400,9 +419,9 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
 
 function SpecItem({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
     return (
-        <div className="flex flex-col items-center justify-center rounded-[24px] border p-4 text-center transition-all" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+        <div className="flex flex-col items-center justify-center rounded-card border p-4 text-center transition-all" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
             <span className="mb-2 text-[var(--accent)]">{icon}</span>
-            <span className="text-[10px] uppercase font-black tracking-[0.15em] text-[var(--fg-muted)]">{label}</span>
+            <span className="text-[10px] uppercase font-semibold tracking-[0.15em] text-[var(--fg-muted)]">{label}</span>
             <p className="mt-1.5 text-sm font-bold truncate w-full" style={{ color: 'var(--fg)' }}>{value}</p>
         </div>
     );

@@ -174,7 +174,7 @@ export async function buildInstagramTemplateOverlaySvg(
     width: number,
     height: number
 ): Promise<Buffer> {
-    const brandAccent = template.branding?.appId === 'simplepropiedades' ? '#3232FF' : '#ff3600';
+    const brandAccent = template.branding?.appId === 'simplepropiedades' ? '#4F46E5' : '#E84A1F';
     const titleLines = wrapTemplateText(template.headline || listing.title, template.overlayVariant.startsWith('property') ? 24 : 20, 2);
     const eyebrow = escapeSvgText(clampTemplateText(template.eyebrow, 24));
     const location = escapeSvgText(clampTemplateText(template.locationLabel || listing.location || 'Chile', 28));

@@ -651,7 +651,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
                             e.stopPropagation();
                             router.push(data.href);
                         }}
-                        className="flex-1 py-2.5 bg-white text-black font-semibold text-sm rounded-xl hover:bg-white/90 transition active:scale-[0.98]"
+                        className="marketplace-reel-cta"
                     >
                         Ver detalle
                     </button>

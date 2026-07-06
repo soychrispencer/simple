@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent,
@@ -39,7 +40,7 @@ import {
     IconGripVertical,
 } from '@tabler/icons-react';
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
 import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
@@ -908,13 +909,13 @@ function ListingLivePreview(props: { data: WizardData; compact?: boolean }) {
     return (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden shadow-md">
             {/* Media area — 9:14 like real card */}
-            <div className="relative aspect-[9/14] bg-[#09090b] overflow-hidden">
+            <div className="relative aspect-[9/14] bg-(--bg) overflow-hidden">
                 {video?.previewUrl || video?.dataUrl ? (
                     <video src={video.previewUrl || video.dataUrl} className="h-full w-full object-cover" muted playsInline loop />
                 ) : photo?.previewUrl || photo?.dataUrl ? (
                     <img src={photo.previewUrl || photo.dataUrl} alt={title} className="h-full w-full object-cover" />
                 ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-center" style={{ background: 'radial-gradient(circle at 50% 20%, color-mix(in oklab, var(--accent) 20%, transparent), transparent 42%), #111827' }}>
+                    <div className="prop-live-preview__empty flex h-full w-full flex-col items-center justify-center gap-2 text-center">
                         <IconCamera size={28} className="text-white/60" />
                         <span className="text-xs font-semibold text-white/80">Sube la portada</span>
                     </div>
@@ -964,39 +965,14 @@ function ErrorText(props: { text: string }) {
 
 function Field(props: { label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode }) {
     return (
-        <div>
-            <label className="block text-sm font-medium mb-1 prop-field-label">
-                {props.label}
-                {props.required ? <abbr title="requerido" className="text-(--color-error) no-underline"> *</abbr> : null}
-            </label>
+        <SimplePublishField
+            label={props.label}
+            required={props.required}
+            error={props.error}
+            hint={props.hint}
+        >
             {props.children}
-            {props.hint ? <p className="text-xs mt-1 prop-field-hint">{props.hint}</p> : null}
-            {props.error ? <ErrorText text={props.error} /> : null}
-        </div>
-    );
-}
-
-function PublishSection(props: { title: string; children: React.ReactNode }) {
-    return (
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-4 md:p-5 space-y-4">
-            <p className="text-sm font-semibold text-[var(--fg)]">{props.title}</p>
-            {props.children}
-        </section>
-    );
-}
-
-function OptionalPublishSection(props: { title: string; description?: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
-    return (
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden">
-            <button type="button" onClick={props.onToggle} className="w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left">
-                <span>
-                    <span className="block text-sm font-medium text-[var(--fg)]">{props.title}</span>
-                    {props.description ? <span className="block text-xs mt-0.5 text-[var(--fg-muted)]">{props.description}</span> : null}
-                </span>
-                <span className="text-xs text-[var(--fg-muted)] shrink-0">{props.open ? '−' : '+'}</span>
-            </button>
-            {props.open ? <div className="px-4 pb-4 pt-0 border-t border-[var(--border)]">{props.children}</div> : null}
-        </section>
+        </SimplePublishField>
     );
 }
 
@@ -1022,7 +998,7 @@ function ToggleCard(props: { title: string; description?: string; active: boolea
         <button
             type="button"
             onClick={props.onToggle}
-            className={`rounded-lg border px-3 py-3 text-left prop-toggle-card ${props.active ? 'prop-toggle-card--active' : ''}`}
+            className={`rounded-lg border px-3 py-3 text-left panel-publish-toggle ${props.active ? 'panel-publish-toggle--active' : ''}`}
         >
             <p className="text-sm font-medium">{props.title}</p>
             {props.description ? (
@@ -1040,10 +1016,10 @@ function SelectableChip(props: { label: string; active: boolean; onToggle: () =>
         <button
             type="button"
             onClick={props.onToggle}
-            className={`rounded-2xl border px-3 py-3 text-sm text-left transition-colors prop-select-chip ${props.active ? 'prop-select-chip--active' : ''}`}
+            className={`rounded-card border px-3 py-3 text-sm text-left transition-colors panel-publish-select-chip ${props.active ? 'panel-publish-select-chip--active' : ''}`}
         >
             <span className="flex items-center gap-3">
-                <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border prop-select-chip-dot ${props.active ? 'prop-select-chip-dot--active' : ''}`}>
+                <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border panel-publish-select-chip-dot ${props.active ? 'panel-publish-select-chip-dot--active' : ''}`}>
                     {props.active ? <IconCheck size={13} /> : null}
                 </span>
                 <span className="font-medium text-(--fg)">{props.label}</span>
@@ -1080,7 +1056,7 @@ function StepSetup(props: {
     return (
         <section className="space-y-5">
             <MarketplaceOperatorPublishHint message={operatorHint ?? null} />
-            <PublishSection title="Operación">
+            <SimplePublishSection title="Operación">
                 <div className="grid grid-cols-3 gap-2">
                     {OPERATION_CARDS.map((card) => (
                         <PanelChoiceCard
@@ -1106,8 +1082,8 @@ function StepSetup(props: {
                     ))}
                 </div>
                 {errors['setup.operationType'] ? <ErrorText text={errors['setup.operationType']} /> : null}
-            </PublishSection>
-            <PublishSection title="Tipo de propiedad">
+            </SimplePublishSection>
+            <SimplePublishSection title="Tipo de propiedad">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {PROPERTY_TYPE_CARDS.map((option) => (
                         <PanelChoiceCard
@@ -1129,7 +1105,7 @@ function StepSetup(props: {
                     ))}
                 </div>
                 {errors['setup.propertyType'] ? <ErrorText text={errors['setup.propertyType']} /> : null}
-            </PublishSection>
+            </SimplePublishSection>
         </section>
     );
 }
@@ -1224,7 +1200,7 @@ function StepBasic(props: {
 
             {showLocation ? (
                 flat ? (
-                    <PublishSection title={locationTitle}>{locationBody}</PublishSection>
+                    <SimplePublishSection title={locationTitle}>{locationBody}</SimplePublishSection>
                 ) : (
             <AccordionGroup
                 title="Ubicación del aviso"
@@ -1239,7 +1215,7 @@ function StepBasic(props: {
 
             {showMain ? (
             flat ? (
-            <PublishSection title={mainTitle}>
+            <SimplePublishSection title={mainTitle}>
                 {isProject ? (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
@@ -1322,7 +1298,7 @@ function StepBasic(props: {
                         })()}
                     </>
                 )}
-            </PublishSection>
+            </SimplePublishSection>
             ) : (
             <>
             <AccordionGroup
@@ -1835,7 +1811,7 @@ function StepCommercial(props: {
 
     if (compact) {
         return (
-            <PublishSection title="Precio">
+            <SimplePublishSection title="Precio">
                 {isProject ? (
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <Field label="Precio desde" required error={errors['commercial.price']}>
@@ -1856,7 +1832,7 @@ function StepCommercial(props: {
                         </div>
                     </Field>
                 )}
-            </PublishSection>
+            </SimplePublishSection>
         );
     }
 
@@ -2162,7 +2138,7 @@ function StepDetails(props: {
 
     return (
         <div className="space-y-4">
-            <OptionalPublishSection
+            <SimplePublishOptionalSection
                 title="Atributos adicionales"
                 description="Superficies, tipologías y datos extra del inmueble."
                 open={openSections.attrs}
@@ -2179,16 +2155,16 @@ function StepDetails(props: {
                     geocoding={geocoding}
                     variant="extended"
                 />
-            </OptionalPublishSection>
-            <OptionalPublishSection
+            </SimplePublishOptionalSection>
+            <SimplePublishOptionalSection
                 title="Equipamiento"
                 description="Comodidades, servicios y ambientes."
                 open={openSections.specs}
                 onToggle={() => setOpenSections((current) => ({ ...current, specs: !current.specs }))}
             >
                 <StepSpecs data={data} setData={setData} minimal />
-            </OptionalPublishSection>
-            <OptionalPublishSection
+            </SimplePublishOptionalSection>
+            <SimplePublishOptionalSection
                 title="Condiciones comerciales"
                 description="Gastos comunes, tasador y opciones de venta."
                 open={openSections.commercial}
@@ -2202,17 +2178,17 @@ function StepDetails(props: {
                     hidePrice
                     {...commercialProps}
                 />
-            </OptionalPublishSection>
-            <OptionalPublishSection
+            </SimplePublishOptionalSection>
+            <SimplePublishOptionalSection
                 title="Contacto y enlaces"
                 description="Tour 360, contacto y URL personalizada."
                 open={openSections.extras}
                 onToggle={() => setOpenSections((current) => ({ ...current, extras: !current.extras }))}
             >
                 <StepDetailsExtras data={data} setData={setData} errors={errors} />
-            </OptionalPublishSection>
+            </SimplePublishOptionalSection>
 
-            <PublishSection title="Título y descripción">
+            <SimplePublishSection title="Título y descripción">
                 <p className="text-xs text-[var(--fg-muted)] -mt-1 mb-3">
                     Se generan según los datos que ingresaste. Puedes editarlos antes de publicar.
                 </p>
@@ -2234,7 +2210,7 @@ function StepDetails(props: {
                     titlePlaceholder={data.setup.operationType === 'project' ? 'Ej: Proyecto con entrega inmediata en Ñuñoa' : 'Ej: Departamento 3D+2B en Providencia'}
                     descriptionPlaceholder="Describe distribución, entorno y ventajas del inmueble."
                 />
-            </PublishSection>
+            </SimplePublishSection>
 
             <StepReview
                 data={data}
@@ -2869,6 +2845,14 @@ export default function PublishWizardPage() {
             notices={(
                 <>
                     <MarketplacePublishPlanLimitNotice vertical="propiedades" isEditing={isEditing} planLimit={planLimit} />
+                    {!isEditing ? (
+                        <PanelNotice tone="neutral">
+                            ¿Prefieres que gestionemos la venta o el arriendo por ti?{' '}
+                            <Link href="/servicios/venta-asistida" className="font-medium underline underline-offset-2">
+                                Ver gestión inmobiliaria
+                            </Link>
+                        </PanelNotice>
+                    ) : null}
                     {message ? <MarketplacePublishMessageNotice message={message} /> : null}
                     {storageError ? <PanelNotice tone="error">{storageError}</PanelNotice> : null}
                     {draftSavedNote ? <PanelNotice tone="success">{draftSavedNote}</PanelNotice> : null}

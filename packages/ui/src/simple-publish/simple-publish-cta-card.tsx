@@ -2,6 +2,7 @@
 
 import { IconLoader2 } from '@tabler/icons-react';
 import { PanelButton } from '../panel/panel-button';
+import { PanelCard } from '../panel/panel-card';
 import type { SimplePublishCtaCardProps } from './types';
 
 export function SimplePublishCtaCard({
@@ -14,11 +15,14 @@ export function SimplePublishCtaCard({
     icon,
 }: SimplePublishCtaCardProps) {
     return (
-        <div className="mt-8 rounded-2xl border border-(--border) bg-linear-to-b from-(--surface) to-(--bg-subtle)/40 p-4 shadow-sm">
+        <PanelCard
+            size="md"
+            className="mt-8 bg-linear-to-b from-(--surface) to-(--bg-subtle)/40"
+        >
             {hint ? <p className="mb-3 text-xs leading-relaxed text-(--fg-muted)">{hint}</p> : null}
             <PanelButton
                 type="button"
-                variant="primary"
+                variant="accent"
                 className="h-12 w-full justify-center text-base"
                 onClick={onClick}
                 disabled={disabled || loading}
@@ -35,6 +39,6 @@ export function SimplePublishCtaCard({
                     </>
                 )}
             </PanelButton>
-        </div>
+        </PanelCard>
     );
 }

@@ -3,6 +3,7 @@
 import { useMemo, type FormEvent } from 'react';
 import { IconMap2, IconMapPin, IconSearch, IconWorld, IconX } from '@tabler/icons-react';
 import { ModernDateInput, ModernSelect } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
 import {
     getCommunesForRegion,
     getCountryByCode,
@@ -58,12 +59,7 @@ export function MarketplaceSearchPanel({
 
     return (
         <form
-            className="overflow-visible rounded-[22px] border"
-            style={{
-                borderColor: 'var(--border)',
-                background: 'var(--surface)',
-                boxShadow: '0 16px 46px rgba(0,0,0,0.12)',
-            }}
+            className="overflow-visible rounded-card border marketplace-search-hero border-border bg-surface"
             onSubmit={onSubmit}
         >
             <div className="space-y-3 p-3 sm:p-4">
@@ -140,14 +136,16 @@ export function MarketplaceSearchPanel({
                             ariaLabel="Fecha opcional de la serenata"
                         />
                     </div>
-                    <button
+                    <PanelButton
                         type="submit"
-                        className="btn btn-primary h-11 w-full justify-center px-5 text-sm font-semibold md:col-span-2 xl:col-span-1"
+                        variant="accent"
+                        className="h-11 w-full justify-center px-5 md:col-span-2 xl:col-span-1"
                         disabled={loading}
+                        loading={loading}
                     >
                         <IconSearch size={18} />
                         {loading ? 'Buscando' : 'Buscar'}
-                    </button>
+                    </PanelButton>
                 </div>
                 <p className="text-xs leading-relaxed text-fg-muted">
                     Elige país y ubicación para ver mariachis cerca. Con fecha, filtramos grupos con horarios posibles ese día.

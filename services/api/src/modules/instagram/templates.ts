@@ -96,13 +96,13 @@ function getPlatformBrand(vertical: string) {
 const COLOR_PALETTES = {
     // Essential: Puro blanco y negro, sin color
     essential: {
-        primary: '#111111',
-        secondary: '#f5f5f5',
-        accent: '#111111',
+        primary: '#0C0C0E',
+        secondary: '#F0F0ED',
+        accent: '#0C0C0E',
         background: '#ffffff',
-        surface: '#fafafa',
-        textPrimary: '#111111',
-        textSecondary: '#888888',
+        surface: '#F7F7F5',
+        textPrimary: '#0C0C0E',
+        textSecondary: '#5C5C66',
         textInverse: '#ffffff',
     },
     // Professional: Blanco, negro con gris medio

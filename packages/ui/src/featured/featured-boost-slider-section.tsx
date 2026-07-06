@@ -41,7 +41,7 @@ export function FeaturedBoostSliderSection<T extends string = string>({
 
     return (
         <section className="border-t border-(--border)">
-            <div className="container-app py-14">
+            <div className="container-app section-marketing">
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 className="type-section-title text-(--fg)">{title}</h2>
@@ -71,7 +71,7 @@ export function FeaturedBoostSliderSection<T extends string = string>({
                 </div>
 
                 {loading ? null : !hasSlides ? (
-                    <article className="w-full rounded-xl border border-(--border) bg-(--surface) p-8 text-center">
+                    <article className="w-full rounded-card border border-(--border) bg-(--surface) p-8 text-center">
                         <p className="text-sm text-(--fg-secondary)">{emptyMessage}</p>
                     </article>
                 ) : (

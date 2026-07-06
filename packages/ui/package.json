@@ -92,6 +92,10 @@
       "types": "./dist/theme/index.d.ts",
       "default": "./dist/theme/index.js"
     },
+    "./fonts": {
+      "types": "./dist/fonts.d.ts",
+      "default": "./dist/fonts.js"
+    },
     "./theme-provider": {
       "types": "./dist/theme-provider.d.ts",
       "default": "./dist/theme-provider.js"

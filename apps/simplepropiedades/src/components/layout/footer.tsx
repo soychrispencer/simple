@@ -10,7 +10,9 @@ const sections = [
             { label: 'Comprar', href: '/ventas' },
             { label: 'Arrendar', href: '/arriendos' },
             { label: 'Proyectos nuevos', href: '/proyectos' },
+            { label: 'Simulador hipotecario', href: '/simulador-hipotecario' },
             { label: 'Publicar', href: '/panel/publicar' },
+            { label: 'Gestión inmobiliaria', href: '/servicios/venta-asistida' },
         ],
     },
     {
@@ -41,6 +43,7 @@ export function Footer() {
             sections={sections}
             legalLinks={legalLinks}
             socialLinks={socialLinks}
+            legalNotice="SimplePropiedades es un marketplace inmobiliario de publicación. No es corredora de propiedades ni entidad financiera; el simulador hipotecario es referencial."
         />
     );
 }

@@ -1,0 +1,39 @@
+﻿# Cursor indexado / busquedas — no afecta builds ni git
+node_modules/
+.pnpm-store/
+
+# Builds y caches (regenerables)
+.next/
+dist/
+build/
+out/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Lockfile enorme
+pnpm-lock.yaml
+
+# Tests y reportes
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Logs y temporales
+.logs/
+logs/
+*.log
+tmp_*
+**/tsclog*.txt
+
+# Uploads locales de API
+services/api/uploads/
+
+# Env y secretos
+.env
+.env.*
+.env.deploy
+
+# Estado local de Cursor (no el repo)
+.cursor/projects/

@@ -89,7 +89,7 @@ export default function RecentListingsSlider() {
 
     return (
         <section style={{ borderTop: '1px solid var(--border)' }}>
-            <div className="container-app py-14">
+            <div className="container-app section-marketing">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                     <div>
                         <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>

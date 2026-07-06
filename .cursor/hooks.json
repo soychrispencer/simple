@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node scripts/cursor-workspace-clean.mjs --if-stale",
+        "timeout": 30
+      }
+    ]
+  }
+}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AddressBookEntry, ListingLocation, ListingLocationKind, ListingLocationVisibilityMode } from '@simple/types';
 import { applyAddressBookEntryToLocation, patchListingLocation } from '@simple/types';
-import { PanelButton } from '../panel/panel-button';
+import { PanelButton, getPanelButtonClassName, getPanelButtonStyle } from '../panel/panel-button';
 import {
     ADDRESS_KIND_OPTIONS,
     DEFAULT_VISIBILITY_OPTIONS,
@@ -139,7 +139,13 @@ export function LocationMapPreview({ location, title = 'Mapa público', subtitle
                                 Usa el mapa para confirmar que la dirección corresponde al punto correcto.
                             </p>
                         </div>
-                        <a href={externalMapsUrl} target="_blank" rel="noreferrer" className="btn btn-outline h-9 px-3 text-xs">
+                        <a
+                            href={externalMapsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={getPanelButtonClassName({ size: 'sm', className: 'h-9 px-3 text-xs' })}
+                            style={getPanelButtonStyle('secondary')}
+                        >
                             Abrir en Google Maps
                         </a>
                     </div>
@@ -463,7 +469,8 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                                 href={internalMapsUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="btn btn-outline h-10 px-3 text-sm whitespace-nowrap"
+                                className={getPanelButtonClassName({ className: 'h-10 px-3 text-sm whitespace-nowrap' })}
+                                style={getPanelButtonStyle('secondary')}
                             >
                                 Ver en Google Maps
                             </a>
@@ -616,7 +623,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                 </div>
             ) : null}
             {(showActionBar && (showPublicPreviewCard || onGeocode || onSaveToAddressBook)) ? (
-                <div className="loc-editor-action-bar flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-xl border px-3 py-3">
+                <div className="loc-editor-action-bar flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-card border px-3 py-3">
                     {showPublicPreviewCard ? (
                         <div>
                             <p className="text-sm font-medium">Vista pública</p>
@@ -627,9 +634,9 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                         </div>
                     ) : <div />}
                     <div className="flex items-center gap-2 flex-wrap">
-                        {onGeocode ? <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => void onGeocode()}>{geocoding ? 'Actualizando mapa...' : 'Actualizar mapa'}</button> : null}
-                        {showPublicPreviewCard ? <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => onChange(patchListingLocation(location, { publicMapEnabled: !location.publicMapEnabled }))} disabled={location.visibilityMode === 'hidden'}>{location.publicMapEnabled ? 'Ocultar mapa' : 'Mostrar mapa'}</button> : null}
-                        {onSaveToAddressBook ? <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => void onSaveToAddressBook()}>Guardar en libreta</button> : null}
+                        {onGeocode ? <PanelButton type="button" variant="secondary" size="sm" className="h-9 px-3 text-xs" onClick={() => void onGeocode()} loading={geocoding}>{geocoding ? 'Actualizando mapa...' : 'Actualizar mapa'}</PanelButton> : null}
+                        {showPublicPreviewCard ? <PanelButton type="button" variant="secondary" size="sm" className="h-9 px-3 text-xs" onClick={() => onChange(patchListingLocation(location, { publicMapEnabled: !location.publicMapEnabled }))} disabled={location.visibilityMode === 'hidden'}>{location.publicMapEnabled ? 'Ocultar mapa' : 'Mostrar mapa'}</PanelButton> : null}
+                        {onSaveToAddressBook ? <PanelButton type="button" variant="secondary" size="sm" className="h-9 px-3 text-xs" onClick={() => void onSaveToAddressBook()}>Guardar en libreta</PanelButton> : null}
                     </div>
                 </div>
             ) : null}

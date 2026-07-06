@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { PanelButton, PanelButtonLink } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
 import { useRouter } from 'next/navigation';
 import {
@@ -132,7 +133,7 @@ export default function HomePage() {
         <div className="flex flex-col">
 
             {/* ═══════════════ HERO ═══════════════ */}
-            <section style={{ background: 'var(--bg)' }}>
+            <section className="vertical-hero-texture" style={{ background: 'var(--bg)' }}>
                 <div className="container-app pt-14 sm:pt-20 lg:pt-28 pb-14 sm:pb-20 lg:pb-24">
                     <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(440px,1.1fr)] lg:gap-14">
                         <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
@@ -156,20 +157,19 @@ export default function HomePage() {
                                 Citas, clientes y pagos en un solo lugar. Regístrate gratis y prueba todo durante 30 días.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start animate-slide-up" style={{ animationDelay: '140ms' }}>
-                                <button
+                                <PanelButton
+                                    type="button"
+                                    variant="accent"
+                                    className="h-12 px-7"
                                     onClick={handleCTA}
-                                    className="btn btn-primary h-12 px-7 text-sm gap-2"
                                 >
                                     Probar 30 días gratis
                                     <IconArrowRight size={16} />
-                                </button>
-                                <a
-                                    href="#como-funciona"
-                                    className="btn btn-outline h-12 px-7 text-sm gap-2"
-                                >
+                                </PanelButton>
+                                <PanelButtonLink href="#como-funciona" variant="secondary" className="h-12 px-7">
                                     <IconPlayerPlay size={14} />
                                     Ver como funciona
-                                </a>
+                                </PanelButtonLink>
                             </div>
                             {/* Trust bar */}
                             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-5 sm:gap-8 animate-fade-in" style={{ animationDelay: '280ms' }}>
@@ -227,7 +227,7 @@ export default function HomePage() {
 
             {/* ═══════════════ WHY SIMPLEAGENDA + PROFESSIONALS + IMAGE ═══════════════ */}
             <section style={{ background: 'var(--bg-subtle)' }}>
-                <div className="container-app py-16 sm:py-20 lg:py-24">
+                <div className="container-app section-marketing">
                     <div className="grid lg:grid-cols-2 gap-8 lg:gap-10 items-center max-w-5xl mx-auto">
                         {/* Left — real professional support image */}
                         <div className="flex justify-center">
@@ -320,7 +320,7 @@ export default function HomePage() {
             </section>
 
             {/* ═══════════════ FEATURE SHOWCASE — alternating image+text ═══════════════ */}
-            <section id="funciones" className="container-app py-16 sm:py-20 lg:py-24">
+            <section id="funciones" className="container-app section-marketing">
                 <div className="text-center mb-10 sm:mb-14 lg:mb-16">
                     <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Funcionalidades</p>
                     <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Todo lo que necesitas en un solo lugar</h2>
@@ -409,7 +409,7 @@ export default function HomePage() {
 
             {/* ═══════════════ HOW IT WORKS — 3 steps ═══════════════ */}
             <section id="como-funciona" style={{ background: 'var(--bg-subtle)' }}>
-                <div className="container-app py-16 sm:py-20 lg:py-24">
+                <div className="container-app section-marketing">
                     <div className="text-center mb-10 sm:mb-12">
                         <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Cómo funciona</p>
                         <h3 className="text-xl sm:text-2xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Empieza en 3 pasos</h3>
@@ -436,7 +436,7 @@ export default function HomePage() {
             </section>
 
             {/* ═══════════════ FREE TRIAL CTA ═══════════════ */}
-            <section id="prueba-gratis" className="container-app py-16 sm:py-20 lg:py-24 scroll-mt-20">
+            <section id="prueba-gratis" className="container-app section-marketing scroll-mt-20">
                 <div className="text-center mb-10 sm:mb-12 max-w-2xl mx-auto">
                     <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Empieza hoy</p>
                     <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3" style={{ color: 'var(--fg)' }}>
@@ -465,13 +465,15 @@ export default function HomePage() {
                     ))}
                 </div>
                 <div className="text-center">
-                    <button
+                    <PanelButton
+                        type="button"
+                        variant="accent"
+                        className="h-12 px-8"
                         onClick={handleCTA}
-                        className="btn btn-primary h-12 px-8 text-sm gap-2"
                     >
                         Crear cuenta gratis
                         <IconArrowRight size={16} />
-                    </button>
+                    </PanelButton>
                     <p className="mt-4 text-xs max-w-md mx-auto" style={{ color: 'var(--fg-muted)' }}>
                         Sin comisión por reserva. Planes, precios y cobros los ves en tu panel cuando quieras continuar.
                     </p>
@@ -480,7 +482,7 @@ export default function HomePage() {
 
             {/* ═══════════════ FAQ ═══════════════ */}
             <section style={{ background: 'var(--bg-subtle)' }}>
-                <div className="container-app py-16 sm:py-20 lg:py-24">
+                <div className="container-app section-marketing">
                     <div className="max-w-2xl mx-auto">
                         <div className="text-center mb-10 sm:mb-12">
                             <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>FAQ</p>
@@ -499,7 +501,7 @@ export default function HomePage() {
             </section>
 
             {/* ═══════════════ FINAL CTA ═══════════════ */}
-            <section className="container-app py-16 sm:py-20 lg:py-24">
+            <section className="container-app section-marketing">
                 <div
                     className="relative overflow-hidden rounded-card sm:rounded-[1.5rem] px-5 py-12 sm:px-12 sm:py-16 lg:py-20 text-center bg-[linear-gradient(135deg,var(--accent)_0%,color-mix(in_oklab,var(--accent)_78%,black)_100%)]"
                 >
@@ -514,13 +516,15 @@ export default function HomePage() {
                         <p className="text-base mb-8" style={{ color: 'rgba(255,255,255,0.8)' }}>
                             Regístrate gratis, prueba 30 días con todo incluido y cancela cuando quieras.
                         </p>
-                        <button
+                        <PanelButton
+                            type="button"
+                            variant="accent"
                             onClick={handleCTA}
-                            className="btn h-12 px-8 text-sm font-semibold gap-2 transition-all duration-200 bg-[var(--accent-contrast)] text-[var(--accent)] shadow-[var(--shadow-md)]"
+                            className="h-12 px-8 text-sm font-semibold gap-2 bg-(--accent-contrast) text-(--accent) shadow-(--shadow-md)"
                         >
                             Probar 30 días gratis
                             <IconArrowRight size={16} />
-                        </button>
+                        </PanelButton>
                     </div>
                 </div>
             </section>

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { PanelButtonLink } from '@simple/ui/panel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -222,19 +223,16 @@ export default function FeedPage() {
 
     const emptyState = useMemo(
         () => (
-            <div className="h-[calc(100vh-12rem)] rounded-2xl border flex flex-col items-center justify-center gap-4 px-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>
+            <div className="h-[calc(100vh-12rem)] rounded-card border flex flex-col items-center justify-center gap-4 px-6 text-center border-(--border) bg-(--surface)">
+                <p className="text-base font-semibold text-(--fg)">
                     Descubre es solo para videos
                 </p>
-                <p className="max-w-sm text-sm" style={{ color: 'var(--fg-muted)' }}>
+                <p className="max-w-sm text-sm text-(--fg-muted)">
                     Sube un clip vertical al publicar tu vehículo y aparecerá aquí en formato Reel. Las publicaciones solo con fotos no entran a este feed.
                 </p>
-                <Link
-                    href="/panel/publicar"
-                    className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-5 text-sm font-semibold text-white"
-                >
+                <PanelButtonLink href="/panel/publicar" variant="accent">
                     Publicar con video
-                </Link>
+                </PanelButtonLink>
             </div>
         ),
         []
@@ -260,7 +258,7 @@ export default function FeedPage() {
             </div>
 
             {loading ? (
-                <div className="h-[calc(100vh-12rem)] rounded-2xl border flex items-center justify-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <div className="h-[calc(100vh-12rem)] rounded-card border flex items-center justify-center border-(--border) bg-(--surface)">
                     <p className="text-sm inline-flex items-center gap-2" style={{ color: 'var(--fg-muted)' }}>
                         <IconLoader2 size={14} className="animate-spin" />
                         Cargando contenido...
@@ -278,7 +276,7 @@ export default function FeedPage() {
                             <article
                                 key={clip.id}
                                 data-clip-id={clip.id}
-                                className="relative mx-auto w-full max-w-[430px] aspect-[9/16] rounded-2xl overflow-hidden border snap-start cursor-pointer"
+                                className="relative mx-auto w-full max-w-[430px] aspect-[9/16] rounded-card overflow-hidden border snap-start cursor-pointer"
                                 style={{ borderColor: 'var(--border)', background: '#0a0a0a' }}
                                 onClick={() => router.push(clip.href)}
                             >
@@ -425,7 +423,7 @@ export default function FeedPage() {
                                                 event.stopPropagation();
                                                 router.push(clip.href);
                                             }}
-                                            className="flex-1 py-2.5 bg-white text-black font-semibold text-sm rounded-xl hover:bg-white/90 transition active:scale-[0.98]"
+                                            className="marketplace-reel-cta"
                                         >
                                             Ver detalle
                                         </button>
@@ -444,7 +442,7 @@ export default function FeedPage() {
 
                                             {/* Menú desplegable */}
                                             {shareMenuOpen === clip.id && (
-                                                <div className="absolute bottom-full right-0 mb-2 w-48 rounded-xl overflow-hidden shadow-2xl z-[100] border border-white/10 bg-black/90 backdrop-blur-md">
+                                                <div className="absolute bottom-full right-0 mb-2 w-48 marketplace-reel-menu overflow-hidden shadow-2xl z-[100]">
                                                     <div className="px-3 py-2 text-xs font-medium text-white/50 border-b border-white/10">
                                                         Compartir
                                                     </div>
@@ -480,7 +478,7 @@ export default function FeedPage() {
 
                                     {/* Share Toast */}
                                     {shareToast === clip.id && (
-                                        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full text-sm font-medium shadow-lg bg-white text-black">
+                                        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full text-sm font-medium shadow-lg marketplace-reel-toast">
                                             Link copiado al portapapeles
                                         </div>
                                     )}

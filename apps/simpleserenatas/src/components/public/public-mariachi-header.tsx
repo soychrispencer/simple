@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { BrandLogo } from '@simple/ui/brand';
+import { PanelButtonLink } from '@simple/ui/panel';
 
 export function PublicMariachiHeader() {
     return (
@@ -15,9 +16,9 @@ export function PublicMariachiHeader() {
                     <Link href="/mariachis" className="font-medium text-fg-muted transition-colors hover:text-accent">
                         Mariachis
                     </Link>
-                    <Link href="/panel" prefetch={false} className="btn btn-primary h-9 px-3 text-sm">
+                    <PanelButtonLink href="/panel" prefetch={false} variant="accent" className="h-9 px-3">
                         Entrar
-                    </Link>
+                    </PanelButtonLink>
                 </nav>
             </div>
         </header>

@@ -117,7 +117,7 @@ export function SimplePublishPreviewCard({
             )}
         >
             <div
-                className="relative aspect-[9/14] overflow-hidden bg-[#09090b] touch-pan-y"
+                className="relative aspect-[9/14] overflow-hidden bg-(--bg) touch-pan-y"
                 onTouchStart={onTouchStart}
                 onTouchEnd={onTouchEnd}
             >
@@ -151,7 +151,7 @@ export function SimplePublishPreviewCard({
                         className="flex h-full w-full flex-col items-center justify-center gap-2 text-center"
                         style={{
                             background:
-                                'radial-gradient(circle at 50% 18%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 44%), #111827',
+                                'radial-gradient(circle at 50% 18%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 44%), var(--bg-muted)',
                         }}
                     >
                         <IconCamera size={26} className="text-white/55" />

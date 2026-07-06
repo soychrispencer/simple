@@ -15,6 +15,7 @@ import {
 import { ModernSelect } from '@simple/ui';
 import {
     PanelCard,
+    PanelButton,
     PanelEmptyState,
     PanelIconButton,
     PanelList,
@@ -333,10 +334,10 @@ function Drawer({ user, onClose, onEdit, onEmail, onSubscriptions, onDelete, onS
                 </div>
                 {/* Action buttons */}
                 <div className="mt-3 flex flex-wrap gap-2">
-                    <button className="btn btn-primary btn-sm" type="button" onClick={onEdit}><IconEdit size={14} /> Editar</button>
-                    <button className="btn btn-outline btn-sm" type="button" onClick={onEmail}><IconMail size={14} /> Correo</button>
-                    <button className="btn btn-outline btn-sm" type="button" onClick={onSubscriptions}>Suscripción</button>
-                    <button className="btn btn-outline btn-sm" type="button" onClick={onDelete} style={{ color: 'var(--color-error)' }}><IconTrash size={14} /> Eliminar</button>
+                    <PanelButton type="button" variant="primary" size="sm" onClick={onEdit}><IconEdit size={14} /> Editar</PanelButton>
+                    <PanelButton type="button" variant="secondary" size="sm" onClick={onEmail}><IconMail size={14} /> Correo</PanelButton>
+                    <PanelButton type="button" variant="secondary" size="sm" onClick={onSubscriptions}>Suscripción</PanelButton>
+                    <PanelButton type="button" variant="danger" size="sm" onClick={onDelete}><IconTrash size={14} /> Eliminar</PanelButton>
                 </div>
             </div>
 
@@ -509,8 +510,8 @@ function EditModal({ user, onCancel, onSaved }: { user: AdminUserSnapshot; onCan
             </div>
             {error ? <p className="mt-4 text-sm" style={{ color: 'var(--fg)' }}>{error}</p> : null}
             <div className="mt-5 flex justify-end gap-2">
-                <button className="btn btn-outline" type="button" onClick={onCancel}>Cancelar</button>
-                <button className="btn btn-primary" type="button" onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
+                <PanelButton type="button" variant="secondary" onClick={onCancel}>Cancelar</PanelButton>
+                <PanelButton type="button" variant="primary" onClick={save} disabled={saving} loading={saving}>{saving ? 'Guardando...' : 'Guardar'}</PanelButton>
             </div>
         </AdminModal>
     );
@@ -595,8 +596,8 @@ function EmailModal({ user, userIds, onCancel, onSent }: { user?: AdminUserSnaps
             </div>
             {error ? <p className="mt-4 text-sm" style={{ color: 'var(--fg)' }}>{error}</p> : null}
             <div className="mt-5 flex justify-end gap-2">
-                <button className="btn btn-outline" type="button" onClick={onCancel}>Cancelar</button>
-                <button className="btn btn-primary" type="button" onClick={send} disabled={sending || subject.trim().length < 3 || message.trim().length < 5}>{sending ? 'Enviando...' : 'Enviar'}</button>
+                <PanelButton type="button" variant="secondary" onClick={onCancel}>Cancelar</PanelButton>
+                <PanelButton type="button" variant="primary" onClick={send} disabled={sending || subject.trim().length < 3 || message.trim().length < 5} loading={sending}>{sending ? 'Enviando...' : 'Enviar'}</PanelButton>
             </div>
         </AdminModal>
     );
@@ -717,8 +718,8 @@ function SubscriptionModal({ user, onCancel, onSaved }: { user: AdminUserSnapsho
             </div>
             {error ? <p className="mt-4 text-sm" style={{ color: 'var(--fg)' }}>{error}</p> : null}
             <div className="mt-5 flex justify-end gap-2">
-                <button className="btn btn-outline" type="button" onClick={onCancel}>Cancelar</button>
-                <button className="btn btn-primary" type="button" onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
+                <PanelButton type="button" variant="secondary" onClick={onCancel}>Cancelar</PanelButton>
+                <PanelButton type="button" variant="primary" onClick={save} disabled={saving} loading={saving}>{saving ? 'Guardando...' : 'Guardar'}</PanelButton>
             </div>
         </AdminModal>
     );
@@ -758,8 +759,8 @@ function DeleteModal({ user, onCancel, onDeleted }: { user: AdminUserSnapshot; o
             </p>
             {error ? <p className="mt-4 text-sm" style={{ color: 'var(--fg)' }}>{error}</p> : null}
             <div className="mt-5 flex justify-end gap-2">
-                <button className="btn btn-outline" type="button" onClick={onCancel}>Cancelar</button>
-                <button className="btn btn-primary" type="button" onClick={confirm} disabled={deleting}>{deleting ? 'Eliminando...' : 'Eliminar'}</button>
+                <PanelButton type="button" variant="secondary" onClick={onCancel}>Cancelar</PanelButton>
+                <PanelButton type="button" variant="danger" onClick={confirm} disabled={deleting} loading={deleting}>{deleting ? 'Eliminando...' : 'Eliminar'}</PanelButton>
             </div>
         </AdminModal>
     );
@@ -804,10 +805,10 @@ function SerenatasProfileModal({ user, profileType, onCancel, onConfirm }: {
                 )}
             </div>
             <div className="mt-5 flex justify-end gap-2">
-                <button className="btn btn-outline" type="button" onClick={onCancel}>Cancelar</button>
-                <button className="btn btn-primary" type="button" onClick={handleConfirm} disabled={saving}>
+                <PanelButton type="button" variant="secondary" onClick={onCancel}>Cancelar</PanelButton>
+                <PanelButton type="button" variant="primary" onClick={handleConfirm} disabled={saving} loading={saving}>
                     {saving ? 'Guardando...' : 'Confirmar'}
-                </button>
+                </PanelButton>
             </div>
         </AdminModal>
     );
@@ -927,17 +928,17 @@ export function AdminUsersDashboard() {
                 title="Usuarios"
                 actions={
                     <>
-                        <button className="btn btn-outline" type="button" onClick={loadUsers} disabled={loading}>
+                        <PanelButton type="button" variant="secondary" onClick={loadUsers} disabled={loading}>
                             <IconRefresh size={15} /> Actualizar
-                        </button>
-                        <button
-                            className="btn btn-primary"
+                        </PanelButton>
+                        <PanelButton
                             type="button"
+                            variant="primary"
                             onClick={() => setModal({ type: 'email', userIds: visibleCheckedIds })}
                             disabled={visibleCheckedIds.length === 0}
                         >
                             <IconMail size={15} /> Correo masivo
-                        </button>
+                        </PanelButton>
                     </>
                 }
             />

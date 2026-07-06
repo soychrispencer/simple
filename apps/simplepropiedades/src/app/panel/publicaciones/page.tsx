@@ -889,8 +889,8 @@ export default function PublicacionesPage() {
                                                         onClick={() => setSelectedTemplateId(template.id)}
                                                         className="flex-1 rounded-lg border px-3 py-2 text-center text-xs font-semibold transition-all"
                                                         style={{
-                                                            borderColor: isSelected ? '#111' : 'var(--border)',
-                                                            background: isSelected ? '#111' : 'var(--surface)',
+                                                            borderColor: isSelected ? 'var(--fg)' : 'var(--border)',
+                                                            background: isSelected ? 'var(--fg)' : 'var(--surface)',
                                                             color: isSelected ? '#fff' : 'var(--fg)',
                                                         }}
                                                     >

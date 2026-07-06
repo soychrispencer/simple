@@ -89,8 +89,8 @@ export default function PropertyDetailPage() {
 
                             <PanelCard size="md">
                                 <PanelBlockHeader title="Publicado por" className="mb-4" />
-                                <div className="flex items-center gap-3 rounded-2xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl" style={{ background: 'var(--bg)', color: 'var(--fg-muted)' }}>
+                                <div className="panel-inset-box flex items-center gap-3">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-card bg-(--bg) text-(--fg-muted)">
                                         <IconUser size={16} />
                                     </div>
                                     <div className="min-w-0">
@@ -147,7 +147,7 @@ function ImageGallery({ images, title, sectionLabel, section }: { images: string
 
     if (validImages.length === 0) {
         return (
-            <div className="overflow-hidden rounded-[24px] border" style={{ borderColor: 'var(--border)', background: 'var(--bg-muted)' }}>
+            <div className="overflow-hidden rounded-card border" style={{ borderColor: 'var(--border)', background: 'var(--bg-muted)' }}>
                 <div className="aspect-16/9 flex items-end p-6">
                     <div className="max-w-2xl">
                         <PanelStatusBadge label={sectionLabel} tone={section === 'project' ? 'info' : section === 'rent' ? 'warning' : 'success'} size="sm" />
@@ -159,7 +159,7 @@ function ImageGallery({ images, title, sectionLabel, section }: { images: string
     }
 
     return (
-        <div className="overflow-hidden rounded-[24px] border relative" style={{ borderColor: 'var(--border)' }}
+        <div className="overflow-hidden rounded-card border relative" style={{ borderColor: 'var(--border)' }}
             onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             <div className="aspect-16/9 relative">
                 <img src={validImages[current]} alt={`${title} ${current + 1}`} className="w-full h-full object-cover" />
@@ -205,7 +205,7 @@ function ImageGallery({ images, title, sectionLabel, section }: { images: string
 
 function MetricCard(props: { icon: ReactNode; label: string; value: string }) {
     return (
-        <div className="rounded-2xl p-3" style={{ background: 'var(--bg-muted)' }}>
+        <div className="panel-metric-cell">
             <div className="flex items-center gap-2" style={{ color: 'var(--fg-muted)' }}>
                 {props.icon}
                 <span className="text-[11px] uppercase tracking-[0.12em]">{props.label}</span>

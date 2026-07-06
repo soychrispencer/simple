@@ -31,7 +31,7 @@ const LAYOUT_PREVIEW_STYLES: Record<OperatorSiteLayout, CSSProperties> = {
         background: `
             radial-gradient(circle at 50% 38%, rgba(13, 148, 136, 0.45), transparent 42%),
             repeating-linear-gradient(90deg, transparent, transparent 30%, rgba(255,255,255,0.14) 30%, rgba(255,255,255,0.14) 34%),
-            linear-gradient(180deg, #18181b, #09090b)`,
+            linear-gradient(180deg, var(--bg-subtle), var(--bg))`,
     },
     studio: {
         background: `

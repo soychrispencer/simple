@@ -377,16 +377,9 @@ export default function HomeSearchBox() {
 
     return (
         <section className="container-app relative z-11 mt-0 mb-10">
-            <div
-                className="rounded-[22px] border overflow-visible"
-                style={{
-                    borderColor: 'var(--border)',
-                    background: 'var(--surface)',
-                    boxShadow: '0 16px 46px rgba(0,0,0,0.12)',
-                }}
-            >
-                <div className="flex flex-nowrap items-center justify-between gap-2 px-3 sm:px-4 pt-3 pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
-                    <div className="inline-flex rounded-xl p-1 flex-1 min-w-0 overflow-x-auto" style={{ background: 'var(--bg-subtle)', scrollbarWidth: 'none' }}>
+            <div className="rounded-card border overflow-visible marketplace-search-hero">
+                <div className="flex flex-nowrap items-center justify-between gap-2 px-3 sm:px-4 pt-3 pb-2 border-b border-border">
+                    <div className="inline-flex rounded-xl p-1 flex-1 min-w-0 overflow-x-auto bg-bg-subtle [scrollbar-width:none]">
                         {(Object.keys(TAB_META) as PropertiesTab[]).map((tabKey) => (
                             <button
                                 key={tabKey}

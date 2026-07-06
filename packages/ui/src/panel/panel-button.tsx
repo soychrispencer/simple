@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties } from 'react';
 import { IconLoader2 } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
 
@@ -11,16 +11,15 @@ export type PanelButtonProps = {
     disabled?: boolean;
     loading?: boolean;
     className?: string;
+    style?: CSSProperties;
     size?: PanelButtonSize;
     variant?: PanelButtonVariant;
     ariaLabel?: string;
 };
 
-
 type PanelButtonSize = 'sm' | 'md';
 
 type PanelButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'accent';
-
 
 export function PanelButton(props: PanelButtonProps) {
     const {
@@ -30,6 +29,7 @@ export function PanelButton(props: PanelButtonProps) {
         disabled = false,
         loading = false,
         className,
+        style,
         size = 'md',
         variant = 'secondary',
         ariaLabel,
@@ -42,7 +42,7 @@ export function PanelButton(props: PanelButtonProps) {
             disabled={disabled || loading}
             aria-label={ariaLabel}
             className={getPanelButtonClassName({ size, className })}
-            style={getPanelButtonStyle(variant)}
+            style={{ ...getPanelButtonStyle(variant), ...style }}
         >
             {loading ? <IconLoader2 className="animate-spin" size={16} /> : children}
         </button>
@@ -116,4 +116,3 @@ export function getPanelButtonStyle(variant: PanelButtonVariant = 'secondary') {
                         '--panel-btn-hover-shadow': 'var(--shadow-xs)',
                     } as CSSProperties);
 }
-

@@ -384,7 +384,7 @@
     height: 100%;
     background:
         radial-gradient(ellipse 80% 60% at 70% 20%, color-mix(in srgb, var(--accent) 40%, transparent), transparent 55%),
-        linear-gradient(155deg, #111827 0%, color-mix(in srgb, var(--accent) 20%, #111827) 45%, #030712 100%);
+        linear-gradient(155deg, var(--bg) 0%, color-mix(in srgb, var(--accent) 20%, var(--bg)) 45%, var(--bg-muted) 100%);
 }
 
 .os-hero__overlay {
@@ -1870,43 +1870,43 @@
 
 .os-page[data-os-color="light"] {
     color-scheme: light;
-    --bg: #ffffff;
-    --bg-subtle: #f9fafb;
-    --bg-muted: #f3f4f6;
+    --bg: #F7F7F5;
+    --bg-subtle: #F0F0ED;
+    --bg-muted: #E8E8E4;
     --bg-elevated: #ffffff;
     --surface: #ffffff;
-    --fg: #111827;
-    --fg-secondary: #4b5563;
-    --fg-muted: #9ca3af;
-    --fg-faint: #e5e7eb;
-    --border: #e5e7eb;
-    --border-strong: #d1d5db;
+    --fg: #0C0C0E;
+    --fg-secondary: #5C5C66;
+    --fg-muted: #8E8E98;
+    --fg-faint: #C8C8D0;
+    --border: rgba(12, 12, 14, 0.08);
+    --border-strong: #0C0C0E;
     --accent-subtle: color-mix(in srgb, var(--accent) 8%, #ffffff);
-    --accent-soft: color-mix(in srgb, var(--accent) 4%, #ffffff);
-    --accent-border: color-mix(in srgb, var(--accent) 16%, #e5e7eb);
+    --accent-soft: color-mix(in srgb, var(--accent) 6%, #ffffff);
+    --accent-border: color-mix(in srgb, var(--accent) 16%, rgba(12, 12, 14, 0.08));
     --accent-contrast: #ffffff;
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
-    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+    --shadow-xs: 0 1px 2px rgba(12, 12, 14, 0.04);
+    --shadow-sm: 0 1px 3px rgba(12, 12, 14, 0.05), 0 1px 2px rgba(12, 12, 14, 0.03);
+    --shadow-md: 0 8px 24px rgba(12, 12, 14, 0.06);
+    --shadow-lg: 0 16px 48px rgba(12, 12, 14, 0.08);
+    --shadow-xl: 0 24px 64px rgba(12, 12, 14, 0.10);
+    --shadow-2xl: 0 24px 64px rgba(12, 12, 14, 0.12);
     --color-error: #dc2626;
-    --color-error-subtle: #fef2f2;
-    --color-success: #16a34a;
-    --color-success-subtle: #f0fdf4;
+    --color-error-subtle: rgba(220, 38, 38, 0.08);
+    --color-success: #059669;
+    --color-success-subtle: rgba(5, 150, 105, 0.08);
     --color-warning: #d97706;
-    --color-warning-subtle: #fffbeb;
+    --color-warning-subtle: rgba(217, 119, 6, 0.08);
     --button-primary-bg: var(--accent);
     --button-primary-color: var(--accent-contrast);
     --button-primary-border: var(--accent);
-    --button-primary-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --button-primary-hover-bg: color-mix(in srgb, var(--accent) 90%, #000000 10%);
+    --button-primary-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 12%, transparent);
+    --button-primary-hover-bg: color-mix(in oklab, var(--accent) 88%, #000000 12%);
     --button-primary-hover-color: var(--accent-contrast);
-    --button-primary-hover-border: color-mix(in srgb, var(--accent) 90%, #000000 10%);
-    --button-primary-hover-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --button-primary-hover-border: color-mix(in oklab, var(--accent) 88%, #000000 12%);
+    --button-primary-hover-shadow: 0 10px 24px color-mix(in oklab, var(--accent) 16%, transparent);
     --field-focus-border: var(--accent);
-    --field-focus-ring: color-mix(in srgb, var(--accent) 12%, transparent);
+    --field-focus-ring: color-mix(in oklab, var(--accent) 12%, transparent);
     --danger: var(--color-error);
     --success: var(--color-success);
     --warning: var(--color-warning);
@@ -1914,43 +1914,43 @@
 
 .os-page[data-os-color="dark"] {
     color-scheme: dark;
-    --bg: #09090b;
-    --bg-subtle: #18181b;
-    --bg-muted: #27272a;
-    --bg-elevated: #18181b;
-    --surface: #18181b;
-    --fg: #fafafa;
-    --fg-secondary: #a1a1aa;
-    --fg-muted: #71717a;
-    --fg-faint: #3f3f46;
-    --border: #27272a;
-    --border-strong: #52525b;
-    --accent-subtle: color-mix(in srgb, var(--accent) 12%, #18181b);
-    --accent-soft: color-mix(in srgb, var(--accent) 6%, #18181b);
-    --accent-border: color-mix(in srgb, var(--accent) 16%, #27272a);
-    --accent-contrast: #18181b;
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
-    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+    --bg: #0E0E10;
+    --bg-subtle: #161618;
+    --bg-muted: #222226;
+    --bg-elevated: #161618;
+    --surface: #161618;
+    --fg: #F4F4F5;
+    --fg-secondary: #A0A0AB;
+    --fg-muted: #6B6B76;
+    --fg-faint: #2E2E34;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.38);
+    --accent-subtle: color-mix(in srgb, var(--accent) 12%, #161618);
+    --accent-soft: color-mix(in srgb, var(--accent) 6%, #161618);
+    --accent-border: color-mix(in srgb, var(--accent) 16%, rgba(255, 255, 255, 0.08));
+    --accent-contrast: #0C0C0E;
+    --shadow-xs: 0 1px 2px rgba(12, 12, 14, 0.34);
+    --shadow-sm: 0 1px 3px rgba(12, 12, 14, 0.44);
+    --shadow-md: 0 8px 24px rgba(12, 12, 14, 0.46);
+    --shadow-lg: 0 16px 48px rgba(12, 12, 14, 0.56);
+    --shadow-xl: 0 24px 64px rgba(12, 12, 14, 0.65);
+    --shadow-2xl: 0 24px 64px rgba(12, 12, 14, 0.72);
     --color-error: #f87171;
-    --color-error-subtle: #1c1917;
-    --color-success: #4ade80;
-    --color-success-subtle: #14532d;
+    --color-error-subtle: rgba(248, 113, 113, 0.12);
+    --color-success: #34d399;
+    --color-success-subtle: rgba(52, 211, 153, 0.12);
     --color-warning: #fbbf24;
-    --color-warning-subtle: #451a03;
+    --color-warning-subtle: rgba(251, 191, 36, 0.12);
     --button-primary-bg: var(--accent);
     --button-primary-color: var(--accent-contrast);
     --button-primary-border: var(--accent);
-    --button-primary-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --button-primary-hover-bg: color-mix(in srgb, var(--accent) 85%, #ffffff 15%);
+    --button-primary-shadow: 0 8px 22px color-mix(in oklab, var(--accent) 14%, transparent);
+    --button-primary-hover-bg: color-mix(in oklab, var(--accent) 86%, #ffffff 14%);
     --button-primary-hover-color: var(--accent-contrast);
-    --button-primary-hover-border: color-mix(in srgb, var(--accent) 85%, #ffffff 15%);
-    --button-primary-hover-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --button-primary-hover-border: color-mix(in oklab, var(--accent) 86%, #ffffff 14%);
+    --button-primary-hover-shadow: 0 10px 28px color-mix(in oklab, var(--accent) 18%, transparent);
     --field-focus-border: var(--accent);
-    --field-focus-ring: color-mix(in srgb, var(--accent) 12%, transparent);
+    --field-focus-ring: color-mix(in oklab, var(--accent) 15%, transparent);
     --danger: var(--color-error);
     --success: var(--color-success);
     --warning: var(--color-warning);
@@ -1972,7 +1972,7 @@
 .os-page[data-os-color="light"] .os-hero__fallback {
     background:
         radial-gradient(ellipse 80% 60% at 70% 20%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 55%),
-        linear-gradient(155deg, #e2e8f0 0%, color-mix(in srgb, var(--accent) 15%, #e2e8f0) 45%, #f1f5f9 100%);
+        linear-gradient(155deg, var(--bg-muted) 0%, color-mix(in srgb, var(--accent) 15%, var(--bg-muted)) 45%, var(--bg-subtle) 100%);
 }
 .os-page[data-os-color="light"] .os-service-card__price-tag {
     color: var(--fg);
@@ -4546,7 +4546,7 @@
     background:
         radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--accent) 35%, transparent), transparent 45%),
         repeating-linear-gradient(90deg, transparent, transparent 28%, color-mix(in srgb, #fff 12%, transparent) 28%, color-mix(in srgb, #fff 12%, transparent) 32%),
-        linear-gradient(180deg, #18181b, #09090b);
+        linear-gradient(180deg, var(--bg-subtle), var(--bg));
 }
 
 .os-appearance-preview--studio {

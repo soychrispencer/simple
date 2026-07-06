@@ -294,7 +294,7 @@ export function PanelShell({
                     </div>
                 ) : null}
 
-                <div className={`panel-content-frame min-w-0 overflow-x-clip pt-3 ${hasBottomNav ? 'pb-24 lg:pb-0' : ''}`}>{children}</div>
+                <div className={`panel-content-frame panel-surface-dense min-w-0 overflow-x-clip pt-3 ${hasBottomNav ? 'pb-24 lg:pb-0' : ''}`}>{children}</div>
             </section>
 
             {hasBottomNav ? bottomNav : null}

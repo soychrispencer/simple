@@ -107,13 +107,13 @@ export type PublicationLifecycleView = {
 
 const SHARED_THEME = {
     locale: 'es_CL',
-    backgroundColorLight: '#fafafa',
-    backgroundColorDark: '#111111',
+    backgroundColorLight: '#F7F7F5',
+    backgroundColorDark: '#0E0E10',
     surfaceLight: '#ffffff',
-    surfaceDark: '#1a1a1a',
-    foregroundLight: '#09090b',
-    foregroundDark: '#fafafa',
-    themeColor: '#111111',
+    surfaceDark: '#161618',
+    foregroundLight: '#0C0C0E',
+    foregroundDark: '#F4F4F5',
+    themeColor: '#0C0C0E',
     generator: 'Simple',
 } as const;
 
@@ -127,8 +127,8 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         category: 'automotive',
         siteUrl: 'http://localhost:3002',
         keywords: ['SimpleAutos', 'autos', 'vehículos', 'Chile', 'compra', 'venta', 'arriendo', 'subastas'],
-        accentLight: '#ff3600',
-        accentDark: '#ff3600',
+        accentLight: '#E84A1F',
+        accentDark: '#E84A1F',
     },
     simplepropiedades: {
         id: 'simplepropiedades',
@@ -139,8 +139,8 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         category: 'real_estate',
         siteUrl: 'http://localhost:3003',
         keywords: ['SimplePropiedades', 'propiedades', 'inmobiliaria', 'Chile', 'compra', 'venta', 'arriendo', 'proyectos'],
-        accentLight: '#3232FF',
-        accentDark: '#3232FF',
+        accentLight: '#4F46E5',
+        accentDark: '#4F46E5',
     },
     simpleadmin: {
         id: 'simpleadmin',
@@ -151,8 +151,8 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         category: 'business',
         siteUrl: 'http://localhost:3000',
         keywords: ['SimpleAdmin', 'admin', 'panel', 'moderación', 'ecosistema', 'Simple'],
-        accentLight: '#111111',
-        accentDark: '#ffffff',
+        accentLight: '#0C0C0E',
+        accentDark: '#F4F4F5',
     },
     simpleplataforma: {
         id: 'simpleplataforma',
@@ -163,8 +163,8 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         category: 'business',
         siteUrl: 'http://localhost:3001',
         keywords: ['SimplePlataforma', 'ecosistema', 'marketplaces', 'Chile', 'autos', 'propiedades', 'tiendas'],
-        accentLight: '#111111',
-        accentDark: '#ffffff',
+        accentLight: '#0C0C0E',
+        accentDark: '#F4F4F5',
     },
     simpleagenda: {
         id: 'simpleagenda',
@@ -187,8 +187,8 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
             'gestión de clientes',
             'Chile',
         ],
-        accentLight: '#0D9488',
-        accentDark: '#0D9488',
+        accentLight: '#0F766E',
+        accentDark: '#0F766E',
     },
     simpleserenatas: {
         id: 'simpleserenatas',

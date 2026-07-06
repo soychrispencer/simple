@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { IconArrowsSort, IconGridDots, IconList, IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
@@ -181,6 +182,14 @@ function PublicVehicleListingPageContent(props: {
 
             <p className="mb-5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                 {props.description}
+                {props.section === 'sale' ? (
+                    <>
+                        {' '}
+                        <Link href="/precalificacion-financiamiento" className="font-medium underline underline-offset-2" style={{ color: 'var(--fg)' }}>
+                            Precalifica tu financiamiento
+                        </Link>
+                    </>
+                ) : null}
             </p>
 
             <InlineResultAd section={props.section === 'auction' ? 'subastas' : props.section === 'rent' ? 'arriendos' : 'ventas'} className="mb-5" />
@@ -189,12 +198,7 @@ function PublicVehicleListingPageContent(props: {
                 {/* Desktop sidebar - collapsible like panel sidebar */}
                 <aside className={`hidden lg:block shrink-0 transition-[width] duration-200 ${filtersCollapsed ? 'w-14' : 'w-72'}`}>
                     <div
-                        className="sticky top-4 rounded-2xl border p-3 flex flex-col"
-                        style={{
-                            borderColor: 'var(--border)',
-                            background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
-                            boxShadow: 'var(--shadow-md)',
-                        }}
+                        className="sticky top-4 rounded-card border p-3 flex flex-col border-(--border) bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] shadow-md"
                     >
                         <div className={`mb-3 flex ${filtersCollapsed ? 'justify-center' : 'justify-end'}`}>
                             <button
@@ -227,11 +231,7 @@ function PublicVehicleListingPageContent(props: {
                 {/* Mobile filters - stack on top */}
                 <div className="lg:hidden w-full mb-4">
                     <div
-                        className="rounded-2xl border p-3"
-                        style={{
-                            borderColor: 'var(--border)',
-                            background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
-                        }}
+                        className="rounded-card border p-3 border-(--border) bg-[color-mix(in_srgb,var(--surface)_92%,transparent)]"
                     >
                         <VehicleFilters currentVehicleType={currentVehicleType} />
                     </div>
@@ -245,7 +245,7 @@ function PublicVehicleListingPageContent(props: {
                             </PanelNotice>
                         </PanelCard>
                     ) : (
-                        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' : 'space-y-3'}>
+                        <div className={viewMode === 'grid' ? 'listings-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'space-y-3'}>
                             {cards.map((item) => (
                                 <VehicleListingCard key={item.id} data={item} mode={viewMode} />
                             ))}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -18,6 +18,7 @@ import {
 } from '@tabler/icons-react';
 import { LandingHeader } from '@/components/layout/landing-header';
 import { Footer } from '@/components/layout/footer';
+import { PanelButton, PanelButtonLink, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 import { MarketplaceSearchPanel } from '@/components/public/marketplace-search-panel';
 import { PublicProviderGroupCard } from '@/components/public/public-provider-group-card';
 import { sortMarketplaceGroups } from '@/lib/marketplace-group-display';
@@ -41,6 +42,17 @@ type PublicLandingProps = {
 
 const HERO_IMAGE =
     'https://images.unsplash.com/photo-1769230367366-13ed92feb145?auto=format&fit=crop&w=1800&q=82';
+
+const HERO_SECONDARY_BUTTON_STYLE = {
+    '--panel-btn-bg': 'rgb(255 255 255 / 0.12)',
+    '--panel-btn-color': '#fff',
+    '--panel-btn-border': 'rgb(255 255 255 / 0.28)',
+    '--panel-btn-hover-bg': 'rgb(255 255 255 / 0.2)',
+    '--panel-btn-hover-color': '#fff',
+    '--panel-btn-hover-border': 'rgb(255 255 255 / 0.28)',
+    '--panel-btn-shadow': 'none',
+    '--panel-btn-hover-shadow': 'none',
+} as CSSProperties;
 
 const OCCASIONS = ['Cumpleaños', 'Aniversarios', 'Sorpresas', 'Bodas', 'Día de la Madre', 'Reconciliaciones'];
 
@@ -121,7 +133,7 @@ export function PublicLanding({
                     <div className="absolute inset-0 -z-10 bg-black/55" aria-hidden />
                     <div className="absolute inset-x-0 bottom-0 -z-10 h-1/2 bg-gradient-to-t from-black/75 to-transparent" aria-hidden />
 
-                    <div className="container-app flex min-h-[calc(100svh-9rem)] max-w-6xl flex-col justify-center py-16 sm:min-h-[calc(100svh-11rem)] sm:py-20 lg:py-24">
+                    <div className="container-app vertical-hero-texture flex min-h-[calc(100svh-9rem)] max-w-6xl flex-col justify-center section-marketing sm:min-h-[calc(100svh-11rem)]">
                         <div className="max-w-3xl">
                             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/12 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white backdrop-blur">
                                 <IconSparkles size={14} />
@@ -134,28 +146,33 @@ export function PublicLanding({
                                 Encuentra grupos destacados, revisa servicios, precios y zonas de atención, y solicita tu fecha desde un solo lugar.
                             </p>
                             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                                <Link
+                                <PanelButtonLink
                                     href="/mariachis"
-                                    className="btn btn-primary h-13 px-7 text-base font-semibold sm:h-14 sm:px-9"
+                                    variant="accent"
+                                    className="h-13 px-7 text-base sm:h-14 sm:px-9"
                                 >
                                     Explorar mariachis
                                     <IconChevronRight size={19} />
-                                </Link>
+                                </PanelButtonLink>
                                 {isLoggedIn ? (
-                                    <Link
+                                    <PanelButtonLink
                                         href="/panel"
-                                        className="btn h-13 border border-white/28 bg-white/12 px-7 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/20 sm:h-14 sm:px-9"
+                                        variant="ghost"
+                                        className="h-13 border px-7 text-base backdrop-blur sm:h-14 sm:px-9"
+                                        style={HERO_SECONDARY_BUTTON_STYLE}
                                     >
                                         Mi panel
-                                    </Link>
+                                    </PanelButtonLink>
                                 ) : (
-                                    <button
+                                    <PanelButton
                                         type="button"
-                                        className="btn h-13 border border-white/28 bg-white/12 px-7 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/20 sm:h-14 sm:px-9"
+                                        variant="ghost"
+                                        className="h-13 border px-7 text-base backdrop-blur sm:h-14 sm:px-9"
+                                        style={HERO_SECONDARY_BUTTON_STYLE}
                                         onClick={onRegister}
                                     >
                                         Registrar mi mariachi
-                                    </button>
+                                    </PanelButton>
                                 )}
                             </div>
                         </div>
@@ -186,22 +203,23 @@ export function PublicLanding({
                                     Una muestra del catálogo. Filtra por zona, nombre y fecha con cupo disponible.
                                 </p>
                             </div>
-                            <Link
+                            <PanelButtonLink
                                 href="/mariachis"
-                                className="btn btn-secondary h-11 px-5 text-sm font-semibold sm:self-center"
+                                variant="secondary"
+                                className="h-11 px-5 sm:self-center"
                             >
                                 Ver todos
                                 <IconChevronRight size={17} />
-                            </Link>
+                            </PanelButtonLink>
                         </div>
                         {featuredStatus.loading ? null : featured.length === 0 ? (
                             <div className="rounded-card border p-8 text-center border-border bg-surface">
                                 <p className="text-sm text-fg-muted">
                                     {featuredStatus.error ?? 'Aún no hay mariachis publicados en el catálogo.'}
                                 </p>
-                                <Link href="/mariachis" className="btn btn-primary mt-4 inline-flex h-11 px-6 font-semibold">
+                                <PanelButtonLink href="/mariachis" variant="accent" className="mt-4 h-11 px-6">
                                     Explorar catálogo
-                                </Link>
+                                </PanelButtonLink>
                             </div>
                         ) : (
                             <div className="grid gap-5 md:grid-cols-3">
@@ -292,14 +310,15 @@ export function PublicLanding({
                             ))}
                         </div>
                         <div className="mt-8 text-center">
-                            <button
+                            <PanelButton
                                 type="button"
-                                className="btn btn-primary h-12 px-8 text-sm font-semibold"
+                                variant="accent"
+                                className="h-12 px-8"
                                 onClick={onRegister}
                             >
                                 Probar 30 días gratis
                                 <IconChevronRight size={17} />
-                            </button>
+                            </PanelButton>
                             <p className="mt-4 text-xs text-fg-muted max-w-md mx-auto">
                                 Sin comisión por serenata. Planes, precios y cobros los ves en Mi cuenta → Suscripción.
                             </p>
@@ -380,7 +399,10 @@ function AudienceCard({
             <div className="min-w-0 flex-1">
                 <h3 className="text-xl font-bold text-fg">{title}</h3>
                 <p className="mt-2 max-w-md text-sm leading-relaxed text-fg-muted">{description}</p>
-                <span className={`mt-5 ${accent ? 'btn btn-primary' : 'btn btn-secondary'} h-11 px-5 font-semibold`}>
+                <span
+                    className={getPanelButtonClassName({ className: 'mt-5 inline-flex h-11 px-5' })}
+                    style={getPanelButtonStyle(accent ? 'accent' : 'secondary')}
+                >
                     {cta}
                     <IconChevronRight size={17} />
                 </span>

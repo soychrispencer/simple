@@ -35,3 +35,9 @@ export {
     PANEL_ACCOUNT_LABEL,
     type PanelBottomNavAccountIcon,
 } from './panel-bottom-nav-account-item';
+export {
+    PublicFlowShell,
+    PublicMarketingShell,
+    type PublicFlowShellProps,
+    type PublicMarketingShellProps,
+} from './public-flow-shell';

@@ -170,6 +170,7 @@ export function MarketplaceHeader({
   const [publicNavOpen, setPublicNavOpen] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<PanelNotification[]>([]);
   const [isSmallViewport, setIsSmallViewport] = useState(false);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const accountRef = useRef<HTMLDivElement | null>(null);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
@@ -188,6 +189,15 @@ export function MarketplaceHeader({
     updateViewport();
     window.addEventListener('resize', updateViewport);
     return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setHeaderScrolled(window.scrollY > 8);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
@@ -296,7 +306,10 @@ export function MarketplaceHeader({
       };
 
   return (
-    <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
+    <header
+      className={`marketplace-header relative z-40 transition-all duration-300${headerScrolled ? ' marketplace-header--scrolled' : ''}`}
+      style={{ borderBottom: '1px solid var(--border)' }}
+    >
       <div className="container-app flex items-center justify-between h-16">
         <Link href={homeHref} className="flex items-center gap-2 group shrink-0">
           <BrandLogo appId={brandAppId} />
@@ -324,7 +337,7 @@ export function MarketplaceHeader({
                         setNotificationsOpen(false);
                         setMenuOpen(false);
                       }}
-                      className="header-nav-link inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium rounded-button transition-colors duration-200"
+                      className="header-nav-link inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium transition-colors duration-200"
                       data-active={active ? 'true' : 'false'}
                       aria-expanded={open}
                       aria-haspopup="menu"
@@ -335,7 +348,7 @@ export function MarketplaceHeader({
                     {open ? (
                       <div
                         role="menu"
-                        className="absolute left-0 top-[calc(100%+8px)] z-[60] min-w-[15rem] rounded-xl border p-1.5 animate-slide-down"
+                        className="absolute left-0 top-[calc(100%+8px)] z-[60] min-w-[15rem] rounded-card border p-1.5 animate-slide-down"
                         style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                       >
                         {l.items.map((item) => {
@@ -366,7 +379,7 @@ export function MarketplaceHeader({
               <Link
                 key={l.href}
                 href={l.href}
-                className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-button transition-colors duration-200"
+                className="header-nav-link px-3.5 py-2 text-sm font-medium transition-colors duration-200"
                 data-active={active ? 'true' : 'false'}
               >
                 <span className="inline-flex items-center gap-1.5">
@@ -417,7 +430,7 @@ export function MarketplaceHeader({
 
               {notificationsOpen ? (
                 <div
-                  className={`z-[60] rounded-xl border p-3 animate-slide-down ${HEADER_POPOVER_MOBILE} ${HEADER_POPOVER_DESKTOP} md:w-[min(380px,calc(100vw-1.5rem))]`}
+                  className={`z-[60] rounded-card border p-3 animate-slide-down ${HEADER_POPOVER_MOBILE} ${HEADER_POPOVER_DESKTOP} md:w-[min(380px,calc(100vw-1.5rem))]`}
                   style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                 >
                   <div className="mb-2 flex items-center justify-between gap-3 px-1 py-1">
@@ -445,10 +458,10 @@ export function MarketplaceHeader({
                             void onNotificationOpened?.(item);
                             setNotificationsOpen(false);
                           }}
-                          className="flex items-start gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-[var(--bg-subtle)]"
+                          className="flex items-start gap-3 rounded-card px-3 py-3 transition-colors hover:bg-[var(--bg-subtle)]"
                         >
                           <span
-                            className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl"
+                            className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-card"
                             style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}
                           >
                             <ItemIcon size={17} stroke={1.75} />
@@ -519,7 +532,7 @@ export function MarketplaceHeader({
 
               {accountOpen && (
                 <div
-                  className="z-[60] rounded-xl border p-2 animate-slide-down"
+                  className="z-[60] rounded-card border p-2 animate-slide-down"
                   style={accountPopoverStyle}
                 >
                   <div className="mb-1 flex items-center gap-3 rounded-lg px-2.5 py-2" style={{ background: 'var(--bg-subtle)' }}>
@@ -544,7 +557,7 @@ export function MarketplaceHeader({
                           href={item.href}
                           prefetch={panelLinkPrefetch}
                           onClick={() => setAccountOpen(false)}
-                          className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                          className="group flex items-center gap-2.5 rounded-card px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
                           style={{
                             color: active ? 'var(--fg)' : 'var(--fg-secondary)',
                             background: active ? 'var(--bg-subtle)' : 'transparent',
@@ -583,7 +596,7 @@ export function MarketplaceHeader({
                         setAccountOpen(false);
                         void logout();
                       }}
-                      className="group w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                      className="group w-full flex items-center gap-2.5 rounded-card px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
                       style={{ color: 'var(--fg-secondary)' }}
                     >
                       <span
@@ -632,7 +645,7 @@ export function MarketplaceHeader({
 
             {menuOpen && (
               <div
-                className="z-[60] rounded-xl border p-2 animate-slide-down"
+                className="z-[60] rounded-card border p-2 animate-slide-down"
                 style={menuPopoverStyle}
               >
                 {renderMobileMenu ? (

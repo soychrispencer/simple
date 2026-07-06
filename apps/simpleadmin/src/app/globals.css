@@ -4,20 +4,20 @@
 @import "../../../../packages/ui/src/theme-base.css";
 
 :root {
-    --accent: #111111;
-    --accent-subtle: rgba(17, 17, 17, 0.12);
-    --accent-soft: rgba(17, 17, 17, 0.06);
-    --accent-border: rgba(17, 17, 17, 0.22);
+    --accent: #0C0C0E;
+    --accent-subtle: rgba(12, 12, 14, 0.10);
+    --accent-soft: rgba(12, 12, 14, 0.06);
+    --accent-border: rgba(12, 12, 14, 0.16);
     --accent-contrast: #ffffff;
 }
 
 .dark,
 [data-theme="dark"] {
-    --accent: #ffffff;
-    --accent-subtle: rgba(255, 255, 255, 0.18);
-    --accent-soft: rgba(255, 255, 255, 0.10);
-    --accent-border: rgba(255, 255, 255, 0.34);
-    --accent-contrast: #111111;
+    --accent: #F4F4F5;
+    --accent-subtle: rgba(244, 244, 245, 0.18);
+    --accent-soft: rgba(244, 244, 245, 0.10);
+    --accent-border: rgba(244, 244, 245, 0.34);
+    --accent-contrast: #0C0C0E;
 }
 
 .admin-modal-backdrop--dense {

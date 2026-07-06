@@ -3,7 +3,7 @@
 import { useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { IconDotsCircleHorizontal } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
-import { BottomNavPrimaryAction, BottomNavStandardItem } from '../layout/bottom-nav-primary-action';
+import { BottomNavPrimaryAction, BottomNavStandardItem, bottomNavItemClassName } from '../layout/bottom-nav-primary-action';
 import {
     BOTTOM_NAV_BAR_CLASS,
     BOTTOM_NAV_ITEM_CLASS,
@@ -259,20 +259,11 @@ export function PanelStepNav(props: PanelStepNavProps) {
         activeKey,
         onChange,
         ariaLabel = 'Pasos del flujo',
-        labelBreakpoint = 'sm',
     } = props;
-
-    const labelClass = labelBreakpoint === 'always'
-        ? 'inline'
-        : labelBreakpoint === 'md'
-            ? 'hidden md:inline'
-            : labelBreakpoint === 'lg'
-                ? 'hidden lg:inline'
-                : 'hidden sm:inline';
 
     return (
         <nav
-            className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1"
+            className="panel-stepper"
             aria-label={ariaLabel}
         >
             {items.map((item, index) => {
@@ -280,47 +271,21 @@ export function PanelStepNav(props: PanelStepNavProps) {
                 const isComplete = Boolean(item.done);
                 const isDisabled = Boolean(item.disabled);
                 return (
-                    <div key={item.key} className="flex items-center gap-2 shrink-0">
-                        <button
-                            type="button"
-                            disabled={isDisabled}
-                            onClick={() => {
-                                if (!isDisabled) onChange(item.key);
-                            }}
-                            className="inline-flex items-center gap-2 rounded-full px-1.5 py-1.5 text-sm transition-colors hover:bg-(--bg-subtle)"
-                            style={{
-                                color: isActive || isComplete ? 'var(--fg)' : isDisabled ? 'var(--fg-faint)' : 'var(--fg-muted)',
-                                opacity: isDisabled ? 0.62 : 1,
-                                cursor: isDisabled ? 'not-allowed' : 'pointer',
-                                background: isActive ? 'var(--bg-subtle)' : 'transparent',
-                            }}
-                        >
-                            <span
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all"
-                                style={{
-                                    background: isActive || isComplete ? 'var(--button-primary-bg)' : 'var(--bg-muted)',
-                                    color: isActive || isComplete ? 'var(--button-primary-color)' : 'var(--fg-muted)',
-                                    boxShadow: isActive ? '0 0 0 1px var(--button-primary-border), var(--shadow-xs)' : 'none',
-                                }}
-                            >
-                                {isComplete ? (
-                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                                        <path d="M2.5 6.1L4.9 8.5L9.5 3.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                ) : (
-                                    index + 1
-                                )}
-                            </span>
-                            <span className={`${labelClass} text-xs sm:text-sm font-medium whitespace-nowrap`}>{item.label}</span>
-                        </button>
-                        {index < items.length - 1 ? (
-                            <span
-                                className="h-px w-7 sm:w-10 shrink-0 rounded-full"
-                                style={{ background: 'linear-gradient(90deg, transparent 0%, var(--border) 18%, var(--border) 82%, transparent 100%)' }}
-                                aria-hidden="true"
-                            />
-                        ) : null}
-                    </div>
+                    <button
+                        key={item.key}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => {
+                            if (!isDisabled) onChange(item.key);
+                        }}
+                        className={`panel-stepper__step${isActive ? ' panel-stepper__step--active' : ''}${isComplete && !isActive ? ' panel-stepper__step--done' : ''}`}
+                        style={{
+                            opacity: isDisabled ? 0.5 : 1,
+                            cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        }}
+                    >
+                        {item.label}
+                    </button>
                 );
             })}
         </nav>
@@ -432,7 +397,6 @@ export function PanelBottomNav({
     highlightStyle,
 }: PanelBottomNavProps) {
     const compact = bottomNavIsCompact(items.length, !!onMoreClick);
-    const itemClass = compact ? BOTTOM_NAV_ITEM_COMPACT_CLASS : BOTTOM_NAV_ITEM_CLASS;
     const labelClass = compact ? BOTTOM_NAV_LABEL_COMPACT_CLASS : BOTTOM_NAV_LABEL_CLASS;
 
     return (
@@ -445,6 +409,7 @@ export function PanelBottomNav({
                 {items.map((item) => {
                     const Icon = item.icon;
                     const active = !!item.active;
+                    const itemClass = bottomNavItemClassName(active, compact);
 
                     if (item.highlight) {
                         return (
@@ -481,7 +446,7 @@ export function PanelBottomNav({
                     <button
                         type="button"
                         onClick={onMoreClick}
-                        className={itemClass}
+                        className={bottomNavItemClassName(moreActive, compact)}
                         aria-label={moreLabel}
                     >
                         <BottomNavStandardItem

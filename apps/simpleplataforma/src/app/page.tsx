@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { BrandLogo } from '@simple/ui/brand';
+import { PanelButton, PanelButtonLink } from '@simple/ui/panel';
 import { ThemeToggleButton } from '@simple/ui/theme';
 import { useAuth } from '@simple/auth';
 import React, { useEffect, useState } from 'react';
@@ -53,25 +54,25 @@ import {
 const BRAND = {
     autos: {
         name: 'SimpleAutos',
-        color: 'var(--fg)',
+        color: 'var(--brand-autos)',
         icon: IconSteeringWheel,
         url: 'https://simpleautos.app',
     },
     propiedades: {
         name: 'SimplePropiedades',
-        color: 'var(--fg)',
+        color: 'var(--brand-propiedades)',
         icon: IconDoor,
         url: 'https://simplepropiedades.app',
     },
     agenda: {
         name: 'SimpleAgenda',
-        color: 'var(--fg)',
+        color: 'var(--brand-agenda)',
         icon: IconCalendar,
         url: 'https://simpleagenda.app',
     },
     serenatas: {
         name: 'SimpleSerenatas',
-        color: 'var(--fg)',
+        color: 'var(--brand-serenatas)',
         icon: IconHeart,
         url: 'https://simpleserenatas.app',
     },
@@ -173,29 +174,26 @@ function ButtonPrimary({
     onClick?: () => void;
     external?: boolean;
 }) {
-    const className =
-        'btn btn-primary h-10 px-5 text-sm font-medium gap-1.5';
-
     const content = (
         <>
             {children}
-            {external && <IconExternalLink size={14} />}
+            {external ? <IconExternalLink size={14} /> : null}
         </>
     );
 
     if (href) {
-        const linkProps = external ? { target: '_blank', rel: 'noopener noreferrer' } : {};
+        const linkProps = external ? { target: '_blank' as const, rel: 'noopener noreferrer' } : {};
         return (
-            <Link href={href} className={className} {...linkProps}>
+            <PanelButtonLink href={href} variant="accent" className="h-10 px-5" {...linkProps}>
                 {content}
-            </Link>
+            </PanelButtonLink>
         );
     }
 
     return (
-        <button type="button" onClick={onClick} className={className}>
+        <PanelButton type="button" variant="accent" className="h-10 px-5" onClick={onClick}>
             {content}
-        </button>
+        </PanelButton>
     );
 }
 
@@ -208,20 +206,18 @@ function ButtonOutline({
     href?: string;
     onClick?: () => void;
 }) {
-    const className = 'btn btn-outline h-10 px-5 text-sm font-medium gap-1.5';
-
     if (href) {
         return (
-            <Link href={href} className={className}>
+            <PanelButtonLink href={href} variant="secondary" className="h-10 px-5">
                 {children}
-            </Link>
+            </PanelButtonLink>
         );
     }
 
     return (
-        <button type="button" onClick={onClick} className={className}>
+        <PanelButton type="button" variant="secondary" className="h-10 px-5" onClick={onClick}>
             {children}
-        </button>
+        </PanelButton>
     );
 }
 
@@ -451,13 +447,14 @@ export default function LandingPage() {
                         <ThemeToggleButton variant="header-chip" SunIcon={IconSun} MoonIcon={IconMoon} />
 
                         <div className="hidden md:flex items-center gap-2">
-                            <button
+                            <PanelButton
                                 type="button"
+                                variant="secondary"
+                                className="h-10 px-5"
                                 onClick={() => openAuth('login')}
-                                className="btn btn-outline h-10 px-5 text-sm font-medium gap-1.5"
                             >
                                 Iniciar sesión
-                            </button>
+                            </PanelButton>
                         </div>
 
                         {/* Mobile Menu */}
@@ -506,23 +503,24 @@ export default function LandingPage() {
                             >
                                 <IconSparkles size={14} /> Contacto
                             </Link>
-                            <button
+                            <PanelButton
                                 type="button"
+                                variant="secondary"
+                                className="h-11 w-full justify-center"
                                 onClick={() => {
                                     setMobileMenuOpen(false);
                                     openAuth('login');
                                 }}
-                                className="btn btn-outline h-11 justify-center text-sm font-medium"
                             >
                                 Iniciar sesión
-                            </button>
+                            </PanelButton>
                         </div>
                     </div>
                 )}
             </header>
 
             {/* HERO SECTION */}
-            <section className="relative overflow-hidden">
+            <section className="relative overflow-hidden vertical-hero-texture">
                 {/* Background gradient mesh */}
                 <div className="absolute inset-0 pointer-events-none plt-hero-mesh" />
                 <div
@@ -609,7 +607,7 @@ export default function LandingPage() {
             </section>
 
             {/* VERTICALS SECTION */}
-            <section id="verticales" className="py-20 md:py-28">
+            <section id="verticales" className="section-marketing">
                 <div className="container-app">
                     <SectionHeading
                         eyebrow="Nuestros Productos"
@@ -749,7 +747,7 @@ export default function LandingPage() {
             </section>
 
             {/* ECOSYSTEM SECTION */}
-            <section id="ecosistema" className="py-20 md:py-28 plt-section-subtle">
+            <section id="ecosistema" className="section-marketing section-marketing-subtle">
                 <div className="container-app">
                     <div className="grid lg:grid-cols-2 gap-16 items-center">
                         {/* Left: Content */}
@@ -835,7 +833,7 @@ export default function LandingPage() {
             </section>
 
             {/* HOW IT WORKS */}
-            <section id="como-funciona" className="py-20 md:py-28">
+            <section id="como-funciona" className="section-marketing">
                 <div className="container-app">
                     <SectionHeading
                         eyebrow="Proceso Simple"
@@ -886,7 +884,7 @@ export default function LandingPage() {
             </section>
 
             {/* CTA SECTION */}
-            <section id="contacto" className="py-20 md:py-28 plt-section-subtle">
+            <section id="contacto" className="section-marketing section-marketing-subtle">
                 <div className="container-app">
                     <div
                         className="max-w-4xl mx-auto rounded-3xl p-10 md:p-16 text-center border"

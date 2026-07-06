@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import {
     IconArrowRight, IconBrandFacebook, IconBrandInstagram, IconBrandTiktok, IconBrandWhatsapp, IconCheck, IconClock, IconCoin, IconShieldCheck, } from '@tabler/icons-react';
-import { PanelBlockHeader } from '@simple/ui/panel';
-import { PanelButton, PanelCard, PanelNotice, PanelSegmentedToggle } from '@simple/ui/panel';
+import { PublicMarketingShell } from '@simple/ui/layout';
+import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, PanelSegmentedToggle } from '@simple/ui/panel';
 
 type Plan = 'basico' | 'premium';
 
@@ -50,15 +50,11 @@ export default function VentaAsistidaPage() {
     }
 
     return (
-        <div className="container-app py-12">
-            <div className="mb-10 max-w-3xl">
-                <p className="mb-3 text-sm font-medium" style={{ color: 'var(--fg-muted)' }}>Servicios · Venta asistida</p>
-                <h1 className="mb-2 text-3xl font-semibold md:text-4xl" style={{ color: 'var(--fg)' }}>Vendemos tu auto por ti</h1>
-                <p className="text-base" style={{ color: 'var(--fg-secondary)' }}>
-                    Tú mantienes el auto hasta la venta. Nosotros gestionamos publicación, negociación y coordinación. Comisión solo si se vende.
-                </p>
-            </div>
-
+        <PublicMarketingShell
+            eyebrow="Servicios · Venta asistida"
+            title="Vendemos tu auto por ti"
+            intro="Tú mantienes el auto hasta la venta. Nosotros gestionamos publicación, negociación y coordinación. Comisión solo si se vende."
+        >
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
                 <div className="space-y-6">
                     <PanelCard size="lg">
@@ -73,12 +69,12 @@ export default function VentaAsistidaPage() {
                         />
                         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                             {benefits.map((benefit) => (
-                                <div key={benefit.title} className="rounded-2xl p-4" style={{ border: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
+                                <div key={benefit.title} className="panel-benefit-cell">
                                     <div className="flex items-start gap-2">
-                                        <IconCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-muted)' }} />
+                                        <IconCheck size={14} className="mt-0.5 shrink-0 text-(--fg-muted)" />
                                         <div>
-                                            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{benefit.title}</p>
-                                            <p className="mt-0.5 text-sm" style={{ color: 'var(--fg-secondary)' }}>{benefit.description}</p>
+                                            <p className="text-sm font-semibold text-(--fg)">{benefit.title}</p>
+                                            <p className="mt-0.5 text-sm text-(--fg-secondary)">{benefit.description}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -96,7 +92,7 @@ export default function VentaAsistidaPage() {
                                     { icon: <IconBrandFacebook size={16} />, label: 'Facebook' },
                                     { icon: <IconBrandWhatsapp size={16} />, label: 'WhatsApp' },
                                 ].map((channel) => (
-                                    <div key={channel.label} className="flex items-center gap-2 rounded-2xl px-3 py-3 text-sm" style={{ border: '1px solid var(--border)', color: 'var(--fg-secondary)' }}>
+                                    <div key={channel.label} className="panel-channel-chip">
                                         {channel.icon}
                                         {channel.label}
                                     </div>
@@ -111,14 +107,12 @@ export default function VentaAsistidaPage() {
                             {TIMELINE.map((step, index) => (
                                 <div key={step.title} className="flex items-start gap-3">
                                     <div className="flex flex-col items-center">
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold" style={{ background: 'var(--fg)', color: 'var(--bg)' }}>
-                                            {index + 1}
-                                        </div>
-                                        {index < TIMELINE.length - 1 ? <div className="mt-1 h-6 w-px" style={{ background: 'var(--border)' }} /> : null}
+                                        <div className="panel-step-marker">{index + 1}</div>
+                                        {index < TIMELINE.length - 1 ? <div className="panel-step-connector" /> : null}
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{step.title}</p>
-                                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{step.description}</p>
+                                        <p className="text-sm font-medium text-(--fg)">{step.title}</p>
+                                        <p className="text-sm text-(--fg-muted)">{step.description}</p>
                                     </div>
                                 </div>
                             ))}
@@ -189,7 +183,7 @@ export default function VentaAsistidaPage() {
                     </PanelCard>
                 ))}
             </section>
-        </div>
+        </PublicMarketingShell>
     );
 }
 

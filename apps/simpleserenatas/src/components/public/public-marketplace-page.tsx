@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { IconSearch } from '@tabler/icons-react';
+import { PanelButton } from '@simple/ui/panel';
 import { serenatasExploreNavLinks } from '@/components/layout/landing-header';
 import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
 import { Footer } from '@/components/layout/footer';
@@ -275,13 +276,14 @@ export function PublicMarketplacePage() {
                                         ))}
                                     </div>
                                 ) : null}
-                                <button
+                                <PanelButton
                                     type="button"
-                                    className="btn btn-primary mt-5 h-11 px-5 font-semibold"
+                                    variant="accent"
+                                    className="mt-5 h-11 px-5"
                                     onClick={() => router.push(clearAllMarketplaceFiltersHref())}
                                 >
                                     Ver todos los mariachis
-                                </button>
+                                </PanelButton>
                             </div>
                         )}
                     </div>

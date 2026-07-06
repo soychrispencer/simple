@@ -16,7 +16,9 @@ out/
 .env.deploy
 
 # IDE/Editor
-.cursor/
+.cursor/*
+!.cursor/hooks/
+!.cursor/hooks.json
 .vscode/
 .idea/
 .mimocode/

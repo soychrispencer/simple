@@ -624,7 +624,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
                                 type="button"
                                 data-panel-media-action="true"
                                 className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold"
-                                style={{ background: 'rgba(255,255,255,0.92)', color: '#111827' }}
+                                style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)', color: 'var(--fg)' }}
                                 onClick={() => setCover(item.id)}
                             >
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -666,7 +666,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
         >
             <span className="text-[11px] font-medium" style={{ color: 'var(--fg-muted)' }}>{label}</span>
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <span className="inline-flex h-14 w-14 items-center justify-center rounded-[20px]" style={{ background: 'color-mix(in oklab, var(--bg-subtle) 78%, transparent)', color: 'var(--fg-muted)' }}>
+                <span className="inline-flex h-14 w-14 items-center justify-center rounded-card" style={{ background: 'color-mix(in oklab, var(--bg-subtle) 78%, transparent)', color: 'var(--fg-muted)' }}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <path d="M4.5 18.5L8.5 13.5L12 17L14 15L19.5 20.5M7 8.5H7.01M6.8 20.5H17.2C18.8802 20.5 19.7202 20.5 20.362 20.173C20.9265 19.8854 21.3854 19.4265 21.673 18.862C22 18.2202 22 17.3802 22 15.7V8.3C22 6.61984 22 5.77976 21.673 5.13803C21.3854 4.57354 20.9265 4.1146 20.362 3.82698C19.7202 3.5 18.8802 3.5 17.2 3.5H6.8C5.11984 3.5 4.27976 3.5 3.63803 3.82698C3.07354 4.1146 2.6146 4.57354 2.32698 5.13803C2 5.77976 2 6.61984 2 8.3V15.7C2 17.3802 2 18.2202 2.32698 18.862C2.6146 19.4265 3.07354 19.8854 3.63803 20.173C4.27976 20.5 5.11984 20.5 6.8 20.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -760,7 +760,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
                     >
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                             <span
-                                className="inline-flex h-14 w-14 items-center justify-center rounded-[20px]"
+                                className="inline-flex h-14 w-14 items-center justify-center rounded-card"
                                 style={{
                                     background: fileDragActive ? 'var(--surface)' : 'color-mix(in oklab, var(--bg-subtle) 78%, transparent)',
                                     color: 'var(--fg-muted)',

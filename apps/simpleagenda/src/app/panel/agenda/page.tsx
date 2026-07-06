@@ -107,7 +107,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
     pending: '#F59E0B',
-    confirmed: '#0D9488',
+    confirmed: '#0F766E',
     completed: '#6366F1',
     cancelled: '#EF4444',
     no_show: '#9CA3AF',

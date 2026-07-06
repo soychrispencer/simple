@@ -93,7 +93,7 @@ export const OPERATOR_SITE_ACCENT_OPTIONS: Array<{
     label: string;
     value: string;
 }> = [
-    { id: 'teal', label: 'Teal', value: '#0d9488' },
+    { id: 'teal', label: 'Teal', value: '#0F766E' },
     { id: 'blue', label: 'Azul', value: '#2563eb' },
     { id: 'purple', label: 'Púrpura', value: '#9333ea' },
     { id: 'rose', label: 'Rosa', value: '#e11d48' },
@@ -110,5 +110,5 @@ export function normalizeOperatorSiteAccent(raw: unknown): OperatorSiteAccentCol
 }
 
 export function operatorSiteAccentValue(accent: OperatorSiteAccentColor): string {
-    return OPERATOR_SITE_ACCENT_OPTIONS.find((o) => o.id === accent)?.value ?? '#0d9488';
+    return OPERATOR_SITE_ACCENT_OPTIONS.find((o) => o.id === accent)?.value ?? '#0F766E';
 }

@@ -19,7 +19,12 @@ export type MarketplaceFooterProps = {
     platformLinks?: MarketplaceFooterLink[];
     legalLinks?: MarketplaceFooterLink[];
     socialLinks?: MarketplaceFooterLink[];
+    /** Aviso legal opcional (financiero, marketplace, etc.). */
+    legalNotice?: string;
 };
+
+const DEFAULT_LEGAL_NOTICE =
+    'Simple es una plataforma tecnológica de publicación y gestión. No actúa como entidad financiera, corredora de propiedades ni concesionaria de vehículos salvo que se indique expresamente en un servicio contratado.';
 
 const ECOSYSTEM_LINKS: MarketplaceFooterLink[] = [
     { label: 'SimplePlataforma', href: 'https://simpleplataforma.app' },
@@ -89,6 +94,7 @@ export function MarketplaceFooter({
     platformLinks = ECOSYSTEM_LINKS,
     legalLinks = defaultLegal,
     socialLinks = [],
+    legalNotice = DEFAULT_LEGAL_NOTICE,
 }: MarketplaceFooterProps) {
     const hasSections = sections.length > 0;
     const hasPlatform = platformLinks && platformLinks.length > 0;
@@ -96,20 +102,23 @@ export function MarketplaceFooter({
 
     return (
         <footer className="border-t border-(--border) bg-(--bg-subtle)">
-            <div className="container-app py-14">
+            <div className="container-app py-14 md:py-20">
                 <div className="mb-10 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.55fr)_minmax(220px,0.85fr)]">
                     <div className="space-y-4">
                         <Link href="/" className="flex shrink-0 items-center gap-2">
                             {logo}
                         </Link>
                         <p className="max-w-xs text-sm leading-relaxed text-(--fg-muted)">{description}</p>
+                        {legalNotice ? (
+                            <p className="footer-legal-notice">{legalNotice}</p>
+                        ) : null}
                     </div>
 
                     <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
                         {hasSections
                             ? sections.map((section) => (
                                   <div key={section.title}>
-                                      <h4 className="mb-4 text-sm font-medium text-(--fg)">{section.title}</h4>
+                                      <h4 className="footer-section-title">{section.title}</h4>
                                       <ul className="space-y-3">
                                           {section.links.map((link) => (
                                               <li key={link.href}>
@@ -128,7 +137,7 @@ export function MarketplaceFooter({
 
                         {hasPlatform ? (
                             <div>
-                                <h4 className="mb-4 text-sm font-medium text-(--fg)">Ecosistema</h4>
+                                <h4 className="footer-section-title">Ecosistema</h4>
                                 <ul className="space-y-3">
                                     {platformLinks!.map((link) => (
                                         <li key={link.href}>
@@ -142,7 +151,7 @@ export function MarketplaceFooter({
                     </div>
 
                     <div className="lg:text-right">
-                        <h4 className="mb-4 text-sm font-medium text-(--fg)">Contacto</h4>
+                        <h4 className="footer-section-title lg:text-right">Contacto</h4>
                         <div className="flex gap-2 lg:justify-end">
                             {CONTACT_LINKS.map((link) => (
                                 <FooterIconLink key={link.href} link={link}>

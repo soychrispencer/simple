@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { IconMoon, IconSun } from '@tabler/icons-react';
 import { MarketplaceHeader } from '@simple/marketplace-header';
 import { ThemeToggleButton } from '@simple/ui/theme';
+import { PanelButton } from '@simple/ui/panel';
 import { clearSavedMariachisCache, syncSavedMariachisFromApi } from '@/lib/saved-mariachis';
 
 type PublicLink = { href: string; label: string };
@@ -42,51 +43,56 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
             rightSlot={
                 <>
                     <ThemeToggleButton variant="header-chip" SunIcon={IconSun} MoonIcon={IconMoon} />
-                    <button
+                    <PanelButton
                         type="button"
-                        className="btn btn-primary inline-flex h-10 px-4 text-sm font-semibold sm:hidden"
+                        variant="accent"
+                        className="inline-flex h-10 px-4 sm:hidden"
                         onClick={onLogin}
                     >
                         Iniciar sesión
-                    </button>
-                    <button
+                    </PanelButton>
+                    <PanelButton
                         type="button"
-                        className="btn btn-ghost hidden h-10 px-4 text-sm font-medium sm:inline-flex"
+                        variant="ghost"
+                        className="hidden h-10 px-4 sm:inline-flex"
                         onClick={onLogin}
                     >
                         Iniciar sesión
-                    </button>
-                    <button
+                    </PanelButton>
+                    <PanelButton
                         type="button"
-                        className="btn btn-primary hidden h-10 px-4 text-sm font-semibold sm:inline-flex"
+                        variant="accent"
+                        className="hidden h-10 px-4 sm:inline-flex"
                         onClick={onRegister}
                     >
                         Probar gratis
-                    </button>
+                    </PanelButton>
                 </>
             }
             renderMobileMenu={(closeMenu) => (
                 <>
-                    <button
+                    <PanelButton
                         type="button"
-                        className="btn btn-primary mb-2 h-10 w-full text-sm font-semibold"
+                        variant="accent"
+                        className="mb-2 h-10 w-full"
                         onClick={() => {
                             closeMenu();
                             onLogin();
                         }}
                     >
                         Iniciar sesión
-                    </button>
-                    <button
+                    </PanelButton>
+                    <PanelButton
                         type="button"
-                        className="btn btn-secondary mb-2 h-10 w-full text-sm font-semibold"
+                        variant="secondary"
+                        className="mb-2 h-10 w-full"
                         onClick={() => {
                             closeMenu();
                             onRegister();
                         }}
                     >
                         Probar gratis
-                    </button>
+                    </PanelButton>
                     <div className="my-2 border-t border-border" role="presentation" />
                     {publicLinks.map((l) => (
                         <Link

@@ -1,19 +1,13 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@simple/ui/theme';
+import { simpleFontClassName } from '@simple/ui/fonts';
 import { ClientProviders } from '@/components/client-providers';
 import { buildSimpleAppMetadata } from '@simple/config';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app').replace(/\/$/, '');
 const APP_TITLE = 'SimpleAgenda | Agenda online y sistema de reservas';
 const APP_DESCRIPTION = 'Agenda online para reservas, citas, clientes y pagos. SimpleAgenda ayuda a profesionales, barberías, estética, salud privada y servicios a recibir reservas online.';
-
-const inter = Inter({
-    subsets: ['latin'],
-    variable: '--font-sans',
-    display: 'swap',
-});
 
 export const metadata: Metadata = {
     ...buildSimpleAppMetadata('simpleagenda'),
@@ -117,7 +111,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="es" suppressHydrationWarning>
-            <body className={`${(inter as any).variable} font-sans antialiased`}>
+            <body className={simpleFontClassName}>
                 <ThemeProvider>
                     <ClientProviders>
                         {children}

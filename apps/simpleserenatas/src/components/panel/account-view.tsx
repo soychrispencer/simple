@@ -9,7 +9,6 @@ import { resolveAvatarDisplayUrl } from '@/lib/resolve-avatar-url';
 import { PanelAccountPersonalDataSection, PanelAccountLocationContent, PanelBlockHeader, PanelPillNav } from '@simple/ui/panel';
 import { MercadoPagoIntegrationCard } from '@simple/ui/integrations';
 import { PanelButton, PanelCard, PanelField, PanelNotice, PanelPageHeader, PanelPersonalDataList, PanelPersonalDataRow, PanelStatusBadge, PanelSwitch, usePanelConfirm } from '@simple/ui/panel';
-import { AvatarUpload } from '@simple/ui/media';
 import {
     IconCheck,
     IconChevronLeft,

@@ -8,7 +8,7 @@ import ListingPriceBlock from './shared/listing-price-block';
 import ListingMetaTags from './shared/listing-meta-tags';
 import ListingSellerStrip from './shared/listing-seller-strip';
 import ListingActionCluster from './shared/listing-action-cluster';
-import { defaultCtaByVariant, variantBadgeLabel, variantBadgeTone } from './shared/utils';
+import { defaultCtaByVariant, variantBadgeLabel, variantBadgeTone, formatChileanPeso } from './shared/utils';
 import type { PublicListingCardProps } from './types';
 
 function buildPrimaryBadges(props: PublicListingCardProps) {
@@ -214,15 +214,24 @@ export default function PublicListingCard(props: PublicListingCardProps) {
                     seed={id}
                     accent={accent}
                     aspectClassName={aspectClass}
-                    rounded="rounded-t-[24px]"
+                    rounded="rounded-t-card"
                 />
                 <ListingBadgeStack badges={badges} size="sm" />
                 {saveButton}
+                <div className="absolute bottom-3 left-3 z-10">
+                    <span className="listing-price-glass type-detail-price" style={{ fontSize: 'clamp(0.95rem, 0.85rem + 0.4vw, 1.15rem)' }}>
+                        {price.caption ? (
+                            <span className="mr-2 text-[10px] font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>
+                                {price.caption}
+                            </span>
+                        ) : null}
+                        {formatChileanPeso(price.amount)}
+                    </span>
+                </div>
             </div>
 
             <div className="flex flex-1 flex-col p-3.5 sm:p-4">
                 <div className="flex flex-1 flex-col gap-2.5">
-                    <ListingPriceBlock price={price} size="hero" alignment="start" />
                     <h3
                         className="line-clamp-2 text-[15px] font-semibold leading-snug"
                         style={{ color: 'var(--fg)' }}

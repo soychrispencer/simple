@@ -651,7 +651,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
                             e.stopPropagation();
                             router.push(data.href);
                         }}
-                        className="flex-1 py-2.5 bg-white text-black font-semibold text-sm rounded-xl hover:bg-white/90 transition active:scale-[0.98]"
+                        className="marketplace-reel-cta"
                     >
                         Ver detalle
                     </button>
@@ -667,7 +667,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
 
                         {/* Menú desplegable - opciones de compartir y reportar */}
                         {showMoreMenu && (
-                            <div className="absolute bottom-full right-0 mb-2 w-48 rounded-xl overflow-hidden shadow-2xl z-[100] border border-white/10"
+                            <div className="absolute bottom-full right-0 mb-2 w-48 marketplace-reel-menu overflow-hidden shadow-2xl z-[100]"
                                  style={{ background: 'var(--surface)' }}>
                                 <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-200/50">
                                     Compartir

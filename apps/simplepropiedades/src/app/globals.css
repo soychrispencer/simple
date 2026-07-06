@@ -4,19 +4,19 @@
 @import "../../../../packages/ui/src/theme-base.css";
 
 :root {
-    --accent: #3232FF;
-    --accent-subtle: rgba(50, 50, 255, 0.12);
-    --accent-soft: rgba(50, 50, 255, 0.06);
-    --accent-border: rgba(50, 50, 255, 0.22);
+    --accent: #4F46E5;
+    --accent-subtle: rgba(79, 70, 229, 0.12);
+    --accent-soft: rgba(79, 70, 229, 0.08);
+    --accent-border: rgba(79, 70, 229, 0.20);
     --accent-contrast: #ffffff;
 }
 
 .dark,
 [data-theme="dark"] {
-    --accent: #3232FF;
-    --accent-subtle: rgba(50, 50, 255, 0.18);
-    --accent-soft: rgba(50, 50, 255, 0.10);
-    --accent-border: rgba(50, 50, 255, 0.34);
+    --accent: #4F46E5;
+    --accent-subtle: rgba(79, 70, 229, 0.18);
+    --accent-soft: rgba(79, 70, 229, 0.10);
+    --accent-border: rgba(79, 70, 229, 0.34);
     --accent-contrast: #ffffff;
 }
 
@@ -46,6 +46,13 @@
 .crm-quick-action { border-color: var(--border); background: var(--surface); color: var(--fg-secondary); }
 .crm-quick-action--muted { color: var(--fg-muted); }
 .crm-danger-outline { border-color: var(--border); color: var(--color-error); }
+
+/* Textura hero por vertical */
+.vertical-hero-texture::before {
+    background-image: radial-gradient(color-mix(in oklab, var(--accent) 8%, var(--bg)) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: linear-gradient(180deg, #000 0%, transparent 85%);
+}
 
 /* Panel publicidad / publicar — utilidades token (mismo contrato que Autos) */
 .prop-stat-tile,
@@ -98,7 +105,7 @@
 .prop-publish-icon { background: var(--bg-muted); color: var(--fg); }
 
 /* Simulador hipotecario */
-.mortgage-page { background: var(--bg-secondary); }
+.mortgage-page { background: var(--bg); }
 .mortgage-header {
     border-color: var(--border);
     background: color-mix(in srgb, var(--bg) 88%, transparent);
@@ -112,9 +119,93 @@
     border-color: var(--border);
 }
 .mortgage-input {
-    background: var(--bg-secondary);
-    border-color: var(--border);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     color: var(--fg);
+}
+.mortgage-section {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+}
+.mortgage-range {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+    height: 1.25rem;
+    background: transparent;
+    appearance: none;
+}
+.mortgage-range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--bg-muted);
+}
+.mortgage-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: var(--shadow-xs);
+}
+.mortgage-range::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--bg-muted);
+}
+.mortgage-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: var(--shadow-xs);
+}
+.mortgage-range-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-subtle);
+    font-size: var(--text-sm);
+    color: var(--fg);
+}
+.mortgage-segment-track {
+    display: flex;
+    padding: 0.25rem;
+    border-radius: var(--radius);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+}
+.mortgage-segment-track .mortgage-segment-btn {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    border-radius: calc(var(--radius) - 2px);
+    font-size: 11px;
+    font-weight: 600;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.mortgage-segment-track .mortgage-segment-btn--active {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    box-shadow: var(--shadow-xs);
+}
+.mortgage-segment-track .mortgage-segment-btn--limit {
+    background: var(--fg);
+    color: var(--accent-contrast);
+    box-shadow: var(--shadow-xs);
+}
+.mortgage-highlight {
+    border: 2px solid color-mix(in srgb, var(--color-success) 25%, var(--border));
+    background: color-mix(in srgb, var(--color-success-subtle) 40%, var(--bg));
 }
 .mortgage-step-badge { background: var(--accent); }
 .mortgage-accent { color: var(--accent); }
@@ -123,11 +214,11 @@
     border-color: var(--border);
 }
 .mortgage-icon-success { color: var(--color-success); }
-.mortgage-stat-cell { background: var(--bg); border-color: var(--border); }
+.mortgage-stat-cell { background: var(--bg); border: 1px solid var(--border); }
 .mortgage-stat-label { color: var(--fg-muted); }
 .mortgage-stat-value { color: var(--fg); }
 .mortgage-range-panel { background: var(--bg); border-color: var(--border); }
-.mortgage-range-track { background: var(--bg-secondary); }
+.mortgage-range-track { background: var(--bg-muted); }
 .mortgage-range-fill--25 { width: 33%; background: var(--color-success); }
 .mortgage-range-fill--30 { width: 66%; background: var(--accent); }
 .mortgage-range-fill--33 { width: 100%; background: var(--color-warning); }
@@ -153,7 +244,7 @@
 .mortgage-scenario--accent { border-color: var(--accent); background: var(--accent-subtle); }
 .mortgage-badge-success { background: var(--color-success-subtle); color: var(--color-success); }
 .mortgage-badge-warning { background: var(--color-warning-subtle); color: var(--color-warning); }
-.mortgage-badge-accent { background: var(--accent); color: var(--accent-contrast); }
+.mortgage-badge-error { background: var(--color-error-subtle); color: var(--color-error); }
 .mortgage-value-accent { color: var(--accent); }
 .mortgage-footer-divider { border-color: var(--border); }
 .mortgage-saved-card { border-color: var(--border); background: var(--bg-subtle); }
@@ -186,7 +277,8 @@
     background: var(--fg);
     color: var(--bg);
 }
-.prop-quality-ok { color: #16a34a; }
+.mortgage-badge-accent { background: var(--accent); color: var(--accent-contrast); }
+.prop-quality-ok { color: var(--color-success); }
 .prop-quality-muted { color: var(--fg-muted); }
 .prop-chart-track { background: rgba(15, 23, 42, 0.08); }
 .prop-chart-bar { background: var(--fg); }
@@ -194,8 +286,8 @@
     border-color: var(--border);
     background: var(--bg);
 }
-.prop-terms-box--error { border-color: #b42318; }
-.prop-field-error-text { color: #b42318; }
+.prop-terms-box--error { border-color: var(--color-error-border); }
+.prop-field-error-text { color: var(--color-error); }
 .prop-draft-badge { border-color: var(--border); color: var(--fg-secondary); }
 .prop-wizard-nav { border-color: var(--border); background: color-mix(in oklab, var(--bg) 78%, transparent); }
 .prop-media-hero {
@@ -220,7 +312,7 @@
 }
 .prop-live-preview {
     overflow: hidden;
-    border-radius: 1.65rem;
+    border-radius: var(--radius-card);
     border: 1px solid color-mix(in oklab, var(--accent) 18%, var(--border));
     background: var(--surface);
     box-shadow: var(--shadow-md);
@@ -229,7 +321,7 @@
     position: relative;
     aspect-ratio: 9 / 14;
     overflow: hidden;
-    background: #09090b;
+    background: var(--bg);
 }
 .prop-live-preview__shade {
     background: linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.18) 38%, rgba(0,0,0,0.78));
@@ -237,20 +329,26 @@
 .prop-live-preview__empty {
     background:
         radial-gradient(circle at 50% 20%, color-mix(in oklab, var(--accent) 24%, transparent), transparent 42%),
-        #111827;
-    color: rgba(255,255,255,0.9);
+        var(--bg-muted);
+    color: var(--accent-contrast);
 }
 .prop-live-preview__badge {
     display: inline-flex;
     align-items: center;
     border-radius: 9999px;
-    border: 1px solid rgba(255,255,255,0.22);
-    background: rgba(0,0,0,0.38);
+    border: 1px solid color-mix(in srgb, var(--accent-contrast) 22%, transparent);
+    background: color-mix(in srgb, var(--fg) 38%, transparent);
     padding: 0.25rem 0.55rem;
-    color: #ffffff;
+    color: var(--accent-contrast);
     font-size: 0.68rem;
-    font-weight: 700;
+    font-weight: 600;
     backdrop-filter: blur(10px);
+}
+
+.prop-search-hero {
+    border-color: var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
 }
 .prop-success-card {
     background:

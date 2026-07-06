@@ -262,7 +262,7 @@ export function PublicProfileShell({
                             </div>
 
                             {todayState ? (
-                                <div className="rounded-[20px] border px-4 py-3 pp-surface-row">
+                                <div className="rounded-card border px-4 py-3 pp-surface-row">
                                     <div className="flex items-start gap-3">
                                         <div className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full pp-icon-well">
                                             <IconClock size={16} />

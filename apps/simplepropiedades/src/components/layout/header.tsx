@@ -10,15 +10,8 @@ const publicLinks: MarketplacePublicLink[] = [
     { href: '/ventas', label: 'Comprar' },
     { href: '/arriendos', label: 'Arrendar' },
     { href: '/proyectos', label: 'Proyectos' },
-    {
-        href: '/servicios',
-        label: 'Servicios',
-        items: [
-            { href: '/servicios', label: 'Resumen' },
-            { href: '/servicios/venta-asistida', label: 'Gestión inmobiliaria' },
-            { href: '/servicios/simulador-hipotecario', label: 'Simulador hipotecario' },
-        ],
-    },
+    { href: '/simulador-hipotecario', label: 'Simulador' },
+    { href: '/servicios', label: 'Servicios' },
     { href: '/descubre', label: 'Descubre', isNew: true },
 ];
 

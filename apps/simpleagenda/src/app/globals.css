@@ -60,20 +60,31 @@
 }
 
 :root {
-    --accent: #0D9488;
-    --accent-subtle: rgba(13, 148, 136, 0.12);
-    --accent-soft: rgba(13, 148, 136, 0.06);
-    --accent-border: rgba(13, 148, 136, 0.22);
+    --accent: #0F766E;
+    --accent-subtle: rgba(15, 118, 110, 0.12);
+    --accent-soft: rgba(15, 118, 110, 0.08);
+    --accent-border: rgba(15, 118, 110, 0.20);
     --accent-contrast: #ffffff;
 }
 
 .dark,
 [data-theme="dark"] {
-    --accent: #0D9488;
-    --accent-subtle: rgba(13, 148, 136, 0.18);
-    --accent-soft: rgba(13, 148, 136, 0.10);
-    --accent-border: rgba(13, 148, 136, 0.34);
+    --accent: #0F766E;
+    --accent-subtle: rgba(15, 118, 110, 0.18);
+    --accent-soft: rgba(15, 118, 110, 0.10);
+    --accent-border: rgba(15, 118, 110, 0.34);
     --accent-contrast: #ffffff;
+}
+
+.vertical-hero-texture::before {
+    background: repeating-linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--accent) 4%, transparent) 0,
+        color-mix(in oklab, var(--accent) 4%, transparent) 1px,
+        transparent 1px,
+        transparent 28px
+    );
+    mask-image: linear-gradient(180deg, #000 0%, transparent 90%);
 }
 
 .booking-surface { border-color: var(--border); background: var(--surface); }
@@ -177,7 +188,7 @@
 .agenda-home-border-top { border-top: 1px solid var(--border); }
 .agenda-home-progress-track { background: var(--border); }
 .agenda-home-progress-fill { background: var(--accent); }
-.agenda-home-trend-up { background: rgba(13, 148, 136, 0.08); color: var(--accent); }
+.agenda-home-trend-up { background: rgba(15, 118, 110, 0.08); color: var(--accent); }
 .agenda-home-trend-down { background: rgba(239, 68, 68, 0.08); color: #ef4444; }
 .agenda-home-trend-neutral { background: rgba(0, 0, 0, 0.04); color: var(--fg-muted); }
 .agenda-home-step-icon--done { background: var(--accent); color: #fff; }

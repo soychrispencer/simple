@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PanelButtonLink } from '@simple/ui/panel';
 
 export type SiteInfoSection = {
     title: string;
@@ -34,7 +35,7 @@ export function SiteInfoPage({ page }: { page: SiteInfoPageData }) {
 
     return (
         <main className="site-info-page">
-            <section className="container-app py-16 md:py-20">
+            <section className="container-app section-marketing">
                 <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_280px]">
                     <div className="max-w-4xl">
                         <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-(--fg-muted)">
@@ -48,13 +49,13 @@ export function SiteInfoPage({ page }: { page: SiteInfoPageData }) {
                         </p>
 
                         <div className="mt-8 flex flex-wrap items-center gap-3">
-                            <Link href={page.primaryCta.href} className="btn btn-primary">
+                            <PanelButtonLink href={page.primaryCta.href} variant="accent">
                                 {page.primaryCta.label}
-                            </Link>
+                            </PanelButtonLink>
                             {page.secondaryCta ? (
-                                <Link href={page.secondaryCta.href} className="btn btn-outline">
+                                <PanelButtonLink href={page.secondaryCta.href} variant="secondary">
                                     {page.secondaryCta.label}
-                                </Link>
+                                </PanelButtonLink>
                             ) : null}
                         </div>
                     </div>

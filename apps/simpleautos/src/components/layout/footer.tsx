@@ -10,6 +10,7 @@ const sections = [
             { label: 'Comprar', href: '/ventas' },
             { label: 'Arrendar', href: '/arriendos' },
             { label: 'Subastas', href: '/subastas' },
+            { label: 'Precalificar financiamiento', href: '/precalificacion-financiamiento' },
             { label: 'Publicar', href: '/panel/publicar' },
         ],
     },
@@ -41,6 +42,7 @@ export function Footer() {
             sections={sections}
             legalLinks={legalLinks}
             socialLinks={socialLinks}
+            legalNotice="SimpleAutos es un marketplace de publicación y contacto. No es concesionaria ni entidad financiera; la precalificación de crédito es orientativa y no constituye aprobación."
         />
     );
 }

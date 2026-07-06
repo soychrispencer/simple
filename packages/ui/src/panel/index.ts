@@ -1,6 +1,7 @@
 'use client';
 
 export { PanelButton, getPanelButtonClassName, getPanelButtonStyle, type PanelButtonProps } from './panel-button';
+export { PanelButtonLink } from './panel-button-link';
 export { PanelCard, type PanelCardProps } from './panel-card';
 export {
     PanelBlockHeader,

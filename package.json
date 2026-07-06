@@ -32,7 +32,9 @@
     "coolify:deploy": "node scripts/coolify-deploy.mjs",
     "coolify:env-audit": "node scripts/coolify-env-audit.mjs",
     "coolify:env-fix": "node scripts/coolify-env-audit.mjs --apply",
-    "coolify:env-set": "node scripts/coolify-env-set.mjs"
+    "coolify:env-set": "node scripts/coolify-env-set.mjs",
+    "cursor:clean": "node scripts/cursor-workspace-clean.mjs",
+    "cursor:clean:dry": "node scripts/cursor-workspace-clean.mjs --dry-run"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

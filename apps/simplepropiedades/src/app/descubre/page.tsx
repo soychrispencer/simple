@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { PanelButtonLink } from '@simple/ui/panel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -149,19 +149,16 @@ export default function FeedPage() {
 
     const emptyState = useMemo(
         () => (
-            <div className="h-[calc(100vh-12rem)] rounded-2xl border flex flex-col items-center justify-center gap-4 px-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+            <div className="h-[calc(100vh-12rem)] rounded-card border flex flex-col items-center justify-center gap-4 px-6 text-center border-(--border) bg-(--surface)">
                 <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>
                     Descubre es solo para videos
                 </p>
                 <p className="max-w-sm text-sm" style={{ color: 'var(--fg-muted)' }}>
                     Sube un video al publicar tu propiedad para aparecer aquí. Las publicaciones solo con fotos no entran a este feed.
                 </p>
-                <Link
-                    href="/panel/publicar"
-                    className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-5 text-sm font-semibold text-white"
-                >
+                <PanelButtonLink href="/panel/publicar" variant="accent">
                     Publicar con video
-                </Link>
+                </PanelButtonLink>
             </div>
         ),
         []
@@ -187,7 +184,7 @@ export default function FeedPage() {
             </div>
 
             {loading ? (
-                <div className="h-[calc(100vh-12rem)] rounded-2xl border flex items-center justify-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <div className="h-[calc(100vh-12rem)] rounded-card border flex items-center justify-center border-(--border) bg-(--surface)">
                     <p className="text-sm inline-flex items-center gap-2" style={{ color: 'var(--fg-muted)' }}>
                         <IconLoader2 size={14} className="animate-spin" />
                         Cargando contenido...
@@ -205,7 +202,7 @@ export default function FeedPage() {
                             <article
                                 key={clip.id}
                                 data-clip-id={clip.id}
-                                className="relative mx-auto w-full max-w-[430px] aspect-[9/16] rounded-2xl overflow-hidden border snap-start cursor-pointer"
+                                className="relative mx-auto w-full max-w-[430px] aspect-[9/16] rounded-card overflow-hidden border snap-start cursor-pointer"
                                 style={{ borderColor: 'var(--border)', background: '#0a0a0a' }}
                                 onClick={() => router.push(clip.href)}
                             >

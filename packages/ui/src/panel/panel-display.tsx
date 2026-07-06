@@ -205,7 +205,7 @@ export function PanelIconButton(props: PanelIconButtonProps) {
         : variant === 'inverse'
             ? { background: 'var(--fg)', color: 'var(--bg)' }
             : variant === 'overlay'
-                ? { background: 'rgba(255,255,255,0.92)', color: '#111827' }
+                ? { background: 'color-mix(in oklab, var(--surface) 92%, transparent)', color: 'var(--fg)' }
                 : { background: 'transparent', color: 'var(--fg-muted)' };
 
     return (

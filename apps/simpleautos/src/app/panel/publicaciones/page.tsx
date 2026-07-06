@@ -1123,7 +1123,7 @@ export default function PublicacionesPage() {
                                                 onClick={() => setInstagramMediaFormat('carousel')}
                                                 className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
                                                     instagramMediaFormat === 'carousel'
-                                                        ? 'border-[#111] bg-[#111] text-white'
+                                                        ? 'border-[var(--fg)] bg-[var(--fg)] text-[var(--accent-contrast)]'
                                                         : 'border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]'
                                                 }`}
                                             >
@@ -1135,7 +1135,7 @@ export default function PublicacionesPage() {
                                                 disabled={!listingHasShareableVideo(previewListing)}
                                                 className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-all disabled:opacity-50 ${
                                                     instagramMediaFormat === 'reel'
-                                                        ? 'border-[#111] bg-[#111] text-white'
+                                                        ? 'border-[var(--fg)] bg-[var(--fg)] text-[var(--accent-contrast)]'
                                                         : 'border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]'
                                                 }`}
                                             >
@@ -1197,7 +1197,7 @@ export default function PublicacionesPage() {
                                                 borderColor: activeTemplate?.colors.accent ?? 'var(--border)',
                                                 background: activeTemplate
                                                     ? `linear-gradient(135deg, ${activeTemplate.colors.accent}18 0%, ${activeTemplate.colors.secondary}18 100%)`
-                                                    : 'linear-gradient(135deg, rgba(255,54,0,0.1) 0%, rgba(17,17,17,0.12) 100%)',
+                                                    : 'linear-gradient(135deg, color-mix(in oklab, var(--accent) 10%, transparent) 0%, color-mix(in oklab, var(--fg) 12%, transparent) 100%)',
                                                 display: instagramMediaFormat === 'reel' ? 'none' : undefined,
                                             }}
                                         >
@@ -1234,8 +1234,8 @@ export default function PublicacionesPage() {
                                                             onClick={() => void handleTemplateChange(template.id)}
                                                             className="flex-1 rounded-lg border px-3 py-2 text-center text-xs font-semibold transition-all"
                                                             style={{
-                                                                borderColor: isSelected ? '#111' : 'var(--border)',
-                                                                background: isSelected ? '#111' : 'var(--surface)',
+                                                                borderColor: isSelected ? 'var(--fg)' : 'var(--border)',
+                                                                background: isSelected ? 'var(--fg)' : 'var(--surface)',
                                                                 color: isSelected ? '#fff' : 'var(--fg)',
                                                             }}
                                                         >

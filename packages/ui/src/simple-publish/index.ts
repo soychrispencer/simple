@@ -17,6 +17,18 @@ export {
     type SimplePublishSurfaceProps,
 } from './simple-publish-surface';
 export {
+    SimplePublishSection,
+    type SimplePublishSectionProps,
+} from './simple-publish-section';
+export {
+    SimplePublishOptionalSection,
+    type SimplePublishOptionalSectionProps,
+} from './simple-publish-optional-section';
+export {
+    SimplePublishField,
+    type SimplePublishFieldProps,
+} from './simple-publish-field';
+export {
     SimplePublishPageFrame,
     type SimplePublishPageFrameProps,
 } from './simple-publish-page-frame';

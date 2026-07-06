@@ -275,7 +275,7 @@ export default function HomePage() {
 
     return (
         <div>
-            <section className="relative" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+            <section className="relative vertical-hero-texture" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
                 <div
                     className="relative select-none overflow-hidden"
                     style={{ ...heroStyle, touchAction: 'pan-y' }}
@@ -429,7 +429,7 @@ export default function HomePage() {
 
             <BoostedListingsSlider />
 
-            <section className="container-app py-20">
+            <section className="container-app section-marketing">
                 <h2 className="text-2xl md:text-3xl font-semibold text-center mb-4" style={{ color: 'var(--fg)' }}>¿Por qué Simple?</h2>
                 <p className="text-center text-base mb-12" style={{ color: 'var(--fg-muted)' }}>La plataforma que simplifica todo.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -449,7 +449,7 @@ export default function HomePage() {
             </section>
 
             <section style={{ borderTop: '1px solid var(--border)' }}>
-                <div className="container-app py-20 text-center">
+                <div className="container-app section-marketing text-center">
                     <h2 className="text-3xl md:text-4xl font-semibold mb-4" style={{ color: 'var(--fg)' }}>¿Listo para empezar?</h2>
                     <p className="text-base mb-8" style={{ color: 'var(--fg-muted)' }}>Publica gratis o deja que gestionemos por ti.</p>
                     <div className="flex items-center justify-center gap-3">

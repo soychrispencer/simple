@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { IconX, IconCheck } from '@tabler/icons-react';
 import { resolveSafeInternalPath } from '@simple/auth';
+import { PanelButton } from '@simple/ui/panel';
 
 export default function GoogleCallback() {
     const [error, setError] = useState<string | null>(null);
@@ -60,19 +61,15 @@ export default function GoogleCallback() {
     if (error) {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                <div className="w-full max-w-md mx-4 rounded-xl p-8 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <div className="w-full max-w-md mx-4 rounded-card p-8 text-center border border-(--border) bg-(--surface)">
                     <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
                         <IconX size={22} />
                     </div>
                     <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Error de conexión</h2>
                     <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>{error}</p>
-                    <button
-                        onClick={() => window.location.replace('/')}
-                        className="btn btn-primary"
-                        style={{ borderRadius: '10px' }}
-                    >
+                    <PanelButton type="button" variant="accent" onClick={() => window.location.replace('/')}>
                         Volver al inicio
-                    </button>
+                    </PanelButton>
                 </div>
             </div>
         );
@@ -81,7 +78,7 @@ export default function GoogleCallback() {
     if (welcome) {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                <div className="w-full max-w-md mx-4 rounded-xl p-8 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <div className="w-full max-w-md mx-4 rounded-card p-8 text-center border border-(--border) bg-(--surface)">
                     <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
                         <IconCheck size={28} strokeWidth={2.5} />
                     </div>
@@ -94,7 +91,7 @@ export default function GoogleCallback() {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-            <div className="w-full max-w-md mx-4 rounded-xl p-8 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="w-full max-w-md mx-4 rounded-card p-8 text-center border border-(--border) bg-(--surface)">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }} />
                 <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Conectando con Google...</h2>
                 <p style={{ color: 'var(--fg-muted)' }}>Un momento por favor</p>

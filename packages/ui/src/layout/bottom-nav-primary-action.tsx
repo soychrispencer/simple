@@ -5,6 +5,8 @@ import {
     bottomNavPrimaryActionStyleWithShadow,
     bottomNavStandardActiveColor,
     bottomNavStandardMutedColor,
+    BOTTOM_NAV_ITEM_CLASS,
+    BOTTOM_NAV_ITEM_COMPACT_CLASS,
     BOTTOM_NAV_LABEL_CLASS,
     BOTTOM_NAV_LABEL_COMPACT_CLASS,
 } from './bottom-nav-styles';
@@ -69,4 +71,9 @@ export function BottomNavStandardItem({
             </span>
         </>
     );
+}
+
+export function bottomNavItemClassName(active: boolean, compact: boolean): string {
+    const base = compact ? BOTTOM_NAV_ITEM_COMPACT_CLASS : BOTTOM_NAV_ITEM_CLASS;
+    return active ? `${base} bottom-nav-item--active` : base;
 }

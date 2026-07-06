@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE } from '@simple/config';
+import { PanelButton } from '@simple/ui/panel';
 
 export default function ResetPasswordPage() {
     const router = useRouter();
@@ -90,19 +91,19 @@ export default function ResetPasswordPage() {
                         autoComplete="new-password"
                         required
                     />
-                    <button type="submit" className="btn-primary w-full" disabled={submitting}>
+                    <PanelButton type="submit" variant="accent" className="w-full justify-center" disabled={submitting}>
                         {submitting ? 'Guardando...' : 'Guardar contraseña'}
-                    </button>
+                    </PanelButton>
                 </form>
-                <button
+                <PanelButton
                     type="button"
+                    variant="secondary"
+                    className="w-full mt-3 justify-center"
                     onClick={() => router.push('/')}
-                    className="w-full mt-3 rounded-button px-4 py-2"
-                    style={{ border: '1px solid var(--border)', color: 'var(--fg)' }}
                     disabled={submitting}
                 >
                     Volver
-                </button>
+                </PanelButton>
             </div>
         </div>
     );

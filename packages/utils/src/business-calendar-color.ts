@@ -1,6 +1,6 @@
 /** Paleta compartida para identificar servicios en agenda, Google Calendar y listados del panel. */
 export const BUSINESS_CALENDAR_COLORS = [
-    '#0D9488',
+    '#0F766E',
     '#3B82F6',
     '#8B5CF6',
     '#EC4899',

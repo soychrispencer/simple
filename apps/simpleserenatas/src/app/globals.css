@@ -8,8 +8,8 @@
 :root {
     --accent: #E11D48;
     --accent-subtle: rgba(225, 29, 72, 0.12);
-    --accent-soft: rgba(225, 29, 72, 0.06);
-    --accent-border: rgba(225, 29, 72, 0.22);
+    --accent-soft: rgba(225, 29, 72, 0.08);
+    --accent-border: rgba(225, 29, 72, 0.20);
     --accent-contrast: #ffffff;
 }
 
@@ -20,6 +20,11 @@
     --accent-soft: rgba(225, 29, 72, 0.10);
     --accent-border: rgba(225, 29, 72, 0.34);
     --accent-contrast: #ffffff;
+}
+
+/* Textura hero — glow rose sutil */
+.vertical-hero-texture::before {
+    background: radial-gradient(ellipse 70% 55% at 50% 0%, color-mix(in oklab, var(--accent) 5%, transparent), transparent);
 }
 
 .leaflet-container {

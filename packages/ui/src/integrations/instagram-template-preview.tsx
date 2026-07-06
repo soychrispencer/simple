@@ -188,7 +188,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                             : template.colors.textInverse,
                                     }}
                                 >
-                                    <div className="mb-2 text-xl font-black leading-tight line-clamp-2">
+                                    <div className="mb-2 text-xl font-semibold leading-tight line-clamp-2">
                                         {headline}
                                     </div>
                                     {template.overlayVariant === 'property-conversion' ? (
@@ -219,7 +219,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                                             </span>
                                                         ) : null}
                                                         <div
-                                                            className="max-w-[240px] text-3xl font-black leading-none"
+                                                            className="max-w-[240px] text-3xl font-semibold leading-none"
                                                             style={{ color: template.colors.accent }}
                                                         >
                                                             {priceLockup.amount}
@@ -264,7 +264,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                                             {priceLockup.prefix}
                                                         </span>
                                                     ) : null}
-                                                    <div className="text-[2rem] font-black leading-none">
+                                                    <div className="text-[2rem] font-semibold leading-none">
                                                         {priceLockup.amount}
                                                     </div>
                                                 </div>
@@ -297,7 +297,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                     <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60">
                                         {template.eyebrow} · {locationLabel}
                                     </div>
-                                    <div className="mb-3 text-[1.55rem] font-black leading-tight line-clamp-2">
+                                    <div className="mb-3 text-[1.55rem] font-semibold leading-tight line-clamp-2">
                                         {headline}
                                     </div>
                                     <div className="mb-3 flex flex-wrap justify-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]">
@@ -308,7 +308,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                         ))}
                                     </div>
                                     <div className="mb-2 w-full border-t" style={{ borderColor: 'rgba(0,0,0,0.12)' }} />
-                                    <div className="text-[1.9rem] font-black leading-none" style={{ color: template.colors.accent }}>
+                                    <div className="text-[1.9rem] font-semibold leading-none" style={{ color: template.colors.accent }}>
                                         {template.priceLabel}
                                     </div>
                                     <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">
@@ -321,7 +321,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                         <>
                             <div
                                 className="absolute inset-x-0 top-0 flex items-center justify-between px-4"
-                                style={{ height: '9.3%', background: '#111111' }}
+                                style={{ height: '9.3%', background: '#0C0C0E' }}
                             >
                                 <div
                                     className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]"
@@ -333,13 +333,13 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             </div>
                             <div
                                 className="absolute inset-x-0 bottom-0 p-4"
-                                style={{ background: '#111111', color: '#fff', paddingTop: '0.5rem' }}
+                                style={{ background: '#0C0C0E', color: '#fff', paddingTop: '0.5rem' }}
                             >
                                 <div
                                     className="mb-1 h-[3px] w-full"
                                     style={{ background: template.colors.accent }}
                                 />
-                                <div className="mb-0.5 text-sm font-black leading-tight line-clamp-1">
+                                <div className="mb-0.5 text-sm font-semibold leading-tight line-clamp-1">
                                     {headline}
                                 </div>
                                 <div className="mb-2 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
@@ -347,7 +347,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                         <span key={item}>{item}</span>
                                     ))}
                                 </div>
-                                <div className="text-[2.4rem] font-black leading-none" style={{ color: template.colors.accent }}>
+                                <div className="text-[2.4rem] font-semibold leading-none" style={{ color: template.colors.accent }}>
                                     {template.priceLabel}
                                 </div>
                                 <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
@@ -361,21 +361,21 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                 className="absolute inset-x-0 top-0 flex items-center justify-between px-4"
                                 style={{ height: '15.5%', background: template.colors.accent }}
                             >
-                                <div className="text-lg font-black leading-tight text-white line-clamp-2 max-w-[75%]">
+                                <div className="text-lg font-semibold leading-tight text-white line-clamp-2 max-w-[75%]">
                                     {headline}
                                 </div>
                                 <img src="/logo.png" alt={template.branding.appName} className="h-7 w-7 object-contain" />
                             </div>
                             <div
                                 className="absolute inset-x-0 bottom-0 p-4"
-                                style={{ background: '#111111', color: '#fff' }}
+                                style={{ background: '#0C0C0E', color: '#fff' }}
                             >
                                 <div className="mb-2 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
                                     {template.highlights.slice(0, 3).map((item) => (
                                         <span key={item}>{item}</span>
                                     ))}
                                 </div>
-                                <div className="text-[2rem] font-black leading-none" style={{ color: template.colors.accent }}>
+                                <div className="text-[2rem] font-semibold leading-none" style={{ color: template.colors.accent }}>
                                     {template.priceLabel}
                                 </div>
                                 <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
@@ -443,7 +443,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                         )}
                                         {/* Título — 1 línea */}
                                         {template.title && (
-                                            <div className="font-black mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
+                                            <div className="font-semibold mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
                                                 {template.title}
                                             </div>
                                         )}
@@ -523,7 +523,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                     )}
                                     {/* Título — 1 línea */}
                                     {template.title && (
-                                        <div className="font-black mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
+                                        <div className="font-semibold mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
                                             {template.title}
                                         </div>
                                     )}
@@ -560,10 +560,10 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                 className="absolute inset-x-0 bottom-0 p-4"
                                 style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.8) 50%)', color: '#fff' }}
                             >
-                                <div className="mb-2 max-w-[80%] text-[2rem] font-black leading-none line-clamp-2">
+                                <div className="mb-2 max-w-[80%] text-[2rem] font-semibold leading-none line-clamp-2">
                                     {headline}
                                 </div>
-                                <div className="text-[2rem] font-black leading-none">
+                                <div className="text-[2rem] font-semibold leading-none">
                                     {template.priceLabel}
                                 </div>
                             </div>
