@@ -11,7 +11,8 @@ export type MediaUploadOptions = {
 
 /**
  * Sube un archivo al endpoint unificado `/api/media/upload`.
- * Las imágenes se optimizan en servidor (WebP) y los objetos huérfanos se limpian al actualizar URLs en la API.
+ * Las imágenes se optimizan en servidor (WebP). La API acepta hasta ~40MB de entrada cruda
+ * y valida el tamaño final optimizado (máx. 10MB en storage).
  */
 export async function uploadMediaFile(
     file: File,

@@ -2,7 +2,6 @@
 @source "../../../../packages/ui/src";
 @source "../../../../packages/auth/src";
 @import "../../../../packages/ui/src/theme-base.css";
-@import "../../../../packages/ui/src/operator-site/operator-site.css";
 
 /*
  * .field-input — alias de .form-input (theme-base) para panel y reservas públicas.

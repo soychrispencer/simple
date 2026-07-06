@@ -30,7 +30,7 @@ import { generateAutosListingDescription, generateAutosListingTitle, isSupported
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { ColorPicker } from '@/components/ui/color-picker';
-import { fetchAddressBook, uploadMediaFile } from '@simple/utils';
+import { fetchAddressBook, uploadMediaFile, optimizeListingPhotoFile } from '@simple/utils';
 import type { AddressBookEntry } from '@simple/types';
 import { createEmptyListingLocation } from '@simple/types';
 
@@ -385,7 +385,7 @@ export default function PublicarPage() {
                     width: 0,
                     height: 0,
                     sizeBytes: (photo.file as File).size,
-                    mimeType: (photo.file as File).type,
+                    mimeType: (photo.file as File).type || 'image/webp',
                 });
             }
 
@@ -918,6 +918,8 @@ function Step1PhotosAndIdentity({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
+    const [processingPhotos, setProcessingPhotos] = useState(false);
+    const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
 
     // DnD sensors
     const sensors = useSensors(
@@ -926,15 +928,39 @@ function Step1PhotosAndIdentity({
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
     );
 
-    const handleFiles = (files: FileList | null) => {
-        if (!files) return;
-        const newPhotos = Array.from(files).slice(0, 20 - form.photos.length).map((file, idx) => ({
-            id: Math.random().toString(36).slice(2),
-            file,
-            preview: URL.createObjectURL(file),
-            isCover: form.photos.length === 0 && idx === 0,
-        }));
-        updateForm('photos', [...form.photos, ...newPhotos]);
+    const handleFiles = async (files: FileList | null) => {
+        if (!files || processingPhotos) return;
+        const toAdd = Array.from(files).slice(0, 20 - form.photos.length);
+        if (toAdd.length === 0) return;
+
+        setProcessingPhotos(true);
+        setPhotoProcessError(null);
+
+        try {
+            const newPhotos: FormData['photos'] = [];
+            for (const sourceFile of toAdd) {
+                const optimized = await optimizeListingPhotoFile(sourceFile);
+                const blob = await fetch(optimized.dataUrl).then((response) => response.blob());
+                const file = new File([blob], optimized.name, { type: optimized.mimeType });
+                newPhotos.push({
+                    id: Math.random().toString(36).slice(2),
+                    file,
+                    preview: optimized.previewUrl,
+                    isCover: false,
+                });
+            }
+
+            const wasEmpty = form.photos.length === 0;
+            const added = newPhotos.map((photo, index) => ({
+                ...photo,
+                isCover: wasEmpty && index === 0,
+            }));
+            updateForm('photos', [...form.photos, ...added]);
+        } catch (error) {
+            setPhotoProcessError(error instanceof Error ? error.message : 'No se pudieron procesar las fotos.');
+        } finally {
+            setProcessingPhotos(false);
+        }
     };
 
     const removePhoto = (id: string) => {
@@ -1031,7 +1057,8 @@ function Step1PhotosAndIdentity({
                             isCover: photo.isCover,
                         }))}
                         recommendedPhotos={5}
-                        onAddFiles={(files) => handleFiles(files)}
+                        photoError={photoProcessError ?? undefined}
+                        onAddFiles={(files) => void handleFiles(files)}
                         onRemovePhoto={removePhoto}
                         onReorderPhotos={(photos) => {
                             const reordered = photos.map((photo, index) => {

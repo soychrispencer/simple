@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     transpilePackages: ['@simple/types', '@simple/config', '@simple/ui', '@simple/utils', '@simple/auth', '@simple/marketplace-header'],
     experimental: {
         optimizePackageImports: ['@tabler/icons-react', '@simple/ui', '@simple/auth'],
+        proxyClientMaxBodySize: '50mb',
     },
     images: {
         remotePatterns: [

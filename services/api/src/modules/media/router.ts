@@ -121,7 +121,8 @@ export function createMediaRouter(deps: MediaRouterDeps) {
 
             // Validar tamaño máximo según tipo
             const MAX_VIDEO_SIZE_MB = 50; // 50MB máximo para videos de 30 seg
-            const MAX_IMAGE_SIZE_MB = 10; // 10MB para imágenes
+            const MAX_RAW_IMAGE_SIZE_MB = 40; // entrada cruda (cámara); se optimiza a WebP antes de guardar
+            const MAX_STORED_IMAGE_SIZE_MB = 10; // límite del archivo ya optimizado en storage
             const MAX_DOCUMENT_SIZE_MB = 20; // 20MB para documentos
             
             const fileSizeMB = (file.size || 0) / (1024 * 1024);
@@ -132,10 +133,10 @@ export function createMediaRouter(deps: MediaRouterDeps) {
                     error: `Video demasiado grande (${fileSizeMB.toFixed(1)}MB). Máximo permitido: ${MAX_VIDEO_SIZE_MB}MB para videos de máximo 30 segundos.` 
                 }, 400);
             }
-            if (fileType === 'image' && fileSizeMB > MAX_IMAGE_SIZE_MB) {
+            if (fileType === 'image' && fileSizeMB > MAX_RAW_IMAGE_SIZE_MB) {
                 return c.json({ 
                     ok: false, 
-                    error: `Imagen demasiado grande (${fileSizeMB.toFixed(1)}MB). Máximo permitido: ${MAX_IMAGE_SIZE_MB}MB.` 
+                    error: `Imagen demasiado grande (${fileSizeMB.toFixed(1)}MB). Máximo permitido: ${MAX_RAW_IMAGE_SIZE_MB}MB antes de optimizar.` 
                 }, 400);
             }
             if (fileType === 'document' && fileSizeMB > MAX_DOCUMENT_SIZE_MB) {
@@ -155,6 +156,13 @@ export function createMediaRouter(deps: MediaRouterDeps) {
             if (fileType === 'image') {
                 const sourceBuffer = await readUploadBuffer(file);
                 const optimized = await optimizeImageForStorage(sourceBuffer, imagePurpose, uploadFileName);
+                const optimizedSizeMB = optimized.buffer.length / (1024 * 1024);
+                if (optimizedSizeMB > MAX_STORED_IMAGE_SIZE_MB) {
+                    return c.json({
+                        ok: false,
+                        error: `La imagen optimizada sigue siendo demasiado grande (${optimizedSizeMB.toFixed(1)}MB). Máximo permitido: ${MAX_STORED_IMAGE_SIZE_MB}MB.`,
+                    }, 400);
+                }
                 uploadFile = new Blob([new Uint8Array(optimized.buffer)], { type: optimized.mimeType });
                 uploadFileName = optimized.fileName;
                 uploadMimeType = optimized.mimeType;

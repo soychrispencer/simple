@@ -1,8 +1,8 @@
-/** Pasos estándar del wizard de publicación (alineado con @simple/utils STANDARD_MARKETPLACE_PUBLISH_STEPS). */
+/** Pasos del wizard de publicación (3 pasos + pantalla final de compartir). */
 export const PROPERTY_PUBLISH_STEPS = [
     { id: 'media' as const, label: 'Multimedia', helper: 'Fotos y video' },
-    { id: 'details' as const, label: 'Detalles', helper: 'Atributos y precio' },
-    { id: 'publish' as const, label: 'Publicar', helper: 'Ubicación y revisión' },
+    { id: 'basics' as const, label: 'Datos básicos', helper: 'Tipo, precio y ubicación' },
+    { id: 'details' as const, label: 'Publicar', helper: 'Texto y confirmación' },
 ];
 
 export type PropertyPublishStepId = (typeof PROPERTY_PUBLISH_STEPS)[number]['id'];

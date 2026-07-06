@@ -41,7 +41,7 @@ import {
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
-import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo } from '@simple/utils';
+import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, optimizeListingPhotoFile } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { useAuth } from '@simple/auth';
@@ -58,9 +58,10 @@ import {
 } from '@simple/utils';
 import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelSummaryCard, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
 import { ListingLocationEditor } from '@simple/ui/location';
+import { useGoogleMapsBrowserKey } from '@simple/ui/address-book';
 import { PROPERTY_PUBLISH_STEPS } from '@/components/panel/publish/publish-steps';
 
-type StepId = 'media' | 'details' | 'publish';
+type StepId = 'media' | 'basics' | 'details';
 type PublishedListing = { id: string; href: string; title: string; hasVideo?: boolean };
 type PropertyOperation = 'sale' | 'rent' | 'project';
 type Currency = 'UF' | 'CLP' | 'USD';
@@ -187,13 +188,13 @@ const PROPERTY_STEP_COPY: Record<StepId, { title: string; description: string }>
         title: 'Fotos y video',
         description: 'Sube lo esencial para tu tarjeta. La primera foto será la portada.',
     },
-    details: {
-        title: 'Detalles del inmueble',
-        description: 'Tipo de operación, atributos, precio y opciones avanzadas.',
+    basics: {
+        title: 'Datos del inmueble',
+        description: 'Operación, tipo, atributos de tarjeta, ubicación y precio.',
     },
-    publish: {
+    details: {
         title: 'Revisar y publicar',
-        description: 'Ubicación, título, descripción y confirmación final.',
+        description: 'Opcional: enriquece la ficha. Al final generamos título y descripción.',
     },
 };
 
@@ -559,6 +560,11 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
     };
 }
 
+function draftPersistableUrl(url: string): string {
+    if (!url || url.startsWith('data:') || url.startsWith('blob:')) return '';
+    return url;
+}
+
 function serializeDraft(data: WizardData, valuationEstimate: PropertyValuationEstimate | null): PersistedDraft {
     return {
         version: 1,
@@ -571,8 +577,8 @@ function serializeDraft(data: WizardData, valuationEstimate: PropertyValuationEs
                 photos: data.media.photos.map((photo) => ({
                     id: photo.id,
                     name: photo.name,
-                    dataUrl: photo.dataUrl,
-                    previewUrl: photo.previewUrl,
+                    dataUrl: draftPersistableUrl(photo.dataUrl),
+                    previewUrl: draftPersistableUrl(photo.previewUrl || photo.dataUrl),
                     isCover: photo.isCover,
                     width: photo.width,
                     height: photo.height,
@@ -583,8 +589,8 @@ function serializeDraft(data: WizardData, valuationEstimate: PropertyValuationEs
                     ? {
                         id: data.media.discoverVideo.id,
                         name: data.media.discoverVideo.name,
-                        dataUrl: data.media.discoverVideo.dataUrl,
-                        previewUrl: data.media.discoverVideo.previewUrl,
+                        dataUrl: draftPersistableUrl(data.media.discoverVideo.dataUrl),
+                        previewUrl: draftPersistableUrl(data.media.discoverVideo.previewUrl || data.media.discoverVideo.dataUrl),
                         width: data.media.discoverVideo.width,
                         height: data.media.discoverVideo.height,
                         sizeBytes: data.media.discoverVideo.sizeBytes,
@@ -687,45 +693,40 @@ function buildValuationRequest(data: WizardData): PropertyValuationRequest | nul
 function validateStep(step: StepId, data: WizardData): Record<string, string> {
     const errors: Record<string, string> = {};
 
-    if (step === 'details') {
+    if (step === 'basics') {
         if (!data.setup.propertyType) errors['setup.propertyType'] = 'Selecciona el tipo de propiedad.';
         if (!data.setup.operationType) errors['setup.operationType'] = 'Selecciona la operación.';
-        if (!data.basic.title.trim()) errors['basic.title'] = 'Ingresa un título para la publicación.';
         if (data.setup.operationType === 'project') {
             if (!data.project.projectName.trim()) errors['project.projectName'] = 'Ingresa el nombre del proyecto.';
             if (!data.project.developerName.trim()) errors['project.developerName'] = 'Ingresa la inmobiliaria o desarrollador.';
-            if (parseNumber(data.project.availableUnits) == null) errors['project.availableUnits'] = 'Ingresa las unidades disponibles.';
-            if (data.project.models.length === 0) {
-                errors['project.models'] = 'Agrega al menos una tipología del proyecto.';
-            }
         } else {
             const pt = data.setup.propertyType;
             const isLand = pt === 'Terreno' || pt === 'Parcela';
             const isResidential = pt === 'Casa' || pt === 'Departamento';
-            if (parseNumber(data.basic.totalArea) == null) errors['basic.totalArea'] = isLand ? 'La superficie del terreno es obligatoria.' : 'La superficie total es obligatoria.';
+            if (parseNumber(data.basic.totalArea) == null) {
+                errors['basic.totalArea'] = isLand ? 'La superficie del terreno es obligatoria.' : 'La superficie total es obligatoria.';
+            }
             if (isResidential) {
                 if (parseNumber(data.basic.rooms) == null) errors['basic.rooms'] = 'Ingresa la cantidad de dormitorios.';
                 if (parseNumber(data.basic.bathrooms) == null) errors['basic.bathrooms'] = 'Ingresa la cantidad de baños.';
             }
         }
         if (parseNumber(data.commercial.price) == null) errors['commercial.price'] = 'Ingresa un precio válido.';
-    }
-
-    if (step === 'publish') {
-        if (data.basic.description.trim().length < 40) errors['basic.description'] = 'La descripción debe tener al menos 40 caracteres.';
         if (!data.location.regionId) errors['location.regionId'] = 'Selecciona la región.';
         if (!data.location.communeId) errors['location.communeId'] = 'Selecciona la comuna.';
         if (!data.location.addressLine1?.trim()) errors['location.addressLine1'] = 'La dirección exacta es obligatoria.';
-        if (data.location.sourceMode === 'saved_address' && !data.location.sourceAddressId) errors['location.sourceAddressId'] = 'Selecciona una dirección guardada.';
-        if (!data.review.acceptTerms) {
-            errors['review.acceptTerms'] = 'Debes aceptar los términos antes de publicar.';
+        if (data.location.sourceMode === 'saved_address' && !data.location.sourceAddressId) {
+            errors['location.sourceAddressId'] = 'Selecciona una dirección guardada.';
         }
     }
 
-    if (step === 'media') {
-        if (data.media.photos.length < 1) errors['media.photos'] = 'Sube al menos 1 foto.';
-        if (data.media.videoUrl.trim() && !isSupportedExternalVideoUrl(data.media.videoUrl.trim())) {
-            errors['media.video'] = 'Usa un enlace de YouTube o Vimeo.';
+    if (step === 'details') {
+        if (!data.basic.title.trim()) errors['basic.title'] = 'Ingresa un título para la publicación.';
+        if (data.basic.description.trim().length < 40) {
+            errors['basic.description'] = 'La descripción debe tener al menos 40 caracteres.';
+        }
+        if (!data.review.acceptTerms) {
+            errors['review.acceptTerms'] = 'Debes aceptar los términos antes de publicar.';
         }
         if (data.media.tour360Url.trim()) {
             try {
@@ -733,6 +734,13 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
             } catch {
                 errors['media.tour360Url'] = 'Usa una URL válida para el tour 360.';
             }
+        }
+    }
+
+    if (step === 'media') {
+        if (data.media.photos.length < 1) errors['media.photos'] = 'Sube al menos 1 foto.';
+        if (data.media.videoUrl.trim() && !isSupportedExternalVideoUrl(data.media.videoUrl.trim())) {
+            errors['media.video'] = 'Usa un enlace de YouTube o Vimeo.';
         }
     }
 
@@ -968,6 +976,30 @@ function Field(props: { label: string; required?: boolean; error?: string; hint?
     );
 }
 
+function PublishSection(props: { title: string; children: React.ReactNode }) {
+    return (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-4 md:p-5 space-y-4">
+            <p className="text-sm font-semibold text-[var(--fg)]">{props.title}</p>
+            {props.children}
+        </section>
+    );
+}
+
+function OptionalPublishSection(props: { title: string; description?: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+    return (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden">
+            <button type="button" onClick={props.onToggle} className="w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left">
+                <span>
+                    <span className="block text-sm font-medium text-[var(--fg)]">{props.title}</span>
+                    {props.description ? <span className="block text-xs mt-0.5 text-[var(--fg-muted)]">{props.description}</span> : null}
+                </span>
+                <span className="text-xs text-[var(--fg-muted)] shrink-0">{props.open ? '−' : '+'}</span>
+            </button>
+            {props.open ? <div className="px-4 pb-4 pt-0 border-t border-[var(--border)]">{props.children}</div> : null}
+        </section>
+    );
+}
+
 function AccordionGroup(props: { title: string; description?: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
     return (
         <section className="border-b pb-3 prop-section-border">
@@ -1046,14 +1078,10 @@ function StepSetup(props: {
             : null;
 
     return (
-        <section className="space-y-6">
-            <h2 className="type-section-title">Tipo y categoría</h2>
+        <section className="space-y-5">
             <MarketplaceOperatorPublishHint message={operatorHint ?? null} />
-            <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.08em] prop-field-hint">
-                    Operación del aviso
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <PublishSection title="Operación">
+                <div className="grid grid-cols-3 gap-2">
                     {OPERATION_CARDS.map((card) => (
                         <PanelChoiceCard
                             key={card.value}
@@ -1063,29 +1091,24 @@ function StepSetup(props: {
                                 commercial: { ...current.commercial, currency: getDefaultCurrencyForOperation(card.value) },
                             }))}
                             selected={data.setup.operationType === card.value}
-                            className="h-20 px-3 text-center"
+                            className="h-16 px-2 text-center"
                         >
-                            <div className="flex h-full flex-col items-center justify-center gap-2">
-                                <span className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0 prop-publish-icon">
+                            <div className="flex h-full flex-col items-center justify-center gap-1.5">
+                                <span className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0 prop-publish-icon">
                                     {card.icon}
                                 </span>
-                                <span className="text-sm font-medium leading-none">{card.label}</span>
+                                <span className="text-xs font-medium leading-none">{card.label}</span>
                                 {recommendedOperation === card.value ? (
-                                    <span className="text-[10px] font-medium uppercase tracking-wide text-(--accent)">
-                                        Recomendado
-                                    </span>
+                                    <span className="text-[9px] font-medium uppercase tracking-wide text-(--accent)">Recomendado</span>
                                 ) : null}
                             </div>
                         </PanelChoiceCard>
                     ))}
                 </div>
                 {errors['setup.operationType'] ? <ErrorText text={errors['setup.operationType']} /> : null}
-            </div>
-            <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.08em] prop-field-hint">
-                    Tipo de propiedad
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2">
+            </PublishSection>
+            <PublishSection title="Tipo de propiedad">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {PROPERTY_TYPE_CARDS.map((option) => (
                         <PanelChoiceCard
                             key={option.value}
@@ -1094,22 +1117,19 @@ function StepSetup(props: {
                                 setup: { ...current.setup, propertyType: option.value },
                             }))}
                             selected={data.setup.propertyType === option.value}
-                            className="min-h-[78px] px-3"
+                            className="min-h-[52px] px-3"
                         >
-                            <div className="flex items-center gap-3">
-                                <span className="h-9 w-9 rounded-full inline-flex items-center justify-center shrink-0 prop-publish-icon">
+                            <div className="flex items-center gap-2.5">
+                                <span className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0 prop-publish-icon">
                                     {option.icon}
                                 </span>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-medium truncate prop-publish-fg">{option.label}</p>
-                                    <p className="text-xs mt-1 prop-field-hint">Define los campos específicos del inmueble.</p>
-                                </div>
+                                <p className="text-sm font-medium truncate prop-publish-fg">{option.label}</p>
                             </div>
                         </PanelChoiceCard>
                     ))}
                 </div>
                 {errors['setup.propertyType'] ? <ErrorText text={errors['setup.propertyType']} /> : null}
-            </div>
+            </PublishSection>
         </section>
     );
 }
@@ -1123,13 +1143,16 @@ function StepBasic(props: {
     communes: Array<{ id: string; name: string }>;
     onGeocodeLocation: () => void | Promise<void>;
     geocoding: boolean;
-    variant?: 'full' | 'details' | 'location';
+    variant?: 'full' | 'basics' | 'extended' | 'location';
     showRentAdminFields?: boolean;
+    omitTitle?: boolean;
+    flat?: boolean;
+    googleMapsApiKey?: string;
 }) {
-    const { data, setData, errors, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding, variant = 'full', showRentAdminFields = false } = props;
+    const { data, setData, errors, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding, variant = 'full', showRentAdminFields = false, omitTitle = false, flat = false, googleMapsApiKey } = props;
     const [openSections, setOpenSections] = useState<Record<'main' | 'secondary' | 'location', boolean>>({
         main: true,
-        secondary: variant !== 'details',
+        secondary: variant === 'extended',
         location: true,
     });
     const isProject = data.setup.operationType === 'project';
@@ -1145,121 +1168,115 @@ function StepBasic(props: {
     };
 
     const showLocation = variant === 'full' || variant === 'location';
-    const showDetails = variant === 'full' || variant === 'details';
+    const showMain = variant === 'full' || variant === 'basics';
+    const showSecondary = variant === 'full' || variant === 'extended';
+
+    const locationTitle = 'Ubicación';
+    const mainTitle = isProject ? 'Proyecto' : 'Inmueble';
+    const secondaryTitle = isProject ? 'Tipologías y rangos' : 'Más atributos';
+
+    const locationBody = (
+        <ListingLocationEditor
+            showHeader={false}
+            framed={false}
+            simpleMode
+            googleMapsApiKey={googleMapsApiKey}
+            location={data.location}
+            onChange={(next) => setData((current) => ({ ...current, location: next }))}
+            regions={LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name }))}
+            communes={communes.map((item) => ({ value: item.id, label: item.name }))}
+            allCommunes={LOCATION_COMMUNES.map((item) => ({ value: item.id, label: item.name }))}
+            addressBook={addressBook}
+            addressBookLoading={addressBookLoading}
+            errors={{
+                regionId: errors['location.regionId'],
+                communeId: errors['location.communeId'],
+                sourceAddressId: errors['location.sourceAddressId'],
+                addressLine1: errors['location.addressLine1'],
+            }}
+            allowAreaOnly={false}
+            addressRequired
+            addressFirst
+            showSourceSelector={false}
+            showVisibilityField={false}
+            showGoogleMapsLink
+            showPublicPreviewCard={false}
+            showActionBar={false}
+            geocoding={geocoding}
+            onGeocode={onGeocodeLocation}
+        />
+    );
 
     return (
-        <section className="space-y-4">
-            {showDetails ? (
-                variant === 'details' ? null : (
+        <section className={flat ? 'space-y-5' : 'space-y-4'}>
+            {!flat && (showMain || showSecondary) ? (
+                variant === 'extended' ? (
+                <h2 className="type-section-title">{isProject ? 'Detalles del proyecto' : 'Atributos adicionales'}</h2>
+                ) : (
                 <h2 className="type-section-title">{isProject ? 'Datos del proyecto' : 'Datos del inmueble'}</h2>
                 )
-            ) : (
+            ) : !flat && !showMain && !showSecondary ? (
                 <h2 className="type-section-title">Ubicación</h2>
-            )}
-            {showRentAdminFields && data.setup.operationType === 'rent' && showDetails ? (
+            ) : null}
+            {showRentAdminFields && data.setup.operationType === 'rent' && showMain ? (
                 <MarketplacePropiedadesRentAdminHint />
             ) : null}
 
             {showLocation ? (
+                flat ? (
+                    <PublishSection title={locationTitle}>{locationBody}</PublishSection>
+                ) : (
             <AccordionGroup
                 title="Ubicación del aviso"
                 description="Elige una dirección guardada o escribe una nueva. Completa dirección, región y comuna y decide si quieres ocultar la dirección exacta."
                 open={openSections.location}
                 onToggle={() => setOpenSections((current) => ({ ...current, location: !current.location }))}
             >
-                <ListingLocationEditor
-                    showHeader={false}
-                    framed={false}
-                    simpleMode
-                    location={data.location}
-                    onChange={(next) => setData((current) => ({ ...current, location: next }))}
-                    regions={LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name }))}
-                    communes={communes.map((item) => ({ value: item.id, label: item.name }))}
-                    allCommunes={LOCATION_COMMUNES.map((item) => ({ value: item.id, label: item.name }))}
-                    addressBook={addressBook}
-                    addressBookLoading={addressBookLoading}
-                    errors={{
-                        regionId: errors['location.regionId'],
-                        communeId: errors['location.communeId'],
-                        sourceAddressId: errors['location.sourceAddressId'],
-                        addressLine1: errors['location.addressLine1'],
-                    }}
-                    allowAreaOnly={false}
-                    addressRequired
-                    addressFirst
-                    showSourceSelector={false}
-                    showVisibilityField={false}
-                    showGoogleMapsLink
-                    showPublicPreviewCard={false}
-                    showActionBar={false}
-                    geocoding={geocoding}
-                    onGeocode={onGeocodeLocation}
-                />
+                {locationBody}
             </AccordionGroup>
+                )
             ) : null}
 
-            {showDetails ? (
-            <>
-            <AccordionGroup
-                title={isProject ? 'Identidad del proyecto' : variant === 'details' ? 'Datos esenciales' : 'Datos principales'}
-                description={isProject ? 'Nombre del proyecto, inmobiliaria, etapa, entrega y descripción comercial.' : variant === 'details' ? 'Programa, superficie y condición. Lo mínimo para publicar rápido.' : 'Titular, descripción y atributos obligatorios del inmueble.'}
-                open={openSections.main}
-                onToggle={() => setOpenSections((current) => ({ ...current, main: !current.main }))}
-            >
+            {showMain ? (
+            flat ? (
+            <PublishSection title={mainTitle}>
                 {isProject ? (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            {!omitTitle ? (
                             <Field label="Título publicitario" required error={errors['basic.title']} hint="Titular comercial que aparecerá en la publicación.">
                                 <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Proyecto con entrega inmediata en Ñuñoa" />
                             </Field>
+                            ) : null}
                             <Field label="Nombre del proyecto" required error={errors['project.projectName']} hint="Nombre comercial o nombre del condominio.">
                                 <input className="form-input" value={data.project.projectName} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, projectName: event.target.value } }))} placeholder="Ej: Vista Parque Ñuñoa" />
                             </Field>
                             <Field label="Inmobiliaria / desarrollador" required error={errors['project.developerName']}>
                                 <input className="form-input" value={data.project.developerName} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, developerName: event.target.value } }))} placeholder="Ej: Inmobiliaria Andes" />
                             </Field>
-                            <Field label="Constructora">
-                                <input className="form-input" value={data.project.builderName} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, builderName: event.target.value } }))} placeholder="Ej: Constructora Central" />
-                            </Field>
-                            <Field label="Etapa comercial" required error={errors['project.salesStage']}>
+                            <Field label="Etapa comercial">
                                 <ModernSelect value={data.project.salesStage} onChange={(value) => setData((current) => ({ ...current, project: { ...current.project, salesStage: value } }))} placeholder="Seleccionar" options={PROJECT_SALES_STAGE_OPTIONS} ariaLabel="Seleccionar etapa comercial" />
                             </Field>
-                            <Field label="Estado de entrega" required error={errors['project.deliveryStatus']}>
+                            <Field label="Estado de entrega">
                                 <ModernSelect value={data.project.deliveryStatus} onChange={(value) => setData((current) => ({ ...current, project: { ...current.project, deliveryStatus: value } }))} placeholder="Seleccionar" options={PROJECT_DELIVERY_STATUS_OPTIONS} ariaLabel="Seleccionar estado de entrega" />
-                            </Field>
-                            <Field label="Entrega estimada">
-                                <input className="form-input" type="date" value={data.project.deliveryDate} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, deliveryDate: event.target.value } }))} />
-                            </Field>
-                            <Field label="Unidades disponibles" required error={errors['project.availableUnits']}>
-                                <input className="form-input" type="number" min={0} value={data.project.availableUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, availableUnits: event.target.value } }))} placeholder="24" />
-                            </Field>
-                            <Field label="Unidades totales">
-                                <input className="form-input" type="number" min={0} value={data.project.totalUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, totalUnits: event.target.value } }))} placeholder="80" />
                             </Field>
                             <Field label="Condición">
                                 <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
                             </Field>
                         </div>
-                        {variant !== 'details' ? (
-                        <Field label="Descripción" required error={errors['basic.description']}>
-                            <textarea className="form-textarea" rows={5} value={data.basic.description} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, description: event.target.value } }))} placeholder="Describe el proyecto, sus diferenciales, entorno, conectividad, amenidades y por qué destaca frente a otras alternativas." />
-                            <p className="text-xs mt-1 prop-field-hint">{data.basic.description.length} / 2500</p>
-                        </Field>
-                        ) : null}
                     </>
                 ) : (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            {!omitTitle ? (
+                            <Field label="Título publicitario" required error={errors['basic.title']} hint="Titular comercial que aparecerá en la tarjeta.">
+                                <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Departamento 3D+2B en Providencia" />
+                            </Field>
+                            ) : null}
                             <Field label="Condición">
                                 <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
                             </Field>
                         </div>
-                        {variant !== 'details' ? (
-                        <Field label="Descripción" required error={errors['basic.description']}>
-                            <textarea className="form-textarea" rows={5} value={data.basic.description} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, description: event.target.value } }))} placeholder="Distribución, terminaciones, orientación, entorno, conectividad y cualquier ventaja competitiva del inmueble." />
-                            <p className="text-xs mt-1 prop-field-hint">{data.basic.description.length} / 2500</p>
-                        </Field>
-                        ) : null}
                         {(() => {
                             const pt = data.setup.propertyType;
                             const isLand = pt === 'Terreno' || pt === 'Parcela';
@@ -1305,18 +1322,117 @@ function StepBasic(props: {
                         })()}
                     </>
                 )}
+            </PublishSection>
+            ) : (
+            <>
+            <AccordionGroup
+                title={isProject ? 'Identidad del proyecto' : 'Datos esenciales'}
+                description={isProject ? 'Nombre, desarrollador y etapa comercial del proyecto.' : 'Programa, superficie y condición. Lo que aparece en la tarjeta.'}
+                open={openSections.main}
+                onToggle={() => setOpenSections((current) => ({ ...current, main: !current.main }))}
+            >
+                {isProject ? (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            {!omitTitle ? (
+                            <Field label="Título publicitario" required error={errors['basic.title']} hint="Titular comercial que aparecerá en la publicación.">
+                                <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Proyecto con entrega inmediata en Ñuñoa" />
+                            </Field>
+                            ) : null}
+                            <Field label="Nombre del proyecto" required error={errors['project.projectName']} hint="Nombre comercial o nombre del condominio.">
+                                <input className="form-input" value={data.project.projectName} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, projectName: event.target.value } }))} placeholder="Ej: Vista Parque Ñuñoa" />
+                            </Field>
+                            <Field label="Inmobiliaria / desarrollador" required error={errors['project.developerName']}>
+                                <input className="form-input" value={data.project.developerName} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, developerName: event.target.value } }))} placeholder="Ej: Inmobiliaria Andes" />
+                            </Field>
+                            <Field label="Etapa comercial">
+                                <ModernSelect value={data.project.salesStage} onChange={(value) => setData((current) => ({ ...current, project: { ...current.project, salesStage: value } }))} placeholder="Seleccionar" options={PROJECT_SALES_STAGE_OPTIONS} ariaLabel="Seleccionar etapa comercial" />
+                            </Field>
+                            <Field label="Estado de entrega">
+                                <ModernSelect value={data.project.deliveryStatus} onChange={(value) => setData((current) => ({ ...current, project: { ...current.project, deliveryStatus: value } }))} placeholder="Seleccionar" options={PROJECT_DELIVERY_STATUS_OPTIONS} ariaLabel="Seleccionar estado de entrega" />
+                            </Field>
+                            <Field label="Condición">
+                                <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
+                            </Field>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            {!omitTitle ? (
+                            <Field label="Título publicitario" required error={errors['basic.title']} hint="Titular comercial que aparecerá en la tarjeta.">
+                                <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Departamento 3D+2B en Providencia" />
+                            </Field>
+                            ) : null}
+                            <Field label="Condición">
+                                <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
+                            </Field>
+                        </div>
+                        {(() => {
+                            const pt = data.setup.propertyType;
+                            const isLand = pt === 'Terreno' || pt === 'Parcela';
+                            const isOficina = pt === 'Oficina';
+                            const isResidential = pt === 'Casa' || pt === 'Departamento';
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+                                    <Field label={isLand ? 'Superficie del terreno (m²)' : 'Superficie total (m²)'} required error={errors['basic.totalArea']}><input className="form-input" type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder={isLand ? '500' : '92'} /></Field>
+                                    {isResidential && (
+                                        <>
+                                            <Field label="Dormitorios" required error={errors['basic.rooms']}><div className="relative"><IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" /></div></Field>
+                                            <Field label="Baños" required error={errors['basic.bathrooms']}><div className="relative"><IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" /></div></Field>
+                                            <Field label="Superficie útil (m²)"><input className="form-input" type="number" min={0} value={data.basic.usableArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, usableArea: event.target.value } }))} placeholder="84" /></Field>
+                                            <Field label="Estacionamientos"><input className="form-input" type="number" min={0} value={data.basic.parkingSpaces} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, parkingSpaces: event.target.value } }))} placeholder="1" /></Field>
+                                            <Field label="Bodegas"><input className="form-input" type="number" min={0} value={data.basic.storageUnits} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, storageUnits: event.target.value } }))} placeholder="1" /></Field>
+                                            <Field label="Admite mascotas">
+                                                <ModernSelect value={data.basic.petsAllowed} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, petsAllowed: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si admite mascotas" />
+                                            </Field>
+                                            <Field label="Amoblado">
+                                                <ModernSelect value={data.basic.furnished} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, furnished: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si está amoblado" />
+                                            </Field>
+                                        </>
+                                    )}
+                                    {(isLand || !isResidential) && (
+                                        <Field label="Uso de suelo / tipo de local">
+                                            <ModernSelect value={data.basic.commercialUse} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, commercialUse: value } }))} placeholder="Seleccionar" options={COMMERCIAL_USE_OPTIONS} ariaLabel="Seleccionar uso de suelo" />
+                                        </Field>
+                                    )}
+                                    {isOficina && (
+                                        <Field label="Nro. piso">
+                                            <input className="form-input" type="number" min={0} value={data.basic.floorNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, floorNumber: event.target.value } }))} placeholder="5" />
+                                        </Field>
+                                    )}
+                                </div>
+                            );
+                        })()}
+                    </>
+                )}
             </AccordionGroup>
 
+            {showSecondary ? (
             <AccordionGroup
-                title={isProject ? 'Tipologías y rangos del proyecto' : variant === 'details' ? 'Más detalles (opcional)' : 'Características secundarias'}
-                description={isProject ? 'Rangos generales del proyecto y detalle por tipología o unidad modelo.' : variant === 'details' ? 'Completa solo si quieres enriquecer la ficha. No es obligatorio para publicar.' : 'Campos adicionales para alinear la ficha con portales inmobiliarios grandes.'}
+                title={secondaryTitle}
+                description={isProject ? 'Rangos generales, tipologías y datos adicionales del proyecto.' : 'Campos adicionales para enriquecer la ficha. Todo es opcional.'}
                 open={openSections.secondary}
                 onToggle={() => setOpenSections((current) => ({ ...current, secondary: !current.secondary }))}
             >
                 {isProject ? (
                     <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <Field label="Constructora">
+                                <input className="form-input" value={data.project.builderName} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, builderName: event.target.value } }))} placeholder="Ej: Constructora Central" />
+                            </Field>
+                            <Field label="Entrega estimada">
+                                <input className="form-input" type="date" value={data.project.deliveryDate} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, deliveryDate: event.target.value } }))} />
+                            </Field>
+                            <Field label="Unidades disponibles">
+                                <input className="form-input" type="number" min={0} value={data.project.availableUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, availableUnits: event.target.value } }))} placeholder="24" />
+                            </Field>
+                            <Field label="Unidades totales">
+                                <input className="form-input" type="number" min={0} value={data.project.totalUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, totalUnits: event.target.value } }))} placeholder="80" />
+                            </Field>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                            <Field label="Superficie útil desde (m²)" required error={errors['project.usableAreaFrom']}><input className="form-input" type="number" min={0} value={data.project.usableAreaFrom} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, usableAreaFrom: event.target.value } }))} placeholder="39" /></Field>
+                            <Field label="Superficie útil desde (m²)"><input className="form-input" type="number" min={0} value={data.project.usableAreaFrom} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, usableAreaFrom: event.target.value } }))} placeholder="39" /></Field>
                             <Field label="Superficie útil hasta (m²)"><input className="form-input" type="number" min={0} value={data.project.usableAreaTo} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, usableAreaTo: event.target.value } }))} placeholder="112" /></Field>
                             <Field label="Superficie total desde (m²)"><input className="form-input" type="number" min={0} value={data.project.totalAreaFrom} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, totalAreaFrom: event.target.value } }))} placeholder="45" /></Field>
                             <Field label="Superficie total hasta (m²)"><input className="form-input" type="number" min={0} value={data.project.totalAreaTo} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, totalAreaTo: event.target.value } }))} placeholder="130" /></Field>
@@ -1372,14 +1488,14 @@ function StepBasic(props: {
                                     <div key={model.id} className="rounded-2xl border p-3 prop-publish-card">
                                         <div className="xl:grid xl:grid-cols-[minmax(180px,1.3fr)_80px_80px_120px_120px_140px_140px_86px] xl:gap-2 xl:items-start">
                                             <div className="mb-3 xl:mb-0">
-                                                <Field label="Tipología" required error={errors[`project.models.${index}.label`]}>
+                                                <Field label="Tipología" error={errors[`project.models.${index}.label`]}>
                                                     <input className="form-input" value={model.label} onChange={(event) => updateProjectModel(model.id, { label: event.target.value })} placeholder="Ej: Tipo A / 2D+2B" />
                                                 </Field>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3 xl:contents">
-                                                <Field label="Dorm." required error={errors[`project.models.${index}.bedrooms`]}><input className="form-input" type="number" min={0} value={model.bedrooms} onChange={(event) => updateProjectModel(model.id, { bedrooms: event.target.value })} placeholder="2" /></Field>
-                                                <Field label="Baños" required error={errors[`project.models.${index}.bathrooms`]}><input className="form-input" type="number" min={0} value={model.bathrooms} onChange={(event) => updateProjectModel(model.id, { bathrooms: event.target.value })} placeholder="2" /></Field>
-                                                <Field label="m² útiles" required error={errors[`project.models.${index}.usableAreaFrom`]}>
+                                                <Field label="Dorm." error={errors[`project.models.${index}.bedrooms`]}><input className="form-input" type="number" min={0} value={model.bedrooms} onChange={(event) => updateProjectModel(model.id, { bedrooms: event.target.value })} placeholder="2" /></Field>
+                                                <Field label="Baños" error={errors[`project.models.${index}.bathrooms`]}><input className="form-input" type="number" min={0} value={model.bathrooms} onChange={(event) => updateProjectModel(model.id, { bathrooms: event.target.value })} placeholder="2" /></Field>
+                                                <Field label="m² útiles" error={errors[`project.models.${index}.usableAreaFrom`]}>
                                                     <div className="grid grid-cols-2 gap-2">
                                                         <input className="form-input" type="number" min={0} value={model.usableAreaFrom} onChange={(event) => updateProjectModel(model.id, { usableAreaFrom: event.target.value })} placeholder="52" />
                                                         <input className="form-input" type="number" min={0} value={model.usableAreaTo} onChange={(event) => updateProjectModel(model.id, { usableAreaTo: event.target.value })} placeholder="58" />
@@ -1391,7 +1507,7 @@ function StepBasic(props: {
                                                         <input className="form-input" type="number" min={0} value={model.totalAreaTo} onChange={(event) => updateProjectModel(model.id, { totalAreaTo: event.target.value })} placeholder="66" />
                                                     </div>
                                                 </Field>
-                                                <Field label="Precio desde" required error={errors[`project.models.${index}.priceFrom`]}><input className="form-input" type="number" min={0} value={model.priceFrom} onChange={(event) => updateProjectModel(model.id, { priceFrom: event.target.value })} placeholder="4200" /></Field>
+                                                <Field label="Precio desde" error={errors[`project.models.${index}.priceFrom`]}><input className="form-input" type="number" min={0} value={model.priceFrom} onChange={(event) => updateProjectModel(model.id, { priceFrom: event.target.value })} placeholder="4200" /></Field>
                                                 <Field label="Precio hasta"><input className="form-input" type="number" min={0} value={model.priceTo} onChange={(event) => updateProjectModel(model.id, { priceTo: event.target.value })} placeholder="4700" /></Field>
                                             </div>
                                             <div className="mt-3 xl:mt-0 xl:pt-7 flex justify-end">
@@ -1448,20 +1564,22 @@ function StepBasic(props: {
                     </>
                 )}
             </AccordionGroup>
+            ) : null}
             </>
+            )
             ) : null}
 
         </section>
     );
 }
 
-function StepSpecs(props: { data: WizardData; setData: WizardSetter }) {
-    const { data, setData } = props;
+function StepSpecs(props: { data: WizardData; setData: WizardSetter; minimal?: boolean }) {
+    const { data, setData, minimal = false } = props;
     const [openSections, setOpenSections] = useState<Record<'amenities' | 'services' | 'environment' | 'security', boolean>>({
-        amenities: true,
-        services: true,
-        environment: true,
-        security: true,
+        amenities: false,
+        services: false,
+        environment: false,
+        security: false,
     });
 
     const toggleSpecCode = (scope: 'amenityCodes' | 'serviceCodes' | 'environmentCodes' | 'securityCodes', code: string) => {
@@ -1477,10 +1595,12 @@ function StepSpecs(props: { data: WizardData; setData: WizardSetter }) {
     };
 
     return (
-        <section className="space-y-4">
+        <section className="space-y-2">
+            {!minimal ? (
             <h2 className="type-section-title">{data.setup.operationType === 'project' ? 'Características del proyecto' : 'Características y equipamiento'}</h2>
+            ) : null}
 
-            <AccordionGroup title="Comodidades y equipamiento" description={data.setup.operationType === 'project' ? 'Amenidades del proyecto, espacios comunes y atributos diferenciales de la comunidad.' : 'Amenidades, equipamiento del edificio y atributos de valor percibido.'} open={openSections.amenities} onToggle={() => setOpenSections((current) => ({ ...current, amenities: !current.amenities }))}>
+            <AccordionGroup title="Comodidades y equipamiento" description={data.setup.operationType === 'project' ? 'Amenidades del proyecto y espacios comunes.' : 'Amenidades y equipamiento del edificio.'} open={openSections.amenities} onToggle={() => setOpenSections((current) => ({ ...current, amenities: !current.amenities }))}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
                     {AMENITY_OPTIONS.map((item) => (
                         <SelectableChip key={item.code} label={item.label} active={data.specs.amenityCodes.includes(item.code)} onToggle={() => toggleSpecCode('amenityCodes', item.code)} />
@@ -1545,24 +1665,50 @@ function SortablePhotoTile({ photo, index, onRemove }: { photo: PanelMediaAsset;
 function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
     const { data, setData, errors } = props;
     const videoInputRef = useRef<HTMLInputElement>(null);
+    const [processingPhotos, setProcessingPhotos] = useState(false);
+    const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
 
-    const handleFiles = (files: FileList) => {
-        Array.from(files).slice(0, MAX_PHOTOS - data.media.photos.length).forEach((file) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-                const dataUrl = reader.result as string;
-                const newPhoto: PanelMediaAsset = {
+    const handleFiles = async (files: FileList) => {
+        if (processingPhotos) return;
+        const toAdd = Array.from(files).slice(0, MAX_PHOTOS - data.media.photos.length);
+        if (toAdd.length === 0) return;
+
+        setProcessingPhotos(true);
+        setPhotoProcessError(null);
+
+        try {
+            const newPhotos: PanelMediaAsset[] = [];
+            for (const file of toAdd) {
+                const optimized = await optimizeListingPhotoFile(file);
+                newPhotos.push({
                     id: Math.random().toString(36).slice(2),
-                    name: file.name,
-                    dataUrl,
-                    previewUrl: dataUrl,
-                    isCover: data.media.photos.length === 0,
-                    width: 0, height: 0, sizeBytes: file.size, mimeType: file.type || 'image/jpeg',
+                    name: optimized.name,
+                    dataUrl: optimized.dataUrl,
+                    previewUrl: optimized.previewUrl,
+                    isCover: false,
+                    width: optimized.width,
+                    height: optimized.height,
+                    sizeBytes: optimized.sizeBytes,
+                    mimeType: optimized.mimeType,
+                });
+            }
+
+            setData((current) => {
+                const wasEmpty = current.media.photos.length === 0;
+                const added = newPhotos.map((photo, index) => ({
+                    ...photo,
+                    isCover: wasEmpty && index === 0,
+                }));
+                return {
+                    ...current,
+                    media: { ...current.media, photos: [...current.media.photos, ...added] },
                 };
-                setData((current) => ({ ...current, media: { ...current.media, photos: [...current.media.photos, newPhoto] } }));
-            };
-            reader.readAsDataURL(file);
-        });
+            });
+        } catch (error) {
+            setPhotoProcessError(error instanceof Error ? error.message : 'No se pudieron procesar las fotos.');
+        } finally {
+            setProcessingPhotos(false);
+        }
     };
 
     const removePhoto = (id: string) => {
@@ -1633,7 +1779,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                 }))}
                 maxPhotos={MAX_PHOTOS}
                 recommendedPhotos={8}
-                photoError={errors['media.photos']}
+                photoError={photoProcessError || errors['media.photos']}
                 onAddFiles={handleFiles}
                 onRemovePhoto={removePhoto}
                 onReorderPhotos={(photos) => {
@@ -1682,57 +1828,43 @@ function StepCommercial(props: {
     onRefreshValuationSources: () => void | Promise<void>;
     lifecyclePolicy: PublicationLifecyclePolicy;
     compact?: boolean;
+    hidePrice?: boolean;
 }) {
-    const { data, setData, errors, estimate, estimating, valuationRequest, onRunValuation, lifecyclePolicy, compact = false } = props;
+    const { data, setData, errors, estimate, estimating, valuationRequest, onRunValuation, lifecyclePolicy, compact = false, hidePrice = false } = props;
     const isProject = data.setup.operationType === 'project';
 
     if (compact) {
         return (
-            <section className="space-y-4">
-                <h2 className="type-section-title">Precio</h2>
-                <PanelCard size="md" className="space-y-4">
-                    {isProject ? (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                            <Field label="Precio desde" required error={errors['commercial.price']}>
-                                <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
-                                    <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder="4200" />
-                                    <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
-                                </div>
-                            </Field>
-                            <Field label="Precio hasta">
-                                <input className="form-input" type="number" min={0} value={data.commercial.priceTo} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: event.target.value } }))} placeholder="5600" />
-                            </Field>
+            <PublishSection title="Precio">
+                {isProject ? (
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <Field label="Precio desde" required error={errors['commercial.price']}>
+                            <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
+                                <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder="4200" />
+                                <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
+                            </div>
+                        </Field>
+                        <Field label="Precio hasta">
+                            <input className="form-input" type="number" min={0} value={data.commercial.priceTo} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: event.target.value } }))} placeholder="5600" />
+                        </Field>
+                    </div>
+                ) : (
+                    <Field label="Precio" required error={errors['commercial.price']}>
+                        <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
+                            <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder={data.setup.operationType === 'rent' ? '650000' : '5200'} />
+                            <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                            <Field label="Precio" required error={errors['commercial.price']}>
-                                <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
-                                    <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder={data.setup.operationType === 'rent' ? '650000' : '5200'} />
-                                    <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
-                                </div>
-                            </Field>
-                            <Field label="Disponible desde">
-                                <input className="form-input" type="date" value={data.commercial.availableFrom} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, availableFrom: event.target.value } }))} />
-                            </Field>
-                        </div>
-                    )}
-                    {!isProject ? (
-                        <ToggleCard title="Precio negociable" description="Indica si el valor es conversable." active={data.commercial.negotiable} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, negotiable: !current.commercial.negotiable } }))} />
-                    ) : null}
-                </PanelCard>
-                <PanelNotice tone="neutral">{lifecyclePolicy.notice}</PanelNotice>
-            </section>
+                    </Field>
+                )}
+            </PublishSection>
         );
     }
 
     return (
-        <section className={compact ? 'space-y-4' : 'grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]'}>
+        <section className={compact ? 'space-y-4' : 'space-y-4'}>
             <div className="space-y-4">
-                <h2 className="type-section-title">{isProject ? 'Precio y proyecto' : 'Precio y publicación'}</h2>
-                <PanelNotice tone="neutral">
-                    {lifecyclePolicy.notice}
-                </PanelNotice>
-                <AccordionGroup title={isProject ? 'Precio y disponibilidad del proyecto' : 'Precio y disponibilidad'} description={isProject ? 'Rango comercial del proyecto, moneda y fecha desde la que se puede comercializar.' : 'Valor de publicación, gastos comunes y fecha de disponibilidad real del inmueble.'} open={true} onToggle={() => {}}>
+                {!hidePrice ? (
+                <AccordionGroup title={isProject ? 'Precio y disponibilidad del proyecto' : 'Precio y disponibilidad'} description={isProject ? 'Rango comercial del proyecto y moneda.' : 'Valor de publicación, gastos comunes y disponibilidad.'} open={true} onToggle={() => {}}>
                     {isProject ? (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
@@ -1772,9 +1904,24 @@ function StepCommercial(props: {
                         </>
                     )}
                 </AccordionGroup>
+                ) : (
+                    !isProject ? (
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Field label="Disponible desde">
+                                    <input className="form-input" type="date" value={data.commercial.availableFrom} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, availableFrom: event.target.value } }))} />
+                                </Field>
+                                <Field label="Gastos comunes">
+                                    <input className="form-input" type="number" min={0} value={data.commercial.commonExpenses} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, commonExpenses: event.target.value } }))} placeholder="150000" />
+                                </Field>
+                            </div>
+                            <ToggleCard title="Precio negociable" description="Indica si el valor es conversable." active={data.commercial.negotiable} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, negotiable: !current.commercial.negotiable } }))} />
+                        </div>
+                    ) : null
+                )}
 
-                {!isProject ? (
-                    <AccordionGroup title="Condiciones comerciales" description="Opciones útiles para cerrar mejor el aviso, sin mezclar promoción." open={true} onToggle={() => {}}>
+                {!hidePrice && !isProject ? (
+                    <AccordionGroup title="Condiciones comerciales" description="Opciones útiles para cerrar mejor el aviso." open={true} onToggle={() => {}}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             <ToggleCard title="Precio negociable" description="Deja claro si hay espacio para conversar el valor." active={data.commercial.negotiable} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, negotiable: !current.commercial.negotiable } }))} />
                         </div>
@@ -1858,6 +2005,131 @@ function StepCommercial(props: {
     );
 }
 
+function StepBasics(props: {
+    data: WizardData;
+    setData: WizardSetter;
+    errors: Record<string, string>;
+    operatorHint?: string | null;
+    operatorContext?: PropiedadesOperatorPublishContext | null;
+    addressBook: AddressBookEntry[];
+    addressBookLoading: boolean;
+    communes: Array<{ id: string; name: string }>;
+    onGeocodeLocation: () => void | Promise<void>;
+    geocoding: boolean;
+    lifecyclePolicy: PublicationLifecyclePolicy;
+    estimate: PropertyValuationEstimate | null;
+    estimating: boolean;
+    valuationSources: PropertyValuationSourceStatus[];
+    refreshingSources: boolean;
+    valuationRequest: PropertyValuationRequest | null;
+    onRunValuation: () => void | Promise<void>;
+    onRefreshValuationSources: () => void | Promise<void>;
+    googleMapsApiKey?: string;
+}) {
+    const {
+        data,
+        setData,
+        errors,
+        operatorHint,
+        operatorContext,
+        addressBook,
+        addressBookLoading,
+        communes,
+        onGeocodeLocation,
+        geocoding,
+        lifecyclePolicy,
+        googleMapsApiKey,
+        ...commercialProps
+    } = props;
+
+    return (
+        <div className="space-y-5">
+            <StepSetup data={data} setData={setData} errors={errors} operatorHint={operatorHint} operatorContext={operatorContext} />
+            <StepBasic
+                data={data}
+                setData={setData}
+                errors={errors}
+                addressBook={addressBook}
+                addressBookLoading={addressBookLoading}
+                communes={communes}
+                onGeocodeLocation={onGeocodeLocation}
+                geocoding={geocoding}
+                variant="basics"
+                flat
+                omitTitle
+                googleMapsApiKey={googleMapsApiKey}
+                showRentAdminFields={operatorContext?.showRentAdminFields ?? false}
+            />
+            <StepBasic
+                data={data}
+                setData={setData}
+                errors={errors}
+                addressBook={addressBook}
+                addressBookLoading={addressBookLoading}
+                communes={communes}
+                onGeocodeLocation={onGeocodeLocation}
+                geocoding={geocoding}
+                variant="location"
+                flat
+                googleMapsApiKey={googleMapsApiKey}
+            />
+            <StepCommercial
+                data={data}
+                setData={setData}
+                errors={errors}
+                lifecyclePolicy={lifecyclePolicy}
+                compact
+                {...commercialProps}
+            />
+        </div>
+    );
+}
+
+function StepDetailsExtras(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
+    const { data, setData, errors } = props;
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="Tour 360 (URL)" error={errors['media.tour360Url']}>
+                <input className="form-input" value={data.media.tour360Url} onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, tour360Url: event.target.value } }))} placeholder="https://..." />
+            </Field>
+            <Field label="Nombre de contacto">
+                <input className="form-input" value={data.commercial.contactName} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, contactName: event.target.value } }))} placeholder="Ej: María González" />
+            </Field>
+            <Field label="Teléfono">
+                <input className="form-input" value={data.commercial.contactPhone} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, contactPhone: event.target.value } }))} placeholder="+56 9 1234 5678" />
+            </Field>
+            <Field label="WhatsApp">
+                <input className="form-input" value={data.commercial.contactWhatsapp} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, contactWhatsapp: event.target.value } }))} placeholder="+56 9 1234 5678" />
+            </Field>
+            <Field label="Email">
+                <input className="form-input" type="email" value={data.commercial.contactEmail} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, contactEmail: event.target.value } }))} placeholder="contacto@inmobiliaria.cl" />
+            </Field>
+            <Field label="Slug / URL" hint="Opcional. Se genera desde el título si lo dejas vacío.">
+                <input className="form-input" value={data.commercial.slug} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, slug: event.target.value } }))} placeholder="departamento-3d-providencia" />
+            </Field>
+        </div>
+    );
+}
+
+function buildPropertyCopyInput(data: WizardData, communes: Array<{ id: string; name: string }>) {
+    return {
+        operationType: data.setup.operationType,
+        propertyType: data.setup.propertyType,
+        rooms: data.basic.rooms,
+        bathrooms: data.basic.bathrooms,
+        totalArea: data.basic.totalArea,
+        usableArea: data.basic.usableArea,
+        communeName: data.location.communeName || communes.find((item) => item.id === data.location.communeId)?.name,
+        regionName: data.location.regionName,
+        priceLabel: buildPriceLabel(data),
+        condition: data.basic.condition,
+        projectName: data.project.projectName,
+        developerName: data.project.developerName,
+        platformName: 'SimplePropiedades',
+    };
+}
+
 function StepDetails(props: {
     data: WizardData;
     setData: WizardSetter;
@@ -1877,113 +2149,92 @@ function StepDetails(props: {
     lifecyclePolicy: PublicationLifecyclePolicy;
     onGeocodeLocation: () => void | Promise<void>;
     geocoding: boolean;
+    googleMapsApiKey?: string;
 }) {
-    const { data, setData, errors, operatorHint, operatorContext, lifecyclePolicy, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding, ...commercialProps } = props;
-    return (
-        <div className="space-y-6">
-            <StepSetup data={data} setData={setData} errors={errors} operatorHint={operatorHint} operatorContext={operatorContext} />
-            <StepBasic
-                data={data}
-                setData={setData}
-                errors={errors}
-                addressBook={addressBook}
-                addressBookLoading={addressBookLoading}
-                communes={communes}
-                onGeocodeLocation={onGeocodeLocation}
-                geocoding={geocoding}
-                variant="details"
-                showRentAdminFields={operatorContext?.showRentAdminFields ?? false}
-            />
-            <StepCommercial
-                data={data}
-                setData={setData}
-                errors={errors}
-                lifecyclePolicy={lifecyclePolicy}
-                compact
-                {...commercialProps}
-            />
-        </div>
-    );
-}
-
-function StepPublish(props: {
-    data: WizardData;
-    setData: WizardSetter;
-    errors: Record<string, string>;
-    addressBook: AddressBookEntry[];
-    addressBookLoading: boolean;
-    communes: Array<{ id: string; name: string }>;
-    onGeocodeLocation: () => void | Promise<void>;
-    geocoding: boolean;
-    lifecyclePolicy: PublicationLifecyclePolicy;
-}) {
-    const {
-        data,
-        setData,
-        errors,
-        addressBook,
-        addressBookLoading,
-        communes,
-        onGeocodeLocation,
-        geocoding,
-        lifecyclePolicy,
-    } = props;
-
-    const propertyCopyInput = {
-        operationType: data.setup.operationType,
-        propertyType: data.setup.propertyType,
-        rooms: data.basic.rooms,
-        bathrooms: data.basic.bathrooms,
-        totalArea: data.basic.totalArea,
-        usableArea: data.basic.usableArea,
-        communeName: data.location.communeName || communes.find((item) => item.id === data.location.communeId)?.name,
-        regionName: data.location.regionName,
-        priceLabel: buildPriceLabel(data),
-        condition: data.basic.condition,
-        projectName: data.project.projectName,
-        developerName: data.project.developerName,
-        platformName: 'SimplePropiedades',
-    };
+    const { data, setData, errors, lifecyclePolicy, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding, googleMapsApiKey, ...commercialProps } = props;
+    const [openSections, setOpenSections] = useState<Record<'attrs' | 'specs' | 'commercial' | 'extras', boolean>>({
+        attrs: false,
+        specs: false,
+        commercial: false,
+        extras: false,
+    });
+    const propertyCopyInput = buildPropertyCopyInput(data, communes);
 
     return (
-        <div className="space-y-8">
-            <div className="space-y-2">
-                <h2 className="type-section-title">Revisa y publica</h2>
-                <p className="text-sm text-(--fg-secondary)">
-                    Confirma título, descripción y ubicación. Simple es tu canal principal; después podrás compartir donde tengas integraciones activas.
+        <div className="space-y-4">
+            <OptionalPublishSection
+                title="Atributos adicionales"
+                description="Superficies, tipologías y datos extra del inmueble."
+                open={openSections.attrs}
+                onToggle={() => setOpenSections((current) => ({ ...current, attrs: !current.attrs }))}
+            >
+                <StepBasic
+                    data={data}
+                    setData={setData}
+                    errors={errors}
+                    addressBook={addressBook}
+                    addressBookLoading={addressBookLoading}
+                    communes={communes}
+                    onGeocodeLocation={onGeocodeLocation}
+                    geocoding={geocoding}
+                    variant="extended"
+                />
+            </OptionalPublishSection>
+            <OptionalPublishSection
+                title="Equipamiento"
+                description="Comodidades, servicios y ambientes."
+                open={openSections.specs}
+                onToggle={() => setOpenSections((current) => ({ ...current, specs: !current.specs }))}
+            >
+                <StepSpecs data={data} setData={setData} minimal />
+            </OptionalPublishSection>
+            <OptionalPublishSection
+                title="Condiciones comerciales"
+                description="Gastos comunes, tasador y opciones de venta."
+                open={openSections.commercial}
+                onToggle={() => setOpenSections((current) => ({ ...current, commercial: !current.commercial }))}
+            >
+                <StepCommercial
+                    data={data}
+                    setData={setData}
+                    errors={errors}
+                    lifecyclePolicy={lifecyclePolicy}
+                    hidePrice
+                    {...commercialProps}
+                />
+            </OptionalPublishSection>
+            <OptionalPublishSection
+                title="Contacto y enlaces"
+                description="Tour 360, contacto y URL personalizada."
+                open={openSections.extras}
+                onToggle={() => setOpenSections((current) => ({ ...current, extras: !current.extras }))}
+            >
+                <StepDetailsExtras data={data} setData={setData} errors={errors} />
+            </OptionalPublishSection>
+
+            <PublishSection title="Título y descripción">
+                <p className="text-xs text-[var(--fg-muted)] -mt-1 mb-3">
+                    Se generan según los datos que ingresaste. Puedes editarlos antes de publicar.
                 </p>
-            </div>
-
-            <MarketplaceListingCopyFields
-                title={data.basic.title}
-                description={data.basic.description}
-                titleError={errors['basic.title']}
-                descriptionError={errors['basic.description']}
-                onTitleChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, title: value } }))}
-                onDescriptionChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, description: value } }))}
-                onRegenerateTitle={() => setData((current) => ({
-                    ...current,
-                    basic: { ...current.basic, title: generatePropertyListingTitle(propertyCopyInput) },
-                }))}
-                onRegenerateDescription={() => setData((current) => ({
-                    ...current,
-                    basic: { ...current.basic, description: generatePropertyListingDescription(propertyCopyInput) },
-                }))}
-                titlePlaceholder="Ej: Departamento 3D+2B en Providencia"
-                descriptionPlaceholder="Describe distribución, entorno y ventajas del inmueble."
-            />
-
-            <StepBasic
-                data={data}
-                setData={setData}
-                errors={errors}
-                addressBook={addressBook}
-                addressBookLoading={addressBookLoading}
-                communes={communes}
-                onGeocodeLocation={onGeocodeLocation}
-                geocoding={geocoding}
-                variant="location"
-            />
+                <MarketplaceListingCopyFields
+                    title={data.basic.title}
+                    description={data.basic.description}
+                    titleError={errors['basic.title']}
+                    descriptionError={errors['basic.description']}
+                    onTitleChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, title: value } }))}
+                    onDescriptionChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, description: value } }))}
+                    onRegenerateTitle={() => setData((current) => ({
+                        ...current,
+                        basic: { ...current.basic, title: generatePropertyListingTitle(propertyCopyInput) },
+                    }))}
+                    onRegenerateDescription={() => setData((current) => ({
+                        ...current,
+                        basic: { ...current.basic, description: generatePropertyListingDescription(propertyCopyInput) },
+                    }))}
+                    titlePlaceholder={data.setup.operationType === 'project' ? 'Ej: Proyecto con entrega inmediata en Ñuñoa' : 'Ej: Departamento 3D+2B en Providencia'}
+                    descriptionPlaceholder="Describe distribución, entorno y ventajas del inmueble."
+                />
+            </PublishSection>
 
             <StepReview
                 data={data}
@@ -1999,9 +2250,7 @@ function StepReview(props: { data: WizardData; errors: Record<string, string>; s
     const { data, errors, setData, lifecyclePolicy } = props;
 
     return (
-        <section className="space-y-5">
-            <ListingLivePreview data={data} />
-
+        <section className="space-y-3">
             <label className={`flex items-start gap-3 rounded-2xl border px-4 py-3 prop-terms-box ${errors['review.acceptTerms'] ? 'prop-terms-box--error' : ''}`}>
                 <input type="checkbox" checked={data.review.acceptTerms} onChange={(event) => setData((current) => ({ ...current, review: { ...current.review, acceptTerms: event.target.checked } }))} className="mt-1" />
                 <span className="text-sm text-(--fg-secondary)">
@@ -2111,6 +2360,7 @@ export default function PublishWizardPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { requireAuth, refreshSession } = useAuth();
+    const googleMapsApiKey = useGoogleMapsBrowserKey();
     const editingId = searchParams.get('edit');
     const isEditing = Boolean(editingId);
     const planLimit = useMarketplacePublishPlanLimit('propiedades');
@@ -2279,7 +2529,7 @@ export default function PublishWizardPage() {
     }, [draftSavedNote]);
 
     useEffect(() => {
-        if (step !== 'publish') return;
+        if (step !== 'details') return;
         if (data.basic.title.trim() && data.basic.description.trim()) return;
         const copyInput = {
             operationType: data.setup.operationType,
@@ -2585,14 +2835,14 @@ export default function PublishWizardPage() {
         );
     }
 
-    const continueLabel = step === 'publish'
+    const continueLabel = step === 'details'
         ? (isEditing ? 'Guardar en Simple' : 'Publicar en Simple')
         : 'Continuar';
 
     return (
         <SimplePublishLayout
             title="Nueva publicación"
-            subtitle={isEditing ? 'Actualiza los datos de tu aviso.' : 'Multimedia, detalles y publicación.'}
+            subtitle={isEditing ? 'Actualiza los datos de tu aviso.' : 'Multimedia, datos esenciales y publicación.'}
             steps={STEPS.map((item) => ({ key: item.id, label: item.label, helper: item.helper }))}
             stepIndex={stepIndex}
             isEditing={isEditing}
@@ -2610,10 +2860,10 @@ export default function PublishWizardPage() {
             headerContinue={{
                 label: continueLabel,
                 onClick: () => {
-                    if (step === 'publish') void publishNow();
+                    if (step === 'details') void publishNow();
                     else goNext();
                 },
-                disabled: publishing || editingLoading || editLoadFailed || (step === 'publish' && publishBlocked),
+                disabled: publishing || editingLoading || editLoadFailed || (step === 'details' && publishBlocked),
                 loading: publishing,
             }}
             notices={(
@@ -2634,8 +2884,8 @@ export default function PublishWizardPage() {
                 preview={<SimplePublishPreviewCard {...buildPropertyPreviewCardProps(data)} />}
             >
                 {step === 'media' && <StepMedia data={data} setData={setData} errors={errors} />}
-                {step === 'details' && (
-                    <StepDetails
+                {step === 'basics' && (
+                    <StepBasics
                         data={data}
                         setData={setData}
                         errors={errors}
@@ -2654,10 +2904,11 @@ export default function PublishWizardPage() {
                         onRunValuation={runValuation}
                         onRefreshValuationSources={refreshValuationConnectors}
                         lifecyclePolicy={lifecyclePolicy}
+                        googleMapsApiKey={googleMapsApiKey}
                     />
                 )}
-                {step === 'publish' && (
-                    <StepPublish
+                {step === 'details' && (
+                    <StepDetails
                         data={data}
                         setData={setData}
                         errors={errors}
@@ -2666,22 +2917,30 @@ export default function PublishWizardPage() {
                         communes={communes}
                         onGeocodeLocation={refreshLocationMap}
                         geocoding={geocoding}
+                        estimate={estimate}
+                        estimating={estimating}
+                        valuationSources={valuationSources}
+                        refreshingSources={refreshingSources}
+                        valuationRequest={valuationRequest}
+                        onRunValuation={runValuation}
+                        onRefreshValuationSources={refreshValuationConnectors}
                         lifecyclePolicy={lifecyclePolicy}
+                        googleMapsApiKey={googleMapsApiKey}
                     />
                 )}
                 <SimplePublishCtaCard
                     label={continueLabel}
-                    loadingLabel={step === 'publish'
+                    loadingLabel={step === 'details'
                         ? (isEditing ? 'Guardando...' : 'Publicando...')
                         : undefined}
                     onClick={() => {
-                        if (step === 'publish') void publishNow();
+                        if (step === 'details') void publishNow();
                         else goNext();
                     }}
-                    disabled={publishing || editingLoading || editLoadFailed || (step === 'publish' && publishBlocked)}
+                    disabled={publishing || editingLoading || editLoadFailed || (step === 'details' && publishBlocked)}
                     loading={publishing}
-                    hint={step === 'publish' ? 'Al publicar, tu aviso quedará visible en SimplePropiedades de inmediato.' : undefined}
-                    icon={step === 'publish' ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
+                    hint={step === 'details' ? 'Al publicar, tu aviso quedará visible en SimplePropiedades de inmediato.' : undefined}
+                    icon={step === 'details' ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
                 />
             </SimplePublishPageFrame>
         </SimplePublishLayout>
