@@ -12,13 +12,20 @@ import type {
     SubscriptionPlan,
     SubscriptionPlanId,
 } from '@simple/utils';
-import { fetchAccountBusinessLegal, fetchAccountPublicProfile } from '@simple/utils';
+import {
+    fetchAccountBusinessLegal,
+    fetchAccountPublicProfile,
+    isPlatformLaunchActive,
+    PLATFORM_LAUNCH_APP_LABELS,
+    type PlatformLaunchVertical,
+} from '@simple/utils';
 import { AccountSubscriptionBillingModal } from './account-subscription-billing-modal.js';
 import { ACCOUNT_SUBSCRIPTION_BILLING_BUTTON } from './account-copy.js';
 import { SUBSCRIPTION_BILLING_HISTORY } from './finance-copy.js';
 import { PanelButton } from './panel-button';
 import { PanelCard } from './panel-card';
 import { PanelBlockHeader, PanelNotice, PanelStatusBadge } from './panel-primitives';
+import { MarketplaceSubscriptionLaunchNotice } from './marketplace-subscription-launch-notice.js';
 
 function formatMoney(value: number, currency: 'CLP' | 'USD' = 'CLP'): string {
     if (currency === 'USD') {
@@ -92,6 +99,8 @@ export type SubscriptionManagerProps = SubscriptionManagerPayments & {
     marketplaceMode?: boolean;
     /** Vertical marketplace para detectar operador empresa. */
     marketplaceVertical?: PublicProfileVertical;
+    /** Vertical con modo lanzamiento (Agenda, Serenatas, o marketplace). */
+    launchVertical?: PlatformLaunchVertical;
     /** Apps sin perfil marketplace (ej. Agenda) pueden resolver si el operador es empresa. */
     fetchCompanyBillingContext?: () => Promise<{ isCompany: boolean } | null>;
 };
@@ -103,6 +112,7 @@ export function SubscriptionManager({
     subscriptionsPath = '/panel/mi-cuenta/suscripcion',
     marketplaceMode = false,
     marketplaceVertical,
+    launchVertical,
     fetchCompanyBillingContext,
 }: SubscriptionManagerProps) {
     const searchParams = useSearchParams();
@@ -263,6 +273,20 @@ export function SubscriptionManager({
     };
 
     const freeListingLimit = catalog?.freePlan?.maxListings ?? 3;
+
+    const effectiveLaunchVertical: PlatformLaunchVertical | null =
+        launchVertical
+        ?? (marketplaceVertical === 'autos' || marketplaceVertical === 'propiedades'
+            ? marketplaceVertical
+            : null);
+
+    if (effectiveLaunchVertical && isPlatformLaunchActive(effectiveLaunchVertical)) {
+        return (
+            <MarketplaceSubscriptionLaunchNotice
+                appLabel={PLATFORM_LAUNCH_APP_LABELS[effectiveLaunchVertical]}
+            />
+        );
+    }
 
     return (
         <div className="space-y-6">

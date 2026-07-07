@@ -39,7 +39,6 @@ export function ListingDistributionSection({
     const [marking, setMarking] = useState(false);
     const [clearing, setClearing] = useState(false);
     const [fbPublished, setFbPublished] = useState(false);
-    const [fbExternalUrl, setFbExternalUrl] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -56,7 +55,6 @@ export function ListingDistributionSection({
             });
             const facebook = result.item.integrations.find((item) => item.portal === 'facebook');
             setFbPublished(facebook?.status === 'published');
-            setFbExternalUrl(facebook?.externalUrl ?? null);
         }
         setLoading(false);
     }, [listingId]);
@@ -72,7 +70,6 @@ export function ListingDistributionSection({
         if (!result.ok) return;
         if (result.distribution) setChannels(result.distribution);
         setFbPublished(true);
-        setFbExternalUrl(externalUrl);
         void load();
     }
 
@@ -83,7 +80,6 @@ export function ListingDistributionSection({
         if (!result.ok) return;
         if (result.distribution) setChannels(result.distribution);
         setFbPublished(false);
-        setFbExternalUrl(null);
         void load();
     }
 
@@ -104,7 +100,6 @@ export function ListingDistributionSection({
                 marking,
                 clearing,
                 initialPublished: fbPublished,
-                initialExternalUrl: fbExternalUrl,
                 onMarkPublished: handleMarkPublished,
                 onClearPublished: handleClearPublished,
             }}

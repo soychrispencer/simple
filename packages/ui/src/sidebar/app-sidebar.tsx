@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { IconChevronLeft, IconChevronRight, IconUser } from '@tabler/icons-react';
 import { resolveAccountAvatarUrl } from '@simple/utils';
-import { cleanPanelPath, resolveActiveNavHref } from '../panel/resolve-active-nav';
+import { resolveActiveNavHref } from '../panel/resolve-active-nav';
+import { PanelGroupedNavList } from '../panel/panel-grouped-nav-list';
 
 type TablerIcon = ComponentType<{ size?: number; stroke?: number }>;
 
@@ -14,6 +15,7 @@ export interface NavItem {
     label: string;
     icon: TablerIcon;
     badge?: string;
+    section?: string;
 }
 
 export interface UserInfo {
@@ -33,10 +35,6 @@ export interface SidebarProps {
     footerHref?: string | null;
     footerLabel?: string;
     footerIcon?: TablerIcon;
-}
-
-function cleanHref(href: string): string {
-    return href.split('#')[0] ?? href;
 }
 
 function SidebarAvatar({ user, className = 'w-8 h-8 rounded-[10px]' }: { user: UserInfo; className?: string }) {
@@ -87,9 +85,6 @@ export function Sidebar({
         if (activeHref) return activeHref;
         return resolveActiveNavHref(pathname, navItems);
     }, [activeHref, pathname, navItems]);
-
-    const isActive = (href: string) =>
-        resolvedActiveHref != null && cleanPanelPath(resolvedActiveHref) === cleanPanelPath(href);
 
     const showExpanded = !collapsed || hovered;
     const userName = user?.name || 'Usuario';
@@ -168,67 +163,11 @@ export function Sidebar({
                     ) : null}
                 </div>
 
-                <nav className="pr-1 space-y-2">
-                    {navItems.map((item) => {
-                        const Icon = item.icon;
-                        const active = isActive(item.href);
-
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                prefetch
-                                scroll={false}
-                                aria-current={active ? 'page' : undefined}
-                                className={`group relative flex h-11 items-center rounded-xl text-sm transition-colors hover:bg-[var(--bg-subtle)] ${
-                                    collapsed ? 'justify-center px-1.5' : 'gap-2.5 px-2.5'
-                                }`}
-                                style={{
-                                    background: active ? 'var(--bg-subtle)' : 'transparent',
-                                    color: active ? 'var(--fg)' : 'var(--fg-secondary)',
-                                }}
-                            >
-                                <span
-                                    className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
-                                    style={{
-                                        borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
-                                        background: active ? 'var(--button-primary-bg)' : 'transparent',
-                                        color: active ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
-                                        boxShadow: active ? 'var(--shadow-xs)' : 'none',
-                                    }}
-                                >
-                                    <Icon size={17} stroke={1.9} />
-                                </span>
-
-                                {!collapsed ? (
-                                    <span className="min-w-0 flex-1 flex items-center justify-between gap-2">
-                                        <span className="truncate text-sm font-medium">{item.label}</span>
-                                        {item.badge ? (
-                                            <span
-                                                className="text-[10px] font-medium px-1.5 py-[0.2rem] rounded-[5px] border uppercase tracking-[0.04em]"
-                                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
-                                            >
-                                                {item.badge}
-                                            </span>
-                                        ) : null}
-                                    </span>
-                                ) : (
-                                    <span
-                                        className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-60 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-[10px] border px-2.5 py-1.5 text-sm font-medium opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
-                                        style={{
-                                            background: 'var(--surface)',
-                                            borderColor: 'var(--border)',
-                                            color: 'var(--fg)',
-                                            boxShadow: 'var(--shadow-sm)',
-                                        }}
-                                    >
-                                        {item.label}
-                                    </span>
-                                )}
-                            </Link>
-                        );
-                    })}
-                </nav>
+                <PanelGroupedNavList
+                    items={navItems}
+                    activeHref={resolvedActiveHref}
+                    collapsed={collapsed}
+                />
 
                 {footerHref ? (
                     <div className="pt-3 mt-3 border-t" style={{ borderColor: 'var(--border)' }}>

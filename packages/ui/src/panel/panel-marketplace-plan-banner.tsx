@@ -15,6 +15,7 @@ export type PanelMarketplacePlanBannerProps = {
     subscriptionHref: string;
     miNegocioHref?: string;
     loading?: boolean;
+    launchMode?: boolean;
 };
 
 function formatListingLimit(maxListings: number): string {
@@ -30,13 +31,14 @@ export function PanelMarketplacePlanBanner({
     subscriptionHref,
     miNegocioHref = '/panel/mi-negocio',
     loading = false,
+    launchMode = false,
 }: PanelMarketplacePlanBannerProps) {
     if (loading) return null;
 
-    const atLimit = maxListings >= 0 && listingCount >= maxListings;
-    const nearLimit = maxListings >= 0 && listingCount >= Math.max(1, maxListings - 1);
-    const showProfileCta = billingStatus === 'free' || billingStatus === 'expired';
-    const showUpgradeCta = atLimit || billingStatus === 'expired';
+    const atLimit = !launchMode && maxListings >= 0 && listingCount >= maxListings;
+    const nearLimit = !launchMode && maxListings >= 0 && listingCount >= Math.max(1, maxListings - 1);
+    const showProfileCta = !launchMode && (billingStatus === 'free' || billingStatus === 'expired');
+    const showUpgradeCta = !launchMode && (atLimit || billingStatus === 'expired');
 
     return (
         <PanelCard size="md" className="space-y-4">
@@ -46,7 +48,10 @@ export function PanelMarketplacePlanBanner({
                 className="mb-0"
             />
             <div className="flex flex-wrap items-center gap-2">
-                <PanelStatusBadge label={planLabel} tone={billingStatus === 'trial' ? 'info' : billingStatus === 'pro' ? 'success' : 'neutral'} />
+                <PanelStatusBadge
+                    label={planLabel}
+                    tone={launchMode ? 'info' : billingStatus === 'trial' ? 'info' : billingStatus === 'pro' ? 'success' : 'neutral'}
+                />
                 <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>
                     {listingCount}/{formatListingLimit(maxListings)} avisos
                 </span>
@@ -56,6 +61,12 @@ export function PanelMarketplacePlanBanner({
                     </span>
                 ) : null}
             </div>
+
+            {launchMode ? (
+                <PanelNotice tone="info">
+                    Período de lanzamiento: publicaciones y perfil público sin límites de plan. Los planes de suscripción se activarán próximamente.
+                </PanelNotice>
+            ) : null}
 
             {atLimit ? (
                 <PanelNotice tone="warning">

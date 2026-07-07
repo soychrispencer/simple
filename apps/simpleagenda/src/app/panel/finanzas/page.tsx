@@ -17,6 +17,7 @@ import {
     IconChartBar,
     IconLock,
 } from '@tabler/icons-react';
+import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import {
     fetchAgendaPayments,
     createAgendaPayment,
@@ -33,7 +34,6 @@ import {
 import { fmtCLP, fmtDateMedium as fmtDate } from '@/lib/format';
 import { vocab } from '@/lib/vocabulary';
 import { AGENDA_FINANCE_PAGE } from '@simple/ui/panel';
-import { useEscapeClose } from '@/lib/use-modal-a11y';
 
 const METHOD_LABELS: Record<string, string> = {
     transfer: 'Transferencia',
@@ -152,10 +152,6 @@ export default function PagosPage() {
     }, []);
 
     useEffect(() => { void load(); }, [load]);
-
-    useEscapeClose(showCreate, () => setShowCreate(false));
-    useEscapeClose(editingPayment !== null, () => setEditingPayment(null));
-    useEscapeClose(confirmDeleteId !== null, () => setConfirmDeleteId(null));
 
     const pending = useMemo(() => payments.filter((p) => p.status === 'pending'), [payments]);
     const totalPendingAmount = useMemo(() => pending.reduce((s, p) => s + Number(p.amount), 0), [pending]);
@@ -665,26 +661,33 @@ export default function PagosPage() {
 
             {/* Create modal */}
             {showCreate && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="pagos-create-title">
-                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowCreate(false)} />
-                    <div
-                        className="relative w-full max-w-md rounded-2xl border p-5 max-h-[90vh] overflow-y-auto"
-                        style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
-                    >
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 id="pagos-create-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Registrar cobro</h2>
+                <AgendaScrollModal
+                    title="Registrar cobro"
+                    titleId="pagos-create-title"
+                    size="md"
+                    onClose={() => setShowCreate(false)}
+                    footer={(
+                        <div className="flex gap-3">
                             <button
-                                type="button"
-                                aria-label="Cerrar"
-                                onClick={() => setShowCreate(false)}
-                                className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
-                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                onClick={() => void handleCreate()}
+                                disabled={creating}
+                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                                style={{ background: 'var(--accent)', color: '#fff' }}
                             >
-                                <IconX size={14} />
+                                {creating && <IconLoader2 size={14} className="animate-spin" />}
+                                {creating ? 'Guardando...' : 'Registrar'}
+                            </button>
+                            <button
+                                onClick={() => setShowCreate(false)}
+                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            >
+                                Cancelar
                             </button>
                         </div>
-
-                        <div className="flex flex-col gap-4">
+                    )}
+                >
+                    <div className="flex flex-col gap-4">
                             {/* Client */}
                             {clients.length > 0 && (
                                 <div className="flex flex-col gap-1.5">
@@ -804,51 +807,39 @@ export default function PagosPage() {
                             {createError && (
                                 <p className="text-sm" style={{ color: '#dc2626' }}>{createError}</p>
                             )}
-
-                            <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                                <button
-                                    onClick={() => void handleCreate()}
-                                    disabled={creating}
-                                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                    style={{ background: 'var(--accent)', color: '#fff' }}
-                                >
-                                    {creating && <IconLoader2 size={14} className="animate-spin" />}
-                                    {creating ? 'Guardando...' : 'Registrar'}
-                                </button>
-                                <button
-                                    onClick={() => setShowCreate(false)}
-                                    className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                                >
-                                    Cancelar
-                                </button>
-                            </div>
-                        </div>
                     </div>
-                </div>
+                </AgendaScrollModal>
             )}
 
             {/* Edit payment modal */}
             {editingPayment && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="pagos-edit-title">
-                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditingPayment(null)} />
-                    <div
-                        className="relative w-full max-w-sm rounded-2xl border p-5"
-                        style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
-                    >
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 id="pagos-edit-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Editar cobro</h2>
+                <AgendaScrollModal
+                    title="Editar cobro"
+                    titleId="pagos-edit-title"
+                    size="md"
+                    onClose={() => setEditingPayment(null)}
+                    footer={(
+                        <div className="flex gap-3">
                             <button
-                                type="button"
-                                aria-label="Cerrar"
-                                onClick={() => setEditingPayment(null)}
-                                className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
-                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                onClick={() => void handleSaveEdit()}
+                                disabled={editSaving || !editAmount || Number(editAmount) <= 0}
+                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                                style={{ background: 'var(--accent)', color: '#fff' }}
                             >
-                                <IconX size={14} />
+                                {editSaving && <IconLoader2 size={14} className="animate-spin" />}
+                                {editSaving ? 'Guardando...' : 'Guardar cambios'}
+                            </button>
+                            <button
+                                onClick={() => setEditingPayment(null)}
+                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            >
+                                Cancelar
                             </button>
                         </div>
-                        <div className="flex flex-col gap-4">
+                    )}
+                >
+                    <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Monto (CLP) *</label>
                                 <input
@@ -888,27 +879,8 @@ export default function PagosPage() {
                                     className="field-input"
                                 />
                             </div>
-                            <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                                <button
-                                    onClick={() => void handleSaveEdit()}
-                                    disabled={editSaving || !editAmount || Number(editAmount) <= 0}
-                                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                    style={{ background: 'var(--accent)', color: '#fff' }}
-                                >
-                                    {editSaving && <IconLoader2 size={14} className="animate-spin" />}
-                                    {editSaving ? 'Guardando...' : 'Guardar cambios'}
-                                </button>
-                                <button
-                                    onClick={() => setEditingPayment(null)}
-                                    className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                                >
-                                    Cancelar
-                                </button>
-                            </div>
-                        </div>
                     </div>
-                </div>
+                </AgendaScrollModal>
             )}
 
         </div>

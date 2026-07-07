@@ -191,10 +191,14 @@ export type SavedListingRecord = {
     href: string;
     title: string;
     price: string;
+    image?: string;
+    images?: string[];
     location?: string;
     subtitle?: string;
     meta?: string[];
     badge?: string;
+    section?: BoostSection;
+    videoUrl?: string;
     sellerName?: string;
     sellerMeta?: string;
     savedAt: number;

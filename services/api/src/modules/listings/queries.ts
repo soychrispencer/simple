@@ -1,9 +1,9 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, or } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { listings } from '../../db/schema.js';
 import type { PublicListingSearchQuery } from '../public/listing-search.js';
 import { buildPublicListingSearchSqlConditions } from './public-search-sql.js';
-import { extractListingSlugCandidate } from './public-present.js';
+import { buildListingHrefCandidates } from './href-slug.js';
 
 /**
  * Lectura de listing por ID directamente desde PostgreSQL (sin Map en memoria).
@@ -35,9 +35,14 @@ export async function fetchListingRowsForPanel(input: {
 
 /** Slug público — `listings.href_slug` en PostgreSQL. */
 export async function fetchListingRowByHrefSlug(slugLike: string) {
-    const slug = extractListingSlugCandidate(slugLike);
-    if (!slug) return null;
-    const rows = await db.select().from(listings).where(eq(listings.hrefSlug, slug)).limit(1);
+    const candidates = buildListingHrefCandidates(slugLike);
+    if (candidates.length === 0) return null;
+
+    const rows = await db
+        .select()
+        .from(listings)
+        .where(or(...candidates.map((candidate) => eq(listings.hrefSlug, candidate))))
+        .limit(1);
     return rows[0] ?? null;
 }
 

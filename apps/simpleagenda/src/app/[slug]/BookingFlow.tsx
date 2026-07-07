@@ -18,7 +18,7 @@ import {
     IconVideo,
 } from '@tabler/icons-react';
 import { fetchPublicSlots, bookAppointment, validatePublicPromo, type TimeSlot, type PaymentMethods, type RecurrenceFrequency } from '@/lib/agenda-api';
-import { useEscapeClose } from '@/lib/use-modal-a11y';
+import { PanelScrollModal } from '@simple/ui/panel';
 import { detectBrowserTimezone, timezoneShortLabel, resolveBookingModality, bookingTermsFromRecord } from '@simple/utils';
 
 type PreconsultField = { id: string; label: string; type: 'text' | 'textarea' | 'select' | 'checkbox' | 'number'; required: boolean; placeholder?: string; options?: string[] };
@@ -197,6 +197,19 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
 
     const close = () => setStep('idle');
 
+    const bookingStepTitle = (() => {
+        switch (step) {
+            case 'date': return 'Elige una fecha';
+            case 'time': return 'Elige un horario';
+            case 'info': return 'Tus datos';
+            case 'preconsult': return 'Antes de tu cita';
+            case 'encuadre': return 'Condiciones de atención';
+            case 'payment': return 'Pago anticipado';
+            case 'confirmed': return '¡Cita reservada!';
+            default: return '';
+        }
+    })();
+
     const handleApplyPromo = async () => {
         const code = promoCode.trim().toUpperCase();
         if (!code || !selectedService) return;
@@ -227,8 +240,6 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
         setPromoCode('');
         setPromoError(null);
     };
-
-    useEscapeClose(step !== 'idle', close);
 
     // Calendar grid helpers
     const maxDate = new Date(today);
@@ -465,37 +476,22 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                 </div>
             ) : null}
 
-            {/* Booking modal */}
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="booking-step-title">
-                <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={close} />
-                <div
-                    className="relative w-full max-w-md rounded-2xl border overflow-hidden booking-modal booking-modal-scroll"
-                >
-                    {/* Modal header */}
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-(--border)">
-                        <div>
-                            <p className="text-xs booking-muted">{selectedService?.name}</p>
-                            <p id="booking-step-title" className="text-sm font-semibold booking-fg">
-                                {step === 'date' && 'Elige una fecha'}
-                                {step === 'time' && 'Elige un horario'}
-                                {step === 'info' && 'Tus datos'}
-                                {step === 'preconsult' && 'Antes de tu cita'}
-                                {step === 'encuadre' && 'Condiciones de atención'}
-                                {step === 'payment' && 'Pago anticipado'}
-                                {step === 'confirmed' && '¡Cita reservada!'}
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            aria-label="Cerrar"
-                            onClick={close}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) booking-btn-outline"
-                        >
-                            <IconX size={14} />
-                        </button>
-                    </div>
-
-                    <div className="p-5">
+            <PanelScrollModal
+                onClose={close}
+                size="md"
+                zIndexClass="z-50"
+                overlayClassName="bg-black/40 backdrop-blur-[2px]"
+                panelClassName="booking-modal"
+                titleId="booking-step-title"
+                headerContent={(
+                    <>
+                        <p className="text-xs booking-muted">{selectedService?.name}</p>
+                        <p id="booking-step-title" className="text-sm font-semibold booking-fg">
+                            {bookingStepTitle}
+                        </p>
+                    </>
+                )}
+            >
                         {/* Step: Date picker */}
                         {step === 'date' && (
                             <div>
@@ -1082,9 +1078,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                 <IconAlertCircle size={14} /> {submitError}
                             </div>
                         )}
-                    </div>
-                </div>
-            </div>
+            </PanelScrollModal>
 
         </>
     );

@@ -6,6 +6,7 @@ import { IconMoon, IconSun } from '@tabler/icons-react';
 import { MarketplaceHeader } from '@simple/marketplace-header';
 import { ThemeToggleButton } from '@simple/ui/theme';
 import { PanelButton } from '@simple/ui/panel';
+import { resolveOperatorLandingCopy } from '@simple/utils';
 import { clearSavedMariachisCache, syncSavedMariachisFromApi } from '@/lib/saved-mariachis';
 
 type PublicLink = { href: string; label: string };
@@ -26,6 +27,7 @@ type LandingHeaderProps = {
 };
 
 export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublicLinks }: LandingHeaderProps) {
+    const copy = resolveOperatorLandingCopy('serenatas');
     const savedMariachis = useMemo(
         () => ({ clearCache: clearSavedMariachisCache, syncFromApi: syncSavedMariachisFromApi }),
         [],
@@ -65,7 +67,7 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                         className="hidden h-10 px-4 sm:inline-flex"
                         onClick={onRegister}
                     >
-                        Probar gratis
+                        {copy.headerCta}
                     </PanelButton>
                 </>
             }
@@ -91,7 +93,7 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                             onRegister();
                         }}
                     >
-                        Probar gratis
+                        {copy.headerCta}
                     </PanelButton>
                     <div className="my-2 border-t border-border" role="presentation" />
                     {publicLinks.map((l) => (

@@ -3,6 +3,8 @@ import { db } from '../../db/index.js';
 import { agendaAppointments, agendaClients, agendaProfessionalProfiles } from '../../db/schema.js';
 import { defaultTrialEndsAt } from '../billing/trial-config.js';
 
+import { isPlatformLaunchActive } from '@simple/utils';
+
 export async function getAgendaProfile(userId: string) {
     return db.query.agendaProfessionalProfiles.findFirst({
         where: eq(agendaProfessionalProfiles.userId, userId),
@@ -54,6 +56,7 @@ export function hasAgendaFullAccess(
     profile: { plan: string; planExpiresAt: Date | null },
     userRole?: string,
 ): boolean {
+    if (isPlatformLaunchActive('agenda')) return true;
     if (userRole === 'superadmin') return true;
     return isAgendaTrialActive(profile) || isAgendaProActive(profile);
 }

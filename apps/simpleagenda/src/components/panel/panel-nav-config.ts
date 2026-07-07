@@ -6,6 +6,7 @@ import {
     IconChartBar,
     IconBriefcase,
     IconMessageCircle,
+    IconCash,
     type Icon,
 } from '@tabler/icons-react';
 
@@ -19,14 +20,15 @@ export type PanelNavItem = {
     roles?: PanelRole[];
 };
 
+/** Orden alineado con marketplace: panel → operación → mensajes → negocio → finanzas → stats → cuenta */
 const BASE_ITEMS: PanelNavItem[] = [
     { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
     { href: '/panel/agenda', label: 'Agenda', icon: IconCalendarEvent },
     { href: '/panel/clientes', label: 'Pacientes', icon: IconUsers },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
-    { href: '/panel/finanzas', label: 'Finanzas', icon: IconChartBar },
-    { href: '/panel/analytics', label: 'Estadísticas', icon: IconChartBar },
     { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBriefcase },
+    { href: '/panel/finanzas', label: 'Finanzas', icon: IconCash },
+    { href: '/panel/analytics', label: 'Estadísticas', icon: IconChartBar },
     { href: '/panel/mi-cuenta', label: 'Mi cuenta', icon: IconUser },
 ];
 

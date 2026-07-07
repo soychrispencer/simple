@@ -20,6 +20,7 @@ export type MarketplacePanelNavItem = {
   icon: ComponentType<{ size?: number; stroke?: number }>;
   visibility?: 'all' | 'admin_plus';
   badge?: string;
+  section?: string;
 };
 
 export type PanelNotification = {
@@ -548,12 +549,21 @@ export function MarketplaceHeader({
                   </div>
 
                   <nav className="space-y-1" aria-label="Navegación de panel">
-                    {panelItems.map((item) => {
+                    {panelItems.map((item, index) => {
                       const ItemIcon = item.icon;
                       const active = isPanelNavActive(pathname, item.href);
+                      const previousSection = panelItems[index - 1]?.section;
+                      const showSectionDivider = item.section && item.section !== previousSection;
                       return (
+                        <div key={item.href}>
+                          {showSectionDivider ? (
+                            <div className="my-2 px-2.5">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: 'var(--fg-muted)' }}>
+                                {item.section}
+                              </p>
+                            </div>
+                          ) : null}
                         <Link
-                          key={item.href}
                           href={item.href}
                           prefetch={panelLinkPrefetch}
                           onClick={() => setAccountOpen(false)}
@@ -585,6 +595,7 @@ export function MarketplaceHeader({
                             </span>
                           ) : null}
                         </Link>
+                        </div>
                       );
                     })}
                   </nav>

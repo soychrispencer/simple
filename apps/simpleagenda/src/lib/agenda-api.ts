@@ -45,7 +45,10 @@ async function agendaMutation<T extends { ok: boolean }>(
 
 export type AgendaPlanId = 'free' | 'pro';
 
+import { isPlatformLaunchActive } from '@simple/utils';
+
 export function hasAgendaFullAccess(profile: { plan: string; planExpiresAt: string | null }): boolean {
+    if (isPlatformLaunchActive('agenda')) return true;
     if (profile.plan === 'pro') {
         return !profile.planExpiresAt || new Date(profile.planExpiresAt) >= new Date();
     }

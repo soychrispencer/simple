@@ -10,9 +10,9 @@ const sections = [
             { label: 'Comprar', href: '/ventas' },
             { label: 'Arrendar', href: '/arriendos' },
             { label: 'Proyectos nuevos', href: '/proyectos' },
-            { label: 'Simulador hipotecario', href: '/simulador-hipotecario' },
             { label: 'Publicar', href: '/panel/publicar' },
             { label: 'Gestión inmobiliaria', href: '/servicios/venta-asistida' },
+            { label: 'Simulador hipotecario', href: '/simulador-hipotecario' },
         ],
     },
     {

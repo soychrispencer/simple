@@ -6,7 +6,7 @@ import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX, IconDownload, Icon
 import Link from 'next/link';
 import { fetchAgendaClients, createAgendaClient, updateAgendaClient, deleteAgendaClient, fetchClientTags, type AgendaClient, type AgendaClientTag } from '@/lib/agenda-api';
 import { vocab } from '@/lib/vocabulary';
-import { useEscapeClose } from '@/lib/use-modal-a11y';
+import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 
 type ClientForm = {
     firstName: string;
@@ -66,10 +66,6 @@ export default function ClientesPage() {
     const [deleteClient, setDeleteClient] = useState<AgendaClient | null>(null);
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
-
-    useEscapeClose(showForm, () => setShowForm(false));
-    useEscapeClose(editClient !== null, () => setEditClient(null));
-    useEscapeClose(deleteClient !== null, () => setDeleteClient(null));
 
     useEffect(() => {
         void load();
@@ -293,17 +289,32 @@ export default function ClientesPage() {
 
             {/* Create form modal */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="clientes-create-title">
-                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowForm(false)} />
-                    <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto agenda-panel-popover">
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 id="clientes-create-title" className="text-base font-semibold agenda-panel-fg">{vocab.newClient}</h2>
-                            <button type="button" aria-label="Cerrar" onClick={() => setShowForm(false)} className="w-7 h-7 rounded-button flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-muted">
-                                <IconX size={14} />
+                <AgendaScrollModal
+                    title={vocab.newClient}
+                    titleId="clientes-create-title"
+                    size="lg"
+                    onClose={() => setShowForm(false)}
+                    bodyClassName="agenda-panel-popover"
+                    footer={(
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => void handleSave()}
+                                disabled={saving}
+                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-button text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 agenda-panel-btn-accent"
+                            >
+                                {saving && <IconLoader2 size={14} className="animate-spin" />}
+                                {saving ? 'Guardando...' : `Crear ${vocab.client}`}
+                            </button>
+                            <button
+                                onClick={() => setShowForm(false)}
+                                className="px-4 py-2.5 rounded-button text-sm border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-outline"
+                            >
+                                Cancelar
                             </button>
                         </div>
-
-                        <div className="flex flex-col gap-4">
+                    )}
+                >
+                    <div className="flex flex-col gap-4">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="Nombre *">
                                     <input type="text" value={form.firstName} onChange={(e) => set('firstName', e.target.value)} placeholder="María" className="field-input" />
@@ -361,26 +372,8 @@ export default function ClientesPage() {
                             </Field>
 
                             {error && <p className="text-sm" style={{ color: '#dc2626' }}>{error}</p>}
-
-                            <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                                <button
-                                    onClick={() => void handleSave()}
-                                    disabled={saving}
-                                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-button text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 agenda-panel-btn-accent"
-                                >
-                                    {saving && <IconLoader2 size={14} className="animate-spin" />}
-                                    {saving ? 'Guardando...' : `Crear ${vocab.client}`}
-                                </button>
-                                <button
-                                    onClick={() => setShowForm(false)}
-                                    className="px-4 py-2.5 rounded-button text-sm border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-outline"
-                                >
-                                    Cancelar
-                                </button>
-                            </div>
-                        </div>
                     </div>
-                </div>
+                </AgendaScrollModal>
             )}
 
             {/* List */}
@@ -469,16 +462,23 @@ export default function ClientesPage() {
 
             {/* ── Edit modal ──────────────────────────────────────────── */}
             {editClient && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="clientes-edit-title">
-                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditClient(null)} />
-                    <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto agenda-panel-popover">
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 id="clientes-edit-title" className="text-base font-semibold agenda-panel-fg">Editar {vocab.client}</h2>
-                            <button type="button" aria-label="Cerrar" onClick={() => setEditClient(null)} className="w-7 h-7 rounded-button flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
-                                <IconX size={14} />
+                <AgendaScrollModal
+                    title={`Editar ${vocab.client}`}
+                    titleId="clientes-edit-title"
+                    size="lg"
+                    onClose={() => setEditClient(null)}
+                    bodyClassName="agenda-panel-popover"
+                    footer={(
+                        <div className="flex gap-3">
+                            <button onClick={() => void handleEditSave()} disabled={editSaving} className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-button text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60" style={{ background: 'var(--accent)', color: '#fff' }}>
+                                {editSaving ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
+                                {editSaving ? 'Guardando...' : 'Guardar cambios'}
                             </button>
+                            <button onClick={() => setEditClient(null)} className="px-4 py-2.5 rounded-button text-sm border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
                         </div>
-                        <div className="flex flex-col gap-4">
+                    )}
+                >
+                    <div className="flex flex-col gap-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <Field label="Nombre *"><input type="text" value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className="field-input" /></Field>
                                 <Field label="Apellido"><input type="text" value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className="field-input" /></Field>
@@ -512,16 +512,8 @@ export default function ClientesPage() {
                                 <textarea value={editForm.internalNotes} onChange={(e) => setEditForm((p) => ({ ...p, internalNotes: e.target.value }))} rows={3} placeholder="Notas privadas sobre este paciente..." className="field-input resize-none" />
                             </Field>
                             {editError && <p className="flex items-center gap-1.5 text-sm" style={{ color: '#dc2626' }}><IconAlertCircle size={13} />{editError}</p>}
-                            <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                                <button onClick={() => void handleEditSave()} disabled={editSaving} className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-button text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60" style={{ background: 'var(--accent)', color: '#fff' }}>
-                                    {editSaving ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
-                                    {editSaving ? 'Guardando...' : 'Guardar cambios'}
-                                </button>
-                                <button onClick={() => setEditClient(null)} className="px-4 py-2.5 rounded-button text-sm border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
-                            </div>
-                        </div>
                     </div>
-                </div>
+                </AgendaScrollModal>
             )}
 
             {/* ── Delete confirmation ─────────────────────────────────── */}

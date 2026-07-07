@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { resolveUniqueListingHref } from './href-slug.js';
 
 export type ListingsRouterDeps = {
     authUser: (c: any) => Promise<any | null>;
@@ -147,6 +148,11 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const listingId = deps.makeListingId();
         const locationData = deps.normalizeListingLocation(parsed.data.locationData);
         const locationLabel = locationData?.publicLabel || parsed.data.location?.trim() || undefined;
+        const href = await resolveUniqueListingHref({
+            vertical,
+            listingId,
+            href: parsed.data.href,
+        });
 
         const record: any = {
             id: listingId,
@@ -159,7 +165,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             price: parsed.data.priceLabel.trim(),
             location: locationLabel,
             locationData,
-            href: parsed.data.href?.trim() || deps.listingDefaultHref(vertical, listingId),
+            href,
             status: deps.parseListingStatus(parsed.data.status),
             views: 0,
             favs: 0,
@@ -239,7 +245,12 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         listing.price = parsed.data.priceLabel;
         listing.location = locationLabel;
         listing.locationData = locationData;
-        listing.href = parsed.data.href?.trim() || deps.listingDefaultHref(listing.vertical, listing.id);
+        listing.href = await resolveUniqueListingHref({
+            vertical: listing.vertical,
+            listingId: listing.id,
+            href: parsed.data.href,
+            excludeListingId: listing.id,
+        });
         listing.rawData = deps.stripStoredListingMetadata(parsed.data.rawData);
         listing.videoUrl = parsed.data.videoUrl ?? listing.videoUrl;
         listing.videoThumbnailUrl = parsed.data.videoThumbnailUrl ?? listing.videoThumbnailUrl;

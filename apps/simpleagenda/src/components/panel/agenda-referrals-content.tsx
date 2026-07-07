@@ -5,7 +5,6 @@ import {
     IconPlus,
     IconLoader2,
     IconCheck,
-    IconX,
     IconUserPlus,
     IconTrash,
     IconAlertCircle,
@@ -14,6 +13,7 @@ import {
     IconCopy,
     IconExternalLink,
 } from '@tabler/icons-react';
+import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import {
     PanelAccountShell,
     PanelBlockHeader,
@@ -330,21 +330,23 @@ export function AgendaReferralsContent() {
             </PanelCard>
 
             {showCreate ? (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <button
-                        type="button"
-                        aria-label="Cerrar"
-                        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-                        onClick={() => setShowCreate(false)}
-                    />
-                    <PanelCard size="md" className="relative z-10 w-full max-w-md">
-                        <div className="mb-4 flex items-center justify-between gap-3">
-                            <h2 className="text-base font-semibold text-fg">Registrar referido</h2>
-                            <button type="button" aria-label="Cerrar" onClick={() => setShowCreate(false)} className="text-fg-muted">
-                                <IconX size={16} />
-                            </button>
+                <AgendaScrollModal
+                    title="Registrar referido"
+                    size="md"
+                    onClose={() => setShowCreate(false)}
+                    footer={(
+                        <div className="flex gap-2">
+                            <PanelButton variant="accent" className="flex-1" disabled={creating} onClick={() => void handleCreate()}>
+                                {creating ? <IconLoader2 size={14} className="animate-spin" /> : <IconUserPlus size={14} />}
+                                Guardar
+                            </PanelButton>
+                            <PanelButton variant="secondary" onClick={() => setShowCreate(false)}>
+                                Cancelar
+                            </PanelButton>
                         </div>
-                        <div className="flex flex-col gap-4">
+                    )}
+                >
+                    <div className="flex flex-col gap-4">
                             <PanelField label="Paciente que recomendó" required>
                                 <select
                                     value={form.referrerClientId}
@@ -385,18 +387,8 @@ export function AgendaReferralsContent() {
                                 />
                             </PanelField>
                             {createError ? <PanelNotice tone="error">{createError}</PanelNotice> : null}
-                            <div className="flex gap-2 pt-1">
-                                <PanelButton variant="accent" className="flex-1" disabled={creating} onClick={() => void handleCreate()}>
-                                    {creating ? <IconLoader2 size={14} className="animate-spin" /> : <IconUserPlus size={14} />}
-                                    Guardar
-                                </PanelButton>
-                                <PanelButton variant="secondary" onClick={() => setShowCreate(false)}>
-                                    Cancelar
-                                </PanelButton>
-                            </div>
-                        </div>
-                    </PanelCard>
-                </div>
+                    </div>
+                </AgendaScrollModal>
             ) : null}
 
             <PanelConfirmDialog

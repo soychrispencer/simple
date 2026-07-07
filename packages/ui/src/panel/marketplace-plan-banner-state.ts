@@ -1,4 +1,5 @@
 import type { SubscriptionCatalogResponse } from '@simple/utils';
+import { isMarketplaceLaunchActive } from '@simple/utils';
 import { resolvePanelBillingFromCatalog, type PanelBillingAccess } from './business-setup.js';
 
 export type MarketplacePlanBannerState = {
@@ -6,12 +7,25 @@ export type MarketplacePlanBannerState = {
     planLabel: string;
     maxListings: number;
     trialDaysRemaining: number | null;
+    launchMode?: boolean;
 };
 
 export function resolveMarketplacePlanBannerState(
     catalog: SubscriptionCatalogResponse | null,
     subscriptionHref: string,
 ): MarketplacePlanBannerState {
+    const vertical = catalog?.vertical;
+    if (vertical && isMarketplaceLaunchActive(vertical)) {
+        const billing = resolvePanelBillingFromCatalog(catalog, subscriptionHref);
+        return {
+            billing,
+            planLabel: 'Lanzamiento',
+            maxListings: -1,
+            trialDaysRemaining: null,
+            launchMode: true,
+        };
+    }
+
     const billing = resolvePanelBillingFromCatalog(catalog, subscriptionHref);
     const sub = catalog?.currentSubscription;
     const freeMax = catalog?.freePlan?.maxListings ?? 3;

@@ -13,6 +13,11 @@ export const ACCOUNT_APPEARANCE_PAGE = {
     description: 'Tema claro, oscuro o según tu dispositivo.',
 } as const;
 
+export const ACCOUNT_SAVED_PAGE = {
+    title: 'Guardados',
+    description: 'Publicaciones que guardaste para revisar después.',
+} as const;
+
 export const ACCOUNT_SUBSCRIPTION_PAGE = {
     title: 'Suscripción',
     description: 'Plan Simple e historial de facturación.',

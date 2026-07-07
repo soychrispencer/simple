@@ -7,7 +7,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconX } from '@tabler/icons-react';
 import { resolveAccountAvatarUrl } from '@simple/utils';
 import { Sidebar, type NavItem, type UserInfo } from '../sidebar/app-sidebar';
-import { cleanPanelPath, resolveActiveNavHref } from './resolve-active-nav';
+import { resolveActiveNavHref } from './resolve-active-nav';
+import { PanelGroupedNavList } from './panel-grouped-nav-list';
 
 type TablerIcon = ComponentType<{ size?: number; stroke?: number }>;
 
@@ -41,54 +42,10 @@ function PanelNavList({
     activeHref: string | null;
     onNavigate?: () => void;
 }) {
-
     return (
-        <nav className="pr-1 space-y-2">
-            {items.map((item) => {
-                const Icon = item.icon;
-                const active =
-                    activeHref != null && cleanPanelPath(activeHref) === cleanPanelPath(item.href);
-
-                return (
-                    <Link
-                        key={item.href}
-                        href={item.href}
-                        prefetch
-                        scroll={false}
-                        onClick={onNavigate}
-                        aria-current={active ? 'page' : undefined}
-                        className="group relative flex h-11 items-center gap-2.5 rounded-xl px-2.5 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
-                        style={{
-                            background: active ? 'var(--bg-subtle)' : 'transparent',
-                            color: active ? 'var(--fg)' : 'var(--fg-secondary)',
-                        }}
-                    >
-                        <span
-                            className="flex h-9 w-9 items-center justify-center rounded-[10px] border transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
-                            style={{
-                                borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
-                                background: active ? 'var(--button-primary-bg)' : 'transparent',
-                                color: active ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
-                                boxShadow: active ? 'var(--shadow-xs)' : 'none',
-                            }}
-                        >
-                            <Icon size={17} stroke={1.9} />
-                        </span>
-
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</span>
-
-                        {item.badge ? (
-                            <span
-                                className="rounded-[5px] border px-1.5 py-[0.2rem] text-[10px] font-medium uppercase tracking-[0.04em]"
-                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
-                            >
-                                {item.badge}
-                            </span>
-                        ) : null}
-                    </Link>
-                );
-            })}
-        </nav>
+        <div className="pr-1">
+            <PanelGroupedNavList items={items} activeHref={activeHref} onNavigate={onNavigate} />
+        </div>
     );
 }
 

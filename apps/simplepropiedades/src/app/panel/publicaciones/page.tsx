@@ -34,7 +34,7 @@ import {
     IconPencil,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
-import { ListingDistributionDialogHost } from '@/components/panel/listing-distribution-dialog-host';
+import { ListingShareSheet } from '@/components/panel/listing-share-sheet';
 import { ModernSelect } from '@simple/ui/forms';
 import { fetchInstagramIntegrationStatus, generateSmartTemplates, publishListingToInstagramEnhanced, type InstagramPublicationView, type InstagramTemplateView, } from '@/lib/instagram';
 import {
@@ -42,7 +42,7 @@ import {
 import { InstagramTemplatePreview } from '@simple/ui/integrations';
 import { PanelIconButton } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
-import { PanelButton, PanelNotice, PanelPillNav, PanelSegmentedToggle, PanelStatusBadge, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
+import { PanelButton, PanelNotice, PanelPillNav, PanelSegmentedToggle, PanelStatusBadge, PanelScrollModal, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 import { OwnerListingCard } from '@simple/ui/listings';
 import type { OwnerListingAction, OwnerListingStatus, ListingVariant } from '@simple/ui/listings';
 
@@ -221,7 +221,7 @@ export default function PublicacionesPage() {
     // Instagram Preview States
     const [instagramPreviewOpen, setInstagramPreviewOpen] = useState(false);
     const [previewListing, setPreviewListing] = useState<PanelListing | null>(null);
-    const [distributionListing, setDistributionListing] = useState<PanelListing | null>(null);
+    const [shareListing, setShareListing] = useState<PanelListing | null>(null);
     const [previewCaption, setPreviewCaption] = useState('');
     const [isPublishingInstagram, setIsPublishingInstagram] = useState(false);
     const [isInstagramSuccess, setIsInstagramSuccess] = useState(false);
@@ -581,15 +581,6 @@ export default function PublicacionesPage() {
             },
         });
 
-        secondaryActions.push({
-            key: 'distribution',
-            label: 'Dónde está publicado',
-            icon: <IconShare3 size={14} />,
-            onSelect: () => {
-                setDistributionListing(listing);
-            },
-        });
-
         // Duplicar
         secondaryActions.push({
             key: 'duplicate',
@@ -687,9 +678,7 @@ export default function PublicacionesPage() {
                 router.push(`/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`);
             },
             shareOptions: {
-                onCopyLink: () => void copyListingLink(listing),
-                onShareWhatsapp: () => shareOnWhatsapp(listing),
-                onShareInstagram: () => void shareOnInstagram(listing),
+                onOpenSharePanel: () => setShareListing(listing),
             },
         };
     };
@@ -772,32 +761,35 @@ export default function PublicacionesPage() {
 
             {/* Instagram Preview Modal */}
             {instagramPreviewOpen && previewListing && (
-                <div 
-                    className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm transition-all"
-                    style={{ background: 'rgba(0,0,0,0.7)' }}
-                    onClick={() => setInstagramPreviewOpen(false)}
-                >
-                    <div 
-                        className="w-full max-w-6xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[92vh] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
-                        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Header */}
-                        <div className="flex items-center justify-between border-b p-4 px-6 shrink-0" style={{ borderColor: 'var(--border)' }}>
-                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
-                                Vista previa de Instagram
-                            </h3>
-                            <button 
+                <PanelScrollModal
+                    open
+                    title={isInstagramSuccess ? '¡Publicación exitosa! 🎉' : 'Vista previa de Instagram'}
+                    onClose={() => setInstagramPreviewOpen(false)}
+                    size="6xl"
+                    height="tall"
+                    zIndexClass="z-[120]"
+                    overlayClassName="bg-black/70 backdrop-blur-sm"
+                    bodyClassName="flex flex-col p-4 md:p-6"
+                    footer={!isInstagramSuccess ? (
+                        <div className="flex flex-col gap-3 sm:ml-auto sm:max-w-md sm:flex-row">
+                            <PanelButton
+                                variant="secondary"
+                                className="flex-1"
                                 onClick={() => setInstagramPreviewOpen(false)}
-                                aria-label="Cerrar vista previa"
-                                className="rounded-full p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                                style={{ color: 'var(--fg-muted)' }}
                             >
-                                <IconX size={20} />
-                            </button>
+                                Cancelar
+                            </PanelButton>
+                            <PanelButton
+                                variant="primary"
+                                className="flex-1"
+                                onClick={handleConfirmInstagramPublish}
+                                disabled={isPublishingInstagram || templatesLoading || !activeTemplate}
+                            >
+                                {isPublishingInstagram ? 'Publicando...' : templatesLoading ? 'Cargando template...' : 'Publicar ahora'}
+                            </PanelButton>
                         </div>
-                        
-                        <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col min-h-0">
+                    ) : undefined}
+                >
                             {isInstagramSuccess ? (
                                 <div className="flex flex-col items-center py-8 text-center">
                                     <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-green-500/10 text-green-500 ring-4 ring-green-500/20">
@@ -938,38 +930,13 @@ export default function PublicacionesPage() {
                                 </div>
                                 </div>
                             )}
-                        </div>
-                        {!isInstagramSuccess && (
-                            <div className="border-t px-4 sm:px-6 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shrink-0 bg-white dark:bg-black/10" style={{ borderColor: 'var(--border)' }}>
-                                <div className="flex flex-col sm:flex-row gap-3 max-w-md ml-auto">
-                                    <PanelButton
-                                        variant="secondary"
-                                        className="flex-1"
-                                        onClick={() => setInstagramPreviewOpen(false)}
-                                    >
-                                        Cancelar
-                                    </PanelButton>
-                                    <PanelButton
-                                        variant="primary"
-                                        className="flex-1"
-                                        onClick={handleConfirmInstagramPublish}
-                                        disabled={isPublishingInstagram || templatesLoading || !activeTemplate}
-                                    >
-                                        {isPublishingInstagram ? 'Publicando...' : templatesLoading ? 'Cargando template...' : 'Publicar ahora'}
-                                    </PanelButton>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                </PanelScrollModal>
             )}
 
-            {distributionListing ? (
-                <ListingDistributionDialogHost
-                    listing={distributionListing}
-                    brandLabel="SimplePropiedades"
-                    vertical="propiedades"
-                    onClose={() => setDistributionListing(null)}
+            {shareListing ? (
+                <ListingShareSheet
+                    listing={shareListing}
+                    onClose={() => setShareListing(null)}
                 />
             ) : null}
         </div>

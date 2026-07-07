@@ -6,11 +6,14 @@ export type SavedListingRecord = {
     title: string;
     price: string;
     image?: string;
+    images?: string[];
     location?: string;
     savedAt: number;
     subtitle?: string;
     meta?: string[];
     badge?: string;
+    section?: 'sale' | 'rent' | 'auction' | 'project';
+    videoUrl?: string;
     sellerName?: string;
     sellerMeta?: string;
 };

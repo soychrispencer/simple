@@ -2,7 +2,7 @@
 
 import {
     ACCOUNT_INTEGRATIONS_PAGE,
-    DEFAULT_ACCOUNT_SECTION_TABS,
+    MARKETPLACE_ACCOUNT_SECTION_TABS,
     PanelAccountShell,
     accountIntegrationsDescription,
 } from '@simple/ui/panel';
@@ -15,7 +15,7 @@ export default function IntegracionesCuentaPage() {
     return (
         <PanelAccountShell
             activeKey="integraciones"
-            tabs={DEFAULT_ACCOUNT_SECTION_TABS}
+            tabs={MARKETPLACE_ACCOUNT_SECTION_TABS}
             title={ACCOUNT_INTEGRATIONS_PAGE.title}
             description={accountIntegrationsDescription('Simple Autos')}
         >

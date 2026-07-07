@@ -26,6 +26,9 @@ import {
     IconStar,
     IconPlayerPlay,
 } from '@tabler/icons-react';
+import { resolveOperatorLandingCopy } from '@simple/utils';
+
+const BENEFIT_ICONS = [IconClockHour4, IconShieldCheck, IconHeartHandshake] as const;
 
 /* ────────────────────────── Data ────────────────────────── */
 
@@ -74,21 +77,6 @@ const PROFESSIONALS = [
     { icon: IconBriefcase, label: 'Consultorías' },
 ];
 
-const TRIAL_BENEFITS = [
-    { icon: IconClockHour4, title: '30 días completos', desc: 'Acceso a agenda, clientes, pagos y recordatorios sin restricciones.' },
-    { icon: IconShieldCheck, title: 'Sin tarjeta', desc: 'Regístrate gratis. Solo pagas si decides continuar después de la prueba.' },
-    { icon: IconHeartHandshake, title: 'Cancela cuando quieras', desc: 'Sin permanencia ni contratos. Tus datos se mantienen guardados.' },
-];
-
-const FAQS: { q: string; a: string }[] = [
-    { q: '¿La prueba es gratis?', a: 'Sí. Al crear tu cuenta tienes 30 días para probar todas las funciones, sin tarjeta de crédito.' },
-    { q: '¿Necesito pagar para empezar?', a: 'No. El registro es gratuito y la prueba incluye acceso completo. Los planes y precios los ves en tu panel cuando quieras continuar.' },
-    { q: '¿Puedo cancelar cuando quiera?', a: 'Sí. Sin permanencia. Si activas un plan después, puedes cancelarlo en cualquier momento desde tu panel.' },
-    { q: '¿Mis clientes necesitan crear una cuenta?', a: 'No. Tus clientes reservan directamente desde tu perfil público sin necesidad de registrarse.' },
-    { q: '¿Qué métodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus clientes paguen por adelantado.' },
-    { q: '¿Funciona para consultas presenciales y online?', a: 'Sí. Puedes configurar servicios presenciales, online o ambos. Cada servicio puede tener duración y precio diferente.' },
-];
-
 /* ────────────────────────── Helpers ────────────────────────── */
 
 function FAQItem({ q, a }: { q: string; a: string }) {
@@ -124,6 +112,11 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 export default function HomePage() {
     const { isLoggedIn, openAuth } = useAuth();
     const router = useRouter();
+    const copy = resolveOperatorLandingCopy('agenda');
+    const trialBenefits = copy.benefits.map((item, index) => ({
+        ...item,
+        icon: BENEFIT_ICONS[index] ?? IconHeartHandshake,
+    }));
 
     const handleCTA = () => {
         if (isLoggedIn) { router.push('/panel'); } else { openAuth('register'); }
@@ -154,7 +147,7 @@ export default function HomePage() {
                                 className="text-base sm:text-lg leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0 animate-slide-up"
                                 style={{ color: 'var(--fg-secondary)', animationDelay: '80ms' }}
                             >
-                                Citas, clientes y pagos en un solo lugar. Regístrate gratis y prueba todo durante 30 días.
+                                {copy.heroSubtitle}
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start animate-slide-up" style={{ animationDelay: '140ms' }}>
                                 <PanelButton
@@ -163,7 +156,7 @@ export default function HomePage() {
                                     className="h-12 px-7"
                                     onClick={handleCTA}
                                 >
-                                    Probar 30 días gratis
+                                    {copy.heroCta}
                                     <IconArrowRight size={16} />
                                 </PanelButton>
                                 <PanelButtonLink href="#como-funciona" variant="secondary" className="h-12 px-7">
@@ -180,11 +173,11 @@ export default function HomePage() {
                                     <span className="text-sm font-medium ml-1" style={{ color: 'var(--fg)' }}>5.0</span>
                                 </div>
                                 <div className="flex flex-wrap items-center justify-center gap-3 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                    <span>30 días gratis</span>
+                                    <span>{copy.trustPrimary}</span>
                                     <span style={{ color: 'var(--border)' }}>|</span>
-                                    <span>Sin tarjeta</span>
+                                    <span>{copy.trustSecondary}</span>
                                     <span style={{ color: 'var(--border)' }}>|</span>
-                                    <span>Cancela cuando quieras</span>
+                                    <span>{copy.trustTertiary}</span>
                                 </div>
                             </div>
                         </div>
@@ -438,16 +431,16 @@ export default function HomePage() {
             {/* ═══════════════ FREE TRIAL CTA ═══════════════ */}
             <section id="prueba-gratis" className="container-app section-marketing scroll-mt-20">
                 <div className="text-center mb-10 sm:mb-12 max-w-2xl mx-auto">
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Empieza hoy</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>{copy.sectionEyebrow}</p>
                     <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3" style={{ color: 'var(--fg)' }}>
-                        Regístrate gratis y pruébalo 30 días
+                        {copy.sectionTitle}
                     </h2>
                     <p style={{ color: 'var(--fg-muted)' }}>
-                        Configura tu agenda, comparte tu link y recibe reservas con acceso completo. Sin tarjeta para registrarte.
+                        {copy.sectionSubtitle}
                     </p>
                 </div>
                 <div className="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto mb-10">
-                    {TRIAL_BENEFITS.map((item, i) => (
+                    {trialBenefits.map((item, i) => (
                         <div
                             key={item.title}
                             className="p-5 rounded-xl border text-center stagger-item"
@@ -471,11 +464,11 @@ export default function HomePage() {
                         className="h-12 px-8"
                         onClick={handleCTA}
                     >
-                        Crear cuenta gratis
+                        {copy.sectionCta}
                         <IconArrowRight size={16} />
                     </PanelButton>
                     <p className="mt-4 text-xs max-w-md mx-auto" style={{ color: 'var(--fg-muted)' }}>
-                        Sin comisión por reserva. Planes, precios y cobros los ves en tu panel cuando quieras continuar.
+                        {copy.sectionFootnote}
                     </p>
                 </div>
             </section>
@@ -492,7 +485,7 @@ export default function HomePage() {
                             className="rounded-2xl border overflow-hidden px-4 sm:px-6"
                             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                         >
-                            {FAQS.map((faq) => (
+                            {copy.faqs.map((faq) => (
                                 <FAQItem key={faq.q} q={faq.q} a={faq.a} />
                             ))}
                         </div>
@@ -514,7 +507,7 @@ export default function HomePage() {
                             ¿Listo para organizar tu consulta?
                         </h2>
                         <p className="text-base mb-8" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                            Regístrate gratis, prueba 30 días con todo incluido y cancela cuando quieras.
+                            {copy.finalSubtitle}
                         </p>
                         <PanelButton
                             type="button"
@@ -522,7 +515,7 @@ export default function HomePage() {
                             onClick={handleCTA}
                             className="h-12 px-8 text-sm font-semibold gap-2 bg-(--accent-contrast) text-(--accent) shadow-(--shadow-md)"
                         >
-                            Probar 30 días gratis
+                            {copy.finalCta}
                             <IconArrowRight size={16} />
                         </PanelButton>
                     </div>

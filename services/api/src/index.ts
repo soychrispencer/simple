@@ -44,6 +44,7 @@ import { createEnsureAgendaProfile } from './modules/agenda/ensure-profile.js';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { logger } from '@simple/logger';
+import { isMarketplaceLaunchActive } from '@simple/utils';
 import {
     generateSmartTemplates,
 } from './modules/instagram/templates.js';
@@ -97,6 +98,7 @@ import { refreshInstagramAccountIfNeeded as refreshInstagramAccountToken } from 
 import { createInstagramPublishWiring } from './modules/instagram/publish-wiring.js';
 import { createPaymentOrderStore } from './modules/payments/order-cache.js';
 import { createListingPersist, isListingSlugConflictError } from './modules/listings/persist.js';
+import { normalizeListingHref } from './modules/listings/href-slug.js';
 import { deleteStoredMediaUrls, resolveAccessibleStoredMediaUrl } from './modules/media/stored-object.js';
 import {
     extractAllListingMediaUrls,
@@ -123,6 +125,7 @@ import {
 } from './modules/listings/location.js';
 import {
     fetchActivePublicListingRowsForMarketplace,
+    fetchListingRowByHrefSlug,
     fetchListingRowById,
     fetchListingRowsForPanel,
 } from './modules/listings/queries.js';
@@ -561,9 +564,9 @@ async function getListingBySlug(slugLike: string): Promise<ListingRecord | null>
     const cached = Array.from(listingsById.values()).find((item) => item.href.split('/').filter(Boolean).at(-1) === slug);
     if (cached) return cached;
 
-    const result = await db.select().from(listings).where(eq(listings.hrefSlug, slug)).limit(1);
-    if (result.length === 0) return null;
-    return upsertListingCache(mapListingRowToRecord(result[0]));
+    const row = await fetchListingRowByHrefSlug(slugLike);
+    if (!row) return null;
+    return upsertListingCache(mapListingRowToRecord(row));
 }
 
 async function getSavedListingsByUser(userId: string): Promise<SavedListingRecord[]> {
@@ -589,17 +592,12 @@ async function getSavedListingsByUser(userId: string): Promise<SavedListingRecor
         .where(eq(savedListings.userId, userId))
         .orderBy(desc(savedListings.savedAt));
 
-    return result.map(row => ({
-        id: row.listingId,
-        href: row.hrefSlug || '',
-        title: row.title,
-        price: row.priceLabel || '',
-        location: row.location || undefined,
-        subtitle: row.description || undefined,
-        meta: extractListingSummary({
+    return result.map(row => {
+        const vertical = row.vertical as VerticalType;
+        const listingRecord = {
             id: row.listingId,
             ownerId: row.ownerId,
-            vertical: row.vertical as VerticalType,
+            vertical,
             section: row.section as BoostSection,
             listingType: row.section as BoostSection,
             title: row.title,
@@ -607,7 +605,7 @@ async function getSavedListingsByUser(userId: string): Promise<SavedListingRecor
             price: row.priceLabel || '',
             location: row.location || '',
             href: row.hrefSlug || '',
-            status: 'active',
+            status: 'active' as const,
             views: 0,
             favs: 0,
             leads: 0,
@@ -615,12 +613,27 @@ async function getSavedListingsByUser(userId: string): Promise<SavedListingRecor
             updatedAt: row.savedAt.getTime(),
             rawData: row.rawData,
             integrations: {},
-        }),
-        badge: publicSectionLabel(row.section as BoostSection),
-        sellerName: row.ownerName,
-        sellerMeta: row.ownerEmail,
-        savedAt: row.savedAt.getTime(),
-    }));
+        };
+        const mediaUrls = extractListingMediaUrls(listingRecord);
+        const videoUrl = extractListingVideoUrl(listingRecord) || undefined;
+
+        return {
+            id: row.listingId,
+            href: normalizeListingHref(vertical, row.listingId, row.hrefSlug),
+            title: row.title,
+            price: row.priceLabel || '',
+            image: mediaUrls[0] || undefined,
+            images: mediaUrls,
+            location: row.location || undefined,
+            meta: extractListingSummary(listingRecord),
+            badge: publicSectionLabel(row.section as BoostSection),
+            section: row.section as BoostSection,
+            videoUrl,
+            sellerName: row.ownerName,
+            sellerMeta: row.ownerEmail,
+            savedAt: row.savedAt.getTime(),
+        };
+    });
 }
 
 function syncFollowsCache(userId: string, records: FollowRecord[]): void {
@@ -1676,6 +1689,7 @@ const listingsDeps = {
     checkListingCreationAllowed: (user: { id: string; role?: string }, vertical: unknown) => {
         if (user.role === 'superadmin') return null;
         const parsedVertical = parseVertical(typeof vertical === 'string' ? vertical : undefined);
+        if (isMarketplaceLaunchActive(parsedVertical)) return null;
         const planId = getMarketplaceEffectivePlanId(user as AppUser, parsedVertical);
         const plan = getSubscriptionPlans(parsedVertical).find((item) => item.id === planId);
         const count = countUserListingsForVertical(listingIdsByUser, listingsById, user.id, parsedVertical);

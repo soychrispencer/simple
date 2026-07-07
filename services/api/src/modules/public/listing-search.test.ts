@@ -59,6 +59,24 @@ describe('matchesPublicListingSearchFilters', () => {
         expect(matchesPublicListingSearchFilters(listing, { yearFrom: '2019', yearTo: '2021' }, deps)).toBe(true);
         expect(matchesPublicListingSearchFilters(listing, { yearTo: '2019' }, deps)).toBe(false);
     });
+
+    it('filtra propiedades por tipo, dormitorios y superficie', () => {
+        const listing = {
+            title: 'Depto Las Condes',
+            description: '',
+            rawData: {
+                setup: { propertyType: 'Departamento' },
+                basic: { rooms: '3', bathrooms: '2', totalArea: '85' },
+            },
+            price: '4500 UF',
+        };
+        expect(matchesPublicListingSearchFilters(listing, { propertyType: 'departamento' }, deps)).toBe(true);
+        expect(matchesPublicListingSearchFilters(listing, { propertyType: 'casa' }, deps)).toBe(false);
+        expect(matchesPublicListingSearchFilters(listing, { bedrooms: '3' }, deps)).toBe(true);
+        expect(matchesPublicListingSearchFilters(listing, { bedrooms: '4' }, deps)).toBe(false);
+        expect(matchesPublicListingSearchFilters(listing, { minArea: '80' }, deps)).toBe(true);
+        expect(matchesPublicListingSearchFilters(listing, { minArea: '90' }, deps)).toBe(false);
+    });
 });
 
 describe('buildPublicListingSearchSqlConditions', () => {
@@ -77,6 +95,16 @@ describe('buildPublicListingSearchSqlConditions', () => {
             priceTo: '15000000',
             yearFrom: '2018',
             yearTo: '2024',
+        });
+        expect(conditions).toHaveLength(4);
+    });
+
+    it('genera condiciones para propiedades', () => {
+        const conditions = buildPublicListingSearchSqlConditions({
+            propertyType: 'departamento',
+            bedrooms: '2',
+            minArea: '60',
+            salesStage: 'preventa',
         });
         expect(conditions).toHaveLength(4);
     });

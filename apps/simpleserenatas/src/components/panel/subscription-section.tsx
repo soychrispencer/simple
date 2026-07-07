@@ -31,6 +31,7 @@ export function SubscriptionSection() {
             }
             subscriptionsPath="/panel/mi-cuenta?account_tab=subscription"
             fetchCompanyBillingContext={fetchCompanyBillingContext}
+            launchVertical="serenatas"
         />
     );
 }

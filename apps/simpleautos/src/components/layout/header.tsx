@@ -10,9 +10,9 @@ const publicLinks = [
     { href: '/ventas', label: 'Comprar' },
     { href: '/arriendos', label: 'Arrendar' },
     { href: '/subastas', label: 'Subastas' },
-    { href: '/precalificacion-financiamiento', label: 'Financiamiento' },
     { href: '/servicios', label: 'Servicios' },
     { href: '/descubre', label: 'Descubre', isNew: true },
+    { href: '/precalificacion-financiamiento', label: 'Financiamiento' },
 ];
 
 export function Header() {

@@ -164,6 +164,13 @@ export const MARKETPLACE_MI_NEGOCIO_PRO_GATE = {
     cta: 'Ver planes y suscripción',
 } as const;
 
+export const MARKETPLACE_SUBSCRIPTION_LAUNCH_NOTICE = {
+    title: 'Planes próximamente',
+    description:
+        'Estamos en período de lanzamiento: todas las funciones de Simple están disponibles sin costo mientras incorporamos usuarios. Pronto activaremos los planes de suscripción.',
+    badge: 'Lanzamiento',
+} as const;
+
 export const MARKETPLACE_BUSINESS_CONTACTO_PAGE = {
     title: 'Contacto',
     description: 'Teléfonos, correo, ubicación y redes sociales.',

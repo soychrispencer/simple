@@ -77,8 +77,13 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
         const [copied, setCopied] = useState(false);
         const anchorRef = useRef<HTMLSpanElement | null>(null);
 
-        const hasShareOptions = shareOptions && (shareOptions.onCopyLink || shareOptions.onShareWhatsapp || shareOptions.onShareInstagram);
-        const canShare = hasShareOptions || onShare;
+        const hasSharePanel = Boolean(shareOptions?.onOpenSharePanel);
+        const hasQuickShare = Boolean(
+            shareOptions
+            && !hasSharePanel
+            && (shareOptions.onCopyLink || shareOptions.onShareWhatsapp || shareOptions.onShareInstagram),
+        );
+        const canShare = hasSharePanel || hasQuickShare || onShare;
 
         if (!canShare) return null;
 
@@ -106,7 +111,11 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
 
         const handleClick = (e: React.MouseEvent) => {
             e.stopPropagation();
-            if (hasShareOptions) {
+            if (shareOptions?.onOpenSharePanel) {
+                shareOptions.onOpenSharePanel();
+                return;
+            }
+            if (hasQuickShare) {
                 setOpen((v) => !v);
             } else if (onShare) {
                 onShare(id);
@@ -125,7 +134,7 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
                     <IconShare3 size={18} />
                 </button>
                 <ListingAnchoredMenu
-                    open={open && Boolean(hasShareOptions)}
+                    open={open && hasQuickShare}
                     anchorRef={anchorRef}
                     onClose={() => setOpen(false)}
                     placement="auto"

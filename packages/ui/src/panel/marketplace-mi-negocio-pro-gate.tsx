@@ -7,12 +7,14 @@ import type { SubscriptionCatalogResponse } from '@simple/utils';
 import { MARKETPLACE_MI_NEGOCIO_PRO_GATE } from './business-copy.js';
 import { resolvePanelBillingFromCatalog } from './business-setup.js';
 import { marketplaceMiNegocioHasProAccess, type MarketplacePanelRole } from './marketplace-mi-negocio-access.js';
+import { isMarketplaceLaunchActive } from '@simple/utils';
 import { PanelButton } from './panel-button.js';
 
 export type MarketplaceMiNegocioProGateProps = {
     subscriptionHref: string;
     fetchCatalog: () => Promise<SubscriptionCatalogResponse | null>;
     role?: MarketplacePanelRole;
+    vertical?: 'autos' | 'propiedades';
     children: React.ReactNode;
 };
 
@@ -20,23 +22,35 @@ export function MarketplaceMiNegocioProGate({
     subscriptionHref,
     fetchCatalog,
     role = 'user',
+    vertical = 'autos',
     children,
 }: MarketplaceMiNegocioProGateProps) {
-    const [loading, setLoading] = useState(true);
+    const launchActive = isMarketplaceLaunchActive(vertical);
+    const [loading, setLoading] = useState(!launchActive);
     const [locked, setLocked] = useState(false);
 
     useEffect(() => {
+        if (launchActive) {
+            setLoading(false);
+            setLocked(false);
+            return;
+        }
+
         let cancelled = false;
         void fetchCatalog().then((catalog) => {
             if (cancelled) return;
             const billing = resolvePanelBillingFromCatalog(catalog, subscriptionHref);
-            setLocked(!marketplaceMiNegocioHasProAccess(billing, role));
+            setLocked(!marketplaceMiNegocioHasProAccess(billing, role, vertical));
             setLoading(false);
         });
         return () => {
             cancelled = true;
         };
-    }, [fetchCatalog, role, subscriptionHref]);
+    }, [fetchCatalog, launchActive, role, subscriptionHref, vertical]);
+
+    if (launchActive) {
+        return <>{children}</>;
+    }
 
     if (loading) {
         return <div className="container-app panel-page min-h-[40vh] py-16" aria-busy="true" />;

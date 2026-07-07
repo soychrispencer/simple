@@ -6,6 +6,7 @@ import type {
     SubscriptionPlanId,
     VerticalType,
 } from '../../lib/domain-types.js';
+import { isMarketplaceLaunchActive, isPlatformLaunchActive } from '@simple/utils';
 import { getSubscriptionPlans } from '../advertising/service.js';
 
 export type SubscriptionAccessStore = {
@@ -54,11 +55,13 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
     }
 
     function userCanUsePublicProfile(user: AppUser, vertical: VerticalType): boolean {
+        if (isMarketplaceLaunchActive(vertical)) return true;
         if (user.role === 'superadmin' || user.role === 'admin') return true;
         return getEffectivePlanId(user, vertical) !== 'free';
     }
 
     function userCanUseInstagram(user: AppUser, vertical: VerticalType): boolean {
+        if (isPlatformLaunchActive(vertical)) return true;
         if (user.role === 'superadmin') return true;
         const planId = getEffectivePlanId(user, vertical);
         return planId === 'pro' || planId === 'enterprise';

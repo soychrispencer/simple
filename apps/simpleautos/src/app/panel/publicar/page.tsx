@@ -24,7 +24,7 @@ import {
 import { mergeAutosPublishDraft, prepareAutosDraftMedia, serializeAutosPublishDraft, type AutosPublishStep } from '@/lib/autos-publish-draft';
 import { useAuth } from '@simple/auth';
 import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form';
-import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton, PanelSummaryCard } from '@simple/ui/panel';
+import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton, PanelSummaryCard, PanelScrollModal } from '@simple/ui/panel';
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
@@ -1902,42 +1902,48 @@ function VehicleValuationModal(props: {
     onApplyPrice: (price: number) => void;
 }) {
     const { open, onClose, listingType, estimate, estimating, valuationRequest, onRunValuation, onApplyPrice } = props;
-    if (!open) return null;
-
     const isAuction = listingType === 'auction';
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
-            onClick={onClose}
-            role="presentation"
-        >
-            <div
-                className="flex max-h-[min(90vh,52rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-(--border) bg-(--surface) shadow-lg"
-                onClick={(event) => event.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="vehicle-valuation-modal-title"
-            >
-                <div className="flex items-start justify-between gap-3 border-b border-(--border) px-4 py-3 sm:px-5 sm:py-4">
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2.5">
-                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-(--bg-muted) text-(--fg)">
-                                <IconCalculator size={17} />
-                            </span>
-                            <h3 id="vehicle-valuation-modal-title" className="text-base font-semibold text-(--fg)">Tasador online</h3>
-                        </div>
-                        <p className="mt-2 text-sm text-(--fg-secondary)">
-                            Referencia de mercado con rango, confianza y tendencia para ayudarte a fijar el precio.
-                        </p>
+        <PanelScrollModal
+            open={open}
+            onClose={onClose}
+            size="2xl"
+            height="tall"
+            titleId="vehicle-valuation-modal-title"
+            bodyClassName="px-4 py-4 sm:px-5"
+            headerContent={(
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2.5">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-(--bg-muted) text-(--fg)">
+                            <IconCalculator size={17} />
+                        </span>
+                        <h3 id="vehicle-valuation-modal-title" className="text-base font-semibold text-(--fg)">Tasador online</h3>
                     </div>
-                    <PanelIconButton label="Cerrar" onClick={onClose}>
-                        <IconX size={16} />
-                    </PanelIconButton>
+                    <p className="mt-2 text-sm text-(--fg-secondary)">
+                        Referencia de mercado con rango, confianza y tendencia para ayudarte a fijar el precio.
+                    </p>
                 </div>
-
-                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-                    <div className="space-y-4">
+            )}
+            footer={estimate && !isAuction ? (
+                <div className="flex flex-wrap gap-2">
+                    <PanelButton
+                        type="button"
+                        variant="primary"
+                        onClick={() => {
+                            onApplyPrice(Math.round(estimate.estimatedPrice));
+                            onClose();
+                        }}
+                    >
+                        Usar precio estimado
+                    </PanelButton>
+                    <PanelButton type="button" variant="secondary" onClick={onClose}>
+                        Cerrar
+                    </PanelButton>
+                </div>
+            ) : undefined}
+        >
+            <div className="space-y-4">
                         <PanelButton
                             type="button"
                             variant="primary"
@@ -2000,28 +2006,8 @@ function VehicleValuationModal(props: {
                                 ) : null}
                             </div>
                         ) : null}
-                    </div>
-                </div>
-
-                {estimate && !isAuction ? (
-                    <div className="flex flex-wrap gap-2 border-t border-(--border) px-4 py-3 sm:px-5 sm:py-4">
-                        <PanelButton
-                            type="button"
-                            variant="primary"
-                            onClick={() => {
-                                onApplyPrice(Math.round(estimate.estimatedPrice));
-                                onClose();
-                            }}
-                        >
-                            Usar precio estimado
-                        </PanelButton>
-                        <PanelButton type="button" variant="secondary" onClick={onClose}>
-                            Cerrar
-                        </PanelButton>
-                    </div>
-                ) : null}
             </div>
-        </div>
+        </PanelScrollModal>
     );
 }
 

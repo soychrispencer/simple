@@ -10,8 +10,8 @@ const sections = [
             { label: 'Comprar', href: '/ventas' },
             { label: 'Arrendar', href: '/arriendos' },
             { label: 'Subastas', href: '/subastas' },
-            { label: 'Precalificar financiamiento', href: '/precalificacion-financiamiento' },
             { label: 'Publicar', href: '/panel/publicar' },
+            { label: 'Precalificar financiamiento', href: '/precalificacion-financiamiento' },
         ],
     },
     {

@@ -47,7 +47,37 @@ function listingYearNumericSql(): SQL {
     )::numeric`;
 }
 
-/** Condiciones PostgreSQL para filtros de marketplace (marca/modelo/región/comuna/combustible/precio/año). */
+function listingAreaNumericSql(): SQL {
+    return sql`GREATEST(
+        COALESCE(NULLIF(regexp_replace(coalesce(${listings.rawData}->'basic'->>'totalArea', ''), '[^0-9]', '', 'g'), '')::numeric, 0),
+        COALESCE(NULLIF(regexp_replace(coalesce(${listings.rawData}->'basic'->>'usableArea', ''), '[^0-9]', '', 'g'), '')::numeric, 0),
+        COALESCE(NULLIF(regexp_replace(coalesce(${listings.rawData}->'basic'->>'surface', ''), '[^0-9]', '', 'g'), '')::numeric, 0),
+        COALESCE(NULLIF(regexp_replace(coalesce(${listings.rawData}->'project'->>'usableAreaFrom', ''), '[^0-9]', '', 'g'), '')::numeric, 0)
+    )`;
+}
+
+function listingRoomsNumericSql(): SQL {
+    return sql`NULLIF(
+        regexp_replace(coalesce(${listings.rawData}->'basic'->>'rooms', ''), '[^0-9]', '', 'g'),
+        ''
+    )::numeric`;
+}
+
+function listingBathroomsNumericSql(): SQL {
+    return sql`NULLIF(
+        regexp_replace(coalesce(${listings.rawData}->'basic'->>'bathrooms', ''), '[^0-9]', '', 'g'),
+        ''
+    )::numeric`;
+}
+
+function listingParkingNumericSql(): SQL {
+    return sql`NULLIF(
+        regexp_replace(coalesce(${listings.rawData}->'basic'->>'parkingSpaces', ''), '[^0-9]', '', 'g'),
+        ''
+    )::numeric`;
+}
+
+/** Condiciones PostgreSQL para filtros de marketplace (vehículos y propiedades). */
 export function buildPublicListingSearchSqlConditions(query: PublicListingSearchQuery): SQL[] {
     const conditions: SQL[] = [];
     const priceNumeric = listingPriceNumericSql();
@@ -129,6 +159,61 @@ export function buildPublicListingSearchSqlConditions(query: PublicListingSearch
         if (Number.isFinite(maxYear)) {
             conditions.push(sql`${yearNumeric} <= ${maxYear}`);
         }
+    }
+
+    if (query.propertyType) {
+        const propertyType = query.propertyType.toLowerCase();
+        if (propertyType === 'local') {
+            conditions.push(sql`(
+                ${lowerJsonText(sql`${listings.rawData}->'setup'->>'propertyType'`)} LIKE '%local%'
+                OR ${lowerJsonText(sql`${listings.rawData}->'basic'->>'propertyType'`)} LIKE '%local%'
+            )`);
+        } else {
+            conditions.push(sql`(
+                ${lowerJsonText(sql`${listings.rawData}->'setup'->>'propertyType'`)} = ${propertyType}
+                OR ${lowerJsonText(sql`${listings.rawData}->'basic'->>'propertyType'`)} = ${propertyType}
+                OR ${lowerJsonText(sql`${listings.rawData}->'setup'->>'propertyType'`)} LIKE ${`%${propertyType}%`}
+                OR ${lowerJsonText(sql`${listings.rawData}->'basic'->>'propertyType'`)} LIKE ${`%${propertyType}%`}
+            )`);
+        }
+    }
+
+    if (query.bedrooms) {
+        const minimum = Number(String(query.bedrooms).replace(/\+$/, ''));
+        if (Number.isFinite(minimum)) {
+            conditions.push(sql`${listingRoomsNumericSql()} >= ${minimum}`);
+        }
+    }
+
+    if (query.bathrooms) {
+        const minimum = Number(String(query.bathrooms).replace(/\+$/, ''));
+        if (Number.isFinite(minimum)) {
+            conditions.push(sql`${listingBathroomsNumericSql()} >= ${minimum}`);
+        }
+    }
+
+    if (query.parking) {
+        const minimum = Number(String(query.parking).replace(/\+$/, ''));
+        if (Number.isFinite(minimum)) {
+            conditions.push(sql`${listingParkingNumericSql()} >= ${minimum}`);
+        }
+    }
+
+    if (query.minArea) {
+        const minimumArea = Number(query.minArea);
+        if (Number.isFinite(minimumArea)) {
+            conditions.push(sql`${listingAreaNumericSql()} >= ${minimumArea}`);
+        }
+    }
+
+    if (query.salesStage) {
+        const stage = `%${query.salesStage.toLowerCase()}%`;
+        conditions.push(sql`${lowerJsonText(sql`${listings.rawData}->'project'->>'salesStage'`)} LIKE ${stage}`);
+    }
+
+    if (query.deliveryStatus) {
+        const delivery = `%${query.deliveryStatus.toLowerCase()}%`;
+        conditions.push(sql`${lowerJsonText(sql`${listings.rawData}->'project'->>'deliveryStatus'`)} LIKE ${delivery}`);
     }
 
     if (query.q) {

@@ -5,7 +5,7 @@ import {
     PANEL_BILLING_TRIAL_DAYS,
     resolvePanelBillingFromCatalog,
 } from '@simple/ui/panel';
-import type { SubscriptionCatalogResponse } from '@simple/utils';
+import { isPlatformLaunchActive, type SubscriptionCatalogResponse } from '@simple/utils';
 import type { SerenataMePlan } from '@/lib/serenatas-api';
 
 const SERENATAS_SUBSCRIPTION_HREF = '/panel/mi-cuenta?account_tab=subscription';
@@ -13,10 +13,16 @@ const SERENATAS_SUBSCRIPTION_HREF = '/panel/mi-cuenta?account_tab=subscription';
 export function resolveSerenatasBillingAccessFromCatalog(
     catalog: SubscriptionCatalogResponse | null,
 ): PanelBillingAccess {
+    if (isPlatformLaunchActive('serenatas')) {
+        return { status: 'trial', daysRemaining: null, subscriptionHref: SERENATAS_SUBSCRIPTION_HREF };
+    }
     return resolvePanelBillingFromCatalog(catalog, SERENATAS_SUBSCRIPTION_HREF);
 }
 
 export function resolveSerenatasBillingAccess(plan: SerenataMePlan): PanelBillingAccess {
+    if (isPlatformLaunchActive('serenatas')) {
+        return { status: 'trial', daysRemaining: null, subscriptionHref: SERENATAS_SUBSCRIPTION_HREF };
+    }
     const hasPaidPlan = plan.plan === 'pro' || plan.profileVisibilityStatus === 'active';
 
     if (hasPaidPlan) {

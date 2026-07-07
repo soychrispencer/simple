@@ -15,15 +15,15 @@ import {
 } from '@tabler/icons-react';
 import type { ListingDistributionChannel } from '@simple/utils';
 import { FacebookMarketplaceAssistCard, type FacebookMarketplaceAssistCardProps } from './facebook-marketplace-assist-card.js';
+import { PanelScrollModal } from './panel-scroll-modal.js';
 
 export type ListingDistributionPanelProps = {
     channels: ListingDistributionChannel[];
     loading?: boolean;
     soldHint?: boolean;
     onRefresh?: () => void;
-    marketplaceAssist?: Omit<FacebookMarketplaceAssistCardProps, 'initialPublished' | 'initialExternalUrl'> & {
+    marketplaceAssist?: Omit<FacebookMarketplaceAssistCardProps, 'initialPublished'> & {
         initialPublished?: boolean;
-        initialExternalUrl?: string | null;
     };
 };
 
@@ -160,7 +160,6 @@ export function ListingDistributionPanel({
                 <FacebookMarketplaceAssistCard
                     {...marketplaceAssist}
                     initialPublished={marketplaceAssist.initialPublished ?? facebookChannel?.status === 'published'}
-                    initialExternalUrl={marketplaceAssist.initialExternalUrl ?? facebookChannel?.permalink ?? null}
                 />
             ) : null}
         </div>
@@ -179,29 +178,14 @@ export function ListingDistributionDialog({
     onClose,
     ...panelProps
 }: ListingDistributionDialogProps) {
-    if (!open) return null;
-
     return (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 p-4 sm:items-center">
-            <button
-                type="button"
-                aria-label="Cerrar"
-                className="absolute inset-0"
-                onClick={onClose}
-            />
-            <div className="relative z-[1] w-full max-w-lg rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl max-h-[85vh] overflow-y-auto">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                    <h2 className="text-base font-semibold text-[var(--fg)]">{title}</h2>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-lg p-1.5 text-[var(--fg-muted)] hover:bg-[var(--bg-subtle)]"
-                    >
-                        <IconX size={18} />
-                    </button>
-                </div>
-                <ListingDistributionPanel {...panelProps} />
-            </div>
-        </div>
+        <PanelScrollModal
+            open={open}
+            title={title}
+            onClose={onClose}
+            size="lg"
+        >
+            <ListingDistributionPanel {...panelProps} />
+        </PanelScrollModal>
     );
 }

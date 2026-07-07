@@ -162,9 +162,39 @@ export function selectRecentPublicListings(listings: PublicListing[], limit = 30
         .slice(0, limit);
 }
 
-export async function fetchPublicListings(section?: PublicListingSection): Promise<PublicListing[]> {
-    const suffix = section ? `&section=${encodeURIComponent(section)}` : '';
-    const data = await publicFetch<ListingsResponse>(`/api/public/listings?vertical=propiedades${suffix}`);
+export type PublicListingsFilters = {
+    q?: string;
+    region?: string;
+    commune?: string;
+    price_from?: string;
+    price_to?: string;
+    property_type?: string;
+    bedrooms?: string;
+    bathrooms?: string;
+    parking?: string;
+    min_area?: string;
+    sales_stage?: string;
+    delivery_status?: string;
+};
+
+export async function fetchPublicListings(section?: PublicListingSection, filters?: PublicListingsFilters): Promise<PublicListing[]> {
+    const params = new URLSearchParams();
+    params.set('vertical', 'propiedades');
+    if (section) params.set('section', section);
+    if (filters?.q) params.set('q', filters.q);
+    if (filters?.region) params.set('region', filters.region);
+    if (filters?.commune) params.set('commune', filters.commune);
+    if (filters?.price_from) params.set('price_from', filters.price_from);
+    if (filters?.price_to) params.set('price_to', filters.price_to);
+    if (filters?.property_type) params.set('property_type', filters.property_type);
+    if (filters?.bedrooms) params.set('bedrooms', filters.bedrooms);
+    if (filters?.bathrooms) params.set('bathrooms', filters.bathrooms);
+    if (filters?.parking) params.set('parking', filters.parking);
+    if (filters?.min_area) params.set('min_area', filters.min_area);
+    if (filters?.sales_stage) params.set('sales_stage', filters.sales_stage);
+    if (filters?.delivery_status) params.set('delivery_status', filters.delivery_status);
+
+    const data = await publicFetch<ListingsResponse>(`/api/public/listings?${params.toString()}`);
     return Array.isArray(data?.items) ? data.items : [];
 }
 

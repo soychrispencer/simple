@@ -20,9 +20,15 @@ export const DEFAULT_ACCOUNT_SECTION_TABS: PanelSectionTabItem[] = [
     { key: 'seguridad', label: 'Seguridad', href: '/panel/mi-cuenta/seguridad' },
 ];
 
-/** Inserta pestañas extra antes de `suscripcion` o `seguridad`. */
+export const MARKETPLACE_ACCOUNT_SAVED_TAB: PanelSectionTabItem = {
+    key: 'guardados',
+    label: 'Guardados',
+    href: '/panel/mi-cuenta/guardados',
+};
+
+/** Inserta pestañas extra antes de una pestaña existente. */
 export function buildAccountSectionTabs(
-    insertBefore: 'suscripcion' | 'seguridad',
+    insertBefore: PanelSectionTabItem['key'],
     extraTabs: PanelSectionTabItem[],
 ): PanelSectionTabItem[] {
     const index = DEFAULT_ACCOUNT_SECTION_TABS.findIndex((tab) => tab.key === insertBefore);
@@ -35,6 +41,11 @@ export function buildAccountSectionTabs(
         ...DEFAULT_ACCOUNT_SECTION_TABS.slice(index),
     ];
 }
+
+/** Pestañas de Mi cuenta en marketplaces (autos, propiedades). */
+export const MARKETPLACE_ACCOUNT_SECTION_TABS = buildAccountSectionTabs('integraciones', [
+    MARKETPLACE_ACCOUNT_SAVED_TAB,
+]);
 
 export const ACCOUNT_PAGE_DEFAULTS = {
     title: 'Mi cuenta',

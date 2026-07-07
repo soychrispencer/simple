@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { IconArrowsSort, IconGridDots, IconList } from '@tabler/icons-react';
+import { useSearchParams } from 'next/navigation';
+import { IconArrowsSort, IconGridDots, IconList, IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import { ModernSelect } from '@simple/ui/forms';
 import PropertyListingCard, { type PropertyListingCardData } from '@/components/listings/property-listing-card';
+import PropertyFilters from '@/components/listings/property-filters';
 import { fetchPublicListings, type PublicListing, type PublicListingSection } from '@/lib/public-listings';
+import { parsePropertyListingSearchParams } from '@/lib/property-search-params';
 import { resolveListingSellerAvatarUrl } from '@simple/utils';
 import { PanelCard } from '@simple/ui/panel';
 import { PanelNotice, PanelPageHeader, PanelSegmentedToggle } from '@simple/ui/panel';
@@ -73,12 +76,13 @@ function toCardData(item: PublicListing): PropertyListingCardData {
     };
 }
 
-export default function PublicPropertyListingPage(props: {
+function PublicPropertyListingPageContent(props: {
     section: PublicListingSection;
     title: string;
     breadcrumbLabel: string;
     description: string;
 }) {
+    const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         if (typeof window === 'undefined') return 'grid';
@@ -90,17 +94,29 @@ export default function PublicPropertyListingPage(props: {
             window.localStorage.setItem('simplepropiedades:publicListings:viewMode', viewMode);
         }
     }, [viewMode]);
+    const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const saved = window.localStorage.getItem('simplepropiedades:publicListings:filtersCollapsed');
+        if (saved === '1') setFiltersCollapsed(true);
+    }, []);
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem('simplepropiedades:publicListings:filtersCollapsed', filtersCollapsed ? '1' : '0');
+        }
+    }, [filtersCollapsed]);
     const [sortOrder, setSortOrder] = useState('recent');
     const [items, setItems] = useState<PublicListing[]>([]);
 
     useEffect(() => {
         setLoading(true);
         void (async () => {
-            const nextItems = await fetchPublicListings(props.section);
+            const filters = parsePropertyListingSearchParams(searchParams);
+            const nextItems = await fetchPublicListings(props.section, filters);
             setItems(nextItems);
             setLoading(false);
         })();
-    }, [props.section]);
+    }, [props.section, searchParams]);
 
     const sortedItems = useMemo(() => {
         const next = [...items];
@@ -151,31 +167,87 @@ export default function PublicPropertyListingPage(props: {
 
             <p className="mb-5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                 {props.description}
-                {props.section === 'sale' ? (
-                    <>
-                        {' '}
-                        <Link href="/simulador-hipotecario" className="font-medium underline underline-offset-2" style={{ color: 'var(--fg)' }}>
-                            Simula tu crédito hipotecario
-                        </Link>
-                    </>
-                ) : null}
             </p>
 
             <InlineResultAd section={props.section === 'project' ? 'proyectos' : props.section === 'rent' ? 'arriendos' : 'ventas'} className="mb-5" />
 
-            {loading ? null : cards.length === 0 ? (
-                <PanelCard size="lg">
-                    <PanelNotice tone="neutral">
-                        Aún no hay publicaciones en esta sección. Crea una desde el panel para verla aquí.
-                    </PanelNotice>
-                </PanelCard>
-            ) : (
-                <div className={viewMode === 'grid' ? 'listings-grid grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'space-y-3'}>
-                    {cards.map((item) => (
-                        <PropertyListingCard key={item.id} data={item} mode={viewMode} />
-                    ))}
+            <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start">
+                <aside className={`hidden lg:block shrink-0 transition-[width] duration-200 ${filtersCollapsed ? 'w-14' : 'w-72'}`}>
+                    <div className="sticky top-4 rounded-card border p-3 flex flex-col border-(--border) bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] shadow-md">
+                        <div className={`mb-3 flex ${filtersCollapsed ? 'justify-center' : 'justify-end'}`}>
+                            <button
+                                onClick={() => setFiltersCollapsed((prev) => !prev)}
+                                className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                aria-label={filtersCollapsed ? 'Expandir filtros' : 'Contraer filtros'}
+                            >
+                                {filtersCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
+                            </button>
+                        </div>
+
+                        {filtersCollapsed ? (
+                            <button
+                                type="button"
+                                onClick={() => setFiltersCollapsed(false)}
+                                className="w-8 h-8 mx-auto rounded-[10px] flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                aria-label="Mostrar filtros"
+                                title="Filtros"
+                            >
+                                <IconAdjustmentsHorizontal size={15} />
+                            </button>
+                        ) : (
+                            <PropertyFilters section={props.section} />
+                        )}
+                    </div>
+                </aside>
+
+                <div className="lg:hidden w-full mb-4">
+                    <div className="rounded-card border p-3 border-(--border) bg-[color-mix(in_srgb,var(--surface)_92%,transparent)]">
+                        <PropertyFilters section={props.section} />
+                    </div>
                 </div>
-            )}
+
+                <div className="w-full min-w-0 flex-1">
+                    {loading ? null : cards.length === 0 ? (
+                        <PanelCard size="lg">
+                            <PanelNotice tone="neutral">
+                                No encontramos publicaciones con esos filtros. Prueba ampliar la búsqueda o limpiar los filtros.
+                            </PanelNotice>
+                        </PanelCard>
+                    ) : (
+                        <div className={viewMode === 'grid' ? 'listings-grid grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'w-full space-y-3'}>
+                            {cards.map((item) => (
+                                <div key={item.id} className="w-full min-w-0">
+                                    <PropertyListingCard data={item} mode={viewMode} />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {props.section === 'sale' ? (
+                <p className="mt-8 text-center text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                    ¿Buscas financiamiento?{' '}
+                    <Link href="/simulador-hipotecario" className="font-medium underline underline-offset-2" style={{ color: 'var(--fg)' }}>
+                        Simula tu crédito hipotecario
+                    </Link>
+                </p>
+            ) : null}
         </div>
+    );
+}
+
+export default function PublicPropertyListingPage(props: {
+    section: PublicListingSection;
+    title: string;
+    breadcrumbLabel: string;
+    description: string;
+}) {
+    return (
+        <Suspense fallback={null}>
+            <PublicPropertyListingPageContent {...props} />
+        </Suspense>
     );
 }

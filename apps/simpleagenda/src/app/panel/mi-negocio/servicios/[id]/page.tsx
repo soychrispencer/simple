@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { use } from 'react';
 import {
-    IconUserPlus, IconLoader2, IconTrash, IconX, IconCheck, IconAlertCircle, IconUsersGroup, IconCalendarEvent, IconMapPin, IconVideo, IconUser, IconUserCheck, IconUserX, IconMail, IconPhone, IconCurrencyDollar, IconEdit, IconPlayerStop, IconCircleCheck, IconArrowBackUp, } from '@tabler/icons-react';
+    IconUserPlus, IconLoader2, IconTrash, IconCheck, IconAlertCircle, IconUsersGroup, IconCalendarEvent, IconMapPin, IconVideo, IconUser, IconUserCheck, IconUserX, IconMail, IconPhone, IconCurrencyDollar, IconEdit, IconPlayerStop, IconCircleCheck, IconArrowBackUp, } from '@tabler/icons-react';
 import { PanelCard } from '@simple/ui/panel';
 import { PanelButton, PanelField, PanelNotice, PanelEmptyState, AGENDA_BUSINESS_SERVICIOS_PAGE } from '@simple/ui/panel';
 import type { AgendaGroupAttendeeStatus, AgendaGroupSessionStatus } from '@simple/utils';
 import { isAgendaGroupService } from '@simple/utils';
+import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { AgendaMiNegocioShell, AgendaMiNegocioLoading } from '@/components/panel/agenda-mi-negocio-shell';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
@@ -479,22 +480,22 @@ export default function GroupServiceDetailPage({ params }: { params: Promise<{ i
             )}
 
             {formOpen && (
-                <button type="button" aria-label="Cerrar" className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={closeForm}>
-                    <div
-                        className="w-full rounded-3xl overflow-hidden max-h-[90vh] flex flex-col"
-                        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-                            <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                                {editingAttendeeId ? 'Editar asistente' : 'Agregar asistente'}
-                            </h2>
-                            <button type="button" onClick={closeForm} className="p-1 rounded-button hover:bg-(--bg-muted)">
-                                <IconX size={16} style={{ color: 'var(--fg-muted)' }} />
-                            </button>
+                <AgendaScrollModal
+                    title={editingAttendeeId ? 'Editar asistente' : 'Agregar asistente'}
+                    size="md"
+                    onClose={closeForm}
+                    bodyClassName="px-0 py-0"
+                    footer={(
+                        <div className="flex items-center justify-end gap-2">
+                            <PanelButton variant="secondary" size="sm" onClick={closeForm}>Cancelar</PanelButton>
+                            <PanelButton variant="accent" size="sm" onClick={() => void handleSubmit()} disabled={saving}>
+                                {saving ? <IconLoader2 size={13} className="animate-spin" /> : <IconCheck size={13} />}
+                                {editingAttendeeId ? 'Guardar' : 'Agregar'}
+                            </PanelButton>
                         </div>
-
-                        <div className="px-5 py-4 overflow-y-auto flex flex-col gap-4">
+                    )}
+                >
+                    <div className="flex flex-col gap-4 px-5 py-4">
                             {error && (
                                 <div className="flex items-start gap-2 p-3 rounded-xl text-xs" style={{ background: 'rgba(220,38,38,0.08)', color: '#b91c1c' }}>
                                     <IconAlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -576,17 +577,8 @@ export default function GroupServiceDetailPage({ params }: { params: Promise<{ i
                                     style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
                                 />
                             </PanelField>
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t" style={{ borderColor: 'var(--border)' }}>
-                            <PanelButton variant="secondary" size="sm" onClick={closeForm}>Cancelar</PanelButton>
-                            <PanelButton variant="accent" size="sm" onClick={() => void handleSubmit()} disabled={saving}>
-                                {saving ? <IconLoader2 size={13} className="animate-spin" /> : <IconCheck size={13} />}
-                                {editingAttendeeId ? 'Guardar' : 'Agregar'}
-                            </PanelButton>
-                        </div>
                     </div>
-                </button>
+                </AgendaScrollModal>
             )}
         </AgendaMiNegocioShell>
     );

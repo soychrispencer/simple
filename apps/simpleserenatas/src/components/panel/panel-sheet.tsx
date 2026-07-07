@@ -1,62 +1,46 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { PanelScrollShell, type PanelScrollModalSize } from '@simple/ui/panel';
 
 type PanelSheetProps = {
-    children: ReactNode;
+    children: React.ReactNode;
     onClose: () => void;
     ariaLabel: string;
     maxWidthClass?: string;
-    /** En escritorio el panel no hace scroll interno; en móvil sí si el contenido es alto. */
+    /** @deprecated Siempre usa layout restringido con scroll interno. */
     scrollOnMobileOnly?: boolean;
-    /** Formularios largos: altura máx. viewport y scroll en el hijo (flex column). */
+    /** Formularios largos: el hijo define header, scroll y footer. */
     constrainHeight?: boolean;
 };
+
+function resolveSize(maxWidthClass: string): PanelScrollModalSize {
+    if (maxWidthClass.includes('max-w-sm')) return 'sm';
+    if (maxWidthClass.includes('max-w-md')) return 'md';
+    if (maxWidthClass.includes('max-w-lg')) return 'lg';
+    if (maxWidthClass.includes('max-w-3xl')) return '3xl';
+    if (maxWidthClass.includes('max-w-4xl')) return '5xl';
+    if (maxWidthClass.includes('max-w-2xl')) return '2xl';
+    return '2xl';
+}
 
 export function PanelSheet({
     children,
     onClose,
     ariaLabel,
     maxWidthClass = 'sm:max-w-3xl',
-    scrollOnMobileOnly = true,
-    constrainHeight = false,
+    constrainHeight = true,
 }: PanelSheetProps) {
-    useEffect(() => {
-        if (!constrainHeight) return;
-        const previous = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-        return () => {
-            document.body.style.overflow = previous;
-        };
-    }, [constrainHeight]);
-
-    const panelScrollClass = constrainHeight
-        ? 'flex w-full min-h-0 max-h-[min(92dvh,calc(100dvh-0.5rem))] flex-col overflow-hidden sm:max-h-[min(90dvh,calc(100dvh-2rem))]'
-        : scrollOnMobileOnly
-          ? 'max-h-[92vh] overflow-x-hidden overflow-y-auto sm:max-h-[min(90dvh,calc(100dvh-2rem))] sm:overflow-y-auto'
-          : 'max-h-[92vh] overflow-x-hidden overflow-y-auto';
-
     return (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center p-0 sm:items-center sm:p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-label={ariaLabel}
+        <PanelScrollShell
+            ariaLabel={ariaLabel}
+            onClose={onClose}
+            size={resolveSize(maxWidthClass)}
+            zIndexClass="z-[90]"
+            constrainContent={constrainHeight}
+            overlayClassName="panel-sheet-scrim cursor-default"
+            panelClassName="panel-sheet-panel rounded-t-3xl sm:rounded-3xl"
         >
-            <button
-                type="button"
-                aria-label="Cerrar"
-                className="panel-sheet-scrim absolute inset-0 cursor-default"
-                onClick={onClose}
-            />
-            <div
-                className={`panel-sheet-panel relative min-w-0 max-w-full w-full rounded-t-3xl ${maxWidthClass} sm:rounded-3xl ${panelScrollClass}`}
-            >
-                {constrainHeight ? (
-                    <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-                ) : (
-                    children
-                )}
-            </div>
-        </div>
+            {children}
+        </PanelScrollShell>
     );
 }

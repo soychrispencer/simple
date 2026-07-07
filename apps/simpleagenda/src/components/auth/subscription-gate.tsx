@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IconLock } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
+import { isPlatformLaunchActive } from '@simple/utils';
 import { fetchAgendaProfile, hasAgendaFullAccess, type AgendaProfile } from '@/lib/agenda-api';
 import Link from 'next/link';
 
@@ -21,6 +22,8 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
         });
         return () => { cancelled = true; };
     }, []);
+
+    if (isPlatformLaunchActive('agenda')) return <>{children}</>;
 
     if (loading) return <>{children}</>;
 

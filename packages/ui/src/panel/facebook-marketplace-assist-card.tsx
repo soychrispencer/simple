@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { IconBrandFacebook, IconCheck, IconCopy, IconExternalLink } from '@tabler/icons-react';
+import { IconBrandFacebook, IconCheck, IconLoader2 } from '@tabler/icons-react';
 import {
     buildMarketplaceListingCopy,
     buildMarketplacePublicUrl,
     getFacebookMarketplaceCreateUrl,
     type MarketplaceAssistVertical,
 } from '@simple/utils';
+import { PanelButton } from './panel-button.js';
 
 export type FacebookMarketplaceAssistCardProps = {
     vertical: MarketplaceAssistVertical;
@@ -18,7 +19,6 @@ export type FacebookMarketplaceAssistCardProps = {
     listingDescription?: string | null;
     listingLocation?: string | null;
     initialPublished?: boolean;
-    initialExternalUrl?: string | null;
     marking?: boolean;
     clearing?: boolean;
     onMarkPublished?: (externalUrl: string | null) => void | Promise<void>;
@@ -34,21 +34,19 @@ export function FacebookMarketplaceAssistCard({
     listingDescription,
     listingLocation,
     initialPublished = false,
-    initialExternalUrl = null,
     marking = false,
     clearing = false,
     onMarkPublished,
     onClearPublished,
 }: FacebookMarketplaceAssistCardProps) {
     const [published, setPublished] = useState(initialPublished);
-    const [externalUrl, setExternalUrl] = useState(initialExternalUrl ?? '');
-    const [copied, setCopied] = useState(false);
-    const [message, setMessage] = useState<string | null>(null);
+    const [pending, setPending] = useState(false);
+    const [flash, setFlash] = useState(false);
 
     useEffect(() => {
         setPublished(initialPublished);
-        setExternalUrl(initialExternalUrl ?? '');
-    }, [initialExternalUrl, initialPublished]);
+        if (initialPublished) setPending(false);
+    }, [initialPublished]);
 
     const marketplaceCopy = useMemo(
         () => buildMarketplaceListingCopy({
@@ -63,123 +61,76 @@ export function FacebookMarketplaceAssistCard({
     );
 
     const marketplaceUrl = getFacebookMarketplaceCreateUrl(vertical);
+    const busy = marking || clearing;
 
-    async function handleCopy() {
+    async function handlePrimary() {
+        if (busy || published) return;
+
+        if (pending) {
+            if (!onMarkPublished) return;
+            await onMarkPublished(null);
+            setPublished(true);
+            setPending(false);
+            return;
+        }
+
         try {
             await navigator.clipboard.writeText(marketplaceCopy);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2500);
+            setFlash(true);
+            window.setTimeout(() => setFlash(false), 2200);
         } catch {
-            setMessage('No pudimos copiar al portapapeles. Selecciona y copia el texto manualmente.');
+            // sigue abriendo Marketplace aunque falle el portapapeles
         }
+        window.open(marketplaceUrl, '_blank', 'noopener,noreferrer');
+        setPending(true);
     }
 
-    async function handleMarkPublished() {
-        if (!onMarkPublished) return;
-        setMessage(null);
-        const trimmedUrl = externalUrl.trim();
-        const normalizedUrl = trimmedUrl && /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : null;
-        await onMarkPublished(normalizedUrl);
-        setPublished(true);
-        setMessage(`Registrado en ${brandLabel} como publicado en Facebook Marketplace.`);
-    }
-
-    async function handleClearPublished() {
-        if (!onClearPublished) return;
-        setMessage(null);
+    async function handleClear() {
+        if (!onClearPublished || busy) return;
         await onClearPublished();
         setPublished(false);
-        setExternalUrl('');
-        setMessage('Marca retirada. Puedes volver a publicar en Marketplace cuando quieras.');
+        setPending(false);
     }
 
+    const showDone = published || pending;
+
     return (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-subtle)] p-4 text-left">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <p className="text-sm font-semibold text-[var(--fg)] flex items-center gap-2">
-                        <IconBrandFacebook size={18} className="text-[#1877F2]" />
-                        Facebook Marketplace
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--fg-muted)] leading-relaxed">
-                        Publicación manual: tú controlas qué subes y cuándo. Meta no permite automatizar avisos de vehículos ni propiedades por ahora.
-                    </p>
-                </div>
-                {published ? (
-                    <span className="shrink-0 rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-green-800">
-                        Registrado
-                    </span>
+        <div className="flex items-center gap-3 rounded-xl border border-(--border) bg-(--surface) px-3 py-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-(--bg-subtle)">
+                <IconBrandFacebook size={20} className="text-[#1877F2]" />
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-(--fg)">Facebook Marketplace</p>
+                {flash ? (
+                    <p className="mt-0.5 text-[10px] text-green-600">Copiado — pega en Facebook</p>
                 ) : null}
             </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                    type="button"
-                    onClick={() => void handleCopy()}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium hover:bg-[var(--bg)] transition-colors"
-                >
-                    {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-                    {copied ? 'Copiado' : 'Copiar datos del aviso'}
-                </button>
-
-                <a
-                    href={marketplaceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium hover:bg-[var(--bg)] transition-colors"
-                >
-                    Abrir Marketplace
-                    <IconExternalLink size={14} />
-                </a>
-
-                <button
-                    type="button"
-                    disabled={marking || published}
-                    onClick={() => void handleMarkPublished()}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#1877F2] px-3 py-2 text-xs font-medium text-white hover:bg-[#166FE5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {marking ? 'Guardando...' : published ? 'Ya registrado' : 'Ya lo publiqué en Marketplace'}
-                </button>
-
+            <div className="flex shrink-0 items-center gap-1.5">
                 {published && onClearPublished ? (
                     <button
                         type="button"
-                        disabled={clearing}
-                        onClick={() => void handleClearPublished()}
-                        className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--bg)] transition-colors disabled:opacity-50"
+                        disabled={busy}
+                        onClick={() => void handleClear()}
+                        className="text-[10px] font-medium text-(--fg-muted) transition hover:text-(--fg)"
                     >
-                        {clearing ? 'Guardando...' : 'Ya lo retiré de Marketplace'}
+                        Quitar
                     </button>
                 ) : null}
-            </div>
-
-            {!published ? (
-                <label className="mt-3 block text-xs text-[var(--fg-muted)]">
-                    <span className="font-medium text-[var(--fg)]">Enlace del aviso en Marketplace</span>
-                    <span className="ml-1">(opcional)</span>
-                    <input
-                        type="url"
-                        value={externalUrl}
-                        onChange={(event) => setExternalUrl(event.target.value)}
-                        placeholder="https://www.facebook.com/marketplace/item/..."
-                        className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)]"
-                    />
-                </label>
-            ) : externalUrl ? (
-                <a
-                    href={externalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#1877F2] hover:underline"
+                <PanelButton
+                    type="button"
+                    variant={showDone ? 'secondary' : 'primary'}
+                    size="sm"
+                    disabled={busy || published}
+                    onClick={() => void handlePrimary()}
                 >
-                    Ver aviso en Marketplace
-                    <IconExternalLink size={12} />
-                </a>
-            ) : null}
-
-            {message ? (
-                <p className={`mt-3 text-xs ${published ? 'text-green-700' : 'text-[var(--fg-muted)]'}`}>{message}</p>
-            ) : null}
+                    {busy ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                    ) : published ? (
+                        <IconCheck size={14} />
+                    ) : null}
+                    {busy ? 'Guardando...' : published ? 'Listo' : pending ? 'Listo' : 'Publicar'}
+                </PanelButton>
+            </div>
         </div>
     );
 }

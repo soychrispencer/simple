@@ -21,9 +21,10 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
     const navItems = useMemo(
         () => applyMarketplaceMiNegocioNavBadge(
-            getPanelNavItems(role).map(({ href, label, icon, badge }) => ({ href, label, icon, badge })),
+            getPanelNavItems(role).map(({ href, label, icon, badge, section }) => ({ href, label, icon, badge, section })),
             billing,
             role,
+            'autos',
         ),
         [billing, role],
     );

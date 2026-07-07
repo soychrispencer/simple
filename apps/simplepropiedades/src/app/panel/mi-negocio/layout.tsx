@@ -16,6 +16,7 @@ export default function MiNegocioLayout({ children }: { children: React.ReactNod
             subscriptionHref={SUBSCRIPTION_HREF}
             fetchCatalog={fetchSubscriptionCatalog}
             role={role}
+            vertical="propiedades"
         >
             {children}
         </MarketplaceMiNegocioProGate>

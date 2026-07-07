@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IconLock } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
+import { isPlatformLaunchActive } from '@simple/utils';
 import { serenatasApi, type SerenataMePlan } from '@/lib/serenatas-api';
 import Link from 'next/link';
 
@@ -21,6 +22,8 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
         });
         return () => { cancelled = true; };
     }, []);
+
+    if (isPlatformLaunchActive('serenatas')) return <>{children}</>;
 
     // No bloquear si está cargando o si no es una ruta de panel (aunque este gate suele estar dentro del panel)
     if (loading) return <>{children}</>;

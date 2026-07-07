@@ -64,7 +64,7 @@ import {
 import {
     estimatePropertyValue, fetchPublishAddressBook, pickDefaultPublishAddress, fetchPropertyValuationSources, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, refreshPropertyValuationSources, resolveLocationNames,
 } from '@simple/utils';
-import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelIconButton, PanelNotice, PanelSummaryCard, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, optimizeListingPhotoFile, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
+import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelIconButton, PanelNotice, PanelSummaryCard, PanelScrollModal, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, optimizeListingPhotoFile, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
 import { ListingLocationEditor, pickListingLocationFieldErrors } from '@simple/ui/location';
 import { useGoogleMapsBrowserKey } from '@simple/ui/address-book';
 import { PROPERTY_PUBLISH_STEPS } from '@/components/panel/publish/publish-steps';
@@ -2124,44 +2124,50 @@ function PropertyValuationModal(props: {
     onApplyPrice: (price: number, currency: Currency) => void;
 }) {
     const { open, onClose, data, estimate, estimating, valuationRequest, onRunValuation, onApplyPrice } = props;
-    if (!open) return null;
-
     const isProject = data.setup.operationType === 'project';
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
-            onClick={onClose}
-            role="presentation"
-        >
-            <div
-                className="flex max-h-[min(90vh,52rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-(--border) bg-(--surface) shadow-lg"
-                onClick={(event) => event.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="property-valuation-modal-title"
-            >
-                <div className="flex items-start justify-between gap-3 border-b border-(--border) px-4 py-3 sm:px-5 sm:py-4">
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2.5">
-                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-(--bg-muted) text-(--fg)">
-                                <IconCalculator size={17} />
-                            </span>
-                            <h3 id="property-valuation-modal-title" className="text-base font-semibold text-(--fg)">Tasador online</h3>
-                        </div>
-                        <p className="mt-2 text-sm text-(--fg-secondary)">
-                            {isProject
-                                ? 'Disponible para venta y arriendo. En proyectos publicas sin tasación automática.'
-                                : 'Referencia de mercado con rango, confianza y tendencia para ayudarte a fijar el precio.'}
-                        </p>
+        <PanelScrollModal
+            open={open}
+            onClose={onClose}
+            size="2xl"
+            height="tall"
+            titleId="property-valuation-modal-title"
+            bodyClassName="px-4 py-4 sm:px-5"
+            headerContent={(
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2.5">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-(--bg-muted) text-(--fg)">
+                            <IconCalculator size={17} />
+                        </span>
+                        <h3 id="property-valuation-modal-title" className="text-base font-semibold text-(--fg)">Tasador online</h3>
                     </div>
-                    <PanelIconButton label="Cerrar" onClick={onClose}>
-                        <IconX size={16} />
-                    </PanelIconButton>
+                    <p className="mt-2 text-sm text-(--fg-secondary)">
+                        {isProject
+                            ? 'Disponible para venta y arriendo. En proyectos publicas sin tasación automática.'
+                            : 'Referencia de mercado con rango, confianza y tendencia para ayudarte a fijar el precio.'}
+                    </p>
                 </div>
-
-                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-                    <div className="space-y-4">
+            )}
+            footer={estimate && !isProject ? (
+                <div className="flex flex-wrap gap-2">
+                    <PanelButton
+                        type="button"
+                        variant="primary"
+                        onClick={() => {
+                            onApplyPrice(Math.round(estimate.estimatedPrice), estimate.currency as Currency);
+                            onClose();
+                        }}
+                    >
+                        Usar precio estimado
+                    </PanelButton>
+                    <PanelButton type="button" variant="secondary" onClick={onClose}>
+                        Cerrar
+                    </PanelButton>
+                </div>
+            ) : undefined}
+        >
+            <div className="space-y-4">
                         <PanelButton
                             type="button"
                             variant="primary"
@@ -2225,28 +2231,8 @@ function PropertyValuationModal(props: {
                                 ) : null}
                             </div>
                         ) : null}
-                    </div>
-                </div>
-
-                {estimate && !isProject ? (
-                    <div className="flex flex-wrap gap-2 border-t border-(--border) px-4 py-3 sm:px-5 sm:py-4">
-                        <PanelButton
-                            type="button"
-                            variant="primary"
-                            onClick={() => {
-                                onApplyPrice(Math.round(estimate.estimatedPrice), estimate.currency as Currency);
-                                onClose();
-                            }}
-                        >
-                            Usar precio estimado
-                        </PanelButton>
-                        <PanelButton type="button" variant="secondary" onClick={onClose}>
-                            Cerrar
-                        </PanelButton>
-                    </div>
-                ) : null}
             </div>
-        </div>
+        </PanelScrollModal>
     );
 }
 

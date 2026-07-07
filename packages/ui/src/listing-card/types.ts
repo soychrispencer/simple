@@ -104,5 +104,7 @@ export type OwnerListingCardProps = {
         onCopyLink?: () => void;
         onShareWhatsapp?: () => void;
         onShareInstagram?: () => void;
+        /** Abre el panel completo de compartir y publicar (redes + Marketplace). */
+        onOpenSharePanel?: () => void;
     };
 };

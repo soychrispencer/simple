@@ -29,8 +29,10 @@ import {
     type MarketplaceSearchFilters,
 } from '@/lib/marketplace-search';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
-import { OWNER_SECTION_EYEBROW } from '@/lib/serenatas-terminology';
+import { resolveOperatorLandingCopy } from '@simple/utils';
 import { useLandingHashScroll } from '@/hooks/use-landing-hash-scroll';
+
+const BENEFIT_ICONS = [IconClockHour4, IconShieldCheck, IconHeartHandshake] as const;
 
 type PublicLandingProps = {
     onLogin: () => void;
@@ -62,12 +64,6 @@ const HOW_IT_WORKS = [
     { icon: IconCheck, title: 'Recibe confirmación', desc: 'El dueño revisa disponibilidad y conforma el grupo.' },
 ];
 
-const OWNER_TRIAL_BENEFITS = [
-    { icon: IconClockHour4, title: '30 días completos', desc: 'Configura tu grupo, servicios, agenda y solicitudes sin límites.' },
-    { icon: IconShieldCheck, title: 'Sin tarjeta', desc: 'Regístrate gratis. Solo pagas si decides continuar después de la prueba.' },
-    { icon: IconHeartHandshake, title: 'Cancela cuando quieras', desc: 'Sin permanencia. Tus datos y configuración se mantienen guardados.' },
-];
-
 const FEATURED_COUNT = 3;
 
 type FeaturedStatus = { loading: boolean; error: string | null };
@@ -80,6 +76,11 @@ export function PublicLanding({
 }: PublicLandingProps) {
     const router = useRouter();
     useLandingHashScroll();
+    const copy = resolveOperatorLandingCopy('serenatas');
+    const ownerBenefits = copy.benefits.map((item, index) => ({
+        ...item,
+        icon: BENEFIT_ICONS[index] ?? IconHeartHandshake,
+    }));
     const [search, setSearch] = useState<MarketplaceSearchFilters>(defaultLandingSearch);
     const [featured, setFeatured] = useState<ProviderGroup[]>([]);
     const [featuredStatus, setFeaturedStatus] = useState<FeaturedStatus>({ loading: true, error: null });
@@ -286,17 +287,17 @@ export function PublicLanding({
                     <div className="container-app max-w-6xl">
                         <div className="mx-auto max-w-2xl text-center">
                             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-                                {OWNER_SECTION_EYEBROW}
+                                {copy.sectionEyebrow}
                             </p>
                             <h2 className="mt-2 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
-                                Regístrate gratis y pruébalo 30 días
+                                {copy.sectionTitle}
                             </h2>
                             <p className="mt-3 text-sm leading-relaxed text-fg-muted sm:text-base">
-                                Publica tu grupo, recibe solicitudes y opera tu negocio con acceso completo. Sin tarjeta para empezar.
+                                {copy.sectionSubtitle}
                             </p>
                         </div>
                         <div className="mt-8 grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto">
-                            {OWNER_TRIAL_BENEFITS.map((item) => (
+                            {ownerBenefits.map((item) => (
                                 <div
                                     key={item.title}
                                     className="rounded-card border p-5 text-center border-border bg-surface"
@@ -316,11 +317,11 @@ export function PublicLanding({
                                 className="h-12 px-8"
                                 onClick={onRegister}
                             >
-                                Probar 30 días gratis
+                                {copy.sectionCta}
                                 <IconChevronRight size={17} />
                             </PanelButton>
                             <p className="mt-4 text-xs text-fg-muted max-w-md mx-auto">
-                                Sin comisión por serenata. Planes, precios y cobros los ves en Mi cuenta → Suscripción.
+                                {copy.sectionFootnote}
                             </p>
                         </div>
                     </div>
@@ -332,7 +333,7 @@ export function PublicLanding({
                             <AudienceCard
                                 icon={IconUsersGroup}
                                 title="¿Tienes un mariachi?"
-                                description="Crea tu cuenta de dueño, configura tu perfil y prueba el panel completo durante 30 días."
+                                description={copy.audienceOwnerDescription}
                                 cta="Empezar gratis"
                                 onClick={onRegister}
                             />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
     IconBrandFacebook,
@@ -27,6 +27,8 @@ export type SimplePublishShareHubProps = {
     hasVideo?: boolean;
 };
 
+const VIDEO_REQUIRED_MESSAGE = 'Debes subir un video';
+
 function ShareIcon({ icon }: { icon: SimplePublishShareIcon }) {
     const size = 20;
     if (icon === 'instagram') return <IconBrandInstagram size={size} className="text-[#E4405F]" />;
@@ -37,15 +39,138 @@ function ShareIcon({ icon }: { icon: SimplePublishShareIcon }) {
     return <IconShare3 size={size} />;
 }
 
-function IntegrationRow({ item }: { item: SimplePublishShareIntegration }) {
+function getIntegrationAvailability(
+    item: SimplePublishShareIntegration,
+    hasVideo: boolean,
+): { blocked: boolean; reason: string | null } {
+    if (item.published) return { blocked: false, reason: null };
+    if (item.unavailableReason) return { blocked: true, reason: item.unavailableReason };
+    if (item.requiresVideo && !hasVideo) return { blocked: true, reason: VIDEO_REQUIRED_MESSAGE };
+    return { blocked: false, reason: null };
+}
+
+function IntegrationLabel({
+    label,
+    reason,
+}: {
+    label: string;
+    reason?: string | null;
+}) {
+    return (
+        <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-(--fg)">{label}</p>
+            {reason ? (
+                <p className="mt-0.5 text-[10px] leading-snug text-(--fg-muted)">{reason}</p>
+            ) : null}
+        </div>
+    );
+}
+
+function ManualIntegrationRow({
+    item,
+    hasVideo,
+}: {
+    item: SimplePublishShareIntegration;
+    hasVideo: boolean;
+}) {
+    const [pending, setPending] = useState(false);
+    const [flash, setFlash] = useState(false);
+    const { blocked, reason } = getIntegrationAvailability(item, hasVideo);
+
+    useEffect(() => {
+        if (item.published) setPending(false);
+    }, [item.published]);
+
+    async function handlePrimary() {
+        if (item.busy || blocked) return;
+
+        if (item.published) return;
+
+        if (pending) {
+            await item.onMarkPublished?.();
+            setPending(false);
+            return;
+        }
+
+        await item.onCopyAssist?.();
+        if (item.openHref) {
+            window.open(item.openHref, '_blank', 'noopener,noreferrer');
+        }
+        setFlash(true);
+        setPending(true);
+        window.setTimeout(() => setFlash(false), 2200);
+    }
+
+    const showDone = item.published || pending;
+    const hint = flash ? 'Copiado — pega en Facebook' : reason;
+
     return (
         <div className="flex items-center gap-3 rounded-xl border border-(--border) bg-(--surface) px-3 py-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-(--bg-subtle)">
                 <ShareIcon icon={item.icon} />
             </div>
-            <p className="min-w-0 flex-1 truncate text-sm font-medium text-(--fg)">{item.label}</p>
+            <IntegrationLabel label={item.label} reason={hint} />
+            <div className="flex shrink-0 items-center gap-1.5">
+                {item.published && item.onClearPublished ? (
+                    <button
+                        type="button"
+                        disabled={item.busy}
+                        onClick={() => void item.onClearPublished?.()}
+                        className="text-[10px] font-medium text-(--fg-muted) transition hover:text-(--fg)"
+                    >
+                        Quitar
+                    </button>
+                ) : null}
+                {blocked ? (
+                    <PanelButton type="button" variant="secondary" size="sm" disabled>
+                        No disponible
+                    </PanelButton>
+                ) : (
+                    <PanelButton
+                        type="button"
+                        variant={showDone ? 'secondary' : 'primary'}
+                        size="sm"
+                        disabled={item.busy || item.published}
+                        onClick={() => void handlePrimary()}
+                    >
+                        {item.busy ? (
+                            <IconLoader2 size={14} className="animate-spin" />
+                        ) : item.published ? (
+                            <IconCheck size={14} />
+                        ) : null}
+                        {item.busy ? 'Guardando...' : item.published ? 'Listo' : pending ? 'Listo' : 'Publicar'}
+                    </PanelButton>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function IntegrationRow({
+    item,
+    hasVideo,
+}: {
+    item: SimplePublishShareIntegration;
+    hasVideo: boolean;
+}) {
+    if (item.manual) {
+        return <ManualIntegrationRow item={item} hasVideo={hasVideo} />;
+    }
+
+    const { blocked, reason } = getIntegrationAvailability(item, hasVideo);
+
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-(--border) bg-(--surface) px-3 py-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-(--bg-subtle)">
+                <ShareIcon icon={item.icon} />
+            </div>
+            <IntegrationLabel label={item.label} reason={reason} />
             <div className="flex shrink-0 items-center">
-                {item.connected ? (
+                {blocked ? (
+                    <PanelButton type="button" variant="secondary" size="sm" disabled>
+                        No disponible
+                    </PanelButton>
+                ) : item.connected ? (
                     <PanelButton
                         type="button"
                         variant={item.published ? 'secondary' : 'primary'}
@@ -87,11 +212,7 @@ export function SimplePublishShareHub({
         ? `${window.location.origin}${publishedHref}`
         : publishedHref;
 
-    const visibleIntegrations = integrations.filter((item) => {
-        if (!item.available) return false;
-        if (item.requiresVideo && !hasVideo) return false;
-        return true;
-    });
+    const visibleIntegrations = integrations.filter((item) => item.available);
 
     const copyLink = async () => {
         try {
@@ -165,16 +286,16 @@ export function SimplePublishShareHub({
 
             {visibleIntegrations.length > 0 ? (
                 <div className="space-y-2 border-t border-(--border) pt-5">
-                    <p className="text-sm font-medium text-(--fg)">También en redes</p>
+                    <p className="text-sm font-medium text-(--fg)">Publicar también en</p>
                     {loading ? (
                         <p className="flex items-center gap-2 text-xs text-(--fg-muted)">
                             <IconLoader2 size={14} className="animate-spin" />
-                            Cargando...
+                            Cargando integraciones...
                         </p>
                     ) : (
                         <div className="space-y-2">
                             {visibleIntegrations.map((item) => (
-                                <IntegrationRow key={item.key} item={item} />
+                                <IntegrationRow key={item.key} item={item} hasVideo={hasVideo} />
                             ))}
                         </div>
                     )}

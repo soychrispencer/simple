@@ -4,6 +4,7 @@ import {
     fetchAgendaAvailability,
     fetchAgendaProfile,
     fetchAgendaServices,
+    hasAgendaFullAccess,
 } from '@/lib/agenda-api';
 
 export type AgendaBusinessSetupStatus = {
@@ -27,11 +28,17 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
         fetchAgendaAvailability().catch(() => ({ rules: [], blockedSlots: [] })),
     ]);
 
-    const billing = resolvePanelBillingAccess({
-        planId: profile?.plan ?? 'free',
-        planExpiresAt: profile?.planExpiresAt ?? null,
-        subscriptionHref: '/panel/mi-cuenta/suscripcion',
-    });
+    const billing: PanelBillingAccess = profile && hasAgendaFullAccess(profile)
+        ? {
+            status: profile.plan === 'pro' || profile.plan === 'enterprise' ? 'pro' : 'trial',
+            daysRemaining: null,
+            subscriptionHref: '/panel/mi-cuenta/suscripcion',
+        }
+        : resolvePanelBillingAccess({
+            planId: profile?.plan ?? 'free',
+            planExpiresAt: profile?.planExpiresAt ?? null,
+            subscriptionHref: '/panel/mi-cuenta/suscripcion',
+        });
 
     const hasProfile = Boolean(profile?.displayName?.trim() && profile?.profession?.trim());
     const hasServices = services.length > 0;

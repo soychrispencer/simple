@@ -27,6 +27,8 @@ export * from './operator-profile-config.js';
 export * from './operator-publish-context.js';
 export * from './operator-publish-defaults.js';
 export * from './marketplace-listings.js';
+export * from './marketplace-launch.js';
+export * from './platform-launch-landing.js';
 export * from './agenda-profession-config.js';
 export * from './saved-listings.js';
 export * from './social-feed.js';

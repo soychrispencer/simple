@@ -16,6 +16,7 @@ import {
     planLabel,
     type SerenataBillingPlanId,
 } from './plan-config.js';
+import { isPlatformLaunchActive } from '@simple/utils';
 
 export async function resolveActiveSerenataBillingPlan(userId: string): Promise<SerenataBillingPlanId> {
     const dbSub = await loadCurrentSubscriptionFromDb(userId, 'serenatas');
@@ -83,11 +84,27 @@ export function buildSerenataMePlanResponse(
         ? new Date(options.trialEndsAt)
         : null;
     const isPaidPlan = plan === 'pro';
-    const subscriptionRequired = !isPaidPlan && Boolean(trialEndsAt && trialEndsAt.getTime() < Date.now());
-    const trialActive = !isPaidPlan && !subscriptionRequired;
+    let subscriptionRequired = !isPaidPlan && Boolean(trialEndsAt && trialEndsAt.getTime() < Date.now());
+    let trialActive = !isPaidPlan && !subscriptionRequired;
+    let profileVisibilityStatus: SerenataMePlanResponse['profileVisibilityStatus'] = isPaidPlan
+        ? 'active'
+        : subscriptionRequired
+            ? 'paused'
+            : 'trial';
+    let proCheckoutAvailable = options.proCheckoutAvailable;
+    let resolvedPlanLabel = planLabel(plan);
+
+    if (isPlatformLaunchActive('serenatas')) {
+        subscriptionRequired = false;
+        trialActive = true;
+        profileVisibilityStatus = 'active';
+        proCheckoutAvailable = false;
+        resolvedPlanLabel = 'Lanzamiento';
+    }
+
     return {
         plan,
-        planLabel: planLabel(plan),
+        planLabel: resolvedPlanLabel,
         alwaysFreeMonthly: true,
         ownerOwnSerenataCommissionPercent: 0,
         commissionAppBps,
@@ -97,12 +114,12 @@ export function buildSerenataMePlanResponse(
         proPriceMonthly: SERENATA_PRO_PRICE_MONTHLY_CLP,
         proPriceMonthlyNet: SERENATA_PRO_PRICE_MONTHLY_CLP,
         proPriceMonthlyWithVat: serenataProMonthlyChargeClp(),
-        proCheckoutAvailable: options.proCheckoutAvailable,
+        proCheckoutAvailable: proCheckoutAvailable,
         trialDays: SERENATA_TRIAL_DAYS,
         trialEndsAt: trialEndsAt && !Number.isNaN(trialEndsAt.getTime()) ? trialEndsAt.toISOString() : null,
         trialActive,
         subscriptionRequired,
-        profileVisibilityStatus: isPaidPlan ? 'active' : subscriptionRequired ? 'paused' : 'trial',
+        profileVisibilityStatus,
         exampleGrossClp,
         example: exampleAppCommissionClp(exampleGrossClp, plan),
         constants: {

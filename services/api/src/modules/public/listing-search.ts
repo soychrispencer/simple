@@ -9,6 +9,13 @@ export type PublicListingSearchQuery = {
     yearFrom?: string | null;
     yearTo?: string | null;
     fuel?: string | null;
+    propertyType?: string | null;
+    bedrooms?: string | null;
+    bathrooms?: string | null;
+    parking?: string | null;
+    minArea?: string | null;
+    salesStage?: string | null;
+    deliveryStatus?: string | null;
 };
 
 export type PublicListingSearchDeps = {
@@ -16,6 +23,43 @@ export type PublicListingSearchDeps = {
     asObject: (value: unknown) => Record<string, unknown>;
     parseNumberFromString: (value: unknown) => number | null;
 };
+
+function normalizeSearchToken(value: string): string {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+function parseMinimumFilterValue(value: string): number | null {
+    const normalized = value.trim().replace(/\+$/, '');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function listingPropertyType(rawData: Record<string, unknown>, asObject: PublicListingSearchDeps['asObject'], asString: PublicListingSearchDeps['asString']): string {
+    const setup = asObject(rawData.setup);
+    const basic = asObject(rawData.basic);
+    return normalizeSearchToken(asString(setup.propertyType) || asString(basic.propertyType));
+}
+
+function propertyTypeMatches(listingType: string, filter: string): boolean {
+    const normalizedFilter = normalizeSearchToken(filter);
+    if (!normalizedFilter) return true;
+    if (normalizedFilter === 'local') {
+        return listingType.includes('local');
+    }
+    return listingType === normalizedFilter || listingType.includes(normalizedFilter);
+}
+
+function listingAreaValue(basic: Record<string, unknown>, project: Record<string, unknown>, parseNumberFromString: PublicListingSearchDeps['parseNumberFromString']): number {
+    return parseNumberFromString(basic.totalArea)
+        ?? parseNumberFromString(basic.usableArea)
+        ?? parseNumberFromString(basic.surface)
+        ?? parseNumberFromString(project.usableAreaFrom)
+        ?? 0;
+}
 
 export function matchesPublicListingSearchFilters(
     listing: Record<string, unknown>,
@@ -79,21 +123,61 @@ export function matchesPublicListingSearchFilters(
         if (listingFuel !== query.fuel.toLowerCase()) return false;
     }
 
+    const rawData = asObject(listing.rawData);
+    const basic = asObject(rawData.basic);
+    const project = asObject(rawData.project);
+
+    if (query.propertyType) {
+        const listingType = listingPropertyType(rawData, asObject, asString);
+        if (!propertyTypeMatches(listingType, query.propertyType)) return false;
+    }
+
+    if (query.bedrooms) {
+        const minimum = parseMinimumFilterValue(query.bedrooms);
+        const listingRooms = parseNumberFromString(basic.rooms) ?? 0;
+        if (minimum != null && listingRooms < minimum) return false;
+    }
+
+    if (query.bathrooms) {
+        const minimum = parseMinimumFilterValue(query.bathrooms);
+        const listingBathrooms = parseNumberFromString(basic.bathrooms) ?? 0;
+        if (minimum != null && listingBathrooms < minimum) return false;
+    }
+
+    if (query.parking) {
+        const minimum = parseMinimumFilterValue(query.parking);
+        const listingParking = parseNumberFromString(basic.parkingSpaces) ?? 0;
+        if (minimum != null && listingParking < minimum) return false;
+    }
+
+    if (query.minArea) {
+        const minimumArea = Number(query.minArea);
+        const listingArea = listingAreaValue(basic, project, parseNumberFromString);
+        if (Number.isFinite(minimumArea) && listingArea < minimumArea) return false;
+    }
+
+    if (query.salesStage) {
+        const listingStage = normalizeSearchToken(asString(project.salesStage));
+        const filterStage = normalizeSearchToken(query.salesStage);
+        if (!listingStage.includes(filterStage)) return false;
+    }
+
+    if (query.deliveryStatus) {
+        const listingDelivery = normalizeSearchToken(asString(project.deliveryStatus));
+        const filterDelivery = normalizeSearchToken(query.deliveryStatus);
+        if (!listingDelivery.includes(filterDelivery)) return false;
+    }
+
     if (query.yearFrom) {
-        const rawData = asObject(listing.rawData);
-        const basic = asObject(rawData.basic);
         const listingYear = parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? 0;
         if (listingYear < Number(query.yearFrom)) return false;
     }
 
     if (query.yearTo) {
-        const rawData = asObject(listing.rawData);
-        const basic = asObject(rawData.basic);
         const listingYear = parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? 0;
         if (listingYear > Number(query.yearTo)) return false;
     }
 
-    const rawData = asObject(listing.rawData);
     const commercial = asObject(rawData.commercial);
     const listingPrice = parseNumberFromString(listing.price)
         ?? parseNumberFromString(commercial.price)

@@ -22,6 +22,8 @@ export type InstagramAccountView = {
     updatedAt: number;
 };
 
+export type InstagramPublicationContentType = 'image' | 'carousel' | 'reel';
+
 export type InstagramPublicationView = {
     id: string;
     vertical: 'autos' | 'propiedades';
@@ -31,6 +33,7 @@ export type InstagramPublicationView = {
     instagramPermalink: string | null;
     caption: string;
     imageUrl: string;
+    contentType?: InstagramPublicationContentType;
     status: 'published' | 'failed';
     errorMessage: string | null;
     sourceUpdatedAt: number | null;
@@ -144,6 +147,8 @@ export async function publishListingToInstagram(listingId: string, captionOverri
     return data ?? { ok: false, error: 'No pudimos publicar en Instagram.' };
 }
 
+export type InstagramMediaFormat = 'auto' | 'carousel' | 'reel';
+
 export async function publishListingToInstagramEnhanced(listingId: string, options: {
     useAI?: boolean;
     useTemplates?: boolean;
@@ -152,6 +157,7 @@ export async function publishListingToInstagramEnhanced(listingId: string, optio
     captionOverride?: string | null;
     templateId?: string | null;
     layoutVariant?: 'square' | 'portrait' | null;
+    mediaFormat?: InstagramMediaFormat;
 } = {}): Promise<{
     ok: boolean;
     result?: InstagramPublicationView;
@@ -173,6 +179,7 @@ export async function publishListingToInstagramEnhanced(listingId: string, optio
             captionOverride: options.captionOverride ?? null,
             templateId: options.templateId ?? null,
             layoutVariant: options.layoutVariant ?? null,
+            mediaFormat: options.mediaFormat ?? 'carousel',
             options,
         }),
     });

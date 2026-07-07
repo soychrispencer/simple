@@ -53,6 +53,7 @@ import {
     type AgendaClientPack,
     type AgendaPack,
 } from '@/lib/agenda-api';
+import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { usePanelFormatters } from '@simple/auth';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -588,19 +589,28 @@ export default function ClienteFichaPage() {
                     </div>
 
                     {packModalOpen && (
-                        <button type="button" aria-label="Cerrar" className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={closePackModal}>
-                            <div
-                                className="w-full max-w-md rounded-3xl overflow-hidden"
-                                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-                                    <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Asignar pack a {`${client.firstName} ${client.lastName ?? ''}`.trim()}</h2>
-                                    <button type="button" onClick={closePackModal} aria-label="Cerrar" className="p-1 rounded-button hover:bg-(--bg-muted)">
-                                        <IconX size={16} style={{ color: 'var(--fg-muted)' }} />
+                        <AgendaScrollModal
+                            title={`Asignar pack a ${`${client.firstName} ${client.lastName ?? ''}`.trim()}`}
+                            size="md"
+                            zIndexClass="z-40"
+                            onClose={closePackModal}
+                            footer={(
+                                <div className="flex items-center justify-end gap-2">
+                                    <button type="button" onClick={closePackModal} className="px-3 py-1.5 rounded-button text-xs font-medium border" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleAssignPack()}
+                                        disabled={packBusy || availablePacks.length === 0}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60"
+                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                    >
+                                        {packBusy ? <IconLoader2 size={11} className="animate-spin inline mr-1" /> : null}
+                                        Asignar
                                     </button>
                                 </div>
-                                <div className="px-5 py-4 flex flex-col gap-3">
+                            )}
+                        >
+                            <div className="flex flex-col gap-3">
                                     {availablePacks.length === 0 ? (
                                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                                             No hay packs activos. Crea uno en Configuración → Packs y bonos.
@@ -627,22 +637,8 @@ export default function ClienteFichaPage() {
                                             )}
                                         </>
                                     )}
-                                </div>
-                                <div className="flex items-center justify-end gap-2 px-5 py-4 border-t" style={{ borderColor: 'var(--border)' }}>
-                                    <button type="button" onClick={closePackModal} className="px-3 py-1.5 rounded-button text-xs font-medium border" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
-                                    <button
-                                        type="button"
-                                        onClick={() => void handleAssignPack()}
-                                        disabled={packBusy || availablePacks.length === 0}
-                                        className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60"
-                                        style={{ background: 'var(--accent)', color: '#fff' }}
-                                    >
-                                        {packBusy ? <IconLoader2 size={11} className="animate-spin inline mr-1" /> : null}
-                                        Asignar
-                                    </button>
-                                </div>
                             </div>
-                        </button>
+                        </AgendaScrollModal>
                     )}
                 </>
             )}

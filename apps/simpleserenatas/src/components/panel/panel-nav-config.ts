@@ -10,6 +10,7 @@ import {
     IconCalendar,
     IconMap,
     IconChartBar,
+    IconCash,
     IconUser,
     IconBriefcase,
     IconBookmark,
@@ -73,9 +74,9 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
 
     if (mode === 'client') {
         items.push({ id: 'mariachis', href: CLIENT_MARKETPLACE_HREF, label: 'Explorar', icon: IconUsersGroup });
-        items.push({ id: 'guardados', href: panelSectionHref('guardados'), label: 'Guardados', icon: IconBookmark });
         items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis serenatas', icon: IconMusic });
         items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
+        items.push({ id: 'guardados', href: panelSectionHref('guardados'), label: 'Guardados', icon: IconBookmark });
         items.push({ id: 'profile', href: panelSectionHref('profile'), label: 'Mi cuenta', icon: IconUser });
         return items;
     }
@@ -84,17 +85,17 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
 
     if (isOwner) {
         items.push({ id: 'solicitudes', href: panelSectionHref('solicitudes'), label: 'Solicitudes', icon: IconBell });
-        items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
-        items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
-        items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconChartBar });
-        items.push({ id: 'estadisticas', href: panelSectionHref('estadisticas'), label: 'Estadísticas', icon: IconChartBar });
+        items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
         items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
+        items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
+        items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconCash });
+        items.push({ id: 'estadisticas', href: panelSectionHref('estadisticas'), label: 'Estadísticas', icon: IconChartBar });
     } else if (profiles.musician) {
         items.push({ id: 'invitations', href: panelSectionHref('invitations'), label: 'Invitaciones', icon: IconUsersGroup });
-        items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
         items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis serenatas', icon: IconMusic });
+        items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
     }
 
     items.push({ id: 'profile', href: panelSectionHref('profile'), label: 'Mi cuenta', icon: IconUser });
@@ -109,7 +110,7 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
 export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     if (mode === 'client') {
         return getPanelNavItems(mode, profiles).filter((t) =>
-            ['home', 'mariachis', 'guardados', 'serenatas', 'profile'].includes(t.id),
+            ['home', 'mariachis', 'serenatas', 'profile', 'mensajes'].includes(t.id),
         );
     }
     if (ownerFeaturesEnabled(profiles)) {

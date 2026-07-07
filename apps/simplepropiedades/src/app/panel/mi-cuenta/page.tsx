@@ -5,14 +5,14 @@ import {
     PanelAccountPersonalDataSection,
     PanelAccountShell,
     bindAccountProfileSection,
-    DEFAULT_ACCOUNT_SECTION_TABS,
+    MARKETPLACE_ACCOUNT_SECTION_TABS,
 } from '@simple/ui/panel';
 
 export default function CuentaPage() {
     const auth = useAuth();
 
     return (
-        <PanelAccountShell activeKey="datos" tabs={DEFAULT_ACCOUNT_SECTION_TABS}>
+        <PanelAccountShell activeKey="datos" tabs={MARKETPLACE_ACCOUNT_SECTION_TABS}>
             <div className="grid gap-4">
                 <PanelAccountPersonalDataSection
                     {...bindAccountProfileSection({

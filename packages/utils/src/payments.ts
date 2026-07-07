@@ -85,6 +85,7 @@ export type SubscriptionCatalogResponse = {
     paymentProvider: PaymentProvider;
     billingCountryCode?: string;
     checkoutEnabled?: boolean;
+    launchMode?: boolean;
     mercadoPagoEnabled: boolean;
     plans: SubscriptionPlan[];
     freePlan: SubscriptionPlan | null;

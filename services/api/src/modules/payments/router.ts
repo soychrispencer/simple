@@ -27,6 +27,7 @@ import {
     getSubscriptionBillingCharge,
     localizePaidPlansForBilling,
 } from '../billing/subscription-billing.js';
+import { isPlatformLaunchActive } from '@simple/utils';
 
 export type PaymentsRouterDeps = {
     authUser: (c: any) => Promise<any | null>;
@@ -390,8 +391,11 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         currentSubscription = normalizeCatalogSubscription(vertical, currentSubscription, plans);
 
         const paymentProvider = resolvePaymentProvider(user.residenceCountryCode);
-        const checkoutEnabled = deps.isMercadoPagoConfigured()
-            || (process.env.NODE_ENV !== 'production' && mercadoPagoDevCheckoutFallbackEnabled());
+        const launchMode = isPlatformLaunchActive(vertical);
+        const checkoutEnabled = !launchMode && (
+            deps.isMercadoPagoConfigured()
+            || (process.env.NODE_ENV !== 'production' && mercadoPagoDevCheckoutFallbackEnabled())
+        );
 
         return c.json({
             ok: true,
@@ -399,6 +403,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             paymentProvider,
             billingCountryCode: (user.residenceCountryCode ?? 'CL').trim().toUpperCase(),
             checkoutEnabled,
+            launchMode,
             mercadoPagoEnabled: deps.isMercadoPagoConfigured(),
             plans: localizePaidPlansForBilling(
                 paymentProvider,
@@ -504,6 +509,13 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         const allowDevCheckoutFallback = mercadoPagoDevCheckoutFallbackAllowedForKind(checkoutData.kind);
         if (!mercadoPagoConfigured && !allowDevCheckoutFallback) {
             return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
+        }
+
+        if (checkoutData.kind === 'subscription' && isPlatformLaunchActive(checkoutData.vertical)) {
+            return c.json({
+                ok: false,
+                error: 'Los planes de suscripción estarán disponibles próximamente.',
+            }, 403);
         }
 
         try {

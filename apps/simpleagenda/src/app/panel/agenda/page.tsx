@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useId, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
     IconChevronLeft,
@@ -50,7 +50,7 @@ import {
 } from '@/lib/agenda-api';
 import { fmtDateShort as formatDate, fmtTime as formatTime, fmtDateTz } from '@/lib/format';
 import { vocab } from '@/lib/vocabulary';
-import { useEscapeClose } from '@/lib/use-modal-a11y';
+import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { resolveBookingModality } from '@simple/utils';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -1672,29 +1672,10 @@ export default function AgendaPage() {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-    const titleId = useId();
-    useEscapeClose(true, onClose);
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-            <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-            <div
-                className="relative w-full max-w-md rounded-2xl border p-5 max-h-[90vh] overflow-y-auto"
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
-            >
-                <div className="flex items-center justify-between mb-5">
-                    <h2 id={titleId} className="text-base font-semibold">{title}</h2>
-                    <button
-                        type="button"
-                        aria-label="Cerrar"
-                        onClick={onClose}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-muted"
-                    >
-                        <IconX size={14} />
-                    </button>
-                </div>
-                {children}
-            </div>
-        </div>
+        <AgendaScrollModal title={title} onClose={onClose} size="md">
+            {children}
+        </AgendaScrollModal>
     );
 }
 

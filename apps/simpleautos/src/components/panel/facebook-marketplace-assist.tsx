@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { FacebookMarketplaceAssistCard } from '@simple/ui/panel';
 import { trackPortalIntegration } from '@/lib/panel-listings';
 
@@ -12,7 +12,6 @@ type Props = {
     listingDescription?: string | null;
     listingLocation?: string | null;
     initialPublished?: boolean;
-    initialExternalUrl?: string | null;
     onMarkedPublished?: () => void;
 };
 
@@ -24,7 +23,6 @@ export function FacebookMarketplaceAssist({
     listingDescription,
     listingLocation,
     initialPublished = false,
-    initialExternalUrl = null,
     onMarkedPublished,
 }: Props) {
     const [marking, setMarking] = useState(false);
@@ -40,7 +38,6 @@ export function FacebookMarketplaceAssist({
             listingDescription={listingDescription}
             listingLocation={listingLocation}
             initialPublished={initialPublished}
-            initialExternalUrl={initialExternalUrl}
             marking={marking}
             clearing={clearing}
             onMarkPublished={async (externalUrl) => {

@@ -108,6 +108,13 @@ export function createPublicRouter(deps: PublicRouterDeps) {
             yearFrom: c.req.query('year_from'),
             yearTo: c.req.query('year_to'),
             fuel: c.req.query('fuel'),
+            propertyType: c.req.query('property_type'),
+            bedrooms: c.req.query('bedrooms'),
+            bathrooms: c.req.query('bathrooms'),
+            parking: c.req.query('parking'),
+            minArea: c.req.query('min_area'),
+            salesStage: c.req.query('sales_stage'),
+            deliveryStatus: c.req.query('delivery_status'),
         };
 
         const items = await listPublicListingsFromSource({

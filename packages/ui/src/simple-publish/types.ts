@@ -40,9 +40,20 @@ export type SimplePublishShareIntegration = {
     connected: boolean;
     connectHref: string;
     requiresVideo?: boolean;
+    /** Mensaje cuando la integración no se puede usar (ej. falta video). */
+    unavailableReason?: string;
     busy?: boolean;
     published?: boolean;
     onPublish?: () => void | Promise<void>;
+    /** Publicación manual (ej. Facebook Marketplace). */
+    manual?: boolean;
+    helper?: string;
+    onCopyAssist?: () => void | Promise<void>;
+    openHref?: string;
+    onMarkPublished?: () => void | Promise<void>;
+    onClearPublished?: () => void | Promise<void>;
+    externalUrl?: string | null;
+    onExternalUrlChange?: (value: string) => void;
 };
 
 export type SimplePublishCtaCardProps = {

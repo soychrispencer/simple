@@ -12,6 +12,7 @@ import { PanelCard } from './panel-card.js';
 import { PanelField } from './panel-display.js';
 import { PanelPersonalDataList, PanelPersonalDataRow } from './panel-personal-data-list.js';
 import { PanelBlockHeader, PanelNotice, PanelStatusBadge } from './panel-primitives.js';
+import { PanelScrollModal } from './panel-scroll-modal.js';
 
 export type PanelAccountPersonalDataUser = {
     name?: string | null;
@@ -153,26 +154,9 @@ function AccountModal({
     onClose: () => void;
 }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center">
-            <button className="absolute inset-0" type="button" aria-label="Cerrar" onClick={onClose} />
-            <div
-                className="relative w-full max-w-md rounded-card border p-5 shadow-xl"
-                style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-            >
-                <div className="mb-4 flex items-center justify-between gap-3">
-                    <h2 className="text-base font-semibold text-[var(--fg)]">{title}</h2>
-                    <button
-                        type="button"
-                        className="rounded-button border px-3 py-1.5 text-sm text-[var(--fg-secondary)]"
-                        style={{ borderColor: 'var(--border)' }}
-                        onClick={onClose}
-                    >
-                        Cerrar
-                    </button>
-                </div>
-                {children}
-            </div>
-        </div>
+        <PanelScrollModal title={title} onClose={onClose} size="md">
+            {children}
+        </PanelScrollModal>
     );
 }
 

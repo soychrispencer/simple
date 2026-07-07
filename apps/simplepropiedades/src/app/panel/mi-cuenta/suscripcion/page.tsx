@@ -3,7 +3,7 @@
 import SubscriptionManager from '@/components/panel/subscription-manager';
 import {
     PanelAccountShell,
-    DEFAULT_ACCOUNT_SECTION_TABS,
+    MARKETPLACE_ACCOUNT_SECTION_TABS,
     ACCOUNT_SUBSCRIPTION_PAGE,
     accountSubscriptionDescription,
 } from '@simple/ui/panel';
@@ -12,7 +12,7 @@ export default function SuscripcionesPage() {
     return (
         <PanelAccountShell
             activeKey="suscripcion"
-            tabs={DEFAULT_ACCOUNT_SECTION_TABS}
+            tabs={MARKETPLACE_ACCOUNT_SECTION_TABS}
             title={ACCOUNT_SUBSCRIPTION_PAGE.title}
             description={accountSubscriptionDescription('Simple Propiedades')}
         >

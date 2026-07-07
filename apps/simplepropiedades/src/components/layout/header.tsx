@@ -10,9 +10,9 @@ const publicLinks: MarketplacePublicLink[] = [
     { href: '/ventas', label: 'Comprar' },
     { href: '/arriendos', label: 'Arrendar' },
     { href: '/proyectos', label: 'Proyectos' },
-    { href: '/simulador-hipotecario', label: 'Simulador' },
     { href: '/servicios', label: 'Servicios' },
     { href: '/descubre', label: 'Descubre', isNew: true },
+    { href: '/simulador-hipotecario', label: 'Simulador' },
 ];
 
 export function Header() {

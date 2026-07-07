@@ -46,6 +46,7 @@ export function MarketplaceMiNegocioPlanBanner({
             trialDaysRemaining={planState.trialDaysRemaining}
             subscriptionHref={subscriptionHref}
             miNegocioHref={miNegocioHref}
+            launchMode={planState.launchMode}
         />
     );
 }

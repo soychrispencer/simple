@@ -29,6 +29,7 @@ export default function AppSubscriptionManager() {
             }
             subscriptionsPath="/panel/mi-cuenta/suscripcion"
             fetchCompanyBillingContext={fetchCompanyBillingContext}
+            launchVertical="agenda"
         />
     );
 }
