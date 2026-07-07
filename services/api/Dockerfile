@@ -11,6 +11,7 @@ COPY pnpm-workspace.yaml ./
 COPY .npmrc ./
 COPY services ./services
 COPY packages ./packages
+COPY scripts ./scripts
 COPY *.mjs ./
 COPY *.cjs ./
 COPY *.json ./
@@ -61,6 +62,7 @@ COPY --from=builder /app/services/api/package.json ./services/api/package.json
 COPY --from=builder /app/services/api/drizzle.config.ts ./services/api/drizzle.config.ts
 COPY --from=builder /app/services/api/drizzle ./services/api/drizzle
 COPY --from=builder /app/services/api/entrypoint.sh ./services/api/entrypoint.sh
+COPY scripts ./scripts
 
 # Install pnpm and drizzle-kit in production stage
 RUN npm install -g pnpm@10 drizzle-kit
