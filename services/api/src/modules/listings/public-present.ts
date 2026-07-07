@@ -205,14 +205,14 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         const profileAvatar = toPublicMediaUrl(sellerProfile?.avatarImageUrl);
         const accountAvatar = toPublicMediaUrl(owner?.avatar);
         const avatarUrl = profileAvatar || accountAvatar || null;
-        const sellerEmail = sellerProfile?.publicEmail?.trim() || owner.email;
+        const sellerEmail = sellerProfile?.publicEmail?.trim() || owner?.email || null;
         const sellerPhone = sellerProfile?.publicPhone?.trim()
             || sellerProfile?.publicWhatsapp?.trim()
-            || owner.phone
+            || owner?.phone
             || null;
         const sellerWhatsapp = sellerProfile?.publicWhatsapp?.trim()
             || sellerProfile?.publicPhone?.trim()
-            || owner.phone
+            || owner?.phone
             || null;
 
         return {
