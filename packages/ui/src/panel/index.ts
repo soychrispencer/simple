@@ -19,6 +19,8 @@ export {
 } from './panel-primitives';
 export { PanelFilterChip, type PanelFilterChipProps } from './panel-filter-chip';
 export { PanelShell, type PanelShellProps } from './panel-shell';
+export { PanelPageFrame, type PanelPageFrameProps } from './panel-page-frame.js';
+export { PanelSectionPage, type PanelSectionPageProps } from './panel-section-page.js';
 export { PanelConfirmDialog, type PanelConfirmDialogProps } from './panel-confirm-dialog';
 export {
     PanelConfirmProvider,
@@ -295,6 +297,7 @@ export { bindAccountProfileSection, type BindAccountProfileSectionInput } from '
 export {
     ACCOUNT_LOCATION_PAGE,
     ACCOUNT_NOTIFICATIONS_PAGE,
+    ACCOUNT_APPEARANCE_PAGE,
     ACCOUNT_SUBSCRIPTION_PAGE,
     ACCOUNT_SECURITY_PAGE,
     ACCOUNT_REFERRALS_PAGE,

@@ -10,9 +10,11 @@ export {
 export {
     applyBottomNavPrimaryHighlight,
     isExactBottomNavHref,
+    isPanelOperatorPath,
     isSameBottomNavHref,
     parseBottomNavHref,
     shouldHideMarketplaceMobileNav,
+    shouldShowMarketplaceSiteChrome,
     type BottomNavHighlightable,
 } from './bottom-nav-utils';
 export {

@@ -123,6 +123,11 @@ export {
 export { default as PublicListingCard } from './listing-card/public-listing-card';
 export { default as OwnerListingCard } from './listing-card/owner-listing-card';
 export { default as FeaturedCardSwiper } from './listing-card/featured-card-swiper';
+export { default as MarketplaceReelListingCard } from './listing-card/marketplace-reel-listing-card';
+export {
+    MarketplaceReelShareMenu,
+    buildDefaultReelShareMenuItems,
+} from './listing-card/marketplace-reel-share-menu';
 export type {
     ListingAccent,
     ListingBadge,
@@ -138,6 +143,12 @@ export type {
     OwnerListingStatus,
     PublicListingCardProps,
 } from './listing-card/types';
+export type {
+    MarketplaceReelChip,
+    MarketplaceReelListingCardProps,
+    MarketplaceReelSpec,
+} from './listing-card/marketplace-reel-listing-card';
+export type { MarketplaceReelShareMenuItem } from './listing-card/marketplace-reel-share-menu';
 
 // Sidebar
 export { Sidebar, AppSidebar, type NavItem, type UserInfo, type SidebarProps, type AppSidebarProps } from './sidebar/app-sidebar';

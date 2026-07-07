@@ -4,8 +4,8 @@ import { readFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
+import { isFfmpegAvailable, resolveFfmpegPath } from '../../lib/ffmpeg-path.js';
 import { asObject } from '../shared/helpers.js';
 
 const execFileAsync = promisify(execFile);
@@ -16,7 +16,7 @@ const SECONDS_PER_SLIDE = 2.5;
 const FPS = 30;
 
 export function isReelGeneratorAvailable(): boolean {
-    return typeof ffmpegPath === 'string' && ffmpegPath.length > 0;
+    return isFfmpegAvailable();
 }
 
 function escapeXml(value: string): string {
@@ -57,7 +57,7 @@ async function downloadImage(url: string): Promise<Buffer> {
     return Buffer.from(arrayBuffer);
 }
 
-export async function renderSlideshowMp4(slidePaths: string[], outputPath: string, ffmpeg = ffmpegPath): Promise<void> {
+export async function renderSlideshowMp4(slidePaths: string[], outputPath: string, ffmpeg = resolveFfmpegPath() ?? undefined): Promise<void> {
     if (!ffmpeg) throw new Error('FFmpeg no está disponible.');
 
     const slideCount = slidePaths.length;

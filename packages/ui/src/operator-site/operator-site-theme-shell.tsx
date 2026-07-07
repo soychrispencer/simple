@@ -2,10 +2,10 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
-    operatorSiteAccentValue,
+    operatorSiteAccentCssValue,
     operatorSiteThemeStorageKey,
     operatorSiteVisitorColorMode,
-    type OperatorSiteAccentColor,
+    type OperatorSiteAccentEditorValue,
     type OperatorSiteColorMode,
 } from '@simple/utils';
 
@@ -24,7 +24,7 @@ type OperatorSiteThemeShellProps = {
     slug: string;
     layout: string;
     defaultColorMode: OperatorSiteColorMode;
-    accentColor?: OperatorSiteAccentColor;
+    accentColor?: string | OperatorSiteAccentEditorValue;
     children: ReactNode;
 };
 
@@ -62,7 +62,7 @@ export function OperatorSiteThemeShell({
         }
     };
 
-    const accentValue = operatorSiteAccentValue(accentColor);
+    const accentValue = operatorSiteAccentCssValue(accentColor);
 
     return (
         <OperatorSiteThemeContext.Provider value={{ color: resolvedColor, onToggle: handleToggle }}>

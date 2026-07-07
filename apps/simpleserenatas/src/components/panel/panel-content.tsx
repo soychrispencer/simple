@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
@@ -11,8 +10,7 @@ import type { AppMode } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { appearsInOwnerSolicitudes } from '@/lib/serenata-pending';
 import { isMiNegocioPanelSection, miNegocioTabFromPanelPath } from '@/lib/panel-routes';
-import { PanelNotice, SERENATAS_FINANCE_PAGE } from '@simple/ui/panel';
-import { PanelPageHeader } from '@simple/ui/panel';
+import { PanelNotice, PanelSectionPage, SERENATAS_FINANCE_PAGE } from '@simple/ui/panel';
 
 const AgendaView = dynamic(() => import('@/components/panel/agenda-view').then((mod) => mod.AgendaView));
 const ProfileView = dynamic(() => import('@/components/panel/account-view').then((mod) => mod.ProfileView));
@@ -304,24 +302,5 @@ function PanelHomePage(props: PanelContentProps) {
                 refresh={props.refresh}
             />
         </PanelSectionPage>
-    );
-}
-
-function PanelSectionPage({
-    title,
-    description,
-    children,
-    actions,
-}: {
-    title: string;
-    description: string;
-    children: ReactNode;
-    actions?: ReactNode;
-}) {
-    return (
-        <div className="grid w-full min-w-0 max-w-full gap-5 lg:gap-6">
-            <PanelPageHeader title={title} description={description} actions={actions} />
-            {children}
-        </div>
     );
 }

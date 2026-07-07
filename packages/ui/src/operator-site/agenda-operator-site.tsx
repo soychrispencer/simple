@@ -32,6 +32,7 @@ import { OperatorSiteServiceGrid } from './operator-site-service-grid.js';
 import { OperatorSiteStudioBento } from './operator-site-studio-bento.js';
 import { OperatorSiteNav } from './operator-site-nav.js';
 import { OperatorSiteFooter } from './operator-site-footer.js';
+import { OperatorSiteMarquee } from './operator-site-marquee.js';
 import { socialIcon } from './operator-site-icons.js';
 import type { AgendaOperatorSiteProps, OperatorSiteCatalog, OperatorSiteSocialLink } from './types.js';
 
@@ -371,6 +372,40 @@ function HeroSection({
         layout === 'studio' ? 'os-hero--studio' : '',
     ].filter(Boolean).join(' ');
 
+    if (layout === 'studio') {
+        return (
+            <section id="inicio" className={heroClass}>
+                {coverUrl ? (
+                    <div className="os-hero__studio-banner" aria-hidden>
+                        <Image
+                            src={coverUrl}
+                            alt=""
+                            fill
+                            priority
+                            className="os-hero__cover"
+                            sizes="(max-width: 960px) 100vw, 56rem"
+                        />
+                        <div className="os-hero__overlay os-hero__overlay--studio-banner" />
+                    </div>
+                ) : null}
+                <div className="os-hero__content os-hero__content--studio">
+                    <div className="os-hero__studio-bar">
+                        <HeroIntro
+                            profile={profile}
+                            typeLabel={typeLabel}
+                            businessLabel={businessLabel}
+                            modalityBadges={modalityBadges}
+                            signals={signals}
+                            whatsappHref={whatsappHref}
+                            hasContact={hasContact}
+                            layout={layout}
+                        />
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
     return (
         <section id="inicio" className={heroClass}>
             <div className="os-hero__media" aria-hidden>
@@ -423,6 +458,9 @@ function HeroSection({
                     />
                 )}
             </div>
+            {layout === 'portfolio' ? (
+                <div className="os-hero__scroll-hint">Scroll</div>
+            ) : null}
         </section>
     );
 }
@@ -459,11 +497,13 @@ function ServicesSection({
         <OperatorSiteReveal delayMs={40} variant={revealVariant}>
             <section id={BOOKING_SECTION_ID} className={`os-section os-section--flush os-section--services os-section--services-${layout}`}>
                 <div className="os-section__inner os-section__inner--flush">
-                    <p className="os-section__label">Servicios</p>
-                    <h2 className="os-section__title">
-                        {layout === 'portfolio' ? 'Mi trabajo' : 'Qué ofrezco'}
-                    </h2>
-                    <p className="os-section__lead">{lead}</p>
+                    <div className="os-section__header">
+                        <p className="os-section__label">Servicios</p>
+                        <h2 className="os-section__title">
+                            {layout === 'portfolio' ? 'Mi trabajo' : 'Qué ofrezco'}
+                        </h2>
+                        <p className="os-section__lead">{lead}</p>
+                    </div>
 
                     {hasServices ? (
                         <OperatorSiteServiceGrid
@@ -625,6 +665,19 @@ export function AgendaOperatorSite({
         />
     ) : null;
 
+    const marqueeItems = useMemo(() => {
+        if (!isPortfolio) return [];
+        const names = catalog?.services.map((service) => service.name).slice(0, 8) ?? [];
+        const extras = [
+            profile.displayName,
+            profile.city ?? null,
+            profile.servesOnline ? 'Online' : null,
+            profile.servesPresential ? 'Presencial' : null,
+            'Reserva en línea',
+        ].filter(Boolean) as string[];
+        return [...names, ...extras].filter((item, index, list) => list.indexOf(item) === index);
+    }, [isPortfolio, catalog, profile.displayName, profile.city, profile.servesOnline, profile.servesPresential]);
+
     return (
         <OperatorSiteThemeShell
             slug={profile.slug}
@@ -653,6 +706,10 @@ export function AgendaOperatorSite({
                 catalog={catalog}
                 onServiceBook={onServiceBook}
             />
+
+            {isPortfolio && marqueeItems.length > 0 ? (
+                <OperatorSiteMarquee items={marqueeItems} />
+            ) : null}
 
             <main className="os-main">
                 {hasBio && !isStudio ? (

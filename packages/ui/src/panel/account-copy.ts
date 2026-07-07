@@ -8,6 +8,11 @@ export const ACCOUNT_NOTIFICATIONS_PAGE = {
     description: 'Cómo quieres que Simple te avise sobre tu cuenta y tu actividad en el panel.',
 } as const;
 
+export const ACCOUNT_APPEARANCE_PAGE = {
+    title: 'Apariencia',
+    description: 'Tema claro, oscuro o según tu dispositivo.',
+} as const;
+
 export const ACCOUNT_SUBSCRIPTION_PAGE = {
     title: 'Suscripción',
     description: 'Plan Simple e historial de facturación.',

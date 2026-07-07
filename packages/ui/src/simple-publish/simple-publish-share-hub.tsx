@@ -39,21 +39,12 @@ function ShareIcon({ icon }: { icon: SimplePublishShareIcon }) {
 
 function IntegrationRow({ item }: { item: SimplePublishShareIntegration }) {
     return (
-        <div className="flex items-center gap-3 rounded-xl border border-(--border) bg-(--surface) p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--bg-subtle)">
+        <div className="flex items-center gap-3 rounded-xl border border-(--border) bg-(--surface) px-3 py-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-(--bg-subtle)">
                 <ShareIcon icon={item.icon} />
             </div>
-            <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-(--fg)">{item.label}</p>
-                <p className="text-xs text-(--fg-muted)">
-                    {item.published
-                        ? 'Publicado en esta red'
-                        : item.connected
-                            ? 'Listo para publicar'
-                            : 'Conecta tu cuenta para publicar'}
-                </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <p className="min-w-0 flex-1 truncate text-sm font-medium text-(--fg)">{item.label}</p>
+            <div className="flex shrink-0 items-center">
                 {item.connected ? (
                     <PanelButton
                         type="button"
@@ -67,12 +58,12 @@ function IntegrationRow({ item }: { item: SimplePublishShareIntegration }) {
                         ) : item.published ? (
                             <IconCheck size={14} />
                         ) : null}
-                        {item.published ? 'Publicado' : 'Publicar'}
+                        {item.published ? 'Listo' : 'Publicar'}
                     </PanelButton>
                 ) : (
                     <Link href={item.connectHref}>
                         <PanelButton type="button" variant="secondary" size="sm">
-                            Conectar →
+                            Conectar
                         </PanelButton>
                     </Link>
                 )}
@@ -132,64 +123,63 @@ export function SimplePublishShareHub({
 
     return (
         <div className="space-y-5">
-            <div className="rounded-2xl border border-(--accent)/20 bg-(--accent-subtle)/30 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-(--accent)">
-                    Publicado en {brandName}
-                </p>
-                <p className="mt-1 text-sm font-medium text-(--fg)">{listingTitle}</p>
-                <p className="mt-2 truncate text-xs text-(--fg-muted)">{publicUrl}</p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="space-y-3">
                 <PanelButton
                     type="button"
                     variant="primary"
-                    className="sm:col-span-2 justify-center"
+                    className="w-full justify-center"
                     onClick={() => window.open(publishedHref, '_blank', 'noopener,noreferrer')}
                 >
                     <IconExternalLink size={16} />
-                    Ver en {brandName}
+                    Ver publicación
                 </PanelButton>
-                <PanelButton type="button" variant="secondary" className="justify-center" onClick={() => void shareNative()}>
-                    <IconShare3 size={16} />
-                    Compartir link
-                </PanelButton>
-                <PanelButton type="button" variant="secondary" className="justify-center" onClick={() => void copyLink()}>
-                    <IconCopy size={16} />
-                    {copied ? 'Copiado' : 'Copiar link'}
-                </PanelButton>
-                <a
-                    href={whatsappHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-button border border-(--border) bg-(--surface) px-4 text-sm font-medium text-(--fg) transition hover:bg-(--bg-subtle) sm:col-span-2"
-                >
-                    <IconBrandWhatsapp size={16} />
-                    Enviar por WhatsApp
-                </a>
+
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+                    <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 font-medium text-(--fg-secondary) transition hover:text-(--fg)"
+                        onClick={() => void shareNative()}
+                    >
+                        <IconShare3 size={15} />
+                        Compartir
+                    </button>
+                    <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 font-medium text-(--fg-secondary) transition hover:text-(--fg)"
+                        onClick={() => void copyLink()}
+                    >
+                        <IconCopy size={15} />
+                        {copied ? 'Copiado' : 'Copiar enlace'}
+                    </button>
+                    <a
+                        href={whatsappHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 font-medium text-(--fg-secondary) transition hover:text-(--fg)"
+                    >
+                        <IconBrandWhatsapp size={15} />
+                        WhatsApp
+                    </a>
+                </div>
             </div>
 
-            <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-(--fg-muted)">
-                    Publicar también en
-                </p>
-                {loading ? (
-                    <p className="flex items-center gap-2 text-xs text-(--fg-muted)">
-                        <IconLoader2 size={14} className="animate-spin" />
-                        Cargando integraciones...
-                    </p>
-                ) : visibleIntegrations.length > 0 ? (
-                    <div className="space-y-2">
-                        {visibleIntegrations.map((item) => (
-                            <IntegrationRow key={item.key} item={item} />
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-xs text-(--fg-muted)">
-                        Las integraciones sociales estarán disponibles pronto.
-                    </p>
-                )}
-            </div>
+            {visibleIntegrations.length > 0 ? (
+                <div className="space-y-2 border-t border-(--border) pt-5">
+                    <p className="text-sm font-medium text-(--fg)">También en redes</p>
+                    {loading ? (
+                        <p className="flex items-center gap-2 text-xs text-(--fg-muted)">
+                            <IconLoader2 size={14} className="animate-spin" />
+                            Cargando...
+                        </p>
+                    ) : (
+                        <div className="space-y-2">
+                            {visibleIntegrations.map((item) => (
+                                <IntegrationRow key={item.key} item={item} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            ) : null}
         </div>
     );
 }

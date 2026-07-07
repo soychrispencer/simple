@@ -5,7 +5,7 @@
 // Mobile-first, publicar en segundos, mejorar después
 // =============================================================================
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent, } from '@dnd-kit/core';
@@ -13,32 +13,38 @@ import {
     arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable, } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-    IconArrowLeft, IconArrowRight, IconCheck, IconCamera, IconPhoto, IconX, IconUpload, IconMapPin, IconCurrencyDollar, IconCar, IconMotorbike, IconTruck, IconBus, IconTractor, IconAnchor, IconPlane, IconTag, IconKey, IconHammer, IconChevronDown, IconChevronUp, IconSparkles, IconShare3, IconBrandWhatsapp, IconLoader2, IconPlus, IconTrash, IconGripVertical, IconStar, IconGauge, IconEngine, IconSteeringWheel, IconRocket, IconCalendar, IconGasStation, IconManualGearbox, IconBrandInstagram, IconExternalLink, IconLock, IconVideo, } from '@tabler/icons-react';
+    IconArrowLeft, IconArrowRight, IconCheck, IconCamera, IconPhoto, IconX, IconUpload, IconMapPin, IconCurrencyDollar, IconCar, IconMotorbike, IconTruck, IconBus, IconTractor, IconAnchor, IconPlane, IconTag, IconKey, IconHammer, IconSparkles, IconShare3, IconBrandWhatsapp, IconLoader2, IconPlus, IconTrash, IconGripVertical, IconStar, IconGauge, IconEngine, IconSteeringWheel, IconRocket, IconCalendar, IconGasStation, IconManualGearbox, IconBrandInstagram, IconExternalLink, IconLock, IconVideo, IconCalculator,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import {
     type PublishWizardCatalog, type VehicleCatalogType, getBrandsForVehicleType, getModelsForBrand, loadPublishWizardCatalog, } from '@/lib/publish-wizard-catalog';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
 import {
-    createPanelListing, updatePanelListing, fetchPanelListingDetail, fetchPanelListingDraft, deletePanelListingDraft, type CreatePanelListingInput, } from '@/lib/panel-listings';
+    createPanelListing, updatePanelListing, fetchPanelListingDetail, fetchPanelListingDraft, savePanelListingDraft, deletePanelListingDraft, type CreatePanelListingInput, } from '@/lib/panel-listings';
+import { mergeAutosPublishDraft, prepareAutosDraftMedia, serializeAutosPublishDraft, type AutosPublishStep } from '@/lib/autos-publish-draft';
+import { useAuth } from '@simple/auth';
 import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form';
-import { PanelButton, optimizeListingPhotoFile } from '@simple/ui/panel';
+import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton, PanelSummaryCard } from '@simple/ui/panel';
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishSection, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
-import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl } from '@simple/utils';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, VEHICLE_EQUIPMENT_OPTIONS } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
+import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
 import { ModernSelect } from '@simple/ui/forms';
 import { ColorPicker } from '@/components/ui/color-picker';
-import { fetchAddressBook, uploadMediaFile } from '@simple/utils';
-import type { AddressBookEntry } from '@simple/types';
+import { fetchPublishAddressBook, pickDefaultPublishAddress, uploadMediaFile, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, resolveLocationNames } from '@simple/utils';
+import type { AddressBookEntry, ListingLocation } from '@simple/types';
+import { applyAddressBookEntryToLocation, createEmptyListingLocation, patchListingLocation } from '@simple/types';
+import { ListingLocationEditor, pickListingLocationFieldErrors } from '@simple/ui/location';
+import { useGoogleMapsBrowserKey } from '@simple/ui/address-book';
 import { AUTOS_PUBLISH_STEPS } from '@/components/panel/publish/publish-steps';
-import { createEmptyListingLocation } from '@simple/types';
 
 // =============================================================================
 // TIPOS
 // =============================================================================
 
-type Step = 1 | 2 | 3 | 'success';
+type Step = 1 | 2 | 3 | 4 | 'success';
 type ListingType = 'sale' | 'rent' | 'auction';
 
 interface FormData {
@@ -70,12 +76,12 @@ interface FormData {
     papersUpToDate: boolean;
     noAccidents: boolean;
     warranty: boolean;
+    featureCodes: string[];
     // Dueños
     ownerCount: '1' | '2' | '3+' | '';
     
-    // Paso 3: Ubicación y contacto
-    regionId: string;
-    communeId: string;
+    // Ubicación
+    location: ListingLocation;
     title: string;
     description: string;
     // Opciones
@@ -119,9 +125,14 @@ const EMPTY_FORM: FormData = {
     papersUpToDate: false,
     noAccidents: false,
     warranty: false,
+    featureCodes: [],
     ownerCount: '',
-    regionId: '',
-    communeId: '',
+    location: createEmptyListingLocation({
+        sourceMode: 'custom',
+        countryCode: 'CL',
+        visibilityMode: 'commune_only',
+        publicMapEnabled: true,
+    }),
     title: '',
     description: '',
     negotiable: false,
@@ -137,6 +148,38 @@ const EMPTY_FORM: FormData = {
     consignmentTerms: '',
 };
 
+function createEmptyAutosForm(): FormData {
+    return {
+        ...EMPTY_FORM,
+        photos: [],
+        reelVideo: null,
+        location: createEmptyListingLocation({
+            sourceMode: 'custom',
+            countryCode: 'CL',
+            visibilityMode: 'commune_only',
+            publicMapEnabled: true,
+        }),
+    };
+}
+
+function revokeAutosFormMedia(current: FormData) {
+    current.photos.forEach((photo) => {
+        if (photo.preview?.startsWith('blob:')) {
+            URL.revokeObjectURL(photo.preview);
+        }
+    });
+    if (current.reelVideo?.preview?.startsWith('blob:')) {
+        URL.revokeObjectURL(current.reelVideo.preview);
+    }
+}
+
+function isAutosLocationComplete(location: ListingLocation): boolean {
+    if (!location.regionId || !location.communeId) return false;
+    if (!location.addressLine1?.trim()) return false;
+    if (location.sourceMode === 'saved_address' && !location.sourceAddressId) return false;
+    return true;
+}
+
 const PUBLISH_STEPS = AUTOS_PUBLISH_STEPS;
 
 const AUTOS_STEP_COPY: Record<number, { title: string; description: string }> = {
@@ -149,8 +192,12 @@ const AUTOS_STEP_COPY: Record<number, { title: string; description: string }> = 
         description: 'Operación, marca, precio y ubicación.',
     },
     3: {
-        title: 'Revisar y publicar',
-        description: 'Opcional: detalles extra. Al final generamos título y descripción.',
+        title: 'Detalles del vehículo',
+        description: 'Completa la ficha con historial, equipamiento y condiciones comerciales.',
+    },
+    4: {
+        title: 'Publicar',
+        description: 'Revisa el título y la descripción generados antes de publicar.',
     },
 };
 
@@ -158,28 +205,49 @@ function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalo
     const brandName = form.brandId === '__custom__' ? form.customBrand : catalog?.brands.find((b) => b.id === form.brandId)?.name || '';
     const modelName = form.modelId === '__custom__' ? form.customModel : catalog?.models.find((m) => m.id === form.modelId)?.name || '';
     const title = form.title || [brandName, modelName, form.year].filter(Boolean).join(' ') || 'Título del aviso';
-    const regionName = catalog?.regions.find((r) => r.id === form.regionId)?.name || '';
-    const communeName = catalog?.communes.find((c) => c.id === form.communeId)?.name || '';
-    const location = [communeName, regionName].filter(Boolean).join(', ') || 'Ubicación pendiente';
+    const location = form.location.publicLabel
+        || [form.location.communeName, form.location.regionName].filter(Boolean).join(', ')
+        || 'Ubicación pendiente';
     const badge = form.listingType === 'sale' ? 'Venta' : form.listingType === 'rent' ? 'Arriendo' : 'Subasta';
-    const priceValue = form.offerPrice || form.price;
-    const price = priceValue ? `$${priceValue}` : '$Consultar';
+    const priceValue = resolveOfferPriceValue({
+        mainPrice: form.price,
+        offerPrice: form.offerPrice,
+        discountPercent: form.discountPercent,
+        offerPriceMode: form.offerPriceMode,
+    }) || form.price;
+    const price = priceValue ? `$${formatClPriceInput(priceValue)}` : '$Consultar';
+    const priceOriginal = form.offerPrice && form.price
+        ? `$${formatClPriceInput(form.price)}`
+        : undefined;
 
     const specs: SimplePublishPreviewCardProps['specs'] = [];
-    if (form.year) specs.push({ icon: <IconCalendar size={13} />, label: form.year });
-    if (form.mileage) specs.push({ icon: <IconGauge size={13} />, label: `${form.mileage} km` });
-    if (form.fuelType) specs.push({ icon: <IconGasStation size={13} />, label: form.fuelType });
-    if (form.transmission) specs.push({ icon: <IconManualGearbox size={13} />, label: form.transmission });
+    const vehicleTypeLabel = VEHICLE_TYPES.find((item) => item.value === form.vehicleType)?.label;
+    if (vehicleTypeLabel) specs.push({ icon: <IconCar size={11} />, label: vehicleTypeLabel });
+    if (form.mileage) {
+        const usageSuffix = form.vehicleType === 'nautical' || form.vehicleType === 'machinery' || form.vehicleType === 'aerial' ? ' h' : ' km';
+        specs.push({ icon: <IconGauge size={11} />, label: `${form.mileage}${usageSuffix}` });
+    }
+    if (form.fuelType) specs.push({ icon: <IconGasStation size={11} />, label: form.fuelType });
+    if (form.transmission) specs.push({ icon: <IconManualGearbox size={11} />, label: form.transmission });
+
+    const extraChips: SimplePublishPreviewCardProps['extraChips'] = [];
+    if (form.discountPercent) extraChips.push({ label: `-${form.discountPercent}%`, tone: 'accent' });
+    if (form.financing) extraChips.push({ label: 'Financiamiento' });
+    if (form.exchange) extraChips.push({ label: 'Permuta' });
+    else if (form.negotiable) extraChips.push({ label: 'Conversable' });
 
     return {
         badge,
         price,
+        priceOriginal,
         title,
         location,
         photoUrls: form.photos.map((photo) => photo.preview).filter(Boolean),
         videoUrl: form.reelVideo?.preview ?? null,
         specs,
-        brandLabel: 'Simple',
+        extraChips,
+        ctaLabel: form.listingType === 'rent' ? 'Ver disponibilidad' : form.listingType === 'auction' ? 'Ver subasta' : 'Ver detalle',
+        brandLabel: 'SimpleAutos',
         footerHint: 'Así se verá en SimpleAutos',
     };
 }
@@ -195,14 +263,132 @@ const VEHICLE_TYPES = [
 ] as const;
 
 const LISTING_TYPES = [
-    { value: 'sale', label: 'Venta', Icon: IconTag, color: 'var(--color-success)' },
-    { value: 'rent', label: 'Arriendo', Icon: IconKey, color: 'var(--accent)' },
-    { value: 'auction', label: 'Subasta', Icon: IconHammer, color: 'var(--color-warning)' },
+    { value: 'sale', label: 'Venta', Icon: IconTag },
+    { value: 'rent', label: 'Arriendo', Icon: IconKey },
+    { value: 'auction', label: 'Subasta', Icon: IconHammer },
 ] as const;
 
 const FUEL_TYPES = ['Bencina', 'Diésel', 'Eléctrico', 'Híbrido', 'Gas'];
 const TRANSMISSIONS = ['Manual', 'Automática', 'CVT'];
 const CONDITIONS = ['Nuevo', 'Seminuevo', 'Usado'];
+
+function requiresVehicleCondition(listingType: FormData['listingType']): boolean {
+    return listingType === 'sale' || listingType === 'auction';
+}
+
+function validateAutosStep(step: 1 | 2 | 3 | 4, form: FormData): Record<string, string> {
+    const errors: Record<string, string> = {};
+
+    if (step === 1) {
+        if (form.photos.length < 1) errors.photos = '';
+        if (form.videoExternalUrl.trim() && !isSupportedExternalVideoUrl(form.videoExternalUrl.trim())) {
+            errors.video = '';
+        }
+    }
+
+    if (step === 2) {
+        if (!form.brandId) {
+            errors.brandId = '';
+        } else if (form.brandId === '__custom__' && !form.customBrand.trim()) {
+            errors.customBrand = '';
+        }
+        if (!form.modelId) {
+            errors.modelId = '';
+        } else if (form.modelId === '__custom__' && !form.customModel.trim()) {
+            errors.customModel = '';
+        }
+        if (!form.year.trim()) errors.year = '';
+        if (requiresVehicleCondition(form.listingType) && !form.condition) {
+            errors.condition = '';
+        }
+        if (!parseDigits(form.price)) errors.price = '';
+        if (!form.location.regionId) errors['location.regionId'] = '';
+        if (!form.location.communeId) errors['location.communeId'] = '';
+        if (!form.location.addressLine1?.trim()) errors['location.addressLine1'] = '';
+        if (form.location.sourceMode === 'saved_address' && !form.location.sourceAddressId) {
+            errors['location.sourceAddressId'] = '';
+        }
+    }
+
+    return errors;
+}
+
+function isAutosFieldInvalid(fieldErrors: Record<string, string>, key: string): boolean {
+    return Object.prototype.hasOwnProperty.call(fieldErrors, key);
+}
+
+function autosInvalidClass(fieldErrors: Record<string, string>, key: string): string {
+    return isAutosFieldInvalid(fieldErrors, key) ? ' form-input-error' : '';
+}
+
+function formatClpAmount(value: number): string {
+    return `$${Math.round(value).toLocaleString('es-CL')}`;
+}
+
+function formatSignedPercent(value: number | null): string {
+    if (value == null || !Number.isFinite(value)) return 'Sin dato';
+    const rounded = Math.round(value * 10) / 10;
+    return `${rounded > 0 ? '+' : ''}${rounded}%`;
+}
+
+function formatSeriesLabel(timestamp: number): string {
+    return new Date(timestamp).toLocaleDateString('es-CL', { month: 'short', year: 'numeric' });
+}
+
+function parseMileageKm(mileage: string): number | null {
+    const digits = mileage.replace(/\D/g, '');
+    if (!digits) return null;
+    const parsed = Number(digits);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveBrandName(form: FormData, catalog: PublishWizardCatalog | null): string {
+    if (form.brandId === '__custom__') return form.customBrand.trim();
+    return catalog?.brands.find((brand) => brand.id === form.brandId)?.name || form.brandId.trim();
+}
+
+function resolveModelName(form: FormData, catalog: PublishWizardCatalog | null): string {
+    if (form.modelId === '__custom__') return form.customModel.trim();
+    return catalog?.models.find((model) => model.id === form.modelId)?.name || form.modelId.trim();
+}
+
+function buildVehicleValuationRequest(form: FormData, catalog: PublishWizardCatalog | null): VehicleValuationRequest | null {
+    if (form.listingType === 'auction') return null;
+
+    const brand = resolveBrandName(form, catalog);
+    const model = resolveModelName(form, catalog);
+    const year = Number.parseInt(form.year, 10);
+
+    if (
+        !form.vehicleType
+        || !brand
+        || !model
+        || !Number.isFinite(year)
+        || !form.location.regionId
+        || !form.location.communeId
+        || !form.location.addressLine1?.trim()
+    ) {
+        return null;
+    }
+
+    return {
+        operationType: form.listingType === 'rent' ? 'rent' : 'sale',
+        vehicleType: form.vehicleType,
+        brand,
+        model,
+        version: null,
+        year,
+        mileageKm: parseMileageKm(form.mileage),
+        condition: form.condition || null,
+        fuelType: form.fuelType || null,
+        transmission: form.transmission || null,
+        traction: null,
+        bodyType: null,
+        regionId: form.location.regionId,
+        communeId: form.location.communeId,
+        addressLine1: form.location.addressLine1.trim(),
+    };
+}
 
 // =============================================================================
 // COMPONENTE PRINCIPAL
@@ -211,6 +397,7 @@ const CONDITIONS = ['Nuevo', 'Seminuevo', 'Usado'];
 export default function PublicarPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { requireAuth } = useAuth();
     
     const editingId = searchParams.get('edit');
     const isEditing = Boolean(editingId);
@@ -224,39 +411,77 @@ export default function PublicarPage() {
     const [catalog, setCatalog] = useState<PublishWizardCatalog | null>(null);
     const [loading, setLoading] = useState(false);
     const [published, setPublished] = useState<{ id: string; href: string; title: string; hasVideo: boolean } | null>(null);
-    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-        details: false,
-        history: false,
-        equipment: false,
-    });
-    const [draftNotice, setDraftNotice] = useState<string | null>(null);
+const googleMapsApiKey = useGoogleMapsBrowserKey();
+    const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
+    const [addressBookLoading, setAddressBookLoading] = useState(true);
+    const [geocoding, setGeocoding] = useState(false);
+    const [estimate, setEstimate] = useState<VehicleValuationEstimate | null>(null);
+    const [estimating, setEstimating] = useState(false);
+    const locationCommunes = useMemo(
+        () => getCommunesForRegion(form.location.regionId || ''),
+        [form.location.regionId],
+    );
+    const valuationRequest = useMemo(() => buildVehicleValuationRequest(form, catalog), [form, catalog]);
+    const [draftLoaded, setDraftLoaded] = useState(false);
+    const [draftSavedNote, setDraftSavedNote] = useState<string | null>(null);
+    const [storageError, setStorageError] = useState<string | null>(null);
+    const [savingDraft, setSavingDraft] = useState(false);
+    const [mediaUploadProgress, setMediaUploadProgress] = useState<DraftMediaUploadProgress | null>(null);
     const [publishError, setPublishError] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [editingLoading, setEditingLoading] = useState(false);
     const [editLoadFailed, setEditLoadFailed] = useState(false);
+    const [resettingWizard, setResettingWizard] = useState(false);
+    const formRef = useRef<FormData>(form);
+    const stepRef = useRef<Step>(step);
+
+    useEffect(() => {
+        formRef.current = form;
+    }, [form]);
+
+    useEffect(() => {
+        stepRef.current = step;
+    }, [step]);
     
     // Cargar catálogo
     useEffect(() => {
         loadPublishWizardCatalog().then(setCatalog).catch(() => null);
     }, []);
+
+    useEffect(() => {
+        let mounted = true;
+        void fetchPublishAddressBook('autos').then((result) => {
+            if (!mounted) return;
+            if (result.ok) setAddressBook(result.items);
+            setAddressBookLoading(false);
+        });
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (addressBookLoading || isEditing || draftLoaded || addressBook.length === 0) return;
+        setForm((current) => {
+            if (isAutosLocationComplete(current.location)) return current;
+            const defaultAddr = pickDefaultPublishAddress(addressBook, 'autos');
+            if (!defaultAddr) return current;
+            return {
+                ...current,
+                location: applyAddressBookEntryToLocation(defaultAddr, current.location),
+            };
+        });
+    }, [addressBook, addressBookLoading, isEditing, draftLoaded]);
     
+    useEffect(() => {
+        if (!draftSavedNote) return;
+        const timer = window.setTimeout(() => setDraftSavedNote(null), 2400);
+        return () => window.clearTimeout(timer);
+    }, [draftSavedNote]);
+
     // Cargar borrador o edición
     useEffect(() => {
-        if (!isEditing) {
-            // Intentar cargar borrador
-            fetchPanelListingDraft('autos-quick').then((result) => {
-                if (result.ok && result.draft) {
-                    const draft = result.draft as any;
-                    const brandName = draft.brandId === '__custom__' ? draft.customBrand : draft.brandName ?? '';
-                    const modelName = draft.modelId === '__custom__' ? draft.customModel : draft.modelName ?? '';
-                    const vehicleLabel = [brandName, modelName, draft.year].filter(Boolean).join(' ') || null;
-                    const stepNum = draft.photos?.length > 0 ? (draft.regionId ? 3 : 2) : 1;
-                    const detailText = vehicleLabel
-                        ? `${vehicleLabel} · Paso ${stepNum} de 3`
-                        : `Paso ${stepNum} de 3`;
-                    setDraftNotice(detailText);
-                }
-            }).catch(() => null);
-        } else {
+        if (isEditing) {
             setEditingLoading(true);
             setEditLoadFailed(false);
             setPublishError(null);
@@ -273,39 +498,153 @@ export default function PublicarPage() {
                 setPublishError('No se pudo cargar la publicación para editar.');
                 setEditingLoading(false);
             });
+            return;
         }
-    }, [editingId]);
+
+        let active = true;
+        const loadDraft = async () => {
+            const result = await fetchPanelListingDraft('autos');
+            if (!active) return;
+            if (result.ok && result.draft) {
+                const merged = mergeAutosPublishDraft(result.draft);
+                if (!merged) {
+                    setStorageError('El borrador guardado está dañado y no se pudo restaurar.');
+                    return;
+                }
+                setDraftLoaded(true);
+                setForm(merged.form);
+                setStep(merged.step);
+                setDraftSavedNote(
+                    merged.form.photos.length > 0
+                        ? 'Borrador restaurado. Si alguna foto no muestra preview, súbela nuevamente.'
+                        : 'Borrador restaurado.',
+                );
+                setStorageError(null);
+                return;
+            }
+            if (result.error && !result.unauthorized) {
+                setStorageError(result.error);
+            }
+        };
+
+        void loadDraft();
+        return () => {
+            active = false;
+        };
+    }, [editingId, isEditing]);
 
     useEffect(() => {
-        if (!operatorDefaultsReady || operatorDefaultsApplied || isEditing || !operatorDefaults?.autos) return;
+        if (!operatorDefaultsReady || operatorDefaultsApplied || isEditing || draftLoaded || !operatorDefaults?.autos) return;
         setForm((current) => ({ ...current, listingType: operatorDefaults.autos!.listingType }));
         setOperatorDefaultsApplied(true);
-    }, [operatorDefaultsReady, operatorDefaults, operatorDefaultsApplied, isEditing]);
+    }, [operatorDefaultsReady, operatorDefaults, operatorDefaultsApplied, isEditing, draftLoaded]);
     
     const updateForm = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
         setForm(prev => ({ ...prev, [key]: value }));
     }, []);
-    
-    const hasIdentityFields = Boolean(
-        form.year && form.price && form.brandId && form.modelId
-        && (form.brandId !== '__custom__' || form.customBrand.trim())
-        && (form.modelId !== '__custom__' || form.customModel.trim()),
-    );
 
-    const canProceed = () => {
-        if (step === 1) {
-            return form.photos.length >= 1;
-        }
-        if (step === 2) {
-            if (!hasIdentityFields) {
-                return false;
+    const handleGeocodeLocation = useCallback(async () => {
+        setGeocoding(true);
+        try {
+            const result = await geocodeListingLocation(form.location);
+            if (!result.ok || !result.location) {
+                setPublishError(result.error || 'No pudimos verificar la dirección.');
+                return;
             }
-            return Boolean(form.regionId && form.communeId);
+            updateForm('location', result.location);
+        } finally {
+            setGeocoding(false);
         }
-        if (step === 3) {
-            return true;
+    }, [form.location, updateForm]);
+
+    const runValuation = useCallback(async () => {
+        if (!valuationRequest) {
+            setStorageError('Completa marca, modelo, año y ubicación para usar el tasador.');
+            return;
         }
-        return false;
+        setEstimating(true);
+        setStorageError(null);
+        const result = await estimateVehicleValue(valuationRequest);
+        setEstimating(false);
+        if (!result.ok || !result.estimate) {
+            setStorageError(result.error || 'No se pudo calcular la estimación.');
+            return;
+        }
+        setEstimate(result.estimate);
+        setDraftSavedNote('Estimación calculada correctamente.');
+    }, [valuationRequest]);
+    
+    const saveDraft = async (manual: boolean, nextStep?: AutosPublishStep): Promise<boolean> => {
+        const currentStep = stepRef.current;
+        if (currentStep === 'success') return true;
+        const stepToSave = nextStep ?? (typeof currentStep === 'number' ? currentStep : 1);
+        setSavingDraft(true);
+        setMediaUploadProgress(null);
+        try {
+        const prepared = await prepareAutosDraftMedia(formRef.current, {
+            onMediaProgress: setMediaUploadProgress,
+        });
+        if (!prepared.ok || !prepared.form) {
+            setStorageError(prepared.error || 'No se pudieron subir los archivos del borrador.');
+            return false;
+        }
+        formRef.current = prepared.form;
+        setForm(prepared.form);
+        const serialized = serializeAutosPublishDraft(prepared.form, stepToSave);
+        const result = await savePanelListingDraft('autos', serialized);
+        if (!result.ok) {
+            if (result.unauthorized) {
+                requireAuth();
+            }
+            setStorageError(result.error || 'No se pudo guardar el borrador.');
+            return false;
+        }
+        setStorageError(null);
+        if (manual) setDraftSavedNote('Borrador guardado');
+        return true;
+        } finally {
+            setSavingDraft(false);
+            setMediaUploadProgress(null);
+        }
+    };
+
+    const resetWizard = async (options?: { confirm?: boolean }) => {
+        if (options?.confirm !== false && !window.confirm('¿Reiniciar el borrador? Se borrarán todos los datos y volverás al paso 1.')) {
+            return;
+        }
+        setResettingWizard(true);
+        try {
+            revokeAutosFormMedia(formRef.current);
+            await deletePanelListingDraft('autos').catch(() => null);
+            const fresh = createEmptyAutosForm();
+            formRef.current = fresh;
+            setForm(fresh);
+            setStep(1);
+            setEstimate(null);
+            setPublishError(null);
+            setStorageError(null);
+            setDraftSavedNote(options?.confirm === false ? null : 'Borrador reiniciado');
+            setDraftLoaded(true);
+            setFieldErrors({});
+        } finally {
+            setResettingWizard(false);
+        }
+    };
+
+    const goNext = async () => {
+        if (typeof step !== 'number' || step >= 4) return;
+        const nextErrors = validateAutosStep(step, form);
+        setFieldErrors(nextErrors);
+        if (Object.keys(nextErrors).length > 0) {
+            setPublishError(null);
+            return;
+        }
+        setPublishError(null);
+        const nextStep = (step + 1) as AutosPublishStep;
+        const saved = await saveDraft(false, nextStep);
+        if (!saved) return;
+        setFieldErrors({});
+        setStep(nextStep);
     };
     
     const handlePublish = async () => {
@@ -317,17 +656,14 @@ export default function PublicarPage() {
         setLoading(true);
         setPublishError(null);
         try {
-            if (form.photos.length < 1) {
-                setPublishError('Agrega al menos una foto antes de publicar.');
-                return;
-            }
-            if (!hasIdentityFields) {
-                setPublishError('Completa marca, modelo, año y precio antes de publicar.');
-                return;
-            }
-            if (!form.regionId || !form.communeId) {
-                setPublishError('Selecciona región y comuna antes de publicar.');
-                return;
+            for (const stepNumber of [1, 2] as const) {
+                const stepValidationErrors = validateAutosStep(stepNumber, form);
+                if (Object.keys(stepValidationErrors).length > 0) {
+                    setFieldErrors(stepValidationErrors);
+                    setStep(stepNumber);
+                    setPublishError(null);
+                    return;
+                }
             }
 
             // PASO 1: Subir fotos primero
@@ -385,7 +721,9 @@ export default function PublicarPage() {
             }
 
             if (uploadedPhotos.length < 1) {
-                setPublishError('Debes tener al menos una foto subida para publicar.');
+                setFieldErrors({ photos: '' });
+                setStep(1);
+                setPublishError(null);
                 return;
             }
 
@@ -403,7 +741,9 @@ export default function PublicarPage() {
 
             const externalVideoUrl = form.videoExternalUrl.trim();
             if (externalVideoUrl && !isSupportedExternalVideoUrl(externalVideoUrl)) {
-                setPublishError('Usa un enlace de YouTube o Vimeo para el video.');
+                setFieldErrors({ video: '' });
+                setStep(1);
+                setPublishError(null);
                 return;
             }
 
@@ -444,26 +784,16 @@ export default function PublicarPage() {
             }
             
             // PASO 2: Calcular precio oferta si aplica
-            const parseDigits = (value: string | undefined): string => (value ?? '').replace(/\D/g, '');
-            const mainPrice = parseInt(parseDigits(form.price) || '0', 10);
-            let offerPriceValue = '';
-            
-            if (form.offerPrice && mainPrice > 0) {
-                if (form.offerPriceMode === '%' && form.discountPercent) {
-                    const pct = parseInt(form.discountPercent, 10);
-                    if (pct > 0 && pct < 100) {
-                        offerPriceValue = String(Math.round(mainPrice * (1 - pct / 100)));
-                    }
-                } else {
-                    const op = parseInt(parseDigits(form.offerPrice) || '0', 10);
-                    if (op > 0 && op < mainPrice) {
-                        offerPriceValue = String(op);
-                    }
-                }
-            }
+            const offerPriceValue = resolveOfferPriceValue({
+                mainPrice: form.price,
+                offerPrice: form.offerPrice,
+                discountPercent: form.discountPercent,
+                offerPriceMode: form.offerPriceMode,
+            });
             
             // PASO 3: Construir priceLabel
             const renderMoney = (value: string | undefined, suffix = '') => {
+                if (!value) return '';
                 const digits = parseDigits(value);
                 if (!digits) return '';
                 return `$ ${Number(digits).toLocaleString('es-CL')}${suffix}`;
@@ -481,23 +811,15 @@ export default function PublicarPage() {
             const modelName = form.modelId === '__custom__' ? form.customModel : 
                 catalog?.models.find(m => m.id === form.modelId)?.name || form.modelId;
             
-            // Región y comuna del catálogo (form ya guarda IDs del catálogo)
-            const regionId = form.regionId;
-            const regionName = catalog?.regions.find(r => r.id === regionId)?.name || '';
-            const communeId = form.communeId;
-            const communeName = catalog?.communes.find(c => c.id === communeId)?.name || communeId;
-            
-            const locationData = createEmptyListingLocation({
-                sourceMode: 'area_only',
-                countryCode: 'CL',
-                regionId,
-                regionName,
-                communeId,
-                communeName,
-                visibilityMode: 'commune_only',
-                publicMapEnabled: true,
-                publicLabel: `${communeName}, ${regionName}`,
+            // Ubicación normalizada (misma lógica que Propiedades)
+            const { regionName, communeName } = resolveLocationNames(form.location.regionId, form.location.communeId);
+            const locationData = patchListingLocation(form.location, {
+                regionName: regionName || form.location.regionName,
+                communeName: communeName || form.location.communeName,
             });
+            const locationLabel = locationData.publicLabel
+                || locationData.addressLine1?.trim()
+                || [locationData.neighborhood, communeName || form.location.communeId, regionName || form.location.regionId].filter(Boolean).join(', ');
             
             // PASO 5: Construir rawData con estructura correcta
             const rawData = {
@@ -540,7 +862,7 @@ export default function PublicarPage() {
                     newTires: false,
                     singleOwner: form.ownerCount === '1',
                     noAccidents: form.noAccidents,
-                    featureCodes: form.warranty ? ['warranty'] : [],
+                    featureCodes: buildVehicleFeatureCodes(form.featureCodes, form.warranty),
                     notes: '',
                 },
                 media: {
@@ -559,17 +881,7 @@ export default function PublicarPage() {
                     discoverVideo: uploadedVideo,
                     documents: [],
                 },
-                location: createEmptyListingLocation({
-                    sourceMode: 'area_only',
-                    countryCode: 'CL',
-                    regionId,
-                    regionName,
-                    communeId,
-                    communeName,
-                    visibilityMode: 'commune_only',
-                    publicMapEnabled: true,
-                    publicLabel: `${communeName}, ${regionName}`,
-                }),
+                location: locationData,
                 commercial: {
                     currency: 'CLP',
                     price: parseDigits(form.price),
@@ -612,7 +924,7 @@ export default function PublicarPage() {
                 title: form.title || `${brandName} ${modelName} ${form.year}`.trim(),
                 description: form.description || '',
                 priceLabel,
-                location: [communeName, regionName].filter(Boolean).join(', '),
+                location: locationLabel,
                 locationData,
                 status: 'active',
                 rawData,
@@ -631,7 +943,7 @@ export default function PublicarPage() {
                     hasVideo: Boolean(uploadedVideo?.dataUrl || externalVideoUrl),
                 });
                 setStep('success');
-                await deletePanelListingDraft('autos-quick').catch(() => null);
+                await deletePanelListingDraft('autos').catch(() => null);
             } else {
                 setPublishError(result.error || (isEditing ? 'No se pudo guardar la publicación.' : 'No se pudo publicar. Intenta de nuevo.'));
             }
@@ -644,7 +956,7 @@ export default function PublicarPage() {
     };
     
     useEffect(() => {
-        if (step !== 3 || !catalog) return;
+        if (step !== 4 || !catalog) return;
         if (form.title.trim() && form.description.trim()) return;
         const brand = form.brandId === '__custom__' ? form.customBrand : catalog.brands.find((b) => b.id === form.brandId)?.name || form.brandId;
         const model = form.modelId === '__custom__' ? form.customModel : catalog.models.find((m) => m.id === form.modelId)?.name || form.modelId;
@@ -671,16 +983,13 @@ export default function PublicarPage() {
                 papersUpToDate: current.papersUpToDate,
                 noAccidents: current.noAccidents,
                 warranty: current.warranty,
+                equipmentLabels: getVehicleEquipmentLabels(current.featureCodes),
                 listingType: current.listingType,
                 platformName: 'SimpleAutos',
             }).slice(0, 1000),
         }));
     }, [step, catalog, form.brandId, form.modelId, form.customBrand, form.customModel, form.year, form.title, form.description]);
 
-    const toggleSection = (key: string) => {
-        setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-    };
-    
     // Scroll to top cuando cambia el paso
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -692,7 +1001,7 @@ export default function PublicarPage() {
     // RENDER PASOS
     // =============================================================================
     
-    const stepIndex = step === 'success' ? 2 : (step as number) - 1;
+    const stepIndex = step === 'success' ? 3 : (step as number) - 1;
 
     return (
         <>
@@ -709,7 +1018,10 @@ export default function PublicarPage() {
                         shareText={`Mira este vehículo en SimpleAutos: ${published.title}`}
                     />
                 )}
-                onReset={() => window.location.reload()}
+                onReset={() => {
+                    setPublished(null);
+                    void resetWizard({ confirm: false });
+                }}
                 onGoToListings={() => router.push('/panel/publicaciones')}
             />
         ) : (
@@ -719,22 +1031,41 @@ export default function PublicarPage() {
             steps={PUBLISH_STEPS.map((item) => ({ key: item.key, label: item.label, helper: item.helper }))}
             stepIndex={stepIndex}
             isEditing={isEditing}
-            onBack={() => setStep((prev) => ((prev as number) - 1) as Step)}
+            onBack={() => {
+                setFieldErrors({});
+                setStep((prev) => ((prev as number) - 1) as Step);
+            }}
             onClose={() => router.push('/panel')}
             onStepChange={(key) => {
                 const target = Number(key);
-                if (!Number.isNaN(target) && target <= (step as number)) setStep(target as Step);
+                if (!Number.isNaN(target) && target <= (step as number)) {
+                    setFieldErrors({});
+                    setStep(target as Step);
+                }
             }}
+            headerReset={!isEditing ? {
+                onClick: () => { void resetWizard({ confirm: true }); },
+                loading: resettingWizard,
+                disabled: loading || savingDraft || editingLoading || resettingWizard,
+                ariaLabel: 'Reiniciar borrador',
+            } : undefined}
+            headerSave={!isEditing ? {
+                onClick: () => { void saveDraft(true); },
+                ariaLabel: 'Guardar borrador',
+                loading: savingDraft,
+                disabled: savingDraft || loading || editingLoading,
+            } : undefined}
             headerContinue={{
-                label: step === 3
+                label: step === 4
                     ? (isEditing ? 'Guardar en Simple' : 'Publicar en Simple')
                     : 'Continuar',
+                icon: step === 4 ? 'check' : 'arrow',
                 onClick: () => {
-                    if (step === 3) void handlePublish();
-                    else setStep((prev) => ((prev as number) + 1) as Step);
+                    if (step === 4) void handlePublish();
+                    else void goNext();
                 },
-                disabled: !canProceed() || loading || editingLoading || editLoadFailed || (step === 3 && publishBlocked),
-                loading,
+                disabled: loading || savingDraft || editingLoading || editLoadFailed || (step === 4 && publishBlocked),
+                loading: loading || savingDraft,
             }}
             notices={(
                 <>
@@ -742,22 +1073,9 @@ export default function PublicarPage() {
                     {!isEditing ? <MarketplaceOperatorPublishHint message={operatorHint} /> : null}
                     {editingLoading ? <PanelNotice tone="neutral">Cargando publicación para editar...</PanelNotice> : null}
                     {publishError ? <MarketplacePublishMessageNotice message={publishError} /> : null}
-                    {draftNotice ? (
-                        <PanelNotice tone="warning">
-                            <div className="flex items-center gap-2">
-                                <span className="flex-1">
-                                    <strong>Borrador guardado.</strong> {draftNotice}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => setDraftNotice(null)}
-                                    className="text-xs underline shrink-0"
-                                >
-                                    Descartar
-                                </button>
-                            </div>
-                        </PanelNotice>
-                    ) : null}
+                    {storageError ? <PanelNotice tone="error">{storageError}</PanelNotice> : null}
+                    <SimplePublishMediaUploadNotice progress={mediaUploadProgress} />
+                    {draftSavedNote ? <PanelNotice tone="success">{draftSavedNote}</PanelNotice> : null}
                 </>
             )}
         >
@@ -771,40 +1089,64 @@ export default function PublicarPage() {
                         preview={<SimplePublishPreviewCard {...buildAutosPreviewCardProps(form, catalog)} />}
                     >
                         {step === 1 && (
-                            <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="media" />
+                            <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="media" fieldErrors={fieldErrors} />
                         )}
                         {step === 2 && (
                             <div className="space-y-5">
-                                <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="identity" operatorContext={operatorContext as AutosOperatorPublishContext} />
-                                <StepAutosLocation form={form} updateForm={updateForm} catalog={catalog} />
+                                <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="identity" operatorContext={operatorContext as AutosOperatorPublishContext} fieldErrors={fieldErrors} />
+                                <StepAutosLocation
+                                    location={form.location}
+                                    onLocationChange={(next) => updateForm('location', next)}
+                                    addressBook={addressBook}
+                                    addressBookLoading={addressBookLoading}
+                                    communes={locationCommunes}
+                                    geocoding={geocoding}
+                                    onGeocodeLocation={() => void handleGeocodeLocation()}
+                                    googleMapsApiKey={googleMapsApiKey}
+                                    fieldErrors={fieldErrors}
+                                />
+                                <StepAutosPrice
+                                    form={form}
+                                    updateForm={updateForm}
+                                    estimate={estimate}
+                                    estimating={estimating}
+                                    valuationRequest={valuationRequest}
+                                    onRunValuation={runValuation}
+                                    fieldErrors={fieldErrors}
+                                />
                             </div>
                         )}
                         {step === 3 && (
+                            <StepAutosDetails
+                                form={form}
+                                updateForm={updateForm}
+                                operatorContext={operatorContext as AutosOperatorPublishContext}
+                            />
+                        )}
+                        {step === 4 && (
                             <StepAutosPublish
                                 form={form}
                                 updateForm={updateForm}
                                 catalog={catalog}
-                                expandedSections={expandedSections}
-                                toggleSection={toggleSection}
                             />
                         )}
                         <SimplePublishCtaCard
-                            label={step === 3
+                            label={step === 4
                                 ? (isEditing ? 'Guardar en Simple' : 'Publicar en Simple')
                                 : step === 1
                                     ? 'Continuar'
                                     : 'Continuar'}
-                            loadingLabel={step === 3
+                            loadingLabel={step === 4
                                 ? (isEditing ? 'Guardando...' : 'Publicando...')
                                 : 'Avanzando...'}
                             onClick={() => {
-                                if (step === 3) void handlePublish();
-                                else setStep((prev) => ((prev as number) + 1) as Step);
+                                if (step === 4) void handlePublish();
+                                else void goNext();
                             }}
-                            disabled={!canProceed() || editingLoading || editLoadFailed || (step === 3 && publishBlocked)}
+                            disabled={editingLoading || editLoadFailed || (step === 4 && publishBlocked)}
                             loading={loading}
-                            hint={step === 3 ? 'Al publicar, tu aviso quedará visible en SimpleAutos de inmediato.' : undefined}
-                            icon={step === 3 ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
+                            hint={step === 4 ? 'Al publicar, tu aviso quedará visible en SimpleAutos de inmediato.' : undefined}
+                            icon={step === 4 ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
                         />
                     </SimplePublishPageFrame>
                 </>
@@ -898,18 +1240,21 @@ function Step1PhotosAndIdentity({
     catalog,
     section = 'all',
     operatorContext,
+    fieldErrors = {},
 }: {
     form: FormData;
     updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
     catalog: PublishWizardCatalog | null;
     section?: 'media' | 'identity' | 'all';
     operatorContext?: AutosOperatorPublishContext;
+    fieldErrors?: Record<string, string>;
 }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
     const [processingPhotos, setProcessingPhotos] = useState(false);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
+    const [videoProcessError, setVideoProcessError] = useState<string | null>(null);
 
     // DnD sensors
     const sensors = useSensors(
@@ -965,9 +1310,15 @@ function Step1PhotosAndIdentity({
         updateForm('photos', newPhotos);
     };
 
-    const handleVideoFile = (files: FileList | null) => {
+    const handleVideoFile = async (files: FileList | null) => {
         const file = files?.[0];
         if (!file) return;
+        setVideoProcessError(null);
+        const validation = await validatePublishVideoFile(file);
+        if (!validation.ok) {
+            setVideoProcessError(validation.error);
+            return;
+        }
         if (form.reelVideo?.preview?.startsWith('blob:')) {
             URL.revokeObjectURL(form.reelVideo.preview);
         }
@@ -996,6 +1347,7 @@ function Step1PhotosAndIdentity({
         if (form.reelVideo?.preview?.startsWith('blob:')) {
             URL.revokeObjectURL(form.reelVideo.preview);
         }
+        setVideoProcessError(null);
         updateForm('reelVideo', null);
     };
     
@@ -1037,17 +1389,18 @@ function Step1PhotosAndIdentity({
     const showIdentity = section === 'identity' || section === 'all';
     
     return (
-        <div className="space-y-8 pb-8">
+        <div className="space-y-5 pb-8">
             {showMedia ? (
                 <>
                     <SimplePublishMediaScreen
                         photos={form.photos.map((photo) => ({
                             id: photo.id,
-                            previewUrl: photo.preview,
+                            previewUrl: photo.preview.trim(),
                             isCover: photo.isCover,
                         }))}
                         recommendedPhotos={5}
-                        photoError={photoProcessError ?? undefined}
+                        photoError={photoProcessError || undefined}
+                        photoInvalid={isAutosFieldInvalid(fieldErrors, 'photos')}
                         onAddFiles={(files) => void handleFiles(files)}
                         onRemovePhoto={removePhoto}
                         onReorderPhotos={(photos) => {
@@ -1064,11 +1417,8 @@ function Step1PhotosAndIdentity({
                                     uploadPreviewUrl={form.reelVideo?.preview ?? null}
                                     uploadFileName={form.reelVideo?.name ?? null}
                                     externalUrl={form.videoExternalUrl}
-                                    error={
-                                        form.videoExternalUrl.trim() && !isSupportedExternalVideoUrl(form.videoExternalUrl.trim())
-                                            ? 'Usa un enlace de YouTube o Vimeo.'
-                                            : undefined
-                                    }
+                                    error={videoProcessError || undefined}
+                                    invalid={isAutosFieldInvalid(fieldErrors, 'video')}
                                     onPickUpload={() => videoInputRef.current?.click()}
                                     onClearUpload={removeVideo}
                                     onExternalUrlChange={handleExternalVideoUrl}
@@ -1078,7 +1428,7 @@ function Step1PhotosAndIdentity({
                                     type="file"
                                     accept="video/*"
                                     capture="environment"
-                                    onChange={(event) => handleVideoFile(event.target.files)}
+                                    onChange={(event) => void handleVideoFile(event.target.files)}
                                     className="hidden"
                                 />
                             </>
@@ -1090,253 +1440,127 @@ function Step1PhotosAndIdentity({
             {showIdentity ? (
             <>
             
-            {/* Tipo de publicación */}
-            <SimplePublishSection title="Tipo de publicación *">
-                <div className="grid grid-cols-3 gap-3">
-                    {LISTING_TYPES.map(({ value, label, Icon, color }) => (
-                        <button
+            <SimplePublishSection title="Operación">
+                <div className="grid grid-cols-3 gap-2">
+                    {LISTING_TYPES.map(({ value, label, Icon }) => (
+                        <PanelChoiceCard
                             key={value}
-                            type="button"
                             onClick={() => updateForm('listingType', value as ListingType)}
-                            className={`panel-publish-choice p-4 ${form.listingType === value ? 'panel-publish-choice--active' : ''}`}
+                            selected={form.listingType === value}
+                            className="h-16 px-2 text-center"
                         >
-                            <div
-                                className={`panel-publish-choice__icon ${form.listingType === value ? 'panel-publish-choice__icon--active' : ''}`}
-                                style={form.listingType === value ? undefined : { color }}
-                            >
-                                <Icon size={24} />
+                            <div className="flex h-full flex-col items-center justify-center gap-1.5">
+                                <span className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0 panel-publish-icon">
+                                    <Icon size={15} />
+                                </span>
+                                <span className="text-xs font-medium leading-none">{label}</span>
                             </div>
-                            <span className="panel-publish-choice__label">{label}</span>
-                        </button>
+                        </PanelChoiceCard>
                     ))}
                 </div>
             </SimplePublishSection>
-            
-            {/* Categoría */}
-            <SimplePublishSection title="Categoría *">
-                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 lg:gap-3">
-                    {VEHICLE_TYPES.slice(0, 4).map(({ value, label, Icon }) => (
-                        <button
+
+            <SimplePublishSection title="Tipo de vehículo">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {VEHICLE_TYPES.map(({ value, label, Icon }) => (
+                        <PanelChoiceCard
                             key={value}
-                            type="button"
                             onClick={() => updateForm('vehicleType', value)}
-                            className={`panel-publish-choice flex flex-col items-center gap-2 p-3 lg:p-4 ${form.vehicleType === value ? 'panel-publish-choice--active' : ''}`}
+                            selected={form.vehicleType === value}
+                            className="min-h-[52px] px-3"
                         >
-                            <Icon size={22} className={form.vehicleType === value ? 'text-(--accent)' : 'text-(--fg-muted)'} />
-                            <span className={`text-xs font-medium leading-tight text-center ${form.vehicleType === value ? 'text-(--accent)' : 'text-(--fg)'}`}>
-                                {label}
-                            </span>
-                        </button>
+                            <div className="flex items-center gap-2.5">
+                                <span className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0 panel-publish-icon">
+                                    <Icon size={15} />
+                                </span>
+                                <p className="text-sm font-medium truncate text-(--fg)">{label}</p>
+                            </div>
+                        </PanelChoiceCard>
                     ))}
                 </div>
-                
-                <div className="mt-4">
-                    <ModernSelect
-                        value={VEHICLE_TYPES.slice(4).some(v => v.value === form.vehicleType) ? form.vehicleType : ''}
-                        onChange={(v) => updateForm('vehicleType', v as VehicleCatalogType)}
-                        options={[
-                            { value: '', label: 'Más categorías... (Camión, Bus, Maquinaria, Náutico, Aéreo)' },
-                            ...VEHICLE_TYPES.slice(4).map(({ value, label }) => ({ value, label }))
-                        ]}
-                    />
-                </div>
             </SimplePublishSection>
             
-            {/* Marca y Modelo */}
-            <SimplePublishSection title="Marca y Modelo *">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5 text-(--fg)">Marca *</label>
-                        <ModernSelect
-                            value={form.brandId}
-                            onChange={(v) => {
-                                updateForm('brandId', v);
-                                updateForm('modelId', '');
-                            }}
-                            options={[
-                                { value: '', label: 'Seleccionar' },
-                                ...brands.map(b => ({ value: b.id, label: b.name })),
-                                { value: '__custom__', label: 'Otra marca' }
-                            ]}
-                        />
-                        {form.brandId === '__custom__' && (
-                            <input
-                                type="text"
-                                placeholder="Nombre marca"
-                                value={form.customBrand}
-                                onChange={(e) => updateForm('customBrand', e.target.value)}
-                                className="form-input mt-2"
-                            />
-                        )}
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5 text-(--fg)">Modelo *</label>
-                        <ModernSelect
-                            value={form.modelId}
-                            onChange={(v) => updateForm('modelId', v)}
-                            disabled={!form.brandId}
-                            options={[
-                                { value: '', label: form.brandId ? 'Seleccionar' : 'Primero marca' },
-                                ...models.map(m => ({ value: m.id, label: m.name })),
-                                { value: '__custom__', label: 'Otro modelo' }
-                            ]}
-                        />
-                        {form.modelId === '__custom__' && (
-                            <input
-                                type="text"
-                                placeholder="Nombre modelo"
-                                value={form.customModel}
-                                onChange={(e) => updateForm('customModel', e.target.value)}
-                                className="form-input mt-2"
-                            />
-                        )}
-                    </div>
-                </div>
-            </SimplePublishSection>
-            
-            {/* Año, Color, Precio y Oferta */}
-            <SimplePublishSection className="space-y-4">
-                {/* Año y Color - en la misma fila */}
-                <div className="grid grid-cols-2 gap-3">
-                    {/* Año */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5">Año *</label>
-                        <input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder="2020"
-                            min={1900}
-                            max={2027}
-                            value={form.year}
-                            onChange={(e) => {
-                                const val = e.target.value.slice(0, 4);
-                                const num = parseInt(val);
-                                if (val === '' || (num >= 0 && num <= 2027)) {
-                                    updateForm('year', val);
-                                }
-                            }}
-                            className="form-input"
-                        />
-                    </div>
-                    
-                    {/* Color */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5">Color</label>
-                        <ColorPicker value={form.color} onChange={(c) => updateForm('color', c)} />
-                    </div>
-                </div>
-                
-                {/* Precio */}
-                <div>
-                    <label className="block text-sm font-medium mb-1.5">Precio *</label>
-                    <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="18.990.000"
-                        value={form.price}
-                        onChange={(e) => updateForm('price', formatPrice(e.target.value))}
-                        className="form-input"
-                    />
-                </div>
-                
-                {/* Precio oferta - estilo premium */}
-                <div>
-                    <label className="block text-sm font-medium mb-1.5 text-[var(--accent)]">
-                        Precio oferta (opcional)
-                    </label>
-                    <div className="flex gap-2">
-                        <div className="flex-1 flex items-center h-11 rounded-xl border-2 border-[var(--accent)] bg-[var(--accent-subtle)]/30 overflow-hidden">
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder={form.offerPriceMode === '%' ? '10' : '16.990.000'}
-                                value={form.offerPriceMode === '%' ? form.discountPercent : form.offerPrice}
-                                onChange={(e) => {
-                                    if (form.offerPriceMode === '%') {
-                                        const pct = e.target.value.replace(/\D/g, '').slice(0, 2);
-                                        updateForm('discountPercent', pct);
-                                        // Auto-calcular precio
-                                        if (form.price && pct) {
-                                            const priceNum = parseInt(form.price.replace(/\D/g, ''));
-                                            const offer = Math.round(priceNum * (1 - parseInt(pct) / 100));
-                                            updateForm('offerPrice', offer.toLocaleString('es-CL'));
-                                        }
-                                    } else {
-                                        const val = formatPrice(e.target.value);
-                                        updateForm('offerPrice', val);
-                                        // Auto-calcular %
-                                        if (form.price && val) {
-                                            const priceNum = parseInt(form.price.replace(/\D/g, ''));
-                                            const offerNum = parseInt(val.replace(/\D/g, ''));
-                                            const pct = Math.round((1 - offerNum / priceNum) * 100);
-                                            if (pct > 0) updateForm('discountPercent', pct.toString());
-                                        }
-                                    }
-                                }}
-                                className="flex-1 bg-transparent border-none outline-none h-full text-sm px-3 font-medium"
-                            />
-                            <span className="pr-3 text-sm font-bold text-[var(--accent)]">
-                                {form.offerPriceMode === '%' ? '%' : '$'}
-                            </span>
-                        </div>
-                        <div className="w-20 shrink-0">
+            <SimplePublishSection title="Datos del vehículo">
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5 text-(--fg)">Marca<SimplePublishRequiredMark /></label>
                             <ModernSelect
-                                value={form.offerPriceMode}
+                                value={form.brandId}
                                 onChange={(v) => {
-                                    updateForm('offerPriceMode', v as '$' | '%');
-                                    updateForm('offerPrice', '');
-                                    updateForm('discountPercent', '');
+                                    updateForm('brandId', v);
+                                    updateForm('modelId', '');
                                 }}
+                                triggerClassName={isAutosFieldInvalid(fieldErrors, 'brandId') || isAutosFieldInvalid(fieldErrors, 'customBrand') ? 'form-input-error' : undefined}
                                 options={[
-                                    { value: '$', label: '$' },
-                                    { value: '%', label: '%' }
+                                    { value: '', label: 'Seleccionar' },
+                                    ...brands.map(b => ({ value: b.id, label: b.name })),
+                                    { value: '__custom__', label: 'Otra marca' }
                                 ]}
                             />
+                            {form.brandId === '__custom__' && (
+                                <input
+                                    type="text"
+                                    placeholder="Nombre marca"
+                                    value={form.customBrand}
+                                    onChange={(e) => updateForm('customBrand', e.target.value)}
+                                    className={`form-input mt-2${autosInvalidClass(fieldErrors, 'customBrand')}`}
+                                />
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5 text-(--fg)">Modelo<SimplePublishRequiredMark /></label>
+                            <ModernSelect
+                                value={form.modelId}
+                                onChange={(v) => updateForm('modelId', v)}
+                                disabled={!form.brandId}
+                                triggerClassName={isAutosFieldInvalid(fieldErrors, 'modelId') || isAutosFieldInvalid(fieldErrors, 'customModel') ? 'form-input-error' : undefined}
+                                options={[
+                                    { value: '', label: form.brandId ? 'Seleccionar' : 'Primero marca' },
+                                    ...models.map(m => ({ value: m.id, label: m.name })),
+                                    { value: '__custom__', label: 'Otro modelo' }
+                                ]}
+                            />
+                            {form.modelId === '__custom__' && (
+                                <input
+                                    type="text"
+                                    placeholder="Nombre modelo"
+                                    value={form.customModel}
+                                    onChange={(e) => updateForm('customModel', e.target.value)}
+                                    className={`form-input mt-2${autosInvalidClass(fieldErrors, 'customModel')}`}
+                                />
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5 text-(--fg)">Año<SimplePublishRequiredMark /></label>
+                            <input
+                                type="number"
+                                inputMode="numeric"
+                                placeholder="2020"
+                                min={1900}
+                                max={2027}
+                                value={form.year}
+                                onChange={(e) => {
+                                    const val = e.target.value.slice(0, 4);
+                                    const num = parseInt(val);
+                                    if (val === '' || (num >= 0 && num <= 2027)) {
+                                        updateForm('year', val);
+                                    }
+                                }}
+                                className={`form-input${autosInvalidClass(fieldErrors, 'year')}`}
+                            />
                         </div>
                     </div>
-                    {/* Preview del precio final */}
-                    {form.offerPrice && (
-                        <div className="mt-2 flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--accent-subtle)] border border-[var(--accent-border)]">
-                            <span className="text-xs text-[var(--fg-muted)]">Precio final:</span>
-                            <div className="flex items-center gap-2">
-                                {form.offerPriceMode === '%' && form.discountPercent && (
-                                    <span className="text-xs text-[var(--accent)]">-{form.discountPercent}%</span>
-                                )}
-                                <span className="font-bold text-[var(--accent)]">${form.offerPrice}</span>
-                            </div>
-                        </div>
-                    )}
+
+                    {requiresVehicleCondition(form.listingType) ? (
+                        <AutosConditionFields form={form} updateForm={updateForm} invalid={isAutosFieldInvalid(fieldErrors, 'condition')} />
+                    ) : null}
+
+                    <AutosCardSpecsFields form={form} updateForm={updateForm} />
                 </div>
             </SimplePublishSection>
-
-            {operatorContext?.showFleetRentFields ? (
-                <MarketplaceAutosFleetRentFields
-                    rentDaily={form.rentDaily}
-                    rentMinDays={form.rentMinDays}
-                    rentKmPerDayIncluded={form.rentKmPerDayIncluded}
-                    rentDeposit={form.rentDeposit}
-                    rentRequirements={form.rentRequirements}
-                    rentInsuranceIncluded={form.rentInsuranceIncluded}
-                    onChange={(patch) => {
-                        for (const [key, value] of Object.entries(patch)) {
-                            updateForm(key as keyof FormData, value as FormData[keyof FormData]);
-                        }
-                    }}
-                />
-            ) : null}
-
-            {operatorContext?.showConsignmentFields ? (
-                <MarketplaceAutosConsignmentFields
-                    consignmentCommission={form.consignmentCommission}
-                    consignmentTerms={form.consignmentTerms}
-                    onChange={(patch) => {
-                        for (const [key, value] of Object.entries(patch)) {
-                            updateForm(key as keyof FormData, value as FormData[keyof FormData]);
-                        }
-                    }}
-                />
-            ) : null}
             </>
             ) : null}
         </div>
@@ -1344,157 +1568,541 @@ function Step1PhotosAndIdentity({
 }
 
 // =============================================================================
-// PASO 2: ESTADO Y CONDICIÓN
+// CAMPOS DEL VEHÍCULO (paso 2)
 // =============================================================================
 
-function Step2Condition({
+function AutosConditionFields({
     form,
     updateForm,
-    expandedSections,
-    toggleSection,
+    invalid = false,
 }: {
     form: FormData;
     updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
-    expandedSections: Record<string, boolean>;
-    toggleSection: (key: string) => void;
-    catalog?: PublishWizardCatalog | null;
+    invalid?: boolean;
 }) {
     return (
+        <div className="space-y-3">
+            <label className="block text-sm font-medium text-(--fg)">Condición<SimplePublishRequiredMark /></label>
+            <div className={`grid grid-cols-3 gap-3 rounded-xl${invalid ? ' ring-2 ring-(--color-error)' : ''}`}>
+                {CONDITIONS.map((cond) => (
+                    <PanelChoiceCard
+                        key={cond}
+                        onClick={() => updateForm('condition', cond as FormData['condition'])}
+                        selected={form.condition === cond}
+                        className="min-h-[44px] px-2 text-center"
+                    >
+                        <span className="text-sm font-medium">{cond}</span>
+                    </PanelChoiceCard>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function AutosCardSpecsFields({
+    form,
+    updateForm,
+}: {
+    form: FormData;
+    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
+}) {
+    const vehicleType = form.vehicleType;
+    const isMotorcycle = vehicleType === 'motorcycle';
+    const isHeavyOrSpecial = vehicleType === 'truck' || vehicleType === 'bus' || vehicleType === 'machinery' || vehicleType === 'nautical' || vehicleType === 'aerial';
+    const mileageLabel = vehicleType === 'nautical' ? 'Horas de motor' : vehicleType === 'machinery' || vehicleType === 'aerial' ? 'Horas de uso' : 'Kilometraje';
+    const mileagePlaceholder = vehicleType === 'nautical' ? '320' : vehicleType === 'machinery' || vehicleType === 'aerial' ? '1.200' : '45.000';
+    const mileageSuffix = vehicleType === 'nautical' || vehicleType === 'machinery' || vehicleType === 'aerial' ? 'h' : 'km';
+    const showTransmission = !isMotorcycle;
+    const showColor = vehicleType === 'car' || vehicleType === 'motorcycle' || vehicleType === 'truck';
+
+    return (
         <div className="space-y-4">
-            {/* Datos básicos - Premium card */}
-            <SimplePublishSection className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label className="block text-sm font-medium mb-1.5 text-(--fg)">Kilometraje</label>
+                    <label className="block text-sm font-medium mb-1.5 text-(--fg)">{mileageLabel}</label>
                     <div className="relative">
                         <input
                             type="text"
                             inputMode="numeric"
-                            placeholder="45.000"
+                            placeholder={mileagePlaceholder}
                             value={form.mileage}
                             onChange={(e) => updateForm('mileage', formatNumber(e.target.value))}
                             className="form-input pr-12"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-(--fg-muted)">km</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-(--fg-muted)">{mileageSuffix}</span>
                     </div>
                 </div>
-                
+                {!isHeavyOrSpecial ? (
+                    <div>
+                        <label className="block text-sm font-medium mb-1.5 text-(--fg)">Combustible</label>
+                        <ModernSelect
+                            value={form.fuelType}
+                            onChange={(value) => updateForm('fuelType', value)}
+                            options={FUEL_TYPES.map((fuel) => ({ value: fuel, label: fuel }))}
+                            placeholder="Seleccionar"
+                            ariaLabel="Seleccionar combustible"
+                        />
+                    </div>
+                ) : null}
+            </div>
+
+            {isHeavyOrSpecial ? (
                 <div>
-                    <label className="block text-sm font-semibold mb-3 text-(--fg)">Combustible</label>
-                    <div className="flex flex-wrap gap-2">
-                        {FUEL_TYPES.map(fuel => (
-                            <button
+                    <label className="block text-sm font-medium mb-2 text-(--fg)">Combustible</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {FUEL_TYPES.map((fuel) => (
+                            <PanelChoiceCard
                                 key={fuel}
-                                type="button"
                                 onClick={() => updateForm('fuelType', fuel)}
-                                className={`panel-publish-pill px-4 py-2.5 ${form.fuelType === fuel ? 'panel-publish-pill--active' : ''}`}
+                                selected={form.fuelType === fuel}
+                                className="min-h-[44px] px-2 text-center"
                             >
-                                {fuel}
-                            </button>
+                                <span className="text-sm font-medium">{fuel}</span>
+                            </PanelChoiceCard>
                         ))}
                     </div>
                 </div>
-                
+            ) : null}
+
+            {showTransmission ? (
                 <div>
-                    <label className="block text-sm font-semibold mb-3 text-(--fg)">Transmisión</label>
+                    <label className="block text-sm font-medium mb-2 text-(--fg)">Transmisión</label>
                     <div className="grid grid-cols-3 gap-3">
-                        {TRANSMISSIONS.map(trans => (
-                            <button
+                        {TRANSMISSIONS.map((trans) => (
+                            <PanelChoiceCard
                                 key={trans}
-                                type="button"
                                 onClick={() => updateForm('transmission', trans)}
-                                className={`panel-publish-pill py-3 ${form.transmission === trans ? 'panel-publish-pill--active' : ''}`}
+                                selected={form.transmission === trans}
+                                className="min-h-[44px] px-2 text-center"
                             >
-                                {trans}
-                            </button>
+                                <span className="text-sm font-medium">{trans}</span>
+                            </PanelChoiceCard>
                         ))}
                     </div>
                 </div>
-            </SimplePublishSection>
-            
-            {/* Expandible: Condición y dueños */}
-            <ExpandibleSection
-                title="Condición del vehículo"
-                subtitle="Estos datos aumentan las visitas a tu aviso"
-                expanded={expandedSections.details}
-                onToggle={() => toggleSection('details')}
+            ) : null}
+
+            {showColor ? (
+                <div>
+                    <label className="block text-sm font-medium mb-2 text-(--fg)">Color</label>
+                    <ColorPicker value={form.color} onChange={(c) => updateForm('color', c)} />
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
+function AutosSaleOptionsContent({
+    form,
+    updateForm,
+}: {
+    form: FormData;
+    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
+}) {
+    return (
+        <div className="flex flex-col gap-3">
+            <ToggleChip
+                label="Precio conversable"
+                checked={form.negotiable}
+                onChange={(v) => updateForm('negotiable', v)}
+            />
+            <ToggleChip
+                label="Acepto permuta"
+                checked={form.exchange}
+                onChange={(v) => updateForm('exchange', v)}
+            />
+            <ToggleChip
+                label="Ofrezco financiamiento"
+                checked={form.financing}
+                onChange={(v) => updateForm('financing', v)}
+            />
+        </div>
+    );
+}
+
+function StepAutosDetails({
+    form,
+    updateForm,
+    operatorContext,
+}: {
+    form: FormData;
+    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
+    operatorContext?: AutosOperatorPublishContext;
+}) {
+    const [openSections, setOpenSections] = useState<Record<'saleOptions' | 'owners' | 'history' | 'equipment' | 'fleet' | 'consignment', boolean>>({
+        saleOptions: false,
+        owners: false,
+        history: false,
+        equipment: false,
+        fleet: false,
+        consignment: false,
+    });
+
+    const toggle = (key: keyof typeof openSections) => {
+        setOpenSections((current) => ({ ...current, [key]: !current[key] }));
+    };
+
+    return (
+        <div className="space-y-5">
+            {form.listingType !== 'rent' ? (
+                <SimplePublishOptionalSection
+                    title="Opciones de venta"
+                    description="Conversable, permuta y financiamiento. Aparecen como chips en la tarjeta."
+                    open={openSections.saleOptions}
+                    onToggle={() => toggle('saleOptions')}
+                >
+                    <AutosSaleOptionsContent form={form} updateForm={updateForm} />
+                </SimplePublishOptionalSection>
+            ) : null}
+
+            <SimplePublishOptionalSection
+                title="Historial de propietarios"
+                description="Cantidad de dueños anteriores del vehículo."
+                open={openSections.owners}
+                onToggle={() => toggle('owners')}
             >
-                <div className="space-y-4 pt-2">
-                    {/* Condición */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Estado general</label>
-                        <div className="flex gap-2">
-                            {CONDITIONS.map(cond => (
-                                <button
-                                    key={cond}
-                                    onClick={() => updateForm('condition', cond as FormData['condition'])}
-                                    className={`flex-1 py-2 rounded-xl text-sm border transition-all
-                                        ${form.condition === cond 
-                                            ? 'border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--accent)] font-medium' 
-                                            : 'border-[var(--border)] hover:border-[var(--fg-muted)]'}`}
-                                >
-                                    {cond}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    
-                    {/* Dueños */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Número de dueños</label>
-                        <div className="flex gap-2">
-                            {['1', '2', '3+'].map(count => (
-                                <button
-                                    key={count}
-                                    onClick={() => updateForm('ownerCount', count as FormData['ownerCount'])}
-                                    className={`flex-1 py-2 rounded-xl text-sm border transition-all
-                                        ${form.ownerCount === count 
-                                            ? 'border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--accent)] font-medium' 
-                                            : 'border-[var(--border)] hover:border-[var(--fg-muted)]'}`}
-                                >
+                <div>
+                    <label className="block text-sm font-medium mb-2 text-(--fg)">Número de dueños</label>
+                    <div className="grid grid-cols-3 gap-2">
+                        {(['1', '2', '3+'] as const).map((count) => (
+                            <PanelChoiceCard
+                                key={count}
+                                onClick={() => updateForm('ownerCount', count)}
+                                selected={form.ownerCount === count}
+                                className="min-h-[44px] px-2 text-center"
+                            >
+                                <span className="text-sm font-medium">
                                     {count === '1' ? '1° dueño' : count === '2' ? '2° dueño' : '3° o más'}
-                                </button>
-                            ))}
-                        </div>
+                                </span>
+                            </PanelChoiceCard>
+                        ))}
                     </div>
                 </div>
-            </ExpandibleSection>
-            
-            {/* Expandible: Historial (chips toggles) */}
-            <ExpandibleSection
+            </SimplePublishOptionalSection>
+
+            <SimplePublishOptionalSection
                 title="Historial del vehículo"
-                subtitle="Los avisos con historial completo generan más confianza"
-                expanded={expandedSections.history}
-                onToggle={() => toggleSection('history')}
+                description="Mantenciones, revisión técnica y documentación."
+                open={openSections.history}
+                onToggle={() => toggle('history')}
             >
-                <div className="space-y-2 pt-2">
-                    <ToggleChip 
+                <div className="flex flex-col gap-3">
+                    <ToggleChip
                         label="Mantenciones al día"
                         checked={form.maintenanceUpToDate}
                         onChange={(v) => updateForm('maintenanceUpToDate', v)}
                     />
-                    <ToggleChip 
+                    <ToggleChip
                         label="Revisión técnica vigente"
                         checked={form.technicalReviewUpToDate}
                         onChange={(v) => updateForm('technicalReviewUpToDate', v)}
                     />
-                    <ToggleChip 
+                    <ToggleChip
                         label="Papeles al día"
                         checked={form.papersUpToDate}
                         onChange={(v) => updateForm('papersUpToDate', v)}
                     />
-                    <ToggleChip 
+                    <ToggleChip
                         label="Sin siniestros declarados"
                         checked={form.noAccidents}
                         onChange={(v) => updateForm('noAccidents', v)}
                     />
-                    <ToggleChip 
+                    <ToggleChip
                         label="Garantía vigente"
                         checked={form.warranty}
                         onChange={(v) => updateForm('warranty', v)}
                     />
                 </div>
-            </ExpandibleSection>
+            </SimplePublishOptionalSection>
+
+            <SimplePublishOptionalSection
+                title="Equipamiento"
+                description="Selecciona lo que incluye el vehículo."
+                open={openSections.equipment}
+                onToggle={() => toggle('equipment')}
+            >
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {VEHICLE_EQUIPMENT_OPTIONS.map((option) => (
+                        <SelectableChip
+                            key={option.code}
+                            label={option.label}
+                            active={form.featureCodes.includes(option.code)}
+                            onToggle={() => {
+                                const next = form.featureCodes.includes(option.code)
+                                    ? form.featureCodes.filter((code) => code !== option.code)
+                                    : [...form.featureCodes, option.code];
+                                updateForm('featureCodes', next);
+                            }}
+                        />
+                    ))}
+                </div>
+            </SimplePublishOptionalSection>
+
+            {operatorContext?.showFleetRentFields ? (
+                <SimplePublishOptionalSection
+                    title="Arriendo y flota"
+                    description="Condiciones de arriendo para operadores."
+                    open={openSections.fleet}
+                    onToggle={() => toggle('fleet')}
+                >
+                    <MarketplaceAutosFleetRentFields
+                        rentDaily={form.rentDaily}
+                        rentMinDays={form.rentMinDays}
+                        rentKmPerDayIncluded={form.rentKmPerDayIncluded}
+                        rentDeposit={form.rentDeposit}
+                        rentRequirements={form.rentRequirements}
+                        rentInsuranceIncluded={form.rentInsuranceIncluded}
+                        onChange={(patch) => {
+                            for (const [key, value] of Object.entries(patch)) {
+                                updateForm(key as keyof FormData, value as FormData[keyof FormData]);
+                            }
+                        }}
+                    />
+                </SimplePublishOptionalSection>
+            ) : null}
+
+            {operatorContext?.showConsignmentFields ? (
+                <SimplePublishOptionalSection
+                    title="Consignación"
+                    description="Comisión y términos de consignación."
+                    open={openSections.consignment}
+                    onToggle={() => toggle('consignment')}
+                >
+                    <MarketplaceAutosConsignmentFields
+                        consignmentCommission={form.consignmentCommission}
+                        consignmentTerms={form.consignmentTerms}
+                        onChange={(patch) => {
+                            for (const [key, value] of Object.entries(patch)) {
+                                updateForm(key as keyof FormData, value as FormData[keyof FormData]);
+                            }
+                        }}
+                    />
+                </SimplePublishOptionalSection>
+            ) : null}
         </div>
+    );
+}
+
+// =============================================================================
+// PASO 4: PUBLICAR
+// =============================================================================
+
+// =============================================================================
+// TASADOR ONLINE
+// =============================================================================
+
+function VehicleValuationModal(props: {
+    open: boolean;
+    onClose: () => void;
+    listingType: ListingType;
+    estimate: VehicleValuationEstimate | null;
+    estimating: boolean;
+    valuationRequest: VehicleValuationRequest | null;
+    onRunValuation: () => void | Promise<void>;
+    onApplyPrice: (price: number) => void;
+}) {
+    const { open, onClose, listingType, estimate, estimating, valuationRequest, onRunValuation, onApplyPrice } = props;
+    if (!open) return null;
+
+    const isAuction = listingType === 'auction';
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+            onClick={onClose}
+            role="presentation"
+        >
+            <div
+                className="flex max-h-[min(90vh,52rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-(--border) bg-(--surface) shadow-lg"
+                onClick={(event) => event.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="vehicle-valuation-modal-title"
+            >
+                <div className="flex items-start justify-between gap-3 border-b border-(--border) px-4 py-3 sm:px-5 sm:py-4">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2.5">
+                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-(--bg-muted) text-(--fg)">
+                                <IconCalculator size={17} />
+                            </span>
+                            <h3 id="vehicle-valuation-modal-title" className="text-base font-semibold text-(--fg)">Tasador online</h3>
+                        </div>
+                        <p className="mt-2 text-sm text-(--fg-secondary)">
+                            Referencia de mercado con rango, confianza y tendencia para ayudarte a fijar el precio.
+                        </p>
+                    </div>
+                    <PanelIconButton label="Cerrar" onClick={onClose}>
+                        <IconX size={16} />
+                    </PanelIconButton>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+                    <div className="space-y-4">
+                        <PanelButton
+                            type="button"
+                            variant="primary"
+                            className="w-full"
+                            onClick={() => void onRunValuation()}
+                            disabled={estimating || !valuationRequest || isAuction}
+                        >
+                            {estimating ? 'Calculando estimación...' : estimate ? 'Recalcular estimación' : 'Calcular estimación'}
+                        </PanelButton>
+
+                        {isAuction ? (
+                            <PanelNotice tone="neutral">El tasador aplica solo a venta y arriendo.</PanelNotice>
+                        ) : !valuationRequest ? (
+                            <PanelNotice tone="neutral">Completa marca, modelo, año y ubicación en este paso para habilitar el tasador.</PanelNotice>
+                        ) : !estimate ? (
+                            <PanelNotice tone="neutral">Obtén una referencia antes de definir el precio de publicación.</PanelNotice>
+                        ) : null}
+
+                        {estimate ? (
+                            <div className="space-y-3">
+                                <PanelSummaryCard
+                                    eyebrow="Precio estimado de mercado"
+                                    title={formatClpAmount(estimate.estimatedPrice)}
+                                    rows={[
+                                        { label: 'Rango bajo', value: formatClpAmount(estimate.minPrice) },
+                                        { label: 'Rango alto', value: formatClpAmount(estimate.maxPrice) },
+                                        { label: 'Confianza', value: `${estimate.confidenceScore}%` },
+                                        { label: 'Liquidez', value: estimate.estimatedLiquidityDays != null ? `${estimate.estimatedLiquidityDays} días` : 'Sin dato' },
+                                        { label: 'Tendencia 30d', value: formatSignedPercent(estimate.marketTrendPct30d) },
+                                    ]}
+                                />
+                                {estimate.historicalSeries.length > 0 ? (
+                                    <div className="rounded-xl border p-4 border-(--border)">
+                                        <p className="text-sm font-semibold">Tendencia del segmento</p>
+                                        <div className="space-y-2 mt-3">
+                                            {estimate.historicalSeries.map((point) => (
+                                                <div key={point.ts} className="grid grid-cols-[110px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
+                                                    <span className="text-(--fg-secondary)">{formatSeriesLabel(point.ts)}</span>
+                                                    <div className="h-2 rounded-full prop-chart-track">
+                                                        <div className="h-full rounded-full prop-chart-bar" style={{ width: `${Math.max(12, Math.min(100, estimate.maxPrice > 0 ? (point.medianPrice / estimate.maxPrice) * 100 : 12))}%` }} />
+                                                    </div>
+                                                    <span className="font-medium">{formatClpAmount(point.medianPrice)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                                {estimate.notes.length > 0 ? (
+                                    <div className="rounded-xl border p-4 border-(--border)">
+                                        <p className="text-sm font-semibold">Notas del tasador</p>
+                                        <div className="space-y-2 mt-3">
+                                            {estimate.notes.map((note) => (
+                                                <div key={note} className="flex items-start gap-2 text-sm text-(--fg-secondary)">
+                                                    <IconSparkles size={15} className="mt-0.5 shrink-0" />
+                                                    <span>{note}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+
+                {estimate && !isAuction ? (
+                    <div className="flex flex-wrap gap-2 border-t border-(--border) px-4 py-3 sm:px-5 sm:py-4">
+                        <PanelButton
+                            type="button"
+                            variant="primary"
+                            onClick={() => {
+                                onApplyPrice(Math.round(estimate.estimatedPrice));
+                                onClose();
+                            }}
+                        >
+                            Usar precio estimado
+                        </PanelButton>
+                        <PanelButton type="button" variant="secondary" onClick={onClose}>
+                            Cerrar
+                        </PanelButton>
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
+function StepAutosPrice({
+    form,
+    updateForm,
+    estimate,
+    estimating,
+    valuationRequest,
+    onRunValuation,
+    fieldErrors = {},
+}: {
+    form: FormData;
+    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
+    estimate: VehicleValuationEstimate | null;
+    estimating: boolean;
+    valuationRequest: VehicleValuationRequest | null;
+    onRunValuation: () => void | Promise<void>;
+    fieldErrors?: Record<string, string>;
+}) {
+    const [valuationOpen, setValuationOpen] = useState(false);
+
+    return (
+        <>
+            <SimplePublishSection title="Precio" className="space-y-4">
+                <SimplePublishPriceBlock
+                    mainPrice={form.price}
+                    onMainPriceChange={(value) => updateForm('price', value)}
+                    mainPriceLabel="Precio normal"
+                    mainPriceRequired
+                    mainPriceInvalid={isAutosFieldInvalid(fieldErrors, 'price')}
+                    mainPricePlaceholder="18.990.000"
+                    formatThousands
+                    offer={{
+                        offerPrice: form.offerPrice,
+                        discountPercent: form.discountPercent,
+                        offerPriceMode: form.offerPriceMode,
+                        onOfferPriceChange: (value) => updateForm('offerPrice', value),
+                        onDiscountPercentChange: (value) => updateForm('discountPercent', value),
+                        onOfferPriceModeChange: (value) => updateForm('offerPriceMode', value),
+                        formatThousands: true,
+                    }}
+                />
+                {form.listingType !== 'auction' ? (
+                    <div className="flex flex-col gap-2 pt-1">
+                        <PanelButton
+                            type="button"
+                            variant="secondary"
+                            className="w-full"
+                            onClick={() => setValuationOpen(true)}
+                        >
+                            <span className="inline-flex items-center justify-center gap-2">
+                                <IconCalculator size={16} />
+                                Consultar tasador online
+                            </span>
+                        </PanelButton>
+                        {estimate ? (
+                            <p className="text-xs text-(--fg-muted)">
+                                Referencia: {formatClpAmount(estimate.estimatedPrice)}
+                                {' · '}
+                                {formatClpAmount(estimate.minPrice)} – {formatClpAmount(estimate.maxPrice)}
+                            </p>
+                        ) : (
+                            <p className="text-xs text-(--fg-muted)">
+                                Compara tu precio con el valor de mercado antes de publicar.
+                            </p>
+                        )}
+                    </div>
+                ) : null}
+            </SimplePublishSection>
+            <VehicleValuationModal
+                open={valuationOpen}
+                onClose={() => setValuationOpen(false)}
+                listingType={form.listingType}
+                estimate={estimate}
+                estimating={estimating}
+                valuationRequest={valuationRequest}
+                onRunValuation={onRunValuation}
+                onApplyPrice={(price) => updateForm('price', formatClPriceInput(String(price)))}
+            />
+        </>
     );
 }
 
@@ -1503,128 +2111,54 @@ function Step2Condition({
 // =============================================================================
 
 function StepAutosLocation({
-    form,
-    updateForm,
-    catalog,
+    location,
+    onLocationChange,
+    addressBook,
+    addressBookLoading,
+    communes,
+    geocoding,
+    onGeocodeLocation,
+    googleMapsApiKey,
+    fieldErrors = {},
 }: {
-    form: FormData;
-    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
-    catalog: PublishWizardCatalog | null;
+    location: ListingLocation;
+    onLocationChange: (next: ListingLocation) => void;
+    addressBook: AddressBookEntry[];
+    addressBookLoading: boolean;
+    communes: Array<{ id: string; name: string }>;
+    geocoding: boolean;
+    onGeocodeLocation: () => void | Promise<void>;
+    googleMapsApiKey?: string;
+    fieldErrors?: Record<string, string>;
 }) {
-    const regions = catalog?.regions ?? [];
-    const communes = catalog?.communes.filter((c) => c.regionId === form.regionId) ?? [];
-    const [savedAddresses, setSavedAddresses] = useState<AddressBookEntry[]>([]);
-    const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-
-    useEffect(() => {
-        const loadAddresses = async () => {
-            const result = await fetchAddressBook();
-            if (result.ok) {
-                setSavedAddresses(result.items);
-                const defaultAddr = result.items.find((a) => a.isDefault);
-                if (defaultAddr?.regionId && defaultAddr.communeId && !form.regionId) {
-                    setSelectedAddressId(defaultAddr.id);
-                    updateForm('regionId', defaultAddr.regionId);
-                    updateForm('communeId', defaultAddr.communeId);
-                }
-            }
-        };
-        void loadAddresses();
-    }, []);
-
-    const handleSelectAddress = (addressId: string) => {
-        setSelectedAddressId(addressId);
-        const address = savedAddresses.find((a) => a.id === addressId);
-        if (address?.regionId && address.communeId) {
-            updateForm('regionId', address.regionId);
-            updateForm('communeId', address.communeId);
-        }
-    };
-
-    const selectedAddress = savedAddresses.find((a) => a.id === selectedAddressId);
-    const regionName = selectedAddress?.regionName || regions.find((r) => r.id === form.regionId)?.name;
-    const communeName = selectedAddress?.communeName || communes.find((c) => c.id === form.communeId)?.name || form.communeId;
-
     return (
-        <div className="space-y-4">
-            {savedAddresses.length > 0 ? (
-                <SimplePublishSection title="Direcciones guardadas">
-                    <div className="flex flex-wrap gap-2">
-                        {savedAddresses.map((addr) => (
-                            <button
-                                key={addr.id}
-                                type="button"
-                                onClick={() => handleSelectAddress(addr.id)}
-                                className={`panel-publish-pill flex items-center gap-2 px-3 py-2 ${selectedAddressId === addr.id ? 'panel-publish-pill--active' : ''}`}
-                            >
-                                <IconMapPin size={16} />
-                                <span className="font-medium">{addr.label}</span>
-                                <span className="text-xs opacity-70">{addr.communeName}, {addr.regionName}</span>
-                                {addr.isDefault ? (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--accent)] text-white">Default</span>
-                                ) : null}
-                            </button>
-                        ))}
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setSelectedAddressId('');
-                            updateForm('regionId', '');
-                            updateForm('communeId', '');
-                        }}
-                        className="text-xs text-[var(--fg-muted)] hover:text-[var(--accent)] transition-colors"
-                    >
-                        + Usar ubicación diferente
-                    </button>
-                </SimplePublishSection>
-            ) : null}
-
-            <SimplePublishSection title="Ubicación del vehículo *">
-                <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5 text-[var(--fg-muted)]">Región</label>
-                        {selectedAddressId ? (
-                            <div className="w-full h-11 px-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] text-sm flex items-center gap-2 overflow-hidden">
-                                <IconMapPin size={16} className="text-[var(--accent)] shrink-0" />
-                                <span className="font-medium text-[var(--fg)] truncate">{regionName}</span>
-                            </div>
-                        ) : (
-                            <ModernSelect
-                                value={form.regionId}
-                                onChange={(v) => {
-                                    updateForm('regionId', v);
-                                    updateForm('communeId', '');
-                                }}
-                                options={[
-                                    { value: '', label: 'Selecciona región' },
-                                    ...regions.map((r) => ({ value: r.id, label: r.name })),
-                                ]}
-                            />
-                        )}
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5 text-[var(--fg-muted)]">Comuna</label>
-                        {selectedAddressId ? (
-                            <div className="w-full h-11 px-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] text-sm flex items-center gap-2 overflow-hidden">
-                                <IconMapPin size={16} className="text-[var(--accent)] shrink-0" />
-                                <span className="font-medium text-[var(--fg)] truncate">{communeName}</span>
-                            </div>
-                        ) : (
-                            <ModernSelect
-                                value={form.communeId}
-                                onChange={(v) => updateForm('communeId', v)}
-                                disabled={!form.regionId}
-                                options={[
-                                    { value: '', label: form.regionId ? 'Selecciona comuna' : 'Primero región' },
-                                    ...communes.map((c) => ({ value: c.id, label: c.name })),
-                                ]}
-                            />
-                        )}
-                    </div>
-                </div>
-            </SimplePublishSection>
-        </div>
+        <SimplePublishSection title="Ubicación">
+            <ListingLocationEditor
+                showHeader={false}
+                framed={false}
+                simpleMode
+                googleMapsApiKey={googleMapsApiKey}
+                location={location}
+                onChange={onLocationChange}
+                regions={LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name }))}
+                communes={communes.map((item) => ({ value: item.id, label: item.name }))}
+                allCommunes={LOCATION_COMMUNES.map((item) => ({ value: item.id, label: item.name }))}
+                addressBook={addressBook}
+                addressBookLoading={addressBookLoading}
+                allowAreaOnly={false}
+                addressRequired
+                addressFirst
+                showSourceSelector={false}
+                showVisibilityField={false}
+                showGoogleMapsLink
+                showPublicPreviewCard={false}
+                showActionBar={false}
+                publishVertical="autos"
+                geocoding={geocoding}
+                onGeocode={onGeocodeLocation}
+                errors={pickListingLocationFieldErrors(fieldErrors)}
+            />
+        </SimplePublishSection>
     );
 }
 
@@ -1636,14 +2170,10 @@ function StepAutosPublish({
     form,
     updateForm,
     catalog,
-    expandedSections,
-    toggleSection,
 }: {
     form: FormData;
     updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
     catalog: PublishWizardCatalog | null;
-    expandedSections: Record<string, boolean>;
-    toggleSection: (key: string) => void;
 }) {
     const getBrandName = (brandId: string) => {
         if (brandId === '__custom__') return form.customBrand || 'Marca personalizada';
@@ -1657,38 +2187,6 @@ function StepAutosPublish({
 
     return (
         <div className="space-y-5">
-            <ExpandibleSection
-                title="Estado y detalles"
-                subtitle="Kilometraje, combustible, condición e historial (opcional)"
-                expanded={expandedSections.vehicleDetails ?? false}
-                onToggle={() => toggleSection('vehicleDetails')}
-            >
-                <Step2Condition
-                    form={form}
-                    updateForm={updateForm}
-                    expandedSections={expandedSections}
-                    toggleSection={toggleSection}
-                />
-            </ExpandibleSection>
-
-            <SimplePublishSection title="Opciones de venta">
-                <ToggleChip
-                    label="Precio conversable"
-                    checked={form.negotiable}
-                    onChange={(v) => updateForm('negotiable', v)}
-                />
-                <ToggleChip
-                    label="Acepto permuta"
-                    checked={form.exchange}
-                    onChange={(v) => updateForm('exchange', v)}
-                />
-                <ToggleChip
-                    label="Ofrezco financiamiento"
-                    checked={form.financing}
-                    onChange={(v) => updateForm('financing', v)}
-                />
-            </SimplePublishSection>
-
             <SimplePublishSection
                 title="Título y descripción"
                 description="Se generan según los datos que ingresaste. Puedes editarlos antes de publicar."
@@ -1726,6 +2224,7 @@ function StepAutosPublish({
                             papersUpToDate: form.papersUpToDate,
                             noAccidents: form.noAccidents,
                             warranty: form.warranty,
+                            equipmentLabels: getVehicleEquipmentLabels(form.featureCodes),
                             listingType: form.listingType,
                             platformName: 'SimpleAutos',
                         }).slice(0, 1000));
@@ -1740,119 +2239,23 @@ function StepAutosPublish({
 }
 
 // =============================================================================
-// LISTING PREVIEW CARD - Vista previa en vivo del aviso
-// =============================================================================
-
-function ListingPreviewCard({ form, catalog }: { form: FormData; catalog: PublishWizardCatalog | null }) {
-    const brandName = form.brandId === '__custom__' ? form.customBrand : catalog?.brands.find(b => b.id === form.brandId)?.name || '';
-    const modelName = form.modelId === '__custom__' ? form.customModel : catalog?.models.find(m => m.id === form.modelId)?.name || '';
-    const title = form.title || [brandName, modelName, form.year].filter(Boolean).join(' ') || 'Título del vehículo';
-    const regionName = catalog?.regions.find(r => r.id === form.regionId)?.name || '';
-    const communeName = catalog?.communes.find(c => c.id === form.communeId)?.name || '';
-    const location = [communeName, regionName].filter(Boolean).join(', ') || 'Ubicación pendiente';
-    const listingLabel = form.listingType === 'sale' ? 'Venta' : form.listingType === 'rent' ? 'Arriendo' : 'Subasta';
-
-    const specs: Array<{ icon: React.ReactNode; label: string }> = [];
-    if (form.year) specs.push({ icon: <IconCalendar size={13} />, label: form.year });
-    if (form.mileage) specs.push({ icon: <IconGauge size={13} />, label: `${form.mileage} km` });
-    if (form.fuelType) specs.push({ icon: <IconGasStation size={13} />, label: form.fuelType });
-    if (form.transmission) specs.push({ icon: <IconManualGearbox size={13} />, label: form.transmission });
-
-    return (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden shadow-md">
-            {/* Media area — 9:14 like real card */}
-            <div className="relative aspect-[9/14] bg-(--bg) overflow-hidden">
-                {form.photos[0] ? (
-                    <img src={form.photos[0].preview} alt="Preview" className="h-full w-full object-cover" />
-                ) : (
-                    <div className="autos-subtle-box flex h-full w-full flex-col items-center justify-center gap-2 text-center" style={{ background: 'radial-gradient(circle at 50% 20%, color-mix(in oklab, var(--accent) 20%, transparent), transparent 42%), var(--bg-muted)' }}>
-                        <IconCamera size={28} className="text-white/60" />
-                        <span className="text-xs font-semibold text-white/80">Sube la portada</span>
-                    </div>
-                )}
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                {/* Badge */}
-                <div className="absolute top-3 left-3 z-10">
-                    <span className="inline-flex items-center text-[11px] px-2 py-1 rounded-full border border-white/20 bg-black/35 text-white backdrop-blur font-bold">
-                        {listingLabel}
-                    </span>
-                </div>
-                {/* Photo count */}
-                {form.photos.length > 1 && (
-                    <div className="absolute top-3 right-3 z-10">
-                        <span className="inline-flex items-center text-[11px] px-2 py-1 rounded-full bg-black/40 text-white backdrop-blur font-medium">
-                            1 / {form.photos.length}
-                        </span>
-                    </div>
-                )}
-                {/* Bottom info — centered like real card */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
-                    <p className="text-white font-bold text-xl text-center drop-shadow-sm">
-                        {form.offerPrice ? `$${form.offerPrice}` : `$${form.price || 'Consultar'}`}
-                    </p>
-                    <h3 className="text-white font-semibold text-sm leading-tight text-center line-clamp-1 mt-0.5">{title}</h3>
-                    {specs.length > 0 && (
-                        <div className="flex items-center justify-center gap-3 mt-2">
-                            {specs.map((s, i) => (
-                                <div key={i} className="flex flex-col items-center gap-0.5">
-                                    <span className="text-white/50">{s.icon}</span>
-                                    <span className="text-[10px] text-white/80">{s.label}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    <div className="flex items-center justify-center gap-1 text-white/60 text-[10px] mt-2">
-                        <IconMapPin size={10} />
-                        <span className="truncate">{location}</span>
-                    </div>
-                </div>
-            </div>
-            {/* Footer label */}
-            <div className="flex items-center justify-between px-3 py-2">
-                <p className="text-[10px] text-[var(--fg-muted)]">Así verá tu aviso el comprador</p>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent)] text-white font-medium">Simple</span>
-            </div>
-        </div>
-    );
-}
-
-// =============================================================================
-// =============================================================================
 // COMPONENTES AUXILIARES
 // =============================================================================
 
-function ExpandibleSection({ 
-    title, 
-    subtitle,
-    expanded, 
-    onToggle, 
-    children 
-}: { 
-    title: string;
-    subtitle?: string;
-    expanded: boolean;
-    onToggle: () => void;
-    children: React.ReactNode;
-}) {
+function SelectableChip(props: { label: string; active: boolean; onToggle: () => void }) {
     return (
-        <div className="border border-[var(--border)] rounded-xl overflow-hidden">
-            <button
-                onClick={onToggle}
-                className="w-full flex items-center justify-between p-4 text-left"
-            >
-                <div>
-                    <span className="font-medium">{title}</span>
-                    {subtitle && <p className="text-xs text-[var(--fg-muted)]">{subtitle}</p>}
-                </div>
-                {expanded ? <IconChevronUp size={20} /> : <IconChevronDown size={20} />}
-            </button>
-            {expanded && (
-                <div className="px-4 pb-4 border-t border-[var(--border)]">
-                    {children}
-                </div>
-            )}
-        </div>
+        <button
+            type="button"
+            onClick={props.onToggle}
+            className={`w-full rounded-card border px-3 py-3 text-sm text-left transition-colors panel-publish-select-chip ${props.active ? 'panel-publish-select-chip--active' : ''}`}
+        >
+            <span className="flex items-center gap-3">
+                <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border panel-publish-select-chip-dot ${props.active ? 'panel-publish-select-chip-dot--active' : ''}`}>
+                    {props.active ? <IconCheck size={13} /> : null}
+                </span>
+                <span className="font-medium text-(--fg)">{props.label}</span>
+            </span>
+        </button>
     );
 }
 
@@ -1866,19 +2269,11 @@ function ToggleChip({
     onChange: (v: boolean) => void;
 }) {
     return (
-        <button
-            onClick={() => onChange(!checked)}
-            className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all
-                ${checked 
-                    ? 'border-[var(--accent)] bg-[var(--accent-subtle)]' 
-                    : 'border-[var(--border)] hover:border-[var(--fg-muted)]'}`}
-        >
-            <div className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors
-                ${checked ? 'bg-[var(--accent)]' : 'border border-[var(--border)]'}`}>
-                {checked && <IconCheck size={14} className="text-white" />}
-            </div>
-            <span className={`text-sm ${checked ? 'font-medium' : ''}`}>{label}</span>
-        </button>
+        <SelectableChip
+            label={label}
+            active={checked}
+            onToggle={() => onChange(!checked)}
+        />
     );
 }
 
@@ -1887,8 +2282,7 @@ function ToggleChip({
 // =============================================================================
 
 function formatPrice(value: string): string {
-    const numbers = value.replace(/\D/g, '');
-    return numbers.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return formatClPriceInput(value);
 }
 
 function formatNumber(value: string): string {

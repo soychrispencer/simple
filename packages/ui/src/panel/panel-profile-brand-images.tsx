@@ -9,7 +9,7 @@ import {
     IconMapPin,
     IconPlus,
 } from '@tabler/icons-react';
-import { resolveAppMediaUrl } from '@simple/utils';
+import { resolveAppMediaUrl, RAW_IMAGE_MAX_SIZE_KB } from '@simple/utils';
 import { AvatarUpload, type AvatarUploadHandle } from '../avatar-upload.js';
 import { BUSINESS_BRAND_IMAGES_HINT } from './business-copy.js';
 
@@ -394,7 +394,7 @@ export function PanelProfileBrandImages({
                 hideTrigger
                 currentUrl={resolvedLogoUrl}
                 config={{
-                    maxSize: 5120,
+                    maxSize: RAW_IMAGE_MAX_SIZE_KB,
                     maxWidth: 512,
                     maxHeight: 512,
                     aspectRatio: 1,
@@ -403,7 +403,9 @@ export function PanelProfileBrandImages({
                     onUpload: async (file, croppedBlob) => {
                         setLogoUploading(true);
                         try {
-                            const uploadFile = new File([croppedBlob], file.name || 'logo.webp', { type: 'image/webp' });
+                            const uploadFile = croppedBlob === file
+                                ? file
+                                : new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
                             return await onUploadLogo(uploadFile, croppedBlob);
                         } finally {
                             setLogoUploading(false);
@@ -422,7 +424,7 @@ export function PanelProfileBrandImages({
                 hideTrigger
                 currentUrl={resolvedCoverUrl}
                 config={{
-                    maxSize: 8192,
+                    maxSize: RAW_IMAGE_MAX_SIZE_KB,
                     maxWidth: 1600,
                     maxHeight: 900,
                     aspectRatio: 16 / 9,
@@ -431,7 +433,9 @@ export function PanelProfileBrandImages({
                     onUpload: async (file, croppedBlob) => {
                         setCoverUploading(true);
                         try {
-                            const uploadFile = new File([croppedBlob], file.name || 'cover.webp', { type: 'image/webp' });
+                            const uploadFile = croppedBlob === file
+                                ? file
+                                : new File([croppedBlob], 'cover.webp', { type: 'image/webp' });
                             return await onUploadCover(uploadFile, croppedBlob);
                         } finally {
                             setCoverUploading(false);

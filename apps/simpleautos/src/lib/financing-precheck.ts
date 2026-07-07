@@ -14,6 +14,7 @@ export type FinancingPrecheckInput = {
     vehiclePrice: number;
     vehicleYear: number;
     vehicleBrand: string;
+    vehicleModel?: string;
     vehicleType: VehicleUseType;
     listingId?: string;
     listingTitle?: string;
@@ -160,6 +161,7 @@ export function buildFinancingLeadMailto(input: FinancingPrecheckInput & {
         `Título/listing: ${input.listingTitle || '—'}`,
         `ID publicación: ${input.listingId || '—'}`,
         `Marca: ${input.vehicleBrand}`,
+        `Modelo: ${input.vehicleModel || '—'}`,
         `Año: ${input.vehicleYear}`,
         `Tipo: ${input.vehicleType}`,
         `Precio: $${input.vehiclePrice.toLocaleString('es-CL')}`,
@@ -187,6 +189,8 @@ export function buildPrecheckHrefFromListing(item: {
     title: string;
     price: string;
     summary: string[];
+    brandId?: string;
+    modelId?: string;
 }): string {
     const params = new URLSearchParams();
     const priceDigits = item.price.replace(/[^\d]/g, '');
@@ -195,7 +199,12 @@ export function buildPrecheckHrefFromListing(item: {
     params.set('listingId', item.id);
     const year = item.summary.find((tag) => /^\d{4}$/.test(tag));
     if (year) params.set('anio', year);
-    const brandGuess = item.title.trim().split(/\s+/)[0];
-    if (brandGuess) params.set('marca', brandGuess);
+    if (item.brandId) {
+        params.set('marca', item.brandId);
+    } else {
+        const brandGuess = item.title.trim().split(/\s+/)[0];
+        if (brandGuess) params.set('marca', brandGuess);
+    }
+    if (item.modelId) params.set('modelo', item.modelId);
     return `/precalificacion-financiamiento?${params.toString()}`;
 }

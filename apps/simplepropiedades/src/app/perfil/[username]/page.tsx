@@ -10,7 +10,7 @@ import {
     initialsFromPublicProfileName,
 } from '@simple/ui/public-profile';
 import { BusinessOperatorServiceCatalog, PanelNotice, PUBLIC_PROFILE_CATALOG_EMPTY_MESSAGE } from '@simple/ui/panel';
-import { isPublicProfileOperatorCatalogEmpty, mapPublicProfileOperatorCatalog } from '@simple/utils';
+import { isPublicProfileOperatorCatalogEmpty, mapPublicProfileOperatorCatalog, resolveListingSellerAvatarUrl } from '@simple/utils';
 
 function toCardData(item: PublicListing): PropertyListingCardData {
     return {
@@ -25,6 +25,7 @@ function toCardData(item: PublicListing): PropertyListingCardData {
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'Cuenta SimplePropiedades',
         sellerMeta: `Actualizado hace ${item.publishedAgo}`,
+        sellerAvatarUrl: resolveListingSellerAvatarUrl(item.seller),
         sellerProfileHref: item.seller?.profileHref ?? undefined,
         badge: item.sectionLabel,
         variant: item.section,

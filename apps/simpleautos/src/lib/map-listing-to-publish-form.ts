@@ -1,6 +1,7 @@
 import type { PanelListing } from '@/lib/panel-listings';
 import type { VehicleCatalogType } from '@/lib/publish-wizard-catalog';
-import { isSupportedExternalVideoUrl } from '@simple/utils';
+import { isSupportedExternalVideoUrl, parseVehicleEquipmentCodes } from '@simple/utils';
+import { createEmptyListingLocation, patchListingLocation, type ListingLocation } from '@simple/types';
 
 export type PublishFormPhoto = {
     id: string;
@@ -34,9 +35,9 @@ export type PublishFormData = {
     papersUpToDate: boolean;
     noAccidents: boolean;
     warranty: boolean;
+    featureCodes: string[];
     ownerCount: '1' | '2' | '3+' | '';
-    regionId: string;
-    communeId: string;
+    location: ListingLocation;
     title: string;
     description: string;
     negotiable: boolean;
@@ -74,20 +75,22 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
     const specs = asRecord(raw.specs);
     const media = asRecord(raw.media);
     const commercial = asRecord(raw.commercial);
-    const location = asRecord(raw.location ?? listing.locationData);
+    const locationRecord = asRecord(raw.location ?? listing.locationData);
 
     const listingType = (setup.listingType ?? listing.section) as PublishFormData['listingType'];
     const photosRaw = Array.isArray(media.photos) ? media.photos : [];
 
-    const photos: PublishFormPhoto[] = photosRaw.map((item, index) => {
-        const photo = asRecord(item);
-        const preview = asString(photo.previewUrl) || asString(photo.dataUrl) || asString(photo.url);
-        return {
-            id: asString(photo.id, `photo-${index}`),
-            preview,
-            isCover: photo.isCover === true || index === 0,
-        };
-    });
+    const photos: PublishFormPhoto[] = photosRaw
+        .map((item, index) => {
+            const photo = asRecord(item);
+            const preview = asString(photo.previewUrl) || asString(photo.dataUrl) || asString(photo.url);
+            return {
+                id: asString(photo.id, `photo-${index}`),
+                preview,
+                isCover: photo.isCover === true || index === 0,
+            };
+        })
+        .filter((photo) => photo.preview.length > 0);
 
     const rawVideo = asRecord(media.discoverVideo);
     const videoUrlStr = asString(media.videoUrl).trim();
@@ -125,6 +128,32 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
     else if (owners === '2' || owners === 2) ownerCount = '2';
     else if (owners === '3+' || owners === 3) ownerCount = '3+';
 
+    const listingLocation = patchListingLocation(createEmptyListingLocation({
+        sourceMode: 'custom',
+        countryCode: 'CL',
+        visibilityMode: 'commune_only',
+        publicMapEnabled: true,
+    }), {
+        sourceMode: locationRecord.sourceMode === 'saved_address' || locationRecord.sourceMode === 'area_only' || locationRecord.sourceMode === 'custom'
+            ? locationRecord.sourceMode
+            : 'custom',
+        sourceAddressId: asString(locationRecord.sourceAddressId) || null,
+        countryCode: asString(locationRecord.countryCode, 'CL') || 'CL',
+        regionId: asString(locationRecord.regionId) || null,
+        regionName: asString(locationRecord.regionName) || null,
+        communeId: asString(locationRecord.communeId) || null,
+        communeName: asString(locationRecord.communeName) || null,
+        neighborhood: asString(locationRecord.neighborhood) || null,
+        addressLine1: asString(locationRecord.addressLine1) || null,
+        addressLine2: asString(locationRecord.addressLine2) || null,
+        postalCode: asString(locationRecord.postalCode) || null,
+        visibilityMode: (locationRecord.visibilityMode as ListingLocation['visibilityMode']) || 'commune_only',
+        publicMapEnabled: locationRecord.publicMapEnabled !== false,
+        publicLabel: asString(locationRecord.publicLabel) || '',
+        label: asString(locationRecord.label) || null,
+        arrivalInstructions: asString(locationRecord.arrivalInstructions) || null,
+    });
+
     return {
         photos,
         reelVideo,
@@ -150,9 +179,9 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
         papersUpToDate: asBool(specs.paidPermit),
         noAccidents: asBool(specs.noAccidents),
         warranty: Array.isArray(specs.featureCodes) && specs.featureCodes.includes('warranty'),
+        featureCodes: parseVehicleEquipmentCodes(specs.featureCodes),
         ownerCount,
-        regionId: asString(location.regionId) || asString(location.regionName),
-        communeId: asString(location.communeId) || asString(location.communeName),
+        location: listingLocation,
         title: listing.title || asString(basic.title),
         description: listing.description || asString(basic.description),
         negotiable: asBool(commercial.negotiable),

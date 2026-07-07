@@ -99,9 +99,10 @@ export function SerenatasChromeHeader({
     );
 
     const isSuspended = user?.status === 'suspended';
+    const isPanelRoute = pathname.startsWith('/panel');
 
     if (authLoading) {
-        return null;
+        return isPanelRoute ? <ChromeHeaderPlaceholder /> : null;
     }
 
     if (!isLoggedIn) {
@@ -119,7 +120,7 @@ export function SerenatasChromeHeader({
     }
 
     if (!resolvedProfiles) {
-        return null;
+        return isPanelRoute ? <ChromeHeaderPlaceholder /> : null;
     }
 
     return (
@@ -139,6 +140,15 @@ export function SerenatasChromeHeader({
             primaryActionHref={primaryAction.href}
             primaryActionIcon={primaryAction.icon}
             showPrimaryAction={showPrimaryAction && !isSuspended && primaryAction.show}
+        />
+    );
+}
+
+function ChromeHeaderPlaceholder() {
+    return (
+        <div
+            className="h-16 shrink-0 border-b border-border bg-(--bg)"
+            aria-hidden
         />
     );
 }

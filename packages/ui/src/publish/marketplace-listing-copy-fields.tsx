@@ -7,6 +7,8 @@ export type MarketplaceListingCopyFieldsProps = {
     description: string;
     titleError?: string;
     descriptionError?: string;
+    titleInvalid?: boolean;
+    descriptionInvalid?: boolean;
     titlePlaceholder?: string;
     descriptionPlaceholder?: string;
     descriptionMaxLength?: number;
@@ -23,6 +25,8 @@ export function MarketplaceListingCopyFields({
     description,
     titleError,
     descriptionError,
+    titleInvalid = false,
+    descriptionInvalid = false,
     titlePlaceholder = 'Título del aviso',
     descriptionPlaceholder = 'Descripción para tu ficha y redes',
     descriptionMaxLength = 2500,
@@ -52,10 +56,10 @@ export function MarketplaceListingCopyFields({
                     value={title}
                     onChange={(event) => onTitleChange(event.target.value)}
                     placeholder={titlePlaceholder}
-                    className="w-full rounded-xl border border-(--border) bg-(--bg) px-3 py-2.5 text-sm font-medium text-(--fg)"
+                    className={`w-full rounded-xl border bg-(--bg) px-3 py-2.5 text-sm font-medium text-(--fg)${titleInvalid ? ' border-(--color-error)' : ' border-(--border)'}`}
                 />
-                {titleError ? <p className="mt-1 text-xs text-(--color-error)">{titleError}</p> : null}
-                {!titleError && titleHint ? <p className="mt-1 text-xs text-(--fg-muted)">{titleHint}</p> : null}
+                {titleError?.trim() ? <p className="mt-1 text-xs text-(--color-error)">{titleError}</p> : null}
+                {!titleError?.trim() && titleHint ? <p className="mt-1 text-xs text-(--fg-muted)">{titleHint}</p> : null}
             </section>
 
             <section className="rounded-2xl border border-(--border) bg-(--surface) p-5 shadow-sm">
@@ -75,10 +79,10 @@ export function MarketplaceListingCopyFields({
                     value={description}
                     onChange={(event) => onDescriptionChange(event.target.value)}
                     placeholder={descriptionPlaceholder}
-                    className="w-full rounded-xl border border-(--border) bg-(--bg) px-3 py-2.5 text-sm text-(--fg)"
+                    className={`w-full rounded-xl border bg-(--bg) px-3 py-2.5 text-sm text-(--fg)${descriptionInvalid ? ' border-(--color-error)' : ' border-(--border)'}`}
                 />
                 <p className="mt-1 text-xs text-(--fg-muted)">{description.length} / {descriptionMaxLength}</p>
-                {descriptionError ? <p className="mt-1 text-xs text-(--color-error)">{descriptionError}</p> : null}
+                {descriptionError?.trim() ? <p className="mt-1 text-xs text-(--color-error)">{descriptionError}</p> : null}
             </section>
         </div>
     );

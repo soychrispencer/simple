@@ -25,7 +25,7 @@ export function OperatorSiteServiceGrid({
     const fallback = resolveAppMediaUrl(imageFallbackUrl);
     const rootClass = variant === 'carousel' ? 'os-service-scroller' : 'os-service-grid';
 
-    return (
+    const grid = (
         <div className={rootClass}>
             {services.map((item) => {
                 const imageSrc = resolveAppMediaUrl(item.imageUrl) ?? fallback;
@@ -83,4 +83,15 @@ export function OperatorSiteServiceGrid({
             })}
         </div>
     );
+
+    if (variant === 'carousel') {
+        return (
+            <div className="os-service-scroller-wrap">
+                {grid}
+                <p className="os-service-scroller-hint" aria-hidden>Desliza para ver más</p>
+            </div>
+        );
+    }
+
+    return grid;
 }

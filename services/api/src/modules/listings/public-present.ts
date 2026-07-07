@@ -38,7 +38,14 @@ export type ListingPublicPresentDeps = {
     getPublishedSellerProfile: (
         userId: string,
         vertical: string,
-    ) => { displayName?: string; slug?: string } | null;
+    ) => {
+        displayName?: string;
+        slug?: string;
+        avatarImageUrl?: string | null;
+        publicEmail?: string | null;
+        publicPhone?: string | null;
+        publicWhatsapp?: string | null;
+    } | null;
 };
 
 function parseNumberFromString(value: unknown): number | null {
@@ -195,6 +202,18 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         const sellerProfile = owner ? getPublishedSellerProfile(owner.id, record.vertical) : null;
         const sellerName = sellerProfile?.displayName ?? owner?.name ?? 'Cuenta verificada';
         const username = sellerProfile?.slug ?? usernameFromName(sellerName);
+        const profileAvatar = toPublicMediaUrl(sellerProfile?.avatarImageUrl);
+        const accountAvatar = toPublicMediaUrl(owner?.avatar);
+        const avatarUrl = profileAvatar || accountAvatar || null;
+        const sellerEmail = sellerProfile?.publicEmail?.trim() || owner.email;
+        const sellerPhone = sellerProfile?.publicPhone?.trim()
+            || sellerProfile?.publicWhatsapp?.trim()
+            || owner.phone
+            || null;
+        const sellerWhatsapp = sellerProfile?.publicWhatsapp?.trim()
+            || sellerProfile?.publicPhone?.trim()
+            || owner.phone
+            || null;
 
         return {
             id: record.id,
@@ -220,8 +239,10 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
                 name: sellerName,
                 username,
                 profileHref: sellerProfile ? `/perfil/${username}` : null,
-                email: owner.email,
-                phone: owner.phone ?? null,
+                avatarUrl,
+                email: sellerEmail,
+                phone: sellerPhone,
+                whatsapp: sellerWhatsapp,
             } : null,
         };
     }

@@ -30,6 +30,11 @@ import {
 } from './marketplace.js';
 import { assertNoWorkProfileForClientAccount } from './marketplace-client-policy.js';
 import {
+    assertCanActivateSerenataProfile,
+    reconcileExclusiveSerenataProfiles,
+    removeSerenataProfilesExcept,
+} from './profile-exclusivity.js';
+import {
     clientSongSelectionSchema,
     registerRepertoireRoutes,
     syncOwnerSerenataSongSelections,
@@ -705,10 +710,10 @@ function resolveActorRole(
     return null;
 }
 
-/** Sin `as`, músico tiene prioridad sobre dueño (evita mezclar datos en cuentas duales). */
+/** Sin `as`, dueño tiene prioridad (una cuenta = un perfil). */
 function defaultActorRole(profiles: Awaited<ReturnType<typeof getProfiles>>): SerenataActorRole | null {
-    if (profiles.musician) return 'musician';
     if (profiles.owner) return 'owner';
+    if (profiles.musician) return 'musician';
     if (profiles.client) return 'client';
     return null;
 }
@@ -836,6 +841,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/profiles', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
+        await reconcileExclusiveSerenataProfiles(user.id);
         const profiles = await getProfiles(user.id);
         const publicUser = deps.sanitizeUser ? deps.sanitizeUser(user as Record<string, unknown>) : user;
         return c.json({ ok: true, user: publicUser, profiles });
@@ -976,6 +982,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.put('/profiles/musician', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
+        const exclusivity = await assertCanActivateSerenataProfile(user.id, 'musician');
+        if (!exclusivity.ok) return jsonError(c, exclusivity.error, exclusivity.status);
         const parsed = musicianProfileUpdateSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) {
             return c.json(
@@ -1024,6 +1032,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     const upsertOwnerProfile = async (c: Context) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
+        const exclusivity = await assertCanActivateSerenataProfile(user.id, 'owner');
+        if (!exclusivity.ok) return jsonError(c, exclusivity.error, exclusivity.status);
         const parsed = ownerProfileSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Perfil de dueño inválido');
         const values = { ...parsed.data, updatedAt: new Date() };
@@ -1049,6 +1059,9 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (existing) return c.json({ ok: true, profile: existing });
 
         const musician = await db.query.serenataMusicians.findFirst({ where: eq(serenataMusicians.userId, user.id) });
+        const exclusivity = await assertCanActivateSerenataProfile(user.id, 'owner');
+        if (!exclusivity.ok) return jsonError(c, exclusivity.error, exclusivity.status);
+
         const [profile] = await db.insert(serenataOwners).values({
             userId: user.id,
             bio: musician?.bio ?? null,
@@ -1065,6 +1078,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             commissionVatRateBps: COMMISSION_VAT_BPS,
             trialEndsAt: defaultSerenataTrialEndsAt(),
         }).returning();
+        await removeSerenataProfilesExcept(user.id, 'owner');
         return c.json({ ok: true, profile }, 201);
     };
 

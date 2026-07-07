@@ -11,6 +11,22 @@ export type SimplePublishHeaderContinue = {
     onClick: () => void;
     disabled?: boolean;
     loading?: boolean;
+    /** Flecha para avanzar; check en el paso final (publicar/guardar). */
+    icon?: 'arrow' | 'check';
+};
+
+export type SimplePublishHeaderSave = {
+    onClick: () => void;
+    loading?: boolean;
+    disabled?: boolean;
+    ariaLabel?: string;
+};
+
+export type SimplePublishHeaderReset = {
+    onClick: () => void;
+    loading?: boolean;
+    disabled?: boolean;
+    ariaLabel?: string;
 };
 
 export type SimplePublishShareIcon = 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'whatsapp';

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { IconPencil } from '@tabler/icons-react';
 import type { StructuredLocation } from '@simple/types';
 import { API_BASE } from '@simple/config';
 import { resolveAccountAvatarUrl } from '@simple/utils';
@@ -82,6 +84,10 @@ export type PanelAccountPersonalDataSectionProps = {
     onSaved?: () => Promise<unknown> | unknown;
     onAfterDelete?: () => Promise<unknown> | unknown;
     onUnauthorized?: () => void;
+    /** Ruta a Seguridad para cambiar el correo (apps con rutas separadas). */
+    emailSecurityHref?: string;
+    /** Navegación in-app a Seguridad (p. ej. Serenatas con pestañas). */
+    onEditEmail?: () => void;
 };
 
 type NoticeState = { tone: 'success' | 'warning' | 'error'; text: string } | null;
@@ -186,6 +192,8 @@ export function PanelAccountPersonalDataSection({
     onSaved,
     onAfterDelete,
     onUnauthorized,
+    emailSecurityHref = '/panel/mi-cuenta/seguridad',
+    onEditEmail,
 }: PanelAccountPersonalDataSectionProps) {
     const initialName = user?.name ?? '';
     const initialPhone = user?.phone ?? '';
@@ -223,6 +231,28 @@ export function PanelAccountPersonalDataSection({
     );
     const showPersonalSection = activeSection === 'personal';
     const showSecuritySection = activeSection === 'security';
+    const canEditEmail = Boolean(onRequestEmailChange) && (Boolean(onEditEmail) || Boolean(emailSecurityHref));
+
+    const emailEditControl = canEditEmail ? (
+        onEditEmail ? (
+            <button
+                type="button"
+                onClick={onEditEmail}
+                className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-(--fg-muted) transition-colors hover:bg-(--bg-subtle) hover:text-(--fg)"
+                aria-label="Cambiar correo en Seguridad"
+            >
+                <IconPencil size={16} />
+            </button>
+        ) : (
+            <Link
+                href={emailSecurityHref}
+                className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-(--fg-muted) transition-colors hover:bg-(--bg-subtle) hover:text-(--fg)"
+                aria-label="Cambiar correo en Seguridad"
+            >
+                <IconPencil size={16} />
+            </Link>
+        )
+    ) : null;
     const displayAvatarUrl = resolveAccountAvatarUrl(avatarUrl);
 
     useEffect(() => {
@@ -471,9 +501,40 @@ export function PanelAccountPersonalDataSection({
                             />
                         </PanelField>
                         <PanelField label="Correo">
-                            <div className="form-input flex items-center text-[var(--fg-muted)]">
-                                {user?.email || 'Sin correo'}
+                            <div className="relative">
+                                <div
+                                    className={`form-input flex min-h-11 items-center truncate text-(--fg) ${canEditEmail ? 'pr-10' : ''}`}
+                                >
+                                    {user?.email || 'Sin correo'}
+                                </div>
+                                {emailEditControl}
                             </div>
+                            {pendingEmail ? (
+                                <p className="mt-1 text-xs text-(--fg-muted)">
+                                    Cambio pendiente a {pendingEmail}. Confírmalo desde{' '}
+                                    {onEditEmail ? (
+                                        <button
+                                            type="button"
+                                            onClick={onEditEmail}
+                                            className="font-medium text-(--accent) underline-offset-2 hover:underline"
+                                        >
+                                            Seguridad
+                                        </button>
+                                    ) : (
+                                        <Link
+                                            href={emailSecurityHref}
+                                            className="font-medium text-(--accent) underline-offset-2 hover:underline"
+                                        >
+                                            Seguridad
+                                        </Link>
+                                    )}
+                                    .
+                                </p>
+                            ) : canEditEmail ? (
+                                <p className="mt-1 text-xs text-(--fg-muted)">
+                                    El correo se cambia con confirmación por enlace en Seguridad.
+                                </p>
+                            ) : null}
                         </PanelField>
                     </div>
                 </div>

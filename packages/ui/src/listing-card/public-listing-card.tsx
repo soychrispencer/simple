@@ -9,6 +9,7 @@ import ListingMetaTags from './shared/listing-meta-tags';
 import ListingSellerStrip from './shared/listing-seller-strip';
 import ListingActionCluster from './shared/listing-action-cluster';
 import { defaultCtaByVariant, variantBadgeLabel, variantBadgeTone, formatChileanPeso } from './shared/utils';
+import { LISTING_CARD_LIST_IMAGE_ASPECT } from './shared/card-layout';
 import type { PublicListingCardProps } from './types';
 
 function buildPrimaryBadges(props: PublicListingCardProps) {
@@ -137,7 +138,7 @@ export default function PublicListingCard(props: PublicListingCardProps) {
                         title={title}
                         seed={id}
                         accent={accent}
-                        aspectClassName="w-full h-full sm:aspect-[4/3] aspect-[3/4]"
+                        aspectClassName={LISTING_CARD_LIST_IMAGE_ASPECT}
                         rounded="rounded-xl"
                     />
                     <ListingBadgeStack badges={badges.slice(0, 2)} size="xs" />

@@ -16,12 +16,13 @@ import {
     businessBrandImageSavedMessage,
 } from '@simple/ui/panel';
 import {
-    DEFAULT_OPERATOR_SITE_ACCENT,
     DEFAULT_OPERATOR_SITE_COLOR_MODE,
     DEFAULT_OPERATOR_SITE_LAYOUT,
-    normalizeOperatorSiteAccent,
-    normalizeOperatorSiteColorMode,
+    defaultOperatorSiteAccentEditorValue,
+    parseOperatorSiteAccent,
+    serializeOperatorSiteAccent,
     normalizeOperatorSiteLayout,
+    normalizeOperatorSiteColorMode,
 } from '@simple/utils';
 import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 import { AgendaPublicLinkPanel } from '@/components/panel/agenda-public-link-panel';
@@ -38,12 +39,12 @@ export default function AparienciaPage() {
     const [value, setValue] = useState<OperatorSiteAppearanceValue>({
         layout: DEFAULT_OPERATOR_SITE_LAYOUT,
         colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
-        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+        accent: defaultOperatorSiteAccentEditorValue(),
     });
     const [baseline, setBaseline] = useState<OperatorSiteAppearanceValue>({
         layout: DEFAULT_OPERATOR_SITE_LAYOUT,
         colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
-        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+        accent: defaultOperatorSiteAccentEditorValue(),
     });
     const [saved, setSaved] = useState(false);
     const [slug, setSlug] = useState<string | null>(null);
@@ -63,7 +64,7 @@ export default function AparienciaPage() {
                 const appearance = {
                     layout: normalizeOperatorSiteLayout(profile.operatorSiteLayout),
                     colorMode: normalizeOperatorSiteColorMode(profile.operatorSiteColorMode),
-                    accentColor: normalizeOperatorSiteAccent(profile.operatorSiteAccentColor),
+                    accent: parseOperatorSiteAccent(profile.operatorSiteAccentColor),
                 };
                 setValue(appearance);
                 setBaseline(appearance);
@@ -81,7 +82,7 @@ export default function AparienciaPage() {
         const result = await saveAgendaProfile({
             operatorSiteLayout: next.layout,
             operatorSiteColorMode: next.colorMode,
-            operatorSiteAccentColor: next.accentColor,
+            operatorSiteAccentColor: serializeOperatorSiteAccent(next.accent),
         });
         if (!result.ok) {
             const message = result.error ?? 'No se pudo guardar la apariencia.';
@@ -92,7 +93,7 @@ export default function AparienciaPage() {
             ? {
                 layout: normalizeOperatorSiteLayout(result.profile.operatorSiteLayout),
                 colorMode: normalizeOperatorSiteColorMode(result.profile.operatorSiteColorMode),
-                accentColor: normalizeOperatorSiteAccent(result.profile.operatorSiteAccentColor),
+                accent: parseOperatorSiteAccent(result.profile.operatorSiteAccentColor),
             }
             : next;
         setValue(saved);
@@ -182,17 +183,21 @@ export default function AparienciaPage() {
                                 setCoverUrl(url);
                                 void persistBrandImages(avatarRef.current || null, url, 'cover');
                             }}
-                            onUploadLogo={async (_file, croppedBlob) => {
-                                const uploadFile = new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
-                                const result = await uploadAvatar(uploadFile);
+                            onUploadLogo={async (file, croppedBlob) => {
+                                const uploadFile = croppedBlob === file
+                                    ? file
+                                    : new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
+                                const result = await uploadAvatar(uploadFile, 'logo');
                                 if (!result.ok || !result.url) {
                                     throw new Error(result.error ?? 'Error al subir el logo.');
                                 }
                                 return { url: result.url };
                             }}
-                            onUploadCover={async (_file, croppedBlob) => {
-                                const uploadFile = new File([croppedBlob], 'cover.webp', { type: 'image/webp' });
-                                const result = await uploadAvatar(uploadFile);
+                            onUploadCover={async (file, croppedBlob) => {
+                                const uploadFile = croppedBlob === file
+                                    ? file
+                                    : new File([croppedBlob], 'cover.webp', { type: 'image/webp' });
+                                const result = await uploadAvatar(uploadFile, 'cover');
                                 if (!result.ok || !result.url) {
                                     throw new Error(result.error ?? 'Error al subir la imagen.');
                                 }

@@ -3,6 +3,7 @@
 import { forwardRef, useImperativeHandle, useState, useCallback, useEffect } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 import { IconPlus } from '@tabler/icons-react';
+import { IMAGE_FILE_ACCEPT, formatImageMaxSizeKb, isLikelyImageFile } from '@simple/utils';
 
 export type AvatarUploadConfig = {
     maxSize?: number; // in KB
@@ -74,36 +75,65 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
         setImageFailed(false);
     }, [currentUrl]);
 
+    const uploadOriginalFile = useCallback(async (file: File) => {
+        if (!onUpload) {
+            onError?.('No se pudo previsualizar la imagen. Prueba con JPG o PNG.');
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const result = await onUpload(file, file);
+            setImageUrl(result.url);
+            onSuccess?.(result.url);
+        } catch {
+            onError?.('Error al subir la imagen');
+        } finally {
+            setIsUploading(false);
+        }
+    }, [onUpload, onSuccess, onError]);
+
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         if (file.size > maxSize * 1024) {
-            onError?.(`La imagen es muy grande. Máximo ${maxSize}KB`);
+            onError?.(`La imagen es muy grande. Máximo ${formatImageMaxSizeKb(maxSize)}.`);
             return;
         }
 
-        if (!file.type.startsWith('image/')) {
-            onError?.('Solo se permiten archivos de imagen');
+        if (!isLikelyImageFile(file)) {
+            onError?.('Solo se permiten archivos de imagen (JPG, PNG, WebP, HEIC, etc.)');
             return;
         }
 
         setSelectedFile(file);
         const reader = new FileReader();
         reader.onload = () => {
-            setImageUrl(reader.result as string);
-            setIsModalOpen(true);
-            setZoom(1);
-            setCrop({ x: 0, y: 0 });
-            setCroppedArea(null);
+            const dataUrl = reader.result as string;
+            const probe = new Image();
+            probe.onload = () => {
+                setImageUrl(dataUrl);
+                setIsModalOpen(true);
+                setZoom(1);
+                setCrop({ x: 0, y: 0 });
+                setCroppedArea(null);
+            };
+            probe.onerror = () => {
+                void uploadOriginalFile(file);
+            };
+            probe.src = dataUrl;
+        };
+        reader.onerror = () => {
+            void uploadOriginalFile(file);
         };
         reader.readAsDataURL(file);
-    }, [maxSize, onError]);
+    }, [maxSize, onError, uploadOriginalFile]);
 
     const openFilePicker = useCallback(() => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*';
+        input.accept = IMAGE_FILE_ACCEPT;
         input.onchange = (e) => handleFileSelect(e as unknown as React.ChangeEvent<HTMLInputElement>);
         input.click();
     }, [handleFileSelect]);
@@ -172,10 +202,15 @@ export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(fu
                 }
             }, 'image/webp', 0.9);
         } catch {
+            if (selectedFile) {
+                await uploadOriginalFile(selectedFile);
+                setIsModalOpen(false);
+                return;
+            }
             onError?.('Error al procesar la imagen');
             setIsUploading(false);
         }
-    }, [croppedArea, selectedFile, imageUrl, maxWidth, maxHeight, onUpload, onSuccess, onError]);
+    }, [croppedArea, selectedFile, imageUrl, maxWidth, maxHeight, onUpload, onSuccess, onError, uploadOriginalFile]);
 
     const handleCancel = useCallback(() => {
         setIsModalOpen(false);

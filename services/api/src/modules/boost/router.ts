@@ -213,7 +213,7 @@ export function createBoostRouter(deps: BoostRouterDeps) {
         const vertical = deps.parseVertical(c.req.query('vertical'));
         const section = deps.parseBoostSection(c.req.query('section'), vertical);
         const limitRaw = Number(c.req.query('limit') ?? '8');
-        const limit = Number.isFinite(limitRaw) ? Math.min(24, Math.max(1, limitRaw)) : 8;
+        const limit = Number.isFinite(limitRaw) ? Math.min(30, Math.max(1, limitRaw)) : 8;
 
         const items = await deps.listFeaturedBoosted(vertical, section, limit);
         return c.json({

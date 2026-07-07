@@ -33,10 +33,15 @@ export type SimplePublishPhotoGridProps = {
     maxPhotos?: number;
     recommendedPhotos?: number;
     error?: string;
+    invalid?: boolean;
     onAddFiles: (files: FileList) => void;
     onRemovePhoto: (id: string) => void;
     onReorderPhotos: (photos: SimplePublishPhoto[]) => void;
 };
+
+function hasPhotoPreview(url: string | undefined | null): url is string {
+    return Boolean(url?.trim());
+}
 
 function SortableTile({
     photo,
@@ -67,7 +72,16 @@ function SortableTile({
             {...attributes}
             {...listeners}
         >
-            <img src={photo.previewUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
+            {hasPhotoPreview(photo.previewUrl) ? (
+                <img src={photo.previewUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
+            ) : (
+                <div
+                    className="pointer-events-none flex h-full w-full items-center justify-center bg-(--bg-muted)"
+                    aria-hidden
+                >
+                    <IconCamera size={22} className="text-(--fg-muted)" />
+                </div>
+            )}
             {index === 0 ? (
                 <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full bg-(--accent) px-2 py-0.5 text-[10px] font-bold text-(--accent-contrast)">
                     <IconStar size={8} fill="currentColor" />
@@ -101,6 +115,7 @@ export function SimplePublishPhotoGrid({
     maxPhotos = 20,
     recommendedPhotos = 8,
     error,
+    invalid = false,
     onAddFiles,
     onRemovePhoto,
     onReorderPhotos,
@@ -145,9 +160,10 @@ export function SimplePublishPhotoGrid({
                     }}
                     className={joinClasses(
                         'w-full rounded-2xl border-2 border-dashed p-8 text-center transition-colors',
+                        invalid && !dragOver && 'border-(--color-error)',
                         dragOver
                             ? 'border-(--accent) bg-(--accent-subtle)/30'
-                            : 'border-(--border) hover:border-(--accent)/45 hover:bg-(--bg-subtle)/50',
+                            : !invalid && 'border-(--border) hover:border-(--accent)/45 hover:bg-(--bg-subtle)/50',
                     )}
                 >
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-(--bg-subtle)">
@@ -217,7 +233,7 @@ export function SimplePublishPhotoGrid({
                 }}
             />
 
-            {error ? <p className="text-xs text-(--color-error)">{error}</p> : null}
+            {error?.trim() ? <p className="text-xs text-(--color-error)">{error}</p> : null}
         </div>
     );
 }

@@ -6,6 +6,7 @@ type Props = {
     engagement: ListingEngagement;
     layout?: 'row' | 'grid';
     dense?: boolean;
+    tone?: 'panel' | 'reel';
 };
 
 function MetricCard({
@@ -13,21 +14,22 @@ function MetricCard({
     value,
     label,
     compact = false,
+    reel = false,
 }: {
     icon: React.ReactNode;
     value: string;
     label: string;
     compact?: boolean;
+    reel?: boolean;
 }) {
     if (compact) {
-        // Ultra-compact for horizontal list view
         return (
             <div
-                className="flex items-center gap-1 rounded-md border px-2 py-1"
-                style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                className={`flex items-center gap-1 rounded-md border px-2 py-1${reel ? ' marketplace-reel-card__metric' : ''}`}
+                style={reel ? undefined : { borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
             >
-                <span style={{ color: 'var(--accent)' }}>{icon}</span>
-                <span className="text-[11px] font-medium" style={{ color: 'var(--fg)' }}>
+                <span style={reel ? { color: '#fff' } : { color: 'var(--accent)' }}>{icon}</span>
+                <span className="text-[11px] font-medium" style={reel ? { color: '#fff' } : { color: 'var(--fg)' }}>
                     {value}
                 </span>
             </div>
@@ -52,7 +54,8 @@ function MetricCard({
     );
 }
 
-export default function ListingEngagementRow({ engagement, layout = 'row', dense = false }: Props) {
+export default function ListingEngagementRow({ engagement, layout = 'row', dense = false, tone = 'panel' }: Props) {
+    const reel = tone === 'reel';
     const items: Array<{ key: string; icon: React.ReactNode; value: string; label: string }> = [];
 
     if (engagement.listedSinceLabel) {
@@ -112,9 +115,16 @@ export default function ListingEngagementRow({ engagement, layout = 'row', dense
             ? items.filter((i) => i.label !== 'Publicado').slice(0, 4)
             : items.filter((i) => i.label !== 'Publicado');
         return (
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className={`flex flex-wrap items-center gap-1.5${reel ? ' justify-center' : ''}`}>
                 {displayItems.map((item) => (
-                    <MetricCard key={item.key} icon={item.icon} value={item.value} label={item.label} compact={dense} />
+                    <MetricCard
+                        key={item.key}
+                        icon={item.icon}
+                        value={item.value}
+                        label={item.label}
+                        compact={dense}
+                        reel={reel}
+                    />
                 ))}
             </div>
         );

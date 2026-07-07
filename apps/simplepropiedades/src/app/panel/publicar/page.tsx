@@ -23,11 +23,11 @@ import {
     IconCheck,
     IconCircleCheck,
     IconCopy,
-    IconDeviceFloppy,
     IconExternalLink,
     IconHome2,
     IconKey,
     IconMapPin,
+    IconParking,
     IconPhoto,
     IconPlus,
     IconRuler,
@@ -40,9 +40,9 @@ import {
     IconGripVertical,
 } from '@tabler/icons-react';
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
-import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo } from '@simple/utils';
+import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { useAuth } from '@simple/auth';
@@ -52,17 +52,24 @@ import {
     createPanelListing, deletePanelListingDraft, fetchPanelListingDetail, fetchPanelListingDraft, savePanelListingDraft, updatePanelListing, type PanelListing,
 } from '@/lib/panel-listings';
 import {
-    createEmptyListingLocation, type AddressBookEntry, type ListingLocation, patchListingLocation, type PropertyValuationEstimate, type PropertyValuationRequest, type PropertyValuationSourceStatus,
+    applyAddressBookEntryToLocation,
+    createEmptyListingLocation,
+    patchListingLocation,
+    type AddressBookEntry,
+    type ListingLocation,
+    type PropertyValuationEstimate,
+    type PropertyValuationRequest,
+    type PropertyValuationSourceStatus,
 } from '@simple/types';
 import {
-    estimatePropertyValue, fetchAddressBook, fetchPropertyValuationSources, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, refreshPropertyValuationSources, resolveLocationNames,
+    estimatePropertyValue, fetchPublishAddressBook, pickDefaultPublishAddress, fetchPropertyValuationSources, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, refreshPropertyValuationSources, resolveLocationNames,
 } from '@simple/utils';
-import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelSummaryCard, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, optimizeListingPhotoFile, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
-import { ListingLocationEditor } from '@simple/ui/location';
+import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelIconButton, PanelNotice, PanelSummaryCard, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults, optimizeListingPhotoFile, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
+import { ListingLocationEditor, pickListingLocationFieldErrors } from '@simple/ui/location';
 import { useGoogleMapsBrowserKey } from '@simple/ui/address-book';
 import { PROPERTY_PUBLISH_STEPS } from '@/components/panel/publish/publish-steps';
 
-type StepId = 'media' | 'basics' | 'details';
+type StepId = 'media' | 'basics' | 'attributes' | 'publish';
 type PublishedListing = { id: string; href: string; title: string; hasVideo?: boolean };
 type PropertyOperation = 'sale' | 'rent' | 'project';
 type Currency = 'UF' | 'CLP' | 'USD';
@@ -149,6 +156,9 @@ type WizardData = {
         currency: Currency;
         price: string;
         priceTo: string;
+        offerPrice: string;
+        discountPercent: string;
+        offerPriceMode: '$' | '%';
         commonExpenseType: string;
         commonExpenses: string;
         availableFrom: string;
@@ -193,11 +203,32 @@ const PROPERTY_STEP_COPY: Record<StepId, { title: string; description: string }>
         title: 'Datos del inmueble',
         description: 'Operación, tipo, atributos de tarjeta, ubicación y precio.',
     },
-    details: {
-        title: 'Revisar y publicar',
-        description: 'Opcional: enriquece la ficha. Al final generamos título y descripción.',
+    attributes: {
+        title: 'Detalles del inmueble',
+        description: 'Completa la ficha con atributos, equipamiento y condiciones comerciales.',
+    },
+    publish: {
+        title: 'Publicar',
+        description: 'Revisa el título y la descripción generados antes de publicar.',
     },
 };
+
+function formatPropertySurfacePreviewLabel(data: WizardData): string | null {
+    const pt = data.setup.propertyType;
+    const isResidential = pt === 'Casa' || pt === 'Departamento';
+    const usable = data.basic.usableArea.trim();
+    const total = data.basic.totalArea.trim();
+
+    if (isResidential) {
+        if (usable && total) return `${usable} m² út. · ${total} m² tot.`;
+        if (usable) return `${usable} m² útiles`;
+        if (total) return `${total} m²`;
+        return null;
+    }
+
+    if (total) return `${total} m²`;
+    return null;
+}
 
 function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCardProps {
     const title = data.setup.operationType === 'project'
@@ -206,18 +237,41 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
     const video = data.media.discoverVideo;
     const location = buildPreviewLocation(data);
     const badge = getOperationLabel(data.setup.operationType);
+    const hasOffer = data.setup.operationType !== 'project' && Boolean(
+        resolveOfferPriceValue({
+            mainPrice: data.commercial.price,
+            offerPrice: data.commercial.offerPrice,
+            discountPercent: data.commercial.discountPercent,
+            offerPriceMode: data.commercial.offerPriceMode,
+            parseMainPrice: (value) => parseNumber(value),
+        }),
+    );
     const price = data.commercial.price.trim() ? buildPriceLabel(data) : '$Consultar';
+    const priceOriginal = hasOffer ? buildPriceLabel(data, { useListPrice: true }) : undefined;
 
     const specs: SimplePublishPreviewCardProps['specs'] = [];
     if (data.setup.operationType !== 'project') {
-        if (data.basic.rooms) specs.push({ icon: <IconBed size={13} />, label: `${data.basic.rooms} dorm` });
-        if (data.basic.bathrooms) specs.push({ icon: <IconBath size={13} />, label: `${data.basic.bathrooms} baños` });
-        if (data.basic.totalArea) specs.push({ icon: <IconRuler size={13} />, label: `${data.basic.totalArea} m²` });
+        if (data.basic.rooms) specs.push({ icon: <IconBed size={11} />, label: `${data.basic.rooms} dorm` });
+        if (data.basic.bathrooms) specs.push({ icon: <IconBath size={11} />, label: `${data.basic.bathrooms} baños` });
+        if (data.basic.parkingSpaces !== '') specs.push({ icon: <IconParking size={11} />, label: `${data.basic.parkingSpaces} est.` });
+        if (data.basic.storageUnits !== '') specs.push({ icon: <IconBuildingStore size={11} />, label: `${data.basic.storageUnits} bodega` });
+        const surfaceLabel = formatPropertySurfacePreviewLabel(data);
+        if (surfaceLabel) specs.push({ icon: <IconRuler size={11} />, label: surfaceLabel });
+    }
+
+    const extraChips: SimplePublishPreviewCardProps['extraChips'] = [];
+    if (data.setup.operationType === 'project' && data.project.salesStage) {
+        extraChips.push({ label: data.project.salesStage });
+    }
+    if (data.commercial.negotiable) extraChips.push({ label: 'Conversable' });
+    if (hasOffer && data.commercial.discountPercent) {
+        extraChips.push({ label: `-${data.commercial.discountPercent}%`, tone: 'accent' });
     }
 
     return {
         badge,
         price,
+        priceOriginal,
         title,
         location,
         photoUrls: data.media.photos
@@ -225,7 +279,9 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
             .filter(Boolean),
         videoUrl: video?.previewUrl || video?.dataUrl || null,
         specs,
-        brandLabel: 'Simple',
+        extraChips,
+        ctaLabel: data.setup.operationType === 'rent' ? 'Ver disponibilidad' : data.setup.operationType === 'project' ? 'Ver proyecto' : 'Ver detalle',
+        brandLabel: 'SimplePropiedades',
         footerHint: 'Así se verá en SimplePropiedades',
     };
 }
@@ -428,6 +484,9 @@ function createDefaultData(): WizardData {
             currency: 'UF',
             price: '',
             priceTo: '',
+            offerPrice: '',
+            discountPercent: '',
+            offerPriceMode: '$',
             commonExpenseType: 'No informa',
             commonExpenses: '',
             availableFrom: '',
@@ -561,17 +620,66 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
     };
 }
 
-function draftPersistableUrl(url: string): string {
-    if (!url || url.startsWith('data:') || url.startsWith('blob:')) return '';
-    return url;
+async function preparePropiedadesDraftMedia(
+    data: WizardData,
+    options?: {
+        onMediaProgress?: (progress: DraftMediaUploadProgress) => void;
+    },
+): Promise<{ ok: boolean; data?: WizardData; error?: string }> {
+    const photos: WizardData['media']['photos'] = [];
+    for (const photo of data.media.photos) {
+        const sourceUrl = photo.previewUrl || photo.dataUrl;
+        const result = await persistDraftMediaUrl({
+            url: sourceUrl,
+            fileType: 'image',
+            name: photo.name || 'foto.webp',
+            mimeType: photo.mimeType || 'image/webp',
+            onProgress: options?.onMediaProgress,
+        });
+        if (!result.ok) return { ok: false, error: result.error };
+        const persisted = result.url || sourceUrl;
+        photos.push({
+            ...photo,
+            dataUrl: persisted,
+            previewUrl: persisted,
+        });
+    }
+
+    let discoverVideo = data.media.discoverVideo;
+    if (discoverVideo) {
+        const sourceUrl = discoverVideo.previewUrl || discoverVideo.dataUrl;
+        const result = await persistDraftMediaUrl({
+            url: sourceUrl,
+            fileType: 'video',
+            name: discoverVideo.name || 'video.mp4',
+            mimeType: discoverVideo.mimeType || 'video/mp4',
+            onProgress: options?.onMediaProgress,
+        });
+        if (!result.ok) return { ok: false, error: result.error };
+        const persisted = result.url || sourceUrl;
+        discoverVideo = {
+            ...discoverVideo,
+            dataUrl: persisted,
+            previewUrl: persisted,
+        };
+    }
+
+    return {
+        ok: true,
+        data: {
+            ...data,
+            media: {
+                ...data.media,
+                photos,
+                discoverVideo,
+            },
+        },
+    };
 }
 
 function serializeDraft(data: WizardData, valuationEstimate: PropertyValuationEstimate | null): PersistedDraft {
     return {
-        version: 1,
-        savedAt: new Date().toISOString(),
-        valuationEstimate,
-        data: {
+        ...createListingDraftEnvelope({
             ...data,
             media: {
                 ...data.media,
@@ -606,7 +714,8 @@ function serializeDraft(data: WizardData, valuationEstimate: PropertyValuationEs
                     mimeType: item.mimeType,
                 })),
             },
-        },
+        }),
+        valuationEstimate,
     };
 }
 
@@ -695,53 +804,57 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
     const errors: Record<string, string> = {};
 
     if (step === 'basics') {
-        if (!data.setup.propertyType) errors['setup.propertyType'] = 'Selecciona el tipo de propiedad.';
-        if (!data.setup.operationType) errors['setup.operationType'] = 'Selecciona la operación.';
+        if (!data.setup.propertyType) errors['setup.propertyType'] = '';
+        if (!data.setup.operationType) errors['setup.operationType'] = '';
         if (data.setup.operationType === 'project') {
-            if (!data.project.projectName.trim()) errors['project.projectName'] = 'Ingresa el nombre del proyecto.';
-            if (!data.project.developerName.trim()) errors['project.developerName'] = 'Ingresa la inmobiliaria o desarrollador.';
+            if (!data.project.projectName.trim()) errors['project.projectName'] = '';
+            if (!data.project.developerName.trim()) errors['project.developerName'] = '';
         } else {
             const pt = data.setup.propertyType;
-            const isLand = pt === 'Terreno' || pt === 'Parcela';
             const isResidential = pt === 'Casa' || pt === 'Departamento';
-            if (parseNumber(data.basic.totalArea) == null) {
-                errors['basic.totalArea'] = isLand ? 'La superficie del terreno es obligatoria.' : 'La superficie total es obligatoria.';
-            }
+            if (parseNumber(data.basic.totalArea) == null) errors['basic.totalArea'] = '';
+            if (!data.basic.condition.trim()) errors['basic.condition'] = '';
             if (isResidential) {
-                if (parseNumber(data.basic.rooms) == null) errors['basic.rooms'] = 'Ingresa la cantidad de dormitorios.';
-                if (parseNumber(data.basic.bathrooms) == null) errors['basic.bathrooms'] = 'Ingresa la cantidad de baños.';
+                if (parseNumber(data.basic.rooms) == null) errors['basic.rooms'] = '';
+                if (parseNumber(data.basic.bathrooms) == null) errors['basic.bathrooms'] = '';
+            }
+            if (parseNumber(data.basic.parkingSpaces) == null) {
+                errors['basic.parkingSpaces'] = '';
+            }
+            if (parseNumber(data.basic.storageUnits) == null) {
+                errors['basic.storageUnits'] = '';
             }
         }
-        if (parseNumber(data.commercial.price) == null) errors['commercial.price'] = 'Ingresa un precio válido.';
-        if (!data.location.regionId) errors['location.regionId'] = 'Selecciona la región.';
-        if (!data.location.communeId) errors['location.communeId'] = 'Selecciona la comuna.';
-        if (!data.location.addressLine1?.trim()) errors['location.addressLine1'] = 'La dirección exacta es obligatoria.';
+        if (parseNumber(data.commercial.price) == null) errors['commercial.price'] = '';
+        if (!data.location.regionId) errors['location.regionId'] = '';
+        if (!data.location.communeId) errors['location.communeId'] = '';
+        if (!data.location.addressLine1?.trim()) errors['location.addressLine1'] = '';
         if (data.location.sourceMode === 'saved_address' && !data.location.sourceAddressId) {
-            errors['location.sourceAddressId'] = 'Selecciona una dirección guardada.';
+            errors['location.sourceAddressId'] = '';
         }
     }
 
-    if (step === 'details') {
-        if (!data.basic.title.trim()) errors['basic.title'] = 'Ingresa un título para la publicación.';
-        if (data.basic.description.trim().length < 40) {
-            errors['basic.description'] = 'La descripción debe tener al menos 40 caracteres.';
-        }
-        if (!data.review.acceptTerms) {
-            errors['review.acceptTerms'] = 'Debes aceptar los términos antes de publicar.';
-        }
+    if (step === 'attributes') {
         if (data.media.tour360Url.trim()) {
             try {
                 new URL(data.media.tour360Url.trim());
             } catch {
-                errors['media.tour360Url'] = 'Usa una URL válida para el tour 360.';
+                errors['media.tour360Url'] = '';
             }
         }
     }
 
+    if (step === 'publish') {
+        if (!data.basic.title.trim()) errors['basic.title'] = '';
+        if (data.basic.description.trim().length < 40) {
+            errors['basic.description'] = '';
+        }
+    }
+
     if (step === 'media') {
-        if (data.media.photos.length < 1) errors['media.photos'] = 'Sube al menos 1 foto.';
+        if (data.media.photos.length < 1) errors['media.photos'] = '';
         if (data.media.videoUrl.trim() && !isSupportedExternalVideoUrl(data.media.videoUrl.trim())) {
-            errors['media.video'] = 'Usa un enlace de YouTube o Vimeo.';
+            errors['media.video'] = '';
         }
     }
 
@@ -776,8 +889,25 @@ function qualityScore(data: WizardData, estimate: PropertyValuationEstimate | nu
     return Math.min(score, 100);
 }
 
-function buildPriceLabel(data: WizardData): string {
-    const prefix = data.commercial.currency === 'UF' ? 'UF ' : data.commercial.currency === 'USD' ? 'USD ' : '$';
+function commercialCurrencyPrefix(currency: Currency): string {
+    if (currency === 'UF') return 'UF ';
+    if (currency === 'USD') return 'USD ';
+    return '$';
+}
+
+function buildPriceLabel(data: WizardData, options?: { useListPrice?: boolean }): string {
+    const prefix = commercialCurrencyPrefix(data.commercial.currency);
+    const offer = !options?.useListPrice && data.setup.operationType !== 'project'
+        ? resolveOfferPriceValue({
+            mainPrice: data.commercial.price,
+            offerPrice: data.commercial.offerPrice,
+            discountPercent: data.commercial.discountPercent,
+            offerPriceMode: data.commercial.offerPriceMode,
+            parseMainPrice: (value) => parseNumber(value),
+        })
+        : '';
+    const displayPrice = offer || data.commercial.price.trim();
+
     if (data.setup.operationType === 'project') {
         if (data.commercial.price.trim() && data.commercial.priceTo.trim()) {
             return `${prefix}${data.commercial.price.trim()} - ${prefix}${data.commercial.priceTo.trim()}`;
@@ -786,7 +916,7 @@ function buildPriceLabel(data: WizardData): string {
             return `Desde ${prefix}${data.commercial.price.trim()}`;
         }
     }
-    return `${prefix}${data.commercial.price.trim() || '0'}`;
+    return `${prefix}${displayPrice || '0'}`;
 }
 
 function countPropertyAttributes(data: WizardData): number {
@@ -815,6 +945,7 @@ function countPropertyAttributes(data: WizardData): number {
         data.basic.unitsPerFloor,
         data.basic.totalFloors,
         data.basic.towerNumber,
+        data.basic.propertyAge,
         data.basic.orientation,
         data.basic.departmentType,
         data.basic.securityType,
@@ -872,10 +1003,17 @@ function buildProgramLabel(data: WizardData): string {
         return data.project.availableUnits.trim() ? `${data.project.availableUnits.trim()} unidades` : 'Proyecto inmobiliario';
     }
 
+    const isResidential = data.setup.propertyType === 'Casa' || data.setup.propertyType === 'Departamento';
+    const surfaceLabel = isResidential && data.basic.usableArea.trim()
+        ? `${data.basic.usableArea.trim()} m² útiles`
+        : data.basic.totalArea.trim()
+            ? `${data.basic.totalArea.trim()} m²`
+            : null;
+
     const parts = [
         data.basic.rooms.trim() ? `${data.basic.rooms.trim()}D` : null,
         data.basic.bathrooms.trim() ? `${data.basic.bathrooms.trim()}B` : null,
-        data.basic.totalArea.trim() ? `${data.basic.totalArea.trim()} m²` : null,
+        surfaceLabel,
     ].filter(Boolean);
     return parts.length > 0 ? parts.join(' · ') : data.setup.propertyType || 'Propiedad';
 }
@@ -886,75 +1024,6 @@ function buildPreviewLocation(data: WizardData): string {
         || data.location.communeId
         || data.location.regionName
         || 'Ubicación pendiente';
-}
-
-function ListingLivePreview(props: { data: WizardData; compact?: boolean }) {
-    const { data, compact = false } = props;
-    const title = data.setup.operationType === 'project'
-        ? data.project.projectName || data.basic.title || 'Tu proyecto aparecerá aquí'
-        : data.basic.title || 'Tu propiedad aparecerá aquí';
-    const photo = data.media.photos[0];
-    const video = data.media.discoverVideo;
-    const location = buildPreviewLocation(data);
-    const operation = getOperationLabel(data.setup.operationType);
-    const price = data.commercial.price.trim() ? buildPriceLabel(data) : 'Precio pendiente';
-
-    const specs: Array<{ icon: React.ReactNode; label: string }> = [];
-    if (data.setup.operationType !== 'project') {
-        if (data.basic.rooms) specs.push({ icon: <IconBed size={13} />, label: `${data.basic.rooms} dorm` });
-        if (data.basic.bathrooms) specs.push({ icon: <IconBath size={13} />, label: `${data.basic.bathrooms} baños` });
-        if (data.basic.totalArea) specs.push({ icon: <IconRuler size={13} />, label: `${data.basic.totalArea} m²` });
-    }
-
-    return (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden shadow-md">
-            {/* Media area — 9:14 like real card */}
-            <div className="relative aspect-[9/14] bg-(--bg) overflow-hidden">
-                {video?.previewUrl || video?.dataUrl ? (
-                    <video src={video.previewUrl || video.dataUrl} className="h-full w-full object-cover" muted playsInline loop />
-                ) : photo?.previewUrl || photo?.dataUrl ? (
-                    <img src={photo.previewUrl || photo.dataUrl} alt={title} className="h-full w-full object-cover" />
-                ) : (
-                    <div className="prop-live-preview__empty flex h-full w-full flex-col items-center justify-center gap-2 text-center">
-                        <IconCamera size={28} className="text-white/60" />
-                        <span className="text-xs font-semibold text-white/80">Sube la portada</span>
-                    </div>
-                )}
-                {/* Gradient overlay — matches real card */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                {/* Badge */}
-                <div className="absolute top-3 left-3 z-10">
-                    <span className="inline-flex items-center text-[11px] px-2 py-1 rounded-full border border-white/20 bg-black/35 text-white backdrop-blur font-bold">
-                        {operation}
-                    </span>
-                </div>
-                {/* Bottom info — centered like real card */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
-                    <p className="text-white font-bold text-xl text-center drop-shadow-sm">{price}</p>
-                    <h3 className="text-white font-semibold text-sm leading-tight text-center line-clamp-1 mt-0.5">{title}</h3>
-                    {specs.length > 0 && (
-                        <div className="flex items-center justify-center gap-3 mt-2">
-                            {specs.map((s, i) => (
-                                <div key={i} className="flex flex-col items-center gap-0.5">
-                                    <span className="text-white/50">{s.icon}</span>
-                                    <span className="text-[10px] text-white/80">{s.label}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    <div className="flex items-center justify-center gap-1 text-white/60 text-[10px] mt-2">
-                        <IconMapPin size={10} />
-                        <span className="truncate">{location}</span>
-                    </div>
-                </div>
-            </div>
-            {/* Footer label */}
-            <div className="flex items-center justify-between px-3 py-2">
-                <p className="text-[10px] text-[var(--fg-muted)]">Así verá tu publicación</p>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent)] text-white font-medium">Simple</span>
-            </div>
-        </div>
-    );
 }
 
 type WizardSetter = React.Dispatch<React.SetStateAction<WizardData>>;
@@ -1057,7 +1126,7 @@ function StepSetup(props: {
         <section className="space-y-5">
             <MarketplaceOperatorPublishHint message={operatorHint ?? null} />
             <SimplePublishSection title="Operación">
-                <div className="grid grid-cols-3 gap-2">
+                <div className={`grid grid-cols-3 gap-2 rounded-xl${Object.prototype.hasOwnProperty.call(errors, 'setup.operationType') ? ' ring-2 ring-(--color-error)' : ''}`}>
                     {OPERATION_CARDS.map((card) => (
                         <PanelChoiceCard
                             key={card.value}
@@ -1070,7 +1139,7 @@ function StepSetup(props: {
                             className="h-16 px-2 text-center"
                         >
                             <div className="flex h-full flex-col items-center justify-center gap-1.5">
-                                <span className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0 prop-publish-icon">
+                                <span className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0 panel-publish-icon">
                                     {card.icon}
                                 </span>
                                 <span className="text-xs font-medium leading-none">{card.label}</span>
@@ -1081,10 +1150,9 @@ function StepSetup(props: {
                         </PanelChoiceCard>
                     ))}
                 </div>
-                {errors['setup.operationType'] ? <ErrorText text={errors['setup.operationType']} /> : null}
             </SimplePublishSection>
             <SimplePublishSection title="Tipo de propiedad">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 rounded-xl${Object.prototype.hasOwnProperty.call(errors, 'setup.propertyType') ? ' ring-2 ring-(--color-error)' : ''}`}>
                     {PROPERTY_TYPE_CARDS.map((option) => (
                         <PanelChoiceCard
                             key={option.value}
@@ -1096,7 +1164,7 @@ function StepSetup(props: {
                             className="min-h-[52px] px-3"
                         >
                             <div className="flex items-center gap-2.5">
-                                <span className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0 prop-publish-icon">
+                                <span className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0 panel-publish-icon">
                                     {option.icon}
                                 </span>
                                 <p className="text-sm font-medium truncate prop-publish-fg">{option.label}</p>
@@ -1104,9 +1172,377 @@ function StepSetup(props: {
                         </PanelChoiceCard>
                     ))}
                 </div>
-                {errors['setup.propertyType'] ? <ErrorText text={errors['setup.propertyType']} /> : null}
             </SimplePublishSection>
         </section>
+    );
+}
+
+function PropertyInmuebleFields(props: {
+    data: WizardData;
+    setData: WizardSetter;
+    errors: Record<string, string>;
+    scope?: 'card' | 'detail';
+}) {
+    const { data, setData, errors, scope = 'card' } = props;
+    const pt = data.setup.propertyType;
+    const isLand = pt === 'Terreno' || pt === 'Parcela';
+    const isResidential = pt === 'Casa' || pt === 'Departamento';
+    const isOficina = pt === 'Oficina';
+    const isCommercialUnit = pt === 'Local comercial' || pt === 'Bodega';
+    const showCard = scope === 'card';
+    const showDetail = scope === 'detail';
+    const showParking = isResidential || isOficina || isCommercialUnit;
+    const showStorage = isResidential || isOficina || isCommercialUnit;
+    const showUsableArea = isResidential || isOficina || isCommercialUnit;
+    const isInvalid = (key: string) => Object.prototype.hasOwnProperty.call(errors, key);
+    const invalidInputClass = (key: string) => (isInvalid(key) ? ' form-input-error' : '');
+    const surfaceFieldsResidential = (
+        <>
+            <Field label="Superficie útil (m²)">
+                <input className="form-input" type="number" min={0} value={data.basic.usableArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, usableArea: event.target.value } }))} placeholder="84" />
+            </Field>
+            <Field label="Superficie total (m²)" required>
+                <input className={`form-input${invalidInputClass('basic.totalArea')}`} type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder="92" />
+            </Field>
+        </>
+    );
+    const surfaceFieldsCommercial = (
+        <>
+            <Field label="Superficie total (m²)" required>
+                <input className={`form-input${invalidInputClass('basic.totalArea')}`} type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder={isOficina ? '120' : '95'} />
+            </Field>
+            <Field label="Superficie útil (m²)">
+                <input className="form-input" type="number" min={0} value={data.basic.usableArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, usableArea: event.target.value } }))} placeholder="78" />
+            </Field>
+        </>
+    );
+
+    return (
+        <div className="space-y-4">
+            {showCard ? (
+            <>
+                <div className="space-y-3">
+                    <p className="text-xs font-medium prop-publish-muted">
+                        {isLand ? 'Superficie' : isResidential ? 'Programa y superficie' : 'Superficie y capacidad'}
+                    </p>
+                    {isResidential ? (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <Field label="Dormitorios" required>
+                                <div className="relative">
+                                    <IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" />
+                                    <input className={`form-input pl-10${invalidInputClass('basic.rooms')}`} type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" />
+                                </div>
+                            </Field>
+                            <Field label="Baños" required>
+                                <div className="relative">
+                                    <IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" />
+                                    <input className={`form-input pl-10${invalidInputClass('basic.bathrooms')}`} type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" />
+                                </div>
+                            </Field>
+                            <Field label="Estacionamientos" required>
+                                <input className={`form-input${invalidInputClass('basic.parkingSpaces')}`} type="number" min={0} value={data.basic.parkingSpaces} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, parkingSpaces: event.target.value } }))} placeholder="1" />
+                            </Field>
+                            <Field label="Bodegas" required>
+                                <input className={`form-input${invalidInputClass('basic.storageUnits')}`} type="number" min={0} value={data.basic.storageUnits} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, storageUnits: event.target.value } }))} placeholder="0" />
+                            </Field>
+                        </div>
+                    ) : null}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {isLand ? (
+                            <Field label="Superficie del terreno (m²)" required>
+                                <input className={`form-input${invalidInputClass('basic.totalArea')}`} type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder="500" />
+                            </Field>
+                        ) : isResidential ? (
+                            surfaceFieldsResidential
+                        ) : showUsableArea ? (
+                            surfaceFieldsCommercial
+                        ) : (
+                            <Field label="Superficie total (m²)" required>
+                                <input className={`form-input${invalidInputClass('basic.totalArea')}`} type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder="92" />
+                            </Field>
+                        )}
+                    </div>
+                    {!isResidential && showParking ? (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <Field label="Estacionamientos" required>
+                                <input className={`form-input${invalidInputClass('basic.parkingSpaces')}`} type="number" min={0} value={data.basic.parkingSpaces} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, parkingSpaces: event.target.value } }))} placeholder={isOficina ? '2' : '1'} />
+                            </Field>
+                            {showStorage ? (
+                                <Field label="Bodegas" required>
+                                    <input className={`form-input${invalidInputClass('basic.storageUnits')}`} type="number" min={0} value={data.basic.storageUnits} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, storageUnits: event.target.value } }))} placeholder="0" />
+                                </Field>
+                            ) : null}
+                        </div>
+                    ) : null}
+                </div>
+
+                <Field label="Condición" required>
+                    <ModernSelect
+                        value={data.basic.condition}
+                        onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))}
+                        placeholder="Seleccionar"
+                        options={CONDITION_OPTIONS}
+                        ariaLabel="Seleccionar condición"
+                        triggerClassName={isInvalid('basic.condition') ? 'form-input-error' : undefined}
+                    />
+                </Field>
+            </>
+            ) : null}
+
+            {showDetail && isResidential ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label="Admite mascotas">
+                        <ModernSelect value={data.basic.petsAllowed} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, petsAllowed: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si admite mascotas" />
+                    </Field>
+                    <Field label="Amoblado">
+                        <ModernSelect value={data.basic.furnished} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, furnished: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si está amoblado" />
+                    </Field>
+                </div>
+            ) : null}
+
+            {showDetail && (isLand || !isResidential) ? (
+                <Field label="Uso de suelo / tipo de local">
+                    <ModernSelect value={data.basic.commercialUse} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, commercialUse: value } }))} placeholder="Seleccionar" options={COMMERCIAL_USE_OPTIONS} ariaLabel="Seleccionar uso de suelo" />
+                </Field>
+            ) : null}
+        </div>
+    );
+}
+
+function PropertyExtendedAttributeFields(props: {
+    data: WizardData;
+    setData: WizardSetter;
+}) {
+    const { data, setData } = props;
+    const pt = data.setup.propertyType;
+    const isDepartamento = pt === 'Departamento';
+    const isCasa = pt === 'Casa';
+    const isOficina = pt === 'Oficina';
+    const isLocalOrBodega = pt === 'Local comercial' || pt === 'Bodega';
+    const isLand = pt === 'Terreno' || pt === 'Parcela';
+
+    const showEspacios = isDepartamento || isCasa;
+    const showUnidadEdificio = isDepartamento || isOficina || isLocalOrBodega;
+
+    return (
+        <div className="space-y-6">
+            {showEspacios ? (
+                <div className="space-y-4">
+                    <p className="text-xs font-medium prop-publish-muted">Espacios y capacidad</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Field label="Superficie de terraza (m²)">
+                            <input className="form-input" type="number" min={0} value={data.basic.terraceArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, terraceArea: event.target.value } }))} placeholder="12" />
+                        </Field>
+                        <Field label="Máximo de habitantes">
+                            <input className="form-input" type="number" min={0} value={data.basic.maxOccupants} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, maxOccupants: event.target.value } }))} placeholder="4" />
+                        </Field>
+                    </div>
+                </div>
+            ) : null}
+
+            {showUnidadEdificio ? (
+                <div className="space-y-4">
+                    <p className="text-xs font-medium prop-publish-muted">Unidad y edificio</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {isDepartamento || isOficina ? (
+                            <Field label="Número de unidad">
+                                <input className="form-input" value={data.basic.unitNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, unitNumber: event.target.value } }))} placeholder="608" />
+                            </Field>
+                        ) : null}
+                        {isDepartamento || isOficina || isLocalOrBodega ? (
+                            <Field label="Piso de la unidad">
+                                <input className="form-input" type="number" min={0} value={data.basic.floorNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, floorNumber: event.target.value } }))} placeholder="6" />
+                            </Field>
+                        ) : null}
+                        {isDepartamento || isOficina ? (
+                            <Field label="Número de torre">
+                                <input className="form-input" value={data.basic.towerNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, towerNumber: event.target.value } }))} placeholder="Torre B" />
+                            </Field>
+                        ) : null}
+                        {isDepartamento ? (
+                            <Field label="Departamentos por piso">
+                                <input className="form-input" type="number" min={0} value={data.basic.unitsPerFloor} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, unitsPerFloor: event.target.value } }))} placeholder="4" />
+                            </Field>
+                        ) : null}
+                        {isDepartamento || isOficina ? (
+                            <Field label="Cantidad de pisos">
+                                <input className="form-input" type="number" min={0} value={data.basic.totalFloors} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalFloors: event.target.value } }))} placeholder="18" />
+                            </Field>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
+
+            <div className="space-y-4">
+                <p className="text-xs font-medium prop-publish-muted">Características adicionales</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Antigüedad (años)">
+                        <input className="form-input" type="number" min={0} value={data.basic.propertyAge} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, propertyAge: event.target.value } }))} placeholder="6" />
+                    </Field>
+                    {isDepartamento ? (
+                        <Field label="Tipo de departamento">
+                            <ModernSelect value={data.basic.departmentType} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, departmentType: value } }))} placeholder="Seleccionar" options={DEPARTMENT_TYPE_OPTIONS} ariaLabel="Seleccionar tipo de departamento" />
+                        </Field>
+                    ) : null}
+                    {!isLocalOrBodega ? (
+                        <Field label="Orientación">
+                            <ModernSelect value={data.basic.orientation} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, orientation: value } }))} placeholder="Seleccionar" options={ORIENTATION_OPTIONS} ariaLabel="Seleccionar orientación" />
+                        </Field>
+                    ) : null}
+                    {!isLand ? (
+                        <Field label="Tipo de seguridad">
+                            <ModernSelect value={data.basic.securityType} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, securityType: value } }))} placeholder="Seleccionar" options={SECURITY_TYPE_OPTIONS} ariaLabel="Seleccionar tipo de seguridad" />
+                        </Field>
+                    ) : null}
+                </div>
+            </div>
+
+            <div className="space-y-4 pt-2">
+                <p className="text-xs font-medium prop-publish-muted">Notas comerciales</p>
+                <Field label="Condiciones especiales" hint="Ej: disponible para empresas, arriendo temporal o entrega inmediata.">
+                    <textarea className="form-input resize-y min-h-[88px]" rows={3} value={data.basic.specialConditions} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, specialConditions: event.target.value } }))} placeholder="Opcional" />
+                </Field>
+            </div>
+        </div>
+    );
+}
+
+function PropertyProjectDetailFields(props: {
+    data: WizardData;
+    setData: WizardSetter;
+    errors: Record<string, string>;
+}) {
+    const { data, setData, errors } = props;
+
+    const updateProjectModel = (modelId: string, patch: Partial<ProjectUnitModel>) => {
+        setData((current) => ({
+            ...current,
+            project: {
+                ...current.project,
+                models: current.project.models.map((item) => (item.id === modelId ? { ...item, ...patch } : item)),
+            },
+        }));
+    };
+
+    return (
+        <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <Field label="Constructora">
+                    <input className="form-input" value={data.project.builderName} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, builderName: event.target.value } }))} placeholder="Ej: Constructora Central" />
+                </Field>
+                <Field label="Entrega estimada">
+                    <input className="form-input" type="date" value={data.project.deliveryDate} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, deliveryDate: event.target.value } }))} />
+                </Field>
+                <Field label="Unidades disponibles">
+                    <input className="form-input" type="number" min={0} value={data.project.availableUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, availableUnits: event.target.value } }))} placeholder="24" />
+                </Field>
+                <Field label="Unidades totales">
+                    <input className="form-input" type="number" min={0} value={data.project.totalUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, totalUnits: event.target.value } }))} placeholder="80" />
+                </Field>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                <Field label="Superficie útil desde (m²)"><input className="form-input" type="number" min={0} value={data.project.usableAreaFrom} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, usableAreaFrom: event.target.value } }))} placeholder="39" /></Field>
+                <Field label="Superficie útil hasta (m²)"><input className="form-input" type="number" min={0} value={data.project.usableAreaTo} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, usableAreaTo: event.target.value } }))} placeholder="112" /></Field>
+                <Field label="Superficie total desde (m²)"><input className="form-input" type="number" min={0} value={data.project.totalAreaFrom} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, totalAreaFrom: event.target.value } }))} placeholder="45" /></Field>
+                <Field label="Superficie total hasta (m²)"><input className="form-input" type="number" min={0} value={data.project.totalAreaTo} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, totalAreaTo: event.target.value } }))} placeholder="130" /></Field>
+                <Field label="Estacionamientos desde"><input className="form-input" type="number" min={0} value={data.project.parkingFrom} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, parkingFrom: event.target.value } }))} placeholder="1" /></Field>
+                <Field label="Bodegas desde"><input className="form-input" type="number" min={0} value={data.project.storageFrom} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, storageFrom: event.target.value } }))} placeholder="0" /></Field>
+                <Field label="Piloto disponible">
+                    <ModernSelect value={data.project.pilotApartment} onChange={(value) => setData((current) => ({ ...current, project: { ...current.project, pilotApartment: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si tiene piloto" />
+                </Field>
+                <Field label="Apoyo en financiamiento">
+                    <ModernSelect value={data.project.financingSupport} onChange={(value) => setData((current) => ({ ...current, project: { ...current.project, financingSupport: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si ofrece apoyo en financiamiento" />
+                </Field>
+                <Field label="Compatible con subsidio">
+                    <ModernSelect value={data.project.subsidyEligible} onChange={(value) => setData((current) => ({ ...current, project: { ...current.project, subsidyEligible: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si es compatible con subsidio" />
+                </Field>
+            </div>
+
+            <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                    <div>
+                        <p className="text-sm font-medium">Tipologías o unidades modelo</p>
+                        <p className="text-xs mt-1 prop-field-hint">
+                            Define el inventario comercial del proyecto con rangos y precios por tipología.
+                        </p>
+                    </div>
+                    <PanelButton
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setData((current) => ({
+                            ...current,
+                            project: {
+                                ...current.project,
+                                models: [...current.project.models, createProjectUnitModel(`unit-model-${Date.now()}`)],
+                            },
+                        }))}
+                    >
+                        Agregar tipología
+                    </PanelButton>
+                </div>
+                {errors['project.models'] ? <ErrorText text={errors['project.models']} /> : null}
+                <div className="hidden xl:grid xl:grid-cols-[minmax(180px,1.3fr)_80px_80px_120px_120px_140px_140px_86px] gap-2 px-3 text-[11px] uppercase tracking-[0.08em] text-(--fg-muted)">
+                    <span>Tipología</span>
+                    <span>Dorm.</span>
+                    <span>Baños</span>
+                    <span>m² útiles</span>
+                    <span>m² totales</span>
+                    <span>Precio desde</span>
+                    <span>Precio hasta</span>
+                    <span />
+                </div>
+                <div className="space-y-2">
+                    {data.project.models.map((model, index) => (
+                        <div key={model.id} className="rounded-2xl border p-3 prop-publish-card">
+                            <div className="xl:grid xl:grid-cols-[minmax(180px,1.3fr)_80px_80px_120px_120px_140px_140px_86px] xl:gap-2 xl:items-start">
+                                <div className="mb-3 xl:mb-0">
+                                    <Field label="Tipología" error={errors[`project.models.${index}.label`]}>
+                                        <input className="form-input" value={model.label} onChange={(event) => updateProjectModel(model.id, { label: event.target.value })} placeholder="Ej: Tipo A / 2D+2B" />
+                                    </Field>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 xl:contents">
+                                    <Field label="Dorm." error={errors[`project.models.${index}.bedrooms`]}><input className="form-input" type="number" min={0} value={model.bedrooms} onChange={(event) => updateProjectModel(model.id, { bedrooms: event.target.value })} placeholder="2" /></Field>
+                                    <Field label="Baños" error={errors[`project.models.${index}.bathrooms`]}><input className="form-input" type="number" min={0} value={model.bathrooms} onChange={(event) => updateProjectModel(model.id, { bathrooms: event.target.value })} placeholder="2" /></Field>
+                                    <Field label="m² útiles" error={errors[`project.models.${index}.usableAreaFrom`]}>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <input className="form-input" type="number" min={0} value={model.usableAreaFrom} onChange={(event) => updateProjectModel(model.id, { usableAreaFrom: event.target.value })} placeholder="52" />
+                                            <input className="form-input" type="number" min={0} value={model.usableAreaTo} onChange={(event) => updateProjectModel(model.id, { usableAreaTo: event.target.value })} placeholder="58" />
+                                        </div>
+                                    </Field>
+                                    <Field label="m² totales">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <input className="form-input" type="number" min={0} value={model.totalAreaFrom} onChange={(event) => updateProjectModel(model.id, { totalAreaFrom: event.target.value })} placeholder="60" />
+                                            <input className="form-input" type="number" min={0} value={model.totalAreaTo} onChange={(event) => updateProjectModel(model.id, { totalAreaTo: event.target.value })} placeholder="66" />
+                                        </div>
+                                    </Field>
+                                    <Field label="Precio desde" error={errors[`project.models.${index}.priceFrom`]}><input className="form-input" type="number" min={0} value={model.priceFrom} onChange={(event) => updateProjectModel(model.id, { priceFrom: event.target.value })} placeholder="4200" /></Field>
+                                    <Field label="Precio hasta"><input className="form-input" type="number" min={0} value={model.priceTo} onChange={(event) => updateProjectModel(model.id, { priceTo: event.target.value })} placeholder="4700" /></Field>
+                                </div>
+                                <div className="mt-3 xl:mt-0 xl:pt-7 flex justify-end">
+                                    {data.project.models.length > 1 ? (
+                                        <PanelButton
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setData((current) => ({
+                                                ...current,
+                                                project: {
+                                                    ...current.project,
+                                                    models: current.project.models.filter((item) => item.id !== model.id),
+                                                },
+                                            }))}
+                                        >
+                                            Quitar
+                                        </PanelButton>
+                                    ) : <span />}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </>
     );
 }
 
@@ -1148,7 +1584,7 @@ function StepBasic(props: {
     const showSecondary = variant === 'full' || variant === 'extended';
 
     const locationTitle = 'Ubicación';
-    const mainTitle = isProject ? 'Proyecto' : 'Inmueble';
+    const mainTitle = isProject ? 'Proyecto' : 'Datos del inmueble';
     const secondaryTitle = isProject ? 'Tipologías y rangos' : 'Más atributos';
 
     const locationBody = (
@@ -1164,12 +1600,7 @@ function StepBasic(props: {
             allCommunes={LOCATION_COMMUNES.map((item) => ({ value: item.id, label: item.name }))}
             addressBook={addressBook}
             addressBookLoading={addressBookLoading}
-            errors={{
-                regionId: errors['location.regionId'],
-                communeId: errors['location.communeId'],
-                sourceAddressId: errors['location.sourceAddressId'],
-                addressLine1: errors['location.addressLine1'],
-            }}
+            errors={pickListingLocationFieldErrors(errors)}
             allowAreaOnly={false}
             addressRequired
             addressFirst
@@ -1178,6 +1609,7 @@ function StepBasic(props: {
             showGoogleMapsLink
             showPublicPreviewCard={false}
             showActionBar={false}
+            publishVertical="propiedades"
             geocoding={geocoding}
             onGeocode={onGeocodeLocation}
         />
@@ -1242,61 +1674,7 @@ function StepBasic(props: {
                         </div>
                     </>
                 ) : (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                            {!omitTitle ? (
-                            <Field label="Título publicitario" required error={errors['basic.title']} hint="Titular comercial que aparecerá en la tarjeta.">
-                                <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Departamento 3D+2B en Providencia" />
-                            </Field>
-                            ) : null}
-                            <Field label="Condición">
-                                <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
-                            </Field>
-                        </div>
-                        {(() => {
-                            const pt = data.setup.propertyType;
-                            const isLand = pt === 'Terreno' || pt === 'Parcela';
-                            const isOficina = pt === 'Oficina';
-                            const isResidential = pt === 'Casa' || pt === 'Departamento';
-                            return (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
-                                    {/* Superficie total — always visible */}
-                                    <Field label={isLand ? 'Superficie del terreno (m²)' : 'Superficie total (m²)'} required error={errors['basic.totalArea']}><input className="form-input" type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder={isLand ? '500' : '92'} /></Field>
-
-                                    {/* Residential-only fields */}
-                                    {isResidential && (
-                                        <>
-                                            <Field label="Dormitorios" required error={errors['basic.rooms']}><div className="relative"><IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" /></div></Field>
-                                            <Field label="Baños" required error={errors['basic.bathrooms']}><div className="relative"><IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" /></div></Field>
-                                            <Field label="Superficie útil (m²)"><input className="form-input" type="number" min={0} value={data.basic.usableArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, usableArea: event.target.value } }))} placeholder="84" /></Field>
-                                            <Field label="Estacionamientos"><input className="form-input" type="number" min={0} value={data.basic.parkingSpaces} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, parkingSpaces: event.target.value } }))} placeholder="1" /></Field>
-                                            <Field label="Bodegas"><input className="form-input" type="number" min={0} value={data.basic.storageUnits} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, storageUnits: event.target.value } }))} placeholder="1" /></Field>
-                                            <Field label="Admite mascotas">
-                                                <ModernSelect value={data.basic.petsAllowed} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, petsAllowed: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si admite mascotas" />
-                                            </Field>
-                                            <Field label="Amoblado">
-                                                <ModernSelect value={data.basic.furnished} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, furnished: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si está amoblado" />
-                                            </Field>
-                                        </>
-                                    )}
-
-                                    {/* Commercial-use field for land and commercial types */}
-                                    {(isLand || !isResidential) && (
-                                        <Field label="Uso de suelo / tipo de local">
-                                            <ModernSelect value={data.basic.commercialUse} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, commercialUse: value } }))} placeholder="Seleccionar" options={COMMERCIAL_USE_OPTIONS} ariaLabel="Seleccionar uso de suelo" />
-                                        </Field>
-                                    )}
-
-                                    {/* Floor number for Oficina */}
-                                    {isOficina && (
-                                        <Field label="Nro. piso">
-                                            <input className="form-input" type="number" min={0} value={data.basic.floorNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, floorNumber: event.target.value } }))} placeholder="5" />
-                                        </Field>
-                                    )}
-                                </div>
-                            );
-                        })()}
-                    </>
+                    <PropertyInmuebleFields data={data} setData={setData} errors={errors} />
                 )}
             </SimplePublishSection>
             ) : (
@@ -1333,54 +1711,14 @@ function StepBasic(props: {
                         </div>
                     </>
                 ) : (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                            {!omitTitle ? (
+                    <div className="space-y-4">
+                        {!omitTitle ? (
                             <Field label="Título publicitario" required error={errors['basic.title']} hint="Titular comercial que aparecerá en la tarjeta.">
-                                <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Departamento 3D+2B en Providencia" />
+                                <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Departamento 3D 2B en Providencia" />
                             </Field>
-                            ) : null}
-                            <Field label="Condición">
-                                <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
-                            </Field>
-                        </div>
-                        {(() => {
-                            const pt = data.setup.propertyType;
-                            const isLand = pt === 'Terreno' || pt === 'Parcela';
-                            const isOficina = pt === 'Oficina';
-                            const isResidential = pt === 'Casa' || pt === 'Departamento';
-                            return (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
-                                    <Field label={isLand ? 'Superficie del terreno (m²)' : 'Superficie total (m²)'} required error={errors['basic.totalArea']}><input className="form-input" type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder={isLand ? '500' : '92'} /></Field>
-                                    {isResidential && (
-                                        <>
-                                            <Field label="Dormitorios" required error={errors['basic.rooms']}><div className="relative"><IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" /></div></Field>
-                                            <Field label="Baños" required error={errors['basic.bathrooms']}><div className="relative"><IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" /></div></Field>
-                                            <Field label="Superficie útil (m²)"><input className="form-input" type="number" min={0} value={data.basic.usableArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, usableArea: event.target.value } }))} placeholder="84" /></Field>
-                                            <Field label="Estacionamientos"><input className="form-input" type="number" min={0} value={data.basic.parkingSpaces} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, parkingSpaces: event.target.value } }))} placeholder="1" /></Field>
-                                            <Field label="Bodegas"><input className="form-input" type="number" min={0} value={data.basic.storageUnits} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, storageUnits: event.target.value } }))} placeholder="1" /></Field>
-                                            <Field label="Admite mascotas">
-                                                <ModernSelect value={data.basic.petsAllowed} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, petsAllowed: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si admite mascotas" />
-                                            </Field>
-                                            <Field label="Amoblado">
-                                                <ModernSelect value={data.basic.furnished} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, furnished: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si está amoblado" />
-                                            </Field>
-                                        </>
-                                    )}
-                                    {(isLand || !isResidential) && (
-                                        <Field label="Uso de suelo / tipo de local">
-                                            <ModernSelect value={data.basic.commercialUse} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, commercialUse: value } }))} placeholder="Seleccionar" options={COMMERCIAL_USE_OPTIONS} ariaLabel="Seleccionar uso de suelo" />
-                                        </Field>
-                                    )}
-                                    {isOficina && (
-                                        <Field label="Nro. piso">
-                                            <input className="form-input" type="number" min={0} value={data.basic.floorNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, floorNumber: event.target.value } }))} placeholder="5" />
-                                        </Field>
-                                    )}
-                                </div>
-                            );
-                        })()}
-                    </>
+                        ) : null}
+                        <PropertyInmuebleFields data={data} setData={setData} errors={errors} />
+                    </div>
                 )}
             </AccordionGroup>
 
@@ -1511,33 +1849,7 @@ function StepBasic(props: {
                         </div>
                     </>
                 ) : (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                            <Field label="Superficie de terraza (m²)"><input className="form-input" type="number" min={0} value={data.basic.terraceArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, terraceArea: event.target.value } }))} placeholder="12" /></Field>
-                            <Field label="Máximo de habitantes"><input className="form-input" type="number" min={0} value={data.basic.maxOccupants} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, maxOccupants: event.target.value } }))} placeholder="4" /></Field>
-                            <Field label="Número de unidad"><input className="form-input" value={data.basic.unitNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, unitNumber: event.target.value } }))} placeholder="608" /></Field>
-                            <Field label="Piso de la unidad"><input className="form-input" type="number" min={0} value={data.basic.floorNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, floorNumber: event.target.value } }))} placeholder="6" /></Field>
-                            <Field label="Departamentos por piso"><input className="form-input" type="number" min={0} value={data.basic.unitsPerFloor} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, unitsPerFloor: event.target.value } }))} placeholder="4" /></Field>
-                            <Field label="Cantidad de pisos"><input className="form-input" type="number" min={0} value={data.basic.totalFloors} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalFloors: event.target.value } }))} placeholder="18" /></Field>
-                            <Field label="Número de torre"><input className="form-input" value={data.basic.towerNumber} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, towerNumber: event.target.value } }))} placeholder="Torre B" /></Field>
-                            <Field label="Antigüedad (años)"><input className="form-input" type="number" min={0} value={data.basic.propertyAge} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, propertyAge: event.target.value } }))} placeholder="6" /></Field>
-                            <Field label="Tipo de departamento">
-                                <ModernSelect value={data.basic.departmentType} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, departmentType: value } }))} placeholder="Seleccionar" options={DEPARTMENT_TYPE_OPTIONS} ariaLabel="Seleccionar tipo de departamento" />
-                            </Field>
-                            <Field label="Orientación">
-                                <ModernSelect value={data.basic.orientation} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, orientation: value } }))} placeholder="Seleccionar" options={ORIENTATION_OPTIONS} ariaLabel="Seleccionar orientación" />
-                            </Field>
-                            <Field label="Tipo de seguridad">
-                                <ModernSelect value={data.basic.securityType} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, securityType: value } }))} placeholder="Seleccionar" options={SECURITY_TYPE_OPTIONS} ariaLabel="Seleccionar tipo de seguridad" />
-                            </Field>
-                            <Field label="Uso comercial">
-                                <ModernSelect value={data.basic.commercialUse} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, commercialUse: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar uso comercial" />
-                            </Field>
-                        </div>
-                        <Field label="Condiciones especiales" hint="Ej: disponible para empresas, arriendo temporal o entrega inmediata.">
-                            <input className="form-input mt-3" value={data.basic.specialConditions} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, specialConditions: event.target.value } }))} placeholder="Ej: disponible desde abril, admite giro comercial, entrega inmediata" />
-                        </Field>
-                    </>
+                    <PropertyExtendedAttributeFields data={data} setData={setData} />
                 )}
             </AccordionGroup>
             ) : null}
@@ -1643,6 +1955,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
     const videoInputRef = useRef<HTMLInputElement>(null);
     const [processingPhotos, setProcessingPhotos] = useState(false);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
+    const [videoProcessError, setVideoProcessError] = useState<string | null>(null);
 
     const handleFiles = async (files: FileList) => {
         if (processingPhotos) return;
@@ -1693,9 +2006,15 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
         setData((current) => ({ ...current, media: { ...current.media, photos: newPhotos } }));
     };
 
-    const handleVideoFile = (files: FileList | null) => {
+    const handleVideoFile = async (files: FileList | null) => {
         const file = files?.[0];
         if (!file) return;
+        setVideoProcessError(null);
+        const validation = await validatePublishVideoFile(file);
+        if (!validation.ok) {
+            setVideoProcessError(validation.error);
+            return;
+        }
         const previewUrl = URL.createObjectURL(file);
         setData((current) => ({
             ...current,
@@ -1720,6 +2039,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
     const clearUploadVideo = () => {
         const preview = data.media.discoverVideo?.previewUrl || data.media.discoverVideo?.dataUrl;
         if (preview?.startsWith('blob:')) URL.revokeObjectURL(preview);
+        setVideoProcessError(null);
         setData((current) => ({
             ...current,
             media: { ...current.media, discoverVideo: null },
@@ -1755,7 +2075,8 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                 }))}
                 maxPhotos={MAX_PHOTOS}
                 recommendedPhotos={8}
-                photoError={photoProcessError || errors['media.photos']}
+                photoError={photoProcessError || undefined}
+                photoInvalid={Object.prototype.hasOwnProperty.call(errors, 'media.photos')}
                 onAddFiles={handleFiles}
                 onRemovePhoto={removePhoto}
                 onReorderPhotos={(photos) => {
@@ -1772,7 +2093,8 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                             uploadPreviewUrl={uploadPreview}
                             uploadFileName={data.media.discoverVideo?.name ?? null}
                             externalUrl={data.media.videoUrl}
-                            error={errors['media.video']}
+                            error={videoProcessError || undefined}
+                            invalid={Object.prototype.hasOwnProperty.call(errors, 'media.video')}
                             onPickUpload={() => videoInputRef.current?.click()}
                             onClearUpload={clearUploadVideo}
                             onExternalUrlChange={handleExternalVideoUrl}
@@ -1781,13 +2103,150 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                             ref={videoInputRef}
                             type="file"
                             accept="video/mp4,video/webm,video/quicktime,video/*"
-                            onChange={(event) => handleVideoFile(event.target.files)}
+                            onChange={(event) => void handleVideoFile(event.target.files)}
                             className="hidden"
                         />
                     </>
                 )}
             />
         </>
+    );
+}
+
+function PropertyValuationModal(props: {
+    open: boolean;
+    onClose: () => void;
+    data: WizardData;
+    estimate: PropertyValuationEstimate | null;
+    estimating: boolean;
+    valuationRequest: PropertyValuationRequest | null;
+    onRunValuation: () => void | Promise<void>;
+    onApplyPrice: (price: number, currency: Currency) => void;
+}) {
+    const { open, onClose, data, estimate, estimating, valuationRequest, onRunValuation, onApplyPrice } = props;
+    if (!open) return null;
+
+    const isProject = data.setup.operationType === 'project';
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+            onClick={onClose}
+            role="presentation"
+        >
+            <div
+                className="flex max-h-[min(90vh,52rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-(--border) bg-(--surface) shadow-lg"
+                onClick={(event) => event.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="property-valuation-modal-title"
+            >
+                <div className="flex items-start justify-between gap-3 border-b border-(--border) px-4 py-3 sm:px-5 sm:py-4">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2.5">
+                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-(--bg-muted) text-(--fg)">
+                                <IconCalculator size={17} />
+                            </span>
+                            <h3 id="property-valuation-modal-title" className="text-base font-semibold text-(--fg)">Tasador online</h3>
+                        </div>
+                        <p className="mt-2 text-sm text-(--fg-secondary)">
+                            {isProject
+                                ? 'Disponible para venta y arriendo. En proyectos publicas sin tasación automática.'
+                                : 'Referencia de mercado con rango, confianza y tendencia para ayudarte a fijar el precio.'}
+                        </p>
+                    </div>
+                    <PanelIconButton label="Cerrar" onClick={onClose}>
+                        <IconX size={16} />
+                    </PanelIconButton>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+                    <div className="space-y-4">
+                        <PanelButton
+                            type="button"
+                            variant="primary"
+                            className="w-full"
+                            onClick={() => void onRunValuation()}
+                            disabled={estimating || !valuationRequest || isProject}
+                        >
+                            {estimating ? 'Calculando estimación...' : estimate ? 'Recalcular estimación' : 'Calcular estimación'}
+                        </PanelButton>
+
+                        {isProject ? (
+                            <PanelNotice tone="neutral">El tasador aplica solo a venta y arriendo de propiedades usadas.</PanelNotice>
+                        ) : !valuationRequest ? (
+                            <PanelNotice tone="neutral">Completa tipo, superficie total y ubicación en este paso para habilitar el tasador.</PanelNotice>
+                        ) : !estimate ? (
+                            <PanelNotice tone="neutral">Obtén una referencia antes de definir el precio de publicación.</PanelNotice>
+                        ) : null}
+
+                        {estimate ? (
+                            <div className="space-y-3">
+                                <PanelSummaryCard
+                                    eyebrow="Precio estimado de mercado"
+                                    title={formatAmount(estimate.estimatedPrice, estimate.currency as Currency)}
+                                    rows={[
+                                        { label: 'Rango bajo', value: formatAmount(estimate.minPrice, estimate.currency as Currency) },
+                                        { label: 'Rango alto', value: formatAmount(estimate.maxPrice, estimate.currency as Currency) },
+                                        { label: 'Confianza', value: `${estimate.confidenceScore}%` },
+                                        { label: 'Precio por m²', value: estimate.estimatedPricePerM2 != null ? formatAmount(Math.round(estimate.estimatedPricePerM2), estimate.currency as Currency) : 'Sin dato' },
+                                        { label: 'Liquidez', value: estimate.estimatedLiquidityDays != null ? `${estimate.estimatedLiquidityDays} días` : 'Sin dato' },
+                                        { label: 'Tendencia 30d', value: formatSignedPercent(estimate.marketTrendPct30d) },
+                                    ]}
+                                />
+                                {estimate.historicalSeries.length > 0 ? (
+                                    <div className="rounded-xl border p-4 border-(--border)">
+                                        <p className="text-sm font-semibold">Tendencia del segmento</p>
+                                        <div className="space-y-2 mt-3">
+                                            {estimate.historicalSeries.map((point) => (
+                                                <div key={point.ts} className="grid grid-cols-[110px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
+                                                    <span className="text-(--fg-secondary)">{formatSeriesLabel(point.ts)}</span>
+                                                    <div className="h-2 rounded-full prop-chart-track">
+                                                        <div className="h-full rounded-full prop-chart-bar" style={{ width: `${Math.max(12, Math.min(100, estimate.maxPrice > 0 ? (point.medianPrice / estimate.maxPrice) * 100 : 12))}%` }} />
+                                                    </div>
+                                                    <span className="font-medium">{formatAmount(point.medianPrice, estimate.currency as Currency)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                                {estimate.notes.length > 0 ? (
+                                    <div className="rounded-xl border p-4 border-(--border)">
+                                        <p className="text-sm font-semibold">Notas del tasador</p>
+                                        <div className="space-y-2 mt-3">
+                                            {estimate.notes.map((note) => (
+                                                <div key={note} className="flex items-start gap-2 text-sm text-(--fg-secondary)">
+                                                    <IconSparkles size={15} className="mt-0.5 shrink-0" />
+                                                    <span>{note}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+
+                {estimate && !isProject ? (
+                    <div className="flex flex-wrap gap-2 border-t border-(--border) px-4 py-3 sm:px-5 sm:py-4">
+                        <PanelButton
+                            type="button"
+                            variant="primary"
+                            onClick={() => {
+                                onApplyPrice(Math.round(estimate.estimatedPrice), estimate.currency as Currency);
+                                onClose();
+                            }}
+                        >
+                            Usar precio estimado
+                        </PanelButton>
+                        <PanelButton type="button" variant="secondary" onClick={onClose}>
+                            Cerrar
+                        </PanelButton>
+                    </div>
+                ) : null}
+            </div>
+        </div>
     );
 }
 
@@ -1807,32 +2266,112 @@ function StepCommercial(props: {
     hidePrice?: boolean;
 }) {
     const { data, setData, errors, estimate, estimating, valuationRequest, onRunValuation, lifecyclePolicy, compact = false, hidePrice = false } = props;
+    const [valuationOpen, setValuationOpen] = useState(false);
     const isProject = data.setup.operationType === 'project';
+    const currencySlot = (
+        <ModernSelect
+            value={data.commercial.currency}
+            onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))}
+            options={CURRENCY_OPTIONS}
+            placeholder="Moneda"
+            ariaLabel="Seleccionar moneda"
+        />
+    );
+    const amountSuffix = data.commercial.currency === 'UF' ? 'UF' : data.commercial.currency === 'USD' ? 'USD' : '$';
+    const listingOffer = {
+        offerPrice: data.commercial.offerPrice,
+        discountPercent: data.commercial.discountPercent,
+        offerPriceMode: data.commercial.offerPriceMode,
+        amountSuffix,
+        parseMainPrice: (value: string) => parseNumber(value),
+        onOfferPriceChange: (value: string) => setData((current) => ({
+            ...current,
+            commercial: { ...current.commercial, offerPrice: value },
+        })),
+        onDiscountPercentChange: (value: string) => setData((current) => ({
+            ...current,
+            commercial: { ...current.commercial, discountPercent: value },
+        })),
+        onOfferPriceModeChange: (value: '$' | '%') => setData((current) => ({
+            ...current,
+            commercial: {
+                ...current.commercial,
+                offerPriceMode: value,
+                offerPrice: '',
+                discountPercent: '',
+            },
+        })),
+    };
 
     if (compact) {
         return (
-            <SimplePublishSection title="Precio">
-                {isProject ? (
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <Field label="Precio desde" required error={errors['commercial.price']}>
-                            <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
-                                <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder="4200" />
-                                <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
-                            </div>
-                        </Field>
-                        <Field label="Precio hasta">
-                            <input className="form-input" type="number" min={0} value={data.commercial.priceTo} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: event.target.value } }))} placeholder="5600" />
-                        </Field>
-                    </div>
-                ) : (
-                    <Field label="Precio" required error={errors['commercial.price']}>
-                        <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
-                            <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder={data.setup.operationType === 'rent' ? '650000' : '5200'} />
-                            <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
+            <>
+                <SimplePublishSection title="Precio" className="space-y-4">
+                    {isProject ? (
+                        <SimplePublishPriceBlock
+                            variant="range"
+                            mainPrice={data.commercial.price}
+                            onMainPriceChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: value } }))}
+                            mainPriceRequired
+                            mainPriceInvalid={Object.prototype.hasOwnProperty.call(errors, 'commercial.price')}
+                            mainPricePlaceholder="4200"
+                            mainPriceInputMode="number"
+                            currencySlot={currencySlot}
+                            priceTo={data.commercial.priceTo}
+                            onPriceToChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: value } }))}
+                            priceToPlaceholder="5600"
+                            showOffer={false}
+                        />
+                    ) : (
+                        <SimplePublishPriceBlock
+                            mainPrice={data.commercial.price}
+                            onMainPriceChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: value } }))}
+                            mainPriceLabel="Precio normal"
+                            mainPriceRequired
+                            mainPriceInvalid={Object.prototype.hasOwnProperty.call(errors, 'commercial.price')}
+                            mainPricePlaceholder={data.setup.operationType === 'rent' ? '650000' : '5200'}
+                            mainPriceInputMode="number"
+                            currencySlot={currencySlot}
+                            offer={listingOffer}
+                        />
+                    )}
+                    {!isProject ? (
+                        <div className="flex flex-col gap-2 pt-1">
+                            <PanelButton
+                                type="button"
+                                variant="secondary"
+                                className="w-full"
+                                onClick={() => setValuationOpen(true)}
+                            >
+                                <span className="inline-flex items-center justify-center gap-2">
+                                    <IconCalculator size={16} />
+                                    Consultar tasador online
+                                </span>
+                            </PanelButton>
+                            {estimate ? (
+                                <p className="text-xs text-(--fg-muted)">
+                                    Referencia: {formatAmount(estimate.estimatedPrice, estimate.currency as Currency)}
+                                    {' · '}
+                                    {formatAmount(estimate.minPrice, estimate.currency as Currency)} – {formatAmount(estimate.maxPrice, estimate.currency as Currency)}
+                                </p>
+                            ) : null}
                         </div>
-                    </Field>
-                )}
-            </SimplePublishSection>
+                    ) : null}
+                </SimplePublishSection>
+                <PropertyValuationModal
+                    open={valuationOpen}
+                    onClose={() => setValuationOpen(false)}
+                    data={data}
+                    estimate={estimate}
+                    estimating={estimating}
+                    valuationRequest={valuationRequest}
+                    onRunValuation={onRunValuation}
+                    onApplyPrice={(price, currency) => setData((current) => ({
+                        ...current,
+                        commercial: { ...current.commercial, price: String(price), currency },
+                    }))}
+                />
+            </>
         );
     }
 
@@ -1843,16 +2382,23 @@ function StepCommercial(props: {
                 <AccordionGroup title={isProject ? 'Precio y disponibilidad del proyecto' : 'Precio y disponibilidad'} description={isProject ? 'Rango comercial del proyecto y moneda.' : 'Valor de publicación, gastos comunes y disponibilidad.'} open={true} onToggle={() => {}}>
                     {isProject ? (
                         <>
+                            <div className="mb-3">
+                                <SimplePublishPriceBlock
+                                    variant="range"
+                                    mainPrice={data.commercial.price}
+                                    onMainPriceChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: value } }))}
+                                    mainPriceRequired
+                                    mainPriceInvalid={Object.prototype.hasOwnProperty.call(errors, 'commercial.price')}
+                                    mainPricePlaceholder="4200"
+                                    mainPriceInputMode="number"
+                                    currencySlot={currencySlot}
+                                    priceTo={data.commercial.priceTo}
+                                    onPriceToChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: value } }))}
+                                    priceToPlaceholder="5600"
+                                    showOffer={false}
+                                />
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                                <Field label="Precio desde" required error={errors['commercial.price']}>
-                                    <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
-                                        <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder="4200" />
-                                        <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
-                                    </div>
-                                </Field>
-                                <Field label="Precio hasta">
-                                    <input className="form-input" type="number" min={0} value={data.commercial.priceTo} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: event.target.value } }))} placeholder="5600" />
-                                </Field>
                                 <Field label="Disponible desde">
                                     <input className="form-input" type="date" value={data.commercial.availableFrom} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, availableFrom: event.target.value } }))} />
                                 </Field>
@@ -1860,13 +2406,20 @@ function StepCommercial(props: {
                         </>
                     ) : (
                         <>
+                            <div className="mb-3">
+                                <SimplePublishPriceBlock
+                                    mainPrice={data.commercial.price}
+                                    onMainPriceChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: value } }))}
+                                    mainPriceLabel="Precio normal"
+                                    mainPriceRequired
+                                    mainPriceInvalid={Object.prototype.hasOwnProperty.call(errors, 'commercial.price')}
+                                    mainPricePlaceholder={data.setup.operationType === 'rent' ? '650000' : '5200'}
+                                    mainPriceInputMode="number"
+                                    currencySlot={currencySlot}
+                                    offer={listingOffer}
+                                />
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                                <Field label="Precio" required error={errors['commercial.price']}>
-                                    <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
-                                        <input className="form-input" type="number" min={0} value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder={data.setup.operationType === 'rent' ? '650000' : '5200'} />
-                                        <ModernSelect value={data.commercial.currency} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as Currency } }))} options={CURRENCY_OPTIONS} placeholder="Moneda" ariaLabel="Seleccionar moneda" />
-                                    </div>
-                                </Field>
                                 <Field label="Disponible desde">
                                     <input className="form-input" type="date" value={data.commercial.availableFrom} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, availableFrom: event.target.value } }))} />
                                 </Field>
@@ -1887,11 +2440,13 @@ function StepCommercial(props: {
                                 <Field label="Disponible desde">
                                     <input className="form-input" type="date" value={data.commercial.availableFrom} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, availableFrom: event.target.value } }))} />
                                 </Field>
-                                <Field label="Gastos comunes">
+                                <Field label="Tipo de gastos comunes (si aplica)">
+                                    <ModernSelect value={data.commercial.commonExpenseType} onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, commonExpenseType: value } }))} options={COMMON_EXPENSE_TYPE_OPTIONS} placeholder="Seleccionar" ariaLabel="Seleccionar tipo de gastos comunes" />
+                                </Field>
+                                <Field label="Gastos comunes (si aplica)">
                                     <input className="form-input" type="number" min={0} value={data.commercial.commonExpenses} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, commonExpenses: event.target.value } }))} placeholder="150000" />
                                 </Field>
                             </div>
-                            <ToggleCard title="Precio negociable" description="Indica si el valor es conversable." active={data.commercial.negotiable} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, negotiable: !current.commercial.negotiable } }))} />
                         </div>
                     ) : null
                 )}
@@ -1904,79 +2459,6 @@ function StepCommercial(props: {
                     </AccordionGroup>
                 ) : null}
             </div>
-
-            {!compact ? (
-            <div className="space-y-4">
-                <PanelCard tone="subtle" size="md">
-                    <div className="flex items-start gap-3">
-                        <span className="h-10 w-10 rounded-2xl inline-flex items-center justify-center bg-(--bg-muted) text-(--fg)">
-                            <IconCalculator size={18} />
-                        </span>
-                        <div className="min-w-0">
-                            <h3 className="text-lg font-semibold">Tasador online</h3>
-                            <p className="text-sm mt-1 text-(--fg-secondary)">
-                                {data.setup.operationType === 'project'
-                                    ? 'Disponible para venta y arriendo. En proyectos todavía publicas sin tasación automática.'
-                                    : 'Referencia de mercado para venta o arriendo con comparables, tendencia y confianza del modelo.'}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="mt-4 flex flex-col gap-2">
-                        <PanelButton type="button" variant="primary" className="w-full" onClick={() => void onRunValuation()} disabled={estimating || !valuationRequest || data.setup.operationType === 'project'}>
-                            {estimating ? 'Calculando estimación...' : 'Calcular estimación'}
-                        </PanelButton>
-                        {data.setup.operationType === 'project' ? (
-                            <PanelNotice tone="neutral">La operación Proyecto ya se puede publicar. El tasador se mantiene solo para venta y arriendo.</PanelNotice>
-                        ) : !valuationRequest ? <PanelNotice tone="neutral">Completa tipología, superficie total y ubicación para habilitar el tasador.</PanelNotice> : !estimate ? <PanelNotice tone="neutral">Obtén una referencia de precio, rango y confianza antes de publicar el aviso.</PanelNotice> : null}
-                    </div>
-                    {estimate ? (
-                        <div className="mt-4 space-y-3">
-                            <PanelSummaryCard
-                                eyebrow="Resultado"
-                                title={formatAmount(estimate.estimatedPrice, estimate.currency as Currency)}
-                                rows={[
-                                    { label: 'Rango bajo', value: formatAmount(estimate.minPrice, estimate.currency as Currency) },
-                                    { label: 'Rango alto', value: formatAmount(estimate.maxPrice, estimate.currency as Currency) },
-                                    { label: 'Confianza', value: `${estimate.confidenceScore}%` },
-                                    { label: 'Precio por m²', value: estimate.estimatedPricePerM2 != null ? formatAmount(Math.round(estimate.estimatedPricePerM2), estimate.currency as Currency) : 'Sin dato' },
-                                    { label: 'Liquidez', value: estimate.estimatedLiquidityDays != null ? `${estimate.estimatedLiquidityDays} días` : 'Sin dato' },
-                                    { label: 'Tendencia 30d', value: formatSignedPercent(estimate.marketTrendPct30d) },
-                                ]}
-                            />
-                            {estimate.historicalSeries.length > 0 ? (
-                                <div className="rounded-xl border p-4 border-(--border)">
-                                    <p className="text-sm font-semibold">Tendencia del segmento</p>
-                                    <div className="space-y-2 mt-3">
-                                        {estimate.historicalSeries.map((point) => (
-                                            <div key={point.ts} className="grid grid-cols-[110px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
-                                                <span className="text-(--fg-secondary)">{formatSeriesLabel(point.ts)}</span>
-                                                <div className="h-2 rounded-full prop-chart-track">
-                                                    <div className="h-full rounded-full prop-chart-bar" style={{ width: `${Math.max(12, Math.min(100, estimate.maxPrice > 0 ? (point.medianPrice / estimate.maxPrice) * 100 : 12))}%` }} />
-                                                </div>
-                                                <span className="font-medium">{formatAmount(point.medianPrice, estimate.currency as Currency)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : null}
-                            {estimate.notes.length > 0 ? (
-                                <div className="rounded-xl border p-4 border-(--border)">
-                                    <p className="text-sm font-semibold">Notas del tasador</p>
-                                    <div className="space-y-2 mt-3">
-                                        {estimate.notes.map((note) => (
-                                            <div key={note} className="flex items-start gap-2 text-sm text-(--fg-secondary)">
-                                                <IconSparkles size={15} className="mt-0.5 shrink-0" />
-                                                <span>{note}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : null}
-                        </div>
-                    ) : null}
-                </PanelCard>
-            </div>
-            ) : null}
         </section>
     );
 }
@@ -2061,30 +2543,18 @@ function StepBasics(props: {
     );
 }
 
-function StepDetailsExtras(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
+function StepTour360Field(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
     const { data, setData, errors } = props;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Tour 360 (URL)" error={errors['media.tour360Url']}>
-                <input className="form-input" value={data.media.tour360Url} onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, tour360Url: event.target.value } }))} placeholder="https://..." />
-            </Field>
-            <Field label="Nombre de contacto">
-                <input className="form-input" value={data.commercial.contactName} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, contactName: event.target.value } }))} placeholder="Ej: María González" />
-            </Field>
-            <Field label="Teléfono">
-                <input className="form-input" value={data.commercial.contactPhone} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, contactPhone: event.target.value } }))} placeholder="+56 9 1234 5678" />
-            </Field>
-            <Field label="WhatsApp">
-                <input className="form-input" value={data.commercial.contactWhatsapp} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, contactWhatsapp: event.target.value } }))} placeholder="+56 9 1234 5678" />
-            </Field>
-            <Field label="Email">
-                <input className="form-input" type="email" value={data.commercial.contactEmail} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, contactEmail: event.target.value } }))} placeholder="contacto@inmobiliaria.cl" />
-            </Field>
-            <Field label="Slug / URL" hint="Opcional. Se genera desde el título si lo dejas vacío.">
-                <input className="form-input" value={data.commercial.slug} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, slug: event.target.value } }))} placeholder="departamento-3d-providencia" />
-            </Field>
-        </div>
+        <Field label="Enlace del tour 360" hint="Opcional. Pega la URL de Matterport, Kuula u otro visor 360.">
+            <input
+                className={`form-input${Object.prototype.hasOwnProperty.call(errors, 'media.tour360Url') ? ' form-input-error' : ''}`}
+                value={data.media.tour360Url}
+                onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, tour360Url: event.target.value } }))}
+                placeholder="https://..."
+            />
+        </Field>
     );
 }
 
@@ -2106,12 +2576,10 @@ function buildPropertyCopyInput(data: WizardData, communes: Array<{ id: string; 
     };
 }
 
-function StepDetails(props: {
+function StepAttributes(props: {
     data: WizardData;
     setData: WizardSetter;
     errors: Record<string, string>;
-    operatorHint?: string | null;
-    operatorContext?: PropiedadesOperatorPublishContext | null;
     addressBook: AddressBookEntry[];
     addressBookLoading: boolean;
     communes: Array<{ id: string; name: string }>;
@@ -2127,48 +2595,85 @@ function StepDetails(props: {
     geocoding: boolean;
     googleMapsApiKey?: string;
 }) {
-    const { data, setData, errors, lifecyclePolicy, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding, googleMapsApiKey, ...commercialProps } = props;
-    const [openSections, setOpenSections] = useState<Record<'attrs' | 'specs' | 'commercial' | 'extras', boolean>>({
-        attrs: false,
-        specs: false,
+    const { data, setData, errors, lifecyclePolicy, ...commercialProps } = props;
+    const isProject = data.setup.operationType === 'project';
+    const [openSections, setOpenSections] = useState<Record<'saleOptions' | 'characteristics' | 'extended' | 'project' | 'equipment' | 'commercial' | 'tour360', boolean>>({
+        saleOptions: false,
+        characteristics: false,
+        extended: false,
+        project: false,
+        equipment: false,
         commercial: false,
-        extras: false,
+        tour360: false,
     });
-    const propertyCopyInput = buildPropertyCopyInput(data, communes);
+
+    const toggle = (key: keyof typeof openSections) => {
+        setOpenSections((current) => ({ ...current, [key]: !current[key] }));
+    };
 
     return (
-        <div className="space-y-4">
-            <SimplePublishOptionalSection
-                title="Atributos adicionales"
-                description="Superficies, tipologías y datos extra del inmueble."
-                open={openSections.attrs}
-                onToggle={() => setOpenSections((current) => ({ ...current, attrs: !current.attrs }))}
-            >
-                <StepBasic
-                    data={data}
-                    setData={setData}
-                    errors={errors}
-                    addressBook={addressBook}
-                    addressBookLoading={addressBookLoading}
-                    communes={communes}
-                    onGeocodeLocation={onGeocodeLocation}
-                    geocoding={geocoding}
-                    variant="extended"
-                />
-            </SimplePublishOptionalSection>
+        <div className="space-y-5">
+            {!isProject ? (
+                <SimplePublishOptionalSection
+                    title="Opciones de venta"
+                    description="Precio negociable y condiciones que aparecen en la tarjeta."
+                    open={openSections.saleOptions}
+                    onToggle={() => toggle('saleOptions')}
+                >
+                    <ToggleCard
+                        title="Precio negociable"
+                        description="Aparece como chip en la tarjeta del aviso."
+                        active={data.commercial.negotiable}
+                        onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, negotiable: !current.commercial.negotiable } }))}
+                    />
+                </SimplePublishOptionalSection>
+            ) : null}
+
+            {!isProject ? (
+                <>
+                    <SimplePublishOptionalSection
+                        title="Características del inmueble"
+                        description="Mascotas, amoblado y atributos adicionales de la ficha."
+                        open={openSections.characteristics}
+                        onToggle={() => toggle('characteristics')}
+                    >
+                        <PropertyInmuebleFields data={data} setData={setData} errors={errors} scope="detail" />
+                    </SimplePublishOptionalSection>
+
+                    <SimplePublishOptionalSection
+                        title="Atributos extendidos"
+                        description="Orientación, antigüedad, torre y condiciones especiales."
+                        open={openSections.extended}
+                        onToggle={() => toggle('extended')}
+                    >
+                        <PropertyExtendedAttributeFields data={data} setData={setData} />
+                    </SimplePublishOptionalSection>
+                </>
+            ) : (
+                <SimplePublishOptionalSection
+                    title="Detalle del proyecto"
+                    description="Tipologías, rangos de superficie y unidades modelo."
+                    open={openSections.project}
+                    onToggle={() => toggle('project')}
+                >
+                    <PropertyProjectDetailFields data={data} setData={setData} errors={errors} />
+                </SimplePublishOptionalSection>
+            )}
+
             <SimplePublishOptionalSection
                 title="Equipamiento"
                 description="Comodidades, servicios y ambientes."
-                open={openSections.specs}
-                onToggle={() => setOpenSections((current) => ({ ...current, specs: !current.specs }))}
+                open={openSections.equipment}
+                onToggle={() => toggle('equipment')}
             >
                 <StepSpecs data={data} setData={setData} minimal />
             </SimplePublishOptionalSection>
+
             <SimplePublishOptionalSection
                 title="Condiciones comerciales"
-                description="Gastos comunes, tasador y opciones de venta."
+                description="Gastos comunes y disponibilidad."
                 open={openSections.commercial}
-                onToggle={() => setOpenSections((current) => ({ ...current, commercial: !current.commercial }))}
+                onToggle={() => toggle('commercial')}
             >
                 <StepCommercial
                     data={data}
@@ -2179,15 +2684,31 @@ function StepDetails(props: {
                     {...commercialProps}
                 />
             </SimplePublishOptionalSection>
-            <SimplePublishOptionalSection
-                title="Contacto y enlaces"
-                description="Tour 360, contacto y URL personalizada."
-                open={openSections.extras}
-                onToggle={() => setOpenSections((current) => ({ ...current, extras: !current.extras }))}
-            >
-                <StepDetailsExtras data={data} setData={setData} errors={errors} />
-            </SimplePublishOptionalSection>
 
+            <SimplePublishOptionalSection
+                title="Tour 360"
+                description="Enlace opcional al recorrido virtual del inmueble."
+                open={openSections.tour360}
+                onToggle={() => toggle('tour360')}
+            >
+                <StepTour360Field data={data} setData={setData} errors={errors} />
+            </SimplePublishOptionalSection>
+        </div>
+    );
+}
+
+function StepPublish(props: {
+    data: WizardData;
+    setData: WizardSetter;
+    errors: Record<string, string>;
+    communes: Array<{ id: string; name: string }>;
+    lifecyclePolicy: PublicationLifecyclePolicy;
+}) {
+    const { data, setData, errors, communes, lifecyclePolicy } = props;
+    const propertyCopyInput = buildPropertyCopyInput(data, communes);
+
+    return (
+        <div className="space-y-5">
             <SimplePublishSection title="Título y descripción">
                 <p className="text-xs text-[var(--fg-muted)] -mt-1 mb-3">
                     Se generan según los datos que ingresaste. Puedes editarlos antes de publicar.
@@ -2195,8 +2716,8 @@ function StepDetails(props: {
                 <MarketplaceListingCopyFields
                     title={data.basic.title}
                     description={data.basic.description}
-                    titleError={errors['basic.title']}
-                    descriptionError={errors['basic.description']}
+                    titleInvalid={Object.prototype.hasOwnProperty.call(errors, 'basic.title')}
+                    descriptionInvalid={Object.prototype.hasOwnProperty.call(errors, 'basic.description')}
                     onTitleChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, title: value } }))}
                     onDescriptionChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, description: value } }))}
                     onRegenerateTitle={() => setData((current) => ({
@@ -2207,34 +2728,13 @@ function StepDetails(props: {
                         ...current,
                         basic: { ...current.basic, description: generatePropertyListingDescription(propertyCopyInput) },
                     }))}
-                    titlePlaceholder={data.setup.operationType === 'project' ? 'Ej: Proyecto con entrega inmediata en Ñuñoa' : 'Ej: Departamento 3D+2B en Providencia'}
+                    titlePlaceholder={data.setup.operationType === 'project' ? 'Ej: Proyecto con entrega inmediata en Ñuñoa' : 'Ej: Departamento 3D 2B en Providencia'}
                     descriptionPlaceholder="Describe distribución, entorno y ventajas del inmueble."
                 />
             </SimplePublishSection>
 
-            <StepReview
-                data={data}
-                errors={errors}
-                setData={setData}
-                lifecyclePolicy={lifecyclePolicy}
-            />
+            <PanelNotice tone="neutral">{lifecyclePolicy.notice}</PanelNotice>
         </div>
-    );
-}
-
-function StepReview(props: { data: WizardData; errors: Record<string, string>; setData: WizardSetter; lifecyclePolicy: PublicationLifecyclePolicy }) {
-    const { data, errors, setData, lifecyclePolicy } = props;
-
-    return (
-        <section className="space-y-3">
-            <label className={`flex items-start gap-3 rounded-2xl border px-4 py-3 prop-terms-box ${errors['review.acceptTerms'] ? 'prop-terms-box--error' : ''}`}>
-                <input type="checkbox" checked={data.review.acceptTerms} onChange={(event) => setData((current) => ({ ...current, review: { ...current.review, acceptTerms: event.target.checked } }))} className="mt-1" />
-                <span className="text-sm text-(--fg-secondary)">
-                    Confirmo que la información puede publicarse en {lifecyclePolicy.summaryLabel ? lifecyclePolicy.summaryLabel.toLowerCase() : 'SimplePropiedades'}.
-                </span>
-            </label>
-            {errors['review.acceptTerms'] ? <p className="text-xs prop-field-error-text">{errors['review.acceptTerms']}</p> : null}
-        </section>
     );
 }
 
@@ -2354,6 +2854,9 @@ export default function PublishWizardPage() {
     const [draftSavedNote, setDraftSavedNote] = useState<string | null>(null);
     const [storageError, setStorageError] = useState<string | null>(null);
     const [publishing, setPublishing] = useState(false);
+    const [savingDraft, setSavingDraft] = useState(false);
+    const [mediaUploadProgress, setMediaUploadProgress] = useState<DraftMediaUploadProgress | null>(null);
+    const [resettingWizard, setResettingWizard] = useState(false);
     const [published, setPublished] = useState<PublishedListing | null>(null);
     const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
     const [addressBookLoading, setAddressBookLoading] = useState(true);
@@ -2408,7 +2911,7 @@ export default function PublishWizardPage() {
     useEffect(() => {
         let mounted = true;
         (async () => {
-            const result = await fetchAddressBook();
+            const result = await fetchPublishAddressBook('propiedades');
             if (!mounted) return;
             setAddressBook(result.items);
             setAddressBookLoading(false);
@@ -2417,6 +2920,19 @@ export default function PublishWizardPage() {
             mounted = false;
         };
     }, []);
+
+    useEffect(() => {
+        if (addressBookLoading || isEditing || draftLoaded || addressBook.length === 0) return;
+        setData((current) => {
+            if (current.location.regionId && current.location.addressLine1?.trim()) return current;
+            const defaultAddr = pickDefaultPublishAddress(addressBook, 'propiedades');
+            if (!defaultAddr) return current;
+            return {
+                ...current,
+                location: applyAddressBookEntryToLocation(defaultAddr, current.location),
+            };
+        });
+    }, [addressBook, addressBookLoading, isEditing, draftLoaded]);
 
     useEffect(() => {
         let mounted = true;
@@ -2505,7 +3021,7 @@ export default function PublishWizardPage() {
     }, [draftSavedNote]);
 
     useEffect(() => {
-        if (step !== 'details') return;
+        if (step !== 'publish') return;
         if (data.basic.title.trim() && data.basic.description.trim()) return;
         const copyInput = {
             operationType: data.setup.operationType,
@@ -2533,10 +3049,6 @@ export default function PublishWizardPage() {
     }, [step]);
 
     useEffect(() => {
-        setErrors(validateStep(step, data));
-    }, [step, data]);
-
-    useEffect(() => {
         const nextSlug = slugify(data.basic.title);
         if (!nextSlug || data.commercial.slug.trim()) return;
         setData((current) => ({
@@ -2548,33 +3060,144 @@ export default function PublishWizardPage() {
         }));
     }, [data.basic.title, data.commercial.slug]);
 
-    const saveDraft = async (manual: boolean) => {
-        const serialized = serializeDraft(dataRef.current, estimateRef.current);
+    const saveDraft = async (manual: boolean): Promise<boolean> => {
+        setSavingDraft(true);
+        setMediaUploadProgress(null);
+        try {
+        const prepared = await preparePropiedadesDraftMedia(dataRef.current, {
+            onMediaProgress: setMediaUploadProgress,
+        });
+        if (!prepared.ok || !prepared.data) {
+            setStorageError(prepared.error || 'No se pudieron subir los archivos del borrador.');
+            return false;
+        }
+        dataRef.current = prepared.data;
+        setData(prepared.data);
+        const serialized = serializeDraft(prepared.data, estimateRef.current);
         const result = await savePanelListingDraft('propiedades', serialized);
         if (!result.ok) {
             if (result.unauthorized) {
                 requireAuth();
             }
             setStorageError(result.error || 'No se pudo guardar el borrador.');
-            return;
+            return false;
         }
         setLastSavedAt(serialized.savedAt);
         setStorageError(null);
         if (manual) setDraftSavedNote('Borrador guardado');
+        return true;
+        } finally {
+            setSavingDraft(false);
+            setMediaUploadProgress(null);
+        }
     };
 
-    const goNext = () => {
+    const saveEditingChanges = async (): Promise<boolean> => {
+        if (!editingId) return false;
+        setSavingDraft(true);
+        setMessage(null);
+        setMediaUploadProgress(null);
+        try {
+            const prepared = await preparePropiedadesDraftMedia(dataRef.current, {
+                onMediaProgress: setMediaUploadProgress,
+            });
+            if (!prepared.ok || !prepared.data) {
+                setStorageError(prepared.error || 'No se pudieron subir los archivos.');
+                return false;
+            }
+            dataRef.current = prepared.data;
+            setData(prepared.data);
+
+            const { regionName, communeName } = resolveLocationNames(
+                prepared.data.location.regionId,
+                prepared.data.location.communeId,
+            );
+            const normalizedLocation = patchListingLocation(prepared.data.location, {
+                regionName: regionName || prepared.data.location.regionName,
+                communeName: communeName || prepared.data.location.communeName,
+            });
+            const locationLabel = normalizedLocation.publicLabel
+                || normalizedLocation.addressLine1?.trim()
+                || [normalizedLocation.neighborhood, communeName || prepared.data.location.communeId, regionName || prepared.data.location.regionId].filter(Boolean).join(', ');
+
+            const offerPriceValue = prepared.data.setup.operationType !== 'project'
+                ? resolveOfferPriceValue({
+                    mainPrice: prepared.data.commercial.price,
+                    offerPrice: prepared.data.commercial.offerPrice,
+                    discountPercent: prepared.data.commercial.discountPercent,
+                    offerPriceMode: prepared.data.commercial.offerPriceMode,
+                    parseMainPrice: (value) => parseNumber(value),
+                })
+                : '';
+
+            const finalData = {
+                ...prepared.data,
+                commercial: {
+                    ...prepared.data.commercial,
+                    offerPrice: offerPriceValue,
+                },
+                location: normalizedLocation,
+            };
+
+            const payload = {
+                listingType: finalData.setup.operationType,
+                title: finalData.basic.title.trim() || 'Sin título',
+                description: finalData.basic.description.trim(),
+                priceLabel: buildPriceLabel(finalData),
+                location: locationLabel || undefined,
+                locationData: normalizedLocation,
+                href: finalData.commercial.slug.trim() ? `/propiedad/${finalData.commercial.slug.trim()}` : undefined,
+                rawData: {
+                    ...finalData,
+                    basic: createPropertyBasicForPayload(finalData),
+                    media: {
+                        ...finalData.media,
+                        photos: finalData.media.photos,
+                    },
+                    location: normalizedLocation,
+                    valuation: estimateRef.current,
+                    publicationLifecycle: lifecyclePolicy,
+                },
+            };
+
+            const result = await updatePanelListing(editingId, payload);
+            if (!result.ok) {
+                if (result.unauthorized) {
+                    requireAuth();
+                }
+                setMessage(result.error || 'No se pudieron guardar los cambios.');
+                return false;
+            }
+            setStorageError(null);
+            setDraftSavedNote('Cambios guardados');
+            return true;
+        } finally {
+            setSavingDraft(false);
+            setMediaUploadProgress(null);
+        }
+    };
+
+    const goNext = async () => {
         const nextErrors = validateStep(step, data);
         setErrors(nextErrors);
-        if (Object.keys(nextErrors).length > 0) return;
+        if (Object.keys(nextErrors).length > 0) {
+            setMessage(null);
+            return;
+        }
+        setMessage(null);
         if (stepIndex < STEPS.length - 1) {
-            void saveDraft(false);
+            const saved = await saveDraft(false);
+            if (!saved) return;
+            setErrors({});
             setStep(STEPS[stepIndex + 1].id);
         }
     };
 
     const goBack = () => {
-        if (stepIndex > 0) setStep(STEPS[stepIndex - 1].id);
+        if (stepIndex > 0) {
+            setErrors({});
+            setStep(STEPS[stepIndex - 1].id);
+        }
     };
 
     const refreshLocationMap = async () => {
@@ -2633,7 +3256,7 @@ export default function PublishWizardPage() {
             if (Object.keys(stepErrors).length > 0) {
                 setStep(stepItem.id);
                 setErrors(stepErrors);
-                setMessage('Faltan campos por completar antes de publicar.');
+                setMessage(null);
                 return;
             }
         }
@@ -2661,6 +3284,7 @@ export default function PublishWizardPage() {
 
         setPublishing(true);
         setMessage(null);
+        setData((current) => ({ ...current, review: { ...current.review, acceptTerms: true } }));
 
         try {
         // Subir media a Cloudflare R2 si aún está en base64
@@ -2712,8 +3336,22 @@ export default function PublishWizardPage() {
             }
         }
 
+        const offerPriceValue = data.setup.operationType !== 'project'
+            ? resolveOfferPriceValue({
+                mainPrice: data.commercial.price,
+                offerPrice: data.commercial.offerPrice,
+                discountPercent: data.commercial.discountPercent,
+                offerPriceMode: data.commercial.offerPriceMode,
+                parseMainPrice: (value) => parseNumber(value),
+            })
+            : '';
+
         const finalData = {
             ...data,
+            commercial: {
+                ...data.commercial,
+                offerPrice: offerPriceValue,
+            },
             media: {
                 ...data.media,
                 photos: uploadedPhotos,
@@ -2782,13 +3420,26 @@ export default function PublishWizardPage() {
         }
     };
 
-    const resetForNewListing = () => {
-        setPublished(null);
-        setData(createDefaultData());
-        setEstimate(null);
-        setErrors({});
-        setMessage(null);
-        setStep('media');
+    const resetWizard = async (options?: { confirm?: boolean }) => {
+        if (options?.confirm !== false && !window.confirm('¿Reiniciar el borrador? Se borrarán todos los datos y volverás al paso 1.')) {
+            return;
+        }
+        setResettingWizard(true);
+        try {
+            await deletePanelListingDraft('propiedades').catch(() => null);
+            setPublished(null);
+            setData(createDefaultData());
+            setEstimate(null);
+            setErrors({});
+            setMessage(null);
+            setStorageError(null);
+            setLastSavedAt(null);
+            setStep('media');
+            setDraftLoaded(true);
+            setDraftSavedNote(options?.confirm === false ? null : 'Borrador reiniciado');
+        } finally {
+            setResettingWizard(false);
+        }
     };
 
     if (published) {
@@ -2805,13 +3456,13 @@ export default function PublishWizardPage() {
                         shareText={`Mira esta propiedad en SimplePropiedades: ${published.title}`}
                     />
                 )}
-                onReset={resetForNewListing}
+                onReset={() => { void resetWizard({ confirm: false }); }}
                 onGoToListings={() => { window.location.href = '/panel/publicaciones'; }}
             />
         );
     }
 
-    const continueLabel = step === 'details'
+    const continueLabel = step === 'publish'
         ? (isEditing ? 'Guardar en Simple' : 'Publicar en Simple')
         : 'Continuar';
 
@@ -2826,21 +3477,32 @@ export default function PublishWizardPage() {
             onClose={() => router.push('/panel')}
             onStepChange={(key) => {
                 const targetIndex = STEPS.findIndex((item) => item.id === key);
-                if (targetIndex <= stepIndex) setStep(key as StepId);
+                if (targetIndex <= stepIndex) {
+                    setErrors({});
+                    setStep(key as StepId);
+                }
             }}
-            headerActions={(
-                <PanelButton type="button" variant="ghost" size="sm" onClick={() => void saveDraft(true)} aria-label="Guardar borrador">
-                    <IconDeviceFloppy size={16} />
-                </PanelButton>
-            )}
+            headerReset={!isEditing ? {
+                onClick: () => { void resetWizard({ confirm: true }); },
+                loading: resettingWizard,
+                disabled: publishing || editingLoading || resettingWizard,
+                ariaLabel: 'Reiniciar borrador',
+            } : undefined}
+            headerSave={{
+                onClick: () => { void (isEditing ? saveEditingChanges() : saveDraft(true)); },
+                ariaLabel: isEditing ? 'Guardar cambios' : 'Guardar borrador',
+                loading: savingDraft,
+                disabled: publishing || editingLoading,
+            }}
             headerContinue={{
                 label: continueLabel,
+                icon: step === 'publish' ? 'check' : 'arrow',
                 onClick: () => {
-                    if (step === 'details') void publishNow();
-                    else goNext();
+                    if (step === 'publish') void publishNow();
+                    else void goNext();
                 },
-                disabled: publishing || editingLoading || editLoadFailed || (step === 'details' && publishBlocked),
-                loading: publishing,
+                disabled: publishing || savingDraft || editingLoading || editLoadFailed || (step === 'publish' && publishBlocked),
+                loading: publishing || savingDraft,
             }}
             notices={(
                 <>
@@ -2855,6 +3517,7 @@ export default function PublishWizardPage() {
                     ) : null}
                     {message ? <MarketplacePublishMessageNotice message={message} /> : null}
                     {storageError ? <PanelNotice tone="error">{storageError}</PanelNotice> : null}
+                    <SimplePublishMediaUploadNotice progress={mediaUploadProgress} />
                     {draftSavedNote ? <PanelNotice tone="success">{draftSavedNote}</PanelNotice> : null}
                     {editingLoading ? <PanelNotice tone="neutral">Cargando publicación para editar...</PanelNotice> : null}
                 </>
@@ -2891,8 +3554,8 @@ export default function PublishWizardPage() {
                         googleMapsApiKey={googleMapsApiKey}
                     />
                 )}
-                {step === 'details' && (
-                    <StepDetails
+                {step === 'attributes' && (
+                    <StepAttributes
                         data={data}
                         setData={setData}
                         errors={errors}
@@ -2912,19 +3575,28 @@ export default function PublishWizardPage() {
                         googleMapsApiKey={googleMapsApiKey}
                     />
                 )}
+                {step === 'publish' && (
+                    <StepPublish
+                        data={data}
+                        setData={setData}
+                        errors={errors}
+                        communes={communes}
+                        lifecyclePolicy={lifecyclePolicy}
+                    />
+                )}
                 <SimplePublishCtaCard
                     label={continueLabel}
-                    loadingLabel={step === 'details'
+                    loadingLabel={step === 'publish'
                         ? (isEditing ? 'Guardando...' : 'Publicando...')
                         : undefined}
                     onClick={() => {
-                        if (step === 'details') void publishNow();
-                        else goNext();
+                        if (step === 'publish') void publishNow();
+                        else void goNext();
                     }}
-                    disabled={publishing || editingLoading || editLoadFailed || (step === 'details' && publishBlocked)}
+                    disabled={publishing || editingLoading || editLoadFailed || (step === 'publish' && publishBlocked)}
                     loading={publishing}
-                    hint={step === 'details' ? 'Al publicar, tu aviso quedará visible en SimplePropiedades de inmediato.' : undefined}
-                    icon={step === 'details' ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
+                    hint={step === 'publish' ? 'Al publicar, tu aviso quedará visible en SimplePropiedades de inmediato.' : undefined}
+                    icon={step === 'publish' ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
                 />
             </SimplePublishPageFrame>
         </SimplePublishLayout>

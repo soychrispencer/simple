@@ -8,6 +8,8 @@ import { AuthGuard } from '@/components/auth/auth-guard';
 
 import { SubscriptionGate } from '@/components/auth/subscription-gate';
 
+import { PanelConfirmProvider } from '@simple/ui/panel';
+
 import { PanelQueryRedirect } from '@/components/panel/panel-query-redirect';
 
 
@@ -28,7 +30,11 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
 
             <AuthGuard>
 
-                <SubscriptionGate>{children}</SubscriptionGate>
+                <SubscriptionGate>
+
+                    <PanelConfirmProvider>{children}</PanelConfirmProvider>
+
+                </SubscriptionGate>
 
             </AuthGuard>
 

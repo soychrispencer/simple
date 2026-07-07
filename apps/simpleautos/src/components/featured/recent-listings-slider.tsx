@@ -4,9 +4,19 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconArrowRight } from '@tabler/icons-react';
 import { FeaturedCardSwiper } from '@simple/ui/listings';
-import { fetchPublicListings, type PublicListing } from '@/lib/public-listings';
+import {
+    BOOST_SECTION_META,
+    type BoostSection,
+} from '@/lib/boost';
+import {
+    fetchPublicListings,
+    selectRecentPublicListings,
+    type PublicListing,
+} from '@/lib/public-listings';
+import { resolveListingSellerAvatarUrl } from '@simple/utils';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 
+const SECTIONS: BoostSection[] = ['sale', 'rent', 'auction'];
 const MAX_CARDS = 30;
 
 function orderVehicleTags(tags: string[]): string[] {
@@ -37,6 +47,7 @@ function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardD
     const metaItems = orderVehicleTags(
         item.summary.slice(0, 5).filter(p => !p.includes('Publicación SimpleAutos') && !p.includes('Publicación SimplePropiedades'))
     );
+    const listedLabel = item.days === 0 ? 'Publicado hoy' : item.days === 1 ? 'Publicado ayer' : `Publicado hace ${item.days} días`;
     return {
         id: item.id,
         href: item.href,
@@ -46,14 +57,14 @@ function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardD
         meta: metaItems,
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'SimpleAutos',
-        sellerMeta: `Actualizado hace ${item.publishedAgo}`,
-        sellerAvatarUrl: undefined,
+        sellerMeta: listedLabel,
+        sellerAvatarUrl: resolveListingSellerAvatarUrl(item.seller),
         sellerProfileHref: item.seller?.profileHref ?? undefined,
         badge: item.sectionLabel,
         variant: item.section,
         images: item.images,
         videoUrl: item.videoUrl ?? undefined,
-        listedSince: `Actualizado hace ${item.publishedAgo}`,
+        listedSince: listedLabel,
         engagement: {
             views24h: item.views,
             saves: item.favs,
@@ -62,15 +73,18 @@ function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardD
 }
 
 export default function RecentListingsSlider() {
+    const [section, setSection] = useState<BoostSection>('sale');
     const [items, setItems] = useState<PublicListing[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const sectionMeta = BOOST_SECTION_META[section];
+
     const loadItems = useCallback(async () => {
         setLoading(true);
-        const listings = await fetchPublicListings('sale');
-        setItems(listings.slice(0, MAX_CARDS));
+        const listings = await fetchPublicListings(section);
+        setItems(selectRecentPublicListings(listings, MAX_CARDS));
         setLoading(false);
-    }, []);
+    }, [section]);
 
     useEffect(() => {
         loadItems();
@@ -88,8 +102,8 @@ export default function RecentListingsSlider() {
     }
 
     return (
-        <section style={{ borderTop: '1px solid var(--border)' }}>
-            <div className="container-app section-marketing">
+        <section className="min-w-0 overflow-x-hidden" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="container-app section-marketing min-w-0">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                     <div>
                         <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>
@@ -100,25 +114,27 @@ export default function RecentListingsSlider() {
                         </p>
                     </div>
                     <Link
-                        href="/ventas"
+                        href={sectionMeta.href}
                         className="text-sm font-medium inline-flex items-center gap-1"
                         style={{ color: 'var(--fg-muted)' }}
                     >
-                        Ver todas <IconArrowRight size={12} />
+                        Ver {sectionMeta.label.toLowerCase()} <IconArrowRight size={12} />
                     </Link>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <span
-                        className="h-9 px-4 rounded-md text-sm border flex items-center"
-                        style={{
-                            borderColor: 'var(--button-primary-border)',
-                            background: 'var(--button-primary-bg)',
-                            color: 'var(--button-primary-color)',
-                        }}
-                    >
-                        Venta
-                    </span>
+                    {SECTIONS.map((key) => (
+                        <button
+                            key={key}
+                            type="button"
+                            onClick={() => setSection(key)}
+                            className={`featured-boost-tab h-9 rounded-button border px-4 text-sm transition-all hover:border-(--border-strong) hover:bg-(--bg-subtle) hover:text-(--fg) ${
+                                section === key ? 'featured-boost-tab--active' : ''
+                            }`}
+                        >
+                            {BOOST_SECTION_META[key].label}
+                        </button>
+                    ))}
                 </div>
 
                 {loading ? null : (

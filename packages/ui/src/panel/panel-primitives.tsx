@@ -19,7 +19,7 @@ export type PanelNoticeProps = {
 
 export type PanelStatusBadgeProps = {
     label: string;
-    tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info';
+    tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent';
     variant?: 'soft' | 'solid';
     size?: 'xs' | 'sm';
     className?: string;
@@ -84,7 +84,9 @@ export function PanelStatusBadge(props: PanelStatusBadgeProps) {
                 ? { background: 'var(--color-danger-bg, rgba(239,68,68,0.14))', color: 'var(--color-danger-text, #991b1b)' }
                 : tone === 'info'
                     ? { background: 'var(--color-info-bg, rgba(59,130,246,0.14))', color: 'var(--color-info-text, #1d4ed8)' }
-                    : { background: 'var(--bg-muted)', color: 'var(--fg-secondary)' };
+                    : tone === 'accent'
+                        ? { background: 'color-mix(in srgb, var(--accent) 16%, transparent)', color: 'var(--accent)' }
+                        : { background: 'var(--bg-muted)', color: 'var(--fg-secondary)' };
     const solidTone = tone === 'success'
         ? { background: 'var(--color-success, #16a34a)', color: '#ffffff' }
         : tone === 'warning'
@@ -93,7 +95,9 @@ export function PanelStatusBadge(props: PanelStatusBadgeProps) {
                 ? { background: 'var(--color-danger, #ef4444)', color: '#ffffff' }
                 : tone === 'info'
                     ? { background: 'var(--color-info)', color: '#ffffff' }
-                    : { background: 'var(--accent)', color: '#ffffff' };
+                    : tone === 'accent'
+                        ? { background: 'var(--accent)', color: '#ffffff' }
+                        : { background: 'var(--fg-muted)', color: '#ffffff' };
     return (
         <span
             className={joinClasses(

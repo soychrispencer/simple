@@ -8,7 +8,6 @@ export default function ArriendosPage() {
             section="rent"
             title="Vehículos en arriendo"
             breadcrumbLabel="Arriendos"
-            description="Catálogo conectado a publicaciones reales activas en SimpleAutos."
         />
     );
 }

@@ -57,6 +57,17 @@ function normalizePropertyType(raw: unknown): string {
     return value || 'propiedad';
 }
 
+function isResidentialPropertyType(propertyType: string): boolean {
+    return propertyType === 'departamento' || propertyType === 'casa';
+}
+
+function resolveEffectiveAreaM2(input: z.infer<typeof propertyValuationRequestSchema>, propertyType: string): number {
+    if (isResidentialPropertyType(propertyType) && input.builtAreaM2 != null && input.builtAreaM2 > 0) {
+        return 0.65 * input.builtAreaM2 + 0.35 * input.areaM2;
+    }
+    return input.areaM2;
+}
+
 function saleBaselineUfPerM2(propertyType: string): number {
     switch (propertyType) {
         case 'departamento':
@@ -130,10 +141,35 @@ function extractPropertyComparable(
     };
 }
 
+function comparableSortScore(
+    item: ValuationComparable,
+    effectiveAreaM2: number,
+    distancePenaltyMultiplier = 3,
+): number {
+    const areaA = item.areaM2 ?? effectiveAreaM2;
+    const distanceA = item.distanceKm ?? 999;
+    return Math.abs(areaA - effectiveAreaM2) + distanceA * distancePenaltyMultiplier;
+}
+
+function weightedMedian(values: Array<{ value: number; weight: number }>): number | null {
+    if (values.length === 0) return null;
+    const sorted = [...values].sort((a, b) => a.value - b.value);
+    const totalWeight = sorted.reduce((sum, item) => sum + item.weight, 0);
+    if (totalWeight <= 0) return sorted[Math.floor(sorted.length / 2)].value;
+
+    let accumulated = 0;
+    for (const item of sorted) {
+        accumulated += item.weight;
+        if (accumulated >= totalWeight / 2) return item.value;
+    }
+    return sorted[sorted.length - 1].value;
+}
+
 export function estimatePropertyValuation(input: z.infer<typeof propertyValuationRequestSchema>) {
     const propertyType = normalizePropertyType(input.propertyType);
     const operationType = input.operationType;
     const targetCurrency = operationType === 'sale' ? 'UF' : 'CLP';
+    const effectiveAreaM2 = resolveEffectiveAreaM2(input, propertyType);
     const feedState = getValuationFeedState();
     const targetLocation = geocodeListingLocation({
         sourceMode: 'custom',
@@ -154,15 +190,17 @@ export function estimatePropertyValuation(input: z.infer<typeof propertyValuatio
         publicLabel: '',
     });
 
-    const internalComparables = Array.from(internalListingsSource())
+    const allInternalComparables = Array.from(internalListingsSource())
         .map((record) => extractPropertyComparable(record, operationType, targetLocation.geoPoint))
         .filter((item): item is ValuationComparable => Boolean(item))
         .filter((item) => item.currency === targetCurrency)
         .filter((item) => item.propertyType === propertyType)
-        .filter((item) => item.regionId === input.regionId)
+        .filter((item) => item.regionId === input.regionId);
+
+    const communeInternalComparables = allInternalComparables
         .filter((item) => item.communeId === input.communeId);
 
-    const feedComparables = feedState.records
+    const communeFeedComparables = feedState.records
         .filter((record) => record.operationType === operationType)
         .filter((record) => record.currency === targetCurrency)
         .filter((record) => record.propertyType === propertyType)
@@ -208,27 +246,91 @@ export function estimatePropertyValuation(input: z.infer<typeof propertyValuatio
             } satisfies ValuationComparable;
         });
 
-    const comparables = [...internalComparables, ...feedComparables]
+    let comparables = [...communeInternalComparables, ...communeFeedComparables];
+    let usedRegionalFallback = false;
+
+    if (comparables.length < 3) {
+        const regionalInternalComparables = allInternalComparables
+            .filter((item) => item.communeId !== input.communeId);
+        const regionalFeedComparables = feedState.records
+            .filter((record) => record.operationType === operationType)
+            .filter((record) => record.currency === targetCurrency)
+            .filter((record) => record.propertyType === propertyType)
+            .filter((record) => record.regionId === input.regionId)
+            .filter((record) => record.communeId !== input.communeId)
+            .map((record) => {
+                const feedLocation = geocodeListingLocation({
+                    sourceMode: 'custom',
+                    sourceAddressId: null,
+                    countryCode: 'CL',
+                    regionId: record.regionId,
+                    regionName: null,
+                    communeId: record.communeId,
+                    communeName: null,
+                    neighborhood: record.neighborhood,
+                    addressLine1: record.addressLabel,
+                    addressLine2: null,
+                    postalCode: null,
+                    geoPoint: makeGeoPoint(null, null, 'none'),
+                    visibilityMode: 'exact',
+                    publicMapEnabled: true,
+                    publicGeoPoint: makeGeoPoint(null, null, 'none'),
+                    publicLabel: record.addressLabel || '',
+                });
+
+                return {
+                    source: record.source,
+                    externalId: record.id,
+                    title: record.title,
+                    price: record.price,
+                    currency: record.currency,
+                    operationType: record.operationType,
+                    propertyType: record.propertyType,
+                    regionId: record.regionId,
+                    communeId: record.communeId,
+                    addressLabel: record.addressLabel,
+                    distanceKm: haversineDistanceKm(targetLocation.geoPoint, feedLocation.geoPoint),
+                    bedrooms: record.bedrooms,
+                    bathrooms: record.bathrooms,
+                    areaM2: record.areaM2,
+                    publishedAt: record.publishedAt,
+                    url: record.url,
+                } satisfies ValuationComparable;
+            });
+
+        if (regionalInternalComparables.length > 0 || regionalFeedComparables.length > 0) {
+            usedRegionalFallback = true;
+            comparables = [...comparables, ...regionalInternalComparables, ...regionalFeedComparables];
+        }
+    }
+
+    comparables = comparables
         .sort((a, b) => {
-            const areaA = a.areaM2 ?? input.areaM2;
-            const areaB = b.areaM2 ?? input.areaM2;
-            const distanceA = a.distanceKm ?? 999;
-            const distanceB = b.distanceKm ?? 999;
-            return (Math.abs(areaA - input.areaM2) + distanceA * 3) - (Math.abs(areaB - input.areaM2) + distanceB * 3);
+            const scoreA = comparableSortScore(a, effectiveAreaM2, usedRegionalFallback ? 5 : 3);
+            const scoreB = comparableSortScore(b, effectiveAreaM2, usedRegionalFallback ? 5 : 3);
+            return scoreA - scoreB;
         })
         .slice(0, 10);
 
-    const comparablePricePerM2 = comparables
-        .map((item) => (item.areaM2 && item.areaM2 > 0 ? item.price / item.areaM2 : null))
-        .filter((value): value is number => value != null && Number.isFinite(value));
+    const weightedPricePerM2 = comparables
+        .map((item) => {
+            if (!item.areaM2 || item.areaM2 <= 0) return null;
+            const pricePerM2 = item.price / item.areaM2;
+            const areaSimilarity = 1 / (1 + Math.abs(item.areaM2 - effectiveAreaM2) / Math.max(effectiveAreaM2, 1));
+            const recencyDays = daysSince(item.publishedAt) ?? 90;
+            const recencyWeight = 1 / (1 + recencyDays / 30);
+            return {
+                value: pricePerM2,
+                weight: areaSimilarity * recencyWeight,
+            };
+        })
+        .filter((value): value is { value: number; weight: number } => value != null && Number.isFinite(value.value));
 
     const baselinePricePerM2 = operationType === 'sale'
         ? saleBaselineUfPerM2(propertyType)
         : rentBaselineClpPerM2(propertyType);
 
-    const averageComparablePricePerM2 = comparablePricePerM2.length > 0
-        ? comparablePricePerM2.reduce((sum, value) => sum + value, 0) / comparablePricePerM2.length
-        : baselinePricePerM2;
+    const medianComparablePricePerM2 = weightedMedian(weightedPricePerM2) ?? baselinePricePerM2;
 
     let adjustmentFactor = 1;
     if ((input.parkingSpaces ?? 0) > 0) adjustmentFactor += 0.03;
@@ -238,9 +340,9 @@ export function estimatePropertyValuation(input: z.infer<typeof propertyValuatio
     if (input.yearBuilt != null && input.yearBuilt >= 2018) adjustmentFactor += 0.04;
     if (asString(input.condition).toLowerCase().includes('remodel')) adjustmentFactor += 0.03;
 
-    const estimatedPricePerM2 = averageComparablePricePerM2 * adjustmentFactor;
-    const estimatedPrice = estimatedPricePerM2 * input.areaM2;
-    const variance = comparablePricePerM2.length >= 3 ? 0.09 : comparablePricePerM2.length >= 1 ? 0.14 : 0.2;
+    const estimatedPricePerM2 = medianComparablePricePerM2 * adjustmentFactor;
+    const estimatedPrice = estimatedPricePerM2 * effectiveAreaM2;
+    const variance = weightedPricePerM2.length >= 3 ? 0.09 : weightedPricePerM2.length >= 1 ? 0.14 : 0.2;
     const sourceCounts = new Map<string, number>();
     for (const comparable of comparables) {
         sourceCounts.set(comparable.source, (sourceCounts.get(comparable.source) ?? 0) + 1);
@@ -257,8 +359,10 @@ export function estimatePropertyValuation(input: z.infer<typeof propertyValuatio
         ),
     }));
     const dataCoverageScore = Math.min(100, comparables.length * 12 + sourceBreakdown.length * 8);
-    const locationAccuracyScore = targetLocation.geoPoint.precision === 'exact' ? 90 : targetLocation.geoPoint.precision === 'approximate' ? 70 : 45;
-    const similarityScore = Math.min(100, 45 + comparablePricePerM2.length * 7 + ((input.bedrooms ?? 0) > 0 ? 8 : 0) + ((input.bathrooms ?? 0) > 0 ? 8 : 0));
+    const locationAccuracyScore = usedRegionalFallback
+        ? (targetLocation.geoPoint.precision === 'exact' ? 72 : targetLocation.geoPoint.precision === 'approximate' ? 58 : 38)
+        : (targetLocation.geoPoint.precision === 'exact' ? 90 : targetLocation.geoPoint.precision === 'approximate' ? 70 : 45);
+    const similarityScore = Math.min(100, 45 + weightedPricePerM2.length * 7 + ((input.bedrooms ?? 0) > 0 ? 8 : 0) + ((input.bathrooms ?? 0) > 0 ? 8 : 0));
     const recencyScore = Math.max(
         30,
         100 - Math.round(
@@ -290,16 +394,21 @@ export function estimatePropertyValuation(input: z.infer<typeof propertyValuatio
 
     const notes = [
         comparables.length > 0
-            ? `Se consideraron ${comparables.length} comparables combinando publicaciones internas y feeds externos de la misma comuna.`
+            ? usedRegionalFallback
+                ? `Se consideraron ${comparables.length} comparables; parte proviene de otras comunas de la misma región por escasez local.`
+                : `Se consideraron ${comparables.length} comparables combinando publicaciones internas y feeds externos de la misma comuna.`
             : 'No hubo comparables suficientes; se aplicó una base tipológica ajustada.',
         operationType === 'sale'
             ? 'La estimación de venta se expresa en UF para mantener consistencia con publicaciones residenciales.'
             : 'La estimación de arriendo se expresa en CLP mensuales.',
+        isResidentialPropertyType(propertyType) && input.builtAreaM2 != null
+            ? 'Para residencial se ponderó superficie útil y total al calcular el valor por m².'
+            : null,
         'La confianza mejora con geocodificación exacta, más fuentes integradas y comparables cerrados por sector.',
-    ];
+    ].filter((note): note is string => Boolean(note));
 
     return {
-        engineVersion: 'v2',
+        engineVersion: 'v3',
         currency: targetCurrency,
         minPrice: Math.round(estimatedPrice * (1 - variance)),
         estimatedPrice: Math.round(estimatedPrice),

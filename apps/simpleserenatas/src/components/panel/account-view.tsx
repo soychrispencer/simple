@@ -6,9 +6,10 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE } from '@simple/config';
 import { resolveAvatarDisplayUrl } from '@/lib/resolve-avatar-url';
-import { PanelAccountPersonalDataSection, PanelAccountLocationContent, PanelBlockHeader, PanelPillNav } from '@simple/ui/panel';
+import { PanelAccountPersonalDataSection, PanelAccountLocationContent, PanelAccountShell, PanelBlockHeader } from '@simple/ui/panel';
 import { MercadoPagoIntegrationCard } from '@simple/ui/integrations';
-import { PanelButton, PanelCard, PanelField, PanelNotice, PanelPageHeader, PanelPersonalDataList, PanelPersonalDataRow, PanelStatusBadge, PanelSwitch, usePanelConfirm } from '@simple/ui/panel';
+import { AccountThemePreferenceSection } from '@simple/ui/theme';
+import { PanelButton, PanelCard, PanelField, PanelNotice, PanelPersonalDataList, PanelPersonalDataRow, PanelStatusBadge, PanelSwitch, usePanelConfirm } from '@simple/ui/panel';
 import {
     IconCheck,
     IconChevronLeft,
@@ -49,6 +50,7 @@ import { SerenatasPersonalNotificationsSection } from './serenatas-personal-noti
 import { SerenatasGoogleCalendarIntegrationCard } from './serenatas-google-calendar-integration-card';
 import { DeleteAccountSheet } from './account/delete-account-sheet';
 import { syncAccountTabUrl } from '@/lib/sync-account-tab-url';
+import { isMusicianAccount } from '@/lib/serenata-profile';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { GoogleDisconnectConfirmSheet } from './account/google-disconnect-confirm-sheet';
 import { PasswordChangeModal } from './account/password-change-modal';
@@ -175,6 +177,15 @@ export function ProfileView({
     const [saving, setSaving] = useState(false);
     const appMode: AppMode = mode ?? (profile === 'client' ? 'client' : 'work');
     const accountPillItems = useMemo(() => getAccountPillItems(appMode, profiles), [appMode, profiles]);
+    const accountSectionTabs = useMemo(
+        () =>
+            accountPillItems.map((item) => ({
+                key: item.key,
+                label: item.label,
+                href: profileSectionHref(item.key),
+            })),
+        [accountPillItems],
+    );
 
     useEffect(() => {
         if (isAccountTabVisible(subsection, appMode, profiles)) return;
@@ -183,7 +194,7 @@ export function ProfileView({
         syncAccountTabUrl(fallback);
     }, [subsection, appMode, profiles, accountPillItems]);
 
-    const showMusicianProfileTab = appMode === 'work' && Boolean(profiles.musician);
+    const showMusicianProfileTab = appMode === 'work' && isMusicianAccount(profiles);
 
     const experienceYearsError = useMemo(
         () => (showMusicianProfileTab ? experienceYearsValidation(experienceYears) : null),
@@ -617,25 +628,13 @@ export function ProfileView({
     const profileLabel = panelAccountTypeLabel(profiles);
 
     return (
-        <div className="w-full min-w-0 max-w-full">
-            <PanelPageHeader
-                title="Mi cuenta"
-                description="Datos personales, seguridad y preferencias."
-            />
-
-            <div className="flex flex-col gap-6">
-                <PanelPillNav
-                    items={accountPillItems}
-                    activeKey={subsection}
-                    onChange={(key) => {
-                        if (isAccountTab(key)) void selectSubsection(key);
-                    }}
-                    ariaLabel="Secciones de mi cuenta"
-                    showMobileDropdown
-                    breakpoint="md"
-                    size="sm"
-                />
-
+        <PanelAccountShell
+            activeKey={subsection}
+            tabs={accountSectionTabs}
+            onTabChange={(key) => {
+                if (isAccountTab(key)) void selectSubsection(key);
+            }}
+        >
                 {subsection === 'notifications' ? (
                     <SerenatasPersonalNotificationsSection
                         accountUser={accountUser}
@@ -645,6 +644,10 @@ export function ProfileView({
                         onSaved={refresh}
                         onDirtyChange={setNotificationPrefsDirty}
                     />
+                ) : null}
+
+                {subsection === 'appearance' ? (
+                    <AccountThemePreferenceSection />
                 ) : null}
 
                 {subsection === 'integrations' ? (
@@ -682,6 +685,7 @@ export function ProfileView({
                         onSaved={refresh}
                         onAfterDelete={logoutAndGoHome}
                         onUnauthorized={logoutAndGoHome}
+                        onEditEmail={() => void selectSubsection('security')}
                     />
                 </>
             ) : null}
@@ -814,8 +818,6 @@ export function ProfileView({
                         onUnauthorized={logoutAndGoHome}
                     />
                 ) : null}
-            </div>
-
-        </div>
+        </PanelAccountShell>
     );
 }

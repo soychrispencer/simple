@@ -24,10 +24,10 @@ import {
     serializeBookingTermsWrite,
     normalizeOperatorSiteLayout,
     normalizeOperatorSiteColorMode,
-    normalizeOperatorSiteAccent,
     OPERATOR_SITE_LAYOUTS,
     OPERATOR_SITE_COLOR_MODES,
-    OPERATOR_SITE_ACCENT_COLORS,
+    isValidOperatorSiteAccentStorage,
+    normalizeOperatorSiteAccentHex,
     type OperatorTier,
 } from '@simple/utils';
 
@@ -280,7 +280,7 @@ function mapPublicAgendaProfile(
         appearance: {
             layout: normalizeOperatorSiteLayout(profile.operatorSiteLayout),
             colorMode: normalizeOperatorSiteColorMode(profile.operatorSiteColorMode),
-            accentColor: normalizeOperatorSiteAccent(profile.operatorSiteAccentColor),
+            accentColor: profile.operatorSiteAccentColor,
         },
     };
 }
@@ -404,11 +404,11 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             patch.operatorSiteColorMode = colorMode;
         }
         if ('operatorSiteAccentColor' in body) {
-            const accent = typeof body.operatorSiteAccentColor === 'string' ? body.operatorSiteAccentColor : '';
-            if (!OPERATOR_SITE_ACCENT_COLORS.includes(accent as typeof OPERATOR_SITE_ACCENT_COLORS[number])) {
+            const accent = typeof body.operatorSiteAccentColor === 'string' ? body.operatorSiteAccentColor.trim() : '';
+            if (!isValidOperatorSiteAccentStorage(accent)) {
                 return c.json({ ok: false, error: 'Color de acento no válido.' }, 400);
             }
-            patch.operatorSiteAccentColor = accent;
+            patch.operatorSiteAccentColor = normalizeOperatorSiteAccentHex(accent) ?? accent;
         }
         if ('accountKind' in body || 'operatorSubtype' in body || 'profession' in body) {
             const rawKind = 'accountKind' in body ? body.accountKind : profile.accountKind;

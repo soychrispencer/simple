@@ -19,33 +19,33 @@ export type FeaturedBoostSliderSectionProps<T extends string = string> = {
     activeTab: T;
     onTabChange: (tab: T) => void;
     loading: boolean;
-    emptyMessage: string;
     slides: Array<{ key: string; node: ReactNode }>;
     placeholderAspectClass?: string;
 };
 
 export function FeaturedBoostSliderSection<T extends string = string>({
     title = 'Publicaciones destacadas',
-    subtitle = 'Ordenadas por campañas Boost activas.',
+    subtitle,
     viewMoreHref,
     viewMoreLabel,
     tabs,
     activeTab,
     onTabChange,
     loading,
-    emptyMessage,
     slides,
     placeholderAspectClass = 'aspect-4/3',
 }: FeaturedBoostSliderSectionProps<T>) {
     const hasSlides = slides.length > 0;
 
     return (
-        <section className="border-t border-(--border)">
-            <div className="container-app section-marketing">
+        <section className="min-w-0 overflow-x-hidden border-t border-(--border)">
+            <div className="container-app section-marketing min-w-0">
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 className="type-section-title text-(--fg)">{title}</h2>
-                        <p className="mt-1 text-sm text-(--fg-secondary)">{subtitle}</p>
+                        {subtitle ? (
+                            <p className="mt-1 text-sm text-(--fg-secondary)">{subtitle}</p>
+                        ) : null}
                     </div>
                     <Link
                         href={viewMoreHref}
@@ -70,11 +70,7 @@ export function FeaturedBoostSliderSection<T extends string = string>({
                     ))}
                 </div>
 
-                {loading ? null : !hasSlides ? (
-                    <article className="w-full rounded-card border border-(--border) bg-(--surface) p-8 text-center">
-                        <p className="text-sm text-(--fg-secondary)">{emptyMessage}</p>
-                    </article>
-                ) : (
+                {loading || !hasSlides ? null : (
                     <FeaturedCardSwiper items={slides} />
                 )}
             </div>

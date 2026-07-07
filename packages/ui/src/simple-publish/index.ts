@@ -26,8 +26,14 @@ export {
 } from './simple-publish-optional-section';
 export {
     SimplePublishField,
+    SimplePublishRequiredMark,
     type SimplePublishFieldProps,
 } from './simple-publish-field';
+export {
+    ValuationSupplementForm,
+    type ValuationSupplementFormProps,
+    type ValuationSupplementField,
+} from './valuation-supplement-form';
 export {
     SimplePublishPageFrame,
     type SimplePublishPageFrameProps,
@@ -36,8 +42,22 @@ export {
     SimplePublishPreviewCard,
     type SimplePublishPreviewCardProps,
     type SimplePublishPreviewSpec,
-    type SimplePublishPreviewSlide,
 } from './simple-publish-preview-card';
+export {
+    SimplePublishOfferPriceFields,
+    type SimplePublishOfferPriceFieldsProps,
+} from './simple-publish-offer-price-fields';
+export {
+    SimplePublishPriceBlock,
+    type SimplePublishPriceBlockProps,
+} from './simple-publish-price-block';
+export {
+    formatClPriceInput,
+    parseDigits,
+    resolveOfferPriceValue,
+    type OfferPriceMode,
+    type ResolveOfferPriceInput,
+} from './offer-price-utils';
 export {
     SimplePublishPhotoGrid,
     type SimplePublishPhotoGridProps,
@@ -51,6 +71,10 @@ export {
     SimplePublishVideoBlock,
     type SimplePublishVideoBlockProps,
 } from './simple-publish-video-block';
+export {
+    SimplePublishMediaUploadNotice,
+    type SimplePublishMediaUploadNoticeProps,
+} from './simple-publish-media-upload-notice';
 export { SimplePublishCtaCard } from './simple-publish-cta-card';
 export {
     SimplePublishShareHub,

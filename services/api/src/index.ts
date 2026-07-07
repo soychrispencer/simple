@@ -17,6 +17,7 @@ import type { ValuationFeedRecord, VehicleValuationFeedRecord, ValuationHistoric
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import {
     getMediaProxyS3Client,
@@ -756,6 +757,12 @@ const listFeaturedBoosted = createListFeaturedBoosted({
     humanizePublicLocationFallback,
     sanitizeUser: (user) => sanitizeUser(user as AppUser),
     usersById,
+    toPublicMediaUrl,
+    getPublishedSellerProfile: (userId, vertical) => {
+        const profile = getPublishedSellerProfile(userId, vertical as VerticalType);
+        if (!profile) return null;
+        return { avatarImageUrl: profile.avatarImageUrl ?? null };
+    },
     boostListingsSeed,
 });
 
@@ -1018,7 +1025,11 @@ const {
     getPublishedSellerProfile: (userId, vertical) => {
         const profile = getPublishedSellerProfile(userId, vertical as VerticalType);
         if (!profile) return null;
-        return { displayName: profile.displayName, slug: profile.slug };
+        return {
+            displayName: profile.displayName,
+            slug: profile.slug,
+            avatarImageUrl: profile.avatarImageUrl ?? null,
+        };
     },
 });
 
@@ -1460,6 +1471,9 @@ app.use('*', async (c, next) => {
 });
 
 app.onError((error, c) => {
+    if (error instanceof HTTPException) {
+        return error.getResponse();
+    }
     const errMsg = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : '';
     logDebug(`[GLOBAL ERROR] ${c.req.method} ${c.req.path} - ${errMsg}\nStack: ${stack}`);

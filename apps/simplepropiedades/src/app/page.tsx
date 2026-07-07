@@ -6,6 +6,7 @@ import {
     IconArrowRight, IconSparkles, IconShieldCheck, IconClock, IconTrendingUp, IconUsers, } from '@tabler/icons-react';
 import HomeSearchBox from '@/components/search/home-searchbox';
 import BoostedListingsSlider from '@/components/featured/boosted-listings-slider';
+import RecentListingsSlider from '@/components/featured/recent-listings-slider';
 import { PanelCard } from '@simple/ui/panel';
 import { getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 import { getCardAdPlaceholders } from '@/lib/ad-placeholders';
@@ -428,6 +429,8 @@ export default function HomePage() {
             </section>
 
             <BoostedListingsSlider />
+
+            <RecentListingsSlider />
 
             <section className="container-app section-marketing">
                 <h2 className="text-2xl md:text-3xl font-semibold text-center mb-4" style={{ color: 'var(--fg)' }}>¿Por qué Simple?</h2>

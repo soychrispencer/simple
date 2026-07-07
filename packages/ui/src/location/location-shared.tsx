@@ -14,6 +14,7 @@ export type SelectOption = {
     value: string;
     label: string;
     disabled?: boolean;
+    kind?: 'option' | 'header';
 };
 
 export type FieldErrorMap = Partial<Record<'regionId' | 'communeId' | 'sourceAddressId' | 'addressLine1', string>>;
@@ -408,7 +409,29 @@ export function ShareIcon() {
 }
 
 export function fieldError(errors: FieldErrorMap | undefined, key: keyof FieldErrorMap) {
-    return errors?.[key] ?? null;
+    const value = errors?.[key];
+    return value?.trim() ? value : null;
+}
+
+export function fieldInvalid(errors: FieldErrorMap | undefined, key: keyof FieldErrorMap) {
+    return Boolean(errors && Object.prototype.hasOwnProperty.call(errors, key));
+}
+
+const LISTING_LOCATION_ERROR_KEYS = ['regionId', 'communeId', 'addressLine1', 'sourceAddressId'] as const;
+
+export function pickListingLocationFieldErrors(
+    fieldErrors: Record<string, string> | undefined,
+    prefix = 'location',
+): FieldErrorMap {
+    if (!fieldErrors) return {};
+    const out: FieldErrorMap = {};
+    for (const key of LISTING_LOCATION_ERROR_KEYS) {
+        const fullKey = `${prefix}.${key}`;
+        if (Object.prototype.hasOwnProperty.call(fieldErrors, fullKey)) {
+            out[key] = fieldErrors[fullKey];
+        }
+    }
+    return out;
 }
 
 export function joinClasses(...values: Array<string | false | null | undefined>) {
@@ -420,7 +443,7 @@ export function Field(props: { label: string; required?: boolean; error?: string
         <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--fg-secondary)' }}>
                 {props.label}
-                {props.required ? <span style={{ color: '#b45309' }}> *</span> : null}
+                {props.required ? <span className="text-(--color-error)"> *</span> : null}
             </label>
             {props.children}
             {props.hint ? <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{props.hint}</p> : null}
@@ -436,8 +459,9 @@ export function StyledSelect(props: {
     placeholder?: string;
     disabled?: boolean;
     ariaLabel?: string;
+    invalid?: boolean;
 }) {
-    const { value, onChange, options, placeholder = 'Seleccionar', disabled = false, ariaLabel } = props;
+    const { value, onChange, options, placeholder = 'Seleccionar', disabled = false, ariaLabel, invalid = false } = props;
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -473,6 +497,17 @@ export function StyledSelect(props: {
             }}
         >
             {options.map((option) => {
+                if (option.kind === 'header') {
+                    return (
+                        <div
+                            key={`${option.value}-${option.label}`}
+                            className="px-2.5 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide"
+                            style={{ color: 'var(--fg-muted)' }}
+                        >
+                            {option.label}
+                        </div>
+                    );
+                }
                 const isSelected = option.value === value;
                 return (
                     <button
@@ -508,7 +543,7 @@ export function StyledSelect(props: {
                 aria-expanded={open}
                 disabled={disabled}
                 onClick={() => !disabled && setOpen((current) => !current)}
-                className="form-input flex items-center text-left"
+                className={joinClasses('form-input flex items-center text-left', invalid && 'form-input-error')}
                 style={{
                     color: selectedOption ? 'var(--fg)' : 'var(--fg-muted)',
                     paddingRight: '2.4rem',
@@ -534,6 +569,47 @@ export function StyledSelect(props: {
 
 export function addressSummary(address: AddressBookEntry) {
     return [address.label, address.addressLine1, address.communeName, address.regionName].filter(Boolean).join(' · ');
+}
+
+function sortAddressBookEntries(entries: AddressBookEntry[]): AddressBookEntry[] {
+    return [...entries].sort((left, right) => {
+        if (left.isDefault !== right.isDefault) return left.isDefault ? -1 : 1;
+        return (right.updatedAt ?? 0) - (left.updatedAt ?? 0);
+    });
+}
+
+export function buildSavedAddressSelectOptions(
+    addressBook: AddressBookEntry[],
+    vertical?: 'autos' | 'propiedades' | 'serenatas',
+): SelectOption[] {
+    const business = sortAddressBookEntries(
+        addressBook.filter((entry) => entry.scope === 'business' && (
+            !vertical || entry.vertical === vertical || entry.vertical == null
+        )),
+    );
+    const personal = sortAddressBookEntries(
+        addressBook.filter((entry) => entry.scope === 'personal'),
+    );
+
+    const options: SelectOption[] = [
+        { value: '__new__', label: 'Nueva dirección' },
+    ];
+
+    if (business.length > 0) {
+        options.push({ value: '__header_business__', label: 'Negocio', kind: 'header' });
+        for (const entry of business) {
+            options.push({ value: entry.id, label: addressSummary(entry) });
+        }
+    }
+
+    if (personal.length > 0) {
+        options.push({ value: '__header_personal__', label: 'Personal', kind: 'header' });
+        for (const entry of personal) {
+            options.push({ value: entry.id, label: addressSummary(entry) });
+        }
+    }
+
+    return options;
 }
 
 export function mapWindowByPrecision(precision: ListingLocation['publicGeoPoint']['precision']) {

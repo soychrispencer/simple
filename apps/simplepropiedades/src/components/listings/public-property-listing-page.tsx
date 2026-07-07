@@ -8,6 +8,7 @@ import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import { ModernSelect } from '@simple/ui/forms';
 import PropertyListingCard, { type PropertyListingCardData } from '@/components/listings/property-listing-card';
 import { fetchPublicListings, type PublicListing, type PublicListingSection } from '@/lib/public-listings';
+import { resolveListingSellerAvatarUrl } from '@simple/utils';
 import { PanelCard } from '@simple/ui/panel';
 import { PanelNotice, PanelPageHeader, PanelSegmentedToggle } from '@simple/ui/panel';
 
@@ -55,11 +56,13 @@ function toCardData(item: PublicListing): PropertyListingCardData {
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'Cuenta SimplePropiedades',
         sellerMeta: `Actualizado hace ${item.publishedAgo}`,
+        sellerAvatarUrl: resolveListingSellerAvatarUrl(item.seller),
         sellerProfileHref: item.seller?.profileHref ?? undefined,
         badge: item.sectionLabel,
         variant: item.section,
         images: item.images,
         videoUrl: item.videoUrl ?? undefined,
+        videoThumbnail: item.images[0],
         projectStatus: item.section === 'project' ? item.summary[3] : undefined,
         listedSince: `Actualizado hace ${item.publishedAgo}`,
         engagement: {
@@ -117,7 +120,7 @@ export default function PublicPropertyListingPage(props: {
                 title={props.title}
                 description={loading ? 'Cargando publicaciones...' : `${cards.length.toLocaleString('es-CL')} resultados reales`}
                 actions={(
-                    <div className="flex shrink-0 items-center justify-end gap-2 flex-nowrap">
+                    <div className="flex w-full min-w-0 flex-nowrap items-center justify-end gap-2 sm:w-auto">
                         <ModernSelect
                             value={sortOrder}
                             onChange={setSortOrder}
@@ -129,10 +132,10 @@ export default function PublicPropertyListingPage(props: {
                             ]}
                             leadingIcon={<IconArrowsSort size={14} />}
                             ariaLabel="Ordenar propiedades"
-                            triggerClassName="h-9 min-w-[156px] shrink-0 text-sm"
+                            triggerClassName="h-9 min-w-0 flex-1 text-sm sm:w-auto sm:min-w-[156px] sm:flex-none"
                         />
                         <PanelSegmentedToggle
-                            className="hidden shrink-0 sm:inline-flex"
+                            className="inline-flex shrink-0"
                             size="sm"
                             iconOnly
                             items={[
@@ -167,7 +170,7 @@ export default function PublicPropertyListingPage(props: {
                     </PanelNotice>
                 </PanelCard>
             ) : (
-                <div className={viewMode === 'grid' ? 'listings-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'space-y-3'}>
+                <div className={viewMode === 'grid' ? 'listings-grid grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'space-y-3'}>
                     {cards.map((item) => (
                         <PropertyListingCard key={item.id} data={item} mode={viewMode} />
                     ))}

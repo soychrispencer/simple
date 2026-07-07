@@ -1,18 +1,22 @@
 import type { StorageUploadResult } from '@simple/config';
 import { API_BASE } from '@simple/config';
+import { PUBLISH_VIDEO_MAX_SIZE_MB, PUBLISH_VIDEO_MAX_SOURCE_SIZE_MB } from './simple-publish/video.js';
 
 export type MediaUploadOptions = {
     fileType: 'image' | 'video' | 'document';
     listingId?: string;
     /** `avatar` recorta a 512px; `logo` igual que avatar; `cover` a 16:9; el API convierte imágenes a WebP. */
     purpose?: 'avatar' | 'logo' | 'cover' | 'default';
+    /** Llamado cuando los bytes ya se enviaron y el servidor procesa (p. ej. FFmpeg en videos). */
+    onProcessing?: () => void;
     onProgress?: (progress: number) => void;
 };
 
+export type MediaUploadPurpose = NonNullable<MediaUploadOptions['purpose']>;
+
 /**
  * Sube un archivo al endpoint unificado `/api/media/upload`.
- * Las imágenes se optimizan en servidor (WebP). La API acepta hasta ~40MB de entrada cruda
- * y valida el tamaño final optimizado (máx. 10MB en storage).
+ * Las imágenes se optimizan en servidor (WebP). Los videos de publicación se comprimen a MP4 vertical (H.264).
  */
 export async function uploadMediaFile(
     file: File,
@@ -40,8 +44,22 @@ export async function uploadMediaFile(
             });
         }
 
+        if (options.onProcessing) {
+            xhr.upload.addEventListener('loadend', () => {
+                options.onProcessing?.();
+            });
+        }
+
         return new Promise((resolve) => {
+            const tooLargeMessage = options.fileType === 'video'
+                ? `El video es demasiado grande. Máximo ${PUBLISH_VIDEO_MAX_SOURCE_SIZE_MB} MB de origen (se comprime a ${PUBLISH_VIDEO_MAX_SIZE_MB} MB).`
+                : 'El archivo es demasiado grande para subir.';
+
             xhr.addEventListener('load', () => {
+                if (xhr.status === 413) {
+                    resolve({ ok: false, error: tooLargeMessage });
+                    return;
+                }
                 if (xhr.status === 200) {
                     try {
                         const response = JSON.parse(xhr.responseText) as {
@@ -64,7 +82,12 @@ export async function uploadMediaFile(
             });
 
             xhr.addEventListener('error', () => {
-                resolve({ ok: false, error: 'Network error' });
+                resolve({
+                    ok: false,
+                    error: options.fileType === 'video'
+                        ? `No se pudo subir el video. Revisa tu conexión o que no supere ${PUBLISH_VIDEO_MAX_SOURCE_SIZE_MB} MB de origen.`
+                        : 'Error de red al subir el archivo.',
+                });
             });
 
             xhr.addEventListener('abort', () => {
@@ -81,6 +104,19 @@ export async function uploadMediaFile(
             error: error instanceof Error ? error.message : 'Unknown error',
         };
     }
+}
+
+/** Sube logo, portada o avatar; el API convierte cualquier imagen soportada a WebP. */
+export async function uploadBrandImage(
+    file: File,
+    purpose: Extract<MediaUploadPurpose, 'avatar' | 'logo' | 'cover'>,
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+    const result = await uploadMediaFile(file, { fileType: 'image', purpose });
+    const url = result.result?.publicUrl ?? result.result?.url;
+    if (!result.ok || !url) {
+        return { ok: false, error: result.error ?? 'No se pudo subir la imagen.' };
+    }
+    return { ok: true, url };
 }
 
 /**

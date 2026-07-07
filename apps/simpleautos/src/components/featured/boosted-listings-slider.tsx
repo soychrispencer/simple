@@ -8,6 +8,7 @@ import {
     type BoostSection,
     type FeaturedBoostItem,
 } from '@/lib/boost';
+import { resolveListingSellerAvatarUrl } from '@simple/utils';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 
 const SECTIONS: BoostSection[] = ['sale', 'rent', 'auction'];
@@ -56,12 +57,12 @@ function mapFeaturedBoostToVehicleCard(item: FeaturedBoostItem): VehicleListingC
         meta: metaItems,
         location: item.location,
         sellerName: item.owner?.name || 'Vendedor',
-        sellerMeta: 'Publicado recientemente',
-        sellerAvatarUrl: item.owner?.avatar,
+        sellerAvatarUrl: resolveListingSellerAvatarUrl(null, item.owner?.avatar),
+        sellerIsFeatured: item.boosted,
         badge: sectionLabel,
         variant: item.section,
         images,
-        listedSince: 'Reciente',
+        isSponsored: item.boosted,
         engagement: {
             views24h: 0,
             saves: 0,
@@ -98,6 +99,10 @@ export default function BoostedListingsSlider() {
 
     const tabs = SECTIONS.map((key) => ({ key, label: BOOST_SECTION_META[key].label }));
 
+    if (!loading && items.length === 0) {
+        return null;
+    }
+
     return (
         <FeaturedBoostSliderSection
             viewMoreHref={sectionMeta.href}
@@ -106,7 +111,6 @@ export default function BoostedListingsSlider() {
             activeTab={section}
             onTabChange={setSection}
             loading={loading}
-            emptyMessage="Aún no hay publicaciones impulsadas en esta sección."
             slides={slides}
             placeholderAspectClass="aspect-4/3"
         />

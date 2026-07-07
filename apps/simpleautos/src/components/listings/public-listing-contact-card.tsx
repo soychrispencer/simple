@@ -15,6 +15,7 @@ export default function PublicListingContactCard(props: {
     seller?: {
         email: string;
         phone: string | null;
+        whatsapp?: string | null;
     } | null;
 }) {
     const router = useRouter();
@@ -26,6 +27,10 @@ export default function PublicListingContactCard(props: {
     const [submitting, setSubmitting] = useState(false);
     const [feedback, setFeedback] = useState<string | null>(null);
     const [threadId, setThreadId] = useState<string | null>(null);
+
+    const whatsappNumber = props.seller?.whatsapp?.trim() || props.seller?.phone?.trim() || null;
+    const phoneNumber = props.seller?.phone?.trim() || null;
+    const emailAddress = props.seller?.email?.trim() || null;
 
     useEffect(() => {
         setContactName(user?.name ?? '');
@@ -61,23 +66,23 @@ export default function PublicListingContactCard(props: {
     }
 
     function handleQuickAction(source: 'whatsapp' | 'phone_call' | 'email') {
-        if (source === 'whatsapp' && props.seller?.phone) {
-            const target = props.seller.phone.replace(/\D/g, '');
+        if (source === 'whatsapp' && whatsappNumber) {
+            const target = whatsappNumber.replace(/\D/g, '');
             window.open(`https://wa.me/${target}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
             setFeedback('Abriendo WhatsApp.');
             return;
         }
 
-        if (source === 'phone_call' && props.seller?.phone) {
-            window.location.href = `tel:${props.seller.phone}`;
+        if (source === 'phone_call' && phoneNumber) {
+            window.location.href = `tel:${phoneNumber}`;
             setFeedback('Iniciando llamada.');
             return;
         }
 
-        if (source === 'email' && props.seller?.email) {
+        if (source === 'email' && emailAddress) {
             const subject = encodeURIComponent(`Consulta por ${props.listingTitle}`);
             const body = encodeURIComponent(message);
-            window.location.href = `mailto:${props.seller.email}?subject=${subject}&body=${body}`;
+            window.location.href = `mailto:${emailAddress}?subject=${subject}&body=${body}`;
             setFeedback('Abriendo correo.');
         }
     }
@@ -106,13 +111,13 @@ export default function PublicListingContactCard(props: {
                     <PanelButton type="submit" className="w-full" disabled={submitting || !message.trim() || !isLoggedIn}>
                         {submitting ? 'Enviando...' : isLoggedIn ? 'Enviar mensaje' : 'Inicia sesión para enviar'}
                     </PanelButton>
-                    {props.seller?.phone || props.seller?.email ? (
+                    {whatsappNumber || phoneNumber || emailAddress ? (
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                             <PanelButton
                                 type="button"
                                 variant="secondary"
                                 className="w-full"
-                                disabled={submitting || !props.seller?.phone}
+                                disabled={submitting || !whatsappNumber}
                                 onClick={() => handleQuickAction('whatsapp')}
                                 ariaLabel="Contactar por WhatsApp"
                             >
@@ -122,7 +127,7 @@ export default function PublicListingContactCard(props: {
                                 type="button"
                                 variant="secondary"
                                 className="w-full"
-                                disabled={submitting || !props.seller?.phone}
+                                disabled={submitting || !phoneNumber}
                                 onClick={() => handleQuickAction('phone_call')}
                                 ariaLabel="Llamar por teléfono"
                             >
@@ -132,7 +137,7 @@ export default function PublicListingContactCard(props: {
                                 type="button"
                                 variant="secondary"
                                 className="w-full"
-                                disabled={submitting || !props.seller?.email}
+                                disabled={submitting || !emailAddress}
                                 onClick={() => handleQuickAction('email')}
                                 ariaLabel="Enviar email"
                             >

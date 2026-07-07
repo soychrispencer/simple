@@ -239,39 +239,25 @@ export async function renewPanelListing(
     return { ok: !!data.ok, item: data.item, error: data.error };
 }
 
+import { deleteListingDraft, fetchListingDraft, saveListingDraft } from '@simple/utils';
+
 export async function fetchPanelListingDraft(
-    vertical: 'autos' | 'propiedades' | 'autos-quick'
+    vertical: 'autos' | 'propiedades',
 ): Promise<{ ok: boolean; draft?: unknown; unauthorized?: boolean; error?: string }> {
-    const { status, data } = await apiRequest<DraftResponse>(`/api/listing-draft?vertical=${encodeURIComponent(vertical)}`, {
-        method: 'GET',
-    });
-    if (status === 401) return { ok: false, unauthorized: true, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
-    if (!data?.ok) return { ok: false, error: data?.error ?? 'No pudimos cargar el borrador.' };
-    return { ok: true, draft: data.item?.draft };
+    return fetchListingDraft(vertical);
 }
 
 export async function savePanelListingDraft(
-    vertical: 'autos' | 'propiedades' | 'autos-quick',
-    draft: unknown
+    vertical: 'autos' | 'propiedades',
+    draft: unknown,
 ): Promise<{ ok: boolean; unauthorized?: boolean; error?: string }> {
-    const { status, data } = await apiRequest<DraftResponse>(`/api/listing-draft?vertical=${encodeURIComponent(vertical)}`, {
-        method: 'PUT',
-        body: JSON.stringify({ draft }),
-    });
-    if (status === 401) return { ok: false, unauthorized: true, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
-    if (!data?.ok) return { ok: false, error: data?.error ?? 'No pudimos guardar el borrador.' };
-    return { ok: true };
+    return saveListingDraft(vertical, draft);
 }
 
 export async function deletePanelListingDraft(
-    vertical: 'autos' | 'propiedades' | 'autos-quick'
+    vertical: 'autos' | 'propiedades',
 ): Promise<{ ok: boolean; unauthorized?: boolean; error?: string }> {
-    const { status, data } = await apiRequest<{ ok: boolean; error?: string }>(`/api/listing-draft?vertical=${encodeURIComponent(vertical)}`, {
-        method: 'DELETE',
-    });
-    if (status === 401) return { ok: false, unauthorized: true, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
-    if (!data?.ok) return { ok: false, error: data?.error ?? 'No pudimos limpiar el borrador.' };
-    return { ok: true };
+    return deleteListingDraft(vertical);
 }
 
 export async function duplicatePanelListing(

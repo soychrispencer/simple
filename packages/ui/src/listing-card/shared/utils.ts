@@ -82,7 +82,7 @@ export function ownerStatusPalette(status: OwnerListingStatus, explicitLabel?: s
         case 'expired':
             return { tone: 'danger', borderColor: 'var(--color-error)', label: explicitLabel ?? 'Expirada' };
         case 'sold':
-            return { tone: 'neutral', borderColor: 'var(--fg-muted)', label: explicitLabel ?? 'Vendida' };
+            return { tone: 'accent', borderColor: 'var(--accent)', label: explicitLabel ?? 'Vendida' };
         case 'review_required':
             return { tone: 'info', borderColor: '#2563eb', label: explicitLabel ?? 'Revisar' };
         case 'draft':

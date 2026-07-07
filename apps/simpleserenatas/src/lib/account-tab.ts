@@ -1,5 +1,6 @@
 import type { AppMode } from '@/lib/app-mode';
 import type { Profiles } from '@/lib/serenatas-api';
+import { isMusicianAccount } from '@/lib/serenata-profile';
 
 function ownerFeaturesEnabled(profiles: Profiles): boolean {
     return Boolean(profiles.owner);
@@ -12,6 +13,7 @@ export const ACCOUNT_TAB_VALUES = [
     'musician',
     'ubicacion',
     'notifications',
+    'appearance',
     'integrations',
     'subscription',
 ] as const;
@@ -32,6 +34,8 @@ const LEGACY_ACCOUNT_TAB_ALIASES: Record<string, AccountTab> = {
     personal: 'data',
     cuenta: 'data',
     notificaciones: 'notifications',
+    apariencia: 'appearance',
+    appearance: 'appearance',
     integraciones: 'integrations',
 };
 
@@ -64,11 +68,12 @@ export function profileSectionHref(accountTab?: AccountTab): string {
 export function getAccountPillItems(mode: AppMode, profiles: Profiles): { key: AccountTab; label: string }[] {
     const items: { key: AccountTab; label: string }[] = [
         { key: 'data', label: 'Datos personales' },
-        ...(mode === 'work' && profiles.musician
+        ...(mode === 'work' && isMusicianAccount(profiles)
             ? [{ key: 'musician' as const, label: 'Perfil público' }]
             : []),
         { key: 'ubicacion', label: 'Ubicación' },
         { key: 'notifications', label: 'Notificaciones' },
+        { key: 'appearance', label: 'Apariencia' },
         { key: 'integrations', label: 'Integraciones' },
     ];
     if (mode === 'work' && ownerFeaturesEnabled(profiles)) {
@@ -100,4 +105,6 @@ export const CONFIG_SLUG_TO_ACCOUNT_TAB: Record<string, AccountTab> = {
     subscription: 'subscription',
     plan: 'subscription',
     notificaciones: 'notifications',
+    apariencia: 'appearance',
+    appearance: 'appearance',
 };

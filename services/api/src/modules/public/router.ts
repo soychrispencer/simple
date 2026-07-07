@@ -221,6 +221,12 @@ export function createPublicRouter(deps: PublicRouterDeps) {
     });
 
     app.post('/valuations/properties/estimate', async (c) => {
+        try {
+            await refreshValuationFeeds();
+        } catch {
+            // best-effort refresh; no bloquear la estimación
+        }
+
         const payload = await c.req.json().catch(() => null);
         const parsed = propertyValuationRequestSchema.safeParse(payload);
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
@@ -240,6 +246,12 @@ export function createPublicRouter(deps: PublicRouterDeps) {
     });
 
     app.post('/valuations/vehicles/estimate', async (c) => {
+        try {
+            await refreshVehicleValuationFeeds();
+        } catch {
+            // best-effort refresh; no bloquear la estimación
+        }
+
         const payload = await c.req.json().catch(() => null);
         const parsed = vehicleValuationRequestSchema.safeParse(payload);
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);

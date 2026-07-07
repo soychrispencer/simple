@@ -1,6 +1,11 @@
 'use client';
 
 import { IconBrandYoutube, IconLink, IconUpload, IconVideo, IconX } from '@tabler/icons-react';
+import {
+    PUBLISH_VIDEO_MAX_DURATION_SECONDS,
+    PUBLISH_VIDEO_MAX_SIZE_MB,
+    PUBLISH_VIDEO_MAX_SOURCE_SIZE_MB,
+} from '@simple/utils';
 import { SimplePublishSurface } from './simple-publish-surface';
 
 export type SimplePublishVideoBlockProps = {
@@ -10,6 +15,7 @@ export type SimplePublishVideoBlockProps = {
     /** Enlace YouTube/Vimeo — excluyente con el clip subido. */
     externalUrl?: string;
     error?: string;
+    invalid?: boolean;
     onPickUpload?: () => void;
     onClearUpload?: () => void;
     onExternalUrlChange?: (value: string) => void;
@@ -20,6 +26,7 @@ export function SimplePublishVideoBlock({
     uploadFileName,
     externalUrl = '',
     error,
+    invalid = false,
     onPickUpload,
     onClearUpload,
     onExternalUrlChange,
@@ -38,7 +45,8 @@ export function SimplePublishVideoBlock({
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-(--fg-muted)">
                     Un solo video para la tarjeta tipo red social, el feed Descubre e Instagram/TikTok.
-                    Sube un clip o pega un enlace de YouTube/Vimeo.
+                    Sube un clip o pega un enlace de YouTube/Vimeo. Máx. {PUBLISH_VIDEO_MAX_DURATION_SECONDS} s;
+                    videos grandes se comprimen solos al subir (hasta {PUBLISH_VIDEO_MAX_SOURCE_SIZE_MB} MB de origen → {PUBLISH_VIDEO_MAX_SIZE_MB} MB).
                 </p>
             </div>
 
@@ -104,7 +112,7 @@ export function SimplePublishVideoBlock({
                             className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-(--fg-muted)"
                         />
                         <input
-                            className="form-input w-full pl-9"
+                            className={`form-input w-full pl-9${invalid ? ' form-input-error' : ''}`}
                             placeholder="https://www.youtube.com/... o https://vimeo.com/..."
                             value={externalUrl}
                             disabled={externalLocked || !onExternalUrlChange}
@@ -125,7 +133,7 @@ export function SimplePublishVideoBlock({
                 </div>
             </div>
 
-            {error ? <p className="mt-3 text-xs text-(--color-error)">{error}</p> : null}
+            {error?.trim() ? <p className="mt-3 text-xs text-(--color-error)">{error}</p> : null}
         </SimplePublishSurface>
     );
 }

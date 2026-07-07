@@ -20,7 +20,7 @@ describe('estimatePropertyValuation', () => {
             condition: null,
         });
 
-        expect(result.engineVersion).toBe('v2');
+        expect(result.engineVersion).toBe('v3');
         expect(result.currency).toBe('UF');
         expect(result.estimatedPrice).toBeGreaterThan(0);
         expect(result.comparablesUsed).toBeGreaterThanOrEqual(0);

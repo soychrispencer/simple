@@ -1,0 +1,489 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   MODERN LAYER — inspirado en landings editoriales tipo Mivon
+   Conversión (booking) · Showcase (portfolio) · Consultoría (studio)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.os-page {
+    --os-display-tracking: -0.045em;
+    --os-section-space: clamp(4.5rem, 9vw, 7rem);
+    --os-radius-modern: 1.25rem;
+    --os-radius-pill: 9999px;
+}
+
+/* ── Nav flotante tipo pill ───────────────────────────────────────────────── */
+
+.os-page[data-os-layout="booking"] .os-nav--scrolled,
+.os-page[data-os-layout="portfolio"] .os-nav--scrolled,
+.os-page[data-os-layout="studio"] .os-nav--scrolled {
+    background: transparent;
+    border-bottom-color: transparent;
+    backdrop-filter: none;
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+}
+
+.os-page[data-os-layout="booking"] .os-nav--scrolled .os-nav__inner,
+.os-page[data-os-layout="portfolio"] .os-nav--scrolled .os-nav__inner,
+.os-page[data-os-layout="studio"] .os-nav--scrolled .os-nav__inner {
+    max-width: 72rem;
+    padding: 0.4rem 0.5rem 0.4rem 1rem;
+    border-radius: var(--os-radius-pill);
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(16px) saturate(1.15);
+}
+
+.os-page[data-os-layout="portfolio"] .os-nav:not(.os-nav--scrolled) {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), transparent);
+}
+
+.os-nav__cta {
+    border-radius: var(--os-radius-pill);
+    padding-inline: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.os-nav__link {
+    border-radius: var(--os-radius-pill);
+}
+
+/* ── Botones y CTA ────────────────────────────────────────────────────────── */
+
+.os-btn {
+    border-radius: var(--os-radius-pill);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    padding: 0.8125rem 1.625rem;
+    transition:
+        transform 0.25s var(--os-ease, ease),
+        box-shadow 0.25s var(--os-ease, ease),
+        opacity 0.2s ease,
+        background 0.2s ease;
+}
+
+.os-btn--primary {
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.os-btn--primary:hover {
+    opacity: 1;
+    transform: translateY(-1px);
+    box-shadow: 0 14px 36px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.os-float-cta {
+    border-radius: var(--os-radius-pill);
+    font-weight: 600;
+    box-shadow: 0 12px 40px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* ── Secciones: encabezado editorial ─────────────────────────────────────── */
+
+.os-section__header {
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+}
+
+.os-section__label {
+    font-weight: 600;
+    letter-spacing: 0.14em;
+}
+
+.os-section__title {
+    font-weight: 700;
+    letter-spacing: var(--os-display-tracking);
+    line-height: 1.02;
+}
+
+.os-section__lead {
+    font-size: clamp(1rem, 1.6vw, 1.125rem);
+    line-height: 1.7;
+    max-width: 42rem;
+}
+
+/* ── Marquee (portafolio) ─────────────────────────────────────────────────── */
+
+.os-marquee {
+    position: relative;
+    z-index: 3;
+    overflow: hidden;
+    border-block: 1px solid var(--border);
+    background: var(--bg-subtle);
+    padding-block: 0.875rem;
+}
+
+.os-marquee__track {
+    display: flex;
+    width: max-content;
+    gap: 2.5rem;
+    animation: os-marquee-scroll 36s linear infinite;
+    will-change: transform;
+}
+
+.os-marquee__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 2.5rem;
+    font-size: clamp(0.8125rem, 1.4vw, 0.9375rem);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-secondary);
+    white-space: nowrap;
+}
+
+.os-marquee__sep {
+    color: var(--accent);
+    opacity: 0.85;
+}
+
+@keyframes os-marquee-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+/* ── RESERVA — conversión con look agency ─────────────────────────────────── */
+
+.os-page[data-os-layout="booking"]::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.55;
+    background:
+        radial-gradient(ellipse 70% 50% at 10% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 95% 15%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 50%);
+}
+
+.os-page[data-os-layout="booking"] .os-hero__title {
+    font-size: clamp(2.75rem, 6.5vw, 5rem);
+    font-weight: 800;
+    letter-spacing: var(--os-display-tracking);
+    line-height: 0.98;
+}
+
+.os-page[data-os-layout="booking"] .os-hero__headline {
+    font-size: clamp(1rem, 1.8vw, 1.1875rem);
+    line-height: 1.65;
+    max-width: 38rem;
+}
+
+.os-page[data-os-layout="booking"] .os-hero__booking-widget {
+    border-radius: var(--os-radius-modern);
+    border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+    box-shadow:
+        0 24px 60px color-mix(in srgb, #000 12%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.os-page[data-os-layout="booking"] .os-hero__booking-widget::before {
+    height: 3px;
+    border-radius: var(--os-radius-modern) var(--os-radius-modern) 0 0;
+}
+
+.os-page[data-os-layout="booking"] .os-hero__booking-service {
+    border-radius: calc(var(--os-radius-modern) - 0.25rem);
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.os-page[data-os-layout="booking"] .os-hero__booking-service:hover {
+    transform: translateX(3px);
+}
+
+.os-page[data-os-layout="booking"] .os-section--services .os-section__inner {
+    border-radius: calc(var(--os-radius-modern) + 0.25rem);
+    box-shadow: var(--shadow-md);
+}
+
+.os-page[data-os-layout="booking"] .os-section__label::before {
+    content: "— ";
+    color: var(--fg-muted);
+    font-weight: 500;
+}
+
+.os-page[data-os-layout="booking"] .os-service-grid {
+    counter-reset: os-service-index;
+}
+
+.os-page[data-os-layout="booking"] .os-service-card {
+    position: relative;
+    border-radius: var(--os-radius-modern);
+    overflow: hidden;
+    border-color: color-mix(in srgb, var(--border) 90%, transparent);
+    transition: transform 0.35s var(--os-ease, ease), box-shadow 0.35s ease;
+}
+
+.os-page[data-os-layout="booking"] .os-service-card::before {
+    counter-increment: os-service-index;
+    content: counter(os-service-index, decimal-leading-zero);
+    position: absolute;
+    top: 0.875rem;
+    right: 1rem;
+    z-index: 2;
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: color-mix(in srgb, var(--accent) 35%, var(--fg-muted));
+    pointer-events: none;
+}
+
+.os-page[data-os-layout="booking"] .os-service-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg);
+}
+
+.os-page[data-os-layout="booking"] .os-service-card__cta {
+    font-weight: 600;
+}
+
+/* ── PORTAFOLIO — parallax editorial + works ──────────────────────────────── */
+
+.os-page[data-os-layout="portfolio"] .os-hero--portfolio {
+    min-height: 100svh;
+}
+
+.os-page[data-os-layout="portfolio"] .os-hero__cover {
+    animation: os-hero-parallax-zoom 18s ease-in-out infinite alternate;
+    transform: scale(1.12);
+    filter: saturate(0.92) contrast(1.06) brightness(0.92);
+}
+
+@keyframes os-hero-parallax-zoom {
+    from { transform: scale(1.1); }
+    to { transform: scale(1.18); }
+}
+
+.os-page[data-os-layout="portfolio"] .os-hero__overlay {
+    background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.05) 35%, rgba(0, 0, 0, 0.75) 100%);
+}
+
+.os-page[data-os-layout="portfolio"] .os-hero__title {
+    font-size: clamp(3rem, 11vw, 7.5rem);
+    font-weight: 800;
+    letter-spacing: var(--os-display-tracking);
+    line-height: 0.92;
+    text-transform: none;
+}
+
+.os-page[data-os-layout="portfolio"] .os-hero__headline {
+    font-size: clamp(1rem, 2.2vw, 1.375rem);
+    max-width: 32rem;
+    margin-inline: auto;
+    line-height: 1.65;
+}
+
+.os-page[data-os-layout="portfolio"] .os-hero__scroll-hint {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    z-index: 2;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.os-page[data-os-layout="portfolio"] .os-hero__scroll-hint::after {
+    content: "";
+    width: 1px;
+    height: 2.5rem;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7), transparent);
+    animation: os-scroll-line 2s ease-in-out infinite;
+}
+
+@keyframes os-scroll-line {
+    0%, 100% { transform: scaleY(0.6); opacity: 0.5; }
+    50% { transform: scaleY(1); opacity: 1; }
+}
+
+.os-page[data-os-layout="portfolio"] .os-section__label {
+    color: var(--fg-muted);
+    letter-spacing: 0.18em;
+}
+
+.os-page[data-os-layout="portfolio"] .os-section__label::before {
+    content: "{ ";
+    color: var(--accent);
+}
+
+.os-page[data-os-layout="portfolio"] .os-section__label::after {
+    content: " }";
+    color: var(--accent);
+}
+
+.os-page[data-os-layout="portfolio"] .os-section__title {
+    font-size: clamp(2.25rem, 6vw, 4.5rem);
+    font-weight: 800;
+    letter-spacing: var(--os-display-tracking);
+}
+
+.os-page[data-os-layout="portfolio"] .os-section--services {
+    padding-top: var(--os-section-space);
+}
+
+.os-page[data-os-layout="portfolio"] .os-service-scroller {
+    counter-reset: os-service-index;
+}
+
+.os-page[data-os-layout="portfolio"] .os-service-card--carousel {
+    border-radius: var(--os-radius-modern);
+    border: none;
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.os-page[data-os-layout="portfolio"] .os-service-card--carousel::before {
+    counter-increment: os-service-index;
+    content: counter(os-service-index, decimal-leading-zero);
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 3;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+}
+
+.os-page[data-os-layout="portfolio"] .os-service-card--carousel .os-service-card__media {
+    border-radius: var(--os-radius-modern) var(--os-radius-modern) 0 0;
+}
+
+.os-page[data-os-layout="portfolio"] .os-service-card--carousel:hover {
+    transform: translateY(-8px) scale(1.01);
+    box-shadow: var(--shadow-xl);
+}
+
+.os-page[data-os-layout="portfolio"] .os-service-card--carousel .os-service-card__title {
+    font-size: clamp(1.125rem, 2.2vw, 1.5rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.os-page[data-os-layout="portfolio"] .os-about-editorial__quote {
+    font-size: clamp(1.375rem, 3.5vw, 2.125rem);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+}
+
+.os-page[data-os-layout="portfolio"] .os-footer--editorial {
+    padding-block: 3rem;
+    border-top: 1px solid var(--border);
+}
+
+.os-page[data-os-layout="portfolio"] .os-footer__brand {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 800;
+    letter-spacing: var(--os-display-tracking);
+}
+
+/* ── ESTUDIO — personal / consulting minimal ──────────────────────────────── */
+
+.os-page[data-os-layout="studio"] .os-hero__studio-bar {
+    border-radius: var(--os-radius-modern);
+    box-shadow: var(--shadow-md);
+}
+
+.os-page[data-os-layout="studio"] .os-hero__studio-banner {
+    border-radius: var(--os-radius-modern);
+}
+
+.os-page[data-os-layout="studio"] .os-hero__title {
+    font-size: clamp(1.875rem, 4.5vw, 3.25rem);
+    font-weight: 800;
+    letter-spacing: var(--os-display-tracking);
+    line-height: 1;
+}
+
+.os-page[data-os-layout="studio"] .os-section__label {
+    letter-spacing: 0.16em;
+    font-size: 0.625rem;
+}
+
+.os-page[data-os-layout="studio"] .os-section__title {
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    font-weight: 700;
+}
+
+.os-page[data-os-layout="studio"] .os-section {
+    padding-block: clamp(2.5rem, 5vw, 3.5rem);
+}
+
+.os-page[data-os-layout="studio"] .os-bento {
+    gap: 1rem;
+}
+
+.os-page[data-os-layout="studio"] .os-bento__cell {
+    border-radius: var(--os-radius-modern);
+}
+
+.os-page[data-os-layout="studio"] .os-service-card {
+    border-radius: var(--os-radius-modern);
+}
+
+.os-page[data-os-layout="studio"] .os-service-card__cta {
+    border-radius: var(--os-radius-pill);
+    font-weight: 600;
+}
+
+.os-page[data-os-layout="studio"] .os-footer--corporate {
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+}
+
+/* ── Tarjetas contacto / glass ───────────────────────────────────────────── */
+
+.os-contact-card,
+.os-location-card {
+    border-radius: var(--os-radius-modern);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.os-contact-card:hover,
+.os-location-card:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.os-glass {
+    border-radius: var(--os-radius-modern);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .os-marquee__track,
+    .os-page[data-os-layout="portfolio"] .os-hero__cover,
+    .os-page[data-os-layout="portfolio"] .os-hero__scroll-hint::after {
+        animation: none;
+    }
+
+    .os-btn--primary:hover,
+    .os-page[data-os-layout="booking"] .os-service-card:hover,
+    .os-page[data-os-layout="portfolio"] .os-service-card--carousel:hover {
+        transform: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .os-page[data-os-layout="portfolio"] .os-hero__title {
+        font-size: clamp(2.25rem, 12vw, 3.5rem);
+    }
+
+    .os-page[data-os-layout="booking"] .os-nav--scrolled .os-nav__inner,
+    .os-page[data-os-layout="portfolio"] .os-nav--scrolled .os-nav__inner,
+    .os-page[data-os-layout="studio"] .os-nav--scrolled .os-nav__inner {
+        border-radius: 1rem;
+        padding-inline: 0.75rem;
+    }
+}

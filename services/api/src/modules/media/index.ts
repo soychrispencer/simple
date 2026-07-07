@@ -1,6 +1,7 @@
 // Media module - barrel exports
 export { createMediaRouter, createStorageRouter, type MediaRouterDeps, type StorageRouterDeps } from './router.js';
 export { optimizeImageForStorage, type ImageUploadPurpose } from './image-optimize.js';
+export { optimizeVideoForStorage, isVideoOptimizerAvailable } from './video-optimize.js';
 export {
     cleanupReplacedMediaUrl,
     deleteStoredMediaByUrl,

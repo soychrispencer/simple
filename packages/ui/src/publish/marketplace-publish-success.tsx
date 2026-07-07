@@ -21,8 +21,8 @@ export type MarketplacePublishSuccessProps = {
 export function MarketplacePublishSuccess({
     title,
     brandName,
-    headline = 'Tu publicación ya está en línea',
-    description = 'Compártela para llegar más rápido a interesados. Simple siempre es tu canal principal.',
+    headline,
+    description,
     publishedHref,
     onReset,
     onGoToListings,
@@ -30,6 +30,9 @@ export function MarketplacePublishSuccess({
     sharePanel,
     footerNote,
 }: MarketplacePublishSuccessProps) {
+    const resolvedHeadline = headline ?? title;
+    const resolvedDescription = description ?? `Ya está visible en ${brandName}.`;
+
     return (
         <div className="min-h-screen bg-(--bg)">
             <main className="mx-auto max-w-2xl px-4 py-8 lg:px-8 lg:py-12">
@@ -38,14 +41,13 @@ export function MarketplacePublishSuccess({
                         <div className="space-y-3 text-center sm:text-left">
                             <span className="inline-flex items-center gap-2 rounded-full bg-(--accent-subtle) px-3 py-1.5 text-xs font-semibold text-(--accent)">
                                 <IconCircleCheck size={15} />
-                                Publicado en {brandName}
+                                Publicado
                             </span>
                             <div>
                                 <h1 className="text-2xl font-semibold tracking-tight text-(--fg) lg:text-3xl">
-                                    {headline}
+                                    {resolvedHeadline}
                                 </h1>
-                                <p className="mt-2 text-sm text-(--fg-secondary)">{description}</p>
-                                <p className="mt-2 text-sm font-medium text-(--fg)">{title}</p>
+                                <p className="mt-2 text-sm text-(--fg-secondary)">{resolvedDescription}</p>
                             </div>
                         </div>
 

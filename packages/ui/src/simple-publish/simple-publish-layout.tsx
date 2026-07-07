@@ -1,9 +1,9 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { IconArrowLeft, IconLoader2, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconArrowRight, IconCheck, IconDeviceFloppy, IconLoader2, IconRefresh, IconX } from '@tabler/icons-react';
 import { SimplePublishProgress } from './simple-publish-progress';
-import type { SimplePublishHeaderContinue, SimplePublishStep } from './types';
+import type { SimplePublishHeaderContinue, SimplePublishHeaderReset, SimplePublishHeaderSave, SimplePublishStep } from './types';
 
 export type SimplePublishLayoutProps = {
     title: string;
@@ -13,9 +13,13 @@ export type SimplePublishLayoutProps = {
     isEditing?: boolean;
     notices?: ReactNode;
     headerContinue?: SimplePublishHeaderContinue;
+    headerSave?: SimplePublishHeaderSave;
+    headerReset?: SimplePublishHeaderReset;
     headerActions?: ReactNode;
     onBack: () => void;
     onClose: () => void;
+    /** Muestra cerrar (X) además del botón atrás cuando stepIndex > 0. */
+    showCloseOnLaterSteps?: boolean;
     onStepChange?: (key: string) => void;
     children: ReactNode;
 };
@@ -28,10 +32,13 @@ export function SimplePublishLayout({
     isEditing = false,
     notices,
     headerContinue,
+    headerSave,
+    headerReset,
     headerActions,
     onBack,
     onClose,
     onStepChange,
+    showCloseOnLaterSteps = true,
     children,
 }: SimplePublishLayoutProps) {
     const pageTitle = isEditing ? 'Editar publicación' : title;
@@ -59,19 +66,63 @@ export function SimplePublishLayout({
                         ) : null}
                     </div>
 
-                    <div className="flex min-w-[2.5rem] shrink-0 items-center justify-end gap-1">
+                    <div className="flex min-w-[5.5rem] shrink-0 items-center justify-end gap-0.5 sm:gap-1">
+                        {showCloseOnLaterSteps && stepIndex > 0 ? (
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="rounded-xl p-2 text-(--fg) transition-colors hover:bg-(--bg-subtle)"
+                                aria-label="Salir del asistente"
+                            >
+                                <IconX size={22} />
+                            </button>
+                        ) : null}
+                        {headerReset ? (
+                            <button
+                                type="button"
+                                onClick={headerReset.onClick}
+                                disabled={headerReset.disabled || headerReset.loading}
+                                className="rounded-xl p-2 text-(--fg) transition-colors hover:bg-(--bg-subtle) disabled:opacity-40"
+                                aria-label={headerReset.ariaLabel ?? 'Reiniciar borrador'}
+                            >
+                                {headerReset.loading ? (
+                                    <IconLoader2 size={22} className="animate-spin" />
+                                ) : (
+                                    <IconRefresh size={22} />
+                                )}
+                            </button>
+                        ) : null}
+                        {headerSave ? (
+                            <button
+                                type="button"
+                                onClick={headerSave.onClick}
+                                disabled={headerSave.disabled || headerSave.loading}
+                                className="rounded-xl p-2 text-(--fg) transition-colors hover:bg-(--bg-subtle) disabled:opacity-40"
+                                aria-label={headerSave.ariaLabel ?? 'Guardar borrador'}
+                            >
+                                {headerSave.loading ? (
+                                    <IconLoader2 size={22} className="animate-spin" />
+                                ) : (
+                                    <IconDeviceFloppy size={22} />
+                                )}
+                            </button>
+                        ) : null}
                         {headerActions}
                         {headerContinue ? (
                             <button
                                 type="button"
-                                className="hidden rounded-xl px-3 py-2 text-sm font-medium text-(--accent) transition hover:bg-(--accent-subtle)/40 disabled:opacity-40 lg:inline-flex lg:items-center lg:gap-1.5"
+                                className="-mr-2 rounded-xl p-2 text-(--fg) transition-colors hover:bg-(--bg-subtle) disabled:opacity-40"
                                 onClick={headerContinue.onClick}
                                 disabled={headerContinue.disabled || headerContinue.loading}
+                                aria-label={headerContinue.label}
                             >
                                 {headerContinue.loading ? (
-                                    <IconLoader2 size={15} className="animate-spin" />
-                                ) : null}
-                                {headerContinue.label}
+                                    <IconLoader2 size={22} className="animate-spin" />
+                                ) : headerContinue.icon === 'check' ? (
+                                    <IconCheck size={22} />
+                                ) : (
+                                    <IconArrowRight size={22} />
+                                )}
                             </button>
                         ) : null}
                     </div>

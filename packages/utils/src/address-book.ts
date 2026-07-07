@@ -33,6 +33,35 @@ function addressBookPath(options?: { scope?: AddressBookScope; vertical?: Addres
     return query ? `/api/address-book?${query}` : '/api/address-book';
 }
 
+/** Libreta para publicar: negocio (vertical) + personal, negocio primero. */
+export async function fetchPublishAddressBook(
+    vertical: AddressBookBusinessVertical,
+): Promise<{ ok: boolean; items: AddressBookEntry[]; error?: string }> {
+    const [businessResult, personalResult] = await Promise.all([
+        fetchAddressBook({ scope: 'business', vertical }),
+        fetchAddressBook({ scope: 'personal' }),
+    ]);
+    const items = [...businessResult.items, ...personalResult.items];
+    return {
+        ok: businessResult.ok && personalResult.ok,
+        items,
+        error: businessResult.error || personalResult.error,
+    };
+}
+
+export function pickDefaultPublishAddress(
+    entries: AddressBookEntry[],
+    vertical?: AddressBookBusinessVertical,
+): AddressBookEntry | null {
+    const business = entries.filter((entry) => entry.scope === 'business' && (
+        !vertical || entry.vertical === vertical || entry.vertical == null
+    ));
+    const personal = entries.filter((entry) => entry.scope === 'personal');
+    const businessDefault = business.find((entry) => entry.isDefault) ?? business[0];
+    if (businessDefault) return businessDefault;
+    return personal.find((entry) => entry.isDefault) ?? personal[0] ?? null;
+}
+
 export async function fetchAddressBook(options?: {
     scope?: AddressBookScope;
     vertical?: AddressBookBusinessVertical;

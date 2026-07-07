@@ -1,10 +1,17 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
+import {
+    PUBLISH_VIDEO_MAX_BYTES,
+    PUBLISH_VIDEO_MAX_SIZE_MB,
+    PUBLISH_VIDEO_MAX_SOURCE_SIZE_MB,
+    PUBLISH_VIDEO_MAX_UPLOAD_BYTES,
+} from '@simple/utils';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { logger } from '@simple/logger';
 import { readUploadBuffer } from '../../storage-providers/file-buffer.js';
 import { optimizeImageForStorage, type ImageUploadPurpose } from './image-optimize.js';
+import { optimizeVideoForStorage } from './video-optimize.js';
 
 export interface MediaRouterDeps {
     authUser: (c: Context) => Promise<any>;
@@ -90,8 +97,8 @@ export function createMediaRouter(deps: MediaRouterDeps) {
         }
     });
 
-    // Subir archivos (requiere autenticación) — 50MB limit para videos
-    app.post('/upload', bodyLimit({ maxSize: 50 * 1024 * 1024 }), requireVerifiedSession, async (c) => {
+    // Subir archivos (requiere autenticación) — límite alineado con clip de publicación
+    app.post('/upload', bodyLimit({ maxSize: PUBLISH_VIDEO_MAX_UPLOAD_BYTES }), requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) {
             logDebug(`[AUTH FAIL] /api/media/upload - user not found`);
@@ -120,17 +127,18 @@ export function createMediaRouter(deps: MediaRouterDeps) {
             }
 
             // Validar tamaño máximo según tipo
-            const MAX_VIDEO_SIZE_MB = 50; // 50MB máximo para videos de 30 seg
+            const MAX_VIDEO_SOURCE_SIZE_MB = PUBLISH_VIDEO_MAX_SOURCE_SIZE_MB;
+            const MAX_VIDEO_STORED_SIZE_MB = PUBLISH_VIDEO_MAX_SIZE_MB;
             const MAX_RAW_IMAGE_SIZE_MB = 40; // entrada cruda (cámara); se optimiza a WebP antes de guardar
             const MAX_STORED_IMAGE_SIZE_MB = 10; // límite del archivo ya optimizado en storage
             const MAX_DOCUMENT_SIZE_MB = 20; // 20MB para documentos
             
             const fileSizeMB = (file.size || 0) / (1024 * 1024);
             
-            if (fileType === 'video' && fileSizeMB > MAX_VIDEO_SIZE_MB) {
+            if (fileType === 'video' && fileSizeMB > MAX_VIDEO_SOURCE_SIZE_MB) {
                 return c.json({ 
                     ok: false, 
-                    error: `Video demasiado grande (${fileSizeMB.toFixed(1)}MB). Máximo permitido: ${MAX_VIDEO_SIZE_MB}MB para videos de máximo 30 segundos.` 
+                    error: `Video demasiado grande (${fileSizeMB.toFixed(1)}MB). Máximo de origen: ${MAX_VIDEO_SOURCE_SIZE_MB}MB. Se comprimirá automáticamente al subir.` 
                 }, 400);
             }
             if (fileType === 'image' && fileSizeMB > MAX_RAW_IMAGE_SIZE_MB) {
@@ -166,6 +174,23 @@ export function createMediaRouter(deps: MediaRouterDeps) {
                 uploadFile = new Blob([new Uint8Array(optimized.buffer)], { type: optimized.mimeType });
                 uploadFileName = optimized.fileName;
                 uploadMimeType = optimized.mimeType;
+            }
+
+            if (fileType === 'video') {
+                logDebug('[UPLOAD VIDEO] Optimizing clip for reel storage...');
+                const sourceBuffer = await readUploadBuffer(file);
+                const optimized = await optimizeVideoForStorage(sourceBuffer, uploadFileName);
+                const optimizedSizeMB = optimized.buffer.length / (1024 * 1024);
+                if (optimized.buffer.length > PUBLISH_VIDEO_MAX_BYTES) {
+                    return c.json({
+                        ok: false,
+                        error: `El video optimizado sigue siendo demasiado grande (${optimizedSizeMB.toFixed(1)}MB). Máximo permitido: ${MAX_VIDEO_STORED_SIZE_MB}MB.`,
+                    }, 400);
+                }
+                uploadFile = new Blob([new Uint8Array(optimized.buffer)], { type: optimized.mimeType });
+                uploadFileName = optimized.fileName;
+                uploadMimeType = optimized.mimeType;
+                logDebug(`[UPLOAD VIDEO] Optimized to ${optimizedSizeMB.toFixed(1)}MB`);
             }
 
             logDebug(`[UPLOAD CALL] Calling storage.upload...`);

@@ -1,45 +1,26 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { IconCheck, IconLoader2 } from '@tabler/icons-react';
 import {
     OPERATOR_SITE_ACCENT_OPTIONS,
     OPERATOR_SITE_COLOR_MODE_OPTIONS,
     OPERATOR_SITE_LAYOUT_OPTIONS,
-    type OperatorSiteAccentColor,
+    defaultOperatorSiteAccentEditorValue,
+    normalizeOperatorSiteAccentHex,
+    type OperatorSiteAccentEditorValue,
     type OperatorSiteColorMode,
     type OperatorSiteLayout,
 } from '@simple/utils';
 import { PanelBlockHeader, PanelNotice } from './panel-primitives.js';
 import { PanelCard } from './panel-card.js';
 import { PanelButton } from './panel-button.js';
+import { OperatorSiteLayoutPreview } from './operator-site-layout-preview.js';
 
 export type OperatorSiteAppearanceValue = {
     layout: OperatorSiteLayout;
     colorMode: OperatorSiteColorMode;
-    accentColor: OperatorSiteAccentColor;
-};
-
-const LAYOUT_PREVIEW_STYLES: Record<OperatorSiteLayout, CSSProperties> = {
-    booking: {
-        background: `
-            linear-gradient(to right, transparent 52%, rgba(13, 148, 136, 0.55) 52%),
-            linear-gradient(to top, rgba(13, 148, 136, 0.35), transparent 50%),
-            linear-gradient(145deg, #1e293b, #0f172a)`,
-    },
-    portfolio: {
-        background: `
-            radial-gradient(circle at 50% 38%, rgba(13, 148, 136, 0.45), transparent 42%),
-            repeating-linear-gradient(90deg, transparent, transparent 30%, rgba(255,255,255,0.14) 30%, rgba(255,255,255,0.14) 34%),
-            linear-gradient(180deg, var(--bg-subtle), var(--bg))`,
-    },
-    studio: {
-        background: `
-            linear-gradient(90deg, #e4e4e7 0%, #e4e4e7 50%, #d4d4d8 50%, #d4d4d8 100%),
-            linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%)`,
-        backgroundSize: '100% 58%, 100% 100%',
-        backgroundRepeat: 'no-repeat',
-    },
+    accent: OperatorSiteAccentEditorValue;
 };
 
 type OperatorSiteAppearanceEditorProps = {
@@ -49,7 +30,7 @@ type OperatorSiteAppearanceEditorProps = {
     saveError?: string;
     onChange: (next: OperatorSiteAppearanceValue) => void;
     onSave: () => void | Promise<void>;
-    /** Oculta el botón inline; usar PanelSectionSaveFooter en la página. */
+    /** Oculta el botón inline; la página usa PanelSectionSaveFooter. */
     hideSaveButton?: boolean;
 };
 
@@ -89,16 +70,61 @@ export function OperatorSiteAppearanceEditor({
         onChange({ ...value, colorMode });
     };
 
-    const handleSelectAccent = (accentColor: OperatorSiteAccentColor) => {
+    const handleSelectAccent = (preset: OperatorSiteAccentEditorValue['preset']) => {
         setLocalSaveError('');
-        onChange({ ...value, accentColor });
+        if (preset === 'custom') {
+            onChange({
+                ...value,
+                accent: {
+                    preset: 'custom',
+                    customHex: value.accent.customHex || defaultOperatorSiteAccentEditorValue().customHex,
+                },
+            });
+            return;
+        }
+        const option = OPERATOR_SITE_ACCENT_OPTIONS.find((item) => item.id === preset);
+        onChange({
+            ...value,
+            accent: {
+                preset,
+                customHex: option?.value ?? value.accent.customHex,
+            },
+        });
     };
+
+    const handleCustomHexChange = (raw: string) => {
+        setLocalSaveError('');
+        onChange({
+            ...value,
+            accent: { preset: 'custom', customHex: raw },
+        });
+    };
+
+    const handleCustomHexBlur = () => {
+        const normalized = normalizeOperatorSiteAccentHex(value.accent.customHex);
+        if (!normalized) {
+            onChange({
+                ...value,
+                accent: defaultOperatorSiteAccentEditorValue(),
+            });
+            return;
+        }
+        onChange({
+            ...value,
+            accent: { preset: 'custom', customHex: normalized },
+        });
+    };
+
+    const customHexForPicker = normalizeOperatorSiteAccentHex(value.accent.customHex)
+        ?? defaultOperatorSiteAccentEditorValue().customHex;
+
+    const isCustomAccent = value.accent.preset === 'custom';
 
     return (
         <div className="space-y-6">
             <PanelBlockHeader
                 title="Estilo de tu página"
-                description="Elige un diseño, modo de color y acento. Usa Guardar cambios al final de la página."
+                description="Elige un diseño, modo de color y acento. Recuerda guardar con el botón Guardar cambios."
             />
 
             <div className="grid gap-4 lg:grid-cols-3">
@@ -113,16 +139,13 @@ export function OperatorSiteAppearanceEditor({
                                 ? 'border-[var(--accent)] ring-2 ring-[var(--accent-subtle)]'
                                 : 'border-[var(--border)] hover:border-[var(--accent-border)]'}`}
                         >
-                            <div
-                                className="mb-3 h-24 rounded-xl border border-[var(--border)]"
-                                style={LAYOUT_PREVIEW_STYLES[option.id]}
-                                aria-hidden
-                            />
+                            <OperatorSiteLayoutPreview layout={option.id} />
                             <div className="flex items-start justify-between gap-2">
                                 <div>
                                     <p className="font-semibold text-sm text-fg">{option.label}</p>
                                     <p className="text-xs text-fg-secondary mt-1 leading-relaxed">{option.description}</p>
-                                    <p className="text-[11px] text-fg-muted mt-2">{option.hint}</p>
+                                    <p className="text-[11px] font-medium text-fg mt-2">{option.structure}</p>
+                                    <p className="text-[11px] text-fg-muted mt-1">{option.hint}</p>
                                 </div>
                                 {active ? <IconCheck size={18} className="text-[var(--accent)] shrink-0" /> : null}
                             </div>
@@ -162,29 +185,81 @@ export function OperatorSiteAppearanceEditor({
                     description="Color principal de botones, links y elementos destacados de tu página."
                     className="mb-0"
                 />
-                <div className="flex flex-wrap gap-3">
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
                     {OPERATOR_SITE_ACCENT_OPTIONS.map((option) => {
-                        const active = value.accentColor === option.id;
+                        const active = !isCustomAccent && value.accent.preset === option.id;
                         return (
                             <button
                                 key={option.id}
                                 type="button"
                                 onClick={() => handleSelectAccent(option.id)}
-                                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium border transition-all ${active
+                                className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 transition-all ${active
                                     ? 'border-[var(--accent)] ring-2 ring-[var(--accent-subtle)]'
                                     : 'border-[var(--border)] hover:border-[var(--accent-border)]'}`}
                                 title={option.label}
                             >
                                 <span
-                                    className="w-4 h-4 rounded-full shrink-0"
+                                    className="h-8 w-8 rounded-full shrink-0 border border-black/10"
                                     style={{ backgroundColor: option.value }}
                                     aria-hidden
                                 />
-                                {option.label}
+                                <span className="text-[10px] font-medium text-fg-secondary leading-tight text-center">
+                                    {option.label}
+                                </span>
                             </button>
                         );
                     })}
+                    <button
+                        type="button"
+                        onClick={() => handleSelectAccent('custom')}
+                        className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 transition-all ${isCustomAccent
+                            ? 'border-[var(--accent)] ring-2 ring-[var(--accent-subtle)]'
+                            : 'border-[var(--border)] hover:border-[var(--accent-border)]'}`}
+                        title="Personalizado"
+                    >
+                        <span
+                            className="h-8 w-8 rounded-full shrink-0 border border-dashed border-[var(--border-strong)]"
+                            style={{
+                                background: isCustomAccent
+                                    ? customHexForPicker
+                                    : 'conic-gradient(from 0deg, #ef4444, #f59e0b, #22c55e, #3b82f6, #a855f7, #ef4444)',
+                            }}
+                            aria-hidden
+                        />
+                        <span className="text-[10px] font-medium text-fg-secondary leading-tight text-center">
+                            Personalizado
+                        </span>
+                    </button>
                 </div>
+
+                {isCustomAccent ? (
+                    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-fg">
+                            <span className="sr-only">Selector de color</span>
+                            <input
+                                type="color"
+                                value={customHexForPicker}
+                                onChange={(event) => handleCustomHexChange(event.target.value.toUpperCase())}
+                                className="h-10 w-10 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent p-0.5"
+                            />
+                            Código hex
+                        </label>
+                        <input
+                            type="text"
+                            value={value.accent.customHex}
+                            onChange={(event) => handleCustomHexChange(event.target.value)}
+                            onBlur={handleCustomHexBlur}
+                            placeholder="#0F766E"
+                            spellCheck={false}
+                            className="min-w-[7.5rem] flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-fg"
+                        />
+                        <span
+                            className="h-10 w-10 shrink-0 rounded-lg border border-[var(--border)]"
+                            style={{ backgroundColor: customHexForPicker }}
+                            aria-hidden
+                        />
+                    </div>
+                ) : null}
             </PanelCard>
 
             {publicPreviewUrl ? (

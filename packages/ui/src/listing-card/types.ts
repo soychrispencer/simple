@@ -23,7 +23,7 @@ export type ListingEngagement = {
     listedSinceLabel?: string;
 };
 
-export type ListingBadgeTone = 'success' | 'warning' | 'info' | 'danger' | 'neutral';
+export type ListingBadgeTone = 'success' | 'warning' | 'info' | 'danger' | 'neutral' | 'accent';
 
 export type ListingBadge = {
     label: string;

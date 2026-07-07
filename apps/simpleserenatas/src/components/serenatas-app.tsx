@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { panelPathFromSection, isMiNegocioPanelSection } from '@/lib/panel-routes';
+import { panelPathFromSection, usesOwnPanelPageShell } from '@/lib/panel-routes';
 import { PanelButton, PanelConfirmProvider, PanelNotice } from '@simple/ui/panel';
 
 import { useAuth, EmailVerificationGate } from '@simple/auth';
@@ -11,8 +11,7 @@ import { useSerenata, type Section } from '@/context/serenata-context';
 import { ScreenShell } from '@/components/layout/screen-shell';
 import { PublicLanding } from '@/components/auth/public-landing';
 import { PanelContent } from '@/components/panel/panel-content';
-import { SerenataPanelShell } from '@/components/panel/panel-shell';
-import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
+import { SerenatasPanelChrome } from '@/components/panel/serenatas-panel-chrome';
 
 import { suspendedAccountNotice } from '@/lib/suspended-notice';
 import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
@@ -90,7 +89,9 @@ export function SerenatasApp() {
 
     const isSuspended = user?.status === 'suspended';
     const isPanelRoute = pathname.startsWith('/panel');
-    const miNegocioUsesOwnShell = isMiNegocioPanelSection(section);
+    const usesOwnPageShell = usesOwnPanelPageShell(section);
+    const hasPanelNotices =
+        isSuspended || checkoutStatus.loading || checkoutStatus.ok || checkoutStatus.error;
 
     const panelNotices = (
         <>
@@ -218,27 +219,14 @@ export function SerenatasApp() {
 
     return (
         <PanelConfirmProvider>
-        <div className="flex min-h-screen min-w-0 flex-col bg-(--bg) text-(--fg)">
-            <SerenatasChromeHeader mode={mode} profiles={profiles} />
-
-            <SerenataPanelShell section={section} onSectionChange={changeSection}>
-                {miNegocioUsesOwnShell ? (
-                    <>
-                        {isSuspended || checkoutStatus.loading || checkoutStatus.ok || checkoutStatus.error ? (
-                            <div className="container-app panel-page min-w-0 pt-4 lg:pt-8">
-                                {panelNotices}
-                            </div>
-                        ) : null}
-                        {panelContent}
-                    </>
-                ) : (
-                    <div className="container-app panel-page min-w-0 py-4 lg:py-8">
-                        {panelNotices}
-                        {panelContent}
-                    </div>
-                )}
-            </SerenataPanelShell>
-        </div>
+            <SerenatasPanelChrome
+                section={section}
+                onSectionChange={changeSection}
+                shellOwned={usesOwnPageShell}
+                notices={hasPanelNotices ? panelNotices : undefined}
+            >
+                {panelContent}
+            </SerenatasPanelChrome>
         </PanelConfirmProvider>
     );
 }

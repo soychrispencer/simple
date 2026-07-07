@@ -15,7 +15,7 @@ export type PanelSectionSaveFooterProps = {
     savingLabel?: string;
 };
 
-/** Barra sticky unificada para guardar secciones del panel (Mi negocio, configuraciones, etc.). */
+/** Barra de acciones para guardar secciones del panel (flujo normal, sin sticky). */
 export function PanelSectionSaveFooter({
     saving = false,
     saved = false,
@@ -27,7 +27,7 @@ export function PanelSectionSaveFooter({
     savingLabel = 'Guardando…',
 }: PanelSectionSaveFooterProps) {
     return (
-        <div className="panel-section-save-footer sticky z-10 flex flex-col gap-3 rounded-2xl border border-(--border) bg-(--surface) p-3 shadow-sm sm:flex-row sm:items-center sm:justify-end lg:bottom-3">
+        <div className="panel-section-save-footer flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-end">
             {saveError ? (
                 <p className="flex items-center gap-1.5 text-sm text-(--color-error,#dc2626) sm:mr-auto">
                     <IconAlertCircle size={14} className="shrink-0" />

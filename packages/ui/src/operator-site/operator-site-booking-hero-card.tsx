@@ -16,7 +16,7 @@ export function OperatorSiteBookingHeroCard({
     const services = catalog.services.slice(0, 3);
 
     return (
-        <div className="os-hero__booking-widget os-glass">
+        <div className="os-hero__booking-widget">
             <p className="os-hero__booking-label">Reserva online</p>
             <p className="os-hero__booking-hint">Elige un servicio y agenda en minutos.</p>
 

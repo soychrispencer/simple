@@ -1238,6 +1238,10 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
                 subscriptionPrice: 0,
                 trialEndsAt: defaultSerenataTrialEndsAt(),
             }).returning())[0];
+            if (!existingOwner) {
+                await tx.delete(serenataMusicians).where(eq(serenataMusicians.userId, application.userId));
+                await tx.delete(serenataClients).where(eq(serenataClients.userId, application.userId));
+            }
             const slug = await uniqueSlug(application.name);
             const location = resolvedSerenataGroupLocation({
                 region: application.region,

@@ -126,7 +126,7 @@ export const BUSINESS_BRAND_IMAGES_SECTION = {
 } as const;
 
 export const BUSINESS_BRAND_IMAGES_HINT =
-    'Logo y portada se guardan solas al subirlas. Sugerencia: portada 16:9 (1600×900 px) y logo cuadrado 512×512 px.';
+    'Aceptamos JPG, PNG, WebP, HEIC y más (hasta 40 MB). Se optimizan automáticamente a WebP al subir. Sugerencia: portada 16:9 (1600×900 px) y logo cuadrado 512×512 px.';
 
 export type BusinessProfileSaveSection = 'pagina' | 'datos' | 'horarios';
 
@@ -298,7 +298,7 @@ export const BUSINESS_OPERATIONAL_ALERTS_BROWSER_SUBSECTION = {
 
 export const BUSINESS_OPERATIONAL_ALERTS_EMAIL_SUBSECTION = {
     title: 'Por correo electrónico',
-    description: 'Correos a tu cuenta cuando no estés en el panel. Requieren Guardar cambios al final de la página.',
+    description: 'Correos a tu cuenta cuando no estés en el panel. Usa Guardar cambios para aplicarlos.',
 } as const;
 
 export const BUSINESS_CONFIGURACIONES_PAGE = {

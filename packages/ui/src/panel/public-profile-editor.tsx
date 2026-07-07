@@ -43,10 +43,11 @@ import {
     buildTypicalMarketplaceBusinessHours,
     DEFAULT_OPERATOR_SITE_LAYOUT,
     DEFAULT_OPERATOR_SITE_COLOR_MODE,
-    DEFAULT_OPERATOR_SITE_ACCENT,
+    defaultOperatorSiteAccentEditorValue,
+    parseOperatorSiteAccent,
+    serializeOperatorSiteAccent,
     normalizeOperatorSiteLayout,
     normalizeOperatorSiteColorMode,
-    normalizeOperatorSiteAccent,
 } from '@simple/utils';
 import type { AddressBookEntry } from '@simple/types';
 import { PanelButton } from './panel-button.js';
@@ -237,12 +238,12 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
     const [appearanceValue, setAppearanceValue] = useState<OperatorSiteAppearanceValue>({
         layout: DEFAULT_OPERATOR_SITE_LAYOUT,
         colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
-        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+        accent: defaultOperatorSiteAccentEditorValue(),
     });
     const [appearanceBaseline, setAppearanceBaseline] = useState<OperatorSiteAppearanceValue>({
         layout: DEFAULT_OPERATOR_SITE_LAYOUT,
         colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
-        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+        accent: defaultOperatorSiteAccentEditorValue(),
     });
 
     useEffect(() => {
@@ -260,7 +261,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                 const appearance = {
                     layout: normalizeOperatorSiteLayout((response.profile as Record<string, unknown>).operatorSiteLayout as string),
                     colorMode: normalizeOperatorSiteColorMode((response.profile as Record<string, unknown>).operatorSiteColorMode as string),
-                    accentColor: normalizeOperatorSiteAccent((response.profile as Record<string, unknown>).operatorSiteAccentColor as string),
+                    accent: parseOperatorSiteAccent((response.profile as Record<string, unknown>).operatorSiteAccentColor as string),
                 };
                 setAppearanceValue(appearance);
                 setAppearanceBaseline(appearance);
@@ -529,12 +530,16 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                     updateForm('coverImageUrl', nextCover);
                     void persistBrandImages(form.avatarImageUrl ?? null, nextCover, 'cover');
                 }}
-                onUploadLogo={async (_file, croppedBlob) => {
-                    const uploadFile = new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
+                onUploadLogo={async (file, croppedBlob) => {
+                    const uploadFile = croppedBlob === file
+                        ? file
+                        : new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
                     return uploadPublicProfileImage('logo', uploadFile);
                 }}
-                onUploadCover={async (_file, croppedBlob) => {
-                    const uploadFile = new File([croppedBlob], 'cover.webp', { type: 'image/webp' });
+                onUploadCover={async (file, croppedBlob) => {
+                    const uploadFile = croppedBlob === file
+                        ? file
+                        : new File([croppedBlob], 'cover.webp', { type: 'image/webp' });
                     return uploadPublicProfileImage('cover', uploadFile);
                 }}
                 onError={(message) => setNotice(message)}
@@ -727,7 +732,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
             ...form,
             operatorSiteLayout: appearanceValue.layout,
             operatorSiteColorMode: appearanceValue.colorMode,
-            operatorSiteAccentColor: appearanceValue.accentColor,
+            operatorSiteAccentColor: serializeOperatorSiteAccent(appearanceValue.accent),
         };
         const response = await updateAccountPublicProfile(
             vertical,
@@ -743,7 +748,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
         const nextAppearance = {
             layout: normalizeOperatorSiteLayout((response.profile as Record<string, unknown>).operatorSiteLayout as string),
             colorMode: normalizeOperatorSiteColorMode((response.profile as Record<string, unknown>).operatorSiteColorMode as string),
-            accentColor: normalizeOperatorSiteAccent((response.profile as Record<string, unknown>).operatorSiteAccentColor as string),
+            accent: parseOperatorSiteAccent((response.profile as Record<string, unknown>).operatorSiteAccentColor as string),
         };
         setAppearanceValue(nextAppearance);
         setAppearanceBaseline(nextAppearance);

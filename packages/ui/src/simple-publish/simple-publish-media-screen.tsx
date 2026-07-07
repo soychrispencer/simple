@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { SimplePublishRequiredMark } from './simple-publish-field';
 import { SimplePublishPhotoGrid, type SimplePublishPhoto } from './simple-publish-photo-grid';
 import { SimplePublishSurface } from './simple-publish-surface';
 
@@ -9,6 +10,7 @@ export type SimplePublishMediaScreenProps = {
     maxPhotos?: number;
     recommendedPhotos?: number;
     photoError?: string;
+    photoInvalid?: boolean;
     onAddFiles: (files: FileList) => void;
     onRemovePhoto: (id: string) => void;
     onReorderPhotos: (photos: SimplePublishPhoto[]) => void;
@@ -20,6 +22,7 @@ export function SimplePublishMediaScreen({
     maxPhotos,
     recommendedPhotos,
     photoError,
+    photoInvalid,
     onAddFiles,
     onRemovePhoto,
     onReorderPhotos,
@@ -28,12 +31,16 @@ export function SimplePublishMediaScreen({
     return (
         <div className="space-y-4">
             <SimplePublishSurface>
-                <label className="mb-3 block text-sm font-medium text-(--fg)">Fotos y portada *</label>
+                <label className="mb-3 block text-sm font-medium text-(--fg)">
+                    Fotos y portada
+                    <SimplePublishRequiredMark />
+                </label>
                 <SimplePublishPhotoGrid
                     photos={photos}
                     maxPhotos={maxPhotos}
                     recommendedPhotos={recommendedPhotos}
                     error={photoError}
+                    invalid={photoInvalid}
                     onAddFiles={onAddFiles}
                     onRemovePhoto={onRemovePhoto}
                     onReorderPhotos={onReorderPhotos}

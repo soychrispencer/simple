@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AddressBookEntry, ListingLocation, ListingLocationKind, ListingLocationVisibilityMode } from '@simple/types';
@@ -16,8 +16,11 @@ import {
     createEmptyGeoPoint,
     createGooglePlacesAutocomplete,
     fieldError,
+    fieldInvalid,
+    joinClasses,
     addressSummary,
     buildLocationQuery,
+    buildSavedAddressSelectOptions,
     GoogleMapIcon,
     ShareIcon,
     type FieldErrorMap,
@@ -59,6 +62,8 @@ export type ListingLocationEditorProps = {
     showArrivalInstructions?: boolean;
     /** En simpleMode: selector «Usar dirección» de la libreta. */
     showSavedAddressPicker?: boolean;
+    /** Filtra direcciones de negocio por vertical al armar el selector. */
+    publishVertical?: 'autos' | 'propiedades' | 'serenatas';
     visibilityOptions?: VisibilityOption[];
     geocoding?: boolean;
     googleMapsApiKey?: string;
@@ -204,6 +209,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         addressHintMode = 'default',
         showSavedAddressPicker = simpleMode,
         showArrivalInstructions = false,
+        publishVertical,
         visibilityOptions = DEFAULT_VISIBILITY_OPTIONS,
         geocoding = false,
         googleMapsApiKey,
@@ -325,10 +331,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
     const savedAddressSelectValue = location.sourceMode === 'saved_address' && location.sourceAddressId
         ? location.sourceAddressId
         : '__new__';
-    const savedAddressOptions = [
-        { value: '__new__', label: 'Nueva dirección' },
-        ...addressBook.map((item) => ({ value: item.id, label: addressSummary(item) })),
-    ];
+    const savedAddressOptions = buildSavedAddressSelectOptions(addressBook, publishVertical);
     const regionField = (
         <Field label="Región" required error={fieldError(errors, 'regionId')}>
             <StyledSelect value={location.regionId || ''} onChange={(nextValue) => onChange(patchListingLocation(location, {
@@ -339,7 +342,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                 sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
                 sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
                 ...clearResolvedGeo(location),
-            }))} options={regions} />
+            }))} options={regions} invalid={fieldInvalid(errors, 'regionId')} />
         </Field>
     );
     const communeField = (
@@ -356,6 +359,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                 disabled={!location.regionId}
                 placeholder={location.regionId ? 'Seleccionar' : 'Primero región'}
                 options={communes}
+                invalid={fieldInvalid(errors, 'communeId')}
             />
         </Field>
     );
@@ -426,7 +430,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                     <div className="flex items-center gap-2">
                         <input
                             ref={addressInputRef}
-                            className="form-input min-w-0 flex-1"
+                            className={joinClasses('form-input min-w-0 flex-1', fieldInvalid(errors, 'addressLine1') && 'form-input-error')}
                             value={location.addressLine1 || ''}
                             autoComplete="off"
                             onChange={(event) => onChange(patchListingLocation(location, {
@@ -452,7 +456,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                     <div className="flex flex-col gap-2 md:flex-row md:items-center">
                         <input
                             ref={addressInputRef}
-                            className="form-input"
+                            className={joinClasses('form-input', fieldInvalid(errors, 'addressLine1') && 'form-input-error')}
                             style={{ flex: 1 }}
                             value={location.addressLine1 || ''}
                             autoComplete="street-address"
@@ -593,7 +597,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                         value={location.sourceAddressId || ''}
                         placeholder={addressBookLoading ? 'Cargando...' : 'Seleccionar'}
                         disabled={addressBookLoading || addressBook.length === 0}
-                        options={addressBook.map((item) => ({ value: item.id, label: addressSummary(item) }))}
+                        options={buildSavedAddressSelectOptions(addressBook, publishVertical)}
                         onChange={(nextValue) => {
                         const nextAddress = addressBook.find((item) => item.id === nextValue);
                         if (!nextAddress) return;

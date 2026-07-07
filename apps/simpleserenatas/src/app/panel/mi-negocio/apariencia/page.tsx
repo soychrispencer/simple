@@ -15,9 +15,9 @@ import {
     businessBrandImageSavedMessage,
 } from '@simple/ui/panel';
 import {
-    DEFAULT_OPERATOR_SITE_ACCENT,
     DEFAULT_OPERATOR_SITE_COLOR_MODE,
     DEFAULT_OPERATOR_SITE_LAYOUT,
+    defaultOperatorSiteAccentEditorValue,
 } from '@simple/utils';
 import { useProviderGroupScope } from '@/hooks/use-provider-group-scope';
 import { MiNegocioPublishToggle } from '@/components/panel/mi-negocio-publish-toggle';
@@ -32,12 +32,12 @@ export default function AparienciaPage() {
     const [value, setValue] = useState<OperatorSiteAppearanceValue>({
         layout: DEFAULT_OPERATOR_SITE_LAYOUT,
         colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
-        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+        accent: defaultOperatorSiteAccentEditorValue(),
     });
     const [baseline, setBaseline] = useState<OperatorSiteAppearanceValue>({
         layout: DEFAULT_OPERATOR_SITE_LAYOUT,
         colorMode: DEFAULT_OPERATOR_SITE_COLOR_MODE,
-        accentColor: DEFAULT_OPERATOR_SITE_ACCENT,
+        accent: defaultOperatorSiteAccentEditorValue(),
     });
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);

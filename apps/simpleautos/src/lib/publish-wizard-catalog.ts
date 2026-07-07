@@ -1804,6 +1804,41 @@ export function getVersionsForModel(
         .sort((a, b) => a.name.localeCompare(b.name, 'es'));
 }
 
+export function resolveCatalogBrandId(
+    catalog: PublishWizardCatalog,
+    vehicleType: VehicleCatalogType,
+    raw: string | null | undefined,
+): string {
+    const value = raw?.trim();
+    if (!value) return '';
+    const normalized = value.toLowerCase();
+    const brands = getBrandsForVehicleType(catalog, vehicleType);
+    const byId = brands.find((brand) => brand.id === normalized);
+    if (byId) return byId.id;
+    const byName = brands.find((brand) => brand.name.toLowerCase() === normalized);
+    if (byName) return byName.id;
+    const byNormalizedName = brands.find((brand) => normalizeCatalogText(brand.name) === normalizeCatalogText(value));
+    return byNormalizedName?.id ?? '';
+}
+
+export function resolveCatalogModelId(
+    catalog: PublishWizardCatalog,
+    brandId: string,
+    vehicleType: VehicleCatalogType,
+    raw: string | null | undefined,
+): string {
+    const value = raw?.trim();
+    if (!value || !brandId) return '';
+    const normalized = value.toLowerCase();
+    const models = getModelsForBrand(catalog, brandId, vehicleType);
+    const byId = models.find((model) => model.id === normalized);
+    if (byId) return byId.id;
+    const byName = models.find((model) => model.name.toLowerCase() === normalized);
+    if (byName) return byName.id;
+    const byNormalizedName = models.find((model) => normalizeCatalogText(model.name) === normalizeCatalogText(value));
+    return byNormalizedName?.id ?? '';
+}
+
 export function getCommunesForRegion(catalog: PublishWizardCatalog, regionId: string): CatalogCommune[] {
     if (!regionId) return [];
     return catalog.communes

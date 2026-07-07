@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { IconArrowsSort, IconGridDots, IconList, IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
@@ -10,6 +9,7 @@ import { ModernSelect } from '@simple/ui/forms';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 import VehicleFilters, { type VehicleType } from '@/components/listings/vehicle-filters';
 import { fetchPublicListings, type PublicListing, type PublicListingSection, type PublicListingsFilters } from '@/lib/public-listings';
+import { resolveListingSellerAvatarUrl } from '@simple/utils';
 import { PanelCard } from '@simple/ui/panel';
 import { PanelNotice, PanelPageHeader, PanelSegmentedToggle } from '@simple/ui/panel';
 
@@ -56,11 +56,13 @@ function toCardData(item: PublicListing): VehicleListingCardData {
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'Cuenta SimpleAutos',
         sellerMeta: `Actualizado hace ${item.publishedAgo}`,
+        sellerAvatarUrl: resolveListingSellerAvatarUrl(item.seller),
         sellerProfileHref: item.seller?.profileHref ?? undefined,
         badge: item.sectionLabel,
         variant: item.section,
         images: item.images,
         videoUrl: item.videoUrl ?? undefined,
+        videoThumbnail: item.images[0],
         listedSince: `Actualizado hace ${item.publishedAgo}`,
         engagement: {
             views24h: item.views,
@@ -74,7 +76,6 @@ function PublicVehicleListingPageContent(props: {
     section: PublicListingSection;
     title: string;
     breadcrumbLabel: string;
-    description: string;
 }) {
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
@@ -151,7 +152,7 @@ function PublicVehicleListingPageContent(props: {
                 title={props.title}
                 description={loading ? 'Cargando publicaciones...' : `${cards.length.toLocaleString('es-CL')} resultados reales`}
                 actions={(
-                    <div className="flex shrink-0 items-center justify-end gap-2 flex-nowrap">
+                    <div className="flex w-full min-w-0 flex-nowrap items-center justify-end gap-2 sm:w-auto">
                         <ModernSelect
                             value={sortOrder}
                             onChange={setSortOrder}
@@ -163,10 +164,10 @@ function PublicVehicleListingPageContent(props: {
                             ]}
                             leadingIcon={<IconArrowsSort size={14} />}
                             ariaLabel="Ordenar vehículos"
-                            triggerClassName="h-9 min-w-[156px] shrink-0 text-sm"
+                            triggerClassName="h-9 min-w-0 flex-1 text-sm sm:w-auto sm:min-w-[156px] sm:flex-none"
                         />
                         <PanelSegmentedToggle
-                            className="hidden shrink-0 sm:inline-flex"
+                            className="inline-flex shrink-0"
                             size="sm"
                             iconOnly
                             items={[
@@ -180,21 +181,9 @@ function PublicVehicleListingPageContent(props: {
                 )}
             />
 
-            <p className="mb-5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                {props.description}
-                {props.section === 'sale' ? (
-                    <>
-                        {' '}
-                        <Link href="/precalificacion-financiamiento" className="font-medium underline underline-offset-2" style={{ color: 'var(--fg)' }}>
-                            Precalifica tu financiamiento
-                        </Link>
-                    </>
-                ) : null}
-            </p>
-
             <InlineResultAd section={props.section === 'auction' ? 'subastas' : props.section === 'rent' ? 'arriendos' : 'ventas'} className="mb-5" />
 
-            <div className="flex flex-col lg:flex-row gap-4 items-start">
+            <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start">
                 {/* Desktop sidebar - collapsible like panel sidebar */}
                 <aside className={`hidden lg:block shrink-0 transition-[width] duration-200 ${filtersCollapsed ? 'w-14' : 'w-72'}`}>
                     <div
@@ -237,7 +226,7 @@ function PublicVehicleListingPageContent(props: {
                     </div>
                 </div>
 
-                <div className="flex-1 min-w-0">
+                <div className="w-full min-w-0 flex-1">
                     {loading ? null : cards.length === 0 ? (
                         <PanelCard size="lg">
                             <PanelNotice tone="neutral">
@@ -245,9 +234,11 @@ function PublicVehicleListingPageContent(props: {
                             </PanelNotice>
                         </PanelCard>
                     ) : (
-                        <div className={viewMode === 'grid' ? 'listings-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'space-y-3'}>
+                        <div className={viewMode === 'grid' ? 'listings-grid grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'w-full space-y-3'}>
                             {cards.map((item) => (
-                                <VehicleListingCard key={item.id} data={item} mode={viewMode} />
+                                <div key={item.id} className="w-full min-w-0">
+                                    <VehicleListingCard data={item} mode={viewMode} />
+                                </div>
                             ))}
                         </div>
                     )}
@@ -261,7 +252,6 @@ export default function PublicVehicleListingPage(props: {
     section: PublicListingSection;
     title: string;
     breadcrumbLabel: string;
-    description: string;
 }) {
     return (
         <Suspense fallback={null}>

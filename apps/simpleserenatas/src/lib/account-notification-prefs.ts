@@ -1,12 +1,9 @@
 import type { SerenatasUser } from '@/lib/serenatas-api';
 import type { Profiles } from '@/lib/serenatas-api';
+import { isMusicianAccount } from '@/lib/serenata-profile';
 
 /** Modo de panel: cliente contrata serenatas; trabajo = músico o dueño. */
 export type NotificationPrefsAppMode = 'client' | 'work';
-
-function isOwnerProfile(profiles: Profiles): boolean {
-    return Boolean(profiles.owner);
-}
 
 export type NotificationPrefsSnapshot = {
     categoryPrefs: CategoryNotificationPrefs;
@@ -108,15 +105,12 @@ export function getNotificationCategoryRowsForContext(
     profiles: Profiles,
 ): NotificationCategoryRowConfig[] {
     const rows: NotificationCategoryRowConfig[] = [];
-    const isOwner = isOwnerProfile(profiles);
 
-    if (mode === 'work' && profiles.musician) {
+    if (mode === 'work' && isMusicianAccount(profiles)) {
         rows.push({
             key: 'invitations',
             label: 'Invitaciones a grupos',
-            hint: isOwner
-                ? 'Solo cuando te invitan a integrar un grupo como músico.'
-                : 'Correo cuando te invitan a un grupo.',
+            hint: 'Correo cuando te invitan a un grupo.',
         });
     }
 

@@ -4,6 +4,8 @@
     "private": true,
     "scripts": {
         "dev": "tsx watch src/server.ts",
+        "postinstall": "node ../../scripts/ensure-ffmpeg.mjs",
+        "ensure:ffmpeg": "node ../../scripts/ensure-ffmpeg.mjs",
         "build": "tsc",
         "typecheck": "tsc --noEmit",
         "start": "node dist/server.js",

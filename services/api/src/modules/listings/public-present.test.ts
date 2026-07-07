@@ -35,7 +35,14 @@ const present = createListingPublicPresent({
     usersById: new Map([
         ['user-1', { id: 'user-1', name: 'Ana Pérez', email: 'ana@example.com', phone: '+569' }],
     ]),
-    getPublishedSellerProfile: () => ({ displayName: 'Ana Autos', slug: 'ana-autos' }),
+    getPublishedSellerProfile: () => ({
+        displayName: 'Ana Autos',
+        slug: 'ana-autos',
+        avatarImageUrl: '/uploads/logo.webp',
+        publicEmail: 'ventas@anaautos.cl',
+        publicPhone: '+56911111111',
+        publicWhatsapp: '+56922222222',
+    }),
 });
 
 describe('listingToPublicResponse', () => {
@@ -46,6 +53,10 @@ describe('listingToPublicResponse', () => {
         expect(item.seller?.name).toBe('Ana Autos');
         expect(item.seller?.username).toBe('ana-autos');
         expect(item.seller?.profileHref).toBe('/perfil/ana-autos');
+        expect(item.seller?.avatarUrl).toBe('/uploads/logo.webp');
+        expect(item.seller?.email).toBe('ventas@anaautos.cl');
+        expect(item.seller?.phone).toBe('+56911111111');
+        expect(item.seller?.whatsapp).toBe('+56922222222');
         expect(item.views).toBe(10);
         expect(item.days).toBe(3);
     });

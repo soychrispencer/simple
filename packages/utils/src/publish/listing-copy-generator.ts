@@ -21,6 +21,7 @@ export type AutosCopyInput = {
     papersUpToDate?: boolean;
     noAccidents?: boolean;
     warranty?: boolean;
+    equipmentLabels?: string[];
     listingType?: 'sale' | 'rent' | 'auction';
     platformName?: string;
 };
@@ -107,6 +108,11 @@ export function generateAutosListingDescription(input: AutosCopyInput): string {
         input.warranty && '✅ Con garantía',
     ].filter(Boolean);
 
+    const equipmentLabels = (input.equipmentLabels ?? []).filter(Boolean);
+    const equipmentSection = equipmentLabels.length
+        ? `\n🛠️ Equipamiento:\n${equipmentLabels.map((label) => `- ${label}`).join('\n')}`
+        : '';
+
     return [
         `${vehicleEmoji} ${input.brandName} ${input.modelName} ${input.year ?? ''} – ¡En venta!`.trim(),
         '',
@@ -114,24 +120,35 @@ export function generateAutosListingDescription(input: AutosCopyInput): string {
         ficha ? `\n${ficha}` : '',
         priceLines.length ? `\n${priceLines.join('\n')}` : '',
         features.length ? `\n${features.join('\n')}` : '',
+        equipmentSection,
         `\n📲 Consulta en ${platform}. Te respondemos de inmediato.`,
     ].filter(Boolean).join('\n').trim();
 }
+
+const RESIDENTIAL_PROPERTY_TYPES = new Set(['Casa', 'Departamento']);
 
 export function generatePropertyListingTitle(input: PropertyCopyInput): string {
     if (input.operationType === 'project') {
         return input.projectName?.trim() || 'Proyecto inmobiliario';
     }
 
-    const program = [
-        input.rooms?.trim() ? `${input.rooms.trim()}D` : null,
-        input.bathrooms?.trim() ? `${input.bathrooms.trim()}B` : null,
-        input.totalArea?.trim() ? `${input.totalArea.trim()} m²` : null,
-    ].filter(Boolean).join(' · ');
+    const propertyType = input.propertyType?.trim() ?? '';
+    const commune = input.communeName?.trim() ?? '';
+    const isResidential = RESIDENTIAL_PROPERTY_TYPES.has(propertyType);
 
-    const location = [input.communeName, input.regionName].filter(Boolean).join(', ');
-    const head = [input.propertyType, program].filter(Boolean).join(' ');
-    return location ? `${head} en ${location}`.trim() : head || 'Propiedad disponible';
+    const head = isResidential
+        ? [
+              propertyType,
+              input.rooms?.trim() ? `${input.rooms.trim()}D` : null,
+              input.bathrooms?.trim() ? `${input.bathrooms.trim()}B` : null,
+          ].filter(Boolean).join(' ')
+        : propertyType;
+
+    if (commune) {
+        return head ? `${head} en ${commune}` : commune;
+    }
+
+    return head || 'Propiedad disponible';
 }
 
 export function generatePropertyListingDescription(input: PropertyCopyInput): string {

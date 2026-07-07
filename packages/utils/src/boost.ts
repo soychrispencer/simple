@@ -1,4 +1,4 @@
-import { apiFetch } from './api-client.js';
+import { apiFetch, publicFetch } from './api-client.js';
 
 export type BoostVertical = 'autos' | 'propiedades';
 export type BoostSection = 'sale' | 'rent' | 'auction' | 'project';
@@ -178,9 +178,8 @@ export async function fetchFeaturedBoosted(
     section: BoostSection,
     limit = 8
 ): Promise<FeaturedBoostItem[]> {
-    const { data } = await apiFetch<FeaturedResponse>(
+    const data = await publicFetch<FeaturedResponse>(
         `/api/boost/featured?vertical=${vertical}&section=${encodeURIComponent(section)}&limit=${encodeURIComponent(String(limit))}`,
-        { method: 'GET' }
     );
-    return data?.items ?? [];
+    return (data?.items ?? []).filter((item) => item.boosted);
 }

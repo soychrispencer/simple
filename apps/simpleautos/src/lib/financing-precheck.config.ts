@@ -5,7 +5,21 @@
  * Migrar a panel/API cuando exista configuración por financiera.
  */
 
+import type { VehicleCatalogType } from '@/lib/publish-wizard-catalog';
+
 export type VehicleUseType = 'particular' | 'carga' | 'moto';
+
+/** Mapea el tipo de uso del asistente al catálogo de marcas/modelos. */
+export function mapVehicleUseToCatalogType(use: VehicleUseType): VehicleCatalogType {
+    switch (use) {
+        case 'carga':
+            return 'truck';
+        case 'moto':
+            return 'motorcycle';
+        default:
+            return 'car';
+    }
+}
 
 export type FinancierRuleSet = {
     id: string;

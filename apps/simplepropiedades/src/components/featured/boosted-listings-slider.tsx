@@ -8,6 +8,7 @@ import {
     type BoostSection,
     type FeaturedBoostItem,
 } from '@/lib/boost';
+import { resolveListingSellerAvatarUrl } from '@simple/utils';
 import PropertyListingCard, { type PropertyListingCardData } from '@/components/listings/property-listing-card';
 
 const SECTIONS: BoostSection[] = ['sale', 'rent', 'project'];
@@ -56,12 +57,12 @@ function mapFeaturedBoostToPropertyCard(item: FeaturedBoostItem): PropertyListin
         meta: metaItems,
         location: item.location,
         sellerName: item.owner?.name || 'Vendedor',
-        sellerMeta: 'Publicado recientemente',
-        sellerAvatarUrl: undefined,
+        sellerAvatarUrl: resolveListingSellerAvatarUrl(null, item.owner?.avatar),
+        sellerIsFeatured: item.boosted,
         badge: sectionLabel,
         variant: item.section,
         images,
-        listedSince: 'Reciente',
+        isSponsored: item.boosted,
         engagement: {
             views24h: 0,
             saves: 0,
@@ -98,6 +99,10 @@ export default function BoostedListingsSlider() {
 
     const tabs = SECTIONS.map((key) => ({ key, label: BOOST_SECTION_META[key].label }));
 
+    if (!loading && items.length === 0) {
+        return null;
+    }
+
     return (
         <FeaturedBoostSliderSection
             viewMoreHref={sectionMeta.href}
@@ -106,7 +111,6 @@ export default function BoostedListingsSlider() {
             activeTab={section}
             onTabChange={setSection}
             loading={loading}
-            emptyMessage="Aún no hay propiedades impulsadas en esta sección."
             slides={slides}
             placeholderAspectClass="aspect-[3/2]"
         />

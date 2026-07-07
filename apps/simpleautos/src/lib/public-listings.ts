@@ -27,8 +27,10 @@ export type PublicListing = {
         name: string;
         username: string;
         profileHref: string | null;
+        avatarUrl?: string | null;
         email: string;
         phone: string | null;
+        whatsapp?: string | null;
     } | null;
 };
 
@@ -170,6 +172,16 @@ export type PublicListingsFilters = {
     nautical_type?: string;
     aerial_type?: string;
 };
+
+/** Publicaciones consideradas "recién llegadas" en sliders de home (por días desde publicación). */
+export const RECENT_LISTING_MAX_DAYS = 30;
+
+export function selectRecentPublicListings(listings: PublicListing[], limit = 30): PublicListing[] {
+    return listings
+        .filter((item) => item.days <= RECENT_LISTING_MAX_DAYS)
+        .sort((a, b) => a.days - b.days || b.updatedAt - a.updatedAt)
+        .slice(0, limit);
+}
 
 export async function fetchPublicListings(section?: PublicListingSection, filters?: PublicListingsFilters): Promise<PublicListing[]> {
     const params = new URLSearchParams();

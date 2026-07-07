@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 import { fetchPublicProfile, type PublicListing } from '@/lib/public-listings';
+import { resolveListingSellerAvatarUrl } from '@simple/utils';
 import {
     PublicProfileShell,
     getPublicProfileTodayState,
@@ -24,6 +25,7 @@ function toCardData(item: PublicListing): VehicleListingCardData {
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'Cuenta SimpleAutos',
         sellerMeta: `Actualizado hace ${item.publishedAgo}`,
+        sellerAvatarUrl: resolveListingSellerAvatarUrl(item.seller),
         sellerProfileHref: item.seller?.profileHref ?? undefined,
         badge: item.sectionLabel,
         variant: item.section,

@@ -119,6 +119,15 @@ export function isMiNegocioPanelSection(section: Section): boolean {
     return section === 'mi-negocio' || section === 'servicios' || section === 'groups';
 }
 
+export function isAccountPanelSection(section: Section): boolean {
+    return section === 'profile';
+}
+
+/** Secciones cuyo shell ya aplica `container-app` (no usar `PanelPageFrame` con padding). */
+export function usesOwnPanelPageShell(section: Section): boolean {
+    return isMiNegocioPanelSection(section) || isAccountPanelSection(section);
+}
+
 export function panelPathFromSection(section: Section, groupSlug?: string | null): string {
     if (section === 'grupo' && groupSlug) {
         return panelGroupHref(groupSlug);
@@ -307,6 +316,7 @@ const LEGACY_MI_CUENTA_NESTED: Record<string, AccountTab> = {
     '/panel/mi-cuenta/ubicacion': 'ubicacion',
     '/panel/mi-cuenta/seguridad': 'security',
     '/panel/mi-cuenta/notificaciones': 'notifications',
+    '/panel/mi-cuenta/apariencia': 'appearance',
     '/panel/mi-cuenta/suscripcion': 'subscription',
     '/panel/mi-cuenta/integraciones': 'integrations',
     '/panel/mi-cuenta/datos-personales': 'data',

@@ -28,6 +28,11 @@ export type ListFeaturedBoostedDeps = {
     humanizePublicLocationFallback: (location: string) => string;
     sanitizeUser: (user: { id: string }) => unknown;
     usersById: Map<string, { id: string }>;
+    toPublicMediaUrl: (value: unknown) => string;
+    getPublishedSellerProfile: (
+        userId: string,
+        vertical: string,
+    ) => { avatarImageUrl?: string | null } | null;
     boostListingsSeed: Array<{
         id: string;
         vertical: string;
@@ -44,6 +49,20 @@ export type ListFeaturedBoostedDeps = {
 };
 
 export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
+    function resolveOwnerAvatar(owner: { id: string; avatar?: string }, vertical: string): string | undefined {
+        const profile = deps.getPublishedSellerProfile(owner.id, vertical);
+        const profileAvatar = deps.toPublicMediaUrl(profile?.avatarImageUrl);
+        if (profileAvatar) return profileAvatar;
+        const accountAvatar = deps.toPublicMediaUrl(owner.avatar);
+        return accountAvatar || undefined;
+    }
+
+    function buildOwnerPayload(owner: { id: string; avatar?: string }, vertical: string) {
+        const sanitized = deps.sanitizeUser(owner) as { avatar?: string } & Record<string, unknown>;
+        const avatar = resolveOwnerAvatar(owner, vertical) ?? sanitized.avatar;
+        return { ...sanitized, avatar };
+    }
+
     return async function listFeaturedBoosted(
         vertical: string,
         section: BoostSection,
@@ -84,7 +103,7 @@ export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
                         boosted: true,
                         planName: order.planName,
                         boostEndsAt: order.endAt,
-                        owner: owner ? deps.sanitizeUser(owner) : null,
+                        owner: owner ? buildOwnerPayload(owner as { id: string; avatar?: string }, order.vertical) : null,
                     };
                 }),
             )
@@ -97,42 +116,6 @@ export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
             return true;
         });
 
-        if (uniqueBoosted.length >= limit) return uniqueBoosted.slice(0, limit);
-
-        const fallback = deps.boostListingsSeed
-            .filter((item) => item.vertical === vertical && item.section === section)
-            .filter((item) => !uniqueIds.has(item.id))
-            .slice(0, Math.max(0, limit - uniqueBoosted.length))
-            .map((listing) => {
-                const owner = deps.usersById.get(listing.ownerId);
-                const sourceListing = deps.listingsById.get(listing.id);
-                const listingImageUrls = sourceListing
-                    ? deps.extractListingMediaUrls(sourceListing)
-                    : (listing.imageUrls || []);
-                const imageUrl = listingImageUrls.length > 0 ? listingImageUrls[0] : (listing.imageUrl ?? '');
-                const location = sourceListing
-                    ? deps.buildLocationPublicLabel(sourceListing.locationData)
-                        || deps.humanizePublicLocationFallback(sourceListing.location ?? '')
-                        || deps.humanizePublicLocationFallback(listing.location)
-                        || 'Chile'
-                    : deps.humanizePublicLocationFallback(listing.location) || 'Chile';
-                return {
-                    id: listing.id,
-                    href: listing.href,
-                    title: listing.title,
-                    subtitle: listing.subtitle,
-                    price: listing.price,
-                    location,
-                    imageUrl,
-                    imageUrls: listingImageUrls,
-                    section: listing.section,
-                    boosted: false,
-                    planName: 'Orgánico',
-                    boostEndsAt: null,
-                    owner: owner ? deps.sanitizeUser(owner) : null,
-                };
-            });
-
-        return [...uniqueBoosted, ...fallback];
+        return uniqueBoosted.slice(0, limit);
     };
 }

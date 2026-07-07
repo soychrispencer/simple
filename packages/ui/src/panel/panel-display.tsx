@@ -254,7 +254,7 @@ export function PanelPageHeader(props: PanelPageHeaderProps) {
                         </p>
                     ) : null}
                 </div>
-                {actions ? <div className="flex items-center gap-2 flex-wrap sm:justify-end">{actions}</div> : null}
+                {actions ? <div className="flex w-full min-w-0 flex-nowrap items-center justify-end gap-2 sm:w-auto">{actions}</div> : null}
             </div>
         </div>
     );

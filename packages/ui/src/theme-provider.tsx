@@ -4,15 +4,17 @@ import {
     ThemeProvider as NextThemesProvider,
     useTheme as useNextTheme,
     type ThemeProviderProps,
-} from 'next-themes';
+} from '@teispace/next-themes';
 
-/** Defaults compartidos por todas las verticales Simple (next-themes + theme-base.css). */
+/** Defaults compartidos por todas las verticales Simple (@teispace/next-themes + theme-base.css). */
 export const SIMPLE_THEME_PROVIDER_DEFAULTS = {
     attribute: 'class',
-    defaultTheme: 'dark',
+    defaultTheme: 'system',
     enableSystem: true,
     disableTransitionOnChange: true,
     storageKey: 'simple-theme',
+    /** Mismo backend que next-themes: solo localStorage con clave simple-theme */
+    storage: 'local',
     /** Clases en <html>: light | dark (alineado con theme-base.css .dark) */
     themes: ['light', 'dark'],
 } as const satisfies Partial<ThemeProviderProps>;

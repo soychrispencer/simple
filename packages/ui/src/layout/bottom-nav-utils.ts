@@ -30,7 +30,18 @@ export function isExactBottomNavHref(a: string, b: string): boolean {
 
 /** Oculta el footer marketplace en rutas del panel (el panel usa su propio bottom nav). */
 export function shouldHideMarketplaceMobileNav(pathname: string): boolean {
-    return pathname.startsWith('/panel') && !pathname.startsWith('/panel/publicar');
+    return isPanelOperatorPath(pathname) && !pathname.startsWith('/panel/publicar');
+}
+
+/** Rutas del panel operador: sin header/footer de marketing (el panel trae su propio chrome). */
+export function isPanelOperatorPath(pathname: string): boolean {
+    const path = pathname.split('?')[0]?.split('#')[0] ?? '/';
+    return path === '/panel' || path.startsWith('/panel/');
+}
+
+/** Muestra header y footer de marketing fuera del panel. */
+export function shouldShowMarketplaceSiteChrome(pathname: string): boolean {
+    return !isPanelOperatorPath(pathname);
 }
 
 export function applyBottomNavPrimaryHighlight<T extends BottomNavHighlightable>(
