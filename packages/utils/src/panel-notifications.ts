@@ -1,6 +1,6 @@
 import { apiFetch } from './api-client.js';
 
-export type PanelNotificationVertical = 'autos' | 'propiedades';
+export type PanelNotificationVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 
 export type PanelNotification = {
     id: string;

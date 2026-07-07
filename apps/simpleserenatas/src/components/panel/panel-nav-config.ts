@@ -86,9 +86,9 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
     if (isOwner) {
         items.push({ id: 'solicitudes', href: panelSectionHref('solicitudes'), label: 'Solicitudes', icon: IconBell });
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
+        items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
         items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
         items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
-        items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
         items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconCash });
         items.push({ id: 'estadisticas', href: panelSectionHref('estadisticas'), label: 'Estadísticas', icon: IconChartBar });
     } else if (profiles.musician) {
@@ -115,7 +115,7 @@ export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): Pane
     }
     if (ownerFeaturesEnabled(profiles)) {
         return getPanelNavItems(mode, profiles).filter((t) =>
-            ['home', 'solicitudes', 'agenda', 'mi-negocio', 'profile'].includes(t.id),
+            ['home', 'solicitudes', 'mensajes', 'agenda', 'profile'].includes(t.id),
         );
     }
     return getPanelNavItems(mode, profiles).filter((t) =>

@@ -387,6 +387,7 @@ import { getAdvertisingPrice, getAdPaymentStatusFromOrderStatus, normalizeAdCamp
 import { countUserListingsForVertical, getListingLimitError } from './modules/listings/listing-plan-limit.js';
 import { AD_FORMAT_LABELS, MAX_CAMPAIGNS_TOTAL, MAX_ACTIVE_HERO_CAMPAIGNS } from './modules/advertising/types.js';
 import { createMessagesRouter, createPanelNotificationsRouter } from './modules/messages/index.js';
+import { getMessageThreadByContext } from './modules/messages/service.js';
 import {
     createInstagramRouter,
     createInstagramPublicImageRouter,
@@ -2068,6 +2069,8 @@ app.route('/api/messages', createMessagesRouter({
     messageDeps: messageServiceDeps,
     getListingById,
     isPublicListingVisible,
+    getMessageThreadByContext: (contextType, contextId, buyerUserId) =>
+        getMessageThreadByContext(messageServiceDeps, contextType, contextId, buyerUserId),
 }));
 
 app.route('/api/panel', createPanelNotificationsRouter({

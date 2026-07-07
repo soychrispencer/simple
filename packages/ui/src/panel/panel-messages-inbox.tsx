@@ -8,6 +8,10 @@ import {
     fetchMessageThreads,
     sendThreadMessage,
     updateMessageThreadState,
+    fetchMessageThreadByContext,
+    submitContextConversation,
+    notifyPanelMessagesChanged,
+    type MessageContextType,
     type MessageEntry,
     type MessageThread,
     type MessageVertical,
@@ -83,6 +87,8 @@ export function PanelMessagesInbox({ vertical, copy, className, headerActions }:
     const text = { ...DEFAULT_COPY[vertical], ...copy };
     const searchParams = useSearchParams();
     const initialThreadId = searchParams.get('thread');
+    const contextType = searchParams.get('contextType') as MessageContextType | null;
+    const contextId = searchParams.get('contextId');
     const [threads, setThreads] = useState<MessageThread[]>([]);
     const [folder, setFolder] = useState<MessageThread['folder']>('inbox');
     const [loading, setLoading] = useState(true);
@@ -94,6 +100,14 @@ export function PanelMessagesInbox({ vertical, copy, className, headerActions }:
     const [draft, setDraft] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [contextDraft, setContextDraft] = useState('');
+    const [contextSending, setContextSending] = useState(false);
+
+    const reloadThreads = async () => {
+        const items = await fetchMessageThreads(vertical, folder);
+        setThreads(items);
+        setLoading(false);
+    };
 
     const searchField = (
         <PanelSearchField
@@ -119,6 +133,33 @@ export function PanelMessagesInbox({ vertical, copy, className, headerActions }:
             active = false;
         };
     }, [folder, vertical]);
+
+    useEffect(() => {
+        if (!contextType || !contextId || initialThreadId) return;
+        let active = true;
+        void fetchMessageThreadByContext(vertical, contextType, contextId).then((thread) => {
+            if (!active || !thread) return;
+            setSelectedId(thread.id);
+        });
+        return () => {
+            active = false;
+        };
+    }, [contextType, contextId, initialThreadId, vertical]);
+
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            if (document.visibilityState !== 'visible') return;
+            void reloadThreads();
+            if (selectedId) {
+                void fetchMessageThreadDetail(vertical, selectedId).then((detail) => {
+                    if (!detail) return;
+                    setSelectedThread(detail.item);
+                    setEntries(detail.entries);
+                });
+            }
+        }, 30_000);
+        return () => window.clearInterval(interval);
+    }, [folder, selectedId, vertical]);
 
     const filtered = useMemo(() => {
         const normalized = query.trim().toLowerCase();
@@ -191,6 +232,25 @@ export function PanelMessagesInbox({ vertical, copy, className, headerActions }:
         if (result.item.folder !== folder) {
             setFolder(result.item.folder);
         }
+        notifyPanelMessagesChanged();
+    }
+
+    async function handleContextStart(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (!contextType || !contextId || !contextDraft.trim()) return;
+        setContextSending(true);
+        setError(null);
+        const result = await submitContextConversation(contextType, contextId, contextDraft.trim());
+        setContextSending(false);
+        if (!result.ok || !result.thread) {
+            setError(result.error || 'No pudimos iniciar la conversación.');
+            return;
+        }
+        setContextDraft('');
+        setSelectedId(result.thread.id);
+        setSelectedThread(result.thread);
+        setThreads((current) => [result.thread!, ...current.filter((item) => item.id !== result.thread!.id)]);
+        notifyPanelMessagesChanged();
     }
 
     async function handleThreadAction(action: 'archive' | 'unarchive' | 'spam' | 'unspam') {
@@ -304,7 +364,30 @@ export function PanelMessagesInbox({ vertical, copy, className, headerActions }:
                 </PanelCard>
 
                 <PanelCard size="sm">
-                    {!selectedId ? (
+                    {!selectedId && contextType && contextId ? (
+                        <div className="space-y-4">
+                            <PanelEmptyState
+                                title="Inicia la conversación"
+                                description="Escribe el primer mensaje para este contacto."
+                            />
+                            <form className="space-y-3" onSubmit={(event) => void handleContextStart(event)}>
+                                <textarea
+                                    className="form-textarea min-h-28 text-sm"
+                                    value={contextDraft}
+                                    onChange={(event) => setContextDraft(event.target.value)}
+                                    placeholder="Escribe tu mensaje..."
+                                />
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="text-xs" style={{ color: error ? 'var(--color-error)' : 'var(--fg-muted)' }}>
+                                        {error || text.footerHint}
+                                    </div>
+                                    <PanelButton type="submit" disabled={contextSending || !contextDraft.trim()}>
+                                        {contextSending ? 'Enviando...' : 'Enviar mensaje'}
+                                    </PanelButton>
+                                </div>
+                            </form>
+                        </div>
+                    ) : !selectedId ? (
                         <PanelEmptyState title="Selecciona una conversación" description="El detalle del hilo aparecerá aquí." />
                     ) : detailLoading || !selectedThread ? (
                         <div className="px-1 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>

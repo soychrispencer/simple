@@ -2,6 +2,7 @@ import {
     legacyQueryToPanelPath,
     resolveCanonicalMarketplaceRedirect,
     resolveCanonicalMiNegocioRedirect,
+    resolveCanonicalPanelSlugRedirect,
     resolveGrupoQueryRedirect,
     resolveNestedPanelRedirect,
 } from '@/lib/panel-routes';
@@ -18,6 +19,9 @@ export function resolvePanelRedirect(
 ): string | null {
     const nestedTarget = resolveNestedPanelRedirect(pathname);
     if (nestedTarget) return nestedTarget;
+
+    const slugTarget = resolveCanonicalPanelSlugRedirect(pathname, search);
+    if (slugTarget) return slugTarget;
 
     const marketplaceTarget = resolveCanonicalMarketplaceRedirect(pathname, search);
     if (marketplaceTarget) return marketplaceTarget;

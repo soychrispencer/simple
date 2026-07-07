@@ -3,6 +3,19 @@ import type { Context } from 'hono';
 import { z } from 'zod';
 import type { MessageServiceDeps } from './service.js';
 import { createOrAppendListingConversation } from './listing-conversation.js';
+import { authorizeContextConversation } from './context-conversation-auth.js';
+import { appendOrCreateContextMessage } from './platform-context-threads.js';
+import { getMessageThreadByContext } from './service.js';
+import { notifyMessageThreadActivity } from './thread-notifications.js';
+import { resolveMessageThreadListingDisplay } from './message-thread-context.js';
+import { publicSectionLabel } from '../../lib/format-relative.js';
+import type { BoostSection } from '../../lib/domain-types.js';
+
+const contextConversationSchema = z.object({
+    contextType: z.enum(['agenda_appointment', 'serenata']),
+    contextId: z.string().uuid(),
+    message: z.string().min(1).max(4000),
+});
 
 const listingConversationSchema = z.object({
     listingId: z.string().uuid(),
@@ -30,6 +43,11 @@ export interface MessagesRouterDeps {
     messageDeps: MessageServiceDeps;
     getListingById: (id: string) => any | null | undefined;
     isPublicListingVisible: (listing: any) => boolean;
+    getMessageThreadByContext: (
+        contextType: string,
+        contextId: string,
+        buyerUserId: string,
+    ) => Promise<any>;
 }
 
 export function createMessagesRouter(deps: MessagesRouterDeps) {
@@ -52,6 +70,7 @@ export function createMessagesRouter(deps: MessagesRouterDeps) {
         messageDeps,
         getListingById,
         isPublicListingVisible,
+        getMessageThreadByContext,
     } = deps;
 
     const app = new Hono();
@@ -93,6 +112,92 @@ export function createMessagesRouter(deps: MessagesRouterDeps) {
             entry: messageEntryToResponse(result.entry, user.id),
             createdThread: result.createdThread,
         }, result.createdThread ? 201 : 200);
+    });
+
+    app.get('/threads/by-context', async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const vertical = parseVertical(c.req.query('vertical'));
+        const contextType = c.req.query('contextType');
+        const contextId = c.req.query('contextId');
+        if (!contextType || !contextId) {
+            return c.json({ ok: false, error: 'Contexto inválido.' }, 400);
+        }
+
+        const auth = await authorizeContextConversation({
+            userId: user.id,
+            contextType: contextType as 'agenda_appointment' | 'serenata',
+            contextId,
+        });
+        if (!auth.ok) {
+            return c.json({ ok: false, error: auth.error }, auth.status as 403 | 404 | 409);
+        }
+        if (auth.vertical !== vertical) {
+            return c.json({ ok: false, error: 'Conversación no encontrada.' }, 404);
+        }
+
+        const thread = await getMessageThreadByContext(auth.contextType, auth.contextId, auth.buyerUserId);
+        if (!thread) {
+            return c.json({ ok: true, thread: null });
+        }
+        const entries = await listMessageEntries(thread.id);
+        return c.json({
+            ok: true,
+            thread: await messageThreadToResponse(thread, user.id, entries),
+        });
+    });
+
+    app.post('/context-conversations', async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const payload = await c.req.json().catch(() => null);
+        const parsed = contextConversationSchema.safeParse(payload);
+        if (!parsed.success) {
+            return c.json({ ok: false, error: 'Datos inválidos.' }, 400);
+        }
+
+        const auth = await authorizeContextConversation({
+            userId: user.id,
+            contextType: parsed.data.contextType,
+            contextId: parsed.data.contextId,
+        });
+        if (!auth.ok) {
+            return c.json({ ok: false, error: auth.error }, auth.status as 403 | 404 | 409);
+        }
+
+        const result = await appendOrCreateContextMessage(messageDeps, {
+            vertical: auth.vertical,
+            contextType: auth.contextType,
+            contextId: auth.contextId,
+            ownerUserId: auth.ownerUserId,
+            buyerUserId: auth.buyerUserId,
+            senderUserId: auth.senderUserId,
+            senderRole: auth.senderRole,
+            body: parsed.data.message,
+        });
+        const entries = await listMessageEntries(result.thread.id);
+        return c.json({
+            ok: true,
+            thread: await messageThreadToResponse(result.thread, user.id, entries),
+            entry: messageEntryToResponse(result.entry, user.id),
+            createdThread: result.createdThread,
+        }, result.createdThread ? 201 : 200);
+    });
+
+    app.get('/unread-count', async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const vertical = parseVertical(c.req.query('vertical'));
+        const threads = await listMessageThreadsForUser(user.id, vertical, 'inbox');
+        const unreadCount = threads.reduce((total: number, thread: any) => {
+            const viewerRole = user.id === thread.ownerUserId ? 'seller' : 'buyer';
+            const count = viewerRole === 'seller' ? thread.ownerUnreadCount : thread.buyerUnreadCount;
+            return total + Math.max(0, count);
+        }, 0);
+        return c.json({ ok: true, unreadCount });
     });
 
     app.get('/threads', async (c) => {
@@ -191,6 +296,33 @@ export function createMessagesRouter(deps: MessagesRouterDeps) {
             createdAt: now,
         });
         const updatedThread = await touchMessageThreadAfterIncomingMessage(thread, senderRole, now);
+        const recipientUserId = senderRole === 'seller' ? thread.buyerUserId : thread.ownerUserId;
+        void (async () => {
+            try {
+                const display = thread.listingId
+                    ? null
+                    : await resolveMessageThreadListingDisplay(
+                        updatedThread,
+                        messageDeps.listingsById,
+                        (section) => publicSectionLabel(section as BoostSection),
+                    );
+                const listing = thread.listingId
+                    ? messageDeps.listingsById.get(thread.listingId)
+                    : display;
+                const contextTitle = listing?.title ?? 'tu conversación';
+                await notifyMessageThreadActivity({
+                    recipientUserId,
+                    vertical: thread.vertical,
+                    threadId: thread.id,
+                    senderUserId: user.id,
+                    contextTitle,
+                    preview: parsed.data.body,
+                    isNewThread: false,
+                });
+            } catch (error) {
+                console.error('[messages] No se pudo notificar el mensaje:', error);
+            }
+        })();
         const entries = await listMessageEntries(updatedThread.id);
         return c.json({
             ok: true,

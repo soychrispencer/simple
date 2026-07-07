@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ListingLocationEditor } from '@simple/ui/location';
-import { PanelButton, PanelCard, PanelField, PanelStatusBadge, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelField, PanelStatusBadge, ContextMessagesLink, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 import { applyAddressBookEntryToLocation, type AddressBookEntry, type ListingLocation } from '@simple/types';
 import { createAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
 import {
@@ -600,6 +600,15 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
                     <div className="rounded-card border border-border bg-bg-subtle p-5">
                         <SerenataDetailMetric icon={IconMessage} label="Mensaje" title={item.message} />
                     </div>
+                ) : null}
+
+                {item.clientId ? (
+                    <ContextMessagesLink
+                        vertical="serenatas"
+                        contextType="serenata"
+                        contextId={item.id}
+                        className="w-full sm:w-auto"
+                    />
                 ) : null}
 
                 {item.providerGroupId ? (

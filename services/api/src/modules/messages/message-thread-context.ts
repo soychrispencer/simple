@@ -92,7 +92,7 @@ export async function resolveMessageThreadListingDisplay(
         return {
             id: row.id,
             title: `${serviceName ?? 'Cita'} — ${row.clientName}`,
-            href: '/panel/agenda',
+            href: `/panel/agenda?appt=${encodeURIComponent(row.id)}`,
             section: 'sale',
             sectionLabel: 'Agenda',
             price: row.price != null ? String(row.price) : '',

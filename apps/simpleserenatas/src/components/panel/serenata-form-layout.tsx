@@ -82,12 +82,12 @@ export function SerenataFormModalShell({
 }) {
     return (
         <div className="flex min-h-0 flex-1 flex-col">
-            <div className="shrink-0 space-y-3 border-b border-border px-4 pb-3 pt-4 sm:px-5">
-                <div className="flex items-start justify-between gap-3">
+            <div className="shrink-0 space-y-3 border-b border-border px-5 pb-4 pt-4 sm:pt-5">
+                <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1 space-y-2">
                         <div>
                             <p className="text-lg font-semibold text-fg">{title}</p>
-                            {subtitle ? <p className="mt-0.5 text-xs text-fg-muted">{subtitle}</p> : null}
+                            {subtitle ? <p className="mt-1 text-sm text-fg-muted">{subtitle}</p> : null}
                         </div>
                         {stepIndicator}
                     </div>
@@ -96,18 +96,18 @@ export function SerenataFormModalShell({
                 {summary}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:py-6">
                 {children}
             </div>
 
-            <div className="shrink-0 space-y-2 border-t border-border bg-surface px-4 py-3 sm:px-5">
+            <div className="shrink-0 space-y-4 border-t border-border bg-surface px-5 py-4 sm:py-5">
                 {footer}
             </div>
         </div>
     );
 }
 
-const FORM_FIELDS_CLASS = 'grid min-w-0 gap-3';
+const FORM_FIELDS_CLASS = 'grid min-w-0 gap-4';
 
 function FormSectionHeader({
     stepNumber,
@@ -119,7 +119,7 @@ function FormSectionHeader({
     subtitle?: string;
 }) {
     return (
-        <header className="mb-4 flex items-start gap-3 border-b border-border pb-3">
+        <header className="mb-5 flex items-start gap-3 border-b border-border pb-4">
             <span
                 className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent"
                 aria-hidden
@@ -166,7 +166,7 @@ export function SerenataFormResponsiveLayout<T extends number>({
             <div className="lg:hidden">
                 <SerenataFormStepIndicator step={step} steps={steps} />
                 <div className="mt-4">
-                    <section className="rounded-xl border border-border bg-bg-subtle/30 p-4">
+                    <section className="rounded-xl border border-border bg-bg-subtle/30 p-5">
                         <FormSectionHeader
                             stepNumber={onFirstStep ? 1 : 2}
                             title={onFirstStep ? leftTitle : rightTitle}
@@ -180,17 +180,17 @@ export function SerenataFormResponsiveLayout<T extends number>({
             </div>
 
             <div className="hidden min-w-0 lg:block">
-                <p className="text-xs text-fg-muted">{intro}</p>
+                <p className="text-sm text-fg-muted">{intro}</p>
                 <div
-                    className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-surface"
+                    className="mt-4 grid grid-cols-2 gap-0 overflow-hidden rounded-xl border border-border bg-surface"
                     role="group"
                     aria-label="Formulario en dos bloques"
                 >
-                    <section className="min-w-0 border-r border-border bg-bg-subtle/25 p-4 sm:p-5">
+                    <section className="min-w-0 border-r border-border bg-bg-subtle/25 p-5 sm:p-6">
                         <FormSectionHeader stepNumber={1} title={leftTitle} subtitle={leftSubtitle} />
                         <div className={FORM_FIELDS_CLASS}>{leftColumn}</div>
                     </section>
-                    <section className="min-w-0 p-4 sm:p-5">
+                    <section className="min-w-0 p-5 sm:p-6">
                         <FormSectionHeader stepNumber={2} title={rightTitle} subtitle={rightSubtitle} />
                         <div className={FORM_FIELDS_CLASS}>{rightColumn}</div>
                     </section>
@@ -238,7 +238,7 @@ export function SerenataFormDualStepFooter({
 
     return (
         <>
-            <div className="flex flex-col gap-2 lg:hidden">
+            <div className="flex flex-col gap-3 lg:hidden">
                 {step === 2 && onBackStep ? (
                     <PanelButton variant="secondary" disabled={loading} onClick={onBackStep}>
                         Atrás
@@ -260,7 +260,7 @@ export function SerenataFormDualStepFooter({
                     submitButton
                 )}
             </div>
-            <div className="hidden flex-col gap-2 lg:flex lg:flex-row lg:justify-end">
+            <div className="hidden flex-col gap-3 lg:flex lg:flex-row lg:justify-end">
                 {onCancel ? (
                     <PanelButton variant="secondary" disabled={loading} onClick={onCancel}>
                         {cancelLabel}

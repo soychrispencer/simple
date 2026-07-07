@@ -198,7 +198,7 @@ export function PanelContent(props: PanelContentProps) {
     }
 
     if (props.section === 'mensajes') {
-        return <PanelMessagesInbox vertical="serenatas" className="py-4 lg:py-8" />;
+        return <PanelMessagesInbox vertical="serenatas" />;
     }
 
     if (props.section === 'agenda') {

@@ -1,34 +1,39 @@
-import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
-import { SerenatasApp } from '@/components/serenatas-app';
-import { SerenataProvider } from '@/context/serenata-context';
-import { ErrorBoundary } from '@/components/error-boundary';
+import { redirect, notFound } from 'next/navigation';
+import { PANEL_SLUG_TO_SECTION, panelSectionHref } from '@/lib/panel-routes';
 import { marketplaceCatalogHref, parseMarketplaceSearchParams } from '@/lib/marketplace-search';
 
-type PanelPageProps = {
+type PanelCatchAllProps = {
     params: Promise<{ slug?: string[] }>;
     searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function serializeSearchParams(params: Record<string, string | string[] | undefined>): string {
-    const search = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
+const MARKETPLACE_SLUGS = new Set(['grupos', 'contratar', 'mariachis', 'marketplace', 'explorar', 'nuevo-evento']);
+
+function searchRecord(query: Record<string, string | string[] | undefined>): Record<string, string | null | undefined> {
+    const record: Record<string, string | null | undefined> = {};
+    for (const [key, value] of Object.entries(query)) {
         if (Array.isArray(value)) {
-            for (const item of value) search.append(key, item);
+            record[key] = value[0] ?? null;
             continue;
         }
-        if (value != null) search.set(key, value);
+        record[key] = value ?? null;
     }
-    const qs = search.toString();
-    return qs ? `?${qs}` : '';
+    return record;
 }
 
-/** Panel operativo en rutas `/panel/*` (slug → sección vía `panel-routes.ts`). */
-export default async function PanelPage({ params, searchParams }: PanelPageProps) {
+/**
+ * Catch-all para slugs legacy del panel (`/panel/perfil`, `/panel/map`, …).
+ * Las rutas canónicas tienen `page.tsx` propio con el mismo espaciado que el resto de verticales.
+ */
+export default async function PanelLegacyCatchAllPage({ params, searchParams }: PanelCatchAllProps) {
     const [{ slug = [] }, query] = await Promise.all([params, searchParams]);
     const sectionSlug = slug[0];
-    const marketplaceSlugs = new Set(['grupos', 'contratar', 'mariachis', 'marketplace', 'explorar', 'nuevo-evento']);
-    if (sectionSlug && marketplaceSlugs.has(sectionSlug)) {
+
+    if (!sectionSlug) {
+        redirect('/panel');
+    }
+
+    if (MARKETPLACE_SLUGS.has(sectionSlug)) {
         const params = new URLSearchParams();
         for (const [key, value] of Object.entries(query)) {
             if (Array.isArray(value)) {
@@ -40,13 +45,10 @@ export default async function PanelPage({ params, searchParams }: PanelPageProps
         redirect(marketplaceCatalogHref(parseMarketplaceSearchParams(params)));
     }
 
-    return (
-        <ErrorBoundary>
-            <Suspense fallback={null}>
-                <SerenataProvider>
-                    <SerenatasApp />
-                </SerenataProvider>
-            </Suspense>
-        </ErrorBoundary>
-    );
+    const section = PANEL_SLUG_TO_SECTION[sectionSlug];
+    if (!section) {
+        notFound();
+    }
+
+    redirect(panelSectionHref(section, searchRecord(query)));
 }

@@ -2,6 +2,7 @@ import { Hono, type Context } from 'hono';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lte, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { inferTimezoneFromStructuredLocation, normalizeCountryCode, normalizeStructuredLocation, businessPaymentMethodsFromRecord, getBusinessPaymentMethodsSaveError, type BankTransferData } from '@simple/utils';
+import { scheduleSerenataMessageThread } from '../messages/platform-context-threads.js';
 import { db } from '../../db/index.js';
 import {
     DEFAULT_WEEKLY_RULES,
@@ -2320,20 +2321,13 @@ export async function createMarketplaceSerenata(
     }
 
     if (item) {
-        void (async () => {
-            try {
-                const { getMinimalMessageServiceDeps } = await import('../messages/message-service-factory.js');
-                const { ensureSerenataMessageThread } = await import('../messages/platform-context-threads.js');
-                await ensureSerenataMessageThread(getMinimalMessageServiceDeps(), {
-                    serenataId: item.id,
-                    ownerUserId: group.ownerUserId,
-                    buyerUserId: client.userId,
-                    initialMessage: payload.message ?? null,
-                });
-            } catch (error) {
-                console.error('[serenatas] No se pudo crear el hilo de mensajes:', error);
-            }
-        })();
+        scheduleSerenataMessageThread({
+            id: item.id,
+            ownerId: item.ownerId,
+            clientId: item.clientId,
+            providerGroupId: item.providerGroupId,
+            message: payload.message ?? null,
+        });
     }
 
     return { ok: true as const, item };
@@ -2393,6 +2387,14 @@ export async function acceptMarketplaceSerenata(
             });
         }
     }
+
+    scheduleSerenataMessageThread({
+        id: item.id,
+        ownerId: item.ownerId,
+        clientId: item.clientId,
+        providerGroupId: item.providerGroupId,
+        message: item.message,
+    });
 
     return { ok: true as const, item };
 }

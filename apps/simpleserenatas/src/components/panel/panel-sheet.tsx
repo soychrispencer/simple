@@ -1,25 +1,37 @@
 'use client';
 
-import { PanelScrollShell, type PanelScrollModalSize } from '@simple/ui/panel';
+import { PanelScrollShell, type PanelScrollModalHeight, type PanelScrollModalSize } from '@simple/ui/panel';
 
 type PanelSheetProps = {
     children: React.ReactNode;
     onClose: () => void;
     ariaLabel: string;
     maxWidthClass?: string;
+    size?: PanelScrollModalSize;
+    height?: PanelScrollModalHeight;
     /** @deprecated Siempre usa layout restringido con scroll interno. */
     scrollOnMobileOnly?: boolean;
     /** Formularios largos: el hijo define header, scroll y footer. */
     constrainHeight?: boolean;
 };
 
+const SIZE_PATTERNS: Array<{ pattern: string; size: PanelScrollModalSize }> = [
+    { pattern: 'max-w-6xl', size: '6xl' },
+    { pattern: 'max-w-5xl', size: '5xl' },
+    { pattern: 'max-w-4xl', size: '5xl' },
+    { pattern: 'max-w-3xl', size: '3xl' },
+    { pattern: 'max-w-2xl', size: '2xl' },
+    { pattern: 'max-w-xl', size: 'xl' },
+    { pattern: 'max-w-lg', size: 'lg' },
+    { pattern: 'max-w-md', size: 'md' },
+    { pattern: 'max-w-sm', size: 'sm' },
+];
+
+/** Toma el ancho máximo declarado (p. ej. `sm:max-w-lg lg:max-w-5xl` → `5xl`). */
 function resolveSize(maxWidthClass: string): PanelScrollModalSize {
-    if (maxWidthClass.includes('max-w-sm')) return 'sm';
-    if (maxWidthClass.includes('max-w-md')) return 'md';
-    if (maxWidthClass.includes('max-w-lg')) return 'lg';
-    if (maxWidthClass.includes('max-w-3xl')) return '3xl';
-    if (maxWidthClass.includes('max-w-4xl')) return '5xl';
-    if (maxWidthClass.includes('max-w-2xl')) return '2xl';
+    for (const { pattern, size } of SIZE_PATTERNS) {
+        if (maxWidthClass.includes(pattern)) return size;
+    }
     return '2xl';
 }
 
@@ -28,13 +40,16 @@ export function PanelSheet({
     onClose,
     ariaLabel,
     maxWidthClass = 'sm:max-w-3xl',
+    size,
+    height = 'default',
     constrainHeight = true,
 }: PanelSheetProps) {
     return (
         <PanelScrollShell
             ariaLabel={ariaLabel}
             onClose={onClose}
-            size={resolveSize(maxWidthClass)}
+            size={size ?? resolveSize(maxWidthClass)}
+            height={height}
             zIndexClass="z-[90]"
             constrainContent={constrainHeight}
             overlayClassName="panel-sheet-scrim cursor-default"

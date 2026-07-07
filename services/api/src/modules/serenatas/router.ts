@@ -28,6 +28,7 @@ import {
     recordProviderGroupRating,
     rejectMarketplaceSerenata,
 } from './marketplace.js';
+import { scheduleSerenataMessageThread } from '../messages/platform-context-threads.js';
 import { assertNoWorkProfileForClientAccount } from './marketplace-client-policy.js';
 import {
     assertCanActivateSerenataProfile,
@@ -1311,6 +1312,15 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             );
             if (!songSync.ok) return jsonError(c, songSync.error, 400);
         }
+        if (item) {
+            scheduleSerenataMessageThread({
+                id: item.id,
+                ownerId: item.ownerId,
+                clientId: item.clientId,
+                providerGroupId: item.providerGroupId,
+                message: item.message,
+            });
+        }
         return c.json({ ok: true, item }, 201);
     });
 
@@ -1366,6 +1376,13 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             message: `Finaliza el pago para publicar la serenata de ${item.recipientName}.`,
             serenataLabel: item.recipientName,
             panelPath: `/panel/serenatas?serenata=${encodeURIComponent(item.id)}`,
+        });
+        scheduleSerenataMessageThread({
+            id: item.id,
+            ownerId: item.ownerId,
+            clientId: item.clientId,
+            providerGroupId: item.providerGroupId,
+            message: item.message,
         });
         return c.json({ ok: true, item, offersCount: 0 }, 201);
     });
@@ -1452,6 +1469,15 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             return { ok: true as const, item };
         });
         if (!result.ok) return jsonError(c, result.error, 409);
+        if (result.item) {
+            scheduleSerenataMessageThread({
+                id: result.item.id,
+                ownerId: result.item.ownerId,
+                clientId: result.item.clientId,
+                providerGroupId: result.item.providerGroupId,
+                message: result.item.message,
+            });
+        }
         return c.json({ ok: true, item: result.item });
     });
 

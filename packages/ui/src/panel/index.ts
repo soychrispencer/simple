@@ -573,6 +573,10 @@ export {
     type PanelMessagesCopy,
     type PanelMessagesInboxProps,
 } from './panel-messages-inbox.js';
+export {
+    ContextMessagesLink,
+    ContextMessagesInlineLink,
+} from './context-messages-link.js';
 
 export {
     PanelDocumentUploader,

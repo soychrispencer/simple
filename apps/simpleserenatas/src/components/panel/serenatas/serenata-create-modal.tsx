@@ -8,7 +8,8 @@ export function SerenataCreateModal({ children, onClose }: { children: ReactNode
         <PanelSheet
             onClose={onClose}
             ariaLabel="Nueva serenata"
-            maxWidthClass="sm:max-w-lg lg:max-w-5xl"
+            size="5xl"
+            height="tall"
             constrainHeight
         >
             {children}

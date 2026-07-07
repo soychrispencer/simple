@@ -128,6 +128,11 @@ export function usesOwnPanelPageShell(section: Section): boolean {
     return isMiNegocioPanelSection(section) || isAccountPanelSection(section);
 }
 
+/** Secciones cuyo contenido ya trae `container-app` propio (p. ej. `PanelMessagesInbox`). */
+export function skipsPanelPageFrame(section: Section): boolean {
+    return usesOwnPanelPageShell(section) || section === 'mensajes';
+}
+
 export function panelPathFromSection(section: Section, groupSlug?: string | null): string {
     if (section === 'grupo' && groupSlug) {
         return panelGroupHref(groupSlug);
@@ -336,4 +341,38 @@ export function accountTabFromSearch(search: string): AccountTab | null {
     } catch {
         return null;
     }
+}
+
+function panelSearchRecord(search: string): Record<string, string | null | undefined> {
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    const record: Record<string, string | null | undefined> = {};
+    params.forEach((value, key) => {
+        record[key] = value;
+    });
+    return record;
+}
+
+/** Slug legacy de primer nivel (`/panel/perfil`, `/panel/map`, …) → ruta canónica. */
+export function resolveCanonicalPanelSlugRedirect(pathname: string, search: string): string | null {
+    const normalized = pathname.replace(/\/$/, '');
+    if (normalized === '/panel') return null;
+
+    const match = normalized.match(/^\/panel\/([^/?#]+)$/);
+    if (!match?.[1]) return null;
+
+    const section = PANEL_SLUG_TO_SECTION[match[1]];
+    if (!section) return null;
+
+    const canonical = panelSectionHref(section, panelSearchRecord(search));
+    const canonicalUrl = new URL(canonical, 'http://localhost');
+    const canonicalPath = canonicalUrl.pathname.replace(/\/$/, '') || '/panel';
+    const currentQs = search.startsWith('?') ? search.slice(1) : search;
+
+    if (canonicalPath === normalized) {
+        const canonicalQs = canonicalUrl.search.startsWith('?') ? canonicalUrl.search.slice(1) : '';
+        if (canonicalQs === currentQs) return null;
+        if (!canonicalQs && !currentQs) return null;
+    }
+
+    return canonical;
 }

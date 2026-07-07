@@ -115,3 +115,55 @@ export async function updateMessageThreadState(
     }
     return { ok: true, item: data.item };
 }
+
+export type MessageContextType = 'agenda_appointment' | 'serenata';
+
+export async function fetchMessageThreadByContext(
+    vertical: MessageVertical,
+    contextType: MessageContextType,
+    contextId: string,
+): Promise<MessageThread | null> {
+    const params = new URLSearchParams({
+        vertical,
+        contextType,
+        contextId,
+    });
+    const { ok, data } = await apiFetch<ApiResponse<{ thread?: MessageThread | null }>>(
+        `/api/messages/threads/by-context?${params.toString()}`,
+        { method: 'GET' },
+    );
+    if (!ok || !data?.ok) return null;
+    return data.thread ?? null;
+}
+
+export async function submitContextConversation(
+    contextType: MessageContextType,
+    contextId: string,
+    message: string,
+): Promise<{ ok: boolean; thread?: MessageThread; error?: string }> {
+    const { ok, data } = await apiFetch<ApiResponse<{ thread?: MessageThread; error?: string }>>(
+        '/api/messages/context-conversations',
+        {
+            method: 'POST',
+            body: JSON.stringify({ contextType, contextId, message }),
+        },
+    );
+    if (!ok || !data?.ok || !data.thread) {
+        return { ok: false, error: data?.error || 'No pudimos enviar el mensaje.' };
+    }
+    return { ok: true, thread: data.thread };
+}
+
+export async function fetchMessageUnreadCount(vertical: MessageVertical): Promise<number> {
+    const { ok, data } = await apiFetch<ApiResponse<{ unreadCount?: number }>>(
+        `/api/messages/unread-count?vertical=${vertical}`,
+        { method: 'GET' },
+    );
+    if (!ok || !data?.ok) return 0;
+    return Math.max(0, data.unreadCount ?? 0);
+}
+
+export function notifyPanelMessagesChanged(): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new Event('simple:panel-notifications-changed'));
+}

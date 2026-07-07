@@ -7,14 +7,8 @@ import { useAuth } from '@simple/auth';
 import { serenatasApi, type Profiles } from '@/lib/serenatas-api';
 import { type AppMode, resolveAppModeFromProfiles } from '@/lib/app-mode';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
-import {
-    fetchNotifications,
-    getMarketplaceNavItems,
-    getPrimaryActionConfig,
-    isPanelNavActive,
-    markAllPanelNotificationsRead,
-    markNotificationReadAndRefresh,
-} from '@/components/panel/panel-nav-config';
+import { fetchNotifications, getMarketplaceNavItems, getPrimaryActionConfig, isPanelNavActive, markAllPanelNotificationsRead, markNotificationReadAndRefresh } from '@/components/panel/panel-nav-config';
+import { fetchPanelNotifications as fetchMessagePanelNotifications } from '@/lib/panel-notifications';
 import { useSerenataOptional } from '@/context/serenata-context';
 import { sectionFromPanelPath } from '@/lib/panel-routes';
 import { clearSavedMariachisCache, syncSavedMariachisFromApi } from '@/lib/saved-mariachis';
@@ -131,7 +125,15 @@ export function SerenatasChromeHeader({
             publicLinks={publicLinks}
             getPanelNavItems={() => getMarketplaceNavItems(modeReady, resolvedProfiles)}
             isPanelNavActive={panelNavActive}
-            fetchPanelNotifications={() => fetchNotifications()}
+            fetchPanelNotifications={async () => {
+                const [messageItems, serenataItems] = await Promise.all([
+                    fetchMessagePanelNotifications(),
+                    fetchNotifications(),
+                ]);
+                const merged = [...messageItems, ...serenataItems];
+                merged.sort((a, b) => b.createdAt - a.createdAt);
+                return merged.slice(0, 8);
+            }}
             onNotificationOpened={(item) => markNotificationReadAndRefresh(item.id)}
             onMarkAllNotificationsRead={() => markAllPanelNotificationsRead()}
             panelLinkPrefetch={false}

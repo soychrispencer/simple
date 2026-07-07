@@ -51,6 +51,7 @@ import {
 import { fmtDateShort as formatDate, fmtTime as formatTime, fmtDateTz } from '@/lib/format';
 import { vocab } from '@/lib/vocabulary';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
+import { ContextMessagesLink } from '@simple/ui/panel';
 import { resolveBookingModality } from '@simple/utils';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -330,6 +331,16 @@ export default function AgendaPage() {
         }
      
     }, [searchParams]);
+
+    // Open appointment detail if ?appt=<id> is in the URL
+    useEffect(() => {
+        const apptId = searchParams.get('appt');
+        if (!apptId || appointments.length === 0) return;
+        const match = appointments.find((appt) => appt.id === apptId);
+        if (!match) return;
+        setSelectedAppt(match);
+        setShowEdit(false);
+    }, [appointments, searchParams]);
 
     // Helper: local YYYY-MM-DD key from any Date
     const localKey = (d: Date) => {
@@ -1119,6 +1130,13 @@ export default function AgendaPage() {
                         >
                             <IconEdit size={12} /> Editar cita
                         </button>
+
+                        <ContextMessagesLink
+                            vertical="agenda"
+                            contextType="agenda_appointment"
+                            contextId={selectedAppt.id}
+                            className="self-start"
+                        />
 
                         {/* Session notes */}
                         <div className="agenda-panel-border border-t pt-4">

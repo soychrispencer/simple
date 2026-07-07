@@ -346,7 +346,7 @@ export function SerenataForm({
     );
 
     const eventFields = (
-        <div className="grid gap-3">
+        <div className="grid gap-4">
             <PanelField label="Destinatario" required>
                 <FieldInput
                     value={recipientName}
@@ -367,7 +367,7 @@ export function SerenataForm({
                     />
                 </PanelField>
             )}
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
                 <PanelField label="Fecha" required>
                     <FieldDate
                         min={today}
@@ -418,7 +418,7 @@ export function SerenataForm({
     }
 
     const detailFields = (
-        <div className="grid gap-3">
+        <div className="grid gap-4">
             <PanelField label="Servicio" required>
                 {servicesLoading ? (
                     <p className="flex items-center gap-2 text-sm text-fg-muted">
@@ -526,7 +526,7 @@ export function SerenataForm({
 
             <PanelField label="Mensaje">
                 <FieldTextarea
-                    rows={modal ? 2 : 3}
+                    rows={3}
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
                     placeholder="Detalle para tu equipo o el destinatario"
@@ -574,11 +574,11 @@ export function SerenataForm({
                 subtitle={item ? 'Serenata propia' : 'Registro directo'}
                 onClose={closeHandler}
                 footer={
-                    <>
+                    <div className="space-y-4">
                         {warnings}
                         <FormFeedback status={status} />
                         {footerActions}
-                    </>
+                    </div>
                 }
             >
                 {formBody}
