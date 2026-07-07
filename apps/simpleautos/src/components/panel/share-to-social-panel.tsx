@@ -16,11 +16,15 @@ import {
     publishListingToSocialHub,
     type SocialPublishTarget,
 } from '@/lib/social-hub';
+import { ListingDistributionSection } from '@/components/panel/listing-distribution-section';
 
 type Props = {
     listingId: string;
     listingTitle: string;
     listingHref: string;
+    listingPrice?: string | null;
+    listingDescription?: string | null;
+    listingLocation?: string | null;
     hasVideo?: boolean;
     shareText?: string;
 };
@@ -29,11 +33,15 @@ export function ShareToSocialPanel({
     listingId,
     listingTitle,
     listingHref,
+    listingPrice,
+    listingDescription,
+    listingLocation,
     hasVideo = false,
     shareText,
 }: Props) {
     const [loading, setLoading] = useState(true);
     const [busyKey, setBusyKey] = useState<string | null>(null);
+    const [distributionRefreshToken, setDistributionRefreshToken] = useState(0);
     const [listingHasVideo, setListingHasVideo] = useState(hasVideo);
     const [igConnected, setIgConnected] = useState(false);
     const [fbConnected, setFbConnected] = useState(false);
@@ -93,6 +101,7 @@ export function ShareToSocialPanel({
         setBusyKey(null);
         if (result.ok && result.publication) {
             setPublishedKeys((current) => new Set([...current, key]));
+            setDistributionRefreshToken((value) => value + 1);
         }
     }
 
@@ -103,6 +112,7 @@ export function ShareToSocialPanel({
         const ok = response.results.some((item) => item.target === target && item.ok);
         if (ok) {
             setPublishedKeys((current) => new Set([...current, target]));
+            setDistributionRefreshToken((value) => value + 1);
         }
     }
 
@@ -170,14 +180,27 @@ export function ShareToSocialPanel({
     ], [busyKey, connectHref, fbConnected, igConnected, publishedKeys, tiktokConnected, youtubeConnected]);
 
     return (
-        <SimplePublishShareHub
-            brandName="SimpleAutos"
-            listingTitle={listingTitle}
-            publishedHref={listingHref}
-            shareText={shareText}
-            integrations={integrations}
-            loading={loading}
-            hasVideo={listingHasVideo}
-        />
+        <div className="space-y-5">
+            <SimplePublishShareHub
+                brandName="SimpleAutos"
+                listingTitle={listingTitle}
+                publishedHref={listingHref}
+                shareText={shareText}
+                integrations={integrations}
+                loading={loading}
+                hasVideo={listingHasVideo}
+            />
+            <ListingDistributionSection
+                listingId={listingId}
+                vertical="autos"
+                brandLabel="SimpleAutos"
+                listingTitle={listingTitle}
+                listingHref={listingHref}
+                listingPrice={listingPrice}
+                listingDescription={listingDescription}
+                listingLocation={listingLocation}
+                refreshToken={distributionRefreshToken}
+            />
+        </div>
     );
 }

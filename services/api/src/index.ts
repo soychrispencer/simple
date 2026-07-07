@@ -138,6 +138,7 @@ import {
     listingToDetailResponse,
     listingToResponse,
 } from './modules/listings/panel-present.js';
+import { buildListingDistribution } from './modules/listings/listing-distribution.js';
 import {
     embedStoredListingMetadata,
     extractStoredListingIntegrations,
@@ -355,6 +356,7 @@ import {
     createListingSchema,
     updateListingSchema,
     publishListingPortalSchema,
+    trackListingPortalSchema,
     instagramSettingsSchema,
     instagramPublishSchema,
     instagramEnhancedPublishSchema,
@@ -1663,6 +1665,9 @@ const listingsDeps = {
     isPortalAvailableForVertical,
     getPortalCoverage,
     getPortalSyncView,
+    buildListingDistribution,
+    getInstagramPublicationsForUser,
+    getSocialPublicationsForUser,
     getListingDraftRecord,
     upsertListingDraftRecord,
     deleteListingDraftRecord,
@@ -1681,6 +1686,7 @@ const listingsDeps = {
         updateListingSchema,
         updateListingStatusSchema,
         publishListingPortalSchema,
+        trackListingPortalSchema,
         listingDraftWriteSchema,
         generateListingReelSchema,
     },

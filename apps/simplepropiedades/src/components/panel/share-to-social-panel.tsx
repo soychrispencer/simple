@@ -10,11 +10,15 @@ import {
     fetchInstagramIntegrationStatus,
     publishListingToInstagramEnhanced,
 } from '@/lib/instagram';
+import { ListingDistributionSection } from '@/components/panel/listing-distribution-section';
 
 type Props = {
     listingId: string;
     listingTitle: string;
     listingHref: string;
+    listingPrice?: string | null;
+    listingDescription?: string | null;
+    listingLocation?: string | null;
     hasVideo?: boolean;
     shareText?: string;
 };
@@ -23,11 +27,15 @@ export function ShareToSocialPanel({
     listingId,
     listingTitle,
     listingHref,
+    listingPrice,
+    listingDescription,
+    listingLocation,
     hasVideo = false,
     shareText,
 }: Props) {
     const [loading, setLoading] = useState(true);
     const [busyKey, setBusyKey] = useState<string | null>(null);
+    const [distributionRefreshToken, setDistributionRefreshToken] = useState(0);
     const [igConnected, setIgConnected] = useState(false);
     const [publishedKeys, setPublishedKeys] = useState<Set<string>>(new Set());
 
@@ -57,6 +65,7 @@ export function ShareToSocialPanel({
         setBusyKey(null);
         if (result.ok && result.result) {
             setPublishedKeys((current) => new Set([...current, 'instagram_carousel']));
+            setDistributionRefreshToken((value) => value + 1);
         }
     }
 
@@ -77,14 +86,27 @@ export function ShareToSocialPanel({
     ], [busyKey, connectHref, igConnected, publishedKeys]);
 
     return (
-        <SimplePublishShareHub
-            brandName="SimplePropiedades"
-            listingTitle={listingTitle}
-            publishedHref={listingHref}
-            shareText={shareText}
-            integrations={integrations}
-            loading={loading}
-            hasVideo={hasVideo}
-        />
+        <div className="space-y-5">
+            <SimplePublishShareHub
+                brandName="SimplePropiedades"
+                listingTitle={listingTitle}
+                publishedHref={listingHref}
+                shareText={shareText}
+                integrations={integrations}
+                loading={loading}
+                hasVideo={hasVideo}
+            />
+            <ListingDistributionSection
+                listingId={listingId}
+                vertical="propiedades"
+                brandLabel="SimplePropiedades"
+                listingTitle={listingTitle}
+                listingHref={listingHref}
+                listingPrice={listingPrice}
+                listingDescription={listingDescription}
+                listingLocation={listingLocation}
+                refreshToken={distributionRefreshToken}
+            />
+        </div>
     );
 }

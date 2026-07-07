@@ -587,4 +587,15 @@ export { FinancePeriodFilter, type PeriodOption } from './finance-period-filter'
 export { FinanceBarChart, type BarChartData } from './finance-bar-chart';
 export { FinanceDataTable, type FinanceColumn } from './finance-data-table';
 
+export {
+    FacebookMarketplaceAssistCard,
+    type FacebookMarketplaceAssistCardProps,
+} from './facebook-marketplace-assist-card.js';
+export {
+    ListingDistributionPanel,
+    ListingDistributionDialog,
+    type ListingDistributionPanelProps,
+    type ListingDistributionDialogProps,
+} from './listing-distribution-panel.js';
+
 export { MarketplaceFinanceView } from './marketplace-finance-view';

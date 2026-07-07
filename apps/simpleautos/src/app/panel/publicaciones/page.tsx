@@ -42,6 +42,7 @@ import {
     IconPencil,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
+import { ListingDistributionDialogHost } from '@/components/panel/listing-distribution-dialog-host';
 import { ModernSelect } from '@simple/ui/forms';
 import { fetchInstagramIntegrationStatus, publishListingToInstagramEnhanced, generateSmartTemplates, type InstagramPublicationView, type InstagramTemplateView, type InstagramMediaFormat, } from '@/lib/instagram';
 import { getListingVideoUrl, listingHasShareableVideo } from '@/lib/listing-media';
@@ -205,6 +206,7 @@ export default function PublicacionesPage() {
     // Instagram Preview States
     const [instagramPreviewOpen, setInstagramPreviewOpen] = useState(false);
     const [previewListing, setPreviewListing] = useState<PanelListing | null>(null);
+    const [distributionListing, setDistributionListing] = useState<PanelListing | null>(null);
     const [previewCaption, setPreviewCaption] = useState('');
     const [isPublishingInstagram, setIsPublishingInstagram] = useState(false);
     const [instagramCarouselIndex, setInstagramCarouselIndex] = useState(0);
@@ -852,6 +854,16 @@ export default function PublicacionesPage() {
             },
         });
 
+        secondaryActions.push({
+            key: 'distribution',
+            label: 'Dónde está publicado',
+            icon: <IconShare3 size={14} />,
+            onSelect: () => {
+                closeMenus();
+                setDistributionListing(listing);
+            },
+        });
+
         // Duplicar
         secondaryActions.push({
             key: 'duplicate',
@@ -1335,6 +1347,15 @@ export default function PublicacionesPage() {
                     </div>
                 </div>
             )}
+
+            {distributionListing ? (
+                <ListingDistributionDialogHost
+                    listing={distributionListing}
+                    brandLabel="SimpleAutos"
+                    vertical="autos"
+                    onClose={() => setDistributionListing(null)}
+                />
+            ) : null}
         </div>
     );
 }

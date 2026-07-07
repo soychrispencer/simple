@@ -51,6 +51,7 @@ export function getPortalSyncView(record: ListingRecord, portal: PortalKey) {
         missingRecommended: coverage.missingRecommended,
         publishedAt: existing?.publishedAt ?? null,
         externalId: existing?.externalId ?? null,
+        externalUrl: existing?.externalUrl ?? null,
         lastError,
     };
 }

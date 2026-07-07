@@ -1,5 +1,6 @@
 import type { ListingLocation } from '@simple/types';
 import type { PublicationLifecycleView } from '@simple/config';
+import type { ListingDistributionChannel } from '@simple/utils';
 import { API_BASE } from '@simple/config';
 import { apiRequest } from '@simple/utils';
 
@@ -16,6 +17,7 @@ export type ListingPortalSync = {
     missingRecommended: string[];
     publishedAt: number | null;
     externalId: string | null;
+    externalUrl: string | null;
     lastError: string | null;
 };
 
@@ -38,6 +40,7 @@ export type PanelListing = {
     updatedAt: number;
     publicationLifecycle?: PublicationLifecycleView;
     integrations: ListingPortalSync[];
+    distribution?: ListingDistributionChannel[];
     rawData?: unknown;
 };
 
@@ -78,6 +81,14 @@ type PublishPortalResponse = {
     error?: string;
     missingRequired?: string[];
     missingRecommended?: string[];
+};
+
+type TrackPortalResponse = {
+    ok: boolean;
+    portal?: PortalKey;
+    integration?: ListingPortalSync;
+    distribution?: ListingDistributionChannel[];
+    error?: string;
 };
 
 type UpdateStatusResponse = {
@@ -192,6 +203,25 @@ export async function publishListingToPortal(
     }
 
     return { ok: false, error: data.error ?? 'No se pudo publicar en el portal.' };
+}
+
+export async function trackPortalIntegration(
+    listingId: string,
+    portal: PortalKey,
+    action: 'mark_published' | 'clear',
+    externalUrl?: string | null,
+): Promise<{ ok: boolean; integration?: ListingPortalSync; distribution?: ListingDistributionChannel[]; error?: string; unauthorized?: boolean }> {
+    const { status, data } = await apiRequest<TrackPortalResponse>(`/api/listings/${encodeURIComponent(listingId)}/integrations/track`, {
+        method: 'POST',
+        body: JSON.stringify({ portal, action, externalUrl: externalUrl ?? null }),
+    });
+
+    if (status === 401) {
+        return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.', unauthorized: true };
+    }
+    if (!data) return { ok: false, error: 'No pudimos conectar con el backend.' };
+    if (data.ok) return { ok: true, integration: data.integration, distribution: data.distribution };
+    return { ok: false, error: data.error ?? 'No se pudo actualizar el registro del portal.' };
 }
 
 export async function renewPanelListing(

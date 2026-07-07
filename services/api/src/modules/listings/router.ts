@@ -31,6 +31,13 @@ export type ListingsRouterDeps = {
     isPortalAvailableForVertical: (vertical: any, portal: any) => boolean;
     getPortalCoverage: (listing: any, portal: any) => { missingRequired: string[]; missingRecommended: string[] };
     getPortalSyncView: (listing: any, portal: any) => any;
+    buildListingDistribution?: (input: {
+        listing: any;
+        instagramPublications: any[];
+        socialPublications: any[];
+    }) => any[];
+    getInstagramPublicationsForUser?: (userId: string, vertical?: any) => any[];
+    getSocialPublicationsForUser?: (userId: string, vertical?: any) => any[];
     getListingDraftRecord: (userId: string, vertical: any) => Promise<any>;
     upsertListingDraftRecord: (userId: string, vertical: any, draft: unknown) => Promise<any>;
     deleteListingDraftRecord: (userId: string, vertical: any) => Promise<void>;
@@ -46,6 +53,7 @@ export type ListingsRouterDeps = {
         updateListingSchema: any;
         updateListingStatusSchema: any;
         publishListingPortalSchema: any;
+        trackListingPortalSchema: any;
         listingDraftWriteSchema: any;
         generateListingReelSchema?: any;
     };
@@ -191,7 +199,19 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
 
-        return c.json({ ok: true, item: deps.listingToDetailResponse(listing) });
+        return c.json({
+            ok: true,
+            item: {
+                ...deps.listingToDetailResponse(listing),
+                distribution: deps.buildListingDistribution
+                    ? deps.buildListingDistribution({
+                        listing,
+                        instagramPublications: deps.getInstagramPublicationsForUser?.(user.id, listing.vertical) ?? [],
+                        socialPublications: deps.getSocialPublicationsForUser?.(user.id, listing.vertical) ?? [],
+                    })
+                    : [],
+            },
+        });
     });
 
     app.put('/:id', async (c) => {
@@ -261,6 +281,13 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         if (!deps.isPortalAvailableForVertical(listing.vertical, portal)) {
             return c.json({ ok: false, error: 'Este portal no está disponible para esta vertical.' }, 400);
         }
+        if (portal === 'facebook') {
+            return c.json({
+                ok: false,
+                error: 'Facebook Marketplace se publica de forma manual. Usa el asistente y marca el aviso cuando esté en Marketplace.',
+                code: 'manual_portal',
+            }, 400);
+        }
         const coverage = deps.getPortalCoverage(listing, portal);
         const now = Date.now();
 
@@ -271,6 +298,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
                 lastAttemptAt: now,
                 publishedAt: null,
                 externalId: null,
+                externalUrl: null,
                 lastError: 'Faltan campos requeridos para este portal.',
             };
             listing.updatedAt = now;
@@ -294,6 +322,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             lastAttemptAt: now,
             publishedAt: now,
             externalId: `${portal}-${listing.id}-${now}`,
+            externalUrl: null,
             lastError: null,
         };
         listing.updatedAt = now;
@@ -303,6 +332,84 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             ok: true,
             portal,
             integration: deps.getPortalSyncView(listing, portal),
+        });
+    });
+
+    app.post('/:id/integrations/track', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const listingId = c.req.param('id') ?? '';
+        let listing = await resolvePanelListing(listingId);
+        if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+            return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
+        }
+
+        const payload = await c.req.json().catch(() => null);
+        const parsed = deps.schemas.trackListingPortalSchema.safeParse(payload);
+        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+
+        const portal = parsed.data.portal;
+        if (!deps.isPortalAvailableForVertical(listing.vertical, portal)) {
+            return c.json({ ok: false, error: 'Este portal no está disponible para esta vertical.' }, 400);
+        }
+        if (portal !== 'facebook') {
+            return c.json({ ok: false, error: 'Solo Facebook Marketplace admite seguimiento manual por ahora.' }, 400);
+        }
+
+        const rawExternalUrl = parsed.data.externalUrl?.trim() ?? '';
+        const externalUrl = rawExternalUrl
+            ? (rawExternalUrl.startsWith('http://') || rawExternalUrl.startsWith('https://') ? rawExternalUrl : null)
+            : null;
+        if (rawExternalUrl && !externalUrl) {
+            return c.json({ ok: false, error: 'El enlace de Marketplace debe comenzar con http:// o https://' }, 400);
+        }
+
+        const now = Date.now();
+        const existing = listing.integrations[portal];
+
+        if (parsed.data.action === 'clear') {
+            delete listing.integrations[portal];
+            listing.updatedAt = now;
+            listing = await deps.saveListingRecord(listing);
+            return c.json({
+                ok: true,
+                portal,
+                integration: deps.getPortalSyncView(listing, portal),
+                distribution: deps.buildListingDistribution
+                    ? deps.buildListingDistribution({
+                        listing,
+                        instagramPublications: deps.getInstagramPublicationsForUser?.(user.id, listing.vertical) ?? [],
+                        socialPublications: deps.getSocialPublicationsForUser?.(user.id, listing.vertical) ?? [],
+                    })
+                    : [],
+            });
+        }
+
+        listing.integrations[portal] = {
+            portal,
+            status: 'published',
+            lastAttemptAt: now,
+            publishedAt: existing?.publishedAt ?? now,
+            externalId: existing?.externalId ?? `manual-${listing.id}-${now}`,
+            externalUrl: externalUrl ?? existing?.externalUrl ?? null,
+            lastError: null,
+        };
+        listing.updatedAt = now;
+        listing = await deps.saveListingRecord(listing);
+
+        return c.json({
+            ok: true,
+            portal,
+            integration: deps.getPortalSyncView(listing, portal),
+            distribution: deps.buildListingDistribution
+                ? deps.buildListingDistribution({
+                    listing,
+                    instagramPublications: deps.getInstagramPublicationsForUser?.(user.id, listing.vertical) ?? [],
+                    socialPublications: deps.getSocialPublicationsForUser?.(user.id, listing.vertical) ?? [],
+                })
+                : [],
         });
     });
 

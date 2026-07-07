@@ -260,6 +260,12 @@ export const publishListingPortalSchema = z.object({
     portal: portalKeySchema,
 });
 
+export const trackListingPortalSchema = z.object({
+    portal: portalKeySchema,
+    action: z.enum(['mark_published', 'clear']),
+    externalUrl: z.string().trim().max(2048).nullable().optional(),
+});
+
 const instagramVerticalSchema = z.enum(['autos', 'propiedades']);
 
 export const instagramSettingsSchema = z.object({

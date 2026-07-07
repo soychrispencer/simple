@@ -53,6 +53,7 @@ describe('getPortalSyncView', () => {
                     status: 'published',
                     publishedAt: 1,
                     externalId: 'ext-1',
+                    externalUrl: null,
                     lastError: null,
                     lastAttemptAt: 1,
                 },

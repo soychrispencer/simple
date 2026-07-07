@@ -10,6 +10,7 @@ export type ListingPortalSyncRecord = {
     status: PortalSyncStatus;
     publishedAt: number | null;
     externalId: string | null;
+    externalUrl: string | null;
     lastError: string | null;
     lastAttemptAt: number | null;
 };
@@ -230,11 +231,13 @@ export function normalizeListingPortalSyncRecord(
         return null;
     };
 
+    const externalUrl = typeof source.externalUrl === 'string' ? source.externalUrl.trim() : '';
     return {
         portal,
         status,
         publishedAt: toTimestamp(source.publishedAt),
         externalId: typeof source.externalId === 'string' ? source.externalId : null,
+        externalUrl: externalUrl || null,
         lastError: typeof source.lastError === 'string' ? source.lastError : null,
         lastAttemptAt: toTimestamp(source.lastAttemptAt),
     };

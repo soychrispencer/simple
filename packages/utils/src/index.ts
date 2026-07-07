@@ -65,5 +65,7 @@ export * from './listing-draft.js';
 export * from './listing-draft-client.js';
 export * from './listing-draft-media.js';
 export * from './listing-media.js';
+export * from './listing-distribution.js';
+export * from './marketplace-assist.js';
 export * from './publish/index.js';
 export * from './simple-publish/index.js';

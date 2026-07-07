@@ -16,6 +16,7 @@ export type ListingPortalSyncRecord = {
     status: 'missing' | 'ready' | 'published' | 'failed';
     publishedAt: number | null;
     externalId: string | null;
+    externalUrl: string | null;
     lastError: string | null;
     lastAttemptAt: number | null;
 };
