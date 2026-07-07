@@ -9,6 +9,7 @@ import { useAuth, EmailVerificationGate } from '@simple/auth';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 import { useSerenata, type Section } from '@/context/serenata-context';
 import { ScreenShell } from '@/components/layout/screen-shell';
+import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
 import { PublicLanding } from '@/components/auth/public-landing';
 import { PanelContent } from '@/components/panel/panel-content';
 import { SerenatasPanelChrome } from '@/components/panel/serenatas-panel-chrome';
