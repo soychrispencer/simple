@@ -21,6 +21,7 @@ COPY apps ./apps
 COPY packages ./packages
 COPY services ./services
 COPY docs ./docs
+COPY scripts ./scripts
 COPY *.mjs ./
 COPY *.cjs ./
 COPY *.json ./
