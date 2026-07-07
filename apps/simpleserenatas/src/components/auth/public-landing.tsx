@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -20,16 +20,16 @@ import { LandingHeader } from '@/components/layout/landing-header';
 import { Footer } from '@/components/layout/footer';
 import { PanelButton, PanelButtonLink, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 import { MarketplaceSearchPanel } from '@/components/public/marketplace-search-panel';
-import { PublicProviderGroupCard } from '@/components/public/public-provider-group-card';
-import { sortMarketplaceGroups } from '@/lib/marketplace-group-display';
+import { FeaturedMariachisSection } from '@/components/landing/featured-mariachis-section';
 import {
     defaultLandingSearch,
     marketplaceCatalogHref,
     profileHrefWithDate,
     type MarketplaceSearchFilters,
 } from '@/lib/marketplace-search';
-import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
 import { resolveOperatorLandingCopy } from '@simple/utils';
+import { PublicAdCardRow } from '@simple/ui/public-advertising';
+import { SERENATAS_CARD_AD_PLACEHOLDERS } from '@/lib/ad-placeholders';
 import { useLandingHashScroll } from '@/hooks/use-landing-hash-scroll';
 
 const BENEFIT_ICONS = [IconClockHour4, IconShieldCheck, IconHeartHandshake] as const;
@@ -64,10 +64,6 @@ const HOW_IT_WORKS = [
     { icon: IconCheck, title: 'Recibe confirmación', desc: 'El dueño revisa disponibilidad y conforma el grupo.' },
 ];
 
-const FEATURED_COUNT = 3;
-
-type FeaturedStatus = { loading: boolean; error: string | null };
-
 export function PublicLanding({
     onLogin,
     onRegister,
@@ -82,28 +78,6 @@ export function PublicLanding({
         icon: BENEFIT_ICONS[index] ?? IconHeartHandshake,
     }));
     const [search, setSearch] = useState<MarketplaceSearchFilters>(defaultLandingSearch);
-    const [featured, setFeatured] = useState<ProviderGroup[]>([]);
-    const [featuredStatus, setFeaturedStatus] = useState<FeaturedStatus>({ loading: true, error: null });
-
-    useEffect(() => {
-        let cancelled = false;
-        void serenatasApi.marketplaceGroups({ limit: 24, offset: 0 }).then((response) => {
-            if (cancelled) return;
-            if (!response.ok) {
-                setFeatured([]);
-                setFeaturedStatus({
-                    loading: false,
-                    error: response.error ?? 'No pudimos cargar destacados.',
-                });
-                return;
-            }
-            setFeatured(sortMarketplaceGroups(response.items, 'recommended').slice(0, FEATURED_COUNT));
-            setFeaturedStatus({ loading: false, error: null });
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, []);
 
     const submitSearch = useCallback(
         (event?: FormEvent<HTMLFormElement>) => {
@@ -190,52 +164,13 @@ export function PublicLanding({
                     </div>
                 </section>
 
-                <section id="destacados" className="scroll-mt-24 border-b py-14 border-border sm:py-18">
-                    <div className="container-app max-w-6xl">
-                        <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-                                    Marketplace
-                                </p>
-                                <h2 className="mt-2 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
-                                    Mariachis destacados
-                                </h2>
-                                <p className="mt-2 max-w-2xl text-sm text-fg-muted">
-                                    Una muestra del catálogo. Filtra por zona, nombre y fecha con cupo disponible.
-                                </p>
-                            </div>
-                            <PanelButtonLink
-                                href="/mariachis"
-                                variant="secondary"
-                                className="h-11 px-5 sm:self-center"
-                            >
-                                Ver todos
-                                <IconChevronRight size={17} />
-                            </PanelButtonLink>
-                        </div>
-                        {featuredStatus.loading ? null : featured.length === 0 ? (
-                            <div className="rounded-card border p-8 text-center border-border bg-surface">
-                                <p className="text-sm text-fg-muted">
-                                    {featuredStatus.error ?? 'Aún no hay mariachis publicados en el catálogo.'}
-                                </p>
-                                <PanelButtonLink href="/mariachis" variant="accent" className="mt-4 h-11 px-6">
-                                    Explorar catálogo
-                                </PanelButtonLink>
-                            </div>
-                        ) : (
-                            <div className="grid gap-5 md:grid-cols-3">
-                                {featured.map((group) => (
-                                    <PublicProviderGroupCard
-                                        key={group.id}
-                                        group={group}
-                                        href={profileHrefWithDate(group.slug, search.date)}
-                                        onOpen={openMariachi}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </section>
+                <PublicAdCardRow
+                    vertical="serenatas"
+                    className="py-6"
+                    placeholderImages={[...SERENATAS_CARD_AD_PLACEHOLDERS]}
+                />
+
+                <FeaturedMariachisSection date={search.date} onOpen={openMariachi} />
 
                 <section id="como-funciona" className="border-b py-14 border-border bg-bg-subtle scroll-mt-20 sm:py-18">
                     <div className="container-app max-w-6xl">

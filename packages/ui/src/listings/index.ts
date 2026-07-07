@@ -4,6 +4,15 @@ export { default as PublicListingCard } from '../listing-card/public-listing-car
 export { default as OwnerListingCard } from '../listing-card/owner-listing-card';
 export { default as FeaturedCardSwiper } from '../listing-card/featured-card-swiper';
 export { default as MarketplaceReelListingCard } from '../listing-card/marketplace-reel-listing-card';
+export {
+    OperatorDirectoryCard,
+    OperatorDirectoryCardSection,
+    OperatorDirectoryCardStat,
+    OperatorDirectoryHeroBadge,
+    OperatorDirectoryLogo,
+    type OperatorDirectoryCardProps,
+    type OperatorDirectoryLogoSize,
+} from '../listing-card/operator-directory-card';
 export { mapMarketplaceCardToPublicProps } from '../listing-card/shared/map-marketplace-card';
 export {
     MarketplaceReelShareMenu,

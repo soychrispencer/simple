@@ -1,4 +1,8 @@
 import { apiFetch } from '@simple/utils';
+import {
+    startAdvertisingCheckout as startAdvertisingCheckoutForVertical,
+    startBoostCheckout as startBoostCheckoutForVertical,
+} from '@simple/utils';
 import type {
   ConfirmCheckoutResponse,
   PaymentOrderStatus,
@@ -59,4 +63,16 @@ export async function confirmCheckout(input: { orderId: string; paymentId?: stri
         }),
     });
     return data ?? { ok: false, error: 'No pudimos validar el pago.' };
+}
+
+export function startBoostCheckout(
+    input: Parameters<typeof startBoostCheckoutForVertical>[1],
+): ReturnType<typeof startBoostCheckoutForVertical> {
+    return startBoostCheckoutForVertical('serenatas', input);
+}
+
+export function startAdvertisingCheckout(
+    input: Parameters<typeof startAdvertisingCheckoutForVertical>[1],
+): ReturnType<typeof startAdvertisingCheckoutForVertical> {
+    return startAdvertisingCheckoutForVertical('serenatas', input);
 }

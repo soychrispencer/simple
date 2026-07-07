@@ -3,7 +3,7 @@ import { PANEL_SLUG_TO_SECTION, panelSectionHref } from '@/lib/panel-routes';
 import { marketplaceCatalogHref, parseMarketplaceSearchParams } from '@/lib/marketplace-search';
 
 type PanelCatchAllProps = {
-    params: Promise<{ slug?: string[] }>;
+    params: Promise<{ slug: string[] }>;
     searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
@@ -26,7 +26,7 @@ function searchRecord(query: Record<string, string | string[] | undefined>): Rec
  * Las rutas canónicas tienen `page.tsx` propio con el mismo espaciado que el resto de verticales.
  */
 export default async function PanelLegacyCatchAllPage({ params, searchParams }: PanelCatchAllProps) {
-    const [{ slug = [] }, query] = await Promise.all([params, searchParams]);
+    const [{ slug }, query] = await Promise.all([params, searchParams]);
     const sectionSlug = slug[0];
 
     if (!sectionSlug) {

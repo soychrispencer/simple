@@ -1,27 +1,45 @@
-import type { BoostSection, BoostOrder, BoostPlanRecord, BoostListingRecord, VerticalType, BoostPlan } from './types.js';
+import { randomUUID } from 'node:crypto';
+import { boostOrdersByUser } from '../cache/domain-maps.js';
+import type { BoostOrder as DomainBoostOrder } from '../../lib/domain-types.js';
+import type { BoostSection, BoostOrder, BoostPlanRecord, BoostTargetRecord, VerticalType, BoostTargetType } from './types.js';
 import { BOOST_PLAN_TEMPLATES, BOOST_PRICE_BY_VERTICAL_SECTION, MAX_BOOST_SLOTS_PER_SECTION } from './types.js';
 
-// State
-const boostOrdersByUser = new Map<string, BoostOrder[]>();
-export const boostListingsSeed: BoostListingRecord[] = [];
+export function inferBoostTargetType(vertical: VerticalType): BoostTargetType {
+    if (vertical === 'serenatas') return 'serenata_group';
+    if (vertical === 'agenda') return 'operator_profile';
+    return 'listing';
+}
 
-// Utility functions
+export const boostListingsSeed: BoostTargetRecord[] = [];
+
 export function isBoostSectionAllowed(vertical: VerticalType, section: BoostSection): boolean {
+    if (vertical === 'serenatas' || vertical === 'agenda') {
+        return section === 'marketplace' || section === 'landing';
+    }
     if (vertical === 'autos') return section === 'sale' || section === 'rent' || section === 'auction';
-    return section === 'sale' || section === 'rent' || section === 'project';
+    if (vertical === 'propiedades') return section === 'sale' || section === 'rent' || section === 'project';
+    return false;
 }
 
 export function getSectionsForVertical(vertical: VerticalType): BoostSection[] {
-    return vertical === 'autos' ? ['sale', 'rent', 'auction'] : ['sale', 'rent', 'project'];
+    if (vertical === 'serenatas' || vertical === 'agenda') return ['marketplace', 'landing'];
+    if (vertical === 'autos') return ['sale', 'rent', 'auction'];
+    if (vertical === 'propiedades') return ['sale', 'rent', 'project'];
+    return [];
 }
 
 export function parseBoostSection(raw: string | undefined, vertical: VerticalType): BoostSection {
+    if (vertical === 'serenatas' || vertical === 'agenda') {
+        return raw === 'landing' ? 'landing' : 'marketplace';
+    }
     const normalized = raw === 'rent' || raw === 'auction' || raw === 'project' ? raw : 'sale';
-    return isBoostSectionAllowed(vertical, normalized) ? normalized : 'sale';
+    return isBoostSectionAllowed(vertical, normalized) ? normalized : getSectionsForVertical(vertical)[0] ?? 'sale';
 }
 
 export function getBoostPlans(vertical: VerticalType, section: BoostSection): BoostPlanRecord[] {
-    const safeSection = isBoostSectionAllowed(vertical, section) ? section : 'sale';
+    const safeSection = isBoostSectionAllowed(vertical, section)
+        ? section
+        : (getSectionsForVertical(vertical)[0] ?? 'marketplace');
     const sectionPricing = BOOST_PRICE_BY_VERTICAL_SECTION[vertical][safeSection];
     return BOOST_PLAN_TEMPLATES.map((template) => ({
         id: template.id,
@@ -32,12 +50,16 @@ export function getBoostPlans(vertical: VerticalType, section: BoostSection): Bo
     }));
 }
 
-export function getBoostListingById(vertical: VerticalType, listingId: string): BoostListingRecord | null {
-    return boostListingsSeed.find((item) => item.vertical === vertical && item.id === listingId) ?? null;
+export function getBoostListingById(vertical: VerticalType, listingId: string): BoostTargetRecord | null {
+    const item = boostListingsSeed.find((entry) => entry.vertical === vertical && entry.id === listingId);
+    if (!item) return null;
+    return { ...item, targetType: item.targetType ?? 'listing' };
 }
 
-export function getBoostListingsByOwner(vertical: VerticalType, ownerId: string): BoostListingRecord[] {
-    return boostListingsSeed.filter((item) => item.vertical === vertical && item.ownerId === ownerId);
+export function getBoostListingsByOwner(vertical: VerticalType, ownerId: string): BoostTargetRecord[] {
+    return boostListingsSeed
+        .filter((item) => item.vertical === vertical && item.ownerId === ownerId)
+        .map((item) => ({ ...item, targetType: item.targetType ?? 'listing' }));
 }
 
 export function normalizeBoostOrder(order: BoostOrder, now = Date.now()): BoostOrder {
@@ -55,21 +77,23 @@ export function normalizeBoostOrder(order: BoostOrder, now = Date.now()): BoostO
 export function getAllBoostOrdersNormalized(now = Date.now()): BoostOrder[] {
     const all: BoostOrder[] = [];
     for (const [userId, orders] of boostOrdersByUser.entries()) {
-        const normalized = orders.map((order) => normalizeBoostOrder(order, now));
-        boostOrdersByUser.set(userId, normalized);
+        const normalized = orders.map((order) => normalizeBoostOrder(order as BoostOrder, now));
+        boostOrdersByUser.set(userId, normalized as DomainBoostOrder[]);
         all.push(...normalized);
     }
     return all;
 }
 
 export function getBoostOrdersForUser(userId: string, vertical?: VerticalType): BoostOrder[] {
-    const normalized = (boostOrdersByUser.get(userId) ?? []).map((order) => normalizeBoostOrder(order));
-    boostOrdersByUser.set(userId, normalized);
+    const normalized = (boostOrdersByUser.get(userId) ?? []).map((order) => normalizeBoostOrder(order as BoostOrder));
+    boostOrdersByUser.set(userId, normalized as DomainBoostOrder[]);
     const filtered = vertical ? normalized.filter((item) => item.vertical === vertical) : normalized;
     return [...filtered].sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function sectionLabel(section: BoostSection): string {
+    if (section === 'marketplace') return 'Directorio';
+    if (section === 'landing') return 'Portada';
     if (section === 'rent') return 'Arriendos';
     if (section === 'auction') return 'Subastas';
     if (section === 'project') return 'Proyectos';
@@ -77,7 +101,7 @@ export function sectionLabel(section: BoostSection): string {
 }
 
 export function makeBoostOrderId(): string {
-    return `boost-${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
+    return randomUUID();
 }
 
 export function countReservedSlots(vertical: VerticalType, section: BoostSection): number {
@@ -88,7 +112,6 @@ export function countReservedSlots(vertical: VerticalType, section: BoostSection
     }).length;
 }
 
-// Placeholder functions - need to be implemented with proper dependencies
 export function countFreeBoostsUsedThisMonth(userId: string, vertical: VerticalType): number {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -99,19 +122,22 @@ export function countFreeBoostsUsedThisMonth(userId: string, vertical: VerticalT
 export function createBoostOrderRecord(input: {
     userId: string;
     vertical: VerticalType;
-    listing: BoostListingRecord;
+    target: BoostTargetRecord;
     section: BoostSection;
     plan: BoostPlanRecord;
     startAt?: number;
 }): { ok: boolean; order?: BoostOrder; error?: string } {
+    const targetType = input.target.targetType ?? 'listing';
+    const targetId = input.target.id;
     const ownOrders = getBoostOrdersForUser(input.userId);
-    const hasRunningForListing = ownOrders.some((order) => {
-        if (order.vertical !== input.vertical || order.listingId !== input.listing.id) return false;
+    const hasRunningForTarget = ownOrders.some((order) => {
+        const orderTargetId = order.targetId ?? order.listingId;
+        if (order.vertical !== input.vertical || orderTargetId !== targetId) return false;
         return order.status === 'active' || order.status === 'scheduled' || order.status === 'paused';
     });
 
-    if (hasRunningForListing) {
-        return { ok: false, error: 'Ya tienes un boost vigente para esta publicación' };
+    if (hasRunningForTarget) {
+        return { ok: false, error: 'Ya tienes un boost vigente para este recurso' };
     }
 
     const reserved = countReservedSlots(input.vertical, input.section);
@@ -126,8 +152,10 @@ export function createBoostOrderRecord(input: {
     const nextOrder = normalizeBoostOrder({
         id: makeBoostOrderId(),
         userId: input.userId,
+        targetType,
+        targetId,
+        listingId: targetType === 'listing' ? targetId : '',
         vertical: input.vertical,
-        listingId: input.listing.id,
         section: input.section,
         planId: input.plan.id,
         planName: input.plan.name,
@@ -141,16 +169,24 @@ export function createBoostOrderRecord(input: {
     });
 
     const existing = boostOrdersByUser.get(input.userId) ?? [];
-    boostOrdersByUser.set(input.userId, [nextOrder, ...existing]);
+    boostOrdersByUser.set(input.userId, [nextOrder as DomainBoostOrder, ...existing]);
 
     return { ok: true, order: nextOrder };
 }
 
-// State management
 export function setBoostOrdersByUser(userId: string, orders: BoostOrder[]) {
-    boostOrdersByUser.set(userId, orders);
+    boostOrdersByUser.set(userId, orders as DomainBoostOrder[]);
 }
 
 export function getBoostOrdersByUser(userId: string): BoostOrder[] {
-    return boostOrdersByUser.get(userId) ?? [];
+    return (boostOrdersByUser.get(userId) ?? []).map((order) => {
+        const targetType = order.targetType ?? inferBoostTargetType(order.vertical);
+        const targetId = order.targetId ?? order.listingId ?? '';
+        return {
+            ...order,
+            targetType,
+            targetId,
+            listingId: targetType === 'listing' ? targetId : (order.listingId ?? ''),
+        } as BoostOrder;
+    });
 }

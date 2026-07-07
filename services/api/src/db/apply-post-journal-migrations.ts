@@ -100,6 +100,7 @@ export const POST_JOURNAL_TAGS = [
     '0133_serenata_policy_agreed',
     '0134_serenata_provider_operator_profile',
     '0135_agenda_operator_site_appearance',
+    '0136_boost_orders_target_columns',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

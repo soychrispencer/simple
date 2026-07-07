@@ -8,12 +8,12 @@ export type AdStatus = 'scheduled' | 'active' | 'paused' | 'ended';
 export type AdPaymentStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
 export type AdDestinationType = 'none' | 'custom_url' | 'listing' | 'profile';
 export type AdOverlayAlign = 'left' | 'center' | 'right';
-export type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'subastas' | 'proyectos';
+export type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'subastas' | 'proyectos' | 'mariachis' | 'professionals';
 
 export type AdCampaign = {
     id: string;
     userId: string;
-    vertical: 'autos' | 'propiedades';
+    vertical: 'autos' | 'propiedades' | 'agenda' | 'serenatas';
     name: string;
     format: AdFormat;
     status: AdStatus;
@@ -145,9 +145,23 @@ export function getActiveCampaignsByFormat(campaigns: AdCampaign[], format: AdFo
 export function getCampaignDestinationHref(campaign: AdCampaign): string {
     if (campaign.destinationType === 'none') return '#';
     if (campaign.destinationType === 'listing' && campaign.listingHref) return campaign.listingHref;
-    if (campaign.destinationType === 'profile' && campaign.profileSlug) return `/perfil/${campaign.profileSlug}`;
+    if (campaign.destinationType === 'profile' && campaign.profileSlug) {
+        if (campaign.vertical === 'agenda' || campaign.vertical === 'serenatas') {
+            return `/${encodeURIComponent(campaign.profileSlug)}`;
+        }
+        return `/perfil/${encodeURIComponent(campaign.profileSlug)}`;
+    }
     if (campaign.destinationType === 'custom_url' && campaign.destinationUrl) return campaign.destinationUrl;
     return '#';
+}
+
+export function getActiveHeroCampaignsForPlacement(
+    campaigns: AdCampaign[],
+    placementSection?: AdPlacementSection,
+): AdCampaign[] {
+    const heroes = getActiveHeroCampaigns(campaigns);
+    if (!placementSection) return heroes;
+    return heroes.filter((campaign) => !campaign.placementSection || campaign.placementSection === placementSection);
 }
 
 export function isValidHttpUrl(url: string): boolean {
@@ -156,7 +170,7 @@ export function isValidHttpUrl(url: string): boolean {
 
 // ─── Factory: per-vertical API functions ─────────────────────────────────────
 
-export function createAdvertisingClient(vertical: 'autos' | 'propiedades') {
+export function createAdvertisingClient(vertical: 'autos' | 'propiedades' | 'agenda' | 'serenatas') {
     const AD_UPDATE_EVENT = `${vertical}:ad-campaigns-updated`;
 
     function emitCampaignsUpdated(): void {

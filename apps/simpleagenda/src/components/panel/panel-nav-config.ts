@@ -7,6 +7,7 @@ import {
     IconBriefcase,
     IconMessageCircle,
     IconCash,
+    IconRocket,
     type Icon,
 } from '@tabler/icons-react';
 
@@ -27,6 +28,7 @@ const BASE_ITEMS: PanelNavItem[] = [
     { href: '/panel/clientes', label: 'Pacientes', icon: IconUsers },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
     { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBriefcase },
+    { href: '/panel/publicidad', label: 'Publicidad', icon: IconRocket },
     { href: '/panel/finanzas', label: 'Finanzas', icon: IconCash },
     { href: '/panel/analytics', label: 'Estadísticas', icon: IconChartBar },
     { href: '/panel/mi-cuenta', label: 'Mi cuenta', icon: IconUser },

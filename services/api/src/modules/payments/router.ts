@@ -71,11 +71,14 @@ export type PaymentsRouterDeps = {
     appendCheckoutParams: (url: string, params: Record<string, string>) => string;
     // Boost helpers (used in checkout/confirm)
     getBoostListingById: (vertical: any, listingId: string) => any | null;
+    getBoostTargetById?: (vertical: any, targetType: import('../boost/types.js').BoostTargetType, targetId: string) => Promise<any | null>;
+    inferBoostTargetType?: (vertical: any) => string;
     getBoostOrdersForUser: (userId: string) => any[];
     getBoostPlans: (vertical: any, section: any) => any[];
     parseBoostSection: (raw: any, vertical: any) => any;
     isBoostSectionAllowed: (vertical: any, section: any) => boolean;
     createBoostOrderRecord: (input: any) => { ok: boolean; order?: any; error?: string };
+    insertBoostOrderRow?: (order: any, accountId?: string | null) => Promise<void>;
     countReservedSlots: (vertical: any, section: any) => number;
     sectionLabel: (section: any) => string;
     MAX_BOOST_SLOTS_PER_SECTION: number;
@@ -599,17 +602,20 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 const vertical = checkoutData.vertical;
                 const boostInput = checkoutData.boost;
                 const returnUrl = deps.resolveMercadoPagoReturnUrl(vertical, checkoutData.returnUrl);
-                const listing = deps.getBoostListingById(vertical, boostInput.listingId);
-                if (!listing) {
-                    return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+                const targetType = boostInput.targetType ?? deps.inferBoostTargetType?.(vertical) ?? 'listing';
+                const target = deps.getBoostTargetById
+                    ? await deps.getBoostTargetById(vertical, targetType, boostInput.listingId)
+                    : deps.getBoostListingById(vertical, boostInput.listingId);
+                if (!target) {
+                    return c.json({ ok: false, error: 'Recurso no encontrado' }, 404);
                 }
-                if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-                    return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
+                if (target.ownerId !== user.id && user.role !== 'superadmin') {
+                    return c.json({ ok: false, error: 'No tienes permisos sobre este recurso' }, 403);
                 }
 
                 const section = boostInput.section
                     ? deps.parseBoostSection(boostInput.section, vertical)
-                    : listing.section;
+                    : target.section;
                 if (!deps.isBoostSectionAllowed(vertical, section)) {
                     return c.json({ ok: false, error: 'Sección inválida para esta vertical' }, 400);
                 }
@@ -620,11 +626,12 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 }
 
                 const existingBoost = deps.getBoostOrdersForUser(user.id).some((order: any) => {
-                    if (order.vertical !== vertical || order.listingId !== listing.id) return false;
+                    const orderTargetId = order.targetId ?? order.listingId;
+                    if (order.vertical !== vertical || orderTargetId !== target.id) return false;
                     return order.status === 'active' || order.status === 'scheduled' || order.status === 'paused';
                 });
                 if (existingBoost && user.role !== 'superadmin') {
-                    return c.json({ ok: false, error: 'Ya tienes un boost vigente para esta publicación' }, 409);
+                    return c.json({ ok: false, error: 'Ya tienes un boost vigente para este recurso' }, 409);
                 }
 
                 if (deps.countReservedSlots(vertical, section) >= deps.MAX_BOOST_SLOTS_PER_SECTION && user.role !== 'superadmin') {
@@ -635,7 +642,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 const backUrls = buildMercadoPagoCheckoutBackUrls(deps.appendCheckoutParams, returnUrl, orderId, 'boost');
                 const checkout = await createHostedCheckout({
                     orderId,
-                    title: `Boost ${plan.name} · ${listing.title}`,
+                    title: `Boost ${plan.name} · ${target.title}`,
                     description: `${deps.sectionLabel(section)} por ${plan.days} días`,
                     amount: plan.price,
                     currency: 'CLP',
@@ -643,7 +650,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     successUrl: backUrls.success,
                     failureUrl: backUrls.failure,
                     pendingUrl: backUrls.pending,
-                    metadata: { kind: 'boost', vertical, listingId: listing.id, section, planId: plan.id },
+                    metadata: { kind: 'boost', vertical, targetType, targetId: target.id, listingId: target.id, section, planId: plan.id },
                 });
 
                 const order = deps.upsertPaymentOrder({
@@ -651,7 +658,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     userId: user.id,
                     vertical,
                     kind: 'boost',
-                    title: `Boost ${plan.name} · ${listing.title}`,
+                    title: `Boost ${plan.name} · ${target.title}`,
                     amount: plan.price,
                     currency: 'CLP',
                     status: 'pending',
@@ -663,7 +670,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     updatedAt: Date.now(),
                     appliedAt: null,
                     appliedResourceId: null,
-                    metadata: { kind: 'boost', listingId: listing.id, section, planId: plan.id, listingTitle: listing.title, provider: 'mercadopago' },
+                    metadata: { kind: 'boost', targetType, targetId: target.id, listingId: target.id, section, planId: plan.id, listingTitle: target.title, provider: 'mercadopago' },
                 });
 
                 return c.json({ ok: true, orderId: order.id, checkoutUrl: order.checkoutUrl, order: deps.paymentOrderToResponse(order) });

@@ -1,6 +1,8 @@
 import {
     confirmCheckout,
     fetchSubscriptionCatalog as fetchSubscriptionCatalogForVertical,
+    startAdvertisingCheckout as startAdvertisingCheckoutForVertical,
+    startBoostCheckout as startBoostCheckoutForVertical,
     startSubscriptionCheckout as startSubscriptionCheckoutForVertical,
     type ConfirmCheckoutResponse,
     type PaymentOrderStatus,
@@ -39,6 +41,18 @@ export function startSubscriptionCheckout(
         returnUrl: input.returnUrl,
         planId: input.planId,
     });
+}
+
+export function startBoostCheckout(
+    input: Parameters<typeof startBoostCheckoutForVertical>[1],
+): ReturnType<typeof startBoostCheckoutForVertical> {
+    return startBoostCheckoutForVertical(VERTICAL, input);
+}
+
+export function startAdvertisingCheckout(
+    input: Parameters<typeof startAdvertisingCheckoutForVertical>[1],
+): ReturnType<typeof startAdvertisingCheckoutForVertical> {
+    return startAdvertisingCheckoutForVertical(VERTICAL, input);
 }
 
 export { confirmCheckout };

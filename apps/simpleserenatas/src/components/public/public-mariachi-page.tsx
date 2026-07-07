@@ -5,7 +5,7 @@ import { BrandLogo } from '@simple/ui/brand';
 import { PanelNotice } from '@simple/ui/panel';
 import { ScreenShell } from '@/components/layout/screen-shell';
 import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
-import { serenatasExploreNavLinks } from '@/components/layout/landing-header';
+import { serenatasPublicNavLinks } from '@/components/layout/landing-header';
 import { MariachiProfileContent } from '@/components/public/mariachi-profile-content';
 import { useMarketplaceGroup, type MarketplaceGroupData } from '@/hooks/use-marketplace-group';
 
@@ -20,7 +20,7 @@ export function PublicMariachiPage({
 
     return (
         <ScreenShell>
-            <SerenatasChromeHeader publicLinks={serenatasExploreNavLinks} />
+            <SerenatasChromeHeader publicLinks={serenatasPublicNavLinks} />
             <div className="mx-auto min-w-0 w-full max-w-5xl overflow-x-hidden px-3 py-4 pb-8 sm:px-6 sm:py-6 lg:py-8">
                 {loading ? (
                     null

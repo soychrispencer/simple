@@ -19,6 +19,7 @@ import {
 } from '../../db/schema.js';
 import { loadPaymentOrdersCache } from '../payments/load-payment-orders-cache.js';
 import { loadActiveSubscriptionsCache } from '../subscriptions/load-subscriptions-cache.js';
+import { mapBoostOrderRow } from '../boost/persist.js';
 import { makeGeoPoint, type GeoPoint } from '../listings/location.js';
 
 type AnyRecord = any;
@@ -171,22 +172,7 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
         const boostOrdersByUserMap = new Map<string, AnyRecord[]>();
         for (const boost of boostResults) {
             const list = boostOrdersByUserMap.get(boost.userId) || [];
-            list.push({
-                id: boost.id,
-                userId: boost.userId,
-                listingId: boost.listingId || '',
-                vertical: boost.vertical as VerticalType,
-                section: boost.section as string,
-                planId: boost.planId as string,
-                planName: boost.planId,
-                days: boost.days,
-                price: Number(boost.price),
-                startAt: boost.startsAt?.getTime() || 0,
-                endAt: boost.endsAt?.getTime() || 0,
-                status: boost.status as string,
-                createdAt: boost.createdAt.getTime(),
-                updatedAt: boost.updatedAt.getTime(),
-            });
+            list.push(mapBoostOrderRow(boost));
             boostOrdersByUserMap.set(boost.userId, list);
         }
         for (const [userId, list] of boostOrdersByUserMap) {

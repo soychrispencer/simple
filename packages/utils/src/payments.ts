@@ -3,7 +3,8 @@ import { apiFetch } from './api-client.js';
 export type PaymentVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 export type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
 export type AdDurationDays = 7 | 15 | 30;
-export type PaymentBoostSection = 'sale' | 'rent' | 'auction' | 'project';
+export type PaymentBoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing';
+export type PaymentBoostTargetType = 'listing' | 'serenata_group' | 'operator_profile';
 export type PaymentBoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
 export type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
 
@@ -98,6 +99,7 @@ export async function startBoostCheckout(
     input: {
         returnUrl: string;
         listingId: string;
+        targetType?: PaymentBoostTargetType;
         section: PaymentBoostSection;
         planId: PaymentBoostPlanId;
     }
@@ -110,6 +112,7 @@ export async function startBoostCheckout(
             returnUrl: input.returnUrl,
             boost: {
                 listingId: input.listingId,
+                ...(input.targetType ? { targetType: input.targetType } : {}),
                 section: input.section,
                 planId: input.planId,
             },

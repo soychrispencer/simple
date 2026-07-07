@@ -12,7 +12,8 @@ import { fetchPanelNotifications as fetchMessagePanelNotifications } from '@/lib
 import { useSerenataOptional } from '@/context/serenata-context';
 import { sectionFromPanelPath } from '@/lib/panel-routes';
 import { clearSavedMariachisCache, syncSavedMariachisFromApi } from '@/lib/saved-mariachis';
-import { serenatasExploreNavLinks } from '@/components/layout/landing-header';
+import { resolveOperatorLandingCopy } from '@simple/utils';
+import { serenatasPublicNavLinks } from '@/components/layout/landing-header';
 
 type PublicLink = { href: string; label: string };
 
@@ -27,12 +28,13 @@ type SerenatasChromeHeaderProps = {
 };
 
 export function SerenatasChromeHeader({
-    publicLinks = serenatasExploreNavLinks,
+    publicLinks = serenatasPublicNavLinks,
     homeHref = '/',
     mode: modeProp,
     profiles: profilesProp,
     showPrimaryAction = true,
 }: SerenatasChromeHeaderProps) {
+    const copy = resolveOperatorLandingCopy('serenatas');
     const pathname = usePathname() ?? '/';
     const { isLoggedIn, authLoading, user } = useAuth();
     const serenataCtx = useSerenataOptional();
@@ -109,6 +111,7 @@ export function SerenatasChromeHeader({
                 isPanelNavActive={() => false}
                 fetchPanelNotifications={async () => []}
                 showPrimaryAction={showPrimaryAction}
+                guestRegisterLabel={copy.headerCta}
             />
         );
     }
@@ -142,6 +145,7 @@ export function SerenatasChromeHeader({
             primaryActionHref={primaryAction.href}
             primaryActionIcon={primaryAction.icon}
             showPrimaryAction={showPrimaryAction && !isSuspended && primaryAction.show}
+            guestRegisterLabel={copy.headerCta}
         />
     );
 }

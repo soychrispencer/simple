@@ -136,8 +136,10 @@ export type MarketplaceHeaderProps = {
   onNotificationOpened?: (notification: PanelNotification) => void | Promise<void>;
   /** Acción "Marcar todas como leídas" en el dropdown. */
   onMarkAllNotificationsRead?: () => void | Promise<void>;
-  /** Prefetch de Next en enlaces del panel (desactivar reduce ruido RSC en Serenatas). */
-  panelLinkPrefetch?: boolean;
+    /** Prefetch de Next en enlaces del panel (desactivar reduce ruido RSC en Serenatas). */
+    panelLinkPrefetch?: boolean;
+    guestLoginLabel?: string;
+    guestRegisterLabel?: string;
 };
 
 export function MarketplaceHeader({
@@ -158,8 +160,10 @@ export function MarketplaceHeader({
   showPrimaryAction = true,
   onLogout,
   onNotificationOpened,
-  onMarkAllNotificationsRead,
-  panelLinkPrefetch = true,
+    onMarkAllNotificationsRead,
+    panelLinkPrefetch = true,
+    guestLoginLabel = 'Iniciar sesión',
+    guestRegisterLabel = 'Registrarse',
 }: MarketplaceHeaderProps) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -633,10 +637,10 @@ export function MarketplaceHeader({
             ) : (
               <div className="flex items-center gap-2">
                 <PanelButton onClick={() => openAuth('login')} variant="secondary" size="sm" className="h-9 px-4 text-sm">
-                  Iniciar sesión
+                  {guestLoginLabel}
                 </PanelButton>
                 <PanelButton onClick={() => openAuth('register')} variant="primary" size="sm" className="h-9 px-4 text-sm">
-                  Registrarse
+                  {guestRegisterLabel}
                 </PanelButton>
               </div>
             )}
@@ -684,7 +688,7 @@ export function MarketplaceHeader({
                       variant="secondary"
                       className="w-full h-10 text-sm"
                     >
-                      Iniciar sesión
+                      {guestLoginLabel}
                     </PanelButton>
                     <PanelButton
                       onClick={() => {
@@ -694,7 +698,7 @@ export function MarketplaceHeader({
                       variant="primary"
                       className="w-full h-10 text-sm"
                     >
-                      Registrarse
+                      {guestRegisterLabel}
                     </PanelButton>
                   </div>
                 ) : null}

@@ -1,17 +1,20 @@
 'use client';
 
-import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
-import Link from 'next/link';
+import { useEffect, useState, type MouseEvent } from 'react';
 import {
-    IconChevronRight,
     IconHeart,
     IconHeartFilled,
     IconMap,
-    IconMapPin,
     IconMusic,
+    IconSparkles,
 } from '@tabler/icons-react';
-import { getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
+import {
+    OperatorDirectoryCard,
+    OperatorDirectoryCardSection,
+    OperatorDirectoryCardStat,
+    OperatorDirectoryHeroBadge,
+} from '@simple/ui/listings';
 import {
     baseLocationMetaLine,
     cardFeaturedService,
@@ -20,68 +23,22 @@ import {
     zonesCoverageChip,
 } from '@/lib/marketplace-group-display';
 import { formatLandingMoney } from '@/lib/marketplace-display';
-import { MarketplaceGroupLogo } from '@/components/panel/marketplace-group-media';
 import { isMariachiSaved, subscribeSavedMariachis, toggleSavedMariachi } from '@/lib/saved-mariachis';
 import type { ProviderGroup } from '@/lib/serenatas-api';
-
-const HERO_LOGO_FRAME =
-    'flex shrink-0 items-center justify-center overflow-hidden rounded-card border-2 border-white/90 bg-accent-soft font-bold text-accent shadow-md';
-
-function CardShell({
-    href,
-    groupName,
-    onOpen,
-    slug,
-    children,
-}: {
-    href?: string;
-    groupName: string;
-    onOpen?: (slug: string) => void;
-    slug: string;
-    children: ReactNode;
-}) {
-    const className =
-        'group/card flex h-full flex-col overflow-hidden rounded-[1.1rem] border border-border bg-surface shadow-sm ring-1 ring-black/[0.03] transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-md focus-within:ring-2 focus-within:ring-[var(--accent)] focus-within:ring-offset-2 dark:ring-white/10';
-
-    if (href) {
-        return (
-            <Link href={href} className={className} aria-label={`Ver perfil de ${groupName}`}>
-                {children}
-            </Link>
-        );
-    }
-
-    return (
-        <article
-            className={`${className} cursor-pointer`}
-            tabIndex={0}
-            role="link"
-            onClick={() => onOpen?.(slug)}
-            onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onOpen?.(slug);
-                }
-            }}
-            aria-label={`Ver perfil de ${groupName}`}
-        >
-            {children}
-        </article>
-    );
-}
 
 export function PublicProviderGroupCard({
     group,
     href,
     onOpen,
+    boosted = false,
 }: {
     group: ProviderGroup;
     href?: string;
     onOpen?: (slug: string) => void;
+    boosted?: boolean;
 }) {
     const { isLoggedIn, openAuth } = useAuth();
     const [favorite, setFavorite] = useState(false);
-    const cover = group.coverUrl;
     const featured = cardFeaturedService(group);
     const coverage = zonesCoverageChip(group);
     const moreServices = extraServicesLabel(group);
@@ -106,33 +63,39 @@ export function PublicProviderGroupCard({
     };
 
     return (
-        <CardShell href={href} groupName={group.name} onOpen={onOpen} slug={group.slug}>
-            <div className="relative aspect-video shrink-0 overflow-hidden bg-bg-subtle">
-                {cover ? (
-                    <img
-                        src={cover}
-                        alt=""
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-[1.04]"
-                    />
-                ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-accent-soft text-sm font-semibold text-accent">
-                        Portada pendiente
+        <OperatorDirectoryCard
+            href={href}
+            onOpen={onOpen ? () => onOpen(group.slug) : undefined}
+            ariaLabel={`Ver perfil de ${group.name}`}
+            name={group.name}
+            coverUrl={group.coverUrl}
+            coverFallback={
+                <div className="flex h-full w-full items-center justify-center bg-accent-soft text-sm font-semibold text-accent">
+                    Portada pendiente
+                </div>
+            }
+            logoUrl={group.logoUrl}
+            location={location}
+            ctaLabel="Ver mariachi"
+            heroBadges={
+                boosted || showNewBadge ? (
+                    <div className="flex flex-wrap gap-2">
+                        {boosted ? (
+                            <OperatorDirectoryHeroBadge tone="dark">
+                                <IconSparkles size={12} aria-hidden />
+                                Destacado
+                            </OperatorDirectoryHeroBadge>
+                        ) : null}
+                        {showNewBadge ? (
+                            <OperatorDirectoryHeroBadge tone="light">Nuevo</OperatorDirectoryHeroBadge>
+                        ) : null}
                     </div>
-                )}
-                <div
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/72 via-black/18 to-black/0"
-                    aria-hidden
-                />
-
-                {showNewBadge ? (
-                    <span className="absolute left-3 top-3 z-10 rounded-full bg-white px-3 py-1 text-xs font-semibold text-neutral-900 shadow-sm">
-                        Nuevo
-                    </span>
-                ) : null}
-
+                ) : null
+            }
+            heroAction={
                 <button
                     type="button"
-                    className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-md transition hover:bg-black/55"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-md transition hover:bg-black/55"
                     aria-label={favorite ? 'Quitar de guardados' : 'Guardar mariachi'}
                     aria-pressed={favorite}
                     onClick={(event) => {
@@ -145,87 +108,42 @@ export function PublicProviderGroupCard({
                         <IconHeart size={18} aria-hidden />
                     )}
                 </button>
-
-                <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-3.5 sm:p-4">
-                    <MarketplaceGroupLogo group={group} size="md" frameClassName={HERO_LOGO_FRAME} />
-                    <div className="min-w-0 flex-1 pb-0.5">
-                        <h3
-                            className="truncate text-lg font-bold leading-tight text-white drop-shadow-sm"
-                            title={group.name}
-                        >
-                            {group.name}
-                        </h3>
-                        <p className="mt-1 flex min-w-0 items-center gap-1 text-xs font-medium text-white/85">
-                            <IconMapPin size={14} className="shrink-0" aria-hidden />
-                            <span className="truncate" title={location}>
-                                {location}
-                            </span>
-                        </p>
-                    </div>
+            }
+        >
+            <div className="flex items-end justify-between gap-4">
+                <OperatorDirectoryCardStat
+                    label="Cobertura"
+                    value={coverage?.label ?? 'Por confirmar'}
+                    icon={<IconMap size={15} aria-hidden />}
+                />
+                <div className="shrink-0 text-right">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+                        Desde
+                    </p>
+                    <p className="mt-1 text-xl font-bold leading-none tracking-tight text-fg">
+                        {formatLandingMoney(group.startingPrice)}
+                    </p>
                 </div>
             </div>
 
-            <div className="flex flex-1 flex-col gap-3.5 p-4">
-                <div className="flex items-end justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
-                            Cobertura
-                        </p>
-                        <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm font-medium text-fg-secondary">
-                            <IconMap size={15} className="shrink-0 text-accent" aria-hidden />
-                            <span className="truncate" title={coverage?.title ?? 'Cobertura por confirmar'}>
-                                {coverage?.label ?? 'Por confirmar'}
-                            </span>
-                        </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
-                            Desde
-                        </p>
-                        <p className="mt-1 text-xl font-bold leading-none tracking-tight text-fg">
-                            {formatLandingMoney(group.startingPrice)}
-                        </p>
-                    </div>
-                </div>
-
-                {featured ? (
-                    <div className="flex items-start justify-between gap-3 border-t border-border pt-3">
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
-                                Servicio principal
-                            </p>
-                            <p className="mt-1 truncate text-base font-semibold text-fg">
-                                {featured.name}
-                            </p>
-                            {featured.details ? (
-                                <p className="mt-1 text-xs text-fg-muted">{featured.details}</p>
-                            ) : null}
-                        </div>
-                        {compactMoreServices ? (
-                            <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
-                                {compactMoreServices}
-                            </span>
-                        ) : null}
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2 border-t border-border pt-3 text-sm text-fg-muted">
-                        <IconMusic size={16} className="shrink-0 text-accent" aria-hidden />
-                        Servicios pendientes de publicar
-                    </div>
-                )}
-
-                <span
-                    className={getPanelButtonClassName({ className: 'mt-auto h-10 w-full' })}
-                    style={getPanelButtonStyle('accent')}
-                >
-                    Ver mariachi
-                    <IconChevronRight
-                        size={16}
-                        className="transition-transform duration-300 group-hover/card:translate-x-0.5"
-                        aria-hidden
-                    />
-                </span>
-            </div>
-        </CardShell>
+            {featured ? (
+                <OperatorDirectoryCardSection
+                    label="Servicio principal"
+                    title={featured.name}
+                    detail={featured.details ?? undefined}
+                    trailing={compactMoreServices ?? undefined}
+                />
+            ) : (
+                <OperatorDirectoryCardSection
+                    label="Servicio principal"
+                    empty={
+                        <>
+                            <IconMusic size={16} className="shrink-0 text-accent" aria-hidden />
+                            Servicios pendientes de publicar
+                        </>
+                    }
+                />
+            )}
+        </OperatorDirectoryCard>
     );
 }

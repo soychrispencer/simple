@@ -167,9 +167,11 @@ export const boostOrders = pgTable('boost_orders', {
   id: uuid('id').primaryKey().defaultRandom(),
   accountId: uuid('account_id').references(() => accounts.id),
   userId: uuid('user_id').references(() => users.id).notNull(),
-  listingId: uuid('listing_id').references(() => listings.id),
-  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades'
-  section: varchar('section', { length: 20 }).notNull(), // 'sale' | 'rent' | 'auction' | 'project'
+  targetType: varchar('target_type', { length: 32 }).notNull().default('listing'),
+  targetId: uuid('target_id'),
+  listingId: uuid('listing_id'),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  section: varchar('section', { length: 20 }).notNull(),
   planId: varchar('plan_id', { length: 50 }).notNull(), // 'boost_starter' | 'boost_pro' | 'boost_max'
   days: integer('days').notNull(),
   price: decimal('price', { precision: 10, scale: 2 }).notNull(),

@@ -146,16 +146,18 @@ export const followToggleSchema = z.object({
     vertical: z.enum(['autos', 'propiedades']),
 });
 
-const boostVerticalSchema = z.enum(['autos', 'propiedades', 'agenda']);
+const boostVerticalSchema = z.enum(['autos', 'propiedades', 'agenda', 'serenatas']);
+const advertisingVerticalSchema = boostVerticalSchema;
 const subscriptionVerticalSchema = z.enum(['autos', 'propiedades', 'agenda', 'serenatas']);
 const boostPlanIdSchema = z.enum(['boost_starter', 'boost_pro', 'boost_max']);
-const boostSectionSchema = z.enum(['sale', 'rent', 'auction', 'project']);
+const boostTargetTypeSchema = z.enum(['listing', 'serenata_group', 'operator_profile']);
+const boostSectionSchema = z.enum(['sale', 'rent', 'auction', 'project', 'marketplace', 'landing']);
 export const portalKeySchema = z.enum(['yapo', 'chileautos', 'mercadolibre', 'facebook']);
 const adFormatSchema = z.enum(['hero', 'card', 'inline']);
 const adDurationDaysSchema = z.union([z.literal(7), z.literal(15), z.literal(30)]);
 const adDestinationTypeSchema = z.enum(['none', 'custom_url', 'listing', 'profile']);
 const adOverlayAlignSchema = z.enum(['left', 'center', 'right']);
-const adPlacementSectionSchema = z.enum(['home', 'ventas', 'arriendos', 'subastas', 'proyectos']);
+const adPlacementSectionSchema = z.enum(['home', 'ventas', 'arriendos', 'subastas', 'proyectos', 'mariachis', 'professionals']);
 const paidSubscriptionPlanIdSchema = z.enum(['pro', 'enterprise']);
 const listingStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
 const listingManageStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
@@ -221,6 +223,7 @@ export const addressBookWriteSchema = z.object({
 export const createBoostOrderSchema = z.object({
     vertical: boostVerticalSchema,
     listingId: z.string().min(1),
+    targetType: boostTargetTypeSchema.optional(),
     planId: boostPlanIdSchema,
     startAt: z.number().int().positive().optional(),
     section: boostSectionSchema.optional(),
@@ -324,7 +327,7 @@ export const generateListingReelSchema = z.object({
 });
 
 export const adCampaignCreateSchema = z.object({
-    vertical: boostVerticalSchema,
+    vertical: advertisingVerticalSchema,
     name: z.string().trim().min(1).max(120),
     format: adFormatSchema,
     destinationType: adDestinationTypeSchema,
@@ -372,6 +375,7 @@ export const createCheckoutSchema = z.discriminatedUnion('kind', [
         returnUrl: z.string().url(),
         boost: z.object({
             listingId: z.string().min(1),
+            targetType: boostTargetTypeSchema.optional(),
             section: boostSectionSchema.optional(),
             planId: boostPlanIdSchema,
         }),

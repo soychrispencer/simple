@@ -9,16 +9,17 @@ import { PanelButton } from '@simple/ui/panel';
 import { resolveOperatorLandingCopy } from '@simple/utils';
 import { clearSavedMariachisCache, syncSavedMariachisFromApi } from '@/lib/saved-mariachis';
 
-type PublicLink = { href: string; label: string };
+type PublicLink = { href: string; label: string; description?: string; items?: PublicLink[] };
 
-/** Sin pestañas de audiencia en header (Inicio / explorar van en menú móvil del panel). */
-export const defaultPublicLinks: PublicLink[] = [];
-
-/** Enlaces del marketplace en menú móvil (panel y ficha pública). */
-export const serenatasExploreNavLinks: PublicLink[] = [
-    { href: '/', label: 'Inicio' },
-    { href: '/mariachis', label: 'Explorar mariachis' },
+/** Navegación pública compartida (portada, catálogo y fichas). */
+export const serenatasPublicNavLinks: PublicLink[] = [
+    { href: '/mariachis', label: 'Mariachis' },
+    { href: '/#como-funciona', label: 'Cómo funciona' },
+    { href: '/#para-duenos', label: 'Publica tu grupo' },
 ];
+
+/** @deprecated Usa serenatasPublicNavLinks */
+export const serenatasExploreNavLinks = serenatasPublicNavLinks;
 
 type LandingHeaderProps = {
     onLogin: () => void;
@@ -26,7 +27,11 @@ type LandingHeaderProps = {
     publicLinks?: PublicLink[];
 };
 
-export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublicLinks }: LandingHeaderProps) {
+export function LandingHeader({
+    onLogin,
+    onRegister,
+    publicLinks = serenatasPublicNavLinks,
+}: LandingHeaderProps) {
     const copy = resolveOperatorLandingCopy('serenatas');
     const savedMariachis = useMemo(
         () => ({ clearCache: clearSavedMariachisCache, syncFromApi: syncSavedMariachisFromApi }),
@@ -42,17 +47,10 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
             fetchPanelNotifications={async () => []}
             savedListings={savedMariachis}
             showPrimaryAction={false}
+            guestRegisterLabel={copy.headerCta}
             rightSlot={
                 <>
                     <ThemeToggleButton variant="header-chip" SunIcon={IconSun} MoonIcon={IconMoon} />
-                    <PanelButton
-                        type="button"
-                        variant="accent"
-                        className="inline-flex h-10 px-4 sm:hidden"
-                        onClick={onLogin}
-                    >
-                        Iniciar sesión
-                    </PanelButton>
                     <PanelButton
                         type="button"
                         variant="ghost"
@@ -64,7 +62,7 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                     <PanelButton
                         type="button"
                         variant="accent"
-                        className="hidden h-10 px-4 sm:inline-flex"
+                        className="h-10 px-4"
                         onClick={onRegister}
                     >
                         {copy.headerCta}
@@ -73,9 +71,20 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
             }
             renderMobileMenu={(closeMenu) => (
                 <>
+                    {publicLinks.map((link) => (
+                        <Link
+                            key={link.href}
+                            href={link.href}
+                            onClick={closeMenu}
+                            className="flex items-center gap-2 rounded-button px-2.5 py-2 text-sm text-fg-secondary transition-colors hover:bg-(--bg-subtle)"
+                        >
+                            {link.label}
+                        </Link>
+                    ))}
+                    <div className="my-2 border-t border-border" role="presentation" />
                     <PanelButton
                         type="button"
-                        variant="accent"
+                        variant="secondary"
                         className="mb-2 h-10 w-full"
                         onClick={() => {
                             closeMenu();
@@ -86,8 +95,8 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                     </PanelButton>
                     <PanelButton
                         type="button"
-                        variant="secondary"
-                        className="mb-2 h-10 w-full"
+                        variant="accent"
+                        className="h-10 w-full"
                         onClick={() => {
                             closeMenu();
                             onRegister();
@@ -95,17 +104,6 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                     >
                         {copy.headerCta}
                     </PanelButton>
-                    <div className="my-2 border-t border-border" role="presentation" />
-                    {publicLinks.map((l) => (
-                        <Link
-                            key={l.href}
-                            href={l.href}
-                            onClick={closeMenu}
-                            className="flex items-center gap-2 rounded-button px-2.5 py-2 text-sm text-fg-secondary transition-colors hover:bg-(--bg-subtle)"
-                        >
-                            {l.label}
-                        </Link>
-                    ))}
                 </>
             )}
         />

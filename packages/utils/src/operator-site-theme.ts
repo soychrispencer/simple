@@ -22,7 +22,7 @@ export const OPERATOR_SITE_LAYOUT_OPTIONS: OperatorSiteLayoutOption[] = [
         label: 'Reserva',
         description: 'Enfocado en convertir: servicios visibles y reserva al centro.',
         structure: 'Portada con tarjeta de reserva + servicios en grilla.',
-        hint: 'Ideal para agenda, citas y marketplace con CTA claro.',
+        hint: 'Ideal para reservas online y perfiles con CTA claro.',
     },
     {
         id: 'portfolio',

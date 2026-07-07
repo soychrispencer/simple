@@ -23,7 +23,10 @@ export function getAdvertisingPrice(vertical: VerticalType, format: AdFormat, du
 export function isAdPlacementSectionAllowed(vertical: VerticalType, section: AdPlacementSection): boolean {
     if (section === 'home') return true;
     if (vertical === 'autos') return section === 'ventas' || section === 'arriendos' || section === 'subastas';
-    return section === 'ventas' || section === 'arriendos' || section === 'proyectos';
+    if (vertical === 'propiedades') return section === 'ventas' || section === 'arriendos' || section === 'proyectos';
+    if (vertical === 'serenatas') return section === 'mariachis';
+    if (vertical === 'agenda') return section === 'professionals';
+    return false;
 }
 
 export function normalizeAdCampaignStatus(record: AdCampaignRecord, now = Date.now()): AdCampaignRecord {

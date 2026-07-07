@@ -80,6 +80,14 @@
       "types": "./dist/operator-site/index.d.ts",
       "default": "./dist/operator-site/index.js"
     },
+    "./operator-directory": {
+      "types": "./dist/operator-directory/index.d.ts",
+      "default": "./dist/operator-directory/index.js"
+    },
+    "./public-advertising": {
+      "types": "./dist/public-advertising/index.d.ts",
+      "default": "./dist/public-advertising/index.js"
+    },
     "./sidebar": {
       "types": "./dist/sidebar/index.d.ts",
       "default": "./dist/sidebar/index.js"

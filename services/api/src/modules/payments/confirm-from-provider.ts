@@ -1,4 +1,10 @@
 import type { PaymentsRouterDeps } from './router.js';
+import type { BoostTargetType } from '../boost/types.js';
+
+function asBoostTargetType(value: string): BoostTargetType {
+    if (value === 'serenata_group' || value === 'operator_profile') return value;
+    return 'listing';
+}
 
 export type ConfirmPaymentFromProviderInput = {
     userId: string;
@@ -113,9 +119,15 @@ export async function confirmPaymentFromProvider(
                 return { ok: false, error: 'La orden no tiene metadata de boost válida.', status: 409 };
             }
 
-            const listing = deps.getBoostListingById(nextOrder.vertical, boostMeta.listingId);
-            if (!listing) {
-                return { ok: false, error: 'Pago aprobado, pero la publicación ya no existe.', status: 409 };
+            const targetType = asBoostTargetType(
+                (boostMeta as { targetType?: string }).targetType ?? deps.inferBoostTargetType?.(nextOrder.vertical) ?? 'listing',
+            );
+            const targetId = (boostMeta as { targetId?: string }).targetId ?? boostMeta.listingId;
+            const target = deps.getBoostTargetById
+                ? await deps.getBoostTargetById(nextOrder.vertical, targetType, targetId)
+                : deps.getBoostListingById(nextOrder.vertical, boostMeta.listingId);
+            if (!target) {
+                return { ok: false, error: 'Pago aprobado, pero el recurso ya no existe.', status: 409 };
             }
             const plan = deps.getBoostPlans(nextOrder.vertical, boostMeta.section).find(
                 (item: { id: string }) => item.id === boostMeta.planId,
@@ -127,12 +139,19 @@ export async function confirmPaymentFromProvider(
             const created = deps.createBoostOrderRecord({
                 userId: input.userId,
                 vertical: nextOrder.vertical,
-                listing,
+                target,
                 section: boostMeta.section,
                 plan,
             });
             if (!created.ok || !created.order) {
                 return { ok: false, error: created.error ?? 'Pago aprobado, pero no pudimos activar el boost.', status: 409 };
+            }
+
+            if (deps.insertBoostOrderRow) {
+                await deps.insertBoostOrderRow(
+                    created.order,
+                    await deps.getPrimaryAccountIdForUser(input.userId),
+                );
             }
 
             nextOrder = await deps.updatePaymentOrder(input.userId, order.id, (current) => ({
@@ -153,7 +172,7 @@ export async function confirmPaymentFromProvider(
                     boostOrder: {
                         ...created.order,
                         sectionLabel: deps.sectionLabel(created.order.section),
-                        listing,
+                        listing: target,
                     },
                 },
             };

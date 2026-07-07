@@ -10,6 +10,8 @@ describe('resolveFreeBoostQuota', () => {
         );
         expect(q.max).toBe(-1);
         expect(q.remaining).toBe(-1);
+        expect(q.unlimited).toBe(true);
+        expect(q.planName).toBe('Administrador');
     });
 
     it('usa maxFreeBoostsPerMonth del plan pro en autos', () => {
@@ -20,6 +22,8 @@ describe('resolveFreeBoostQuota', () => {
         );
         expect(q.max).toBe(3);
         expect(q.remaining).toBe(3);
+        expect(q.planName).toBe('Profesional');
+        expect(q.unlimited).toBe(false);
     });
 
     it('plan free no tiene boosts gratuitos', () => {
@@ -30,5 +34,6 @@ describe('resolveFreeBoostQuota', () => {
         );
         expect(q.max).toBe(0);
         expect(q.remaining).toBe(0);
+        expect(q.planName).toBe('Gratuito');
     });
 });

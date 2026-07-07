@@ -3,52 +3,39 @@
 import { Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { IconSearch } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
-import { getSupportedCountries, getRegionsForCountry, getLocalitiesForRegion } from '@simple/utils';
+import {
+    interleaveDirectoryGridItems,
+    OperatorDirectoryBoostedSection,
+    OperatorDirectoryPageFrame,
+    OperatorSearchShell,
+} from '@simple/ui/operator-directory';
+import { PublicAdInlineCard } from '@simple/ui/public-advertising';
+import { PanelButton } from '@simple/ui/panel';
+import { boostSlugsFromFeatured, splitDirectoryByBoostOrder } from '@simple/utils';
+import { PublicProfessionalCard } from '@/components/public/public-professional-card';
+import { fetchFeaturedBoosted } from '@/lib/boost';
+import { AGENDA_INLINE_AD_PLACEHOLDER } from '@/lib/ad-placeholders';
+import type { MarketplaceProfessional } from '@/lib/marketplace-professionals';
+import {
+    AGENDA_DIRECTORY_SEARCH_COPY,
+    AGENDA_DIRECTORY_SEARCH_FIELDS,
+    AGENDA_DIRECTORY_SORT_OPTIONS,
+    agendaDirectoryActiveFilterChips,
+    agendaDirectoryFiltersToParams,
+    agendaDirectoryHref,
+    EMPTY_AGENDA_DIRECTORY_FILTERS,
+    hasActiveAgendaDirectoryFilters,
+    parseAgendaDirectoryParams,
+    type AgendaDirectoryFilters,
+} from '@/lib/operator-directory-search';
 
-type ProfessionalItem = {
-    slug: string;
-    displayName: string | null;
-    profession: string | null;
-    headline: string | null;
-    avatarUrl: string | null;
-    city: string | null;
-    region: string | null;
-    countryCode: string;
-    servesOnline: boolean;
-    servesPresential: boolean;
-};
-
-type Filters = {
-    country: string;
-    region: string;
-    locality: string;
-    profession: string;
-    q: string;
-    modality: 'all' | 'online' | 'presential';
-};
-
-function parseFilters(params: URLSearchParams): Filters {
-    const modality = params.get('modality') ?? params.get('modalidad') ?? 'all';
-    return {
-        country: params.get('country') ?? params.get('pais') ?? 'CL',
-        region: params.get('region') ?? '',
-        locality: params.get('locality') ?? params.get('comuna') ?? '',
-        profession: params.get('profession') ?? params.get('rubro') ?? '',
-        q: params.get('q') ?? '',
-        modality: modality === 'online' || modality === 'presential' ? modality : 'all',
-    };
-}
-
-function filtersToParams(filters: Filters) {
-    const params = new URLSearchParams();
-    if (filters.country && filters.country !== 'CL') params.set('country', filters.country);
-    if (filters.region) params.set('region', filters.region);
-    if (filters.locality) params.set('locality', filters.locality);
-    if (filters.profession) params.set('profession', filters.profession);
-    if (filters.q) params.set('q', filters.q);
-    if (filters.modality !== 'all') params.set('modality', filters.modality);
-    return params;
+function sortProfessionals(items: MarketplaceProfessional[], sort: AgendaDirectoryFilters['sort']) {
+    if (sort === 'name_asc') {
+        return [...items].sort((a, b) => (a.displayName ?? '').localeCompare(b.displayName ?? '', 'es'));
+    }
+    return items;
 }
 
 export default function ProfesionalesPage() {
@@ -62,9 +49,10 @@ export default function ProfesionalesPage() {
 function ProfesionalesPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const filters = useMemo(() => parseFilters(searchParams), [searchParams]);
-    const [draft, setDraft] = useState<Filters>(filters);
-    const [items, setItems] = useState<ProfessionalItem[]>([]);
+    const filters = useMemo(() => parseAgendaDirectoryParams(searchParams), [searchParams]);
+    const [draft, setDraft] = useState(filters);
+    const [items, setItems] = useState<MarketplaceProfessional[]>([]);
+    const [boostedOrder, setBoostedOrder] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -72,19 +60,24 @@ function ProfesionalesPageInner() {
         setDraft(filters);
     }, [filters]);
 
-    const load = useCallback(async (next: Filters) => {
+    const load = useCallback(async (next: AgendaDirectoryFilters) => {
         setLoading(true);
         setError(null);
-        const params = filtersToParams(next);
-        const response = await fetch(`${API_BASE}/api/public/agenda/marketplace/professionals?${params.toString()}`);
-        const data = await response.json().catch(() => null) as { ok?: boolean; items?: ProfessionalItem[]; error?: string };
+        const params = agendaDirectoryFiltersToParams(next);
+        const [response, featured] = await Promise.all([
+            fetch(`${API_BASE}/api/public/agenda/marketplace/professionals?${params.toString()}`),
+            fetchFeaturedBoosted('marketplace', 12),
+        ]);
+        const data = await response.json().catch(() => null) as { ok?: boolean; items?: MarketplaceProfessional[]; error?: string };
         if (!response.ok || !data?.ok) {
             setItems([]);
+            setBoostedOrder([]);
             setError(data?.error ?? 'No pudimos cargar profesionales.');
             setLoading(false);
             return;
         }
-        setItems(data.items ?? []);
+        setBoostedOrder(boostSlugsFromFeatured(featured));
+        setItems(sortProfessionals(data.items ?? [], next.sort));
         setLoading(false);
     }, []);
 
@@ -92,123 +85,132 @@ function ProfesionalesPageInner() {
         void load(filters);
     }, [filters, load]);
 
-    const regions = useMemo(() => getRegionsForCountry(draft.country), [draft.country]);
-    const regionId = regions.find((r) => r.name === draft.region)?.id ?? '';
-    const localities = useMemo(() => getLocalitiesForRegion(draft.country, regionId), [draft.country, regionId]);
-
-    const handleSubmit = (event: FormEvent) => {
+    const submitSearch = (event: FormEvent) => {
         event.preventDefault();
-        const params = filtersToParams(draft);
-        router.push(params.toString() ? `/profesionales?${params}` : '/profesionales');
+        router.push(agendaDirectoryHref({ ...draft, sort: filters.sort }));
     };
 
+    const applyFilters = (patch: Partial<AgendaDirectoryFilters>) => {
+        router.push(agendaDirectoryHref({ ...filters, ...patch }));
+    };
+
+    const activeChips = useMemo(() => agendaDirectoryActiveFilterChips(filters), [filters]);
+    const resultsLabel = loading
+        ? 'Cargando profesionales…'
+        : error
+            ? error
+            : items.length === 0
+                ? 'No encontramos profesionales con esos filtros.'
+                : `${items.length} profesional${items.length === 1 ? '' : 'es'} encontrado${items.length === 1 ? '' : 's'}.`;
+
+    const { boosted, regular } = useMemo(
+        () => splitDirectoryByBoostOrder(items, boostedOrder, (item) => item.slug),
+        [items, boostedOrder],
+    );
+
+    const gridItems = useMemo(
+        () => interleaveDirectoryGridItems(
+            regular,
+            (item) => <PublicProfessionalCard key={item.slug} professional={item} />,
+            (slotIndex) => (
+                <PublicAdInlineCard
+                    key={`ad-${slotIndex}`}
+                    vertical="agenda"
+                    placementSection="professionals"
+                    placeholderLabel="Espacio publicitario"
+                    placeholderImageUrl={AGENDA_INLINE_AD_PLACEHOLDER}
+                />
+            ),
+            6,
+        ),
+        [regular],
+    );
+
     return (
-        <div className="container-app py-8 lg:py-12">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-fg">Encuentra un profesional</h1>
-                <p className="mt-1 text-sm text-fg-muted">
-                    Directorio de profesionales con reserva directa en su perfil público. Sin comisiones de Simple por cita.
-                </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="mb-8 grid gap-3 rounded-2xl border border-(--border) bg-(--surface) p-4 md:grid-cols-2 lg:grid-cols-3">
-                <label className="text-sm">
-                    <span className="mb-1 block text-fg-muted">País</span>
-                    <select className="form-input" value={draft.country} onChange={(e) => setDraft((d) => ({ ...d, country: e.target.value, region: '', locality: '' }))}>
-                        {getSupportedCountries().map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+        <OperatorDirectoryPageFrame
+            breadcrumb={(
+                <nav className="text-sm text-fg-muted">
+                    <Link href="/" className="font-medium transition-colors hover:text-fg">Inicio</Link>
+                    <span className="mx-2 opacity-50">/</span>
+                    <span className="font-medium text-fg">Profesionales</span>
+                </nav>
+            )}
+            title="Encuentra un profesional"
+            description="Directorio de profesionales con reserva directa en su perfil público. Sin comisiones de Simple por cita."
+            search={(
+                <OperatorSearchShell
+                    value={draft}
+                    onChange={(next) => setDraft({ ...draft, ...next })}
+                    onSubmit={submitSearch}
+                    fields={[...AGENDA_DIRECTORY_SEARCH_FIELDS]}
+                    copy={AGENDA_DIRECTORY_SEARCH_COPY}
+                    loading={loading}
+                />
+            )}
+            resultsLabel={resultsLabel}
+            filterChips={activeChips}
+            clearFiltersHref={agendaDirectoryHref(EMPTY_AGENDA_DIRECTORY_FILTERS)}
+            clearFiltersLabel="Ver todos"
+            sortControl={(
+                <>
+                    <span className="text-xs font-medium text-fg-muted">Ordenar</span>
+                    <select
+                        className="form-input h-11 text-sm font-semibold"
+                        value={filters.sort}
+                        onChange={(event) => applyFilters({ sort: event.target.value as AgendaDirectoryFilters['sort'] })}
+                        aria-label="Ordenar resultados"
+                    >
+                        {AGENDA_DIRECTORY_SORT_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
                     </select>
-                </label>
-                <label className="text-sm">
-                    <span className="mb-1 block text-fg-muted">Rubro</span>
-                    <input className="form-input" value={draft.profession} onChange={(e) => setDraft((d) => ({ ...d, profession: e.target.value }))} placeholder="Psicólogo, nutricionista…" />
-                </label>
-                <label className="text-sm">
-                    <span className="mb-1 block text-fg-muted">Búsqueda</span>
-                    <input className="form-input" value={draft.q} onChange={(e) => setDraft((d) => ({ ...d, q: e.target.value }))} placeholder="Nombre o palabra clave" />
-                </label>
-                {regions.length > 0 ? (
-                    <label className="text-sm">
-                        <span className="mb-1 block text-fg-muted">Región</span>
-                        <select className="form-input" value={draft.region} onChange={(e) => setDraft((d) => ({ ...d, region: e.target.value, locality: '' }))}>
-                            <option value="">Todas</option>
-                            {regions.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
-                        </select>
-                    </label>
-                ) : (
-                    <label className="text-sm">
-                        <span className="mb-1 block text-fg-muted">Región</span>
-                        <input className="form-input" value={draft.region} onChange={(e) => setDraft((d) => ({ ...d, region: e.target.value }))} />
-                    </label>
-                )}
-                {localities.length > 0 ? (
-                    <label className="text-sm">
-                        <span className="mb-1 block text-fg-muted">Comuna / ciudad</span>
-                        <select className="form-input" value={draft.locality} onChange={(e) => setDraft((d) => ({ ...d, locality: e.target.value }))}>
-                            <option value="">Todas</option>
-                            {localities.map((l) => <option key={l.id} value={l.name}>{l.name}</option>)}
-                        </select>
-                    </label>
-                ) : (
-                    <label className="text-sm">
-                        <span className="mb-1 block text-fg-muted">Comuna / ciudad</span>
-                        <input className="form-input" value={draft.locality} onChange={(e) => setDraft((d) => ({ ...d, locality: e.target.value }))} />
-                    </label>
-                )}
-                <label className="text-sm">
-                    <span className="mb-1 block text-fg-muted">Modalidad</span>
-                    <select className="form-input" value={draft.modality} onChange={(e) => setDraft((d) => ({ ...d, modality: e.target.value as Filters['modality'] }))}>
-                        <option value="all">Todas</option>
-                        <option value="online">Online</option>
-                        <option value="presential">Presencial</option>
-                    </select>
-                </label>
-                <div className="flex items-end md:col-span-2 lg:col-span-3">
-                    <button type="submit" className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white">
-                        Buscar profesionales
-                    </button>
+                </>
+            )}
+        >
+            {loading ? null : error ? (
+                <div className="rounded-card border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-100">
+                    {error}
                 </div>
-            </form>
-
-            {loading ? <p className="text-sm text-fg-muted">Cargando profesionales…</p> : null}
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-            {!loading && !error ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {items.map((item) => (
-                        <Link
-                            key={item.slug}
-                            href={`/${item.slug}`}
-                            className="rounded-2xl border border-(--border) bg-(--surface) p-4 transition-colors hover:border-accent-border"
+            ) : items.length > 0 ? (
+                <>
+                    {boosted.length > 0 ? (
+                        <OperatorDirectoryBoostedSection
+                            title="Destacados"
+                            description="Profesionales con boost activo en el directorio."
                         >
-                            <div className="flex items-start gap-3">
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-(--bg-subtle) text-sm font-semibold text-accent">
-                                    {item.displayName?.charAt(0) ?? '?'}
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-fg truncate">{item.displayName ?? 'Profesional'}</p>
-                                    <p className="text-sm text-fg-muted truncate">{item.profession ?? 'Sin rubro'}</p>
-                                    <p className="mt-1 text-xs text-fg-muted">
-                                        {[item.city, item.region].filter(Boolean).join(', ') || item.countryCode}
-                                    </p>
-                                    <p className="mt-1 text-xs text-accent">
-                                        {item.servesOnline && item.servesPresential
-                                            ? 'Online y presencial'
-                                            : item.servesOnline
-                                                ? 'Online'
-                                                : item.servesPresential
-                                                    ? 'Presencial'
-                                                    : 'Consultar modalidad'}
-                                    </p>
-                                </div>
-                            </div>
-                        </Link>
-                    ))}
+                            {boosted.map((professional) => (
+                                <PublicProfessionalCard
+                                    key={`boosted-${professional.slug}`}
+                                    professional={{ ...professional, boosted: true }}
+                                />
+                            ))}
+                        </OperatorDirectoryBoostedSection>
+                    ) : null}
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+                        {gridItems}
+                    </div>
+                </>
+            ) : (
+                <div className="rounded-card border border-border bg-surface p-8 text-center">
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-button bg-accent-soft text-accent">
+                        <IconSearch size={24} />
+                    </div>
+                    <h2 className="mt-4 text-xl font-bold text-fg">No encontramos profesionales con esos filtros</h2>
+                    <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-fg-muted">
+                        Prueba ampliando la zona, quitando el rubro o cambiando la modalidad.
+                    </p>
+                    {hasActiveAgendaDirectoryFilters(filters) ? (
+                        <PanelButton
+                            type="button"
+                            variant="accent"
+                            className="mt-5 h-11 px-5"
+                            onClick={() => router.push(agendaDirectoryHref(EMPTY_AGENDA_DIRECTORY_FILTERS))}
+                        >
+                            Ver todos los profesionales
+                        </PanelButton>
+                    ) : null}
                 </div>
-            ) : null}
-
-            {!loading && !error && items.length === 0 ? (
-                <p className="text-sm text-fg-muted">No encontramos profesionales con esos filtros.</p>
-            ) : null}
-        </div>
+            )}
+        </OperatorDirectoryPageFrame>
     );
 }

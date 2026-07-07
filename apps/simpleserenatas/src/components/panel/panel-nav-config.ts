@@ -15,6 +15,7 @@ import {
     IconBriefcase,
     IconBookmark,
     IconMessageCircle,
+    IconRocket,
 } from '@tabler/icons-react';
 import { serenatasApi, type Profiles } from '@/lib/serenatas-api';
 import { CLIENT_MARKETPLACE_HREF, isClientMarketplaceHref } from '@/lib/client-marketplace';
@@ -89,6 +90,7 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
         items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
         items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
         items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
+        items.push({ id: 'publicidad', href: panelSectionHref('publicidad'), label: 'Publicidad', icon: IconRocket });
         items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconCash });
         items.push({ id: 'estadisticas', href: panelSectionHref('estadisticas'), label: 'Estadísticas', icon: IconChartBar });
     } else if (profiles.musician) {

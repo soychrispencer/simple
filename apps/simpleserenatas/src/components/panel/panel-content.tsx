@@ -39,6 +39,9 @@ const FinanzasView = dynamic(() =>
 const EstadisticasView = dynamic(() =>
     import('@/components/panel/estadisticas-view').then((mod) => mod.EstadisticasView),
 );
+const PublicidadView = dynamic(() =>
+    import('@/components/panel/publicidad-view').then((mod) => mod.PublicidadView),
+);
 const PanelMessagesInbox = dynamic(() =>
     import('@simple/ui/panel').then((mod) => mod.PanelMessagesInbox),
 );
@@ -223,6 +226,14 @@ export function PanelContent(props: PanelContentProps) {
                     }
                 />
             </PanelSectionPage>
+        );
+    }
+
+    if (props.section === 'publicidad') {
+        return props.mode === 'work' && props.ownerFeaturesEnabled ? (
+            <PublicidadView />
+        ) : (
+            <PanelHomePage {...props} />
         );
     }
 

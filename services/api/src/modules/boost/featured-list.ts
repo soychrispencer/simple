@@ -6,12 +6,18 @@ export type ListFeaturedBoostedDeps = {
         section: BoostSection;
         status: string;
         listingId: string;
+        targetId?: string;
+        targetType?: string;
         userId: string;
         planName: string;
         endAt: number;
         createdAt: number;
     }>;
-    getBoostListingById: (vertical: string, listingId: string) => {
+    getBoostTargetById: (
+        vertical: string,
+        targetType: string,
+        targetId: string,
+    ) => Promise<{
         id: string;
         href: string;
         title: string;
@@ -19,8 +25,10 @@ export type ListFeaturedBoostedDeps = {
         price: string;
         location: string;
         imageUrl?: string;
+        imageUrls?: string[];
         section: BoostSection;
-    } | null;
+        targetType?: string;
+    } | null>;
     getUserById: (id: string) => Promise<{ id: string } | null>;
     listingsById: Map<string, { id: string; rawData?: unknown; locationData?: unknown; location?: string }>;
     extractListingMediaUrls: (record: { rawData?: unknown }) => string[];
@@ -33,19 +41,6 @@ export type ListFeaturedBoostedDeps = {
         userId: string,
         vertical: string,
     ) => { avatarImageUrl?: string | null } | null;
-    boostListingsSeed: Array<{
-        id: string;
-        vertical: string;
-        section: BoostSection;
-        ownerId: string;
-        href: string;
-        title: string;
-        subtitle: string;
-        price: string;
-        location: string;
-        imageUrl?: string;
-        imageUrls?: string[];
-    }>;
 };
 
 export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
@@ -76,30 +71,34 @@ export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
         const items = (
             await Promise.all(
                 boosted.map(async (order) => {
-                    const listing = deps.getBoostListingById(order.vertical, order.listingId);
-                    if (!listing) return null;
+                    const targetType = order.targetType ?? 'listing';
+                    const targetId = order.targetId ?? order.listingId;
+                    const target = await deps.getBoostTargetById(order.vertical, targetType, targetId);
+                    if (!target) return null;
                     const owner = await deps.getUserById(order.userId);
-                    const sourceListing = deps.listingsById.get(listing.id);
+                    const sourceListing = targetType === 'listing' ? deps.listingsById.get(target.id) : null;
                     const listingImageUrls = sourceListing
                         ? deps.extractListingMediaUrls(sourceListing)
-                        : [];
-                    const imageUrl = listingImageUrls.length > 0 ? listingImageUrls[0] : (listing.imageUrl ?? '');
+                        : (target.imageUrls ?? []);
+                    const imageUrl = listingImageUrls.length > 0
+                        ? listingImageUrls[0]
+                        : (target.imageUrl ?? '');
                     const location = sourceListing
                         ? deps.buildLocationPublicLabel(sourceListing.locationData)
                             || deps.humanizePublicLocationFallback(sourceListing.location ?? '')
-                            || deps.humanizePublicLocationFallback(listing.location)
+                            || deps.humanizePublicLocationFallback(target.location)
                             || 'Chile'
-                        : deps.humanizePublicLocationFallback(listing.location) || 'Chile';
+                        : deps.humanizePublicLocationFallback(target.location) || 'Chile';
                     return {
-                        id: listing.id,
-                        href: listing.href,
-                        title: listing.title,
-                        subtitle: listing.subtitle,
-                        price: listing.price,
+                        id: target.id,
+                        href: target.href,
+                        title: target.title,
+                        subtitle: target.subtitle,
+                        price: target.price,
                         location,
                         imageUrl,
                         imageUrls: listingImageUrls,
-                        section: listing.section,
+                        section: target.section,
                         boosted: true,
                         planName: order.planName,
                         boostEndsAt: order.endAt,

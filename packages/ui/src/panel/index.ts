@@ -620,3 +620,10 @@ export {
 } from './listing-distribution-panel.js';
 
 export { MarketplaceFinanceView } from './marketplace-finance-view';
+export { MarketplaceBoostManager, type MarketplaceBoostManagerProps } from './marketplace-boost-manager.js';
+export { MarketplacePublicidadShell, type MarketplacePublicidadShellProps } from './marketplace-publicidad-shell.js';
+export {
+    MarketplaceCampaignBuilder,
+    type MarketplaceCampaignBuilderProps,
+    type MarketplaceAdvertisingClient,
+} from './marketplace-campaign-builder.js';

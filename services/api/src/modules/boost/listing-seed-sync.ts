@@ -37,6 +37,7 @@ export function createBoostListingSeedSync(deps: {
 
         boostListingsSeed.unshift({
             id: listing.id,
+            targetType: 'listing',
             vertical: listing.vertical,
             section: listing.section,
             ownerId: listing.ownerId,

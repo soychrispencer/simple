@@ -50,6 +50,7 @@ export type Section =
     | 'map'
     | 'finanzas'
     | 'estadisticas'
+    | 'publicidad'
     | 'profile'
     | 'mensajes';
 export type LoadState = 'idle' | 'loading' | 'error' | 'ready';

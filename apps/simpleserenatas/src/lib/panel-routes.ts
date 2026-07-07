@@ -33,6 +33,7 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     map: 'map',
     finanzas: 'finanzas',
     estadisticas: 'estadisticas',
+    publicidad: 'publicidad',
     perfil: 'profile',
     profile: 'profile',
     'mi-cuenta': 'profile',
@@ -62,6 +63,7 @@ export const SECTION_TO_PANEL_SLUG: Record<Section, string> = {
     map: 'mapa',
     finanzas: 'finanzas',
     estadisticas: 'estadisticas',
+    publicidad: 'publicidad',
     profile: 'mi-cuenta',
     mensajes: 'mensajes',
 };
@@ -130,7 +132,7 @@ export function usesOwnPanelPageShell(section: Section): boolean {
 
 /** Secciones cuyo contenido ya trae `container-app` propio (p. ej. `PanelMessagesInbox`). */
 export function skipsPanelPageFrame(section: Section): boolean {
-    return usesOwnPanelPageShell(section) || section === 'mensajes';
+    return usesOwnPanelPageShell(section) || section === 'mensajes' || section === 'publicidad';
 }
 
 export function panelPathFromSection(section: Section, groupSlug?: string | null): string {

@@ -1,7 +1,8 @@
 import { apiFetch, publicFetch } from './api-client.js';
 
-export type BoostVertical = 'autos' | 'propiedades';
-export type BoostSection = 'sale' | 'rent' | 'auction' | 'project';
+export type BoostVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+export type BoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing';
+export type BoostTargetType = 'listing' | 'serenata_group' | 'operator_profile';
 export type BoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
 export type BoostOrderStatus = 'scheduled' | 'active' | 'paused' | 'ended';
 
@@ -16,6 +17,7 @@ export type BoostListing = {
     price: string;
     location: string;
     imageUrl?: string;
+    targetType?: BoostTargetType;
 };
 
 export type BoostPlan = {
@@ -74,6 +76,9 @@ export type FreeBoostQuota = {
     max: number;
     used: number;
     remaining: number;
+    planId?: string;
+    planName?: string;
+    unlimited?: boolean;
 };
 
 export type BoostCatalogResponse = {
@@ -104,7 +109,19 @@ type FeaturedResponse = {
     items: FeaturedBoostItem[];
 };
 
-export function getBoostSectionMeta(vertical: BoostVertical): Record<BoostSection, { label: string; href: string }> {
+export function getBoostSectionMeta(vertical: BoostVertical): Partial<Record<BoostSection, { label: string; href: string }>> {
+    if (vertical === 'serenatas') {
+        return {
+            marketplace: { label: 'Directorio mariachis', href: '/mariachis' },
+            landing: { label: 'Portada', href: '/' },
+        };
+    }
+    if (vertical === 'agenda') {
+        return {
+            marketplace: { label: 'Directorio profesionales', href: '/profesionales' },
+            landing: { label: 'Portada', href: '/' },
+        };
+    }
     if (vertical === 'propiedades') {
         return {
             sale: { label: 'Venta', href: '/ventas' },
@@ -152,13 +169,19 @@ export async function activateFreeBoost(
     vertical: BoostVertical,
     input: {
         listingId: string;
+        targetType?: BoostTargetType;
         section: BoostSection;
         planId: BoostPlanId;
     }
 ): Promise<{ ok: boolean; order?: BoostOrder; error?: string }> {
     const { data } = await apiFetch<CreateBoostOrderResponse>('/api/boost/orders', {
         method: 'POST',
-        body: JSON.stringify({ vertical, ...input, useFreeBoost: true }),
+        body: JSON.stringify({
+            vertical,
+            ...input,
+            ...(input.targetType ? { targetType: input.targetType } : {}),
+            useFreeBoost: true,
+        }),
     });
 
     if (!data) return { ok: false, error: 'No pudimos activar el boost gratuito.' };

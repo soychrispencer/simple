@@ -1,5 +1,8 @@
 // Boost types and constants
-export type BoostSection = 'sale' | 'rent' | 'auction' | 'project';
+import { MARKETPLACE_BOOST_PRICING } from '@simple/utils';
+
+export type BoostTargetType = 'listing' | 'serenata_group' | 'operator_profile';
+export type BoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing';
 export type BoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
 export type BoostOrderStatus = 'scheduled' | 'active' | 'paused' | 'ended';
 
@@ -11,8 +14,11 @@ export type BoostOrder = {
     id: string;
     accountId?: string | null;
     userId: string;
-    vertical: VerticalType;
+    targetType: BoostTargetType;
+    targetId: string;
+    /** @deprecated Alias de targetId para compatibilidad. */
     listingId: string;
+    vertical: VerticalType;
     section: BoostSection;
     planId: BoostPlanId;
     planName: string;
@@ -40,8 +46,9 @@ export type BoostPlanRecord = {
     price: number;
 };
 
-export type BoostListingRecord = {
+export type BoostTargetRecord = {
     id: string;
+    targetType: BoostTargetType;
     vertical: VerticalType;
     section: BoostSection;
     ownerId: string;
@@ -54,9 +61,20 @@ export type BoostListingRecord = {
     imageUrls?: string[];
 };
 
+/** @deprecated Usar BoostTargetRecord */
+export type BoostListingRecord = BoostTargetRecord;
+
 export type VerticalType = 'propiedades' | 'autos' | 'serenatas' | 'plataforma' | 'agenda';
 
-// Constants
+const ZERO_BOOST_SECTION = {
+    sale: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+    rent: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+    auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+    project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+    marketplace: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+    landing: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+} as const;
+
 export const BOOST_PLAN_TEMPLATES: BoostPlanTemplate[] = [
     { id: 'boost_starter', name: 'Starter', days: 7, visibilityLift: '2x' },
     { id: 'boost_pro', name: 'Pro', days: 14, visibilityLift: '5x' },
@@ -65,36 +83,22 @@ export const BOOST_PLAN_TEMPLATES: BoostPlanTemplate[] = [
 
 export const BOOST_PRICE_BY_VERTICAL_SECTION: Record<VerticalType, Record<BoostSection, Record<BoostPlan, number>>> = {
     propiedades: {
-        sale: { boost_starter: 5000, boost_pro: 10000, boost_max: 20000 },
-        rent: { boost_starter: 3000, boost_pro: 6000, boost_max: 12000 },
-        project: { boost_starter: 15000, boost_pro: 30000, boost_max: 60000 },
-        auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 }, // Not used
-    },
+        ...ZERO_BOOST_SECTION,
+        ...MARKETPLACE_BOOST_PRICING.propiedades,
+    } as Record<BoostSection, Record<BoostPlan, number>>,
     autos: {
-        sale: { boost_starter: 15000, boost_pro: 30000, boost_max: 60000 },
-        rent: { boost_starter: 10000, boost_pro: 20000, boost_max: 40000 },
-        auction: { boost_starter: 25000, boost_pro: 50000, boost_max: 100000 },
-        project: { boost_starter: 0, boost_pro: 0, boost_max: 0 }, // Not used
-    },
+        ...ZERO_BOOST_SECTION,
+        ...MARKETPLACE_BOOST_PRICING.autos,
+    } as Record<BoostSection, Record<BoostPlan, number>>,
     serenatas: {
-        sale: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        rent: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-    },
-    plataforma: {
-        sale: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        rent: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-    },
+        ...ZERO_BOOST_SECTION,
+        ...MARKETPLACE_BOOST_PRICING.serenatas,
+    } as Record<BoostSection, Record<BoostPlan, number>>,
     agenda: {
-        sale: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        rent: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-    },
+        ...ZERO_BOOST_SECTION,
+        ...MARKETPLACE_BOOST_PRICING.agenda,
+    } as Record<BoostSection, Record<BoostPlan, number>>,
+    plataforma: ZERO_BOOST_SECTION,
 };
 
-// Constants
 export const MAX_BOOST_SLOTS_PER_SECTION = 10;

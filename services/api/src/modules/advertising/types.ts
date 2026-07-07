@@ -1,7 +1,8 @@
 // Advertising types and constants
+import { MARKETPLACE_AD_PRICING } from '@simple/utils';
 export type AdFormat = 'hero' | 'card' | 'inline';
 export type AdDurationDays = 7 | 15 | 30;
-export type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'proyectos' | 'subastas';
+export type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'proyectos' | 'subastas' | 'mariachis' | 'professionals';
 export type AdStatus = 'scheduled' | 'active' | 'paused' | 'ended';
 export type AdPaymentStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
 export type AdDestinationType = 'none' | 'custom_url' | 'listing' | 'profile';
@@ -69,26 +70,10 @@ export const MAX_CAMPAIGNS_TOTAL = 10;
 export const MAX_ACTIVE_HERO_CAMPAIGNS = 5;
 
 export const AD_PRICING_BY_VERTICAL: Record<VerticalType, Record<AdFormat, Record<AdDurationDays, number>>> = {
-    autos: {
-        hero: { 7: 29990, 15: 49990, 30: 79990 },
-        card: { 7: 9990, 15: 14990, 30: 24990 },
-        inline: { 7: 4990, 15: 9990, 30: 14990 },
-    },
-    propiedades: {
-        hero: { 7: 29990, 15: 49990, 30: 79990 },
-        card: { 7: 9990, 15: 14990, 30: 24990 },
-        inline: { 7: 4990, 15: 9990, 30: 14990 },
-    },
-    agenda: {
-        hero: { 7: 0, 15: 0, 30: 0 },
-        card: { 7: 0, 15: 0, 30: 0 },
-        inline: { 7: 0, 15: 0, 30: 0 },
-    },
-    serenatas: {
-        hero: { 7: 0, 15: 0, 30: 0 },
-        card: { 7: 0, 15: 0, 30: 0 },
-        inline: { 7: 0, 15: 0, 30: 0 },
-    },
+    autos: MARKETPLACE_AD_PRICING.autos,
+    propiedades: MARKETPLACE_AD_PRICING.propiedades,
+    agenda: MARKETPLACE_AD_PRICING.agenda,
+    serenatas: MARKETPLACE_AD_PRICING.serenatas,
     plataforma: {
         hero: { 7: 0, 15: 0, 30: 0 },
         card: { 7: 0, 15: 0, 30: 0 },
@@ -227,9 +212,9 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
             prioritySupport: true,
             customBranding: true,
             apiAccess: true,
-            maxFreeBoostsPerMonth: 0,
+            maxFreeBoostsPerMonth: 2,
             recommended: true,
-            features: ['Perfil público activo', 'Marketplace y link de reservas', 'Agenda avanzada', 'Clientes, historial y notas', 'Pagos, packs y promociones', 'Recordatorios avanzados', 'Reportes, NPS y referidos', 'Automatización y múltiples ubicaciones', 'Sin comisión por reserva'],
+            features: ['Perfil público activo', 'Marketplace y link de reservas', 'Agenda avanzada', 'Clientes, historial y notas', 'Pagos, packs y promociones', 'Recordatorios avanzados', 'Reportes, NPS y referidos', 'Automatización y múltiples ubicaciones', 'Sin comisión por reserva', '2 boosts gratis al mes'],
         },
     ],
     serenatas: [
@@ -262,9 +247,9 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
             prioritySupport: true,
             customBranding: false,
             apiAccess: false,
-            maxFreeBoostsPerMonth: 0,
+            maxFreeBoostsPerMonth: 2,
             recommended: true,
-            features: ['Perfil público activo', 'Marketplace y WhatsApp visible', 'Servicios y repertorio completos', 'Solicitudes y agenda avanzada', 'Invitaciones y gestión de músicos', 'Finanzas y pagos a músicos', 'Chat WhatsApp desde panel', 'Mapa y rutas', 'Mayor visibilidad', 'Sin comisión por serenata'],
+            features: ['Perfil público activo', 'Marketplace y WhatsApp visible', 'Servicios y repertorio completos', 'Solicitudes y agenda avanzada', 'Invitaciones y gestión de músicos', 'Finanzas y pagos a músicos', 'Chat WhatsApp desde panel', 'Mapa y rutas', 'Mayor visibilidad', 'Sin comisión por serenata', '2 boosts gratis al mes'],
         },
     ],
     plataforma: [

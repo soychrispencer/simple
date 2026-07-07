@@ -27,6 +27,9 @@ import {
     IconPlayerPlay,
 } from '@tabler/icons-react';
 import { resolveOperatorLandingCopy } from '@simple/utils';
+import { PublicAdCardRow } from '@simple/ui/public-advertising';
+import { AGENDA_CARD_AD_PLACEHOLDERS } from '@/lib/ad-placeholders';
+import { FeaturedProfessionalsSection } from '@/components/landing/featured-professionals-section';
 
 const BENEFIT_ICONS = [IconClockHour4, IconShieldCheck, IconHeartHandshake] as const;
 
@@ -218,8 +221,16 @@ export default function HomePage() {
                 </div>
             </section>
 
+            <PublicAdCardRow
+                vertical="agenda"
+                className="py-6"
+                placeholderImages={[...AGENDA_CARD_AD_PLACEHOLDERS]}
+            />
+
+            <FeaturedProfessionalsSection />
+
             {/* ═══════════════ WHY SIMPLEAGENDA + PROFESSIONALS + IMAGE ═══════════════ */}
-            <section style={{ background: 'var(--bg-subtle)' }}>
+            <section style={{ background: 'var(--bg)' }}>
                 <div className="container-app section-marketing">
                     <div className="grid lg:grid-cols-2 gap-8 lg:gap-10 items-center max-w-5xl mx-auto">
                         {/* Left — real professional support image */}
@@ -313,7 +324,7 @@ export default function HomePage() {
             </section>
 
             {/* ═══════════════ FEATURE SHOWCASE — alternating image+text ═══════════════ */}
-            <section id="funciones" className="container-app section-marketing">
+            <section id="funciones" className="container-app section-marketing scroll-mt-20">
                 <div className="text-center mb-10 sm:mb-14 lg:mb-16">
                     <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Funcionalidades</p>
                     <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Todo lo que necesitas en un solo lugar</h2>
@@ -401,7 +412,7 @@ export default function HomePage() {
             </section>
 
             {/* ═══════════════ HOW IT WORKS — 3 steps ═══════════════ */}
-            <section id="como-funciona" style={{ background: 'var(--bg-subtle)' }}>
+            <section id="como-funciona" className="scroll-mt-20" style={{ background: 'var(--bg-subtle)' }}>
                 <div className="container-app section-marketing">
                     <div className="text-center mb-10 sm:mb-12">
                         <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Cómo funciona</p>

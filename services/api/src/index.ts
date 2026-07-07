@@ -267,7 +267,10 @@ import {
 } from './modules/auth/admin-guard.js';
 import { createListingsRouter, createListingDraftRouter } from './modules/listings/index.js';
 import { createBoostRouter } from './modules/boost/index.js';
-import { getAllBoostOrdersNormalized, getBoostListingById, getBoostOrdersForUser, isBoostSectionAllowed, getBoostListingsByOwner, parseBoostSection, getSectionsForVertical, getBoostPlans, createBoostOrderRecord, normalizeBoostOrder, countReservedSlots, sectionLabel } from './modules/boost/service.js';
+import { insertBoostOrderRow, updateBoostOrderRow, mapBoostOrderRow } from './modules/boost/persist.js';
+import { getAllBoostOrdersNormalized, getBoostListingById, getBoostOrdersForUser, isBoostSectionAllowed, getBoostListingsByOwner, parseBoostSection, getSectionsForVertical, getBoostPlans, createBoostOrderRecord, normalizeBoostOrder, countReservedSlots, sectionLabel, inferBoostTargetType } from './modules/boost/service.js';
+import { getBoostTargetById, listBoostTargetsForOwner } from './modules/boost/target-resolvers.js';
+import { MARKETPLACE_BOOST_PRICING } from '@simple/utils';
 import { resolveFreeBoostQuota } from './modules/boost/quota.js';
 import { createValuationRouter } from './modules/valuation/index.js';
 import {
@@ -652,22 +655,7 @@ async function getFollowsByUser(userId: string): Promise<FollowRecord[]> {
 
 async function getBoostOrdersByUser(userId: string): Promise<BoostOrder[]> {
     const result = await db.select().from(boostOrders).where(eq(boostOrders.userId, userId));
-    return result.map(row => ({
-        id: row.id,
-        userId: row.userId,
-        listingId: row.listingId || '',
-        vertical: row.vertical as VerticalType,
-        section: row.section as any, // adjust
-        planId: row.planId as BoostPlanId,
-        planName: row.planId, // placeholder
-        days: row.days,
-        price: Number(row.price),
-        startAt: row.startsAt?.getTime() || 0,
-        endAt: row.endsAt?.getTime() || 0,
-        status: row.status as BoostOrderStatus,
-        createdAt: row.createdAt.getTime(),
-        updatedAt: row.updatedAt.getTime(),
-    }));
+    return result.map((row) => mapBoostOrderRow(row) as BoostOrder);
 }
 
 // Property/vehicle valuation feeds — modules/valuation/property-feeds.ts, modules/vehicle-valuation/
@@ -764,7 +752,8 @@ function makeListingId(): string {
 
 const listFeaturedBoosted = createListFeaturedBoosted({
     getAllBoostOrdersNormalized,
-    getBoostListingById: (vertical, listingId) => getBoostListingById(vertical as VerticalType, listingId),
+    getBoostTargetById: (vertical, targetType, targetId) =>
+        getBoostTargetById(vertical as VerticalType, targetType as any, targetId),
     getUserById,
     listingsById,
     extractListingMediaUrls,
@@ -779,7 +768,6 @@ const listFeaturedBoosted = createListFeaturedBoosted({
         if (!profile) return null;
         return { avatarImageUrl: profile.avatarImageUrl ?? null };
     },
-    boostListingsSeed,
 });
 
 function sanitizeUser(user: AppUser): PublicUser {
@@ -1001,6 +989,13 @@ function usernameFromName(name: string): string {
 function parseVertical(raw: string | undefined): VerticalType {
     if (raw === 'propiedades') return 'propiedades';
     if (raw === 'agenda') return 'agenda';
+    return 'autos';
+}
+
+function parsePaymentVertical(raw: string | undefined): PaymentVerticalType {
+    if (raw === 'propiedades') return 'propiedades';
+    if (raw === 'agenda') return 'agenda';
+    if (raw === 'serenatas') return 'serenatas';
     return 'autos';
 }
 
@@ -1711,13 +1706,14 @@ app.route('/api/listing-draft', createListingDraftRouter(listingsDeps));
 
 app.route('/api/boost', createBoostRouter({
     authUser,
-    parseVertical,
+    parseVertical: parsePaymentVertical,
     parseBoostSection,
     getSectionsForVertical,
     isBoostSectionAllowed,
     getBoostPlans,
-    getBoostListingById,
-    getBoostListingsByOwner,
+    inferBoostTargetType,
+    listBoostTargetsForOwner,
+    getBoostTargetById,
     getBoostOrdersForUser,
     createBoostOrderRecord,
     normalizeBoostOrder,
@@ -1728,10 +1724,14 @@ app.route('/api/boost', createBoostRouter({
     boostListingsSeed,
     boostOrdersByUser,
     MAX_BOOST_SLOTS_PER_SECTION,
+    getMarketplaceBoostPricing: (vertical) => MARKETPLACE_BOOST_PRICING[vertical as keyof typeof MARKETPLACE_BOOST_PRICING] ?? null,
     schemas: {
         createBoostOrderSchema,
         updateBoostOrderSchema,
     },
+    insertBoostOrderRow,
+    updateBoostOrderRow,
+    getPrimaryAccountIdForUser,
 }));
 
 app.route('/api/valuation', createValuationRouter());
@@ -1740,7 +1740,10 @@ app.route('/api/vehicle-valuation', createVehicleValuationRouter());
 
 app.use('/api/address-book', requireVerifiedSession);
 app.use('/api/address-book/*', requireVerifiedSession);
-app.use('/api/boost/*', requireVerifiedSession);
+app.use('/api/boost/catalog', requireVerifiedSession);
+app.use('/api/boost/catalog/*', requireVerifiedSession);
+app.use('/api/boost/orders', requireVerifiedSession);
+app.use('/api/boost/orders/*', requireVerifiedSession);
 
 const addressBookDeps = {
     authUser,
@@ -1755,7 +1758,7 @@ app.route('/api/account/address-book', createAddressBookRouter(addressBookDeps))
 app.route('/api', createPaymentsRouter({
     authUser,
     requireVerifiedSession,
-    parseVertical,
+    parseVertical: parsePaymentVertical,
     isAdminRole,
     isMercadoPagoConfigured,
     getSubscriptionPlans,
@@ -1781,6 +1784,8 @@ app.route('/api', createPaymentsRouter({
     ensureMercadoPagoSubscriptionReturnUrl,
     appendCheckoutParams,
     getBoostListingById,
+    getBoostTargetById,
+    inferBoostTargetType,
     getBoostOrdersForUser,
     getBoostPlans,
     parseBoostSection,
@@ -1788,6 +1793,9 @@ app.route('/api', createPaymentsRouter({
     createBoostOrderRecord,
     countReservedSlots,
     sectionLabel,
+    insertBoostOrderRow: async (order: Parameters<typeof insertBoostOrderRow>[0], accountId?: string | null) => {
+        await insertBoostOrderRow(order, accountId ?? await getPrimaryAccountIdForUser(order.userId));
+    },
     MAX_BOOST_SLOTS_PER_SECTION,
     getAdCampaignRecordForUser,
     getAdvertisingPrice,
@@ -2032,7 +2040,7 @@ app.route('/api/account', createAccountRouter({
 
 app.route('/api/advertising', createAdvertisingRouter({
     authUser,
-    parseVertical,
+    parseVertical: parsePaymentVertical,
     db,
     tables: { adCampaigns },
     dbHelpers: { eq, and },

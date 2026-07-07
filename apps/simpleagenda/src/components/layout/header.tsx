@@ -11,9 +11,24 @@ export function Header() {
     const copy = resolveOperatorLandingCopy('agenda');
     const publicLinks = [
         { href: '/profesionales', label: 'Profesionales' },
-        { href: '/#como-funciona', label: 'Funciones' },
-        { href: '/#prueba-gratis', label: copy.navSectionLabel },
+        {
+            href: '/para-profesionales',
+            label: 'Para profesionales',
+            items: [
+                {
+                    href: '/#funciones',
+                    label: 'Funciones',
+                    description: 'Agenda, clientes, pagos y recordatorios.',
+                },
+                {
+                    href: '/#como-funciona',
+                    label: 'Cómo empezar',
+                    description: 'Configura tu perfil en 3 pasos.',
+                },
+            ],
+        },
     ];
+
     return (
         <MarketplaceHeader
             brandAppId="simpleagenda"
@@ -25,6 +40,7 @@ export function Header() {
             primaryActionLabel="Nueva cita"
             primaryActionHref="/panel/agenda?nueva=1"
             primaryActionIcon={IconPlus}
+            guestRegisterLabel={copy.headerCta}
         />
     );
 }

@@ -264,7 +264,9 @@ export type BoostOrder = {
     id: string;
     accountId?: string | null;
     userId: string;
-    vertical: VerticalType;
+    vertical: PaymentVerticalType;
+    targetType: 'listing' | 'serenata_group' | 'operator_profile';
+    targetId: string;
     listingId: string;
     section: BoostSection;
     planId: BoostPlanId;

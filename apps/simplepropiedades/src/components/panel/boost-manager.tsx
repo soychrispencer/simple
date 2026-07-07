@@ -1,8 +1,19 @@
+'use client';
+
+import { useSearchParams } from 'next/navigation';
+import { MarketplaceBoostManager } from '@simple/ui/panel';
+import { confirmCheckout, startBoostCheckout } from '@/lib/payments';
+
 export default function BoostManager() {
+    const searchParams = useSearchParams();
+    const initialListingId = searchParams.get('listingId');
+
     return (
-        <div className="panel-card">
-            <h3 className="panel-block-header">Boost de avisos</h3>
-            <p className="text-sm text-muted">Esta funcionalidad estará disponible próximamente.</p>
-        </div>
+        <MarketplaceBoostManager
+            vertical="propiedades"
+            initialListingId={initialListingId}
+            startBoostCheckout={startBoostCheckout}
+            confirmCheckout={confirmCheckout}
+        />
     );
 }
