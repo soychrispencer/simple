@@ -234,7 +234,7 @@ export type FeedClip = {
     negotiable?: boolean;
 };
 
-export type BoostSection = 'sale' | 'rent' | 'auction' | 'project';
+export type BoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing' | 'products' | 'services';
 export type BoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
 export type BoostOrderStatus = 'scheduled' | 'active' | 'paused' | 'ended';
 
@@ -265,7 +265,7 @@ export type BoostOrder = {
     accountId?: string | null;
     userId: string;
     vertical: PaymentVerticalType;
-    targetType: 'listing' | 'serenata_group' | 'operator_profile';
+    targetType: 'listing' | 'serenata_group' | 'operator_profile' | 'operator_product' | 'operator_service';
     targetId: string;
     listingId: string;
     section: BoostSection;

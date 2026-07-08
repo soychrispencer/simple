@@ -38,6 +38,17 @@ export function formatBusinessServiceModality(
     return parts.length > 0 ? parts.join(' · ') : null;
 }
 
+/** Chips de modalidad para servicios automotrices (público). */
+export function getAutosServiceModalityChips(
+    modality: Partial<BusinessServiceModality> | null | undefined,
+): string[] {
+    if (!modality) return [];
+    const chips: string[] = [];
+    if (modality.isOnline) chips.push('A domicilio');
+    if (modality.isPresential) chips.push('En taller');
+    return chips;
+}
+
 /** Resuelve modalidad de reserva (cita) a partir del servicio y preferencia del cliente. */
 export function resolveBookingModality(
     service: BusinessServiceModality,

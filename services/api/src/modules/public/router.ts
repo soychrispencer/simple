@@ -30,12 +30,21 @@ export interface PublicRouterDeps {
         q?: string;
         category?: string;
         region?: string;
+        commune?: string;
         limit?: number;
     }) => Promise<{
         services: unknown[];
         packs: unknown[];
         promotions: unknown[];
     }>;
+    searchPublicOperatorProducts?: (input: {
+        vertical: 'autos' | 'propiedades';
+        q?: string;
+        category?: string;
+        region?: string;
+        commune?: string;
+        limit?: number;
+    }) => Promise<unknown[]>;
     geocodeLocationRequestSchema: any;
     normalizeListingLocation: (location: any) => any;
     geocodeLocationRemotely: (location: any) => Promise<any>;
@@ -73,6 +82,7 @@ export function createPublicRouter(deps: PublicRouterDeps) {
         mapListingRowToRecord,
         buildPublicProfileResponse,
         searchPublicOperatorCatalog,
+        searchPublicOperatorProducts,
         geocodeLocationRequestSchema,
         normalizeListingLocation,
         geocodeLocationRemotely,
@@ -182,6 +192,7 @@ export function createPublicRouter(deps: PublicRouterDeps) {
             q: asString(c.req.query('q')) || undefined,
             category: asString(c.req.query('category')) || undefined,
             region: asString(c.req.query('region')) || undefined,
+            commune: asString(c.req.query('commune')) || undefined,
             limit: parseNumberFromString(c.req.query('limit')) ?? 48,
         });
         return c.json({
@@ -191,6 +202,25 @@ export function createPublicRouter(deps: PublicRouterDeps) {
             promotions: catalog.promotions,
             items: catalog.services,
         });
+    });
+
+    app.get('/products', async (c) => {
+        const vertical = parseVertical(c.req.query('vertical'));
+        if (vertical !== 'autos' && vertical !== 'propiedades') {
+            return c.json({ ok: false, error: 'Vertical inválida' }, 400);
+        }
+        if (!searchPublicOperatorProducts) {
+            return c.json({ ok: true, products: [], items: [] });
+        }
+        const products = await searchPublicOperatorProducts({
+            vertical,
+            q: asString(c.req.query('q')) || undefined,
+            category: asString(c.req.query('category')) || undefined,
+            region: asString(c.req.query('region')) || undefined,
+            commune: asString(c.req.query('commune')) || undefined,
+            limit: parseNumberFromString(c.req.query('limit')) ?? 48,
+        });
+        return c.json({ ok: true, products, items: products });
     });
 
     app.post('/locations/geocode', async (c) => {

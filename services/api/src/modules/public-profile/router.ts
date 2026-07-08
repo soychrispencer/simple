@@ -16,6 +16,7 @@ import {
 } from '@simple/utils';
 import type { MarketplaceOperatorAnalytics } from './operator-analytics.js';
 import { mountOperatorServicesRoutes, type OperatorServicesDeps } from './operator-services.js';
+import { mountOperatorProductsRoutes, type OperatorProductsDeps } from './operator-products.js';
 import { generateBookingPoliciesText } from '../accounts/generate-booking-policies.js';
 
 export interface AccountRouterDeps {
@@ -59,6 +60,7 @@ export interface AccountRouterDeps {
         vertical: ReturnType<AccountRouterDeps['parseVertical']>,
     ) => MarketplaceOperatorAnalytics;
     operatorServices?: Omit<OperatorServicesDeps, 'authUser' | 'parseVertical'>;
+    operatorProducts?: Omit<OperatorProductsDeps, 'authUser' | 'parseVertical'>;
 }
 
 export function createAccountRouter(deps: AccountRouterDeps) {
@@ -96,6 +98,7 @@ export function createAccountRouter(deps: AccountRouterDeps) {
         randomUUID,
         buildMarketplaceOperatorAnalytics: buildOperatorAnalytics,
         operatorServices,
+        operatorProducts,
     } = deps;
 
     const app = new Hono();
@@ -554,6 +557,14 @@ export function createAccountRouter(deps: AccountRouterDeps) {
             authUser,
             parseVertical,
             ...operatorServices,
+        });
+    }
+
+    if (operatorProducts) {
+        mountOperatorProductsRoutes(app, {
+            authUser,
+            parseVertical,
+            ...operatorProducts,
         });
     }
 

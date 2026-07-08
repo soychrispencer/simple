@@ -11,6 +11,7 @@ const publicLinks = [
     { href: '/arriendos', label: 'Arrendar' },
     { href: '/subastas', label: 'Subastas' },
     { href: '/servicios', label: 'Servicios' },
+    { href: '/productos', label: 'Productos' },
     { href: '/descubre', label: 'Descubre', isNew: true },
     { href: '/precalificacion-financiamiento', label: 'Financiamiento' },
 ];

@@ -1,12 +1,17 @@
 import type { PublicProfileVertical } from './public-profile-settings.js';
 
 export type OperatorServiceCategoryId =
+    | 'maintenance'
     | 'car_wash'
     | 'mechanics'
     | 'detailing'
+    | 'rt'
+    | 'tow'
+    | 'bodywork'
+    | 'pre_purchase'
+    | 'tires'
     | 'accessories'
     | 'cleaning'
-    | 'maintenance'
     | 'moving'
     | 'appraisal'
     | 'management'
@@ -92,9 +97,15 @@ export type PublicOperatorCatalog = {
 };
 
 const AUTOS_CATEGORIES: Array<{ id: OperatorServiceCategoryId; label: string }> = [
+    { id: 'maintenance', label: 'Mantención' },
     { id: 'car_wash', label: 'Lavado y detailing' },
-    { id: 'mechanics', label: 'Mecánica y mantención' },
+    { id: 'mechanics', label: 'Mecánica y reparación' },
     { id: 'detailing', label: 'Estética automotriz' },
+    { id: 'rt', label: 'Revisión técnica' },
+    { id: 'tow', label: 'Grúa y asistencia' },
+    { id: 'bodywork', label: 'Desabolladura y pintura' },
+    { id: 'pre_purchase', label: 'Inspección pre-compra' },
+    { id: 'tires', label: 'Neumáticos y llantas' },
     { id: 'accessories', label: 'Accesorios e instalación' },
     { id: 'other', label: 'Otros' },
 ];
@@ -136,17 +147,19 @@ export function formatOperatorServicePrice(input: {
     price: string | null;
     promoPrice?: string | null;
     currency?: string;
+    fromPrice?: boolean;
 }) {
     if (input.pricingMode === 'quote') return 'Cotizar';
     const value = input.promoPrice ?? input.price;
     if (!value) return 'Consultar precio';
     const amount = Number(value);
     if (!Number.isFinite(amount)) return value;
-    return new Intl.NumberFormat('es-CL', {
+    const formatted = new Intl.NumberFormat('es-CL', {
         style: 'currency',
         currency: input.currency ?? 'CLP',
         maximumFractionDigits: 0,
     }).format(amount);
+    return input.fromPrice ? `Desde ${formatted}` : formatted;
 }
 
 export function formatOperatorPackPrice(pack: Pick<OperatorServicePackRecord, 'price' | 'promoPrice' | 'currency'>) {

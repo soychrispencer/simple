@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     IconArrowRight, IconSparkles, IconShieldCheck, IconClock, IconTrendingUp, IconUsers, } from '@tabler/icons-react';
-import HomeSearchBox from '@/components/search/home-searchbox';
+import HubSearchShell from '@/components/search/hub-search-shell';
+import { AutomotiveHubSection } from '@/components/home/automotive-hub-section';
 import BoostedListingsSlider from '@/components/featured/boosted-listings-slider';
 import RecentListingsSlider from '@/components/featured/recent-listings-slider';
 import { PanelCard } from '@simple/ui/panel';
@@ -371,11 +372,7 @@ export default function HomePage() {
                     </div>
                 </div>
 
-                <div className="relative z-11 -mt-12 md:-mt-16">
-                    <Suspense fallback={null}>
-                        <HomeSearchBox />
-                    </Suspense>
-                </div>
+                <HubSearchShell />
 
                 <div className="container-app pt-8 pb-10">
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -438,6 +435,8 @@ export default function HomePage() {
             <BoostedListingsSlider />
 
             <RecentListingsSlider />
+
+            <AutomotiveHubSection />
 
             <section className="container-app section-marketing">
                 <h2 className="text-2xl md:text-3xl font-semibold text-center mb-4" style={{ color: 'var(--fg)' }}>¿Por qué Simple?</h2>

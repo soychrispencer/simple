@@ -136,6 +136,19 @@ type ProfileCatalogPromotion = {
     endsAt: string | null;
 };
 
+type ProfileCatalogProduct = {
+    id: string;
+    name: string;
+    description: string | null;
+    imageUrl: string | null;
+    category: string;
+    price: string;
+    promoPrice: string | null;
+    currency: string;
+    stock: number | null;
+    sku: string | null;
+};
+
 type ProfileResponse = {
     ok: boolean;
     profile?: PublicProfile;
@@ -143,6 +156,7 @@ type ProfileResponse = {
     services?: ProfileCatalogService[];
     packs?: ProfileCatalogPack[];
     promotions?: ProfileCatalogPromotion[];
+    products?: ProfileCatalogProduct[];
     error?: string;
 };
 
@@ -150,6 +164,7 @@ export type PublicProfileCatalog = {
     services: ProfileCatalogService[];
     packs: ProfileCatalogPack[];
     promotions: ProfileCatalogPromotion[];
+    products: ProfileCatalogProduct[];
 };
 
 export type PublicListingsFilters = {
@@ -225,6 +240,7 @@ export async function fetchPublicProfile(username: string): Promise<{ profile: P
             services: Array.isArray(data.services) ? data.services : [],
             packs: Array.isArray(data.packs) ? data.packs : [],
             promotions: Array.isArray(data.promotions) ? data.promotions : [],
+            products: Array.isArray(data.products) ? data.products : [],
         },
     };
 }

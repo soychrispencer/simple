@@ -25,5 +25,9 @@ export function publicSectionLabel(section: BoostSection): string {
     if (section === 'rent') return 'Arriendo';
     if (section === 'auction') return 'Subasta';
     if (section === 'project') return 'Proyecto';
+    if (section === 'products') return 'Productos';
+    if (section === 'services') return 'Servicios';
+    if (section === 'marketplace') return 'Directorio';
+    if (section === 'landing') return 'Portada';
     return 'Venta';
 }

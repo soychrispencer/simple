@@ -10,8 +10,8 @@ import {
     getPublicProfileTodayState,
     initialsFromPublicProfileName,
 } from '@simple/ui/public-profile';
-import { BusinessOperatorServiceCatalog, PanelNotice, PUBLIC_PROFILE_CATALOG_EMPTY_MESSAGE } from '@simple/ui/panel';
-import { isPublicProfileOperatorCatalogEmpty, mapPublicProfileOperatorCatalog } from '@simple/utils';
+import { BusinessOperatorServiceCatalog, BusinessOperatorProductsCatalog, PanelNotice, PUBLIC_PROFILE_CATALOG_EMPTY_MESSAGE, PUBLIC_PROFILE_PRODUCTS_EMPTY_MESSAGE } from '@simple/ui/panel';
+import { isPublicProfileOperatorCatalogEmpty, isPublicProfileOperatorProductsEmpty, mapPublicProfileOperatorCatalog, mapPublicProfileOperatorProducts } from '@simple/utils';
 
 function toCardData(item: PublicListing): VehicleListingCardData {
     return {
@@ -87,6 +87,23 @@ export default function PublicProfilePage() {
                     />
                 )
             }
+            products={
+                isPublicProfileOperatorProductsEmpty(data.catalog.products) ? (
+                    <PanelNotice tone="neutral">{PUBLIC_PROFILE_PRODUCTS_EMPTY_MESSAGE}</PanelNotice>
+                ) : (
+                    <BusinessOperatorProductsCatalog
+                        vertical="autos"
+                        products={mapPublicProfileOperatorProducts(profile, data.catalog.products)}
+                        showConsult={false}
+                    />
+                )
+            }
+            catalogTabs
+            catalogTabCounts={{
+                listings: cards.length,
+                products: data.catalog.products.length,
+                services: data.catalog.services.length + data.catalog.packs.length + data.catalog.promotions.length,
+            }}
             listings={
                 cards.length === 0 ? (
                     <PanelNotice tone="neutral">Este perfil no tiene publicaciones activas.</PanelNotice>

@@ -3,14 +3,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-    formatOperatorServicePrice,
-    formatBusinessServiceModality,
-    getAutosServiceModalityChips,
-    resolveOperatorServiceCategoryLabel,
+    formatOperatorProductPrice,
     resolveAppMediaUrl,
-    type OperatorServicePricingMode,
+    resolveOperatorProductCategoryLabel,
     type PublicProfileVertical,
 } from '@simple/utils';
+import { PanelButton } from './panel-button.js';
 import { PanelCard } from './panel-card.js';
 import { PanelStatusBadge } from './panel-primitives.js';
 import {
@@ -18,53 +16,48 @@ import {
     BUSINESS_CATALOG_IMAGE_MEDIA_CLASS,
 } from './business-catalog-image-styles.js';
 
-export type BusinessServicePublicCardData = {
+export type BusinessProductPublicCardData = {
     id: string;
     name: string;
     description?: string | null;
     imageUrl?: string | null;
-    /** Portada o avatar del negocio cuando el servicio no tiene imagen propia. */
     imageFallbackUrl?: string | null;
     category: string;
-    pricingMode: OperatorServicePricingMode;
-    price?: string | null;
+    price: string;
     promoPrice?: string | null;
     currency?: string;
-    durationMinutes?: number | null;
-    isOnline?: boolean;
-    isPresential?: boolean;
+    stock?: number | null;
+    sku?: string | null;
     providerName?: string | null;
     providerHref?: string | null;
     locationLabel?: string | null;
-    badge?: string | null;
+    consultHref?: string | null;
 };
 
-function resolveServiceCardImage(item: Pick<BusinessServicePublicCardData, 'imageUrl' | 'imageFallbackUrl'>) {
+function resolveProductCardImage(item: Pick<BusinessProductPublicCardData, 'imageUrl' | 'imageFallbackUrl'>) {
     return resolveAppMediaUrl(item.imageUrl) ?? resolveAppMediaUrl(item.imageFallbackUrl) ?? null;
 }
 
-export function BusinessServicePublicCard({
+export function BusinessProductPublicCard({
     item,
     vertical,
-    href,
+    showConsult = true,
 }: {
-    item: BusinessServicePublicCardData;
+    item: BusinessProductPublicCardData;
     vertical: PublicProfileVertical;
-    href?: string | null;
+    showConsult?: boolean;
 }) {
-    const imageSrc = resolveServiceCardImage(item);
-    const priceLabel = formatOperatorServicePrice({
-        pricingMode: item.pricingMode,
-        price: item.price ?? null,
+    const imageSrc = resolveProductCardImage(item);
+    const priceLabel = formatOperatorProductPrice({
+        price: item.price,
         promoPrice: item.promoPrice ?? null,
         currency: item.currency,
-        fromPrice: vertical === 'autos' && item.pricingMode === 'fixed',
     });
-    const categoryLabel = resolveOperatorServiceCategoryLabel(vertical, item.category);
-    const modalityChips = vertical === 'autos' ? getAutosServiceModalityChips(item) : [];
-    const modalityLabel = vertical === 'autos' ? null : formatBusinessServiceModality(item);
-    const cardLinked = Boolean(href);
-    const card = (
+    const categoryLabel = resolveOperatorProductCategoryLabel(vertical, item.category);
+    const hasPromo = Boolean(item.promoPrice);
+    const consultHref = item.consultHref ?? item.providerHref ?? null;
+
+    return (
         <PanelCard size="md" className="flex h-full flex-col gap-4 p-4">
             <div className={`relative aspect-[4/3] w-full ${BUSINESS_CATALOG_IMAGE_FRAME_CLASS}`}>
                 {imageSrc ? (
@@ -72,9 +65,9 @@ export function BusinessServicePublicCard({
                 ) : (
                     <div className="flex h-full items-center justify-center text-sm text-fg-muted">Sin imagen</div>
                 )}
-                {item.badge ? (
+                {hasPromo ? (
                     <div className="absolute left-3 top-3">
-                        <PanelStatusBadge label={item.badge} tone="info" size="sm" />
+                        <PanelStatusBadge label="Oferta" tone="info" size="sm" />
                     </div>
                 ) : null}
             </div>
@@ -86,20 +79,11 @@ export function BusinessServicePublicCard({
                 </div>
                 <div className="mt-auto space-y-2">
                     <p className="text-lg font-semibold text-fg">{priceLabel}</p>
-                    {modalityChips.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                            {modalityChips.map((chip) => (
-                                <span key={chip} className="inline-flex rounded-full border border-border bg-bg-subtle px-2.5 py-0.5 text-xs font-medium text-fg-secondary">
-                                    {chip}
-                                </span>
-                            ))}
-                        </div>
-                    ) : null}
-                    {modalityLabel ? <p className="text-xs text-fg-muted">{modalityLabel}</p> : null}
-                    {item.durationMinutes ? <p className="text-xs text-fg-muted">Duración aprox. {item.durationMinutes} min</p> : null}
+                    {item.stock != null ? <p className="text-xs text-fg-muted">{item.stock > 0 ? `${item.stock} en stock` : 'Sin stock'}</p> : null}
+                    {item.sku ? <p className="text-xs text-fg-muted">SKU: {item.sku}</p> : null}
                     {item.providerName ? (
                         <p className="text-sm text-fg-secondary">
-                            {item.providerHref && !cardLinked ? (
+                            {item.providerHref ? (
                                 <Link href={item.providerHref} className="underline-offset-2 hover:underline">{item.providerName}</Link>
                             ) : (
                                 <span>{item.providerName}</span>
@@ -107,13 +91,16 @@ export function BusinessServicePublicCard({
                             {item.locationLabel ? ` · ${item.locationLabel}` : ''}
                         </p>
                     ) : null}
+                    {showConsult && consultHref ? (
+                        <Link
+                            href={consultHref}
+                            className="inline-flex h-9 w-full items-center justify-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-bg-muted"
+                        >
+                            Consultar
+                        </Link>
+                    ) : null}
                 </div>
             </div>
         </PanelCard>
     );
-
-    if (href) {
-        return <Link href={href} className="block h-full transition-opacity hover:opacity-95">{card}</Link>;
-    }
-    return card;
 }

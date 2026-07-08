@@ -1,8 +1,8 @@
 // Boost types and constants
 import { MARKETPLACE_BOOST_PRICING } from '@simple/utils';
 
-export type BoostTargetType = 'listing' | 'serenata_group' | 'operator_profile';
-export type BoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing';
+export type BoostTargetType = 'listing' | 'serenata_group' | 'operator_profile' | 'operator_product' | 'operator_service';
+export type BoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing' | 'products' | 'services';
 export type BoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
 export type BoostOrderStatus = 'scheduled' | 'active' | 'paused' | 'ended';
 
@@ -73,6 +73,8 @@ const ZERO_BOOST_SECTION = {
     project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
     marketplace: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
     landing: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+    products: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+    services: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
 } as const;
 
 export const BOOST_PLAN_TEMPLATES: BoostPlanTemplate[] = [

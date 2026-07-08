@@ -196,6 +196,11 @@ export const MARKETPLACE_BUSINESS_SERVICIOS_PAGE = {
     description: 'Catálogo de servicios, packs y promociones de tu negocio.',
 } as const;
 
+export const MARKETPLACE_BUSINESS_PRODUCTOS_PAGE = {
+    title: 'Productos',
+    description: 'Accesorios, repuestos y artículos que vendes — visibles en tu perfil y en el directorio.',
+} as const;
+
 export const MARKETPLACE_PUBLIC_SERVICES_PAGE_COPY = {
     autos: {
         eyebrow: 'Servicios',
@@ -218,6 +223,38 @@ export const MARKETPLACE_PUBLIC_SERVICES_PAGE_COPY = {
 
 export const MARKETPLACE_PUBLIC_SERVICES_CATEGORY_HINT =
     'El filtro de categoría aplica solo a servicios.';
+
+export const MARKETPLACE_PUBLIC_PRODUCTS_PAGE_COPY = {
+    autos: {
+        eyebrow: 'Productos',
+        title: 'Accesorios y productos automotrices',
+        description: 'Cubre zócalos, protectores, stickers y más — de tiendas y talleres en Simple.',
+        searchPlaceholder: 'Zócalos, stickers, protectores…',
+    },
+    propiedades: {
+        eyebrow: 'Productos',
+        title: 'Productos para tu hogar',
+        description: 'Artículos y suministros ofrecidos por negocios verificados en Simple.',
+        searchPlaceholder: 'Herramientas, decoración…',
+    },
+} as const satisfies Record<'autos' | 'propiedades', {
+    eyebrow: string;
+    title: string;
+    description: string;
+    searchPlaceholder: string;
+}>;
+
+export const MARKETPLACE_PUBLIC_PRODUCTS_CATEGORY_HINT =
+    'Filtra por tipo de producto.';
+
+/** Mensaje cuando un perfil público no tiene productos activos. */
+export const PUBLIC_PROFILE_PRODUCTS_EMPTY_MESSAGE =
+    'Este perfil aún no publica productos en su tienda.';
+
+export const BUSINESS_CATALOG_EDITOR_PRODUCTS_SECTION = {
+    title: 'Productos del negocio',
+    description: 'Catálogo visible en tu perfil público y en la sección Productos.',
+} as const;
 
 /** Mensaje cuando un perfil público no tiene catálogo de servicios activo. */
 export const PUBLIC_PROFILE_CATALOG_EMPTY_MESSAGE =

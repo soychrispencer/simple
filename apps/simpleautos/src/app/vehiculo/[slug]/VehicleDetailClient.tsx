@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
+import { SellerProductsCrossSell } from '@/components/listings/seller-products-cross-sell';
 import { buildPrecheckHrefFromListing } from '@/lib/financing-precheck';
 import { type PublicListing } from '@/lib/public-listings';
 import { buildVehicleJsonLd, JsonLd } from '@/lib/schema';
@@ -137,6 +138,14 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                             {item.description || 'Esta publicación no incluye descripción adicional.'}
                         </div>
                     </PanelCard>
+
+                    {item.seller?.username ? (
+                        <SellerProductsCrossSell
+                            sellerUsername={item.seller.username}
+                            sellerName={item.seller.name}
+                            profileHref={item.seller.profileHref}
+                        />
+                    ) : null}
                 </div>
 
                 <aside className="public-listing-detail-layout__aside">

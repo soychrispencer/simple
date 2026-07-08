@@ -224,6 +224,7 @@ export { PanelBusinessSetupCard, type PanelBusinessSetupCardProps } from './busi
 export {
     AGENDA_BUSINESS_TABS,
     SERENATAS_BUSINESS_TABS,
+    MARKETPLACE_AUTOS_BUSINESS_TABS,
 } from './business-tabs';
 export {
     BUSINESS_PAGE_DEFAULTS,
@@ -233,10 +234,15 @@ export {
     MARKETPLACE_BUSINESS_REDES_PAGE,
     MARKETPLACE_BUSINESS_HORARIOS_PAGE,
     MARKETPLACE_BUSINESS_SERVICIOS_PAGE,
+    MARKETPLACE_BUSINESS_PRODUCTOS_PAGE,
     MARKETPLACE_PUBLIC_SERVICES_PAGE_COPY,
     MARKETPLACE_PUBLIC_SERVICES_CATEGORY_HINT,
+    MARKETPLACE_PUBLIC_PRODUCTS_PAGE_COPY,
+    MARKETPLACE_PUBLIC_PRODUCTS_CATEGORY_HINT,
     PUBLIC_PROFILE_CATALOG_EMPTY_MESSAGE,
+    PUBLIC_PROFILE_PRODUCTS_EMPTY_MESSAGE,
     BUSINESS_CATALOG_EDITOR_SECTION,
+    BUSINESS_CATALOG_EDITOR_PRODUCTS_SECTION,
     BUSINESS_SCHEDULE_PAGE,
     BUSINESS_SCHEDULE_EMPTY,
     BUSINESS_BLOCKED_DAYS_SECTION,
@@ -498,7 +504,19 @@ export {
     type BusinessOperatorServiceCatalogProps,
 } from './business-operator-service-catalog.js';
 export { BusinessOperatorServicesEditor } from './business-operator-services-editor.js';
+export { BusinessOperatorProductsEditor } from './business-operator-products-editor.js';
+export {
+    BusinessOperatorProductsCatalog,
+    type BusinessOperatorProductsCatalogProps,
+} from './business-operator-products-catalog.js';
+export {
+    BusinessProductPublicCard,
+    type BusinessProductPublicCardData,
+} from './business-product-public-card.js';
 export { MarketplacePublicServicesPage } from './marketplace-public-services-page.js';
+export { MarketplacePublicProductsPage } from './marketplace-public-products-page.js';
+export { MarketplaceCatalogLocationFilters, type MarketplaceCatalogLocationFiltersProps } from './marketplace-catalog-location-filters.js';
+export { createMarketplaceMiNegocioProductosPage } from './marketplace-mi-negocio-productos-page.js';
 export { PublicProfileEditor, type PublicProfileEditorProps, type PublicProfileEditorSection, type PublicProfileVertical } from './public-profile-editor';
 export { OperatorProfileFields, type OperatorProfileFieldsProps } from './operator-profile-fields';
 export {

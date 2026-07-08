@@ -177,6 +177,7 @@ import {
     marketplaceOperatorServices,
     marketplaceOperatorServicePacks,
     marketplaceOperatorServicePromotions,
+    marketplaceOperatorProducts,
     messageThreads,
     messageEntries,
     adCampaigns,
@@ -313,6 +314,7 @@ import {
 } from './modules/public-profile/normalize.js';
 import { createPublicProfilePresentation } from './modules/public-profile/presentation.js';
 import { fetchPublishedOperatorCatalog, searchPublicOperatorCatalog } from './modules/public-profile/operator-services.js';
+import { fetchPublishedOperatorProducts, mountOperatorProductsRoutes, searchPublicOperatorProducts } from './modules/public-profile/operator-products.js';
 import { buildMarketplaceOperatorAnalytics } from './modules/public-profile/operator-analytics.js';
 import { isMarketplaceVertical } from './modules/public-profile/marketplace-plan-limits.js';
 import {
@@ -1247,6 +1249,15 @@ const operatorServicesDbDeps = {
     },
 };
 
+const operatorProductsDbDeps = {
+    db,
+    dbHelpers: { eq, and, asc, desc, ilike, or, sql },
+    tables: {
+        publicProfiles,
+        marketplaceOperatorProducts,
+    },
+};
+
 const {
     buildEditablePublicProfile,
     getPublishedSellerProfile,
@@ -1274,7 +1285,11 @@ const {
         status: string;
         rawData?: unknown;
     }>,
-    fetchPublishedOperatorCatalog: (profileId) => fetchPublishedOperatorCatalog(operatorServicesDbDeps, profileId),
+    fetchPublishedOperatorCatalog: async (profileId) => {
+        const catalog = await fetchPublishedOperatorCatalog(operatorServicesDbDeps, profileId);
+        const products = await fetchPublishedOperatorProducts(operatorProductsDbDeps, profileId);
+        return { ...catalog, products };
+    },
 });
 
 const permanentlyDeleteUser = createPermanentlyDeleteUser({
@@ -2035,6 +2050,16 @@ app.route('/api/account', createAccountRouter({
         getPublicProfileRecord,
         ensureMarketplaceDraftProfileForUser: async (user, vertical) => ensureMarketplaceDraftProfileForUser(user as AppUser, vertical),
     },
+    operatorProducts: {
+        db,
+        dbHelpers: { eq, and, asc, desc, ilike, or, sql },
+        tables: {
+            publicProfiles,
+            marketplaceOperatorProducts,
+        },
+        getPublicProfileRecord,
+        ensureMarketplaceDraftProfileForUser: async (user, vertical) => ensureMarketplaceDraftProfileForUser(user as AppUser, vertical),
+    },
 }));
 
 
@@ -2366,6 +2391,7 @@ app.route('/api/public', createPublicRouter({
     userCanUsePublicProfile,
     buildPublicProfileResponse,
     searchPublicOperatorCatalog: (input) => searchPublicOperatorCatalog(operatorServicesDbDeps, input),
+    searchPublicOperatorProducts: (input) => searchPublicOperatorProducts(operatorProductsDbDeps, input),
     geocodeLocationRequestSchema,
     normalizeListingLocation,
     geocodeLocationRemotely,

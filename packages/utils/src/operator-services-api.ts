@@ -118,12 +118,13 @@ export type FetchPublicOperatorCatalogResult = {
 
 export async function fetchPublicOperatorCatalog(
     vertical: PublicProfileVertical,
-    filters?: { q?: string; category?: string; region?: string; limit?: number },
+    filters?: { q?: string; category?: string; region?: string; commune?: string; limit?: number },
 ): Promise<FetchPublicOperatorCatalogResult> {
     const params = new URLSearchParams({ vertical });
     if (filters?.q) params.set('q', filters.q);
     if (filters?.category) params.set('category', filters.category);
     if (filters?.region) params.set('region', filters.region);
+    if (filters?.commune) params.set('commune', filters.commune);
     if (filters?.limit) params.set('limit', String(filters.limit));
     const { data } = await apiFetch<{
         ok: boolean;

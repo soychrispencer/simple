@@ -160,7 +160,7 @@ export async function fetchPublishedOperatorCatalog(
 
 function buildProfileSearchConditions(
     deps: Pick<OperatorServicesDeps, 'dbHelpers' | 'tables'>,
-    input: { vertical: Vertical; q?: string; region?: string },
+    input: { vertical: Vertical; q?: string; region?: string; commune?: string },
 ) {
     const { eq, and, ilike, or } = deps.dbHelpers;
     const { tables } = deps;
@@ -169,6 +169,12 @@ function buildProfileSearchConditions(
         eq(tables.publicProfiles.vertical, input.vertical),
     ];
     if (input.region) conditions.push(ilike(tables.publicProfiles.region, `%${input.region}%`));
+    if (input.commune) {
+        conditions.push(or(
+            ilike(tables.publicProfiles.city, `%${input.commune}%`),
+            ilike(tables.publicProfiles.region, `%${input.commune}%`),
+        ));
+    }
     if (input.q) {
         const pattern = `%${input.q}%`;
         conditions.push(ilike(tables.publicProfiles.displayName, pattern));
@@ -178,7 +184,7 @@ function buildProfileSearchConditions(
 
 export async function searchPublicOperatorCatalog(
     deps: Pick<OperatorServicesDeps, 'db' | 'dbHelpers' | 'tables'>,
-    input: { vertical: Vertical; q?: string; category?: string; region?: string; limit?: number },
+    input: { vertical: Vertical; q?: string; category?: string; region?: string; commune?: string; limit?: number },
 ) {
     const services = await searchPublicOperatorServices(deps, input);
     const { db, dbHelpers: { eq, and, asc, desc, ilike, or }, tables } = deps;
@@ -234,7 +240,7 @@ export async function searchPublicOperatorCatalog(
 
 export async function searchPublicOperatorServices(
     deps: Pick<OperatorServicesDeps, 'db' | 'dbHelpers' | 'tables'>,
-    input: { vertical: Vertical; q?: string; category?: string; region?: string; limit?: number },
+    input: { vertical: Vertical; q?: string; category?: string; region?: string; commune?: string; limit?: number },
 ) {
     const { db, dbHelpers: { eq, and, asc, desc, ilike, or, sql }, tables } = deps;
     const limit = Math.min(Math.max(input.limit ?? 48, 1), 100);
@@ -246,6 +252,12 @@ export async function searchPublicOperatorServices(
     ];
     if (input.category) conditions.push(eq(tables.marketplaceOperatorServices.category, input.category));
     if (input.region) conditions.push(ilike(tables.publicProfiles.region, `%${input.region}%`));
+    if (input.commune) {
+        conditions.push(or(
+            ilike(tables.publicProfiles.city, `%${input.commune}%`),
+            ilike(tables.publicProfiles.region, `%${input.commune}%`),
+        ));
+    }
     if (input.q) {
         const pattern = `%${input.q}%`;
         conditions.push(or(

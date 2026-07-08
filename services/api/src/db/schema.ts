@@ -435,6 +435,29 @@ export const marketplaceOperatorServicePromotions = pgTable('marketplace_operato
   profileIdx: index('marketplace_operator_service_promotions_profile_idx').on(table.publicProfileId),
 }));
 
+export const marketplaceOperatorProducts = pgTable('marketplace_operator_products', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  publicProfileId: uuid('public_profile_id').references(() => publicProfiles.id, { onDelete: 'cascade' }).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  name: varchar('name', { length: 160 }).notNull(),
+  description: text('description'),
+  imageUrl: varchar('image_url', { length: 500 }),
+  category: varchar('category', { length: 40 }).notNull().default('other'),
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  promoPrice: decimal('promo_price', { precision: 10, scale: 2 }),
+  currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
+  stock: integer('stock'),
+  sku: varchar('sku', { length: 80 }),
+  isActive: boolean('is_active').notNull().default(true),
+  position: integer('position').notNull().default(0),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  profileIdx: index('marketplace_operator_products_profile_idx').on(table.publicProfileId),
+  verticalActiveIdx: index('marketplace_operator_products_vertical_active_idx').on(table.vertical, table.isActive),
+}));
+
 export const addressBook = pgTable('address_book', {
   id: uuid('id').primaryKey().defaultRandom(),
   accountId: uuid('account_id').references(() => accounts.id),

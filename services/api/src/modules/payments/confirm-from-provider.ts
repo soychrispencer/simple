@@ -2,7 +2,9 @@ import type { PaymentsRouterDeps } from './router.js';
 import type { BoostTargetType } from '../boost/types.js';
 
 function asBoostTargetType(value: string): BoostTargetType {
-    if (value === 'serenata_group' || value === 'operator_profile') return value;
+    if (value === 'serenata_group' || value === 'operator_profile' || value === 'operator_product' || value === 'operator_service') {
+        return value;
+    }
     return 'listing';
 }
 

@@ -1,8 +1,8 @@
 import { apiFetch, publicFetch } from './api-client.js';
 
 export type BoostVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
-export type BoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing';
-export type BoostTargetType = 'listing' | 'serenata_group' | 'operator_profile';
+export type BoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing' | 'products' | 'services';
+export type BoostTargetType = 'listing' | 'serenata_group' | 'operator_profile' | 'operator_product' | 'operator_service';
 export type BoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
 export type BoostOrderStatus = 'scheduled' | 'active' | 'paused' | 'ended';
 
@@ -135,6 +135,8 @@ export function getBoostSectionMeta(vertical: BoostVertical): Partial<Record<Boo
         rent: { label: 'Arriendo', href: '/arriendos' },
         auction: { label: 'Subastas', href: '/subastas' },
         project: { label: 'Proyectos', href: '/proyectos' },
+        products: { label: 'Productos', href: '/productos' },
+        services: { label: 'Servicios', href: '/servicios' },
     };
 }
 

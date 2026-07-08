@@ -16,14 +16,16 @@ export function isBoostSectionAllowed(vertical: VerticalType, section: BoostSect
     if (vertical === 'serenatas' || vertical === 'agenda') {
         return section === 'marketplace' || section === 'landing';
     }
-    if (vertical === 'autos') return section === 'sale' || section === 'rent' || section === 'auction';
+    if (vertical === 'autos') {
+        return section === 'sale' || section === 'rent' || section === 'auction' || section === 'products' || section === 'services';
+    }
     if (vertical === 'propiedades') return section === 'sale' || section === 'rent' || section === 'project';
     return false;
 }
 
 export function getSectionsForVertical(vertical: VerticalType): BoostSection[] {
     if (vertical === 'serenatas' || vertical === 'agenda') return ['marketplace', 'landing'];
-    if (vertical === 'autos') return ['sale', 'rent', 'auction'];
+    if (vertical === 'autos') return ['sale', 'rent', 'auction', 'products', 'services'];
     if (vertical === 'propiedades') return ['sale', 'rent', 'project'];
     return [];
 }
@@ -97,6 +99,8 @@ export function sectionLabel(section: BoostSection): string {
     if (section === 'rent') return 'Arriendos';
     if (section === 'auction') return 'Subastas';
     if (section === 'project') return 'Proyectos';
+    if (section === 'products') return 'Productos';
+    if (section === 'services') return 'Servicios';
     return 'Ventas';
 }
 

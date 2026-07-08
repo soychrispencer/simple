@@ -65,6 +65,7 @@ export type PublicProfilePresentationDeps = {
         services: unknown[];
         packs: unknown[];
         promotions: unknown[];
+        products?: unknown[];
     }>;
 };
 
@@ -233,7 +234,7 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
 
         const catalog = fetchPublishedOperatorCatalog
             ? await fetchPublishedOperatorCatalog(profile.id)
-            : { services: [], packs: [], promotions: [] };
+            : { services: [], packs: [], promotions: [], products: [] };
 
         return {
             profile: {
@@ -293,6 +294,7 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
             services: catalog.services,
             packs: catalog.packs,
             promotions: catalog.promotions,
+            products: catalog.products ?? [],
         };
     }
 

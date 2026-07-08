@@ -39,6 +39,8 @@ export type { StructuredLocation, AgendaOperatingLocation } from '@simple/types'
 export * from './location-timezone.js';
 export * from './operator-service-config.js';
 export * from './operator-services-api.js';
+export * from './operator-product-config.js';
+export * from './operator-products-api.js';
 export * from './business-schedule.js';
 export * from './account-notification-prefs.js';
 export * from './business-booking-rules.js';

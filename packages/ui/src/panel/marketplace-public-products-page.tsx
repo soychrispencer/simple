@@ -4,15 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { IconLoader2, IconSearch } from '@tabler/icons-react';
 import {
-    fetchPublicOperatorCatalog,
-    getOperatorServiceCategories,
-    type PublicOperatorCatalog,
+    fetchPublicOperatorProducts,
+    getOperatorProductCategories,
+    type PublicOperatorProductItem,
     type PublicProfileVertical,
 } from '@simple/utils';
-import { BusinessOperatorServiceCatalog } from './business-operator-service-catalog.js';
+import { BusinessOperatorProductsCatalog } from './business-operator-products-catalog.js';
 import {
-    MARKETPLACE_PUBLIC_SERVICES_CATEGORY_HINT,
-    MARKETPLACE_PUBLIC_SERVICES_PAGE_COPY,
+    MARKETPLACE_PUBLIC_PRODUCTS_CATEGORY_HINT,
+    MARKETPLACE_PUBLIC_PRODUCTS_PAGE_COPY,
 } from './business-copy.js';
 import { MarketplaceCatalogLocationFilters } from './marketplace-catalog-location-filters.js';
 import { PanelEmptyState } from './panel-display.js';
@@ -21,13 +21,13 @@ import { PanelNotice } from './panel-primitives.js';
 import { PanelSelect } from './panel-select.js';
 import { PanelButton } from './panel-button.js';
 
-export function MarketplacePublicServicesPage({ vertical }: { vertical: PublicProfileVertical }) {
+export function MarketplacePublicProductsPage({ vertical }: { vertical: PublicProfileVertical }) {
     const searchParams = useSearchParams();
-    const categories = useMemo(() => getOperatorServiceCategories(vertical), [vertical]);
-    const copy = MARKETPLACE_PUBLIC_SERVICES_PAGE_COPY[vertical === 'propiedades' ? 'propiedades' : 'autos'];
+    const categories = useMemo(() => getOperatorProductCategories(vertical), [vertical]);
+    const copy = MARKETPLACE_PUBLIC_PRODUCTS_PAGE_COPY[vertical === 'propiedades' ? 'propiedades' : 'autos'];
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
-    const [catalog, setCatalog] = useState<PublicOperatorCatalog>({ services: [], packs: [], promotions: [] });
+    const [products, setProducts] = useState<PublicOperatorProductItem[]>([]);
     const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
     const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get('q') ?? '');
     const [category, setCategory] = useState(() => searchParams.get('category') ?? '');
@@ -41,19 +41,18 @@ export function MarketplacePublicServicesPage({ vertical }: { vertical: PublicPr
 
     useEffect(() => {
         setLoading(true);
-        void fetchPublicOperatorCatalog(vertical, {
+        void fetchPublicOperatorProducts(vertical, {
             q: debouncedQuery.trim() || undefined,
             category: category || undefined,
             region: region || undefined,
             commune: commune || undefined,
         }).then((result) => {
-            setCatalog(result.catalog);
-            setLoadError(result.ok ? '' : (result.error ?? 'No se pudo cargar el catálogo.'));
+            setProducts(result.products);
+            setLoadError(result.ok ? '' : (result.error ?? 'No se pudieron cargar los productos.'));
             setLoading(false);
         });
     }, [vertical, debouncedQuery, category, region, commune]);
 
-    const totalCount = catalog.services.length + catalog.packs.length + catalog.promotions.length;
     const searching = query !== debouncedQuery;
 
     return (
@@ -71,7 +70,7 @@ export function MarketplacePublicServicesPage({ vertical }: { vertical: PublicPr
                         <input className="form-input pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={copy.searchPlaceholder} />
                     </div>
                 </PanelField>
-                <PanelField label="Categoría" hint={MARKETPLACE_PUBLIC_SERVICES_CATEGORY_HINT}>
+                <PanelField label="Categoría" hint={MARKETPLACE_PUBLIC_PRODUCTS_CATEGORY_HINT}>
                     <PanelSelect value={category} onChange={(e) => setCategory(e.target.value)}>
                         <option value="">Todas</option>
                         {categories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
@@ -91,11 +90,11 @@ export function MarketplacePublicServicesPage({ vertical }: { vertical: PublicPr
             {loadError ? <PanelNotice tone="warning">{loadError}</PanelNotice> : null}
 
             {loading || searching ? (
-                <p className="flex items-center gap-2 text-sm text-fg-muted"><IconLoader2 size={16} className="animate-spin" /> Cargando catálogo…</p>
-            ) : totalCount === 0 ? (
+                <p className="flex items-center gap-2 text-sm text-fg-muted"><IconLoader2 size={16} className="animate-spin" /> Cargando productos…</p>
+            ) : products.length === 0 ? (
                 <PanelEmptyState title="Sin resultados por ahora" description="Prueba otra categoría o vuelve más tarde." />
             ) : (
-                <BusinessOperatorServiceCatalog vertical={vertical} catalog={catalog} showProvider />
+                <BusinessOperatorProductsCatalog vertical={vertical} products={products} showProvider showConsult />
             )}
         </div>
     );

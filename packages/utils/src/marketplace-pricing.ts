@@ -41,6 +41,8 @@ export const MARKETPLACE_BOOST_PRICING: Record<
         rent: { boost_starter: 3490, boost_pro: 5990, boost_max: 9990 },
         auction: { boost_starter: 7990, boost_pro: 13990, boost_max: 21990 },
         project: zeroListingSection.project,
+        products: { boost_starter: 2490, boost_pro: 4490, boost_max: 7990 },
+        services: { boost_starter: 2490, boost_pro: 4490, boost_max: 7990 },
     },
     serenatas: operatorBoostPricing,
     agenda: operatorBoostPricing,

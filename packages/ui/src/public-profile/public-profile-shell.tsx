@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import type { ReactNode } from 'react';
+import { useMemo } from 'react';
 import { resolveAppMediaUrl, isBusinessOpenNow, formatBusinessScheduleRange, isInstantBlocked, isInstantInWeeklyBreak, type PublicBusinessPaymentMethods } from '@simple/utils';
 import {
     IconBrandFacebook,
@@ -19,6 +20,7 @@ import {
 import { PanelCard } from '../panel/panel-card';
 import { PanelBlockHeader, PanelNotice } from '../panel/panel-primitives';
 import { BusinessPublicPaymentMethodsSection } from './business-public-payment-methods.js';
+import { PublicProfileCatalogTabs, type PublicProfileCatalogTab, type PublicProfileCatalogTabKey } from './public-profile-catalog-tabs.js';
 
 export type PublicProfileDay =
     | 'monday'
@@ -95,6 +97,10 @@ export type PublicProfileShellProps = {
     initials: string;
     listings: ReactNode;
     services?: ReactNode;
+    products?: ReactNode;
+    /** Usa pestañas Vehículos / Productos / Servicios en lugar de apilar secciones. */
+    catalogTabs?: boolean;
+    catalogTabCounts?: Partial<Record<PublicProfileCatalogTabKey, number>>;
 };
 
 export function initialsFromPublicProfileName(name: string) {
@@ -205,7 +211,35 @@ export function PublicProfileShell({
     initials,
     listings,
     services,
+    products,
+    catalogTabs = false,
+    catalogTabCounts,
 }: PublicProfileShellProps) {
+    const catalogTabItems = useMemo((): PublicProfileCatalogTab[] => {
+        if (!catalogTabs) return [];
+        const items: PublicProfileCatalogTab[] = [
+            {
+                key: 'listings',
+                label: `Vehículos${catalogTabCounts?.listings != null ? ` (${catalogTabCounts.listings})` : ''}`,
+                content: listings,
+            },
+        ];
+        if (products != null) {
+            items.push({
+                key: 'products',
+                label: `Productos${catalogTabCounts?.products != null ? ` (${catalogTabCounts.products})` : ''}`,
+                content: products,
+            });
+        }
+        if (services != null) {
+            items.push({
+                key: 'services',
+                label: `Servicios${catalogTabCounts?.services != null ? ` (${catalogTabCounts.services})` : ''}`,
+                content: services,
+            });
+        }
+        return items;
+    }, [catalogTabs, catalogTabCounts, listings, products, services]);
     const socialLinks = buildSocialLinks(profile);
     const coverSrc = resolveAppMediaUrl(profile.coverImageUrl);
     const avatarSrc = resolveAppMediaUrl(profile.avatarImageUrl);
@@ -335,17 +369,30 @@ export function PublicProfileShell({
                         </PanelCard>
                     ) : null}
 
-                    {services ? (
-                        <section className="space-y-4">
-                            <PanelBlockHeader title="Servicios" description="Servicios, packs y ofertas activas del negocio." className="mb-0" />
-                            {services}
-                        </section>
-                    ) : null}
+                    {catalogTabs && catalogTabItems.length > 0 ? (
+                        <PublicProfileCatalogTabs tabs={catalogTabItems} />
+                    ) : (
+                        <>
+                            {services ? (
+                                <section className="space-y-4">
+                                    <PanelBlockHeader title="Servicios" description="Servicios, packs y ofertas activas del negocio." className="mb-0" />
+                                    {services}
+                                </section>
+                            ) : null}
 
-                    <section className="space-y-4">
-                        <PanelBlockHeader title="Inventario activo" description="Solo se muestra inventario público y vigente del perfil." className="mb-0" />
-                        {listings}
-                    </section>
+                            {products ? (
+                                <section className="space-y-4">
+                                    <PanelBlockHeader title="Productos" description="Accesorios y artículos disponibles en esta tienda." className="mb-0" />
+                                    {products}
+                                </section>
+                            ) : null}
+
+                            <section className="space-y-4">
+                                <PanelBlockHeader title="Inventario activo" description="Solo se muestra inventario público y vigente del perfil." className="mb-0" />
+                                {listings}
+                            </section>
+                        </>
+                    )}
                 </div>
 
                 <div className="space-y-6">
