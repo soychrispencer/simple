@@ -1,6 +1,7 @@
+import type { BoostSection } from '../../lib/domain-types.js';
 import { asObject, asString } from '../shared/helpers.js';
 
-export type BoostSection = 'sale' | 'rent' | 'auction' | 'project';
+export type { BoostSection };
 
 /** Compatible con ListingRecord del monolito (campos extra permitidos). */
 export type ListingPublicRecord = {

@@ -1,6 +1,7 @@
+import type { BoostSection } from '../../lib/domain-types.js';
 import { asObject, asString } from '../shared/helpers.js';
 
-export type SocialFeedListingSection = 'sale' | 'rent' | 'auction' | 'project';
+export type SocialFeedListingSection = BoostSection;
 
 /** Clip de Descubre: solo publicaciones con video (formato Reel). */
 export type SocialFeedClip = {
