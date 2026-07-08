@@ -2,28 +2,28 @@
 
 import { Suspense, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { IconSearch } from '@tabler/icons-react';
+import { IconAdjustmentsHorizontal, IconChevronDown, IconSearch } from '@tabler/icons-react';
 import { LOCATION_REGIONS } from '@simple/utils';
 import { PanelButton } from '@simple/ui/panel';
-import HomeSearchBox, { type AutosTab } from './home-searchbox';
+import HomeSearchBox, { type PropertiesTab } from './home-searchbox';
 
-type HubSearchTab = AutosTab | 'servicios' | 'productos';
+type HubSearchTab = PropertiesTab | 'servicios' | 'productos';
 
 const HUB_TABS: Array<{ key: HubSearchTab; label: string }> = [
     { key: 'comprar', label: 'Comprar' },
     { key: 'arrendar', label: 'Arrendar' },
-    { key: 'subastas', label: 'Subastas' },
+    { key: 'proyectos', label: 'Proyectos' },
     { key: 'servicios', label: 'Servicios' },
     { key: 'productos', label: 'Productos' },
 ];
 
 const CATALOG_META: Record<'servicios' | 'productos', { placeholder: string; path: string }> = {
-    servicios: { placeholder: 'Lavado, taller, revisión técnica…', path: '/servicios' },
-    productos: { placeholder: 'Zócalos, stickers, protectores…', path: '/productos' },
+    servicios: { placeholder: 'Aseo, mudanza, tasación…', path: '/servicios' },
+    productos: { placeholder: 'Herramientas, decoración…', path: '/productos' },
 };
 
-function isListingTab(tab: HubSearchTab): tab is AutosTab {
-    return tab === 'comprar' || tab === 'arrendar' || tab === 'subastas';
+function isListingTab(tab: HubSearchTab): tab is PropertiesTab {
+    return tab === 'comprar' || tab === 'arrendar' || tab === 'proyectos';
 }
 
 function HubCatalogSearchForm({ mode }: { mode: 'servicios' | 'productos' }) {
@@ -65,27 +65,59 @@ function HubCatalogSearchForm({ mode }: { mode: 'servicios' | 'productos' }) {
 
 function HubSearchShellContent() {
     const [activeTab, setActiveTab] = useState<HubSearchTab>('comprar');
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const listingMode = isListingTab(activeTab);
 
     return (
         <section className="container-app relative z-11 -mt-12 mb-10 md:-mt-16">
             <div className="overflow-visible rounded-card border marketplace-search-hero">
-                <div className="flex flex-nowrap items-center gap-2 border-b border-[var(--border)] px-3 pb-2 pt-3 sm:px-4">
-                    <div className="inline-flex min-w-0 flex-1 overflow-x-auto rounded-xl bg-[var(--bg-subtle)] p-1 [scrollbar-width:none] autos-search-tabs">
+                <div className="flex flex-nowrap items-center justify-between gap-2 border-b border-border px-3 pb-2 pt-3 sm:px-4">
+                    <div className="inline-flex min-w-0 flex-1 overflow-x-auto rounded-xl bg-bg-subtle p-1 [scrollbar-width:none]">
                         {HUB_TABS.map((tab) => (
                             <button
                                 key={tab.key}
                                 type="button"
-                                onClick={() => setActiveTab(tab.key)}
-                                className={`h-8 shrink-0 rounded-md border px-3 text-sm font-medium transition-all sm:h-9 sm:px-4 hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)] autos-search-tab ${activeTab === tab.key ? 'autos-search-tab--active' : ''}`}
+                                onClick={() => {
+                                    setActiveTab(tab.key);
+                                    if (!isListingTab(tab.key)) setShowAdvanced(false);
+                                }}
+                                className="h-8 shrink-0 rounded-md border px-3 text-sm font-medium transition-all sm:h-9 sm:px-4 hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] hover:text-[var(--fg)]"
+                                style={{
+                                    background: activeTab === tab.key ? 'var(--button-primary-bg)' : 'transparent',
+                                    color: activeTab === tab.key ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
+                                    borderColor: activeTab === tab.key ? 'var(--button-primary-border)' : 'transparent',
+                                }}
                             >
                                 {tab.label}
                             </button>
                         ))}
                     </div>
+
+                    {listingMode ? (
+                        <PanelButton
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-8 w-8 shrink-0 justify-center px-0 sm:h-9 sm:w-auto sm:px-3"
+                            onClick={() => setShowAdvanced((current) => !current)}
+                            aria-label="Mostrar filtros avanzados"
+                        >
+                            <IconAdjustmentsHorizontal size={15} />
+                            <span className="hidden sm:inline">Más filtros</span>
+                            <IconChevronDown
+                                size={14}
+                                className="hidden sm:inline"
+                                style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 180ms ease' }}
+                            />
+                        </PanelButton>
+                    ) : null}
                 </div>
 
-                {isListingTab(activeTab) ? (
-                    <HomeSearchBox listingTab={activeTab} />
+                {listingMode ? (
+                    <HomeSearchBox
+                        listingTab={activeTab}
+                        showAdvanced={showAdvanced}
+                    />
                 ) : (
                     <HubCatalogSearchForm mode={activeTab} />
                 )}

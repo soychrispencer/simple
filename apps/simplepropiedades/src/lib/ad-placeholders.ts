@@ -26,6 +26,8 @@ const INLINE_PLACEHOLDERS: Record<AdPlacementSection, AdPlaceholderVisual> = {
     arriendos: RENT_PLACEHOLDER,
     subastas: HOME_PLACEHOLDER,
     proyectos: PROJECTS_PLACEHOLDER,
+    mariachis: HOME_PLACEHOLDER,
+    professionals: HOME_PLACEHOLDER,
 };
 
 const CARD_PLACEHOLDERS: AdPlaceholderVisual[] = [

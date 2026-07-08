@@ -225,6 +225,8 @@ export {
     AGENDA_BUSINESS_TABS,
     SERENATAS_BUSINESS_TABS,
     MARKETPLACE_AUTOS_BUSINESS_TABS,
+    MARKETPLACE_PROPIEDADES_BUSINESS_TABS,
+    getMarketplaceBusinessTabs,
 } from './business-tabs';
 export {
     BUSINESS_PAGE_DEFAULTS,

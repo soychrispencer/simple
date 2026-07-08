@@ -1,19 +1,40 @@
 'use client';
 
 import { useMemo } from 'react';
-import { MarketplaceHeader } from '@simple/marketplace-header';
+import { MarketplaceHeader, type MarketplacePublicLink } from '@simple/marketplace-header';
 import { getPanelNavItems, isPanelNavActive, type PanelRole } from '@/components/panel/panel-nav-config';
 import { fetchPanelNotifications } from '@/lib/panel-notifications';
 import { clearSavedListingsCache, syncSavedListingsFromApi } from '@simple/utils';
 
-const publicLinks = [
-    { href: '/ventas', label: 'Comprar' },
-    { href: '/arriendos', label: 'Arrendar' },
-    { href: '/subastas', label: 'Subastas' },
+const publicLinks: MarketplacePublicLink[] = [
+    {
+        href: '/ventas',
+        label: 'Vehículos',
+        items: [
+            { href: '/ventas', label: 'Comprar', description: 'Autos, motos y más en venta' },
+            { href: '/arriendos', label: 'Arrendar', description: 'Arriendo de vehículos' },
+            { href: '/subastas', label: 'Subastas', description: 'Subastas activas' },
+        ],
+    },
     { href: '/servicios', label: 'Servicios' },
     { href: '/productos', label: 'Productos' },
+    {
+        href: '/precalificacion-financiamiento',
+        label: 'Herramientas',
+        items: [
+            {
+                href: '/precalificacion-financiamiento',
+                label: 'Precalificación de financiamiento',
+                description: 'Evalúa tu perfil antes de pedir crédito — no es simulador de cuotas',
+            },
+            {
+                href: '/servicios/venta-asistida',
+                label: 'Venta asistida',
+                description: 'Publicamos y gestionamos la venta por ti',
+            },
+        ],
+    },
     { href: '/descubre', label: 'Descubre', isNew: true },
-    { href: '/precalificacion-financiamiento', label: 'Financiamiento' },
 ];
 
 export function Header() {

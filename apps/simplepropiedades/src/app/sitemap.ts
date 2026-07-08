@@ -15,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         { url: `${BASE_URL}/contacto`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
         { url: `${BASE_URL}/faq`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
         { url: `${BASE_URL}/servicios`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+        { url: `${BASE_URL}/productos`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.5 },
         { url: `${BASE_URL}/servicios/venta-asistida`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
         { url: `${BASE_URL}/simulador-hipotecario`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
         { url: `${BASE_URL}/servicios/simulador-hipotecario`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },

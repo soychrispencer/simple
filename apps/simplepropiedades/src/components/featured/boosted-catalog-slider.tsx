@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FeaturedBoostSliderSection } from '@simple/ui/featured';
 import { resolveAppMediaUrl } from '@simple/utils';
-import { fetchFeaturedBoosted, type CatalogBoostSection, type FeaturedBoostItem } from '@/lib/boost';
+import { BOOST_SECTION_META, fetchFeaturedBoosted, type CatalogBoostSection, type FeaturedBoostItem } from '@/lib/boost';
 import { PanelCard } from '@simple/ui/panel';
 
 const CATALOG_SECTION_META: Record<CatalogBoostSection, { label: string; href: string }> = {
@@ -65,8 +65,8 @@ export function BoostedCatalogSlider({ section }: { section: CatalogBoostSection
         <FeaturedBoostSliderSection
             title={section === 'products' ? 'Productos destacados' : 'Servicios destacados'}
             subtitle={section === 'products'
-                ? 'Accesorios impulsados por negocios verificados.'
-                : 'Talleres y servicios con mayor visibilidad.'}
+                ? 'Artículos impulsados por negocios verificados.'
+                : 'Servicios para el hogar con mayor visibilidad.'}
             viewMoreHref={sectionMeta.href}
             viewMoreLabel={`Ver ${sectionMeta.label.toLowerCase()}`}
             tabs={[{ key: section, label: sectionMeta.label }]}

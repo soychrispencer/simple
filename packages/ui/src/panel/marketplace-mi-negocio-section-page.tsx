@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import type { PublicProfileVertical } from '@simple/utils';
-import { MARKETPLACE_PUBLIC_PROFILE_BUSINESS_TABS } from './business-tabs.js';
+import { getMarketplaceBusinessTabs } from './business-tabs.js';
 import { MARKETPLACE_BUSINESS_HORARIOS_PAGE, MARKETPLACE_PUBLIC_PROFILE_PAGE } from './business-copy.js';
 import { MarketplaceBusinessPublishToggle } from './marketplace-business-publish-toggle.js';
 import { PublicProfileEditor, type PublicProfileEditorSection } from './public-profile-editor.js';
@@ -37,7 +37,7 @@ export function MarketplaceMiNegocioSectionPage({
     return (
         <PanelMiNegocioShell
             activeKey={activeKey}
-            tabs={MARKETPLACE_PUBLIC_PROFILE_BUSINESS_TABS}
+            tabs={getMarketplaceBusinessTabs(vertical)}
             title={title}
             description={description}
             publishToggle={<MarketplaceBusinessPublishToggle vertical={vertical} />}

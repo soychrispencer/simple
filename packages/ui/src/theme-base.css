@@ -664,8 +664,9 @@ h4,
 .header-nav-link {
     color: var(--fg-secondary);
     background: transparent;
-    border-radius: 0;
+    border-radius: 9999px;
     transition: color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    line-height: 1.25;
 }
 
 .marketplace-header a.header-nav-link,
@@ -693,6 +694,58 @@ h4,
 .header-nav-link[data-active="true"] .header-nav-link-badge {
     background: var(--bg-muted);
     color: var(--fg);
+}
+
+.header-nav-dropdown {
+    min-width: 17.5rem;
+    width: max-content;
+    max-width: min(26rem, calc(100vw - 2rem));
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+}
+
+.header-nav-dropdown-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.875rem 1.125rem;
+    border-radius: 0.75rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    text-decoration: none;
+}
+
+.header-nav-dropdown-item:hover {
+    background: var(--bg-subtle);
+}
+
+.header-nav-dropdown-item[data-active="true"] {
+    background: var(--bg-subtle);
+}
+
+.header-nav-dropdown-item__label {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--fg);
+}
+
+.header-nav-dropdown-item__description {
+    display: block;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--fg-muted);
+}
+
+.header-nav-mobile-group-label {
+    padding: 0 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
 }
 
 .header-icon-chip {

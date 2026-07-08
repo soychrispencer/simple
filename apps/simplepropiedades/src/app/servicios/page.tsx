@@ -1,7 +1,12 @@
-'use client';
-
+import { Suspense } from 'react';
 import { MarketplacePublicServicesPage } from '@simple/ui/panel';
+import { BoostedCatalogSlider } from '@/components/featured/boosted-catalog-slider';
 
 export default function ServiciosPage() {
-    return <MarketplacePublicServicesPage vertical="propiedades" />;
+    return (
+        <Suspense fallback={null}>
+            <BoostedCatalogSlider section="services" />
+            <MarketplacePublicServicesPage vertical="propiedades" />
+        </Suspense>
+    );
 }

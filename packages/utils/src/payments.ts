@@ -4,7 +4,7 @@ export type PaymentVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 export type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
 export type AdDurationDays = 7 | 15 | 30;
 export type PaymentBoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing' | 'products' | 'services';
-export type PaymentBoostTargetType = 'listing' | 'serenata_group' | 'operator_profile';
+export type PaymentBoostTargetType = 'listing' | 'serenata_group' | 'operator_profile' | 'operator_product' | 'operator_service';
 export type PaymentBoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
 export type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
 

@@ -315,7 +315,7 @@ export function MarketplaceHeader({
       className={`marketplace-header relative z-40 transition-all duration-300${headerScrolled ? ' marketplace-header--scrolled' : ''}`}
       style={{ borderBottom: '1px solid var(--border)' }}
     >
-      <div className="container-app flex items-center justify-between h-16">
+      <div className="container-app flex min-h-[4.25rem] items-center justify-between gap-3 py-2 md:min-h-[4.5rem]">
         <Link href={homeHref} className="flex items-center gap-2 group shrink-0">
           <BrandLogo appId={brandAppId} />
         </Link>
@@ -327,7 +327,7 @@ export function MarketplaceHeader({
             </div>
           </div>
         ) : (
-          <nav className="hidden md:flex items-center gap-1" ref={publicNavRef}>
+          <nav className="hidden md:flex flex-1 items-center justify-center gap-1.5 px-2 lg:gap-2 lg:px-4" ref={publicNavRef}>
             {publicLinks.map((l) => {
               const active = isPublicLinkActive(pathname, l);
               if (l.items?.length) {
@@ -342,7 +342,7 @@ export function MarketplaceHeader({
                         setNotificationsOpen(false);
                         setMenuOpen(false);
                       }}
-                      className="header-nav-link inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium transition-colors duration-200"
+                      className="header-nav-link inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors duration-200"
                       data-active={active ? 'true' : 'false'}
                       aria-expanded={open}
                       aria-haspopup="menu"
@@ -353,9 +353,10 @@ export function MarketplaceHeader({
                     {open ? (
                       <div
                         role="menu"
-                        className="absolute left-0 top-[calc(100%+8px)] z-[60] min-w-[15rem] rounded-card border p-1.5 animate-slide-down"
-                        style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                        className="header-nav-dropdown absolute left-0 z-[60] animate-slide-down"
+                        style={{ top: 'calc(100% + 12px)' }}
                       >
+                        <div className="flex flex-col gap-1.5 p-1.5">
                         {l.items.map((item) => {
                           const itemActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                           return (
@@ -364,16 +365,17 @@ export function MarketplaceHeader({
                               href={item.href}
                               role="menuitem"
                               onClick={() => setPublicNavOpen(null)}
-                              className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-[var(--bg-subtle)]"
-                              style={{ background: itemActive ? 'var(--bg-subtle)' : 'transparent' }}
+                              className="header-nav-dropdown-item"
+                              data-active={itemActive ? 'true' : 'false'}
                             >
-                              <span className="block text-sm font-medium" style={{ color: 'var(--fg)' }}>{item.label}</span>
+                              <span className="header-nav-dropdown-item__label">{item.label}</span>
                               {item.description ? (
-                                <span className="mt-0.5 block text-xs leading-snug" style={{ color: 'var(--fg-muted)' }}>{item.description}</span>
+                                <span className="header-nav-dropdown-item__description">{item.description}</span>
                               ) : null}
                             </Link>
                           );
                         })}
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -384,7 +386,7 @@ export function MarketplaceHeader({
               <Link
                 key={l.href}
                 href={l.href}
-                className="header-nav-link px-3.5 py-2 text-sm font-medium transition-colors duration-200"
+                className="header-nav-link whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200"
                 data-active={active ? 'true' : 'false'}
               >
                 <span className="inline-flex items-center gap-1.5">
@@ -708,24 +710,23 @@ export function MarketplaceHeader({
                 {publicLinks.map((l) => {
                   if (l.items?.length) {
                     return (
-                      <div key={l.href} className="py-1">
-                        <p className="px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
-                          {l.label}
-                        </p>
+                      <div key={l.href} className="py-2.5">
+                        <p className="header-nav-mobile-group-label">{l.label}</p>
+                        <div className="mt-2 flex flex-col gap-1.5">
                         {l.items.map((item) => (
                           <Link
                             key={item.href}
                             href={item.href}
                             onClick={() => setMenuOpen(false)}
-                            className="flex flex-col gap-0.5 rounded-button px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
-                            style={{ color: 'var(--fg-secondary)' }}
+                            className="header-nav-dropdown-item"
                           >
-                            <span className="font-medium" style={{ color: 'var(--fg)' }}>{item.label}</span>
+                            <span className="header-nav-dropdown-item__label">{item.label}</span>
                             {item.description ? (
-                              <span className="text-xs leading-snug" style={{ color: 'var(--fg-muted)' }}>{item.description}</span>
+                              <span className="header-nav-dropdown-item__description">{item.description}</span>
                             ) : null}
                           </Link>
                         ))}
+                        </div>
                       </div>
                     );
                   }
@@ -735,7 +736,7 @@ export function MarketplaceHeader({
                     key={l.href}
                     href={l.href}
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 rounded-button px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
                     style={{ color: 'var(--fg-secondary)' }}
                   >
                     <span>{l.label}</span>

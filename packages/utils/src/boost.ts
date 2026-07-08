@@ -126,8 +126,9 @@ export function getBoostSectionMeta(vertical: BoostVertical): Partial<Record<Boo
         return {
             sale: { label: 'Venta', href: '/ventas' },
             rent: { label: 'Arriendo', href: '/arriendos' },
-            auction: { label: 'Subastas', href: '/subastas' },
             project: { label: 'Proyectos', href: '/proyectos' },
+            products: { label: 'Productos', href: '/productos' },
+            services: { label: 'Servicios', href: '/servicios' },
         };
     }
     return {

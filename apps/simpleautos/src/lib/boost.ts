@@ -18,7 +18,9 @@ import {
 
 const VERTICAL = 'autos';
 
-export type BoostSection = 'sale' | 'rent' | 'auction' | 'products' | 'services';
+export type ListingBoostSection = 'sale' | 'rent' | 'auction';
+export type CatalogBoostSection = 'products' | 'services';
+export type BoostSection = ListingBoostSection | CatalogBoostSection;
 export type BoostListing = Omit<BaseBoostListing, 'section'> & { section: BoostSection };
 export type BoostOrder = Omit<BaseBoostOrder, 'section' | 'listing'> & {
     section: BoostSection;

@@ -28,6 +28,12 @@ import { fetchPublicListings, type PublicListing } from '../../lib/public-listin
 
 type AutosTab = 'comprar' | 'arrendar' | 'subastas';
 
+export type { AutosTab };
+
+type HomeSearchBoxProps = {
+    listingTab: AutosTab;
+};
+
 type VehicleType = 'car' | 'motorcycle' | 'truck' | 'bus' | 'machinery' | 'nautical' | 'aerial';
 
 type AutosFilters = {
@@ -486,12 +492,11 @@ function getPersonalizedSuggestions(history: string[]): string[] {
     return suggestions.slice(0, 4);
 }
 
-export default function HomeSearchBox() {
+export default function HomeSearchBox({ listingTab }: HomeSearchBoxProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [filters, setFilters] = useState<AutosFilters>(DEFAULT_FILTERS);
     const [hydrated, setHydrated] = useState(false);
-    const [showAdvanced, setShowAdvanced] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [activeSuggestion, setActiveSuggestion] = useState(-1);
     const [catalog, setCatalog] = useState<{ brands: CatalogBrand[]; models: CatalogModel[] } | null>(null);
@@ -532,6 +537,10 @@ export default function HomeSearchBox() {
         // Marcar que ya no es el montaje inicial después de cargar
         setTimeout(() => setIsInitialMount(false), 1000);
     }, [searchParams.toString()]);
+
+    useEffect(() => {
+        setFilters((current) => (current.tab === listingTab ? current : { ...current, tab: listingTab }));
+    }, [listingTab]);
 
     useEffect(() => {
         if (!hydrated) return;
@@ -859,25 +868,7 @@ export default function HomeSearchBox() {
     };
 
     return (
-        <section className="container-app relative z-11 mt-0 mb-10">
-            <div className="rounded-card border overflow-visible marketplace-search-hero">
-                <div className="flex flex-nowrap items-center justify-between gap-2 border-b border-[var(--border)] px-3 pt-3 pb-2 sm:px-4">
-                    <div className="inline-flex rounded-xl p-1 flex-1 min-w-0 overflow-x-auto autos-search-tabs">
-                        {(Object.keys(TAB_META) as AutosTab[]).map((tabKey) => (
-                            <button
-                                key={tabKey}
-                                type="button"
-                                onClick={() => setFilters((current) => ({ ...current, tab: tabKey }))}
-                                className={`h-8 sm:h-9 px-3 sm:px-4 text-sm font-medium rounded-md border transition-all shrink-0 hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)] autos-search-tab ${filters.tab === tabKey ? 'autos-search-tab--active' : ''}`}
-                            >
-                                {TAB_META[tabKey].label}
-                            </button>
-                        ))}
-                    </div>
-
-                </div>
-
-                <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
                     <div className="flex flex-col md:flex-row gap-2.5 items-stretch">
                         <div className="flex-1 relative" ref={inputWrapRef}>
                             <IconSearch size={15} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)]" />
@@ -1238,7 +1229,5 @@ export default function HomeSearchBox() {
                     {/* Mapa de búsqueda */}
                     <SearchMap showMap={showMap} publications={mapPublications} />
                 </form>
-            </div>
-        </section>
     );
 }

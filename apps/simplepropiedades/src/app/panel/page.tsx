@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { IconChevronRight, IconHome } from '@tabler/icons-react';
+import { IconChevronRight, IconHome, IconShoppingBag } from '@tabler/icons-react';
 import { fetchMyPanelListings, type PanelListing } from '@/lib/panel-listings';
+import { PanelIntentSelector } from '@/components/panel/panel-intent-selector';
 import {
     PanelBlockHeader, PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelPageHeader, PanelStatCard,
 } from '@simple/ui/panel';
@@ -48,6 +49,8 @@ export default function PanelHomePage() {
             <PanelPageHeader title="Mi panel" description="Resumen de publicaciones, visitas y contactos." />
 
             <div className="grid gap-4">
+                <PanelIntentSelector hidden={loading || items.length > 0} />
+
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                     {stats.map((item) => (
                         <PanelStatCard key={item.label} label={item.label} value={item.value} meta={item.sub} />
@@ -55,6 +58,21 @@ export default function PanelHomePage() {
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
+                    <Link href="/panel/mi-negocio/productos" className="block lg:col-span-2">
+                        <PanelCard size="md" className="flex items-center justify-between gap-4 transition-opacity hover:opacity-95">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
+                                    <IconShoppingBag size={18} />
+                                </div>
+                                <div>
+                                    <p className="font-semibold" style={{ color: 'var(--fg)' }}>Tu tienda</p>
+                                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Vende artículos y suministros para el hogar desde tu perfil.</p>
+                                </div>
+                            </div>
+                            <IconChevronRight size={14} style={{ color: 'var(--fg-faint)' }} />
+                        </PanelCard>
+                    </Link>
+
                     <PanelCard size="md">
                         <PanelBlockHeader
                             title="Publicaciones activas"

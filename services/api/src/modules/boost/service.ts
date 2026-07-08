@@ -19,14 +19,16 @@ export function isBoostSectionAllowed(vertical: VerticalType, section: BoostSect
     if (vertical === 'autos') {
         return section === 'sale' || section === 'rent' || section === 'auction' || section === 'products' || section === 'services';
     }
-    if (vertical === 'propiedades') return section === 'sale' || section === 'rent' || section === 'project';
+    if (vertical === 'propiedades') {
+        return section === 'sale' || section === 'rent' || section === 'project' || section === 'products' || section === 'services';
+    }
     return false;
 }
 
 export function getSectionsForVertical(vertical: VerticalType): BoostSection[] {
     if (vertical === 'serenatas' || vertical === 'agenda') return ['marketplace', 'landing'];
     if (vertical === 'autos') return ['sale', 'rent', 'auction', 'products', 'services'];
-    if (vertical === 'propiedades') return ['sale', 'rent', 'project'];
+    if (vertical === 'propiedades') return ['sale', 'rent', 'project', 'products', 'services'];
     return [];
 }
 
@@ -34,7 +36,9 @@ export function parseBoostSection(raw: string | undefined, vertical: VerticalTyp
     if (vertical === 'serenatas' || vertical === 'agenda') {
         return raw === 'landing' ? 'landing' : 'marketplace';
     }
-    const normalized = raw === 'rent' || raw === 'auction' || raw === 'project' ? raw : 'sale';
+    const normalized = raw === 'rent' || raw === 'auction' || raw === 'project' || raw === 'products' || raw === 'services'
+        ? raw
+        : 'sale';
     return isBoostSectionAllowed(vertical, normalized) ? normalized : getSectionsForVertical(vertical)[0] ?? 'sale';
 }
 

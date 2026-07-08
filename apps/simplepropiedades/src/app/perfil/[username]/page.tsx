@@ -9,8 +9,20 @@ import {
     getPublicProfileTodayState,
     initialsFromPublicProfileName,
 } from '@simple/ui/public-profile';
-import { BusinessOperatorServiceCatalog, PanelNotice, PUBLIC_PROFILE_CATALOG_EMPTY_MESSAGE } from '@simple/ui/panel';
-import { isPublicProfileOperatorCatalogEmpty, mapPublicProfileOperatorCatalog, resolveListingSellerAvatarUrl } from '@simple/utils';
+import {
+    BusinessOperatorServiceCatalog,
+    BusinessOperatorProductsCatalog,
+    PanelNotice,
+    PUBLIC_PROFILE_CATALOG_EMPTY_MESSAGE,
+    PUBLIC_PROFILE_PRODUCTS_EMPTY_MESSAGE,
+} from '@simple/ui/panel';
+import {
+    isPublicProfileOperatorCatalogEmpty,
+    isPublicProfileOperatorProductsEmpty,
+    mapPublicProfileOperatorCatalog,
+    mapPublicProfileOperatorProducts,
+    resolveListingSellerAvatarUrl,
+} from '@simple/utils';
 
 function toCardData(item: PublicListing): PropertyListingCardData {
     return {
@@ -88,6 +100,23 @@ export default function PublicProfilePage() {
                     />
                 )
             }
+            products={
+                isPublicProfileOperatorProductsEmpty(data.catalog.products) ? (
+                    <PanelNotice tone="neutral">{PUBLIC_PROFILE_PRODUCTS_EMPTY_MESSAGE}</PanelNotice>
+                ) : (
+                    <BusinessOperatorProductsCatalog
+                        vertical="propiedades"
+                        products={mapPublicProfileOperatorProducts(profile, data.catalog.products)}
+                        showConsult={false}
+                    />
+                )
+            }
+            catalogTabs
+            catalogTabCounts={{
+                listings: cards.length,
+                products: data.catalog.products.length,
+                services: data.catalog.services.length + data.catalog.packs.length + data.catalog.promotions.length,
+            }}
             listings={
                 cards.length === 0 ? (
                     <PanelNotice tone="neutral">Este perfil no tiene publicaciones activas.</PanelNotice>

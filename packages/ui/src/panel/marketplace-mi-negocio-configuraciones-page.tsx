@@ -1,7 +1,7 @@
 'use client';
 
 import type { PublicProfileVertical } from '@simple/utils';
-import { MARKETPLACE_PUBLIC_PROFILE_BUSINESS_TABS } from './business-tabs.js';
+import { getMarketplaceBusinessTabs } from './business-tabs.js';
 import { MARKETPLACE_BUSINESS_CONFIGURACIONES_PAGE, PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE } from './business-copy.js';
 import { BusinessMiNegocioConfiguracionesLayout } from './business-mi-negocio-configuraciones-layout.js';
 import { MarketplaceMiNegocioConfiguracionesContent } from './marketplace-mi-negocio-configuraciones-content.js';
@@ -20,7 +20,7 @@ export function MarketplaceMiNegocioConfiguracionesPage({
     return (
         <PanelMiNegocioShell
             activeKey="configuraciones"
-            tabs={MARKETPLACE_PUBLIC_PROFILE_BUSINESS_TABS}
+            tabs={getMarketplaceBusinessTabs(vertical)}
             title={MARKETPLACE_BUSINESS_CONFIGURACIONES_PAGE.title}
             description={MARKETPLACE_BUSINESS_CONFIGURACIONES_PAGE.description}
             publishToggle={<MarketplaceBusinessPublishToggle vertical={vertical} />}

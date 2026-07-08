@@ -3,7 +3,7 @@
 import type { PublicProfileVertical } from '@simple/utils';
 import { BusinessOperatorServicesEditor } from './business-operator-services-editor.js';
 import { MARKETPLACE_BUSINESS_SERVICIOS_PAGE } from './business-copy.js';
-import { MARKETPLACE_PUBLIC_PROFILE_BUSINESS_TABS } from './business-tabs.js';
+import { getMarketplaceBusinessTabs } from './business-tabs.js';
 import { MarketplaceBusinessPublishToggle } from './marketplace-business-publish-toggle.js';
 import { PanelMiNegocioShell } from './panel-mi-negocio-shell.js';
 
@@ -13,7 +13,7 @@ export function createMarketplaceMiNegocioServiciosPage(vertical: PublicProfileV
         return (
             <PanelMiNegocioShell
                 activeKey="servicios"
-                tabs={MARKETPLACE_PUBLIC_PROFILE_BUSINESS_TABS}
+                tabs={getMarketplaceBusinessTabs(vertical)}
                 title={MARKETPLACE_BUSINESS_SERVICIOS_PAGE.title}
                 description={MARKETPLACE_BUSINESS_SERVICIOS_PAGE.description}
                 publishToggle={<MarketplaceBusinessPublishToggle vertical={vertical} />}

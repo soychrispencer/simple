@@ -2,7 +2,7 @@
 
 import type { PublicProfileVertical } from '@simple/utils';
 import { MARKETPLACE_BUSINESS_DIRECCIONES_PAGE } from './business-copy.js';
-import { MARKETPLACE_PUBLIC_PROFILE_BUSINESS_TABS } from './business-tabs.js';
+import { getMarketplaceBusinessTabs } from './business-tabs.js';
 import { MarketplaceBusinessPublishToggle } from './marketplace-business-publish-toggle.js';
 import { PanelBusinessAddressesContent } from './business-addresses-content.js';
 import { PanelMiNegocioShell } from './panel-mi-negocio-shell.js';
@@ -13,7 +13,7 @@ export function createMarketplaceMiNegocioDireccionesPage(vertical: PublicProfil
         return (
             <PanelMiNegocioShell
                 activeKey="direcciones"
-                tabs={MARKETPLACE_PUBLIC_PROFILE_BUSINESS_TABS}
+                tabs={getMarketplaceBusinessTabs(vertical)}
                 title={MARKETPLACE_BUSINESS_DIRECCIONES_PAGE.title}
                 description={MARKETPLACE_BUSINESS_DIRECCIONES_PAGE.description}
                 publishToggle={<MarketplaceBusinessPublishToggle vertical={vertical} />}

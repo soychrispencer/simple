@@ -5,18 +5,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconArrowRight } from '@tabler/icons-react';
 import { FeaturedCardSwiper } from '@simple/ui/listings';
 import {
-    BOOST_SECTION_META,
-    type BoostSection,
-} from '@/lib/boost';
-import {
     fetchPublicListings,
     selectRecentPublicListings,
     type PublicListing,
+    type PublicListingSection,
 } from '@/lib/public-listings';
 import { resolveListingSellerAvatarUrl } from '@simple/utils';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 
-const SECTIONS: BoostSection[] = ['sale', 'rent', 'auction'];
+const SECTIONS: PublicListingSection[] = ['sale', 'rent', 'auction'];
 const MAX_CARDS = 30;
 
 function orderVehicleTags(tags: string[]): string[] {
@@ -73,11 +70,16 @@ function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardD
 }
 
 export default function RecentListingsSlider() {
-    const [section, setSection] = useState<BoostSection>('sale');
+    const [section, setSection] = useState<PublicListingSection>('sale');
     const [items, setItems] = useState<PublicListing[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const sectionMeta = BOOST_SECTION_META[section];
+    const listingSectionMeta: Record<PublicListingSection, { label: string; href: string }> = {
+        sale: { label: 'Ventas', href: '/ventas' },
+        rent: { label: 'Arriendos', href: '/arriendos' },
+        auction: { label: 'Subastas', href: '/subastas' },
+    };
+    const sectionMeta = listingSectionMeta[section];
 
     const loadItems = useCallback(async () => {
         setLoading(true);
@@ -132,7 +134,7 @@ export default function RecentListingsSlider() {
                                 section === key ? 'featured-boost-tab--active' : ''
                             }`}
                         >
-                            {BOOST_SECTION_META[key].label}
+                            {listingSectionMeta[key].label}
                         </button>
                     ))}
                 </div>

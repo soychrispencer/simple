@@ -5,13 +5,13 @@ import { FeaturedBoostSliderSection } from '@simple/ui/featured';
 import {
     BOOST_SECTION_META,
     fetchFeaturedBoosted,
-    type BoostSection,
     type FeaturedBoostItem,
+    type ListingBoostSection,
 } from '@/lib/boost';
 import { resolveListingSellerAvatarUrl } from '@simple/utils';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 
-const SECTIONS: BoostSection[] = ['sale', 'rent', 'auction'];
+const SECTIONS: ListingBoostSection[] = ['sale', 'rent', 'auction'];
 const MAX_CARDS = 30;
 
 function orderVehicleTags(tags: string[]): string[] {
@@ -60,7 +60,7 @@ function mapFeaturedBoostToVehicleCard(item: FeaturedBoostItem): VehicleListingC
         sellerAvatarUrl: resolveListingSellerAvatarUrl(null, item.owner?.avatar),
         sellerIsFeatured: item.boosted,
         badge: sectionLabel,
-        variant: item.section,
+        variant: item.section === 'rent' ? 'rent' : item.section === 'auction' ? 'auction' : 'sale',
         images,
         isSponsored: item.boosted,
         engagement: {
@@ -71,11 +71,11 @@ function mapFeaturedBoostToVehicleCard(item: FeaturedBoostItem): VehicleListingC
 }
 
 export default function BoostedListingsSlider() {
-    const [section, setSection] = useState<BoostSection>('sale');
+    const [section, setSection] = useState<ListingBoostSection>('sale');
     const [items, setItems] = useState<FeaturedBoostItem[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const sectionMeta = BOOST_SECTION_META[section];
+    const sectionMeta = BOOST_SECTION_META[section] ?? { label: 'Ventas', href: '/ventas' };
 
     const loadItems = useCallback(async () => {
         setLoading(true);
@@ -97,7 +97,7 @@ export default function BoostedListingsSlider() {
         [items],
     );
 
-    const tabs = SECTIONS.map((key) => ({ key, label: BOOST_SECTION_META[key].label }));
+    const tabs = SECTIONS.map((key) => ({ key, label: BOOST_SECTION_META[key]?.label ?? key }));
 
     if (!loading && items.length === 0) {
         return null;

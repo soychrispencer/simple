@@ -20,6 +20,7 @@ import {
 } from '@simple/ui/listings';
 import { PanelBlockHeader } from '@simple/ui/panel';
 import { PanelCard } from '@simple/ui/panel';
+import { SellerProductsCrossSell } from '@/components/listings/seller-products-cross-sell';
 
 function sectionBadgeTone(section: PublicListing['section']) {
     if (section === 'project') return 'info' as const;
@@ -146,6 +147,14 @@ export default function PropertyDetailClient({ item }: PropertyDetailClientProps
                                 {item.description || 'Esta publicación no incluye descripción adicional.'}
                             </p>
                         </PanelCard>
+
+                        {item.seller?.username ? (
+                            <SellerProductsCrossSell
+                                sellerUsername={item.seller.username}
+                                sellerName={item.seller.name}
+                                profileHref={item.seller.profileHref}
+                            />
+                        ) : null}
                 </div>
 
                 <aside className="public-listing-detail-layout__aside">

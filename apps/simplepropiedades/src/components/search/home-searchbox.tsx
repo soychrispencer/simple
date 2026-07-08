@@ -3,8 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
-    IconAdjustmentsHorizontal,
-    IconChevronDown,
     IconMapPin,
     IconSearch,
     IconX,
@@ -13,6 +11,13 @@ import { ModernSelect } from '@simple/ui/forms';
 import { PanelButton } from '@simple/ui/panel';
 
 type PropertiesTab = 'comprar' | 'arrendar' | 'proyectos';
+
+export type { PropertiesTab };
+
+type HomeSearchBoxProps = {
+    listingTab: PropertiesTab;
+    showAdvanced: boolean;
+};
 
 type PropertiesFilters = {
     tab: PropertiesTab;
@@ -308,11 +313,10 @@ function writeFiltersToStorage(filters: PropertiesFilters): void {
     }
 }
 
-export default function HomeSearchBox() {
+export default function HomeSearchBox({ listingTab, showAdvanced }: HomeSearchBoxProps) {
     const router = useRouter();
     const [filters, setFilters] = useState<PropertiesFilters>(DEFAULT_FILTERS);
     const [hydrated, setHydrated] = useState(false);
-    const [showAdvanced, setShowAdvanced] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const inputWrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -320,6 +324,10 @@ export default function HomeSearchBox() {
         setFilters(readFiltersFromStorage());
         setHydrated(true);
     }, []);
+
+    useEffect(() => {
+        setFilters((current) => (current.tab === listingTab ? current : { ...current, tab: listingTab }));
+    }, [listingTab]);
 
     useEffect(() => {
         if (!hydrated) return;
@@ -376,46 +384,7 @@ export default function HomeSearchBox() {
     };
 
     return (
-        <section className="container-app relative z-11 mt-0 mb-10">
-            <div className="rounded-card border overflow-visible marketplace-search-hero">
-                <div className="flex flex-nowrap items-center justify-between gap-2 px-3 sm:px-4 pt-3 pb-2 border-b border-border">
-                    <div className="inline-flex rounded-xl p-1 flex-1 min-w-0 overflow-x-auto bg-bg-subtle [scrollbar-width:none]">
-                        {(Object.keys(TAB_META) as PropertiesTab[]).map((tabKey) => (
-                            <button
-                                key={tabKey}
-                                type="button"
-                                onClick={() => setFilters((current) => ({ ...current, tab: tabKey }))}
-                                className="h-8 sm:h-9 px-3 sm:px-4 text-sm font-medium rounded-md border transition-all shrink-0 hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
-                                style={{
-                                    background: filters.tab === tabKey ? 'var(--button-primary-bg)' : 'transparent',
-                                    color: filters.tab === tabKey ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
-                                    borderColor: filters.tab === tabKey ? 'var(--button-primary-border)' : 'transparent',
-                                }}
-                            >
-                                {TAB_META[tabKey].label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <PanelButton
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="h-8 w-8 shrink-0 justify-center px-0 sm:h-9 sm:w-auto sm:px-3"
-                        onClick={() => setShowAdvanced((current) => !current)}
-                        aria-label="Mostrar filtros avanzados"
-                    >
-                        <IconAdjustmentsHorizontal size={15} />
-                        <span className="hidden sm:inline">Más filtros</span>
-                        <IconChevronDown
-                            size={14}
-                            className="hidden sm:inline"
-                            style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 180ms ease' }}
-                        />
-                    </PanelButton>
-                </div>
-
-                <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-stretch">
                         <div className="md:col-span-5 relative" ref={inputWrapRef}>
                             <IconSearch size={15} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fg-muted)' }} />
@@ -568,7 +537,5 @@ export default function HomeSearchBox() {
                         </div>
                     ) : null}
                 </form>
-            </div>
-        </section>
     );
 }
