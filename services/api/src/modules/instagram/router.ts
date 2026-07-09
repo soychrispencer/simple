@@ -2,10 +2,10 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import {
     decodeOAuthStateParam,
+    finalizeIntegrationReturnUrl,
     getIntegrationFallbackReturn,
-    normalizeIntegrationReturnUrl,
     resolveInstagramOAuthState,
-    resolveIntegrationConnectOrigin,
+    resolveIntegrationRequestHost,
 } from '../integrations/app-origin.js';
 import { getMetaPagesWithInstagram } from './service.js';
 
@@ -161,19 +161,12 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             return c.json({ ok: false, error: 'Instagram no está configurado en este entorno.' }, 503);
         }
 
-        const returnToRaw = asString(c.req.query('returnTo'));
-        const origin = resolveIntegrationConnectOrigin(returnToRaw, vertical, resolveBrowserOrigin(c));
-        const fallbackReturn = `${origin}/panel/mi-cuenta/integraciones#integraciones`;
-        const returnTo = normalizeIntegrationReturnUrl(
-            sanitizeBrowserReturnUrl(returnToRaw || fallbackReturn, fallbackReturn),
-            vertical,
-        );
+        const returnTo = getIntegrationFallbackReturn(vertical);
         const nonce = randomBytes(24).toString('hex');
         const statePayload = makeInstagramStatePayload({
             nonce,
             userId: user.id,
             vertical,
-            returnTo,
         });
         setInstagramState(c, statePayload);
 
@@ -181,6 +174,10 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
     });
 
     app.get('/callback', async (c) => {
+        const requestHost = resolveIntegrationRequestHost({
+            host: c.req.header('host'),
+            forwardedHost: c.req.header('x-forwarded-host'),
+        });
         const stateParam = decodeOAuthStateParam(asString(c.req.query('state')));
         const statePayload = resolveInstagramOAuthState(
             stateParam,
@@ -189,11 +186,14 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             safeEqualStrings,
         );
         const vertical = statePayload?.vertical ?? 'autos';
-        const fallbackReturn = getIntegrationFallbackReturn(vertical);
-        const returnTo = normalizeIntegrationReturnUrl(statePayload?.returnTo, vertical);
+        const returnTo = finalizeIntegrationReturnUrl(
+            statePayload?.returnTo ?? getIntegrationFallbackReturn(vertical),
+            vertical,
+            requestHost,
+        );
 
         const redirectWithStatus = (status: 'connected' | 'error', message?: string) => {
-            const target = new URL(sanitizeBrowserReturnUrl(returnTo, fallbackReturn));
+            const target = new URL(returnTo);
             target.searchParams.set('instagram', status);
             if (message) {
                 target.searchParams.set('instagramMessage', message);

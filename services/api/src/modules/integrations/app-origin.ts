@@ -2,7 +2,22 @@ import type { VerticalType } from '@simple/types';
 import { isLocalOrigin } from '../../lib/cors.js';
 
 function normalizeOrigin(value: string | undefined, fallback: string): string {
-    return (value?.trim() || fallback).replace(/\/$/, '');
+    const candidate = value?.trim();
+    const safeFallback = fallback.replace(/\/$/, '');
+
+    if (!candidate || candidate === 'undefined' || candidate === 'null') {
+        return safeFallback;
+    }
+
+    try {
+        const origin = new URL(candidate).origin;
+        if (isLocalOrigin(origin) && !isLocalOrigin(safeFallback)) {
+            return safeFallback;
+        }
+        return origin;
+    } catch {
+        return safeFallback;
+    }
 }
 
 export function isProductionDeployment(): boolean {
@@ -31,10 +46,7 @@ export function getMarketplaceAppOrigin(vertical: VerticalType): string {
 }
 
 export function getDefaultIntegrationOrigin(): string {
-    if (isProductionDeployment()) {
-        return getMarketplaceAppOrigin('autos');
-    }
-    return normalizeOrigin(process.env.AUTOS_APP_URL, 'http://localhost:3002');
+    return getMarketplaceAppOrigin('autos');
 }
 
 export function getIntegrationFallbackReturn(vertical: VerticalType = 'autos'): string {
@@ -50,16 +62,22 @@ export function decodeOAuthStateParam(raw: string): string {
     }
 }
 
-export function normalizeIntegrationReturnUrl(
+export function shouldBlockLocalIntegrationRedirects(requestHost: string): boolean {
+    const host = requestHost.trim().toLowerCase().split(':')[0] ?? '';
+    return host !== 'localhost' && host !== '127.0.0.1';
+}
+
+export function finalizeIntegrationReturnUrl(
     returnTo: string | undefined,
     vertical: VerticalType,
+    requestHost: string,
 ): string {
     const fallback = getIntegrationFallbackReturn(vertical);
-    if (!returnTo?.trim()) return fallback;
+    const candidate = returnTo?.trim() || fallback;
 
     try {
-        const url = new URL(returnTo);
-        if (isLocalOrigin(url.origin) && isProductionDeployment()) {
+        const url = new URL(candidate);
+        if (shouldBlockLocalIntegrationRedirects(requestHost) && isLocalOrigin(url.origin)) {
             const canonical = new URL(fallback);
             canonical.pathname = url.pathname || canonical.pathname;
             canonical.search = url.search;
@@ -73,26 +91,16 @@ export function normalizeIntegrationReturnUrl(
     }
 }
 
-export function resolveIntegrationConnectOrigin(
-    returnToRaw: string | undefined,
+export function normalizeIntegrationReturnUrl(
+    returnTo: string | undefined,
     vertical: VerticalType,
-    browserOrigin: string | null,
 ): string {
-    if (browserOrigin && (!isLocalOrigin(browserOrigin) || !isProductionDeployment())) {
-        return browserOrigin;
-    }
+    return finalizeIntegrationReturnUrl(returnTo, vertical, isProductionDeployment() ? 'api.simpleplataforma.app' : 'localhost');
+}
 
-    if (returnToRaw) {
-        try {
-            const parsed = new URL(returnToRaw);
-            if (!isLocalOrigin(parsed.origin) || !isProductionDeployment()) {
-                return parsed.origin;
-            }
-        } catch {
-            // ignore malformed returnTo
-        }
-    }
-
+export function resolveIntegrationConnectOrigin(
+    vertical: VerticalType,
+): string {
     return getMarketplaceAppOrigin(vertical);
 }
 
@@ -117,4 +125,11 @@ export function resolveInstagramOAuthState(
     }
 
     return fromCookie;
+}
+
+export function resolveIntegrationRequestHost(headers: {
+    host?: string | null;
+    forwardedHost?: string | null;
+}): string {
+    return (headers.forwardedHost || headers.host || '').trim();
 }
