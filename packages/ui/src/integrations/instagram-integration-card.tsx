@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
-import { IconBrandInstagram, IconExternalLink } from '@tabler/icons-react';
-import { PanelButton } from '../panel/panel-button';
+import { useEffect, useState } from 'react';
+import { IconBrandInstagram } from '@tabler/icons-react';
 import { PanelCard } from '../panel/panel-card';
 import { PanelNotice } from '../panel/panel-primitives';
 import { IntegrationConnectRow } from './integration-connect-row';
@@ -47,22 +46,16 @@ export type InstagramIntegrationCardProps = {
     buildConnectUrl: (returnTo: string) => string;
     fetchStatus: () => Promise<InstagramIntegrationStatus | null>;
     disconnect: () => Promise<{ ok: boolean; error?: string }>;
-    renderProfileImage?: (account: InstagramIntegrationAccount) => ReactNode;
 };
-
-function latestPublishedPost(publications: InstagramIntegrationPublication[]) {
-    return publications.find((item) => item.status === 'published' && item.instagramPermalink) ?? null;
-}
 
 export function InstagramIntegrationCard({
     panelDescription,
-    connectedDescription = 'Publica desde cada aviso activo con el botón Compartir.',
+    connectedDescription = 'Publica tus avisos desde Compartir.',
     subscriptionsHref = '/panel/mi-cuenta/suscripcion',
     listingNoun = 'avisos',
     buildConnectUrl,
     fetchStatus,
     disconnect,
-    renderProfileImage,
 }: InstagramIntegrationCardProps) {
     const [status, setStatus] = useState<InstagramIntegrationStatus | null>(null);
     const [loading, setLoading] = useState(true);
@@ -91,11 +84,11 @@ export function InstagramIntegrationCard({
         if (!instagramStatus && !instagramMessage) return;
 
         if (instagramStatus === 'connected') {
-            setMessage(instagramMessage || 'Instagram conectado. Ya puedes publicar tus avisos.');
+            setMessage(instagramMessage || 'Instagram conectado.');
             setError(null);
             void loadStatus();
         } else if (instagramStatus === 'error') {
-            setError(instagramMessage || 'No se pudo conectar Instagram. Intenta de nuevo.');
+            setError(instagramMessage || 'No se pudo conectar Instagram.');
             setMessage(null);
         }
 
@@ -125,7 +118,6 @@ export function InstagramIntegrationCard({
 
     const account = status?.account ?? null;
     const connected = Boolean(account && account.status !== 'disconnected');
-    const lastPost = status ? latestPublishedPost(status.recentPublications) : null;
 
     return (
         <PanelCard size="lg">
@@ -152,36 +144,17 @@ export function InstagramIntegrationCard({
                 />
             ) : (
                 <IntegrationConnectRow
-                    icon={
-                        connected && account
-                            ? (renderProfileImage?.(account) ?? <IconBrandInstagram size={18} />)
-                            : <IconBrandInstagram size={18} />
-                    }
+                    icon={<IconBrandInstagram size={18} />}
                     title="Instagram"
-                    description={connected ? connectedDescription : `Conecta tu cuenta profesional para publicar ${listingNoun} sin salir del panel.`}
+                    description={
+                        connected && account
+                            ? connectedDescription
+                            : `Conecta tu cuenta profesional para publicar ${listingNoun}.`
+                    }
                     connected={connected}
                     busy={disconnecting}
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}
-                    footer={connected && account ? (
-                        <div className="space-y-3 border-t border-(--border) pt-3">
-                            <p className="text-sm text-(--fg-secondary)">
-                                @{account.username}
-                                {account.displayName ? ` · ${account.displayName}` : ''}
-                            </p>
-                            <p className="text-xs leading-relaxed text-(--fg-muted)">
-                                Abre un aviso activo, pulsa <strong className="font-medium text-(--fg-secondary)">Compartir</strong> y elige{' '}
-                                <strong className="font-medium text-(--fg-secondary)">Instagram</strong>.
-                            </p>
-                            {lastPost?.instagramPermalink ? (
-                                <a href={lastPost.instagramPermalink} target="_blank" rel="noreferrer" className="inline-flex">
-                                    <PanelButton variant="secondary" size="sm">
-                                        <IconExternalLink size={13} /> Ver última publicación
-                                    </PanelButton>
-                                </a>
-                            ) : null}
-                        </div>
-                    ) : undefined}
                 />
             )}
         </PanelCard>
