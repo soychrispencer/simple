@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { buildIntegrationsReturnUrl } from '@simple/utils';
 import { IconBrandInstagram } from '@tabler/icons-react';
 import { PanelCard } from '../panel/panel-card';
 import { PanelNotice } from '../panel/panel-primitives';
@@ -90,7 +91,7 @@ export function InstagramIntegrationCard({
 
     const onConnect = () => {
         setError(null);
-        window.location.assign(buildConnectUrl(window.location.href));
+        window.location.assign(buildConnectUrl(buildIntegrationsReturnUrl()));
     };
 
     const onDisconnect = async () => {

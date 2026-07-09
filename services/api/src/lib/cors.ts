@@ -37,7 +37,8 @@ export function getAllowedOrigins(): Set<string> {
 export const allowedOrigins = getAllowedOrigins();
 
 export function getDefaultCorsOrigin(): string {
-    if (process.env.NODE_ENV === 'production') {
+    const redirectUri = process.env.INSTAGRAM_REDIRECT_URI ?? '';
+    if (process.env.NODE_ENV === 'production' || redirectUri.includes('simpleplataforma.app')) {
         return (process.env.AUTOS_APP_URL?.trim() || 'https://simpleautos.app').replace(/\/$/, '');
     }
     return 'http://localhost:3000';

@@ -1,5 +1,5 @@
 import { API_BASE } from '@simple/config';
-import { apiRequest } from '@simple/utils';
+import { apiRequest, buildIntegrationsReturnUrl } from '@simple/utils';
 
 export type InstagramPlanId = 'free' | 'basic' | 'pro' | 'enterprise';
 
@@ -98,7 +98,7 @@ export async function fetchInstagramIntegrationStatus(): Promise<InstagramIntegr
     return data?.ok ? data : null;
 }
 
-export function buildInstagramConnectUrl(returnTo: string): string {
+export function buildInstagramConnectUrl(returnTo = buildIntegrationsReturnUrl()): string {
     return `${API_BASE}/api/integrations/instagram/connect?vertical=propiedades&returnTo=${encodeURIComponent(returnTo)}`;
 }
 

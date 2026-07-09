@@ -10,7 +10,7 @@ import {
     consumeIntegrationOAuthCookie,
     setIntegrationOAuthCookie,
 } from '../integrations/oauth-cookie.js';
-import { getIntegrationFallbackReturn, resolveInstagramOAuthState } from '../integrations/app-origin.js';
+import { getIntegrationFallbackReturn, normalizeIntegrationReturnUrl, resolveInstagramOAuthState, resolveIntegrationConnectOrigin, decodeOAuthStateParam } from '../integrations/app-origin.js';
 import { makeInstagramStatePayload, parseInstagramStatePayload } from '../instagram/oauth-state.js';
 
 export interface TikTokRouterDeps {
@@ -72,11 +72,13 @@ export function createTikTokRouter(deps: TikTokRouterDeps) {
             return c.json({ ok: false, error: 'TikTok no está configurado en este entorno.' }, 503);
         }
 
-        const origin = deps.resolveBrowserOrigin(c);
-        if (!origin) return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
-
-        const fallbackReturn = `${origin}/panel/mi-cuenta/integraciones`;
-        const returnTo = deps.sanitizeBrowserReturnUrl(deps.asString(c.req.query('returnTo')) || fallbackReturn, fallbackReturn);
+        const returnToRaw = deps.asString(c.req.query('returnTo'));
+        const origin = resolveIntegrationConnectOrigin(returnToRaw, vertical, deps.resolveBrowserOrigin(c));
+        const fallbackReturn = `${origin}/panel/mi-cuenta/integraciones#integraciones`;
+        const returnTo = normalizeIntegrationReturnUrl(
+            deps.sanitizeBrowserReturnUrl(returnToRaw || fallbackReturn, fallbackReturn),
+            vertical,
+        );
         const nonce = deps.randomBytes(24).toString('hex');
         const statePayload = makeInstagramStatePayload({
             nonce,
@@ -90,7 +92,7 @@ export function createTikTokRouter(deps: TikTokRouterDeps) {
     });
 
     app.get('/callback', async (c) => {
-        const stateParam = deps.asString(c.req.query('state'));
+        const stateParam = decodeOAuthStateParam(deps.asString(c.req.query('state')));
         const parseState = (raw: string) => parseInstagramStatePayload(raw, {
             asString: deps.asString,
             parseVertical: deps.parseVertical,
@@ -101,8 +103,9 @@ export function createTikTokRouter(deps: TikTokRouterDeps) {
             parseState,
             deps.safeEqualStrings,
         );
-        const fallbackReturn = getIntegrationFallbackReturn(statePayload?.vertical);
-        const returnTo = statePayload?.returnTo || fallbackReturn;
+        const vertical = statePayload?.vertical ?? 'autos';
+        const fallbackReturn = getIntegrationFallbackReturn(vertical);
+        const returnTo = normalizeIntegrationReturnUrl(statePayload?.returnTo, vertical);
 
         const redirectWithStatus = (status: 'connected' | 'error', message?: string) => {
             const target = new URL(deps.sanitizeBrowserReturnUrl(returnTo, fallbackReturn));

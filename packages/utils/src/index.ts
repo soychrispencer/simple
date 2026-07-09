@@ -20,6 +20,7 @@ export * from './business-payment-methods.js';
 export * from './public-profile-payment-methods.js';
 export * from './mercadopago-integration.js';
 export * from './google-calendar-integration.js';
+export * from './integration-return-url.js';
 export * from './public-profile-settings.js';
 export * from './operator-brand-media.js';
 export * from './operator-site-theme.js';

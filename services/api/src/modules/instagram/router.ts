@@ -1,6 +1,12 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { getIntegrationFallbackReturn, resolveInstagramOAuthState } from '../integrations/app-origin.js';
+import {
+    decodeOAuthStateParam,
+    getIntegrationFallbackReturn,
+    normalizeIntegrationReturnUrl,
+    resolveInstagramOAuthState,
+    resolveIntegrationConnectOrigin,
+} from '../integrations/app-origin.js';
 import { getMetaPagesWithInstagram } from './service.js';
 
 export interface InstagramRouterDeps {
@@ -155,13 +161,13 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             return c.json({ ok: false, error: 'Instagram no está configurado en este entorno.' }, 503);
         }
 
-        const origin = resolveBrowserOrigin(c);
-        if (!origin) {
-            return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
-        }
-
-        const fallbackReturn = `${origin}/panel/mi-cuenta/integraciones`;
-        const returnTo = sanitizeBrowserReturnUrl(asString(c.req.query('returnTo')) || fallbackReturn, fallbackReturn);
+        const returnToRaw = asString(c.req.query('returnTo'));
+        const origin = resolveIntegrationConnectOrigin(returnToRaw, vertical, resolveBrowserOrigin(c));
+        const fallbackReturn = `${origin}/panel/mi-cuenta/integraciones#integraciones`;
+        const returnTo = normalizeIntegrationReturnUrl(
+            sanitizeBrowserReturnUrl(returnToRaw || fallbackReturn, fallbackReturn),
+            vertical,
+        );
         const nonce = randomBytes(24).toString('hex');
         const statePayload = makeInstagramStatePayload({
             nonce,
@@ -175,15 +181,16 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
     });
 
     app.get('/callback', async (c) => {
-        const stateParam = asString(c.req.query('state'));
+        const stateParam = decodeOAuthStateParam(asString(c.req.query('state')));
         const statePayload = resolveInstagramOAuthState(
             stateParam,
             consumeInstagramState(c),
             parseInstagramStatePayload,
             safeEqualStrings,
         );
-        const fallbackReturn = getIntegrationFallbackReturn(statePayload?.vertical);
-        const returnTo = statePayload?.returnTo || fallbackReturn;
+        const vertical = statePayload?.vertical ?? 'autos';
+        const fallbackReturn = getIntegrationFallbackReturn(vertical);
+        const returnTo = normalizeIntegrationReturnUrl(statePayload?.returnTo, vertical);
 
         const redirectWithStatus = (status: 'connected' | 'error', message?: string) => {
             const target = new URL(sanitizeBrowserReturnUrl(returnTo, fallbackReturn));

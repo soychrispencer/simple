@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { buildIntegrationsReturnUrl } from '@simple/utils';
 import { IconBrandTiktok } from '@tabler/icons-react';
 import { IntegrationConnectRow, formatConnectedAccountLabel } from './integration-connect-row';
 import { PanelCard, PanelNotice } from '../panel';
@@ -70,7 +71,7 @@ export function TikTokIntegrationCard({
 
     const onConnect = () => {
         setError(null);
-        window.location.assign(buildConnectUrl(window.location.href));
+        window.location.assign(buildConnectUrl(buildIntegrationsReturnUrl()));
     };
 
     const onDisconnect = async () => {
