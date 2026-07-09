@@ -36,7 +36,14 @@ export function getAllowedOrigins(): Set<string> {
 
 export const allowedOrigins = getAllowedOrigins();
 
-export const defaultCorsOrigin = Array.from(allowedOrigins)[0] ?? 'http://localhost:3000';
+export function getDefaultCorsOrigin(): string {
+    if (process.env.NODE_ENV === 'production') {
+        return (process.env.AUTOS_APP_URL?.trim() || 'https://simpleautos.app').replace(/\/$/, '');
+    }
+    return 'http://localhost:3000';
+}
+
+export const defaultCorsOrigin = getDefaultCorsOrigin();
 
 export function isLocalOrigin(origin: string): boolean {
     return /^https?:\/\/localhost:\d+$/.test(origin) || /^https?:\/\/127\.0\.0\.1:\d+$/.test(origin);

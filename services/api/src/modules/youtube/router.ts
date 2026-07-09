@@ -10,6 +10,7 @@ import {
     consumeIntegrationOAuthCookie,
     setIntegrationOAuthCookie,
 } from '../integrations/oauth-cookie.js';
+import { getIntegrationFallbackReturn, resolveInstagramOAuthState } from '../integrations/app-origin.js';
 import { makeInstagramStatePayload, parseInstagramStatePayload } from '../instagram/oauth-state.js';
 
 export interface YouTubeRouterDeps {
@@ -77,22 +78,30 @@ export function createYouTubeRouter(deps: YouTubeRouterDeps) {
         const fallbackReturn = `${origin}/panel/mi-cuenta/integraciones`;
         const returnTo = deps.sanitizeBrowserReturnUrl(deps.asString(c.req.query('returnTo')) || fallbackReturn, fallbackReturn);
         const nonce = deps.randomBytes(24).toString('hex');
-        setIntegrationOAuthCookie(c, deps.youtubeStateCookie, makeInstagramStatePayload({
+        const statePayload = makeInstagramStatePayload({
             nonce,
             userId: user.id,
             vertical,
             returnTo,
-        }), { sameSite: deps.authCookieSameSite, secure: deps.authCookieSecure });
+        });
+        setIntegrationOAuthCookie(c, deps.youtubeStateCookie, statePayload, { sameSite: deps.authCookieSameSite, secure: deps.authCookieSecure });
 
-        return c.redirect(buildYouTubeAuthorizationUrl({ state: nonce }));
+        return c.redirect(buildYouTubeAuthorizationUrl({ state: statePayload }));
     });
 
     app.get('/callback', async (c) => {
-        const statePayload = parseInstagramStatePayload(consumeIntegrationOAuthCookie(c, deps.youtubeStateCookie), {
+        const stateParam = deps.asString(c.req.query('state'));
+        const parseState = (raw: string) => parseInstagramStatePayload(raw, {
             asString: deps.asString,
             parseVertical: deps.parseVertical,
         });
-        const fallbackReturn = `${deps.defaultOrigin}/panel/mi-cuenta/integraciones`;
+        const statePayload = resolveInstagramOAuthState(
+            stateParam,
+            consumeIntegrationOAuthCookie(c, deps.youtubeStateCookie),
+            parseState,
+            deps.safeEqualStrings,
+        );
+        const fallbackReturn = getIntegrationFallbackReturn(statePayload?.vertical);
         const returnTo = statePayload?.returnTo || fallbackReturn;
 
         const redirectWithStatus = (status: 'connected' | 'error', message?: string) => {
@@ -103,11 +112,10 @@ export function createYouTubeRouter(deps: YouTubeRouterDeps) {
         };
 
         const code = deps.asString(c.req.query('code'));
-        const state = deps.asString(c.req.query('state'));
         const errorReason = deps.asString(c.req.query('error_description')) || deps.asString(c.req.query('error'));
 
         if (errorReason) return redirectWithStatus('error', errorReason);
-        if (!statePayload || !state || !deps.safeEqualStrings(statePayload.nonce, state)) {
+        if (!statePayload) {
             return redirectWithStatus('error', 'La sesión de conexión con YouTube expiró. Intenta nuevamente.');
         }
         if (!code) return redirectWithStatus('error', 'YouTube no devolvió un código de autorización válido.');
