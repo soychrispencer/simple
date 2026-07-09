@@ -6,23 +6,16 @@ import {
     buildInstagramConnectUrl,
     disconnectInstagram,
     fetchInstagramIntegrationStatus,
-    updateInstagramSettings,
 } from '@/lib/instagram';
-import { InstagramIntelligencePanel } from './instagram-intelligence-panel';
 
 export default function AppInstagramIntegrationCard() {
     return (
         <InstagramIntegrationCard
-            panelDescription="Conecta una cuenta profesional y publica avisos directamente desde SimpleAutos."
-            autoPublishDescription="Cuando un aviso quede activo, SimpleAutos intentará publicarlo automáticamente en Instagram."
-            autoPublishAriaLabel="Autopublicar avisos en Instagram"
-            captionPlaceholder={
-                '🚗 {{title}}\n💰 {{price}}\n📍 {{location}}\n\n{{description}}\n\n🔗 Ver más: {{url}}\n\n#SimpleAutos #AutosChile'
-            }
+            panelDescription="Conecta tu cuenta profesional y publica avisos desde el panel."
+            connectedDescription="Listo. Publica cada aviso activo con el botón Compartir."
             listingNoun="avisos"
             buildConnectUrl={buildInstagramConnectUrl}
             fetchStatus={fetchInstagramIntegrationStatus}
-            updateSettings={updateInstagramSettings}
             disconnect={disconnectInstagram}
             renderProfileImage={(account) =>
                 account.profilePictureUrl ? (
@@ -35,9 +28,6 @@ export default function AppInstagramIntegrationCard() {
                     />
                 ) : null
             }
-            settingsFooter={({ setMessage, setError }) => (
-                <InstagramIntelligencePanel onMessage={setMessage} onError={setError} />
-            )}
         />
     );
 }

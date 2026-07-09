@@ -1,15 +1,10 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import {
-    IconBrandInstagram,
-    IconExternalLink,
-    IconLoader2,
-    IconPlugConnected,
-} from '@tabler/icons-react';
+import { IconBrandInstagram, IconExternalLink } from '@tabler/icons-react';
 import { PanelButton } from '../panel/panel-button';
 import { PanelCard } from '../panel/panel-card';
-import { PanelNotice, PanelStatusBadge, PanelSwitch } from '../panel/panel-primitives';
+import { PanelNotice } from '../panel/panel-primitives';
 import { IntegrationConnectRow } from './integration-connect-row';
 
 export type InstagramIntegrationAccount = {
@@ -46,58 +41,39 @@ export type InstagramIntegrationStatus = {
 
 export type InstagramIntegrationCardProps = {
     panelDescription: string;
+    connectedDescription?: string;
     subscriptionsHref?: string;
-    autoPublishDescription: string;
-    autoPublishAriaLabel: string;
-    captionPlaceholder: string;
     listingNoun?: string;
     buildConnectUrl: (returnTo: string) => string;
     fetchStatus: () => Promise<InstagramIntegrationStatus | null>;
-    updateSettings: (input: {
-        autoPublishEnabled: boolean;
-        captionTemplate: string | null;
-    }) => Promise<{ ok: boolean; account?: InstagramIntegrationAccount | null; error?: string }>;
     disconnect: () => Promise<{ ok: boolean; error?: string }>;
     renderProfileImage?: (account: InstagramIntegrationAccount) => ReactNode;
-    renderConnectedAccountExtra?: (account: InstagramIntegrationAccount) => ReactNode;
-    settingsFooter?: ReactNode | ((handlers: { setMessage: (message: string) => void; setError: (error: string) => void }) => ReactNode);
 };
 
-function formatDate(value: number | null | undefined): string {
-    if (!value) return 'Aún sin actividad';
-    return new Date(value).toLocaleString('es-CL');
+function latestPublishedPost(publications: InstagramIntegrationPublication[]) {
+    return publications.find((item) => item.status === 'published' && item.instagramPermalink) ?? null;
 }
 
 export function InstagramIntegrationCard({
     panelDescription,
+    connectedDescription = 'Publica desde cada aviso activo con el botón Compartir.',
     subscriptionsHref = '/panel/mi-cuenta/suscripcion',
-    autoPublishDescription,
-    autoPublishAriaLabel,
-    captionPlaceholder,
     listingNoun = 'avisos',
     buildConnectUrl,
     fetchStatus,
-    updateSettings,
     disconnect,
     renderProfileImage,
-    renderConnectedAccountExtra,
-    settingsFooter,
 }: InstagramIntegrationCardProps) {
     const [status, setStatus] = useState<InstagramIntegrationStatus | null>(null);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [autoPublishEnabled, setAutoPublishEnabled] = useState(false);
-    const [captionTemplate, setCaptionTemplate] = useState('');
 
     const loadStatus = async () => {
         setLoading(true);
         const nextStatus = await fetchStatus();
         setStatus(nextStatus);
-        setAutoPublishEnabled(nextStatus?.account?.autoPublishEnabled ?? false);
-        setCaptionTemplate(nextStatus?.account?.captionTemplate ?? '');
         if (!nextStatus) {
             setError('No pudimos cargar la integración de Instagram.');
         }
@@ -115,11 +91,11 @@ export function InstagramIntegrationCard({
         if (!instagramStatus && !instagramMessage) return;
 
         if (instagramStatus === 'connected') {
-            setMessage(instagramMessage || 'Cuenta de Instagram conectada correctamente.');
+            setMessage(instagramMessage || 'Instagram conectado. Ya puedes publicar tus avisos.');
             setError(null);
             void loadStatus();
         } else if (instagramStatus === 'error') {
-            setError(instagramMessage || 'No se pudo completar la conexión con Instagram.');
+            setError(instagramMessage || 'No se pudo conectar Instagram. Intenta de nuevo.');
             setMessage(null);
         }
 
@@ -131,25 +107,6 @@ export function InstagramIntegrationCard({
     const onConnect = () => {
         setError(null);
         window.location.assign(buildConnectUrl(window.location.href));
-    };
-
-    const onSave = async () => {
-        setSaving(true);
-        setError(null);
-        setMessage(null);
-        const result = await updateSettings({
-            autoPublishEnabled,
-            captionTemplate: captionTemplate.trim() || null,
-        });
-        setSaving(false);
-
-        if (!result.ok || !result.account) {
-            setError(result.error ?? 'No pudimos guardar la configuración de Instagram.');
-            return;
-        }
-
-        setStatus((current) => (current ? { ...current, account: result.account ?? null } : current));
-        setMessage('Configuración de Instagram guardada.');
     };
 
     const onDisconnect = async () => {
@@ -166,18 +123,9 @@ export function InstagramIntegrationCard({
         await loadStatus();
     };
 
-    const defaultProfileImage = (account: InstagramIntegrationAccount) =>
-        account.profilePictureUrl ? (
-            <img
-                src={account.profilePictureUrl}
-                alt={account.username}
-                className="h-12 w-12 rounded-full border border-(--border) object-cover"
-            />
-        ) : (
-            <span className="flex h-12 w-12 items-center justify-center rounded-full border border-(--border) bg-(--surface) text-(--fg)">
-                <IconBrandInstagram size={18} />
-            </span>
-        );
+    const account = status?.account ?? null;
+    const connected = Boolean(account && account.status !== 'disconnected');
+    const lastPost = status ? latestPublishedPost(status.recentPublications) : null;
 
     return (
         <PanelCard size="lg">
@@ -188,8 +136,7 @@ export function InstagramIntegrationCard({
                 <PanelNotice tone="warning">No pudimos cargar el estado de Instagram.</PanelNotice>
             ) : !status.configured ? (
                 <PanelNotice tone="warning">
-                    Instagram aún no está configurado en el backend. Falta `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` y
-                    `INSTAGRAM_REDIRECT_URI`.
+                    Instagram aún no está disponible. Vuelve a intentar más tarde.
                 </PanelNotice>
             ) : !status.eligible ? (
                 <IntegrationConnectRow
@@ -198,121 +145,44 @@ export function InstagramIntegrationCard({
                     description={panelDescription}
                     connected={false}
                     locked
-                    lockedHint={`Tu plan actual es ${status.currentPlanId}. Disponible en Pro y Empresa para conectar y autopublicar.`}
+                    lockedHint={`Tu plan actual es ${status.currentPlanId}. Disponible en Pro y Empresa.`}
                     subscriptionsHref={subscriptionsHref}
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}
                 />
-            ) : !status.account ? (
+            ) : (
                 <IntegrationConnectRow
-                    icon={<IconBrandInstagram size={18} />}
+                    icon={
+                        connected && account
+                            ? (renderProfileImage?.(account) ?? <IconBrandInstagram size={18} />)
+                            : <IconBrandInstagram size={18} />
+                    }
                     title="Instagram"
-                    description={`Cuenta profesional requerida. Publica ${listingNoun} activos sin salir del panel.`}
-                    connected={false}
+                    description={connected ? connectedDescription : `Conecta tu cuenta profesional para publicar ${listingNoun} sin salir del panel.`}
+                    connected={connected}
+                    busy={disconnecting}
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}
-                />
-            ) : (
-                <div className="space-y-5">
-                    <IntegrationConnectRow
-                        icon={renderProfileImage ? renderProfileImage(status.account) : defaultProfileImage(status.account)}
-                        title="Instagram"
-                        description={panelDescription}
-                        connected={status.account.status !== 'disconnected'}
-                        busy={disconnecting}
-                        onConnect={onConnect}
-                        onDisconnect={onDisconnect}
-                        footer={(
-                            <div className="space-y-3 border-t border-(--border) pt-3">
-                                <p className="text-sm text-(--fg-secondary)">
-                                    @{status.account.username}
-                                    {status.account.displayName ? ` · ${status.account.displayName}` : ''}
-                                    {status.account.accountType ? ` · ${status.account.accountType}` : ''}
-                                </p>
-                                {status.account.status === 'error' ? (
-                                    <PanelStatusBadge label="Error de publicación" tone="warning" size="sm" />
-                                ) : null}
-                                {renderConnectedAccountExtra?.(status.account)}
-                                {status.account.lastError ? <PanelNotice tone="warning">{status.account.lastError}</PanelNotice> : null}
-                            </div>
-                        )}
-                    />
-
-                    <div className="space-y-4 rounded-card border border-(--border) bg-(--bg-subtle) p-5">
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <p className="text-sm font-semibold text-(--fg)">Autopublicar {listingNoun} activos</p>
-                                <p className="text-sm text-(--fg-secondary)">{autoPublishDescription}</p>
-                            </div>
-                            <PanelSwitch checked={autoPublishEnabled} onChange={setAutoPublishEnabled} ariaLabel={autoPublishAriaLabel} />
-                        </div>
-                        <div>
-                            <label className="mb-2 block text-sm font-medium text-(--fg)">Plantilla de caption</label>
-                            <textarea
-                                className="form-textarea"
-                                rows={5}
-                                value={captionTemplate}
-                                onChange={(event) => setCaptionTemplate(event.target.value)}
-                                placeholder={captionPlaceholder}
-                            />
-                            <p className="mt-2 text-xs text-(--fg-muted)">
-                                Variables: <code>{'{{title}}'}</code>, <code>{'{{price}}'}</code>, <code>{'{{location}}'}</code>,{' '}
-                                <code>{'{{description}}'}</code>, <code>{'{{summary}}'}</code>, <code>{'{{url}}'}</code>
+                    footer={connected && account ? (
+                        <div className="space-y-3 border-t border-(--border) pt-3">
+                            <p className="text-sm text-(--fg-secondary)">
+                                @{account.username}
+                                {account.displayName ? ` · ${account.displayName}` : ''}
                             </p>
+                            <p className="text-xs leading-relaxed text-(--fg-muted)">
+                                Abre un aviso activo, pulsa <strong className="font-medium text-(--fg-secondary)">Compartir</strong> y elige{' '}
+                                <strong className="font-medium text-(--fg-secondary)">Instagram</strong>.
+                            </p>
+                            {lastPost?.instagramPermalink ? (
+                                <a href={lastPost.instagramPermalink} target="_blank" rel="noreferrer" className="inline-flex">
+                                    <PanelButton variant="secondary" size="sm">
+                                        <IconExternalLink size={13} /> Ver última publicación
+                                    </PanelButton>
+                                </a>
+                            ) : null}
                         </div>
-                        <PanelButton variant="primary" onClick={() => void onSave()} disabled={saving}>
-                            {saving ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlugConnected size={14} />} Guardar configuración
-                        </PanelButton>
-                        {typeof settingsFooter === 'function'
-                            ? settingsFooter({ setMessage, setError })
-                            : settingsFooter}
-                    </div>
-
-                    <div className="rounded-card border border-(--border) bg-(--bg-subtle) p-5">
-                        <div className="mb-4">
-                            <p className="text-sm font-semibold text-(--fg)">Actividad reciente</p>
-                            <p className="text-sm text-(--fg-secondary)">Últimos intentos de publicación desde el panel.</p>
-                        </div>
-                        {status.recentPublications.length === 0 ? (
-                            <PanelNotice tone="neutral">Todavía no has publicado {listingNoun} en Instagram.</PanelNotice>
-                        ) : (
-                            <div className="space-y-3">
-                                {status.recentPublications.map((publication) => (
-                                    <article
-                                        key={publication.id}
-                                        className="rounded-xl border border-(--border) bg-(--surface) p-4"
-                                    >
-                                        <div className="flex flex-wrap items-start justify-between gap-3">
-                                            <div>
-                                                <p className="text-sm font-medium text-(--fg)">{publication.listingTitle}</p>
-                                                <p className="mt-1 text-xs text-(--fg-secondary)">
-                                                    {formatDate(publication.publishedAt ?? publication.createdAt)}
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <PanelStatusBadge
-                                                    label={publication.status === 'published' ? 'Publicado' : 'Falló'}
-                                                    tone={publication.status === 'published' ? 'success' : 'warning'}
-                                                    size="sm"
-                                                />
-                                                {publication.instagramPermalink ? (
-                                                    <a href={publication.instagramPermalink} target="_blank" rel="noreferrer" className="inline-flex">
-                                                        <PanelButton variant="secondary" size="sm">
-                                                            <IconExternalLink size={13} /> Ver post
-                                                        </PanelButton>
-                                                    </a>
-                                                ) : null}
-                                            </div>
-                                        </div>
-                                        {publication.errorMessage ? (
-                                            <p className="mt-2 text-xs text-(--fg-muted)">{publication.errorMessage}</p>
-                                        ) : null}
-                                    </article>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                    ) : undefined}
+                />
             )}
         </PanelCard>
     );
