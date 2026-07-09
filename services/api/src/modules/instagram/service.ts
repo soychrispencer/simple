@@ -88,6 +88,15 @@ export function getInstagramPublicApiOrigin(): string {
     }
 }
 
+export function getInstagramOAuthScopes(): string[] {
+    return [
+        'instagram_basic',
+        'instagram_content_publish',
+        'pages_show_list',
+        'pages_read_engagement',
+    ];
+}
+
 /**
  * Genera la URL de autorización usando Facebook Login (necesario para Instagram Business/Publishing).
  */
@@ -104,13 +113,7 @@ export function buildInstagramAuthorizationUrl(input: {
         client_id: getInstagramAppId(),
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: (input.scopes ?? [
-            'instagram_basic',
-            'instagram_content_publish',
-            'pages_show_list',
-            'pages_read_engagement',
-            'pages_manage_posts',
-        ]).join(','),
+        scope: (input.scopes ?? getInstagramOAuthScopes()).join(','),
         state: input.state,
         // force_authentication: '1',
     });

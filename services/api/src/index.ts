@@ -1846,8 +1846,6 @@ app.route('/api', createPaymentsRouter({
 }));
 app.use('/api/advertising/campaigns', requireVerifiedSession);
 app.use('/api/advertising/campaigns/*', requireVerifiedSession);
-app.use('/api/integrations/instagram', requireVerifiedSession);
-app.use('/api/integrations/instagram/*', requireVerifiedSession);
 app.use('/api/integrations/social', requireVerifiedSession);
 app.use('/api/integrations/social/*', requireVerifiedSession);
 

@@ -190,10 +190,16 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
         const code = asString(c.req.query('code'));
         const state = asString(c.req.query('state'));
-        const errorReason = asString(c.req.query('error_reason')) || asString(c.req.query('error_description')) || asString(c.req.query('error'));
+        const errorReason = asString(c.req.query('error_reason'))
+            || asString(c.req.query('error_description'))
+            || asString(c.req.query('error_message'))
+            || asString(c.req.query('error'));
 
         if (errorReason) {
-            return redirectWithStatus('error', errorReason);
+            const friendlyMessage = /invalid scopes/i.test(errorReason)
+                ? 'Meta rechazó los permisos de la app. Vuelve a intentar; si persiste, contacta soporte.'
+                : errorReason;
+            return redirectWithStatus('error', friendlyMessage);
         }
         if (!statePayload || !state || !safeEqualStrings(statePayload.nonce, state)) {
             return redirectWithStatus('error', 'La sesión de conexión con Instagram expiró. Intenta nuevamente.');

@@ -11,6 +11,10 @@ import {
 } from './service.js';
 import type { InstagramAccountRecord, InstagramPublicationRecord } from './account-store.js';
 
+function resolveInstagramPublishAccessToken(account: InstagramAccountRecord): string {
+    return account.facebookPageAccessToken?.trim() || account.accessToken;
+}
+
 export type InstagramMediaFormat = 'auto' | 'carousel' | 'reel';
 
 export type PublishListingUser = {
@@ -161,7 +165,7 @@ async function publishListingReel(
     try {
         const published = await publishInstagramReel({
             instagramUserId: refreshedAccount.instagramUserId,
-            accessToken: refreshedAccount.accessToken,
+            accessToken: resolveInstagramPublishAccessToken(refreshedAccount),
             videoUrl,
             caption,
             coverUrl,
@@ -335,14 +339,14 @@ async function publishListingImages(
         if (preparedImages.length > 1) {
             published = await publishInstagramCarousel({
                 instagramUserId: refreshedAccount.instagramUserId,
-                accessToken: refreshedAccount.accessToken,
+                accessToken: resolveInstagramPublishAccessToken(refreshedAccount),
                 images: preparedImages,
                 caption,
             });
         } else {
             published = await publishInstagramImage({
                 instagramUserId: refreshedAccount.instagramUserId,
-                accessToken: refreshedAccount.accessToken,
+                accessToken: resolveInstagramPublishAccessToken(refreshedAccount),
                 imageUrl: preparedImages[0].url,
                 caption,
             });
