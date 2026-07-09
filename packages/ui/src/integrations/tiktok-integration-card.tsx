@@ -25,7 +25,6 @@ export type TikTokIntegrationCardProps = {
     buildConnectUrl: (returnTo: string) => string;
     fetchStatus: () => Promise<TikTokIntegrationStatus | null>;
     disconnect: () => Promise<{ ok: boolean; error?: string }>;
-    cardClassName?: string;
 };
 
 export function TikTokIntegrationCard({
@@ -33,7 +32,6 @@ export function TikTokIntegrationCard({
     buildConnectUrl,
     fetchStatus,
     disconnect,
-    cardClassName,
 }: TikTokIntegrationCardProps) {
     const [status, setStatus] = useState<TikTokIntegrationStatus | null>(null);
     const [loading, setLoading] = useState(true);
@@ -91,7 +89,7 @@ export function TikTokIntegrationCard({
     const connected = Boolean(account && account.status !== 'disconnected');
 
     return (
-        <PanelCard size="lg" className={cardClassName}>
+        <PanelCard size="lg">
             {error ? <PanelNotice tone="error" className="mb-4">{error}</PanelNotice> : null}
 
             {loading ? null : !status ? (

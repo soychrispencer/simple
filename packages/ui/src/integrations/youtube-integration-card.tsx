@@ -25,7 +25,6 @@ export type YouTubeIntegrationCardProps = {
     buildConnectUrl: (returnTo: string) => string;
     fetchStatus: () => Promise<YouTubeIntegrationStatus | null>;
     disconnect: () => Promise<{ ok: boolean; error?: string }>;
-    cardClassName?: string;
 };
 
 export function YouTubeIntegrationCard({
@@ -33,7 +32,6 @@ export function YouTubeIntegrationCard({
     buildConnectUrl,
     fetchStatus,
     disconnect,
-    cardClassName,
 }: YouTubeIntegrationCardProps) {
     const [status, setStatus] = useState<YouTubeIntegrationStatus | null>(null);
     const [loading, setLoading] = useState(true);
@@ -91,7 +89,7 @@ export function YouTubeIntegrationCard({
     const connected = Boolean(account && account.status !== 'disconnected');
 
     return (
-        <PanelCard size="lg" className={cardClassName}>
+        <PanelCard size="lg">
             {error ? <PanelNotice tone="error" className="mb-4">{error}</PanelNotice> : null}
 
             {loading ? null : !status ? (
