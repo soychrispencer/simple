@@ -42,6 +42,38 @@ type TikTokPublishInitResponse = {
     };
 };
 
+type TikTokPublishStatusResponse = {
+    data?: {
+        status?: string;
+        fail_reason?: string;
+        publicly_available_post_id?: string[];
+        share_url?: string;
+    };
+    error?: {
+        message?: string;
+    };
+};
+
+const TIKTOK_PUBLISH_POLL_INTERVAL_MS = 5_000;
+const TIKTOK_PUBLISH_POLL_MAX_ATTEMPTS = 24;
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
+function buildTikTokPermalink(input: {
+    shareUrl?: string | null;
+    postIds?: string[] | null;
+}): string | null {
+    const shareUrl = asString(input.shareUrl);
+    if (shareUrl.startsWith('https://')) return shareUrl;
+    const postId = asString(input.postIds?.[0]);
+    if (!postId) return null;
+    return `https://www.tiktok.com/t/${postId}`;
+}
+
 export function isTikTokConfigured(): boolean {
     return Boolean(getTikTokClientKey() && getTikTokClientSecret() && getTikTokRedirectUri());
 }
@@ -158,6 +190,41 @@ export async function fetchTikTokUserProfile(accessToken: string) {
     };
 }
 
+export async function fetchTikTokPublishStatus(accessToken: string, publishId: string) {
+    return requestTikTok<TikTokPublishStatusResponse>(
+        'https://open.tiktokapis.com/v2/post/publish/status/fetch/',
+        {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: JSON.stringify({ publish_id: publishId }),
+        },
+    );
+}
+
+async function waitForTikTokPublishPermalink(accessToken: string, publishId: string): Promise<string | null> {
+    for (let attempt = 0; attempt < TIKTOK_PUBLISH_POLL_MAX_ATTEMPTS; attempt += 1) {
+        const statusResponse = await fetchTikTokPublishStatus(accessToken, publishId);
+        const status = asString(statusResponse.data?.status);
+        if (status === 'PUBLISH_COMPLETE') {
+            return buildTikTokPermalink({
+                shareUrl: statusResponse.data?.share_url,
+                postIds: statusResponse.data?.publicly_available_post_id,
+            });
+        }
+        if (status === 'FAILED') {
+            const reason = asString(statusResponse.data?.fail_reason) || 'TikTok rechazó la publicación.';
+            throw new Error(reason);
+        }
+        if (attempt < TIKTOK_PUBLISH_POLL_MAX_ATTEMPTS - 1) {
+            await sleep(TIKTOK_PUBLISH_POLL_INTERVAL_MS);
+        }
+    }
+    return null;
+}
+
 export async function publishTikTokVideo(input: {
     accessToken: string;
     videoUrl: string;
@@ -197,8 +264,10 @@ export async function publishTikTokVideo(input: {
         throw new Error(data.error?.message || 'TikTok no devolvió un publish_id válido.');
     }
 
+    const permalink = await waitForTikTokPublishPermalink(input.accessToken, publishId);
+
     return {
         publishId,
-        permalink: null,
+        permalink,
     };
 }

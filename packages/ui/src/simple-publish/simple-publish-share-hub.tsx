@@ -25,6 +25,13 @@ export type SimplePublishShareHubProps = {
     integrations?: SimplePublishShareIntegration[];
     loading?: boolean;
     hasVideo?: boolean;
+    publishAllAction?: {
+        label?: string;
+        busy?: boolean;
+        disabled?: boolean;
+        disabledReason?: string | null;
+        onPublishAll?: () => void | Promise<void>;
+    };
 };
 
 const VIDEO_REQUIRED_MESSAGE = 'Debes subir un video';
@@ -205,6 +212,7 @@ export function SimplePublishShareHub({
     integrations = [],
     loading = false,
     hasVideo = false,
+    publishAllAction,
 }: SimplePublishShareHubProps) {
     const [copied, setCopied] = useState(false);
 
@@ -286,7 +294,34 @@ export function SimplePublishShareHub({
 
             {visibleIntegrations.length > 0 ? (
                 <div className="space-y-2 border-t border-(--border) pt-5">
-                    <p className="text-sm font-medium text-(--fg)">Publicar también en</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-(--fg)">Publicar también en</p>
+                        {publishAllAction?.onPublishAll ? (
+                            <PanelButton
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                disabled={
+                                    publishAllAction.disabled
+                                    || publishAllAction.busy
+                                    || loading
+                                }
+                                onClick={() => void publishAllAction.onPublishAll?.()}
+                            >
+                                {publishAllAction.busy ? (
+                                    <IconLoader2 size={14} className="animate-spin" />
+                                ) : null}
+                                {publishAllAction.busy
+                                    ? 'Publicando...'
+                                    : (publishAllAction.label ?? 'Publicar en todas')}
+                            </PanelButton>
+                        ) : null}
+                    </div>
+                    {publishAllAction?.disabled && publishAllAction.disabledReason ? (
+                        <p className="text-[10px] leading-snug text-(--fg-muted)">
+                            {publishAllAction.disabledReason}
+                        </p>
+                    ) : null}
                     {loading ? (
                         <p className="flex items-center gap-2 text-xs text-(--fg-muted)">
                             <IconLoader2 size={14} className="animate-spin" />

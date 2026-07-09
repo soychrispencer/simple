@@ -100,6 +100,17 @@ INSTAGRAM_APP_ID=1220805133562499
 INSTAGRAM_APP_SECRET=                # ver .env local → INSTAGRAM_APP_SECRET
 INSTAGRAM_REDIRECT_URI=https://api.simpleplataforma.app/api/integrations/instagram/callback
 
+# TikTok Content Posting API (OAuth + video.publish)
+TIKTOK_CLIENT_KEY=                   # ver .env local → TIKTOK_CLIENT_KEY
+TIKTOK_CLIENT_SECRET=                # ver .env local → TIKTOK_CLIENT_SECRET
+TIKTOK_REDIRECT_URI=https://api.simpleplataforma.app/api/integrations/tiktok/callback
+# Registrar redirect en TikTok Developer Portal con scopes: user.info.basic, video.publish
+
+# YouTube Shorts (reutiliza GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)
+# Registrar redirect en Google Cloud Console → OAuth client:
+# https://api.simpleplataforma.app/api/integrations/youtube/callback
+# Habilitar YouTube Data API v3 en el proyecto GCP.
+
 ENABLE_ADMIN_BOOTSTRAP=false
 ```
 

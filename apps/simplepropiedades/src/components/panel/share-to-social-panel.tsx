@@ -157,6 +157,18 @@ export function ShareToSocialPanel({
         }
     }
 
+    async function publishAllConnected() {
+        setBusyKey('all');
+        const response = await publishListingToSocialHub(listingId, { publishAll: true });
+        setBusyKey(null);
+        if (!response.ok) return;
+        const succeeded = response.results.filter((item) => item.ok).map((item) => item.target);
+        if (succeeded.length === 0) return;
+        setPublishedKeys((current) => new Set([...current, ...succeeded]));
+    }
+
+    const canPublishAll = igConnected || fbConnected || tiktokConnected || youtubeConnected;
+
     async function copyMarketplaceAssist() {
         const href = detailMeta.href || listingHref;
         const copy = buildMarketplaceListingCopy({
@@ -293,6 +305,14 @@ export function ShareToSocialPanel({
             integrations={integrations}
             loading={loading}
             hasVideo={listingHasVideo}
+            publishAllAction={{
+                onPublishAll: publishAllConnected,
+                busy: busyKey === 'all',
+                disabled: !canPublishAll || loading,
+                disabledReason: !canPublishAll
+                    ? 'Conecta al menos una red en Integraciones.'
+                    : null,
+            }}
         />
     );
 }

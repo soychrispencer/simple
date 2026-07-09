@@ -26,6 +26,18 @@ export {
     type GoogleCalendarIntegrationStatus,
 } from './google-calendar-integration-card';
 export {
+    TikTokIntegrationCard,
+    type TikTokIntegrationAccount,
+    type TikTokIntegrationCardProps,
+    type TikTokIntegrationStatus,
+} from './tiktok-integration-card';
+export {
+    YouTubeIntegrationCard,
+    type YouTubeIntegrationAccount,
+    type YouTubeIntegrationCardProps,
+    type YouTubeIntegrationStatus,
+} from './youtube-integration-card';
+export {
     MarketplaceGoogleCalendarIntegrationCard,
     type MarketplaceGoogleCalendarIntegrationCardProps,
 } from './marketplace-google-calendar-integration-card';
