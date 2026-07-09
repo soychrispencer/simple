@@ -274,6 +274,8 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             autoPublishEnabled: parsed.data.autoPublishEnabled,
             captionTemplate: parsed.data.captionTemplate === undefined ? undefined : (parsed.data.captionTemplate || null),
             lastSyncedAt: Date.now(),
+            lastError: null,
+            status: 'connected',
         });
 
         if (!updated) {

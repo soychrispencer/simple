@@ -218,7 +218,7 @@ export function InstagramIntegrationCard({
                         icon={renderProfileImage ? renderProfileImage(status.account) : defaultProfileImage(status.account)}
                         title="Instagram"
                         description={panelDescription}
-                        connected={status.account.status === 'connected'}
+                        connected={status.account.status !== 'disconnected'}
                         busy={disconnecting}
                         onConnect={onConnect}
                         onDisconnect={onDisconnect}
@@ -229,6 +229,9 @@ export function InstagramIntegrationCard({
                                     {status.account.displayName ? ` · ${status.account.displayName}` : ''}
                                     {status.account.accountType ? ` · ${status.account.accountType}` : ''}
                                 </p>
+                                {status.account.status === 'error' ? (
+                                    <PanelStatusBadge label="Error de publicación" tone="warning" size="sm" />
+                                ) : null}
                                 {renderConnectedAccountExtra?.(status.account)}
                                 {status.account.lastError ? <PanelNotice tone="warning">{status.account.lastError}</PanelNotice> : null}
                             </div>

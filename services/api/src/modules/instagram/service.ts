@@ -276,6 +276,15 @@ export async function publishInstagramCarousel(input: {
             continue;
         }
 
+        try {
+            await assertInstagramMediaUrlAccessible(imageUrl);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Imagen no accesible para Instagram.';
+            igLogger.error(`item carrusel ${index + 1} no accesible`, error);
+            if (index < 2) throw new Error(message);
+            continue;
+        }
+
         const itemUrl = `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(input.instagramUserId)}/media`
             + `?access_token=${tok}`
             + `&image_url=${encodeURIComponent(imageUrl)}`
@@ -462,6 +471,31 @@ export async function publishInstagramReel(input: {
     };
 }
 
+async function assertInstagramMediaUrlAccessible(imageUrl: string): Promise<void> {
+    const response = await fetch(imageUrl, {
+        method: 'GET',
+        headers: {
+            'User-Agent': 'facebookexternalhit/1.1',
+            Range: 'bytes=0-1023',
+        },
+        signal: AbortSignal.timeout(20_000),
+    }).catch(() => null);
+
+    if (!response?.ok) {
+        throw new Error(
+            `Instagram no pudo descargar la imagen (${response?.status ?? 'sin respuesta'}). `
+            + 'Confirma que la URL R2 sea pública y no bloquee el crawler de Meta.',
+        );
+    }
+
+    const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+    if (!contentType.includes('image/jpeg') && !contentType.includes('image/jpg')) {
+        throw new Error(
+            `Instagram solo acepta JPEG. La URL devolvió: ${contentType || 'tipo desconocido'}.`,
+        );
+    }
+}
+
 export async function publishInstagramImage(input: {
     instagramUserId: string;
     accessToken: string;
@@ -474,12 +508,13 @@ export async function publishInstagramImage(input: {
 }> {
     const tok = encodeURIComponent(input.accessToken);
 
-    // 1. Crear el contenedor del medio
+    await assertInstagramMediaUrlAccessible(input.imageUrl);
+
+    // Imagen simple: solo image_url + caption (sin media_type; Meta lo rechaza en v21+).
     const creationUrl = `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(input.instagramUserId)}/media`
         + `?access_token=${tok}`
         + `&image_url=${encodeURIComponent(input.imageUrl)}`
-        + `&caption=${encodeURIComponent(input.caption)}`
-        + `&media_type=IMAGE`;
+        + `&caption=${encodeURIComponent(input.caption)}`;
 
     igLogger.info('media create url (sin token)', { url: creationUrl.replace(tok, 'REDACTED') });
 
@@ -575,7 +610,9 @@ async function requestInstagram<T>(url: string, init: RequestInit, retryCount = 
         let friendlyMessage = metaMessage || `Instagram respondió con error ${response.status}.`;
         
         // Mapeo de errores comunes de Meta para ayudar al usuario
-        if (friendlyMessage.toLowerCase().includes('download') || friendlyMessage.toLowerCase().includes('uri')) {
+        if (/only photo or video can be accepted as media type/i.test(friendlyMessage)) {
+            friendlyMessage = 'Instagram rechazó el tipo de medio. Las imágenes deben ser JPEG públicas accesibles desde Internet.';
+        } else if (friendlyMessage.toLowerCase().includes('download') || friendlyMessage.toLowerCase().includes('uri')) {
             friendlyMessage = 'Instagram no pudo descargar la imagen. Verifica que la URL pública de R2 sea accesible.';
         } else if (errorCode === 100 || errorCode === 10) {
             friendlyMessage = 'Error de parámetros o permisos. Por favor, DESCONECTA y vuelve a CONECTAR Instagram.';
