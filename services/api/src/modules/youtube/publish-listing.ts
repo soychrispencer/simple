@@ -99,6 +99,8 @@ export function createPublishListingToYouTube(deps: PublishListingToYouTubeDeps)
                 videoUrl,
                 title: listing.title,
                 description: options.captionOverride?.trim() || caption,
+                vertical: listing.vertical,
+                listingRawData: listing.rawData,
             });
 
             const publication = await deps.createSocialPublicationRecord({

@@ -1,8 +1,15 @@
 import { Readable } from 'node:stream';
 import { google } from 'googleapis';
 import { logger } from '@simple/logger';
-import { getGoogleOAuth2Client } from '../../lib/google-auth.js';
+import { getGoogleOAuth2Client, resolveOAuthRedirectBase } from '../../lib/google-auth.js';
 import { asString } from '../shared/index.js';
+import {
+    buildYouTubeShortDescription,
+    buildYouTubeShortTitle,
+    readListingVideoDurationSeconds,
+    validateYouTubeShortVideoBuffer,
+    youTubeCategoryIdForVertical,
+} from './short-validation.js';
 
 const ytLogger = logger.context('youtube');
 
@@ -13,8 +20,8 @@ export function isYouTubeConfigured(): boolean {
     return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
-export function getYouTubeRedirectUri(): string {
-    return asString(process.env.YOUTUBE_REDIRECT_URI);
+export function getYouTubeOAuthRedirectUri(): string {
+    return `${resolveOAuthRedirectBase()}/api/integrations/youtube/callback`;
 }
 
 export function getYouTubeOAuthClient() {
@@ -86,7 +93,23 @@ export async function fetchYouTubeChannelProfile(accessToken: string) {
 async function downloadVideoBuffer(videoUrl: string): Promise<Buffer> {
     const response = await fetch(videoUrl, { signal: AbortSignal.timeout(120_000) });
     if (!response.ok) throw new Error(`No se pudo descargar el video (${response.status}).`);
-    return Buffer.from(await response.arrayBuffer());
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length === 0) throw new Error('El video descargado está vacío.');
+    return buffer;
+}
+
+function formatYouTubeApiError(error: unknown): string {
+    if (error && typeof error === 'object') {
+        const record = error as {
+            message?: string;
+            response?: { data?: { error?: { message?: string; errors?: Array<{ message?: string }> } } };
+        };
+        const apiMessage = record.response?.data?.error?.message
+            ?? record.response?.data?.error?.errors?.[0]?.message;
+        if (apiMessage) return apiMessage;
+        if (record.message) return record.message;
+    }
+    return 'No se pudo publicar en YouTube.';
 }
 
 export async function publishYouTubeShort(input: {
@@ -95,6 +118,8 @@ export async function publishYouTubeShort(input: {
     videoUrl: string;
     title: string;
     description: string;
+    vertical?: string;
+    listingRawData?: unknown;
 }): Promise<{ videoId: string; permalink: string }> {
     const videoUrl = asString(input.videoUrl);
     if (!videoUrl.startsWith('https://')) {
@@ -108,9 +133,13 @@ export async function publishYouTubeShort(input: {
     });
     const youtube = google.youtube({ version: 'v3', auth: client });
     const videoBuffer = await downloadVideoBuffer(videoUrl);
+    const durationSeconds = readListingVideoDurationSeconds(input.listingRawData);
+    const validation = validateYouTubeShortVideoBuffer(videoBuffer, durationSeconds);
+    if (!validation.ok) throw new Error(validation.error);
 
-    const title = input.title.trim().slice(0, 90) || 'Aviso SimpleAutos';
-    const description = `${input.description.trim()}\n\n#Shorts`.slice(0, 4900);
+    const title = buildYouTubeShortTitle(input.title);
+    const description = buildYouTubeShortDescription(input.description);
+    const categoryId = youTubeCategoryIdForVertical(asString(input.vertical) || 'autos');
 
     try {
         const response = await youtube.videos.insert({
@@ -119,7 +148,7 @@ export async function publishYouTubeShort(input: {
                 snippet: {
                     title,
                     description,
-                    categoryId: '2',
+                    categoryId,
                 },
                 status: {
                     privacyStatus: 'public',
@@ -138,7 +167,7 @@ export async function publishYouTubeShort(input: {
             permalink: `https://www.youtube.com/shorts/${videoId}`,
         };
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'No se pudo publicar en YouTube.';
+        const message = formatYouTubeApiError(error);
         ytLogger.error('YouTube upload failed', error instanceof Error ? error : new Error(message));
         throw new Error(message);
     }

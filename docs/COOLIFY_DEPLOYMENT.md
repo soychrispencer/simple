@@ -107,9 +107,12 @@ TIKTOK_REDIRECT_URI=https://api.simpleplataforma.app/api/integrations/tiktok/cal
 # Registrar redirect en TikTok Developer Portal con scopes: user.info.basic, video.publish
 
 # YouTube Shorts (reutiliza GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)
-# Registrar redirect en Google Cloud Console → OAuth client:
-# https://api.simpleplataforma.app/api/integrations/youtube/callback
-# Habilitar YouTube Data API v3 en el proyecto GCP.
+# 1) Google Cloud Console → APIs & Services → Enable "YouTube Data API v3"
+# 2) OAuth client (Web) → Authorized redirect URIs (agregar además de login Google):
+#    https://api.simpleplataforma.app/api/integrations/youtube/callback
+# 3) OAuth consent screen → agregar scopes youtube.upload y youtube.readonly
+#    Si la app está en "Testing", agregar usuarios de prueba que conectarán YouTube.
+# 4) API_BASE_URL debe ser https://api.simpleplataforma.app (define el redirect OAuth).
 
 ENABLE_ADMIN_BOOTSTRAP=false
 ```
