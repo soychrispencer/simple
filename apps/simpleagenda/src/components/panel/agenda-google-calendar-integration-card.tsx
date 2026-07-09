@@ -25,7 +25,6 @@ export function AgendaGoogleCalendarIntegrationCard() {
 
     return (
         <GoogleCalendarIntegrationCard
-            description="Sincroniza citas y genera enlaces de Google Meet para sesiones online."
             locked={planLocked && !gcConnected}
             lockedHint="Requiere plan Pro o periodo de prueba activo."
             fetchStatus={fetchGoogleCalendarStatus}

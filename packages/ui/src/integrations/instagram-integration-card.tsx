@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { IconBrandInstagram } from '@tabler/icons-react';
 import { PanelCard } from '../panel/panel-card';
 import { PanelNotice } from '../panel/panel-primitives';
-import { IntegrationConnectRow } from './integration-connect-row';
+import { formatConnectedAccountLabel, IntegrationConnectRow } from './integration-connect-row';
 
 export type InstagramIntegrationAccount = {
     username: string;
@@ -39,20 +39,14 @@ export type InstagramIntegrationStatus = {
 };
 
 export type InstagramIntegrationCardProps = {
-    panelDescription: string;
-    connectedDescription?: string;
     subscriptionsHref?: string;
-    listingNoun?: string;
     buildConnectUrl: (returnTo: string) => string;
     fetchStatus: () => Promise<InstagramIntegrationStatus | null>;
     disconnect: () => Promise<{ ok: boolean; error?: string }>;
 };
 
 export function InstagramIntegrationCard({
-    panelDescription,
-    connectedDescription = 'Publica tus avisos desde Compartir.',
     subscriptionsHref = '/panel/mi-cuenta/suscripcion',
-    listingNoun = 'avisos',
     buildConnectUrl,
     fetchStatus,
     disconnect,
@@ -60,7 +54,6 @@ export function InstagramIntegrationCard({
     const [status, setStatus] = useState<InstagramIntegrationStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [disconnecting, setDisconnecting] = useState(false);
-    const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const loadStatus = async () => {
@@ -84,12 +77,10 @@ export function InstagramIntegrationCard({
         if (!instagramStatus && !instagramMessage) return;
 
         if (instagramStatus === 'connected') {
-            setMessage(instagramMessage || 'Instagram conectado.');
             setError(null);
             void loadStatus();
         } else if (instagramStatus === 'error') {
             setError(instagramMessage || 'No se pudo conectar Instagram.');
-            setMessage(null);
         }
 
         url.searchParams.delete('instagram');
@@ -105,14 +96,12 @@ export function InstagramIntegrationCard({
     const onDisconnect = async () => {
         setDisconnecting(true);
         setError(null);
-        setMessage(null);
         const result = await disconnect();
         setDisconnecting(false);
         if (!result.ok) {
             setError(result.error ?? 'No pudimos desconectar Instagram.');
             return;
         }
-        setMessage('Instagram fue desconectado.');
         await loadStatus();
     };
 
@@ -121,20 +110,16 @@ export function InstagramIntegrationCard({
 
     return (
         <PanelCard size="lg">
-            {message ? <PanelNotice tone="success" className="mb-4">{message}</PanelNotice> : null}
             {error ? <PanelNotice tone="error" className="mb-4">{error}</PanelNotice> : null}
 
             {loading ? null : !status ? (
                 <PanelNotice tone="warning">No pudimos cargar el estado de Instagram.</PanelNotice>
             ) : !status.configured ? (
-                <PanelNotice tone="warning">
-                    Instagram aún no está disponible. Vuelve a intentar más tarde.
-                </PanelNotice>
+                <PanelNotice tone="warning">Instagram aún no está disponible.</PanelNotice>
             ) : !status.eligible ? (
                 <IntegrationConnectRow
                     icon={<IconBrandInstagram size={18} />}
                     title="Instagram"
-                    description={panelDescription}
                     connected={false}
                     locked
                     lockedHint={`Tu plan actual es ${status.currentPlanId}. Disponible en Pro y Empresa.`}
@@ -146,12 +131,10 @@ export function InstagramIntegrationCard({
                 <IntegrationConnectRow
                     icon={<IconBrandInstagram size={18} />}
                     title="Instagram"
-                    description={
-                        connected && account
-                            ? connectedDescription
-                            : `Conecta tu cuenta profesional para publicar ${listingNoun}.`
-                    }
                     connected={connected}
+                    connectedAccountLabel={connected && account
+                        ? formatConnectedAccountLabel(`@${account.username}`, account.displayName)
+                        : undefined}
                     busy={disconnecting}
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}

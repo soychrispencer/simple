@@ -10,9 +10,6 @@ import {
 export default function AppInstagramIntegrationCard() {
     return (
         <InstagramIntegrationCard
-            panelDescription="Publica propiedades en Instagram desde el panel."
-            connectedDescription="Publica tus propiedades desde Compartir."
-            listingNoun="propiedades"
             buildConnectUrl={buildInstagramConnectUrl}
             fetchStatus={fetchInstagramIntegrationStatus}
             disconnect={disconnectInstagram}

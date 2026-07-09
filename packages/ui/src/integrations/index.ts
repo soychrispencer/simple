@@ -2,6 +2,7 @@
 
 export {
     IntegrationConnectRow,
+    formatConnectedAccountLabel,
     type IntegrationConnectRowProps,
 } from './integration-connect-row';
 export {

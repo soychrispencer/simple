@@ -10,10 +10,10 @@ export function accountIntegrationsDescription(appLabel: string): string {
         return 'Activa MercadoPago y Google Calendar con el interruptor para cobros y sincronizar tu agenda.';
     }
     if (label.includes('propiedad')) {
-        return 'Activa MercadoPago, Google Calendar e Instagram con el interruptor. Algunas requieren plan Pro o Empresa.';
+        return 'Conecta tus cuentas con el interruptor. Algunas requieren plan Pro o Empresa.';
     }
     if (label.includes('auto')) {
-        return 'Activa MercadoPago, Google Calendar e Instagram con el interruptor. Algunas requieren plan Pro o Empresa.';
+        return 'Conecta tus cuentas con el interruptor. Algunas requieren plan Pro o Empresa.';
     }
-    return 'Activa cada integración con el interruptor. Algunas requieren plan de pago.';
+    return 'Conecta cada servicio con el interruptor.';
 }

@@ -10,9 +10,6 @@ import {
 export default function AppInstagramIntegrationCard() {
     return (
         <InstagramIntegrationCard
-            panelDescription="Publica avisos en Instagram desde el panel."
-            connectedDescription="Publica tus avisos desde Compartir."
-            listingNoun="avisos"
             buildConnectUrl={buildInstagramConnectUrl}
             fetchStatus={fetchInstagramIntegrationStatus}
             disconnect={disconnectInstagram}

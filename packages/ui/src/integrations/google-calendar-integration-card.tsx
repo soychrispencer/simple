@@ -12,7 +12,6 @@ export type GoogleCalendarIntegrationStatus = {
 };
 
 export type GoogleCalendarIntegrationCardProps = {
-    description: string;
     locked?: boolean;
     lockedHint?: string;
     subscriptionsHref?: string;
@@ -22,7 +21,6 @@ export type GoogleCalendarIntegrationCardProps = {
 };
 
 export function GoogleCalendarIntegrationCard({
-    description,
     locked = false,
     lockedHint = 'Requiere plan Pro o periodo de prueba activo.',
     subscriptionsHref = '/panel/mi-cuenta/suscripcion',
@@ -34,7 +32,6 @@ export function GoogleCalendarIntegrationCard({
     const [connected, setConnected] = useState(false);
     const [calendarId, setCalendarId] = useState<string | null>(null);
     const [disconnecting, setDisconnecting] = useState(false);
-    const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const loadStatus = async () => {
@@ -50,14 +47,11 @@ export function GoogleCalendarIntegrationCard({
         const gcParam = url.searchParams.get('gc');
         const gcMessage = url.searchParams.get('message');
         if (gcParam === 'connected') {
-            setMessage('Google Calendar conectado correctamente.');
             setError(null);
         } else if (gcParam === 'upgrade') {
             setError(lockedHint);
-            setMessage(null);
         } else if (gcParam === 'error') {
             setError(gcMessage ? decodeURIComponent(gcMessage) : 'Error al conectar con Google Calendar.');
-            setMessage(null);
         }
         if (gcParam) {
             url.searchParams.delete('gc');
@@ -69,7 +63,6 @@ export function GoogleCalendarIntegrationCard({
 
     const handleDisconnect = async () => {
         setDisconnecting(true);
-        setMessage(null);
         setError(null);
         const result = await disconnect();
         setDisconnecting(false);
@@ -79,18 +72,16 @@ export function GoogleCalendarIntegrationCard({
         }
         setConnected(false);
         setCalendarId(null);
-        setMessage('Google Calendar desconectado.');
     };
 
     return (
         <PanelCard size="lg">
-            {message ? <PanelNotice tone="success" className="mb-4">{message}</PanelNotice> : null}
             {error ? <PanelNotice tone="error" className="mb-4">{error}</PanelNotice> : null}
             <IntegrationConnectRow
                 icon={<IconCalendar size={18} style={{ color: '#4285F4' }} />}
                 title="Google Calendar"
-                description={description}
                 connected={connected}
+                connectedAccountLabel={connected ? calendarId : undefined}
                 loading={loading}
                 busy={disconnecting}
                 locked={locked && !connected}
@@ -100,11 +91,6 @@ export function GoogleCalendarIntegrationCard({
                     window.location.href = getAuthUrl();
                 }}
                 onDisconnect={handleDisconnect}
-                footer={connected && calendarId ? (
-                    <p className="border-t border-(--border) pt-3 text-xs text-(--fg-muted)">
-                        Calendario: <span className="text-(--fg)">{calendarId}</span>
-                    </p>
-                ) : undefined}
             />
         </PanelCard>
     );

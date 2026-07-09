@@ -6,10 +6,21 @@ import { IconLoader2 } from '@tabler/icons-react';
 import { PanelButton } from '../panel/panel-button';
 import { PanelStatusBadge, PanelSwitch } from '../panel/panel-primitives';
 
+export function formatConnectedAccountLabel(
+    ...parts: Array<string | null | undefined | false>
+): string | undefined {
+    const label = parts
+        .map((part) => (typeof part === 'string' ? part.trim() : ''))
+        .filter(Boolean)
+        .join(' · ');
+    return label || undefined;
+}
+
 export type IntegrationConnectRowProps = {
     icon: ReactNode;
     title: string;
     description?: string;
+    connectedAccountLabel?: string | null;
     connected: boolean;
     loading?: boolean;
     busy?: boolean;
@@ -26,6 +37,7 @@ export function IntegrationConnectRow({
     icon,
     title,
     description,
+    connectedAccountLabel,
     connected,
     loading = false,
     busy = false,
@@ -38,6 +50,9 @@ export function IntegrationConnectRow({
     footer,
 }: IntegrationConnectRowProps) {
     const switchLabel = ariaLabel ?? `Conectar ${title}`;
+    const subtitle = connected && connectedAccountLabel
+        ? connectedAccountLabel
+        : (!connected ? description : undefined);
 
     const handleToggle = (next: boolean) => {
         if (loading || busy || locked) return;
@@ -58,15 +73,15 @@ export function IntegrationConnectRow({
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-semibold text-(--fg)">{title}</p>
-                            {!loading && connected ? (
+                            {!loading && connected && !connectedAccountLabel ? (
                                 <PanelStatusBadge label="Conectado" tone="success" size="sm" />
                             ) : null}
                             {!loading && locked ? (
                                 <PanelStatusBadge label="Requiere plan" tone="warning" size="sm" />
                             ) : null}
                         </div>
-                        {description ? (
-                            <p className="mt-0.5 text-xs leading-relaxed text-(--fg-muted)">{description}</p>
+                        {subtitle ? (
+                            <p className="mt-0.5 text-xs leading-relaxed text-(--fg-muted)">{subtitle}</p>
                         ) : null}
                     </div>
                 </div>
