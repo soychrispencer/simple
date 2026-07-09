@@ -37,8 +37,6 @@ export function getMarketplaceAppOrigin(vertical: VerticalType): string {
             return normalizeOrigin(process.env.PROPIEDADES_APP_URL, 'https://simplepropiedades.app');
         case 'agenda':
             return normalizeOrigin(process.env.AGENDA_APP_URL, 'https://simpleagenda.app');
-        case 'serenatas':
-            return normalizeOrigin(process.env.SERENATAS_APP_URL, 'https://simpleserenatas.app');
         case 'autos':
         default:
             return normalizeOrigin(process.env.AUTOS_APP_URL, 'https://simpleautos.app');

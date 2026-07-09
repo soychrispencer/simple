@@ -49,6 +49,10 @@ const headers = {
 };
 
 const API_INTERNAL = 'https://api.simpleplataforma.app';
+const API_PUBLIC = 'https://api.simpleplataforma.app';
+const INSTAGRAM_CALLBACK = `${API_PUBLIC}/api/integrations/instagram/callback`;
+
+const LOCALHOST_PATTERN = /localhost|127\.0\.0\.1/i;
 
 const OBSOLETE_EXACT = new Set([
   'GOOGLE_REDIRECT_URI',
@@ -67,9 +71,24 @@ function isObsoleteEnvKey(key) {
 const EXPECTED = {
   'simple-api': {
     checks: [
+      { key: 'NODE_ENV', expected: 'production' },
+      { key: 'API_BASE_URL', expected: API_PUBLIC },
       { key: 'AUTH_COOKIE_SAMESITE', expected: 'none' },
+      { key: 'AUTOS_APP_URL', expected: 'https://simpleautos.app' },
+      { key: 'PROPIEDADES_APP_URL', expected: 'https://simplepropiedades.app' },
+      { key: 'AGENDA_APP_URL', expected: 'https://simpleagenda.app' },
+      { key: 'SERENATAS_APP_URL', expected: 'https://simpleserenatas.app' },
+      { key: 'INSTAGRAM_REDIRECT_URI', expected: INSTAGRAM_CALLBACK },
       { key: 'GOOGLE_REDIRECT_URI', expected: null, forbidden: true },
       { key: 'MERCADO_PAGO_WEBHOOK_SECRET', expected: '__SET__' },
+    ],
+    rejectLocalhost: [
+      'AUTOS_APP_URL',
+      'PROPIEDADES_APP_URL',
+      'AGENDA_APP_URL',
+      'SERENATAS_APP_URL',
+      'INSTAGRAM_REDIRECT_URI',
+      'API_BASE_URL',
     ],
   },
   simpleautos: {
@@ -198,14 +217,40 @@ async function deleteEnv(uuid, envUuid) {
   if (!res.ok) throw new Error(`Delete env ${envUuid}: ${res.status} ${await res.text()}`);
 }
 
-async function deployApps(uuids) {
+async function deployApps(uuids, { force = false } = {}) {
   const deployRes = await fetch(
-    `${COOLIFY_URL}/api/v1/deploy?uuid=${uuids.join(',')}&force=false`,
+    `${COOLIFY_URL}/api/v1/deploy?uuid=${uuids.join(',')}&force=${force ? 'true' : 'false'}`,
     { headers },
   );
   const body = await deployRes.json();
   if (!deployRes.ok) throw new Error(`Deploy: ${deployRes.status} ${JSON.stringify(body)}`);
   return body;
+}
+
+async function verifyInstagramCallbackRedirect() {
+  try {
+    const res = await fetch(`${API_PUBLIC}/api/integrations/instagram/callback?error=env-audit`, {
+      redirect: 'manual',
+    });
+    const location = res.headers.get('location') ?? '';
+    if (!location) return { ok: false, detail: 'sin header Location' };
+    if (LOCALHOST_PATTERN.test(location)) {
+      return { ok: false, detail: location };
+    }
+    if (!location.includes('simpleautos.app')) {
+      return { ok: false, detail: location };
+    }
+    return { ok: true, detail: location };
+  } catch (error) {
+    return { ok: false, detail: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function localhostIssueFor(spec, key, current) {
+  if (!spec.rejectLocalhost?.includes(key)) return null;
+  if (!current || current === '(no definida)' || current === '(vacía)') return null;
+  if (!LOCALHOST_PATTERN.test(current)) return null;
+  return 'update';
 }
 
 async function main() {
@@ -259,7 +304,12 @@ async function main() {
     }
 
     for (const check of spec.checks) {
-      const { ok, current, action } = statusFor(check, envMap);
+      let { ok, current, action } = statusFor(check, envMap);
+      const localhostAction = localhostIssueFor(spec, check.key, current);
+      if (localhostAction) {
+        ok = false;
+        action = localhostAction;
+      }
       const expectedLabel = check.forbidden
         ? 'no definir'
         : check.expected === '__SET__'
@@ -275,6 +325,9 @@ async function main() {
       console.log(`  !!  ${check.key}`);
       console.log(`       actual: ${current}`);
       console.log(`       esperado: ${expectedLabel}`);
+      if (localhostAction) {
+        console.log('       motivo: valor contiene localhost');
+      }
 
       if (!apply || action === 'warn') {
         if (action === 'warn') console.log('       acción: agregar manualmente en Coolify (secreto)');
@@ -328,15 +381,43 @@ async function main() {
 
   console.log(`\n--- Resumen: ${issues} problema(s) encontrado(s) ---`);
 
-  if (apply && toRedeploy.length) {
-    const uuids = toRedeploy.map((a) => a.uuid);
-    console.log(`\nRedeploy: ${toRedeploy.map((a) => a.name).join(', ')}`);
-    await deployApps(uuids);
+  const forceRedeployApi = apply && process.argv.includes('--force-api');
+  if (apply && (toRedeploy.length || forceRedeployApi)) {
+    const apiApp = targets.find((a) => a.name === 'simple-api');
+    const names = [...new Set([
+      ...toRedeploy.map((a) => a.name),
+      ...(forceRedeployApi && apiApp ? ['simple-api'] : []),
+    ])];
+    const uuids = [...new Set([
+      ...toRedeploy.map((a) => a.uuid),
+      ...(forceRedeployApi && apiApp ? [apiApp.uuid] : []),
+    ])];
+    console.log(`\nRedeploy${forceRedeployApi ? ' (force)' : ''}: ${names.join(', ')}`);
+    await deployApps(uuids, { force: forceRedeployApi });
     console.log('Deploy encolado.');
   } else if (apply && !toRedeploy.length && issues === 0) {
     console.log('\nSin cambios necesarios.');
   } else if (!apply && issues > 0) {
     console.log('\nEjecuta con --apply para corregir automáticamente (excepto secretos).');
+  }
+
+  if (apply) {
+    console.log('\nVerificando redirect OAuth de Instagram en producción…');
+    for (let attempt = 1; attempt <= 18; attempt += 1) {
+      const result = await verifyInstagramCallbackRedirect();
+      if (result.ok) {
+        console.log(`  OK  callback → ${result.detail}`);
+        break;
+      }
+      if (attempt === 18) {
+        issues += 1;
+        console.log(`  !!  callback sigue incorrecto: ${result.detail}`);
+        console.log('       El deploy puede seguir en curso; reintenta en unos minutos.');
+      } else {
+        console.log(`  … intento ${attempt}/18: ${result.detail}`);
+        await new Promise((resolve) => setTimeout(resolve, 20_000));
+      }
+    }
   }
 }
 

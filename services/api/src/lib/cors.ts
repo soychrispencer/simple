@@ -37,9 +37,15 @@ export function getAllowedOrigins(): Set<string> {
 export const allowedOrigins = getAllowedOrigins();
 
 export function getDefaultCorsOrigin(): string {
-    const redirectUri = process.env.INSTAGRAM_REDIRECT_URI ?? '';
-    if (process.env.NODE_ENV === 'production' || redirectUri.includes('simpleplataforma.app')) {
-        return (process.env.AUTOS_APP_URL?.trim() || 'https://simpleautos.app').replace(/\/$/, '');
+    const productionOrigin = (process.env.AUTOS_APP_URL?.trim() || 'https://simpleautos.app').replace(/\/$/, '');
+    const deploymentHints = [
+        process.env.NODE_ENV,
+        process.env.INSTAGRAM_REDIRECT_URI,
+        process.env.API_BASE_URL,
+        process.env.API_PUBLIC_URL,
+    ].filter(Boolean).join(' ');
+    if (process.env.NODE_ENV === 'production' || /simpleplataforma\.app/i.test(deploymentHints)) {
+        return productionOrigin;
     }
     return 'http://localhost:3000';
 }
