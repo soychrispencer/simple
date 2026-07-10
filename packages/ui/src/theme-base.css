@@ -2606,17 +2606,27 @@ button:disabled,
 }
 
 .marketplace-reel-card--grid .marketplace-reel-card__location {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    width: 100%;
+    max-width: 100%;
     min-width: 0;
     margin: 0;
     font-size: 0.66rem;
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1.2;
-    color: rgb(255 255 255 / 0.74);
-    text-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+    color: rgb(255 255 255 / 0.9);
+    text-shadow: none;
+}
+
+.marketplace-reel-card--grid .marketplace-reel-card__location--tag {
+    width: fit-content;
+    border-radius: 0.45rem;
+    border: 1px solid rgb(255 255 255 / 0.22);
+    background: rgb(0 0 0 / 0.42);
+    padding: 0.18rem 0.45rem;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .marketplace-reel-card--grid .marketplace-reel-card__location span {
@@ -2694,10 +2704,10 @@ button:disabled,
     overflow: hidden;
     text-overflow: ellipsis;
     text-align: center;
-    font-size: 0.64rem;
+    font-size: 0.7rem;
     font-weight: 650;
-    line-height: 1.05;
-    letter-spacing: 0.01em;
+    line-height: 1.1;
+    letter-spacing: 0;
     white-space: nowrap;
 }
 
@@ -2895,16 +2905,25 @@ button:disabled,
 
 .marketplace-reel-card--list .marketplace-reel-card__location,
 .marketplace-reel-card--list .marketplace-reel-card__location--list {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 0.35rem;
-    margin: 0;
+    gap: 0.3rem;
+    margin: 0.35rem 0 0;
     min-height: 0;
+    max-width: 100%;
     font-size: 0.6875rem;
-    font-weight: 500;
-    color: var(--fg-muted);
+    font-weight: 600;
+    color: var(--fg-secondary);
     text-shadow: none;
+}
+
+.marketplace-reel-card--list .marketplace-reel-card__location--tag {
+    width: fit-content;
+    border-radius: 0.45rem;
+    border: 1px solid var(--border);
+    background: color-mix(in oklab, var(--bg-muted) 88%, var(--surface));
+    padding: 0.18rem 0.45rem;
 }
 
 .marketplace-reel-card--list .marketplace-reel-card__actions .marketplace-reel-card__icon-btn {
@@ -2940,10 +2959,6 @@ button:disabled,
     justify-content: flex-start;
     margin-bottom: 0;
     min-height: 0;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    color: var(--fg-muted);
-    text-shadow: none;
 }
 
 .marketplace-reel-card--list .marketplace-reel-card__specs--list,

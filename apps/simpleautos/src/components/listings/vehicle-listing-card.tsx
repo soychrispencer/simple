@@ -123,7 +123,6 @@ function buildChips(data: VehicleListingCardData): MarketplaceReelChip[] {
     if (data.financing) chips.push({ label: 'Financiamiento' });
     if (data.exchange) chips.push({ label: 'Permuta' });
     else if (data.negotiable) chips.push({ label: 'Conversable' });
-    if (data.isSponsored) chips.push({ label: 'Patrocinado' });
     if (data.live) chips.push({ label: 'En vivo' });
     return chips;
 }

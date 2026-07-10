@@ -123,7 +123,6 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         const basic = asObject(payload.basic);
         const summary: string[] = [];
 
-        appendUniqueSummary(summary, asString(basic.year));
         appendUniqueSummary(summary, asString(basic.bodyType));
 
         const mileage = parseNumberFromString(basic.mileage);
@@ -131,9 +130,8 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
 
         appendUniqueSummary(summary, asString(basic.fuelType));
         appendUniqueSummary(summary, asString(basic.transmission));
-        appendUniqueSummary(summary, asString(basic.condition));
 
-        return summary.slice(0, 5);
+        return summary.slice(0, 4);
     }
 
     function extractPropertiesSummary(record: ListingPublicRecord): string[] {

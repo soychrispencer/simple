@@ -151,7 +151,6 @@ function buildChips(data: PropertyListingCardData): MarketplaceReelChip[] {
     }
     if (data.financing) chips.push({ label: 'Financiamiento' });
     if (data.negotiable) chips.push({ label: 'Conversable' });
-    if (data.isSponsored) chips.push({ label: 'Patrocinado' });
     return chips;
 }
 

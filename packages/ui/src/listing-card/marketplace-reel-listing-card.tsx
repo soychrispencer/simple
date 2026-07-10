@@ -679,8 +679,8 @@ export default function MarketplaceReelListingCard({
                             </p>
                         ) : null}
                         <h3 className="marketplace-reel-card__title marketplace-reel-card__title--list">{title}</h3>
-                        <div className="marketplace-reel-card__location marketplace-reel-card__location--list">
-                            <IconMapPin size={13} className="shrink-0" />
+                        <div className="marketplace-reel-card__location marketplace-reel-card__location--list marketplace-reel-card__location--tag">
+                            <IconMapPin size={12} className="shrink-0" />
                             <span className="truncate">{shortenListingLocation(location)}</span>
                         </div>
                         <ReelSpecs specs={specs} list accent={accent} />
@@ -774,7 +774,7 @@ export default function MarketplaceReelListingCard({
             <div className="marketplace-reel-card__panel absolute inset-x-0 bottom-0 z-10 px-3 pb-2.5 pt-10 sm:px-3.5 sm:pb-3 sm:pt-12">
                 <div className="marketplace-reel-card__head">
                     {location ? (
-                        <div className="marketplace-reel-card__location">
+                        <div className="marketplace-reel-card__location marketplace-reel-card__location--tag">
                             <IconMapPin size={11} className="shrink-0" />
                             <span>{shortenListingLocation(location)}</span>
                         </div>

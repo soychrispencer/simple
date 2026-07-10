@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperInstance } from 'swiper';
 import { A11y, Autoplay, Keyboard, Navigation, Pagination } from 'swiper/modules';
@@ -19,6 +19,9 @@ type Props = {
     showDots?: boolean;
 };
 
+/** Máximo slidesPerView en breakpoints del swiper (1280px → 4). */
+const MAX_SLIDES_PER_VIEW = 4;
+
 function useMobileCarousel(breakpoint = 768): boolean {
     const [isMobile, setIsMobile] = useState(false);
 
@@ -32,6 +35,27 @@ function useMobileCarousel(breakpoint = 768): boolean {
     }, [breakpoint]);
 
     return isMobile;
+}
+
+/** Duplica slides hasta tener suficientes para un loop seamless con slidesPerView altos. */
+function buildSeamlessSlides(items: SlideItem[]): SlideItem[] {
+    if (items.length <= 1) return items;
+    const minSlides = MAX_SLIDES_PER_VIEW * 2;
+    if (items.length >= minSlides) return items;
+
+    const slides: SlideItem[] = [];
+    let copy = 0;
+    while (slides.length < minSlides) {
+        for (const item of items) {
+            slides.push({
+                key: copy === 0 ? item.key : `${item.key}__loop${copy}`,
+                node: item.node,
+            });
+            if (slides.length >= minSlides) break;
+        }
+        copy += 1;
+    }
+    return slides;
 }
 
 export default function FeaturedCardSwiper({
@@ -48,40 +72,47 @@ export default function FeaturedCardSwiper({
     const [activeIndex, setActiveIndex] = useState(0);
     const isMobile = useMobileCarousel();
 
-    if (items.length === 0) return null;
-
     const canAdvance = items.length > 1;
+    const loopSlides = useMemo(
+        () => (canAdvance ? buildSeamlessSlides(items) : items),
+        [canAdvance, items],
+    );
+    const swiperKey = useMemo(() => items.map((item) => item.key).join('|'), [items]);
+
+    if (items.length === 0) return null;
 
     return (
         <div className="featured-card-swiper relative min-w-0 max-w-full overflow-hidden px-0 md:px-14">
-            {showProgress && canAdvance && (
+            {showProgress && canAdvance ? (
                 <div className="mb-3 px-1">
                     <p className="mb-1.5 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
-                        {activeIndex + 1} de {items.length}
+                        {(activeIndex % items.length) + 1} de {items.length}
                     </p>
                     <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--bg-subtle)' }}>
                         <div
                             className="h-full rounded-full transition-all duration-300"
                             style={{
-                                width: `${((activeIndex + 1) / items.length) * 100}%`,
+                                width: `${(((activeIndex % items.length) + 1) / items.length) * 100}%`,
                                 background: 'var(--accent)',
                             }}
                         />
                     </div>
                 </div>
-            )}
+            ) : null}
 
             <Swiper
+                key={swiperKey}
                 modules={[Navigation, Autoplay, A11y, Keyboard, Pagination]}
                 onSwiper={(swiper) => {
                     swiperRef.current = swiper;
                 }}
-                onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
+                onSlideChange={(swiper) => setActiveIndex(swiper.realIndex)}
                 slidesPerView={1}
                 slidesPerGroup={1}
                 spaceBetween={12}
-                loop={false}
-                rewind={canAdvance}
+                loop={canAdvance}
+                rewind={false}
+                loopAdditionalSlides={canAdvance ? Math.min(items.length, MAX_SLIDES_PER_VIEW) : 0}
                 speed={500}
                 grabCursor={canAdvance}
                 allowTouchMove={canAdvance}
@@ -128,14 +159,14 @@ export default function FeaturedCardSwiper({
                 }
                 className="featured-card-swiper__track !overflow-hidden !pb-2"
             >
-                {items.map((item) => (
+                {loopSlides.map((item) => (
                     <SwiperSlide key={item.key} className="featured-card-swiper__slide !h-auto">
                         <div className="featured-card-swiper__slide-inner">{item.node}</div>
                     </SwiperSlide>
                 ))}
             </Swiper>
 
-            {showNav && canAdvance && (
+            {showNav && canAdvance ? (
                 <>
                     <button
                         ref={prevRef}
@@ -156,7 +187,7 @@ export default function FeaturedCardSwiper({
                         <IconChevronRight size={18} />
                     </button>
                 </>
-            )}
+            ) : null}
         </div>
     );
 }

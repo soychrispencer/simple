@@ -55,7 +55,7 @@ export function shortenListingLocation(location: string): string {
     return commune;
 }
 
-/** Compacta labels de specs para cards (1 dormitorio → 1D, 2 baños → 2B, etc.). */
+/** Compacta labels de specs para cards, priorizando legibilidad. */
 export function abbreviateListingSpecLabel(label: string): string {
     const trimmed = label
         .normalize('NFKC')
@@ -65,48 +65,53 @@ export function abbreviateListingSpecLabel(label: string): string {
     if (!trimmed) return trimmed;
 
     const dorm = trimmed.match(/^(\d+)\s*(dormitorios?|dorm\.?|habitaciones?|hab\.?|d)$/i);
-    if (dorm) return `${dorm[1]}D`;
+    if (dorm) return Number(dorm[1]) === 1 ? '1 dorm' : `${dorm[1]} dorm`;
 
     const bath = trimmed.match(/^(\d+)\s*(baños?|banos?|b)$/i);
-    if (bath) return `${bath[1]}B`;
+    if (bath) return Number(bath[1]) === 1 ? '1 baño' : `${bath[1]} baños`;
 
     const parking = trimmed.match(/^(\d+)\s*(est\.?|estacionamientos?|e)$/i);
-    if (parking) return `${parking[1]}E`;
+    if (parking) return Number(parking[1]) === 1 ? '1 est.' : `${parking[1]} est.`;
 
     const storage = trimmed.match(/^(\d+)\s*(bod\.?|bodegas?|bo)$/i);
-    if (storage) return `${storage[1]}Bo`;
+    if (storage) return Number(storage[1]) === 1 ? '1 bod.' : `${storage[1]} bod.`;
 
     const surface = trimmed.match(/^(\d+(?:[.,]\d+)?)\s*(m²|m2|mt2|mts?²?)$/i);
-    if (surface) return `${surface[1].replace(',', '.')}m²`;
+    if (surface) return `${surface[1].replace(',', '.')} m²`;
 
     const km = trimmed.match(/^([\d.\s,]+)\s*(km|kil[oó]metros?)$/i);
     if (km) {
         const digits = km[1].replace(/[^\d]/g, '');
         const num = Number(digits);
         if (!Number.isNaN(num) && num >= 1000) {
-            return `${Math.round(num / 1000)}k`;
+            return `${Math.round(num / 1000)} mil km`;
         }
-        if (!Number.isNaN(num) && num > 0) return `${num}km`;
+        if (!Number.isNaN(num) && num > 0) return `${num} km`;
         return 'km';
     }
 
     const lower = trimmed.toLowerCase();
-    if (lower === 'automático' || lower === 'automatico' || lower === 'automática' || lower === 'automatica') return 'Auto';
-    if (lower === 'manual') return 'Man';
-    if (lower === 'seminuevo' || lower === 'semi-nuevo' || lower === 'semi nuevo') return 'Semi';
+    if (lower === 'automático' || lower === 'automatico' || lower === 'automática' || lower === 'automatica') {
+        return 'Automát.';
+    }
+    if (lower === 'manual') return 'Manual';
+    if (lower === 'secuencial') return 'Secuenc.';
+    if (lower === 'cvt') return 'CVT';
+    if (lower === 'seminuevo' || lower === 'semi-nuevo' || lower === 'semi nuevo') return 'Seminuevo';
     if (lower === 'nuevo') return 'Nuevo';
     if (lower === 'departamento') return 'Depto';
-    if (lower === 'estacionamiento' || lower === 'estacionamientos') return 'Est.';
-    if (lower === 'bodega' || lower === 'bodegas') return 'Bod.';
-    if (lower === 'bencina' || lower === 'gasolina') return 'Benc.';
-    if (lower === 'diésel' || lower === 'diesel') return 'Dies.';
-    if (lower === 'híbrido' || lower === 'hibrido') return 'Híb.';
-    if (lower === 'eléctrico' || lower === 'electrico') return 'Elec.';
+    if (lower === 'estacionamiento' || lower === 'estacionamientos') return 'Estac.';
+    if (lower === 'bodega' || lower === 'bodegas') return 'Bodega';
+    if (lower === 'bencina' || lower === 'gasolina') return 'Bencina';
+    if (lower === 'diésel' || lower === 'diesel') return 'Diésel';
+    if (lower === 'híbrido' || lower === 'hibrido') return 'Híbrido';
+    if (lower === 'eléctrico' || lower === 'electrico') return 'Eléct.';
     if (lower === 'sedán' || lower === 'sedan') return 'Sedán';
-    if (lower === 'camioneta' || lower === 'pickup') return 'Pick.';
-    if (lower === 'hatchback') return 'Hatch';
+    if (lower === 'camioneta' || lower === 'pickup') return 'Camioneta';
+    if (lower === 'hatchback') return 'Hatchback';
+    if (lower === 'suv') return 'SUV';
 
-    if (trimmed.length > 7) return `${trimmed.slice(0, 6)}…`;
+    if (trimmed.length > 11) return `${trimmed.slice(0, 10)}…`;
     return trimmed;
 }
 
@@ -152,33 +157,35 @@ export function orderPropertyCardTags(tags: string[], propertyType?: string | nu
 
 /**
  * Ordena tags de vehículos para cards.
- * Año → tipo → km → combustible (transmisión si cabe).
+ * Tipo/categoría → km → combustible → transmisión (sin año: ya va en el título).
  */
 export function orderVehicleCardTags(tags: string[]): string[] {
-    const normalized = tags.map((tag) => tag.trim()).filter(Boolean);
+    const normalized = tags
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .filter((tag) => !/^(19|20)\d{2}$/.test(tag));
+
     if (normalized.length === 0) return [];
 
     const ordered = [
-        pickTag(normalized, [/^(19|20)\d{2}$/]),
         pickTag(normalized, [/auto|sedán|sedan|hatchback|suv|camioneta|pickup|van|bus|deportivo|coupe|moto|cuatrimoto|convertible/i]),
         pickTag(normalized, [/km|kilometraje|kil[oó]metro/i]),
         pickTag(normalized, [/bencina|gasolina|diesel|diésel|híbrido|hibrido|eléctrico|electrico|gas|petróleo/i]),
         pickTag(normalized, [/automático|automatico|manual|cvt|secuencial/i]),
-        pickTag(normalized, [/usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i]),
     ].filter(Boolean) as string[];
 
-    return [...ordered, ...normalized].slice(0, 4);
+    return ordered.slice(0, 4);
 }
 
 /** Ícono de spec de vehículos según el contenido del label. */
 export function vehicleSpecIconForLabel(label: string, index = 0): ReactNode {
     const trimmed = label.trim();
     const lower = trimmed.toLowerCase();
-    if (/km|kilometraje|kil[oó]metro|\d+\s*k\b/.test(lower)) return createElement(IconGauge, { size: 18 });
-    if (/bencina|gasolina|diesel|diésel|híbrido|hibrido|eléctrico|electrico|gas|petróleo|benc\.|dies\.|híb\.|elec\./.test(lower)) {
+    if (/km|kilometraje|kil[oó]metro|\d+\s*k\b|\d+\s*mil\b/.test(lower)) return createElement(IconGauge, { size: 18 });
+    if (/bencina|gasolina|diesel|diésel|híbrido|hibrido|eléctrico|electrico|gas|petróleo|eléct\./.test(lower)) {
         return createElement(IconGasStation, { size: 18 });
     }
-    if (/^(automático|automatico|manual|cvt|secuencial|auto|man)$/i.test(trimmed)) {
+    if (/automático|automatico|automát\.?|manual|cvt|secuencial|secuenc\./i.test(trimmed)) {
         return createElement(IconManualGearbox, { size: 18 });
     }
     if (/^(19|20)\d{2}$/.test(trimmed)) return createElement(IconCar, { size: 18 });

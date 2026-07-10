@@ -40,7 +40,6 @@ function buildExtraBadges(data: MarketplaceCardLike): ListingBadge[] {
     if (data.financing) badges.push({ label: 'Financiamiento', tone: 'neutral' });
     if (data.exchange) badges.push({ label: 'Permuta', tone: 'neutral' });
     else if (data.negotiable) badges.push({ label: 'Conversable', tone: 'neutral' });
-    if (data.isSponsored) badges.push({ label: 'Patrocinado', tone: 'info' });
     if (data.live) badges.push({ label: 'En vivo', tone: 'danger' });
     return badges;
 }
