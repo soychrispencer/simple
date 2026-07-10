@@ -10,6 +10,27 @@ function isOptimizableMediaHost(hostname: string): boolean {
     return true;
 }
 
+/** Base pública R2 (mismo bucket que producción). Override con NEXT_PUBLIC_MEDIA_BASE_URL. */
+function getClientR2PublicBase(): string {
+    const fromEnv = (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_MEDIA_BASE_URL : '')?.trim();
+    if (fromEnv) return fromEnv.replace(/\/+$/, '');
+    return 'https://pub-4809688bad1a41768578b221b0df942c.r2.dev';
+}
+
+/** Reescribe URLs legadas Backblaze B2 → R2 (mismos object keys). */
+export function rewriteLegacyBackblazeMediaUrl(url: string): string {
+    const trimmed = url.trim();
+    if (!trimmed || !/backblazeb2\.com/i.test(trimmed)) return trimmed;
+    try {
+        const parsed = new URL(trimmed);
+        const match = parsed.pathname.match(/^\/file\/simple-media\/(.+)$/i);
+        if (!match) return trimmed;
+        return `${getClientR2PublicBase()}/${decodeURIComponent(match[1])}`;
+    } catch {
+        return trimmed;
+    }
+}
+
 /**
  * Normaliza URLs de medios para mostrarlas en frontends Next con rewrite `/uploads/*`.
  * Las rutas locales siempre quedan same-origin (`/uploads/...`), sin apuntar al puerto de la API.
@@ -18,7 +39,7 @@ function isOptimizableMediaHost(hostname: string): boolean {
 export function resolveAppMediaUrl(url: string | null | undefined): string | null {
     if (!url?.trim()) return null;
 
-    const trimmed = url.trim();
+    const trimmed = rewriteLegacyBackblazeMediaUrl(url.trim());
     if (trimmed.startsWith('/uploads/')) return trimmed;
 
     if (/^https?:\/\//i.test(trimmed)) {
@@ -60,7 +81,7 @@ export function optimizeListingImageUrl(
     url: string | null | undefined,
     options: OptimizeListingImageOptions = {},
 ): string {
-    const trimmed = url?.trim() ?? '';
+    const trimmed = rewriteLegacyBackblazeMediaUrl(url?.trim() ?? '');
     if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
     if (trimmed.includes('/cdn-cgi/image/')) return trimmed;
 

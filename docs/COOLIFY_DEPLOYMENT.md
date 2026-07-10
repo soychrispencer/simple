@@ -72,7 +72,7 @@ CLOUDFLARE_R2_SECRET_ACCESS_KEY=     # ver .env local → CLOUDFLARE_R2_SECRET_A
 CLOUDFLARE_R2_BUCKET_NAME=simple-media
 CLOUDFLARE_R2_PUBLIC_URL=            # ver .env local → CLOUDFLARE_R2_PUBLIC_URL
 # CLOUDFLARE_WORKER_URL=             # opcional — overlays Instagram
-# ⚠️ Eliminar variables legadas BACKBLAZE_S3_* / BACKBLAZE_* si aún están en Coolify (migración a R2 completada).
+# No usar Backblaze: si quedan BACKBLAZE_* / B2_* en Coolify, eliminarlas (`pnpm coolify:env-fix`).
 
 GOOGLE_MAPS_API_KEY=                 # ver .env local → GOOGLE_MAPS_API_KEY
 

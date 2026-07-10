@@ -24,7 +24,7 @@ Centraliza los pasos mínimos para:
 ## Storage y migración
 
 - Fuente principal: `docs/STORAGE_SETUP.md`
-- Migración histórica (solo referencia): `docs/archive/MIGRATION_BACKBLAZE_TO_CLOUDFLARE.md`
+- Migración histórica de storage (completada; solo R2): ver docs de archivo si se necesita contexto.
 - Worker edge: `infrastructure/cloudflare/workers/instagram-overlay/README.md`
 
 ## Instagram / Cloudflare

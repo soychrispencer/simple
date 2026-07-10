@@ -11,6 +11,31 @@ function getR2PublicHostname(): string | null {
     }
 }
 
+function getR2PublicBaseUrl(): string {
+    return (process.env.CLOUDFLARE_R2_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+}
+
+/** Reescribe URLs legadas de Backblaze B2 al dominio público de R2 (mismos object keys). */
+export function rewriteLegacyBackblazeUrl(url: string): string {
+    const trimmed = url.trim();
+    if (!trimmed || !/backblazeb2\.com/i.test(trimmed)) return trimmed;
+
+    try {
+        const parsed = new URL(trimmed);
+        // https://f005.backblazeb2.com/file/simple-media/<key>
+        const match = parsed.pathname.match(/^\/file\/([^/]+)\/(.+)$/);
+        if (!match) return trimmed;
+        const [, bucket, key] = match;
+        const expectedBucket = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media';
+        if (bucket !== expectedBucket) return trimmed;
+        const publicBase = getR2PublicBaseUrl();
+        if (!publicBase) return trimmed;
+        return `${publicBase}/${decodeURIComponent(key)}`;
+    } catch {
+        return trimmed;
+    }
+}
+
 export function isCloudflareR2Url(url: string): boolean {
     try {
         const hostname = new URL(url).hostname;
@@ -89,7 +114,7 @@ export function buildMediaProxyUrl(url: string): string {
 }
 
 export function toDeliveredMediaUrl(url: string): string {
-    const normalized = url.trim();
+    const normalized = rewriteLegacyBackblazeUrl(url.trim());
     if (!normalized) return '';
 
     const apiBaseUrl = process.env.API_BASE_URL;

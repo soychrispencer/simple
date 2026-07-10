@@ -23,8 +23,10 @@ describe('resolveAppMediaUrl', () => {
         expect(resolveAppMediaUrl(r2)).toBe(r2);
     });
 
-    it('resolveAccountAvatarUrl es alias de resolveAppMediaUrl', () => {
-        expect(resolveAccountAvatarUrl('http://localhost:4000/uploads/x.webp')).toBe('/uploads/x.webp');
+    it('reescribe Backblaze B2 a R2 en resolveAppMediaUrl', () => {
+        expect(
+            resolveAppMediaUrl('https://f005.backblazeb2.com/file/simple-media/abc/photo.webp'),
+        ).toBe('https://pub-4809688bad1a41768578b221b0df942c.r2.dev/abc/photo.webp');
     });
 });
 
@@ -44,5 +46,14 @@ describe('optimizeListingImageUrl', () => {
     it('no doble-envuelve', () => {
         const already = 'https://media.simpleplataforma.app/cdn-cgi/image/width=400,quality=70,format=auto/listings/a.webp';
         expect(optimizeListingImageUrl(already, { width: 720 })).toBe(already);
+    });
+
+    it('reescribe Backblaze B2 a R2 público', () => {
+        expect(
+            optimizeListingImageUrl(
+                'https://f005.backblazeb2.com/file/simple-media/abc/photo.webp',
+                { width: 720 },
+            ),
+        ).toBe('https://pub-4809688bad1a41768578b221b0df942c.r2.dev/abc/photo.webp');
     });
 });
