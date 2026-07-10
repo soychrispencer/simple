@@ -291,7 +291,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
     const locationLabel = template ? clampPreviewText(template.locationLabel, isPropertyTemplate ? 28 : 24) : '';
     const ctaLabel = template ? clampPreviewText(template.ctaLabel, 24) : '';
     const priceLockup = template ? splitPreviewPrice(template.priceLabel) : { prefix: '', amount: '' };
-    const effectiveLayoutVariant = template?.layoutVariant ?? layoutVariant ?? 'square';
+    const effectiveLayoutVariant = template?.layoutVariant ?? layoutVariant ?? 'portrait';
     const brandAccent = getSimpleAppBrand(template?.branding.appId ?? 'simpleautos').accentLight;
 
     return (

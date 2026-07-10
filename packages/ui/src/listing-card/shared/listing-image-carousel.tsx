@@ -22,7 +22,7 @@ export default function ListingImageCarousel({
     title,
     seed,
     accent,
-    aspectClassName = 'aspect-[4/3]',
+    aspectClassName = 'aspect-[3/4]',
     rounded = 'rounded-t-2xl',
     showArrows = true,
     showDots = true,

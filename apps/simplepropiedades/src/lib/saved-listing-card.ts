@@ -1,5 +1,6 @@
 import type { PropertyListingCardData } from '@/components/listings/property-listing-card';
 import type { SavedListingRecord } from '@simple/utils';
+import { orderPropertyCardTags } from '@simple/ui/listings';
 
 type PropertySection = 'sale' | 'rent' | 'project';
 
@@ -24,7 +25,7 @@ export function mapSavedListingToPropertyCard(item: SavedListingRecord): Propert
         title: item.title,
         price: item.price,
         priceLabel: section === 'project' ? 'Proyecto' : section === 'rent' ? 'Arriendo' : 'Precio',
-        meta: item.meta ?? [],
+        meta: orderPropertyCardTags(item.meta ?? []),
         location: item.location || 'Chile',
         sellerName: item.sellerName ?? 'Cuenta SimplePropiedades',
         sellerMeta: item.sellerMeta,
@@ -33,6 +34,5 @@ export function mapSavedListingToPropertyCard(item: SavedListingRecord): Propert
         images,
         videoUrl: item.videoUrl,
         videoThumbnail: images[0],
-        ctaLabel: section === 'project' ? 'Ver proyecto' : section === 'rent' ? 'Ver disponibilidad' : 'Ver detalle',
     };
 }

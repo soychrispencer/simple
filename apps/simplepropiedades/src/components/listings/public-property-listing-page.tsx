@@ -12,6 +12,7 @@ import PropertyFilters from '@/components/listings/property-filters';
 import { fetchPublicListings, type PublicListing, type PublicListingSection } from '@/lib/public-listings';
 import { parsePropertyListingSearchParams } from '@/lib/property-search-params';
 import { resolveListingSellerAvatarUrl } from '@simple/utils';
+import { orderPropertyCardTags } from '@simple/ui/listings';
 import { PanelCard } from '@simple/ui/panel';
 import { PanelNotice, PanelPageHeader, PanelSegmentedToggle } from '@simple/ui/panel';
 
@@ -22,31 +23,8 @@ function extractPriceNumber(value: string): number {
     return Number(normalized || '0');
 }
 
-function orderPropertyTags(tags: string[]): string[] {
-    const allowedPatterns = [
-        /casa|departamento|oficina|terreno|local|bodega|estacionamiento/i,
-        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
-        /m²|m2|metros|metraje|superficie/i,
-        /habitaciones|dormitorios|habitación|dormitorio/i,
-        /baños|baño/i
-    ];
-
-    const ordered: string[] = [];
-
-    for (const tag of tags) {
-        const lower = tag.toLowerCase();
-        for (let i = 0; i < allowedPatterns.length; i++) {
-            if (allowedPatterns[i].test(lower)) {
-                ordered[i] = tag;
-                break;
-            }
-        }
-    }
-
-    return ordered.filter(Boolean).slice(0, 5);
-}
-
 function toCardData(item: PublicListing): PropertyListingCardData {
+    const meta = orderPropertyCardTags(item.summary);
     return {
         id: item.id,
         href: item.href,
@@ -54,7 +32,7 @@ function toCardData(item: PublicListing): PropertyListingCardData {
         price: item.price,
         priceLabel: item.section === 'project' ? 'Proyecto' : item.section === 'rent' ? 'Arriendo' : 'Precio',
         subtitle: item.description,
-        meta: orderPropertyTags(item.summary),
+        meta,
         highlights: item.summary,
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'Cuenta SimplePropiedades',
@@ -72,7 +50,6 @@ function toCardData(item: PublicListing): PropertyListingCardData {
             views24h: item.views,
             saves: item.favs,
         },
-        ctaLabel: item.section === 'project' ? 'Ver proyecto' : 'Ver detalle',
     };
 }
 

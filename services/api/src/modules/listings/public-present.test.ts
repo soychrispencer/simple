@@ -61,6 +61,38 @@ describe('listingToPublicResponse', () => {
         expect(item.days).toBe(3);
     });
 
+    it('no usa avatar personal si el negocio no tiene logo', () => {
+        const withoutLogo = createListingPublicPresent({
+            toPublicMediaUrl: (value) => (typeof value === 'string' ? value : ''),
+            publicSectionLabel: (section) => (section === 'rent' ? 'Arriendo' : 'Venta'),
+            buildLocationPublicLabel: () => '',
+            humanizePublicLocationFallback: (location) => location,
+            listingAgeDays: (createdAt) => (createdAt ? 3 : 0),
+            formatAgo: () => 'hace 1 día',
+            usernameFromName: (name) => name.toLowerCase().replace(/\s+/g, '-'),
+            usersById: new Map([
+                ['user-1', {
+                    id: 'user-1',
+                    name: 'Ana Pérez',
+                    email: 'ana@example.com',
+                    phone: '+569',
+                    avatar: '/uploads/personal.webp',
+                }],
+            ]),
+            getPublishedSellerProfile: () => ({
+                displayName: 'Ana Autos',
+                slug: 'ana-autos',
+                avatarImageUrl: null,
+                publicEmail: null,
+                publicPhone: null,
+                publicWhatsapp: null,
+            }),
+        });
+
+        const item = withoutLogo.listingToPublicResponse(baseListing());
+        expect(item.seller?.avatarUrl).toBeNull();
+    });
+
     it('oculta listings no activos', () => {
         expect(present.isPublicListingVisible(baseListing())).toBe(true);
         expect(present.isPublicListingVisible(baseListing({ status: 'draft' }))).toBe(false);
@@ -71,5 +103,55 @@ describe('listingToPublicResponse', () => {
         expect(present.matchesListingSlug(listing, 'lst-1')).toBe(true);
         expect(present.matchesListingSlug(listing, 'corolla-2020')).toBe(true);
         expect(present.matchesListingSlug(listing, 'otro')).toBe(false);
+    });
+
+    it('summary residencial usa D/B/E/Bo ordenados', () => {
+        const item = present.listingToPublicResponse(baseListing({
+            vertical: 'propiedades',
+            section: 'sale',
+            title: 'Depto Providencia',
+            rawData: {
+                basic: {
+                    propertyType: 'Departamento',
+                    rooms: 2,
+                    bathrooms: 1,
+                    parkingSpaces: 1,
+                    storageUnits: 1,
+                    totalArea: 65,
+                },
+            },
+        }));
+        expect(item.summary).toEqual(['2D', '1B', '1E', '1Bo']);
+    });
+
+    it('summary no residencial usa tipo y m²', () => {
+        const item = present.listingToPublicResponse(baseListing({
+            vertical: 'propiedades',
+            section: 'sale',
+            title: 'Oficina Las Condes',
+            rawData: {
+                basic: {
+                    propertyType: 'Oficina',
+                    totalArea: 120,
+                    parkingSpaces: 2,
+                },
+            },
+        }));
+        expect(item.summary).toEqual(['Oficina', '120 m²', '2E']);
+    });
+
+    it('summary autos prioriza año, tipo, km y combustible', () => {
+        const item = present.listingToPublicResponse(baseListing({
+            rawData: {
+                basic: {
+                    year: '2020',
+                    bodyType: 'Sedán',
+                    mileage: '45000',
+                    fuelType: 'Bencina',
+                    transmission: 'Automático',
+                },
+            },
+        }));
+        expect(item.summary).toEqual(['2020', 'Sedán', '45.000 km', 'Bencina', 'Automático']);
     });
 });

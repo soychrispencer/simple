@@ -17,6 +17,9 @@ import {
     PUBLIC_PROFILE_PRODUCTS_EMPTY_MESSAGE,
 } from '@simple/ui/panel';
 import {
+    orderPropertyCardTags,
+} from '@simple/ui/listings';
+import {
     isPublicProfileOperatorCatalogEmpty,
     isPublicProfileOperatorProductsEmpty,
     mapPublicProfileOperatorCatalog,
@@ -32,7 +35,7 @@ function toCardData(item: PublicListing): PropertyListingCardData {
         price: item.price,
         priceLabel: item.section === 'project' ? 'Proyecto' : item.section === 'rent' ? 'Arriendo' : 'Precio',
         subtitle: item.description,
-        meta: item.summary,
+        meta: orderPropertyCardTags(item.summary),
         highlights: item.summary,
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'Cuenta SimplePropiedades',

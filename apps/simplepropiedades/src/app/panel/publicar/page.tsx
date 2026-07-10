@@ -18,6 +18,7 @@ import {
     IconBuildingCommunity,
     IconBuildingSkyscraper,
     IconBuildingStore,
+    IconBox,
     IconCalculator,
     IconCamera,
     IconCheck,
@@ -251,12 +252,32 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
 
     const specs: SimplePublishPreviewCardProps['specs'] = [];
     if (data.setup.operationType !== 'project') {
-        if (data.basic.rooms) specs.push({ icon: <IconBed size={11} />, label: `${data.basic.rooms} dorm` });
-        if (data.basic.bathrooms) specs.push({ icon: <IconBath size={11} />, label: `${data.basic.bathrooms} baños` });
-        if (data.basic.parkingSpaces !== '') specs.push({ icon: <IconParking size={11} />, label: `${data.basic.parkingSpaces} est.` });
-        if (data.basic.storageUnits !== '') specs.push({ icon: <IconBuildingStore size={11} />, label: `${data.basic.storageUnits} bodega` });
-        const surfaceLabel = formatPropertySurfacePreviewLabel(data);
-        if (surfaceLabel) specs.push({ icon: <IconRuler size={11} />, label: surfaceLabel });
+        const propertyType = (data.basic.propertyType || '').toLowerCase();
+        const residential = /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio/.test(propertyType)
+            || Boolean(data.basic.rooms)
+            || Boolean(data.basic.bathrooms);
+
+        if (residential) {
+            specs.push({ icon: <IconBed size={14} />, label: data.basic.rooms ? `${data.basic.rooms}D` : '—' });
+            specs.push({ icon: <IconBath size={14} />, label: data.basic.bathrooms ? `${data.basic.bathrooms}B` : '—' });
+            specs.push({
+                icon: <IconParking size={14} />,
+                label: data.basic.parkingSpaces !== '' ? `${data.basic.parkingSpaces}E` : '—',
+            });
+            specs.push({
+                icon: <IconBox size={14} />,
+                label: data.basic.storageUnits !== '' ? `${data.basic.storageUnits}Bo` : '—',
+            });
+        } else {
+            if (data.basic.propertyType) {
+                specs.push({ icon: <IconBuildingStore size={14} />, label: data.basic.propertyType });
+            }
+            const surfaceLabel = formatPropertySurfacePreviewLabel(data);
+            if (surfaceLabel) specs.push({ icon: <IconRuler size={14} />, label: surfaceLabel });
+            if (data.basic.parkingSpaces !== '') {
+                specs.push({ icon: <IconParking size={14} />, label: `${data.basic.parkingSpaces}E` });
+            }
+        }
     }
 
     const extraChips: SimplePublishPreviewCardProps['extraChips'] = [];
@@ -274,6 +295,7 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
         priceOriginal,
         title,
         location,
+        accent: 'propiedades',
         photoUrls: data.media.photos
             .map((photo) => photo.previewUrl || photo.dataUrl)
             .filter(Boolean),
@@ -281,6 +303,7 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
         specs,
         extraChips,
         ctaLabel: data.setup.operationType === 'rent' ? 'Ver disponibilidad' : data.setup.operationType === 'project' ? 'Ver proyecto' : 'Ver detalle',
+        sellerName: 'Tu negocio',
         brandLabel: 'SimplePropiedades',
         footerHint: 'Así se verá en SimplePropiedades',
     };

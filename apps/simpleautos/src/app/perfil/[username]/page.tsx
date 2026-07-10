@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 import { fetchPublicProfile, type PublicListing } from '@/lib/public-listings';
 import { resolveListingSellerAvatarUrl } from '@simple/utils';
+import { orderVehicleCardTags } from '@simple/ui/listings';
 import {
     PublicProfileShell,
     getPublicProfileTodayState,
@@ -21,7 +22,7 @@ function toCardData(item: PublicListing): VehicleListingCardData {
         price: item.price,
         priceLabel: item.section === 'rent' ? 'Arriendo' : item.section === 'auction' ? 'Oferta actual' : 'Precio',
         subtitle: item.description,
-        meta: item.summary,
+        meta: orderVehicleCardTags(item.summary),
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'Cuenta SimpleAutos',
         sellerMeta: `Actualizado hace ${item.publishedAgo}`,

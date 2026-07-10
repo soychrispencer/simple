@@ -33,7 +33,7 @@ export function FeaturedBoostSliderSection<T extends string = string>({
     onTabChange,
     loading,
     slides,
-    placeholderAspectClass = 'aspect-4/3',
+    placeholderAspectClass = 'aspect-[3/4]',
 }: FeaturedBoostSliderSectionProps<T>) {
     const hasSlides = slides.length > 0;
 

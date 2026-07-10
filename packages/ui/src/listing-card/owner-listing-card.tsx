@@ -1,16 +1,28 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { IconRocket, IconShare3, IconCopy, IconBrandWhatsapp, IconBrandInstagram, IconCheck, IconTag } from '@tabler/icons-react';
+import { fetchAccountPublicProfile, formatListingPrice, resolveAppMediaUrl } from '@simple/utils';
 import { PanelStatusBadge } from '../panel/panel-primitives';
 import ListingEngagementRow from './shared/listing-engagement-row';
 import ListingOwnerActions from './shared/listing-owner-actions';
 import ListingAnchoredMenu from './shared/listing-anchored-menu';
 import { buildReelSpecsFromMetaTags } from './shared/build-reel-specs';
-import { formatChileanPeso, ownerStatusPalette, variantBadgeLabel, defaultCtaByVariant } from './shared/utils';
+import { ownerStatusPalette, variantBadgeLabel, defaultCtaByVariant } from './shared/utils';
 import MarketplaceReelListingCard from './marketplace-reel-listing-card';
 import type { MarketplaceReelChip } from './marketplace-reel-listing-card';
-import type { OwnerListingCardProps } from './types';
+import type { ListingPrice, OwnerListingCardProps } from './types';
+
+function formatOwnerCardPrice(price: ListingPrice): string {
+    const caption = price.caption?.trim() ?? '';
+    if (/^(UF|USD)$/i.test(caption)) {
+        return formatListingPrice(`${caption.toUpperCase()} ${price.amount}`);
+    }
+    if (price.secondary && /^(UF|USD)\b/i.test(price.secondary.trim())) {
+        return formatListingPrice(price.secondary);
+    }
+    return formatListingPrice(`$${price.amount}`);
+}
 
 export default function OwnerListingCard(props: OwnerListingCardProps) {
     const {
@@ -26,6 +38,8 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
         status,
         statusLabel,
         engagement,
+        sellerName = 'Tu negocio',
+        sellerAvatarUrl,
         primaryAction,
         secondaryActions,
         mode,
@@ -35,6 +49,36 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
         onBoost,
         shareOptions,
     } = props;
+
+    const [resolvedSellerName, setResolvedSellerName] = useState(sellerName);
+    const [resolvedSellerAvatarUrl, setResolvedSellerAvatarUrl] = useState(sellerAvatarUrl);
+
+    useEffect(() => {
+        setResolvedSellerName(sellerName);
+        setResolvedSellerAvatarUrl(sellerAvatarUrl);
+    }, [sellerAvatarUrl, sellerName]);
+
+    useEffect(() => {
+        if (sellerAvatarUrl && sellerName !== 'Tu negocio') return;
+        let cancelled = false;
+        void fetchAccountPublicProfile(accent === 'propiedades' ? 'propiedades' : 'autos')
+            .then((response) => {
+                if (cancelled || !response?.ok || !response.profile) return;
+                const profile = response.profile;
+                if (!sellerAvatarUrl) {
+                    const logo = resolveAppMediaUrl(profile.avatarImageUrl);
+                    if (logo) setResolvedSellerAvatarUrl(logo);
+                }
+                if (sellerName === 'Tu negocio') {
+                    const name = profile.displayName?.trim() || profile.companyName?.trim();
+                    if (name) setResolvedSellerName(name);
+                }
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [accent, sellerAvatarUrl, sellerName]);
 
     const palette = ownerStatusPalette(status, statusLabel);
 
@@ -221,15 +265,17 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
     const reelCard = (
         <MarketplaceReelListingCard
             mode={mode}
+            accent={accent}
             href={href}
             title={title}
-            price={formatChileanPeso(price.amount)}
-            priceOriginal={price.original != null ? formatChileanPeso(price.original) : undefined}
+            price={formatOwnerCardPrice(price)}
+            priceOriginal={price.original != null ? formatOwnerCardPrice({ ...price, amount: price.original }) : undefined}
             location={location}
             images={images.map((image) => image.src)}
             specs={buildReelSpecsFromMetaTags(metaTags, accent)}
             chips={reelChips}
-            sellerName=""
+            sellerName={resolvedSellerName}
+            sellerAvatarUrl={resolvedSellerAvatarUrl}
             ctaLabel={defaultCtaByVariant(variant)}
             onNavigate={activate}
             shareText={title}

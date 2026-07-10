@@ -228,7 +228,7 @@ export async function prepareInstagramImageUrl(
     if (!rawUrl) throw new Error('La publicación no tiene imágenes en el índice solicitado.');
 
     const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media';
-    const effectiveLayoutVariant = options.layoutVariant ?? options.template?.layoutVariant ?? 'square';
+    const effectiveLayoutVariant = options.layoutVariant ?? options.template?.layoutVariant ?? 'portrait';
     const targetHeight = effectiveLayoutVariant === 'portrait' ? 1350 : 1080;
 
     const templateSuffix = options.template ? `-${options.template.id}` : '';

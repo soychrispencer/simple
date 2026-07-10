@@ -163,22 +163,28 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         }
 
         const rooms = parseNumberFromString(basic.rooms);
-        if (rooms != null) appendUniqueSummary(summary, `${rooms.toLocaleString('es-CL')}D`);
-
         const bathrooms = parseNumberFromString(basic.bathrooms);
-        if (bathrooms != null) appendUniqueSummary(summary, `${bathrooms.toLocaleString('es-CL')}B`);
-
-        const totalArea = parseNumberFromString(basic.totalArea ?? basic.surface);
-        if (totalArea != null) appendUniqueSummary(summary, `${totalArea.toLocaleString('es-CL')} m²`);
-
         const parkingSpaces = parseNumberFromString(basic.parkingSpaces);
-        if (parkingSpaces != null) appendUniqueSummary(summary, `${parkingSpaces.toLocaleString('es-CL')} est.`);
-
         const storageUnits = parseNumberFromString(basic.storageUnits);
-        if (storageUnits != null) appendUniqueSummary(summary, `${storageUnits.toLocaleString('es-CL')} bod.`);
+        const totalArea = parseNumberFromString(basic.totalArea ?? basic.surface);
+        const propertyType = asString(basic.propertyType);
+        const residential = /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio/i.test(propertyType);
 
-        appendUniqueSummary(summary, asString(basic.propertyType));
-        return summary.slice(0, 5);
+        if (residential || rooms != null || bathrooms != null) {
+            // Residencial: dorm → baño → est. → bodega (coherente en cards)
+            if (rooms != null) appendUniqueSummary(summary, `${rooms.toLocaleString('es-CL')}D`);
+            if (bathrooms != null) appendUniqueSummary(summary, `${bathrooms.toLocaleString('es-CL')}B`);
+            if (parkingSpaces != null) appendUniqueSummary(summary, `${parkingSpaces.toLocaleString('es-CL')}E`);
+            if (storageUnits != null) appendUniqueSummary(summary, `${storageUnits.toLocaleString('es-CL')}Bo`);
+            return summary.slice(0, 4);
+        }
+
+        appendUniqueSummary(summary, propertyType);
+        if (totalArea != null) appendUniqueSummary(summary, `${totalArea.toLocaleString('es-CL')} m²`);
+        if (parkingSpaces != null) appendUniqueSummary(summary, `${parkingSpaces.toLocaleString('es-CL')}E`);
+        if (rooms != null) appendUniqueSummary(summary, `${rooms.toLocaleString('es-CL')}D`);
+        if (bathrooms != null) appendUniqueSummary(summary, `${bathrooms.toLocaleString('es-CL')}B`);
+        return summary.slice(0, 4);
     }
 
     function extractListingSummary(record: ListingPublicRecord): string[] {
@@ -204,8 +210,8 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         const sellerName = sellerProfile?.displayName ?? owner?.name ?? 'Cuenta verificada';
         const username = sellerProfile?.slug ?? usernameFromName(sellerName);
         const profileAvatar = toPublicMediaUrl(sellerProfile?.avatarImageUrl);
-        const accountAvatar = toPublicMediaUrl(owner?.avatar);
-        const avatarUrl = profileAvatar || accountAvatar || null;
+        // Solo logo del negocio/perfil público; sin fallback a avatar personal.
+        const avatarUrl = profileAvatar || null;
         const sellerEmail = sellerProfile?.publicEmail?.trim() || owner?.email || null;
         const sellerPhone = sellerProfile?.publicPhone?.trim()
             || sellerProfile?.publicWhatsapp?.trim()

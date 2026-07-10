@@ -15,6 +15,23 @@ export {
 } from '../listing-card/operator-directory-card';
 export { mapMarketplaceCardToPublicProps } from '../listing-card/shared/map-marketplace-card';
 export {
+    LISTING_CARD_COMMERCIAL_ASPECT,
+    LISTING_CARD_GRID_IMAGE_ASPECT,
+    LISTING_CARD_LIST_IMAGE_ASPECT,
+    LISTING_SOCIAL_VERTICAL_ASPECT,
+} from '../listing-card/shared/card-layout';
+export {
+    abbreviateListingSpecLabel,
+    buildReelSpecsFromMetaTags,
+    isResidentialPropertyType,
+    orderPropertyCardTags,
+    orderVehicleCardTags,
+    propertySpecIconForLabel,
+    reelSpecPlaceholder,
+    shortenListingLocation,
+    vehicleSpecIconForLabel,
+} from '../listing-card/shared/build-reel-specs';
+export {
     MarketplaceReelShareMenu,
     buildDefaultReelShareMenuItems,
 } from '../listing-card/marketplace-reel-share-menu';

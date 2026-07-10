@@ -90,6 +90,10 @@ export type OwnerListingCardProps = {
     statusLabel?: string;
     statusHint?: string;
     engagement: ListingEngagement & { conversionsLabel?: string };
+    /** Nombre del negocio para el avatar (mismo layout que marketplace). */
+    sellerName?: string;
+    /** Logo del negocio; si falta, se muestra el ícono por defecto. */
+    sellerAvatarUrl?: string;
     primaryAction?: {
         label: string;
         onSelect: () => void;

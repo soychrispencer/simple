@@ -11,37 +11,14 @@ import {
     type PublicListingSection,
 } from '@/lib/public-listings';
 import { resolveListingSellerAvatarUrl } from '@simple/utils';
+import { orderVehicleCardTags } from '@simple/ui/listings';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 
 const SECTIONS: PublicListingSection[] = ['sale', 'rent', 'auction'];
 const MAX_CARDS = 30;
 
-function orderVehicleTags(tags: string[]): string[] {
-    const allowedPatterns = [
-        /auto|sedán|hatchback|suv|camioneta|pickup|van|bus|deportivo|coupe|moto|cuatrimoto|convertible/i,
-        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
-        /km|kilometraje|kilómetro/i,
-        /bencina|diesel|híbrido|hibrido|eléctrico|electrico|gas|petróleo/i,
-        /automático|automatico|manual|cvt|secuencial/i
-    ];
-
-    const ordered: string[] = [];
-
-    for (const tag of tags) {
-        const lower = tag.toLowerCase();
-        for (let i = 0; i < allowedPatterns.length; i++) {
-            if (allowedPatterns[i].test(lower)) {
-                ordered[i] = tag;
-                break;
-            }
-        }
-    }
-
-    return ordered.filter(Boolean).slice(0, 5);
-}
-
 function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardData {
-    const metaItems = orderVehicleTags(
+    const metaItems = orderVehicleCardTags(
         item.summary.slice(0, 5).filter(p => !p.includes('Publicación SimpleAutos') && !p.includes('Publicación SimplePropiedades'))
     );
     const listedLabel = item.days === 0 ? 'Publicado hoy' : item.days === 1 ? 'Publicado ayer' : `Publicado hace ${item.days} días`;

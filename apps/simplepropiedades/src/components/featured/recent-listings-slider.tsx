@@ -11,37 +11,15 @@ import {
     type PublicListingSection,
 } from '@/lib/public-listings';
 import { resolveListingSellerAvatarUrl } from '@simple/utils';
+import { orderPropertyCardTags } from '@simple/ui/listings';
 import PropertyListingCard, { type PropertyListingCardData } from '@/components/listings/property-listing-card';
 
 const SECTIONS: PublicListingSection[] = ['sale', 'rent', 'project'];
 const MAX_CARDS = 30;
 
-function orderPropertyTags(tags: string[]): string[] {
-    const allowedPatterns = [
-        /casa|departamento|oficina|terreno|local|bodega|estacionamiento/i,
-        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
-        /m²|m2|metros|metraje|superficie/i,
-        /habitaciones|dormitorios|habitación|dormitorio/i,
-        /baños|baño/i,
-    ];
-
-    const ordered: string[] = [];
-
-    for (const tag of tags) {
-        const lower = tag.toLowerCase();
-        for (let i = 0; i < allowedPatterns.length; i++) {
-            if (allowedPatterns[i].test(lower)) {
-                ordered[i] = tag;
-                break;
-            }
-        }
-    }
-
-    return ordered.filter(Boolean).slice(0, 5);
-}
 
 function mapPublicListingToPropertyCard(item: PublicListing): PropertyListingCardData {
-    const metaItems = orderPropertyTags(
+    const metaItems = orderPropertyCardTags(
         item.summary.slice(0, 5).filter((p) => !p.includes('Publicación SimplePropiedades')),
     );
     const listedLabel = item.days === 0 ? 'Publicado hoy' : item.days === 1 ? 'Publicado ayer' : `Publicado hace ${item.days} días`;

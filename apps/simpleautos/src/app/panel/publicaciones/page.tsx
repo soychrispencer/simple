@@ -52,7 +52,7 @@ import { InstagramTemplatePreview } from '@simple/ui/integrations';
 import { PanelIconButton } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
 import { PanelButton, PanelNotice, PanelPillNav, PanelSegmentedToggle, PanelStatusBadge, PanelScrollModal, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
-import { OwnerListingCard } from '@simple/ui/listings';
+import { OwnerListingCard, LISTING_SOCIAL_VERTICAL_ASPECT, orderVehicleCardTags } from '@simple/ui/listings';
 import type { OwnerListingAction, OwnerListingStatus, ListingVariant } from '@simple/ui/listings';
 
 const PORTAL_ORDER: PortalKey[] = ['yapo', 'chileautos', 'mercadolibre', 'facebook'];
@@ -136,29 +136,6 @@ function getListingCommune(listing: PanelListing): string {
     return parts[0] || 'Chile';
 }
 
-function orderVehicleTags(tags: string[]): string[] {
-    const allowedPatterns = [
-        /auto|sedán|hatchback|suv|camioneta|pickup|van|bus|deportivo|coupe|moto|cuatrimoto|convertible/i,
-        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
-        /km|kilometraje|kilómetro/i,
-        /bencina|diesel|híbrido|hibrido|eléctrico|electrico|gas|petróleo/i,
-        /automático|automatico|manual|cvt|secuencial/i
-    ];
-
-    const ordered: string[] = [];
-
-    for (const tag of tags) {
-        for (const pattern of allowedPatterns) {
-            if (pattern.test(tag)) {
-                ordered.push(tag);
-                break;
-            }
-        }
-    }
-
-    return ordered.filter(Boolean).slice(0, 5);
-}
-
 function getListingTags(listing: PanelListing): string[] {
     const rawData = listing.rawData as any;
     const payload = rawData || {};
@@ -178,7 +155,7 @@ function getListingTags(listing: PanelListing): string[] {
     if (basic.transmission) summary.push(String(basic.transmission));
     if (basic.condition) summary.push(String(basic.condition));
     
-    return orderVehicleTags(summary.slice(0, 5));
+    return orderVehicleCardTags(summary);
 }
 
 export default function PublicacionesPage() {
@@ -674,7 +651,7 @@ export default function PublicacionesPage() {
                 targetAudience: 'general',
                 captionOverride: previewCaption,
                 templateId: isReel ? null : (activeTemplate?.id ?? null),
-                layoutVariant: isReel ? null : (activeTemplate?.layoutVariant ?? 'square'),
+                layoutVariant: isReel ? null : (activeTemplate?.layoutVariant ?? 'portrait'),
                 mediaFormat: instagramMediaFormat,
             });
             const publication = result.publication ?? result.result;
@@ -1155,7 +1132,7 @@ export default function PublicacionesPage() {
                                             </button>
                                         </div>
                                         {instagramMediaFormat === 'reel' ? (
-                                            <div className="w-full max-w-[420px] mx-auto aspect-[9/16] overflow-hidden rounded-2xl bg-black">
+                                            <div className={`w-full max-w-[420px] mx-auto ${LISTING_SOCIAL_VERTICAL_ASPECT} overflow-hidden rounded-2xl bg-black`}>
                                                 <video
                                                     src={getListingVideoUrl(previewListing) ?? undefined}
                                                     className="h-full w-full object-cover"
@@ -1171,7 +1148,7 @@ export default function PublicacionesPage() {
                                             }`}
                                             imageUrl={getListingImages(previewListing)[instagramCarouselIndex] ?? null}
                                             template={instagramCarouselIndex === 0 ? activeTemplate : null}
-                                            layoutVariant={activeTemplate?.layoutVariant ?? 'square'}
+                                            layoutVariant={activeTemplate?.layoutVariant ?? 'portrait'}
                                             fallback={<IconCar size={40} />}
                                         >
                                             {getListingImages(previewListing).length > 1 && (

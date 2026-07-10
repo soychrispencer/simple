@@ -319,7 +319,7 @@
 }
 .prop-live-preview__media {
     position: relative;
-    aspect-ratio: 9 / 14;
+    aspect-ratio: 3 / 4;
     overflow: hidden;
     background: var(--bg);
 }
@@ -379,6 +379,6 @@
     }
 
     .prop-live-preview__media {
-        aspect-ratio: 4 / 5;
+        aspect-ratio: 3 / 4;
     }
 }

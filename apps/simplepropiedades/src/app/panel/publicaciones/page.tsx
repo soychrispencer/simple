@@ -134,29 +134,6 @@ function getListingCommune(listing: PanelListing): string {
     return parts[0] || 'Chile';
 }
 
-function orderPropertyTags(tags: string[]): string[] {
-    const allowedPatterns = [
-        /casa|departamento|oficina|terreno|local|bodega|estacionamiento/i,
-        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
-        /m²|m2|metros|metraje|superficie/i,
-        /habitaciones|dormitorios|habitación|dormitorio/i,
-        /baños|baño/i
-    ];
-
-    const ordered: string[] = [];
-
-    for (const tag of tags) {
-        for (const pattern of allowedPatterns) {
-            if (pattern.test(tag)) {
-                ordered.push(tag);
-                break;
-            }
-        }
-    }
-
-    return ordered.filter(Boolean).slice(0, 5);
-}
-
 function getListingTags(listing: PanelListing): string[] {
     const rawData = listing.rawData as any;
     const payload = rawData || {};
@@ -165,35 +142,42 @@ function getListingTags(listing: PanelListing): string[] {
     const project = payload.project || {};
     const summary: string[] = [];
     const isProject = listing.section === 'project' || setup.operationType === 'project';
-    
-    // Extract property tags matching API logic
+
     if (isProject) {
         if (project.projectName) summary.push(String(project.projectName));
         if (project.availableUnits) {
             const units = parseInt(String(project.availableUnits).replace(/[^\d]/g, ''), 10);
             if (!isNaN(units)) summary.push(`${units.toLocaleString('es-CL')} unidades`);
         }
-    } else {
-        if (basic.propertyType) summary.push(String(basic.propertyType));
-        if (basic.condition) summary.push(String(basic.condition));
-        
-        if (basic.bedrooms) {
-            const bedrooms = parseInt(String(basic.bedrooms).replace(/[^\d]/g, ''), 10);
-            if (!isNaN(bedrooms)) summary.push(`${bedrooms} dormitorios`);
+        if (project.usableAreaFrom) {
+            const from = parseInt(String(project.usableAreaFrom).replace(/[^\d]/g, ''), 10);
+            if (!isNaN(from)) summary.push(`Desde ${from.toLocaleString('es-CL')} m²`);
         }
-        
-        if (basic.bathrooms) {
-            const bathrooms = parseInt(String(basic.bathrooms).replace(/[^\d]/g, ''), 10);
-            if (!isNaN(bathrooms)) summary.push(`${bathrooms} baños`);
-        }
-        
-        if (basic.totalArea || basic.surface) {
-            const surface = parseInt(String(basic.totalArea || basic.surface).replace(/[^\d]/g, ''), 10);
-            if (!isNaN(surface)) summary.push(`${surface.toLocaleString('es-CL')} m²`);
-        }
+        return summary.slice(0, 4);
     }
-    
-    return orderPropertyTags(summary.slice(0, 5));
+
+    const propertyType = String(basic.propertyType || '');
+    const rooms = parseInt(String(basic.rooms ?? basic.bedrooms || '').replace(/[^\d]/g, ''), 10);
+    const bathrooms = parseInt(String(basic.bathrooms || '').replace(/[^\d]/g, ''), 10);
+    const parking = parseInt(String(basic.parkingSpaces || '').replace(/[^\d]/g, ''), 10);
+    const storage = parseInt(String(basic.storageUnits || '').replace(/[^\d]/g, ''), 10);
+    const residential = /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio/i.test(propertyType)
+        || Number.isFinite(rooms)
+        || Number.isFinite(bathrooms);
+
+    if (residential) {
+        if (Number.isFinite(rooms)) summary.push(`${rooms}D`);
+        if (Number.isFinite(bathrooms)) summary.push(`${bathrooms}B`);
+        if (Number.isFinite(parking)) summary.push(`${parking}E`);
+        if (Number.isFinite(storage)) summary.push(`${storage}Bo`);
+        return summary.slice(0, 4);
+    }
+
+    if (propertyType) summary.push(propertyType);
+    const surface = parseInt(String(basic.totalArea || basic.surface || '').replace(/[^\d]/g, ''), 10);
+    if (Number.isFinite(surface)) summary.push(`${surface.toLocaleString('es-CL')} m²`);
+    if (Number.isFinite(parking)) summary.push(`${parking}E`);
+    return summary.slice(0, 4);
 }
 
 export default function PublicacionesPage() {
@@ -539,6 +523,11 @@ export default function PublicacionesPage() {
 
     const toOwnerCardData = (listing: PanelListing, mode: 'grid' | 'list') => {
         const amount = parseInt(String(listing.price).replace(/[^\d]/g, ''), 10);
+        const priceCaption = /^UF\b/i.test(String(listing.price).trim())
+            ? 'UF'
+            : /^USD\b/i.test(String(listing.price).trim())
+                ? 'USD'
+                : undefined;
         const sectionToVariant: Record<PanelListing['section'], ListingVariant> = {
             sale: 'sale',
             rent: 'rent',
@@ -655,7 +644,10 @@ export default function PublicacionesPage() {
             id: listing.id,
             href: listing.href || getFallbackHref(listing.section),
             title: listing.title,
-            price: { amount: Number.isFinite(amount) ? amount : 0 },
+            price: {
+                amount: Number.isFinite(amount) ? amount : 0,
+                caption: priceCaption,
+            },
             variant,
             mode,
             accent: 'propiedades' as const,

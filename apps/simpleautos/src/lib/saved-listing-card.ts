@@ -1,5 +1,6 @@
 import type { VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 import type { SavedListingRecord } from '@simple/utils';
+import { orderVehicleCardTags } from '@simple/ui/listings';
 
 type VehicleSection = 'sale' | 'rent' | 'auction';
 
@@ -24,7 +25,7 @@ export function mapSavedListingToVehicleCard(item: SavedListingRecord): VehicleL
         title: item.title,
         price: item.price,
         priceLabel: section === 'rent' ? 'Arriendo' : section === 'auction' ? 'Oferta actual' : 'Precio',
-        meta: item.meta ?? [],
+        meta: orderVehicleCardTags(item.meta ?? []),
         location: item.location || 'Chile',
         sellerName: item.sellerName ?? 'Cuenta SimpleAutos',
         sellerMeta: item.sellerMeta,
@@ -33,6 +34,5 @@ export function mapSavedListingToVehicleCard(item: SavedListingRecord): VehicleL
         images,
         videoUrl: item.videoUrl,
         videoThumbnail: images[0],
-        ctaLabel: section === 'rent' ? 'Ver disponibilidad' : section === 'auction' ? 'Ver subasta' : 'Ver detalle',
     };
 }

@@ -5,17 +5,22 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@simple/auth';
 import { isListingSaved, subscribeSavedListings, toggleSavedListing } from '@simple/utils';
 import {
+    IconBed,
+    IconBath,
+    IconBox,
+    IconBuilding,
+    IconHome,
+    IconParking,
+    IconRuler,
+} from '@tabler/icons-react';
+import {
     MarketplaceReelListingCard,
+    abbreviateListingSpecLabel,
+    orderPropertyCardTags,
+    propertySpecIconForLabel,
     type MarketplaceReelChip,
     type MarketplaceReelSpec,
 } from '@simple/ui/listings';
-import {
-    IconBed,
-    IconBath,
-    IconBuilding,
-    IconHome,
-    IconRuler,
-} from '@tabler/icons-react';
 
 type CardVariant = 'sale' | 'rent' | 'project';
 
@@ -47,6 +52,8 @@ export type PropertyListingCardData = {
     videoThumbnail?: string;
     bedrooms?: number;
     bathrooms?: number;
+    parkingSpaces?: number;
+    storageUnits?: number;
     surface?: string;
     propertyType?: string;
     highlights?: string[];
@@ -76,22 +83,15 @@ function variantLabel(variant?: CardVariant): string {
 }
 
 function buildSpecs(data: PropertyListingCardData): MarketplaceReelSpec[] {
-    if (data.meta.length > 0) {
-        const iconCycle = [
-            <IconBuilding key="type" size={20} />,
-            <IconBed key="bed" size={20} />,
-            <IconBath key="bath" size={20} />,
-            <IconRuler key="surface" size={20} />,
-        ];
-        return data.meta.slice(0, 4).map((label, index) => ({
-            icon: iconCycle[index] ?? iconCycle[0],
-            label,
+    const orderedMeta = orderPropertyCardTags(data.meta, data.propertyType);
+    if (orderedMeta.length > 0) {
+        return orderedMeta.map((label) => ({
+            icon: propertySpecIconForLabel(label),
+            label: abbreviateListingSpecLabel(label),
         }));
     }
 
-    const allText = [...data.meta, data.title].join(' ').toLowerCase();
-    const specs: MarketplaceReelSpec[] = [];
-
+    const allText = [...data.meta, data.title, data.propertyType ?? ''].join(' ').toLowerCase();
     const type = data.propertyType ||
         (allText.includes('casa') ? 'Casa' :
             allText.includes('departamento') || allText.includes('depto') ? 'Depto' :
@@ -99,20 +99,47 @@ function buildSpecs(data: PropertyListingCardData): MarketplaceReelSpec[] {
                     allText.includes('local') ? 'Local' :
                         allText.includes('terreno') ? 'Terreno' :
                             allText.includes('bodega') ? 'Bodega' : 'Propiedad');
-    specs.push({ icon: <IconBuilding size={20} />, label: type });
 
-    const bedMatch = allText.match(/(\d+)\s*(dorm|dormitorio|hab|habitacion|habitación)/);
-    const bedrooms = data.bedrooms ? `${data.bedrooms} dorm` : (bedMatch ? `${bedMatch[1]} dorm` : '');
-    if (bedrooms) specs.push({ icon: <IconBed size={20} />, label: bedrooms });
+    const residential = /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio/i.test(type);
+    const specs: MarketplaceReelSpec[] = [];
 
-    const bathMatch = allText.match(/(\d+)\s*(baño|bano|baños)/);
-    const bathrooms = data.bathrooms ? `${data.bathrooms} baños` : (bathMatch ? `${bathMatch[1]} baños` : '');
-    if (bathrooms) specs.push({ icon: <IconBath size={20} />, label: bathrooms });
+    if (residential) {
+        const bedMatch = allText.match(/(\d+)\s*(dorm|dormitorio|hab|habitacion|habitación|d\b)/);
+        const bedrooms = data.bedrooms != null ? `${data.bedrooms}D` : (bedMatch ? `${bedMatch[1]}D` : '');
+        specs.push({
+            icon: <IconBed size={18} />,
+            label: bedrooms ? abbreviateListingSpecLabel(bedrooms) : '—',
+        });
 
+        const bathMatch = allText.match(/(\d+)\s*(baño|bano|baños|b\b)/);
+        const bathrooms = data.bathrooms != null ? `${data.bathrooms}B` : (bathMatch ? `${bathMatch[1]}B` : '');
+        specs.push({
+            icon: <IconBath size={18} />,
+            label: bathrooms ? abbreviateListingSpecLabel(bathrooms) : '—',
+        });
+
+        const parking = data.parkingSpaces != null ? `${data.parkingSpaces}E` : '';
+        specs.push({
+            icon: <IconParking size={18} />,
+            label: parking ? abbreviateListingSpecLabel(parking) : '—',
+        });
+
+        const storage = data.storageUnits != null ? `${data.storageUnits}Bo` : '';
+        specs.push({
+            icon: <IconBox size={18} />,
+            label: storage ? abbreviateListingSpecLabel(storage) : '—',
+        });
+
+        return specs.slice(0, 4);
+    }
+
+    specs.push({ icon: <IconBuilding size={18} />, label: abbreviateListingSpecLabel(type) });
     const surfaceMatch = allText.match(/(\d+[\d.]*)\s*(m2|m²|metros)/);
     const surface = data.surface || (surfaceMatch ? `${surfaceMatch[1]} m²` : '');
-    if (surface) specs.push({ icon: <IconRuler size={20} />, label: surface });
-
+    if (surface) specs.push({ icon: <IconRuler size={18} />, label: abbreviateListingSpecLabel(surface) });
+    if (data.parkingSpaces != null) {
+        specs.push({ icon: <IconParking size={18} />, label: abbreviateListingSpecLabel(`${data.parkingSpaces}E`) });
+    }
     return specs.slice(0, 4);
 }
 
@@ -162,6 +189,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
         return (
             <MarketplaceReelListingCard
                 mode="list"
+                accent="propiedades"
                 href={data.href}
                 title={data.title}
                 price={data.price}
@@ -194,6 +222,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
     return (
         <MarketplaceReelListingCard
             mode={mode}
+            accent="propiedades"
             href={data.href}
             title={data.title}
             price={data.price}

@@ -30,8 +30,9 @@ export type ListFeaturedBoostedDeps = {
         targetType?: string;
     } | null>;
     getUserById: (id: string) => Promise<{ id: string } | null>;
-    listingsById: Map<string, { id: string; rawData?: unknown; locationData?: unknown; location?: string }>;
+    listingsById: Map<string, { id: string; rawData?: unknown; locationData?: unknown; location?: string; vertical?: string; section?: string }>;
     extractListingMediaUrls: (record: { rawData?: unknown }) => string[];
+    extractListingSummary?: (record: { id: string; rawData?: unknown; vertical?: string; section?: string }) => string[];
     buildLocationPublicLabel: (locationData: unknown) => string;
     humanizePublicLocationFallback: (location: string) => string;
     sanitizeUser: (user: { id: string }) => unknown;
@@ -46,15 +47,13 @@ export type ListFeaturedBoostedDeps = {
 export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
     function resolveOwnerAvatar(owner: { id: string; avatar?: string }, vertical: string): string | undefined {
         const profile = deps.getPublishedSellerProfile(owner.id, vertical);
-        const profileAvatar = deps.toPublicMediaUrl(profile?.avatarImageUrl);
-        if (profileAvatar) return profileAvatar;
-        const accountAvatar = deps.toPublicMediaUrl(owner.avatar);
-        return accountAvatar || undefined;
+        // Solo logo del negocio/perfil público; sin fallback a avatar personal.
+        return deps.toPublicMediaUrl(profile?.avatarImageUrl) || undefined;
     }
 
     function buildOwnerPayload(owner: { id: string; avatar?: string }, vertical: string) {
         const sanitized = deps.sanitizeUser(owner) as { avatar?: string } & Record<string, unknown>;
-        const avatar = resolveOwnerAvatar(owner, vertical) ?? sanitized.avatar;
+        const avatar = resolveOwnerAvatar(owner, vertical);
         return { ...sanitized, avatar };
     }
 
@@ -89,11 +88,18 @@ export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
                             || deps.humanizePublicLocationFallback(target.location)
                             || 'Chile'
                         : deps.humanizePublicLocationFallback(target.location) || 'Chile';
+                    const summary = sourceListing && deps.extractListingSummary
+                        ? deps.extractListingSummary(sourceListing)
+                        : target.subtitle
+                            .split(/\s*[•|;]\s*/)
+                            .map((part) => part.trim())
+                            .filter(Boolean);
                     return {
                         id: target.id,
                         href: target.href,
                         title: target.title,
-                        subtitle: target.subtitle,
+                        subtitle: summary.length > 0 ? summary.join(' • ') : target.subtitle,
+                        summary,
                         price: target.price,
                         location,
                         imageUrl,

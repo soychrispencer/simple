@@ -6,6 +6,9 @@ import { useAuth } from '@simple/auth';
 import { isListingSaved, subscribeSavedListings, toggleSavedListing } from '@simple/utils';
 import {
     MarketplaceReelListingCard,
+    abbreviateListingSpecLabel,
+    orderVehicleCardTags,
+    vehicleSpecIconForLabel,
     type MarketplaceReelChip,
     type MarketplaceReelSpec,
 } from '@simple/ui/listings';
@@ -76,15 +79,9 @@ function variantLabel(variant?: CardVariant): string {
 
 function buildSpecs(data: VehicleListingCardData): MarketplaceReelSpec[] {
     if (data.meta.length > 0) {
-        const iconCycle = [
-            <IconCar key="car" size={20} />,
-            <IconGauge key="km" size={20} />,
-            <IconGasStation key="fuel" size={20} />,
-            <IconManualGearbox key="tx" size={20} />,
-        ];
-        return data.meta.slice(0, 4).map((label, index) => ({
-            icon: iconCycle[index] ?? iconCycle[0],
-            label,
+        return orderVehicleCardTags(data.meta).map((label, index) => ({
+            icon: vehicleSpecIconForLabel(label, index),
+            label: abbreviateListingSpecLabel(label),
         }));
     }
 
@@ -93,11 +90,11 @@ function buildSpecs(data: VehicleListingCardData): MarketplaceReelSpec[] {
 
     const typeMatch = allText.match(/(sedán|sedan|hatchback|suv|camioneta|pickup|van|bus|deportivo|coupe|moto|cuatrimoto|convertible)/);
     const type = data.vehicleType || (typeMatch ? typeMatch[1].charAt(0).toUpperCase() + typeMatch[1].slice(1) : 'Auto');
-    if (type) specs.push({ icon: <IconCar size={20} />, label: type });
+    if (type) specs.push({ icon: <IconCar size={20} />, label: abbreviateListingSpecLabel(type) });
 
     const kmMatch = allText.match(/(\d+[\d.]*)\s*(km|kilometros|kilómetros)/);
     const km = data.km || (kmMatch ? `${kmMatch[1]} km` : '');
-    if (km) specs.push({ icon: <IconGauge size={20} />, label: km });
+    if (km) specs.push({ icon: <IconGauge size={20} />, label: abbreviateListingSpecLabel(km) });
 
     const fuel = data.fuelType || (
         allText.includes('bencina') || allText.includes('gasolina') ? 'Bencina' :
@@ -105,7 +102,7 @@ function buildSpecs(data: VehicleListingCardData): MarketplaceReelSpec[] {
                 allText.includes('hibrido') || allText.includes('híbrido') ? 'Híbrido' :
                     allText.includes('electrico') || allText.includes('eléctrico') ? 'Eléctrico' : ''
     );
-    if (fuel) specs.push({ icon: <IconGasStation size={20} />, label: fuel });
+    if (fuel) specs.push({ icon: <IconGasStation size={20} />, label: abbreviateListingSpecLabel(fuel) });
 
     const transmission = data.transmission || (
         allText.includes('automatico') || allText.includes('automático') ? 'Automático' :
@@ -113,7 +110,7 @@ function buildSpecs(data: VehicleListingCardData): MarketplaceReelSpec[] {
                 allText.includes('secuencial') ? 'Secuencial' :
                     allText.includes('manual') ? 'Manual' : ''
     );
-    if (transmission) specs.push({ icon: <IconManualGearbox size={20} />, label: transmission });
+    if (transmission) specs.push({ icon: <IconManualGearbox size={20} />, label: abbreviateListingSpecLabel(transmission) });
 
     return specs.slice(0, 4);
 }
@@ -165,6 +162,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
         return (
             <MarketplaceReelListingCard
                 mode="list"
+                accent="autos"
                 href={data.href}
                 title={data.title}
                 price={data.price}
@@ -197,6 +195,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
     return (
         <MarketplaceReelListingCard
             mode={mode}
+            accent="autos"
             href={data.href}
             title={data.title}
             price={data.price}

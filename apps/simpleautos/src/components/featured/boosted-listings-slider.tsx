@@ -9,42 +9,21 @@ import {
     type ListingBoostSection,
 } from '@/lib/boost';
 import { resolveListingSellerAvatarUrl } from '@simple/utils';
+import { orderVehicleCardTags } from '@simple/ui/listings';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 
 const SECTIONS: ListingBoostSection[] = ['sale', 'rent', 'auction'];
 const MAX_CARDS = 30;
 
-function orderVehicleTags(tags: string[]): string[] {
-    const allowedPatterns = [
-        /auto|sedán|hatchback|suv|camioneta|pickup|van|bus|deportivo|coupe|moto|cuatrimoto|convertible/i,
-        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
-        /km|kilometraje|kilómetro/i,
-        /bencina|diesel|híbrido|hibrido|eléctrico|electrico|gas|petróleo/i,
-        /automático|automatico|manual|cvt|secuencial/i,
-    ];
-
-    const ordered: string[] = [];
-
-    for (const tag of tags) {
-        const lower = tag.toLowerCase();
-        for (let i = 0; i < allowedPatterns.length; i++) {
-            if (allowedPatterns[i].test(lower)) {
-                ordered[i] = tag;
-                break;
-            }
-        }
-    }
-
-    return ordered.filter(Boolean).slice(0, 5);
-}
-
 function mapFeaturedBoostToVehicleCard(item: FeaturedBoostItem): VehicleListingCardData {
     const sectionLabel = item.section === 'sale' ? 'Venta' : item.section === 'rent' ? 'Arriendo' : 'Subasta';
-    const metaItems = orderVehicleTags(
-        item.subtitle
-            .split(/[•|;,]|\s+-\s+/g)
-            .map((p) => p.trim())
-            .filter((p) => p.length > 0),
+    const metaItems = orderVehicleCardTags(
+        item.summary?.length
+            ? item.summary
+            : item.subtitle
+                .split(/[•|;,]|\s+-\s+/g)
+                .map((p) => p.trim())
+                .filter((p) => p.length > 0),
     );
     const images = item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : [];
     return {
@@ -57,7 +36,7 @@ function mapFeaturedBoostToVehicleCard(item: FeaturedBoostItem): VehicleListingC
         meta: metaItems,
         location: item.location,
         sellerName: item.owner?.name || 'Vendedor',
-        sellerAvatarUrl: resolveListingSellerAvatarUrl(null, item.owner?.avatar),
+        sellerAvatarUrl: resolveListingSellerAvatarUrl({ avatarUrl: item.owner?.avatar }),
         sellerIsFeatured: item.boosted,
         badge: sectionLabel,
         variant: item.section === 'rent' ? 'rent' : item.section === 'auction' ? 'auction' : 'sale',
@@ -112,7 +91,7 @@ export default function BoostedListingsSlider() {
             onTabChange={setSection}
             loading={loading}
             slides={slides}
-            placeholderAspectClass="aspect-4/3"
+            placeholderAspectClass="aspect-[3/4]"
         />
     );
 }

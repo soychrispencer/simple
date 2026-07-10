@@ -6,7 +6,9 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
     IconBookmark,
+    IconBuildingStore,
     IconClockHour4,
+    IconDotsVertical,
     IconEye,
     IconLoader2,
     IconMapPin,
@@ -15,7 +17,23 @@ import {
     IconUserPlus,
 } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
-import { fetchSocialFeed, toggleFollowAuthor, type SocialClip, type SocialSection } from '@simple/utils';
+import {
+    fetchSocialFeed,
+    formatListingPrice,
+    toggleFollowAuthor,
+    type SocialClip,
+    type SocialSection,
+} from '@simple/utils';
+import {
+    LISTING_SOCIAL_VERTICAL_ASPECT,
+    MarketplaceReelShareMenu,
+    abbreviateListingSpecLabel,
+    buildDefaultReelShareMenuItems,
+    orderPropertyCardTags,
+    propertySpecIconForLabel,
+    reelSpecPlaceholder,
+    shortenListingLocation,
+} from '@simple/ui/listings';
 
 const FILTERS: Array<{ value: SocialSection; label: string }> = [
     { value: 'todos', label: 'Todo' },
@@ -24,15 +42,82 @@ const FILTERS: Array<{ value: SocialSection; label: string }> = [
     { value: 'proyectos', label: 'Proyectos' },
 ];
 
-function authorInitial(name: string): string {
+function buildClipSpecs(clip: SocialClip) {
+    const tags = orderPropertyCardTags(
+        (clip.specs ?? []).map((spec) => (spec.value || spec.label).trim()).filter(Boolean),
+    );
+    const abbreviated = tags.slice(0, 4).map((label) => ({
+        label: abbreviateListingSpecLabel(label),
+        icon: propertySpecIconForLabel(label),
+    }));
+    const slots = [...abbreviated];
+    while (slots.length < 4) {
+        slots.push(reelSpecPlaceholder(slots.length, 'propiedades'));
+    }
+    return { abbreviated, slots };
+}
+
+function sectionLabel(section: SocialSection): string {
+    if (section === 'ventas') return 'Venta';
+    if (section === 'arriendos') return 'Arriendo';
+    if (section === 'proyectos') return 'Proyecto';
+    return section;
+}
+
+function DiscoverClipShareMenu({
+    href,
+    title,
+    price,
+    onCopied,
+}: {
+    href: string;
+    title: string;
+    price: string;
+    onCopied: (message: string) => void;
+}) {
+    const menuAnchorRef = useRef<HTMLDivElement>(null);
+    const [open, setOpen] = useState(false);
+
+    const shareUrl = () => {
+        if (typeof window === 'undefined') return href;
+        return href.startsWith('http') ? href : `${window.location.origin}${href}`;
+    };
+
+    const items = buildDefaultReelShareMenuItems({
+        shareUrl: shareUrl(),
+        shareText: `Mira esto: ${title} - ${price}`,
+        onClose: () => setOpen(false),
+        onCopied: (message) => onCopied(message || 'Link copiado'),
+        onReport: () => {
+            alert('Función de reportar próximamente disponible');
+        },
+        onOpenListing: () => {
+            if (typeof window === 'undefined') return;
+            window.open(shareUrl(), '_blank', 'noopener,noreferrer');
+        },
+    });
+
     return (
-        name
-            .trim()
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((part) => part[0])
-            .join('')
-            .toUpperCase() || 'S'
+        <div className="relative shrink-0" ref={menuAnchorRef}>
+            <button
+                type="button"
+                onClick={(event) => {
+                    event.stopPropagation();
+                    setOpen((prev) => !prev);
+                }}
+                className="marketplace-reel-card__menu-btn"
+                aria-label="Más opciones"
+                aria-expanded={open}
+            >
+                <IconDotsVertical size={18} />
+            </button>
+            <MarketplaceReelShareMenu
+                open={open}
+                anchorRef={menuAnchorRef}
+                onClose={() => setOpen(false)}
+                items={items}
+            />
+        </div>
     );
 }
 
@@ -45,6 +130,7 @@ export default function FeedPage() {
     const [activeClipId, setActiveClipId] = useState<string | null>(null);
     const [followingBusy, setFollowingBusy] = useState<Record<string, boolean>>({});
     const [highlightHref, setHighlightHref] = useState('');
+    const [shareToast, setShareToast] = useState<string | null>(null);
 
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
@@ -197,12 +283,13 @@ export default function FeedPage() {
                     {clips.map((clip) => {
                         const isFollowing = clip.author.isFollowing;
                         const followBusy = !!followingBusy[clip.author.id];
+                        const { abbreviated, slots } = buildClipSpecs(clip);
 
                         return (
                             <article
                                 key={clip.id}
                                 data-clip-id={clip.id}
-                                className="relative mx-auto w-full max-w-[430px] aspect-[9/16] rounded-card overflow-hidden border snap-start cursor-pointer"
+                                className={`marketplace-reel-card marketplace-reel-card--grid relative mx-auto w-full max-w-[430px] ${LISTING_SOCIAL_VERTICAL_ASPECT} rounded-card overflow-hidden border snap-start cursor-pointer`}
                                 style={{ borderColor: 'var(--border)', background: '#0a0a0a' }}
                                 onClick={() => router.push(clip.href)}
                             >
@@ -219,97 +306,129 @@ export default function FeedPage() {
                                     className="absolute inset-0 w-full h-full object-cover"
                                 />
 
-                                <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.08) 45%, rgba(0,0,0,0.78) 100%)' }} />
+                                <div className="marketplace-reel-card__scrim pointer-events-none absolute inset-0" aria-hidden />
 
                                 <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-2">
                                     <div className="flex flex-wrap items-center gap-1.5">
-                                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-white/20 bg-black/35 text-white backdrop-blur">
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/35 px-2 py-1 text-[11px] text-white backdrop-blur">
                                             <IconClockHour4 size={11} />
                                             {clip.publishedAgo}
                                         </span>
-                                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-white/20 bg-black/35 text-white backdrop-blur">
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/35 px-2 py-1 text-[11px] text-white backdrop-blur">
                                             <IconEye size={11} />
                                             {clip.views.toLocaleString('es-CL')}
                                         </span>
-                                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-white/20 bg-black/35 text-white backdrop-blur">
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/35 px-2 py-1 text-[11px] text-white backdrop-blur">
                                             <IconBookmark size={11} />
                                             {clip.saves.toLocaleString('es-CL')}
                                         </span>
                                     </div>
-                                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-white/20 bg-black/35 text-white backdrop-blur">
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/35 px-2 py-1 text-[11px] text-white backdrop-blur">
                                         <IconPlayerPlayFilled size={10} />
-                                        {clip.section}
+                                        {sectionLabel(clip.section)}
                                     </span>
                                 </div>
 
-                                <div className="absolute bottom-0 left-0 right-0 z-20 p-4">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <button
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                if (!clip.author.profileHref) return;
-                                                router.push(clip.author.profileHref);
-                                            }}
-                                            disabled={!clip.author.profileHref}
-                                            className="inline-flex items-center gap-2 min-w-0 h-9 px-2.5 rounded-lg border border-white/25 bg-black/30 text-white backdrop-blur"
-                                        >
-                                            {clip.author.avatar ? (
-                                                <Image src={clip.author.avatar} alt={clip.author.name} width={24} height={24} className="w-6 h-6 rounded-full object-cover" />
-                                            ) : (
-                                                <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold bg-white/20">
-                                                    {authorInitial(clip.author.name)}
-                                                </span>
-                                            )}
-                                            <span className="text-xs truncate max-w-[140px]">{clip.author.name}</span>
-                                        </button>
+                                {shareToast === clip.id && (
+                                    <div className="marketplace-reel-toast absolute top-4 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-2 text-sm font-medium shadow-lg">
+                                        Link copiado al portapapeles
+                                    </div>
+                                )}
 
-                                        {clip.author.canFollow ? (
-                                            <button
-                                                onClick={(event) => handleFollow(clip, event)}
-                                                disabled={followBusy}
-                                                className="h-9 px-3 rounded-lg text-xs font-medium border border-white/25 text-white backdrop-blur"
-                                                style={{ background: isFollowing ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.35)' }}
-                                            >
-                                                {followBusy ? (
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <IconLoader2 size={12} className="animate-spin" />
-                                                        ...
+                                <div className="marketplace-reel-card__panel absolute inset-x-0 bottom-0 z-20 px-3 pb-2.5 pt-10 sm:px-3.5 sm:pb-3 sm:pt-12">
+                                    <div className="marketplace-reel-card__head">
+                                        <div className="marketplace-reel-card__location">
+                                            <IconMapPin size={11} className="shrink-0" />
+                                            <span>{shortenListingLocation(clip.location || 'Chile')}</span>
+                                        </div>
+                                        <div className="marketplace-reel-card__identity">
+                                            <div className="flex flex-col items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        if (!clip.author.profileHref) return;
+                                                        router.push(clip.author.profileHref);
+                                                    }}
+                                                    disabled={!clip.author.profileHref}
+                                                    className="shrink-0 transition-transform active:scale-95"
+                                                    aria-label={`Perfil de ${clip.author.name}`}
+                                                >
+                                                    <span className="marketplace-reel-card__avatar">
+                                                        {clip.author.avatar ? (
+                                                            <Image
+                                                                src={clip.author.avatar}
+                                                                alt=""
+                                                                width={40}
+                                                                height={40}
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <span className="marketplace-reel-card__avatar-fallback" aria-hidden>
+                                                                <IconBuildingStore size={16} stroke={1.75} />
+                                                            </span>
+                                                        )}
                                                     </span>
-                                                ) : isFollowing ? (
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <IconUserCheck size={12} />
-                                                        Siguiendo
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <IconUserPlus size={12} />
-                                                        Seguir
-                                                    </span>
-                                                )}
-                                            </button>
-                                        ) : null}
+                                                </button>
+                                                {clip.author.canFollow ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(event) => handleFollow(clip, event)}
+                                                        disabled={followBusy}
+                                                        className="h-7 shrink-0 rounded-md border border-white/25 px-1.5 text-[10px] font-medium text-white backdrop-blur"
+                                                        style={{ background: isFollowing ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.35)' }}
+                                                        aria-label={isFollowing ? 'Siguiendo' : 'Seguir'}
+                                                    >
+                                                        {followBusy ? (
+                                                            <IconLoader2 size={12} className="animate-spin" />
+                                                        ) : isFollowing ? (
+                                                            <IconUserCheck size={12} />
+                                                        ) : (
+                                                            <IconUserPlus size={12} />
+                                                        )}
+                                                    </button>
+                                                ) : null}
+                                            </div>
+                                            <div className="marketplace-reel-card__head-text">
+                                                <p className="marketplace-reel-card__price">{formatListingPrice(clip.price)}</p>
+                                                <h2 className="marketplace-reel-card__title">{clip.title}</h2>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <h2 className="text-lg font-semibold leading-tight mb-1 text-white">{clip.title}</h2>
-                                    <p className="text-2xl font-semibold leading-tight mb-1 text-white">{clip.price}</p>
-                                    <p className="text-sm inline-flex items-center gap-1 mb-3" style={{ color: 'rgba(255,255,255,0.82)' }}>
-                                        <IconMapPin size={13} />
-                                        {clip.location}
-                                    </p>
-
-                                    <div className="flex items-center justify-between gap-2">
-                                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                                            {clip.author.followers.toLocaleString('es-CL')} seguidores
-                                        </p>
-                                        <button
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                router.push(clip.href);
-                                            }}
-                                            className="h-9 px-4 rounded-lg text-sm font-medium border border-white/25 bg-white text-black"
-                                        >
-                                            Ver publicación
-                                        </button>
+                                    <div className="marketplace-reel-card__meta-row">
+                                        <div className="marketplace-reel-card__specs marketplace-reel-card__specs--stack">
+                                            {slots.map((spec, index) => {
+                                                const isPlaceholder = !abbreviated[index] || !spec.label || spec.label === '—';
+                                                return (
+                                                    <span
+                                                        key={`${spec.label}-${index}`}
+                                                        className={
+                                                            isPlaceholder
+                                                                ? 'marketplace-reel-card__spec-stack marketplace-reel-card__spec-stack--placeholder'
+                                                                : 'marketplace-reel-card__spec-stack'
+                                                        }
+                                                        aria-hidden={isPlaceholder ? true : undefined}
+                                                    >
+                                                        <span className="marketplace-reel-card__spec-stack-icon">{spec.icon}</span>
+                                                        <span className="marketplace-reel-card__spec-stack-label">
+                                                            {isPlaceholder ? '—' : spec.label}
+                                                        </span>
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                        <span className="marketplace-reel-card__meta-menu">
+                                            <DiscoverClipShareMenu
+                                                href={clip.href}
+                                                title={clip.title}
+                                                price={clip.price}
+                                                onCopied={() => {
+                                                    setShareToast(clip.id);
+                                                    setTimeout(() => setShareToast(null), 2000);
+                                                }}
+                                            />
+                                        </span>
                                     </div>
                                 </div>
                             </article>

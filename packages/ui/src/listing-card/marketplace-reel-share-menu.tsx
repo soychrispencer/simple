@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    IconBrandFacebook,
     IconBrandWhatsapp,
     IconCopy,
+    IconExternalLink,
     IconFlag,
+    IconShare,
 } from '@tabler/icons-react';
 
 export type MarketplaceReelShareMenuItem = {
@@ -30,7 +31,7 @@ export function MarketplaceReelShareMenu({
     anchorRef,
     onClose,
     items,
-    title = 'Compartir',
+    title = 'Opciones',
 }: Props) {
     const menuRef = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
@@ -44,7 +45,7 @@ export function MarketplaceReelShareMenu({
         const updatePosition = () => {
             if (!anchorRef.current) return;
             const rect = anchorRef.current.getBoundingClientRect();
-            const menuWidth = 208;
+            const menuWidth = 200;
             const left = Math.min(Math.max(8, rect.right - menuWidth), window.innerWidth - menuWidth - 8);
             setPosition({ top: rect.top - 8, left });
         };
@@ -75,7 +76,7 @@ export function MarketplaceReelShareMenu({
     return createPortal(
         <div
             ref={menuRef}
-            className="marketplace-reel-menu fixed z-[200] w-52 overflow-hidden rounded-xl shadow-2xl"
+            className="marketplace-reel-menu fixed z-[200] w-50 overflow-hidden rounded-xl shadow-2xl"
             style={{ top: position.top, left: position.left, transform: 'translateY(-100%)' }}
             onClick={(event) => event.stopPropagation()}
             role="menu"
@@ -105,12 +106,47 @@ export function buildDefaultReelShareMenuItems(options: {
     shareUrl: string;
     shareText: string;
     onClose: () => void;
-    onCopied?: () => void;
+    onCopied?: (message?: string) => void;
     onReport?: () => void;
+    onOpenListing?: () => void;
 }): MarketplaceReelShareMenuItem[] {
-    const { shareUrl, shareText, onClose, onCopied, onReport } = options;
+    const { shareUrl, shareText, onClose, onCopied, onReport, onOpenListing } = options;
+    const shareBody = `${shareText}\n${shareUrl}`;
+    const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
-    const items: MarketplaceReelShareMenuItem[] = [
+    const items: MarketplaceReelShareMenuItem[] = [];
+
+    if (onOpenListing) {
+        items.push({
+            key: 'open',
+            label: 'Ver publicación',
+            icon: <IconExternalLink size={16} />,
+            onSelect: (event) => {
+                event.stopPropagation();
+                onClose();
+                onOpenListing();
+            },
+        });
+    }
+
+    if (canNativeShare) {
+        items.push({
+            key: 'native-share',
+            label: 'Compartir…',
+            icon: <IconShare size={16} />,
+            onSelect: (event) => {
+                event.stopPropagation();
+                onClose();
+                void navigator.share({
+                    title: shareText,
+                    text: shareText,
+                    url: shareUrl,
+                }).catch(() => undefined);
+            },
+        });
+    }
+
+    items.push(
         {
             key: 'whatsapp',
             label: 'WhatsApp',
@@ -118,30 +154,22 @@ export function buildDefaultReelShareMenuItems(options: {
             onSelect: (event) => {
                 event.stopPropagation();
                 onClose();
-                window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`, '_blank');
+                window.open(`https://wa.me/?text=${encodeURIComponent(shareBody)}`, '_blank', 'noopener,noreferrer');
             },
         },
         {
-            key: 'facebook',
-            label: 'Facebook',
-            icon: <IconBrandFacebook size={16} />,
-            onSelect: (event) => {
-                event.stopPropagation();
-                onClose();
-                window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
-            },
-        },
-        {
-            key: 'copy',
+            key: 'copy-link',
             label: 'Copiar link',
             icon: <IconCopy size={16} />,
             onSelect: (event) => {
                 event.stopPropagation();
                 onClose();
-                void navigator.clipboard.writeText(shareUrl).then(() => onCopied?.()).catch(() => undefined);
+                void navigator.clipboard.writeText(shareUrl)
+                    .then(() => onCopied?.('Link copiado'))
+                    .catch(() => undefined);
             },
         },
-    ];
+    );
 
     if (onReport) {
         items.push({

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
     IconBookmark,
     IconBookmarkFilled,
+    IconBuildingStore,
     IconChevronLeft,
     IconChevronRight,
     IconDotsVertical,
@@ -13,13 +14,16 @@ import {
     IconVolume,
     IconVolumeOff,
 } from '@tabler/icons-react';
-import type { ListingMode } from './types';
+import { formatListingPrice } from '@simple/utils';
+import type { ListingMode, ListingAccent } from './types';
 import { joinClasses } from '../shared/join-classes';
 import {
     MarketplaceReelShareMenu,
     buildDefaultReelShareMenuItems,
     type MarketplaceReelShareMenuItem,
 } from './marketplace-reel-share-menu';
+import { LISTING_CARD_COMMERCIAL_ASPECT } from './shared/card-layout';
+import { abbreviateListingSpecLabel, reelSpecPlaceholder, shortenListingLocation } from './shared/build-reel-specs';
 
 export type MarketplaceReelSpec = {
     icon?: ReactNode;
@@ -43,6 +47,7 @@ export type MarketplaceReelListingCardProps = {
     priceOriginal?: string;
     location: string;
     mode?: ListingMode;
+    accent?: ListingAccent;
     ctaLabel?: string;
     images?: string[];
     videoUrl?: string;
@@ -68,11 +73,8 @@ export type MarketplaceReelListingCardProps = {
     className?: string;
 };
 
-function formatPriceCLP(price: string): string {
-    const numericValue = price.replace(/[^0-9]/g, '');
-    const num = parseInt(numericValue, 10);
-    if (isNaN(num)) return price;
-    return '$' + num.toLocaleString('es-CL');
+function formatCardPrice(price: string): string {
+    return formatListingPrice(price);
 }
 
 /** YouTube/Vimeo no se reproducen con <video src>; usar solo fotos en la tarjeta. */
@@ -98,15 +100,26 @@ function isNativePlayableVideoUrl(url: string | undefined): url is string {
         || trimmed.startsWith('http');
 }
 
-function ReelSpecs({ specs, list = false }: { specs: MarketplaceReelSpec[]; list?: boolean }) {
-    const visible = specs.slice(0, 4);
-    if (visible.length === 0) return null;
+function ReelSpecs({
+    specs,
+    list = false,
+    accent = 'autos',
+}: {
+    specs: MarketplaceReelSpec[];
+    list?: boolean;
+    accent?: ListingAccent;
+}) {
+    const abbreviated = specs.slice(0, 4).map((spec) => ({
+        ...spec,
+        label: abbreviateListingSpecLabel(spec.label),
+    }));
 
     if (list) {
+        if (abbreviated.length === 0) return null;
         return (
             <div className="marketplace-reel-card__specs marketplace-reel-card__specs--list">
-                {visible.map((spec) => (
-                    <span key={spec.label} className="marketplace-reel-card__spec-pill">
+                {abbreviated.map((spec, index) => (
+                    <span key={`${spec.label}-${index}`} className="marketplace-reel-card__spec-pill">
                         {spec.icon ? <span className="marketplace-reel-card__spec-pill-icon">{spec.icon}</span> : null}
                         <span className="marketplace-reel-card__spec-pill-label">{spec.label}</span>
                     </span>
@@ -115,15 +128,39 @@ function ReelSpecs({ specs, list = false }: { specs: MarketplaceReelSpec[]; list
         );
     }
 
+    const slots: MarketplaceReelSpec[] = [...abbreviated];
+    while (slots.length < 4) {
+        slots.push(reelSpecPlaceholder(slots.length, accent));
+    }
+
     return (
-        <div className="marketplace-reel-card__specs">
-            {visible.map((spec) => (
-                <span key={spec.label} className="marketplace-reel-card__spec">
-                    {spec.icon ? <span className="marketplace-reel-card__spec-icon">{spec.icon}</span> : null}
-                    <span className="marketplace-reel-card__spec-label">{spec.label}</span>
-                </span>
-            ))}
-        </div>
+        <>
+            {slots.map((spec, index) => {
+                const isPlaceholder = !abbreviated[index] || !spec.label || spec.label === '—';
+                return (
+                    <span
+                        key={`${spec.label}-${index}`}
+                        className={
+                            isPlaceholder
+                                ? 'marketplace-reel-card__spec-stack marketplace-reel-card__spec-stack--placeholder'
+                                : 'marketplace-reel-card__spec-stack'
+                        }
+                        aria-hidden={isPlaceholder ? true : undefined}
+                    >
+                        {spec.icon ? (
+                            <span className="marketplace-reel-card__spec-stack-icon">{spec.icon}</span>
+                        ) : (
+                            <span className="marketplace-reel-card__spec-stack-icon">
+                                {reelSpecPlaceholder(index, accent).icon}
+                            </span>
+                        )}
+                        <span className="marketplace-reel-card__spec-stack-label">
+                            {isPlaceholder ? '—' : spec.label}
+                        </span>
+                    </span>
+                );
+            })}
+        </>
     );
 }
 
@@ -134,7 +171,8 @@ export default function MarketplaceReelListingCard({
     priceOriginal,
     location,
     mode = 'grid',
-    ctaLabel = 'Ver detalle',
+    accent = 'autos',
+    ctaLabel: _ctaLabel = 'Ver detalle',
     images = [],
     videoUrl,
     videoThumbnail,
@@ -157,10 +195,12 @@ export default function MarketplaceReelListingCard({
     className,
 }: MarketplaceReelListingCardProps) {
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
-    const [isVideoPaused, setIsVideoPaused] = useState(false);
+    const [manualPlay, setManualPlay] = useState(false);
+    const [suppressHoverPlay, setSuppressHoverPlay] = useState(false);
     const [isMuted, setIsMuted] = useState(true);
-    const [isInViewport, setIsInViewport] = useState(false);
+    const [isHovering, setIsHovering] = useState(false);
     const [showShareToast, setShowShareToast] = useState(false);
+    const [shareToastMessage, setShareToastMessage] = useState('Link copiado');
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
@@ -177,8 +217,8 @@ export default function MarketplaceReelListingCard({
         const photoItems = images.map((url) => ({ type: 'image' as const, url }));
         if (nativeVideoUrl) {
             return [
+                { type: 'video' as const, url: nativeVideoUrl, thumbnail: fallbackThumbnail },
                 ...photoItems,
-                { type: 'video', url: nativeVideoUrl, thumbnail: fallbackThumbnail },
             ];
         }
         return photoItems;
@@ -210,19 +250,28 @@ export default function MarketplaceReelListingCard({
                 shareUrl: shareUrl(),
                 shareText,
                 onClose: () => setShowMoreMenu(false),
-                onCopied: () => {
+                onCopied: (message) => {
+                    setShareToastMessage(message || 'Link copiado');
                     setShowShareToast(true);
                     setTimeout(() => setShowShareToast(false), 2000);
                 },
                 onReport,
+                onOpenListing: preview
+                    ? undefined
+                    : () => {
+                        if (typeof window === 'undefined') return;
+                        window.open(shareUrl(), '_blank', 'noopener,noreferrer');
+                    },
             }),
-        [onReport, shareMenuItems, shareText, shareUrl],
+        [onReport, preview, shareMenuItems, shareText, shareUrl],
     );
 
     const currentMedia = media[currentMediaIndex];
     const videoPoster = currentMedia?.type === 'video'
         ? (currentMedia.thumbnail || images[0])
         : undefined;
+    const isVideoPlaying = currentMedia?.type === 'video'
+        && (manualPlay || (isHovering && !suppressHoverPlay));
 
     useEffect(() => {
         if (currentMediaIndex >= media.length) {
@@ -231,22 +280,46 @@ export default function MarketplaceReelListingCard({
     }, [currentMediaIndex, media.length]);
 
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => setIsInViewport(entry.isIntersecting),
-            { threshold: 0.15 },
-        );
-        if (cardRef.current) observer.observe(cardRef.current);
-        return () => observer.disconnect();
-    }, []);
+        setCurrentMediaIndex(0);
+        setManualPlay(false);
+        setSuppressHoverPlay(false);
+    }, [nativeVideoUrl, images]);
 
     useEffect(() => {
-        if (!videoRef.current) return;
-        if (!isInViewport || isVideoPaused) {
-            videoRef.current.pause();
-        } else {
-            void videoRef.current.play().catch(() => undefined);
+        if (currentMedia?.type !== 'video') {
+            setManualPlay(false);
+            setSuppressHoverPlay(false);
         }
-    }, [isInViewport, isVideoPaused, currentMediaIndex]);
+    }, [currentMedia?.type]);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        if (isVideoPlaying) {
+            void video.play().catch(() => undefined);
+        } else {
+            video.pause();
+        }
+    }, [isVideoPlaying, currentMediaIndex]);
+
+    const handleCardMouseEnter = () => {
+        setIsHovering(true);
+        setSuppressHoverPlay(false);
+    };
+    const handleCardMouseLeave = () => {
+        setIsHovering(false);
+    };
+    const toggleVideoPlayback = (event: React.MouseEvent) => {
+        event.stopPropagation();
+        if (isVideoPlaying) {
+            setManualPlay(false);
+            setSuppressHoverPlay(true);
+        } else {
+            setManualPlay(true);
+            setSuppressHoverPlay(false);
+        }
+    };
 
     const handleTouchStart = (event: React.TouchEvent) => {
         touchStartX.current = event.touches[0].clientX;
@@ -277,77 +350,73 @@ export default function MarketplaceReelListingCard({
         }
     };
 
-    const defaultFooterActions = (
-        <>
-            {sellerName.trim() ? (
-                preview ? (
-                    <span className="marketplace-reel-card__avatar shrink-0" aria-hidden>
-                        {sellerAvatarUrl ? (
-                            <img src={sellerAvatarUrl} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                            sellerName.charAt(0).toUpperCase()
-                        )}
-                    </span>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            if (sellerProfileHref && onSellerNavigate) onSellerNavigate();
-                        }}
-                        className="shrink-0 transition-transform active:scale-95"
-                        aria-label={`Perfil de ${sellerName}`}
-                        disabled={!sellerProfileHref || !onSellerNavigate}
-                    >
-                        <span className="marketplace-reel-card__avatar">
-                            {sellerAvatarUrl ? (
-                                <img src={sellerAvatarUrl} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                                sellerName.charAt(0).toUpperCase()
-                            )}
-                        </span>
-                    </button>
-                )
-            ) : null}
-
+    const moreMenuControl = preview ? (
+        <span className="marketplace-reel-card__menu-btn pointer-events-none shrink-0" aria-hidden>
+            <IconDotsVertical size={18} />
+        </span>
+    ) : (
+        <div className="relative shrink-0" ref={menuAnchorRef}>
             <button
                 type="button"
                 onClick={(event) => {
                     event.stopPropagation();
-                    if (!preview) onNavigate();
+                    setShowMoreMenu((prev) => !prev);
                 }}
-                className={joinClasses('marketplace-reel-cta min-w-0', preview ? 'pointer-events-none' : '')}
-                tabIndex={preview ? -1 : 0}
+                className="marketplace-reel-card__menu-btn"
+                aria-label="Más opciones"
+                aria-expanded={showMoreMenu}
             >
-                {ctaLabel}
+                <IconDotsVertical size={18} />
             </button>
+            <MarketplaceReelShareMenu
+                open={showMoreMenu}
+                anchorRef={menuAnchorRef}
+                onClose={() => setShowMoreMenu(false)}
+                items={menuItems}
+            />
+        </div>
+    );
 
-            {preview ? (
-                <span className="marketplace-reel-card__icon-btn pointer-events-none shrink-0" aria-hidden>
-                    <IconDotsVertical size={18} />
+    const sellerAvatarFallback = (
+        <span className="marketplace-reel-card__avatar-fallback" aria-hidden>
+            <IconBuildingStore size={16} stroke={1.75} />
+        </span>
+    );
+
+    const sellerAvatarInner = sellerAvatarUrl ? (
+        <img src={sellerAvatarUrl} alt="" className="h-full w-full object-cover" />
+    ) : (
+        sellerAvatarFallback
+    );
+
+    const sellerAvatarControl = sellerName.trim() ? (
+        preview ? (
+            <span className="marketplace-reel-card__avatar shrink-0" aria-hidden>
+                {sellerAvatarInner}
+            </span>
+        ) : (
+            <button
+                type="button"
+                onClick={(event) => {
+                    event.stopPropagation();
+                    if (sellerProfileHref && onSellerNavigate) onSellerNavigate();
+                }}
+                className="shrink-0 transition-transform active:scale-95"
+                aria-label={`Perfil de ${sellerName}`}
+                disabled={!sellerProfileHref || !onSellerNavigate}
+            >
+                <span className="marketplace-reel-card__avatar">
+                    {sellerAvatarInner}
                 </span>
-            ) : (
-                <div className="relative shrink-0" ref={menuAnchorRef}>
-                    <button
-                        type="button"
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            setShowMoreMenu((prev) => !prev);
-                        }}
-                        className="marketplace-reel-card__icon-btn"
-                        aria-label="Más opciones"
-                        aria-expanded={showMoreMenu}
-                    >
-                        <IconDotsVertical size={18} />
-                    </button>
-                    <MarketplaceReelShareMenu
-                        open={showMoreMenu}
-                        anchorRef={menuAnchorRef}
-                        onClose={() => setShowMoreMenu(false)}
-                        items={menuItems}
-                    />
-                </div>
-            )}
+            </button>
+        )
+    ) : null;
+
+    const listFooterActions = (
+        <>
+            {sellerAvatarControl}
+            <span className="min-w-0 flex-1" aria-hidden />
+            {moreMenuControl}
         </>
     );
 
@@ -368,10 +437,11 @@ export default function MarketplaceReelListingCard({
                     src={currentMedia.url}
                     poster={videoPoster}
                     className="absolute inset-0 z-[1] h-full w-full object-cover"
-                    autoPlay={isInViewport}
+                    autoPlay={false}
                     muted={isMuted}
                     loop
                     playsInline
+                    preload="metadata"
                     controls={false}
                     onError={advanceMediaOnError}
                 />
@@ -417,7 +487,7 @@ export default function MarketplaceReelListingCard({
                 type="button"
                 aria-label="Imagen anterior"
                 onClick={(event) => goToMedia(-1, event)}
-                className="absolute top-1/2 left-1 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-md transition hover:bg-black/75 sm:h-8 sm:w-8"
+                className="absolute top-1/2 left-1.5 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white shadow-md transition hover:bg-black/65"
             >
                 <IconChevronLeft size={16} />
             </button>
@@ -425,12 +495,20 @@ export default function MarketplaceReelListingCard({
                 type="button"
                 aria-label="Imagen siguiente"
                 onClick={(event) => goToMedia(1, event)}
-                className="absolute top-1/2 right-1 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-md transition hover:bg-black/75 sm:h-8 sm:w-8"
+                className="absolute top-1/2 right-1.5 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white shadow-md transition hover:bg-black/65"
             >
                 <IconChevronRight size={16} />
             </button>
-            <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 gap-1">
-                {media.map((_, index) => (
+        </>
+    ) : null;
+
+    const mediaDots = (
+        <div
+            className="marketplace-reel-card__dots"
+            aria-hidden={media.length <= 1 ? true : undefined}
+        >
+            {media.length > 1
+                ? media.map((_, index) => (
                     <button
                         key={index}
                         type="button"
@@ -438,13 +516,13 @@ export default function MarketplaceReelListingCard({
                             event.stopPropagation();
                             setCurrentMediaIndex(index);
                         }}
-                        className={`h-1 rounded-full transition-all ${index === currentMediaIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/45'}`}
+                        className={`marketplace-reel-card__dot ${index === currentMediaIndex ? 'marketplace-reel-card__dot--active' : ''}`}
                         aria-label={`Foto ${index + 1}`}
                     />
-                ))}
-            </div>
-        </>
-    ) : null;
+                ))
+                : null}
+        </div>
+    );
 
     const saveControlList = onSave ? (
         <button
@@ -500,6 +578,8 @@ export default function MarketplaceReelListingCard({
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
                 onWheel={handleWheel}
+                onMouseEnter={handleCardMouseEnter}
+                onMouseLeave={handleCardMouseLeave}
                 className={joinClasses(
                     'marketplace-reel-card marketplace-reel-card--list group/card relative flex w-full min-h-[9.5rem] overflow-visible rounded-2xl border shadow-md select-none transition-all duration-200 hover:-translate-y-[1px] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--accent) focus-visible:ring-offset-2 sm:min-h-[11rem]',
                     (onSave || preview) && 'marketplace-reel-card--has-save',
@@ -517,14 +597,11 @@ export default function MarketplaceReelListingCard({
                         <div className="absolute bottom-10 right-2 z-10 flex flex-col gap-1.5">
                             <button
                                 type="button"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    setIsVideoPaused((prev) => !prev);
-                                }}
+                                onClick={toggleVideoPlayback}
                                 className="marketplace-reel-card__icon-btn h-8 w-8"
-                                aria-label={isVideoPaused ? 'Reproducir' : 'Pausar'}
+                                aria-label={isVideoPlaying ? 'Pausar' : 'Reproducir'}
                             >
-                                {isVideoPaused ? <IconPlayerPlay size={14} /> : <IconPlayerPause size={14} />}
+                                {isVideoPlaying ? <IconPlayerPause size={14} /> : <IconPlayerPlay size={14} />}
                             </button>
                         </div>
                     ) : null}
@@ -536,28 +613,28 @@ export default function MarketplaceReelListingCard({
 
                 <div className="marketplace-reel-card__list-content flex min-w-0 flex-1 flex-col rounded-r-2xl p-3 sm:p-3.5">
                     <div className="marketplace-reel-card__list-body min-w-0 flex-1">
-                        <p className="marketplace-reel-card__price marketplace-reel-card__price--list">{formatPriceCLP(price)}</p>
+                        <p className="marketplace-reel-card__price marketplace-reel-card__price--list">{formatCardPrice(price)}</p>
                         {priceOriginal ? (
                             <p className="marketplace-reel-card__price-original marketplace-reel-card__price-original--list">
-                                {formatPriceCLP(priceOriginal)}
+                                {formatCardPrice(priceOriginal)}
                             </p>
                         ) : null}
                         <h3 className="marketplace-reel-card__title marketplace-reel-card__title--list">{title}</h3>
                         <div className="marketplace-reel-card__location marketplace-reel-card__location--list">
                             <IconMapPin size={13} className="shrink-0" />
-                            <span className="truncate">{location}</span>
+                            <span className="truncate">{shortenListingLocation(location)}</span>
                         </div>
-                        <ReelSpecs specs={specs} list />
+                        <ReelSpecs specs={specs} list accent={accent} />
                     </div>
 
                     <div className="marketplace-reel-card__actions marketplace-reel-card__actions--list">
-                        {footerActions ?? defaultFooterActions}
+                        {footerActions ?? listFooterActions}
                     </div>
                 </div>
 
                 {showShareToast ? (
                     <div className="marketplace-reel-toast absolute top-3 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-2 text-sm font-medium shadow-lg">
-                        Link copiado
+                        {shareToastMessage}
                     </div>
                 ) : null}
             </div>
@@ -581,105 +658,35 @@ export default function MarketplaceReelListingCard({
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
             onWheel={handleWheel}
+            onMouseEnter={handleCardMouseEnter}
+            onMouseLeave={handleCardMouseLeave}
             className={joinClasses(
-                'marketplace-reel-card group/card relative w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] shadow-md select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--accent) focus-visible:ring-offset-2',
+                'marketplace-reel-card marketplace-reel-card--grid group/card relative w-full overflow-hidden rounded-[1.35rem] shadow-lg select-none transition-all duration-200 hover:-translate-y-[2px] hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--accent) focus-visible:ring-offset-2',
                 preview ? 'cursor-default' : 'cursor-pointer',
-                'w-full max-w-none aspect-[3/4] sm:aspect-[9/16] sm:mx-auto sm:max-w-[360px]',
+                LISTING_CARD_COMMERCIAL_ASPECT,
                 className,
             )}
         >
-            <div className="absolute inset-0 overflow-hidden rounded-2xl">
+            <div className="absolute inset-0 bg-[#0a0a0a]">
                 {mediaLayer}
             </div>
 
-            {media.length > 1 ? (
-                <>
-                    <button
-                        type="button"
-                        aria-label="Imagen anterior"
-                        onClick={(event) => goToMedia(-1, event)}
-                        className="absolute top-1/2 left-2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-md transition hover:bg-black/75"
-                    >
-                        <IconChevronLeft size={18} />
-                    </button>
-                    <button
-                        type="button"
-                        aria-label="Imagen siguiente"
-                        onClick={(event) => goToMedia(1, event)}
-                        className="absolute top-1/2 right-2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-md transition hover:bg-black/75"
-                    >
-                        <IconChevronRight size={18} />
-                    </button>
-                </>
-            ) : null}
+            <div className="marketplace-reel-card__scrim pointer-events-none absolute inset-0" aria-hidden />
 
-            <div className="marketplace-reel-card__scrim pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden />
+            {chipStack}
+            {mediaNav}
 
-            {media.length > 1 ? (
-                <div className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 gap-1">
-                    {media.map((_, index) => (
-                        <button
-                            key={index}
-                            type="button"
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                setCurrentMediaIndex(index);
-                            }}
-                            className={`h-1 rounded-full transition-all ${index === currentMediaIndex ? 'w-5 bg-white' : 'w-1.5 bg-white/45'}`}
-                            aria-label={`Foto ${index + 1}`}
-                        />
-                    ))}
-                </div>
-            ) : null}
-
-            {chips.length > 0 ? (
-                <div className="absolute top-3 left-3 z-10 flex max-w-[46%] flex-col items-start gap-1">
-                    {chips.map((chip) => (
-                        <span
-                            key={chip.label}
-                            className={
-                                chip.tone === 'accent'
-                                    ? 'marketplace-reel-card__chip marketplace-reel-card__chip--accent'
-                                    : 'marketplace-reel-card__chip'
-                            }
-                        >
-                            {chip.icon ? <span className="marketplace-reel-card__chip-icon">{chip.icon}</span> : null}
-                            {chip.label}
-                        </span>
-                    ))}
-                </div>
-            ) : null}
-
-            <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
-                {onSave ? (
-                    <button
-                        type="button"
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            onSave(event);
-                        }}
-                        className="marketplace-reel-card__icon-btn"
-                        aria-label={isSaved ? 'Quitar de guardados' : 'Guardar'}
-                    >
-                        {isSaved ? <IconBookmarkFilled size={18} className="text-amber-300" /> : <IconBookmark size={18} className="text-white" />}
-                    </button>
-                ) : preview ? (
-                    <span className="marketplace-reel-card__icon-btn pointer-events-none" aria-hidden>
-                        <IconBookmark size={18} className="text-white" />
-                    </span>
-                ) : null}
+            <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
+                {saveControl}
                 {currentMedia?.type === 'video' ? (
                     <>
                         <button
                             type="button"
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                setIsVideoPaused((prev) => !prev);
-                            }}
-                            className="marketplace-reel-card__icon-btn"
-                            aria-label={isVideoPaused ? 'Reproducir' : 'Pausar'}
+                            onClick={toggleVideoPlayback}
+                            className="marketplace-reel-card__icon-btn h-9 w-9"
+                            aria-label={isVideoPlaying ? 'Pausar' : 'Reproducir'}
                         >
-                            {isVideoPaused ? <IconPlayerPlay size={14} /> : <IconPlayerPause size={14} />}
+                            {isVideoPlaying ? <IconPlayerPause size={14} /> : <IconPlayerPlay size={14} />}
                         </button>
                         <button
                             type="button"
@@ -690,7 +697,7 @@ export default function MarketplaceReelListingCard({
                                     setIsMuted(!isMuted);
                                 }
                             }}
-                            className="marketplace-reel-card__icon-btn"
+                            className="marketplace-reel-card__icon-btn h-9 w-9"
                             aria-label={isMuted ? 'Activar sonido' : 'Silenciar'}
                         >
                             {isMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
@@ -701,27 +708,43 @@ export default function MarketplaceReelListingCard({
 
             {showShareToast ? (
                 <div className="marketplace-reel-toast absolute top-3 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-2 text-sm font-medium shadow-lg">
-                    Link copiado
+                    {shareToastMessage}
                 </div>
             ) : null}
 
-            <div className="marketplace-reel-card__panel absolute right-0 bottom-0 left-0 z-10 rounded-b-2xl p-3 pt-8">
-                <p className="marketplace-reel-card__price">{formatPriceCLP(price)}</p>
-                {priceOriginal ? (
-                    <p className="marketplace-reel-card__price-original">{formatPriceCLP(priceOriginal)}</p>
+            <div className="marketplace-reel-card__panel absolute inset-x-0 bottom-0 z-10 px-3 pb-2.5 pt-10 sm:px-3.5 sm:pb-3 sm:pt-12">
+                <div className="marketplace-reel-card__head">
+                    {location ? (
+                        <div className="marketplace-reel-card__location">
+                            <IconMapPin size={11} className="shrink-0" />
+                            <span>{shortenListingLocation(location)}</span>
+                        </div>
+                    ) : null}
+                    <div className="marketplace-reel-card__identity">
+                        {sellerAvatarControl}
+                        <div className="marketplace-reel-card__head-text">
+                            <p className="marketplace-reel-card__price">{formatCardPrice(price)}</p>
+                            {priceOriginal ? (
+                                <p className="marketplace-reel-card__price-original">{formatCardPrice(priceOriginal)}</p>
+                            ) : null}
+                            <h3 className="marketplace-reel-card__title">{title}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div className="marketplace-reel-card__meta-row">
+                    <div className="marketplace-reel-card__specs marketplace-reel-card__specs--stack">
+                        <ReelSpecs specs={specs} accent={accent} />
+                    </div>
+                    {footerActions ? null : (
+                        <span className="marketplace-reel-card__meta-menu">{moreMenuControl}</span>
+                    )}
+                </div>
+                {footerActions ? (
+                    <div className="marketplace-reel-card__actions marketplace-reel-card__actions--owner">
+                        {footerActions}
+                    </div>
                 ) : null}
-                <h3 className="marketplace-reel-card__title">{title}</h3>
-
-                <div className="marketplace-reel-card__location">
-                    <IconMapPin size={14} className="shrink-0" />
-                    <span className="truncate">{location}</span>
-                </div>
-
-                <ReelSpecs specs={specs} />
-
-                <div className="marketplace-reel-card__actions">
-                    {footerActions ?? defaultFooterActions}
-                </div>
+                {mediaDots}
             </div>
         </div>
     );

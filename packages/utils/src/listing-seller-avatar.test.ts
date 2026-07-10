@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { resolveListingSellerAvatarUrl } from './listing-seller-avatar.js';
 
 describe('resolveListingSellerAvatarUrl', () => {
-    it('prioriza avatarUrl del seller', () => {
+    it('usa avatarUrl del seller (logo de negocio)', () => {
         expect(resolveListingSellerAvatarUrl({ avatarUrl: '/uploads/logo.webp' })).toBe('/uploads/logo.webp');
     });
 
-    it('usa fallback cuando seller no tiene avatar', () => {
-        expect(resolveListingSellerAvatarUrl(null, '/uploads/user.webp')).toBe('/uploads/user.webp');
+    it('no usa fallback de avatar personal', () => {
+        expect(resolveListingSellerAvatarUrl(null, '/uploads/user.webp')).toBeUndefined();
     });
 
-    it('devuelve undefined sin imagen', () => {
+    it('devuelve undefined sin logo de negocio', () => {
         expect(resolveListingSellerAvatarUrl(null)).toBeUndefined();
     });
 });

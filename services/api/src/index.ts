@@ -760,6 +760,7 @@ const listFeaturedBoosted = createListFeaturedBoosted({
     getUserById,
     listingsById,
     extractListingMediaUrls,
+    extractListingSummary: (record) => extractListingSummary(record as ListingRecord),
     buildLocationPublicLabel: (locationData) =>
         buildLocationPublicLabel(locationData as Parameters<typeof buildLocationPublicLabel>[0]),
     humanizePublicLocationFallback,

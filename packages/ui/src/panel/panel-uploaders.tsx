@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { joinClasses } from '../shared/join-classes';
+import { LISTING_SOCIAL_VERTICAL_ASPECT } from '../listing-card/shared/card-layout';
 import { PanelButton } from './panel-button.js';
 import { PanelNotice } from './panel-primitives.js';
 import { optimizeListingPhotoFile } from './client-image-optimize.js';
@@ -871,7 +872,7 @@ export function PanelVideoUploader(props: PanelVideoUploaderProps) {
                                             muted
                                             playsInline
                                             preload="metadata"
-                                            className="aspect-[9/16] h-auto w-full bg-black object-cover"
+                                            className={`${LISTING_SOCIAL_VERTICAL_ASPECT} h-auto w-full bg-black object-cover`}
                                         />
                                         <div className="absolute inset-x-0 top-0 h-14" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.55), rgba(15,23,42,0))' }} />
                                         <div className="absolute left-1/2 top-2 h-1.5 w-8 -translate-x-1/2 rounded-full" style={{ background: 'rgba(255,255,255,0.24)' }} />

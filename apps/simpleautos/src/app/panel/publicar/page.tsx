@@ -242,11 +242,13 @@ function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalo
         priceOriginal,
         title,
         location,
+        accent: 'autos',
         photoUrls: form.photos.map((photo) => photo.preview).filter(Boolean),
         videoUrl: form.reelVideo?.preview ?? null,
         specs,
         extraChips,
         ctaLabel: form.listingType === 'rent' ? 'Ver disponibilidad' : form.listingType === 'auction' ? 'Ver subasta' : 'Ver detalle',
+        sellerName: 'Tu negocio',
         brandLabel: 'SimpleAutos',
         footerHint: 'Así se verá en SimpleAutos',
     };

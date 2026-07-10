@@ -9,42 +9,22 @@ import {
     type ListingBoostSection,
 } from '@/lib/boost';
 import { resolveListingSellerAvatarUrl } from '@simple/utils';
+import { orderPropertyCardTags } from '@simple/ui/listings';
 import PropertyListingCard, { type PropertyListingCardData } from '@/components/listings/property-listing-card';
 
 const SECTIONS: ListingBoostSection[] = ['sale', 'rent', 'project'];
 const MAX_CARDS = 30;
 
-function orderPropertyTags(tags: string[]): string[] {
-    const allowedPatterns = [
-        /casa|departamento|oficina|terreno|local|bodega|estacionamiento/i,
-        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
-        /m²|m2|metros|metraje|superficie/i,
-        /habitaciones|dormitorios|habitación|dormitorio/i,
-        /baños|baño/i,
-    ];
-
-    const ordered: string[] = [];
-
-    for (const tag of tags) {
-        const lower = tag.toLowerCase();
-        for (let i = 0; i < allowedPatterns.length; i++) {
-            if (allowedPatterns[i].test(lower)) {
-                ordered[i] = tag;
-                break;
-            }
-        }
-    }
-
-    return ordered.filter(Boolean).slice(0, 5);
-}
 
 function mapFeaturedBoostToPropertyCard(item: FeaturedBoostItem): PropertyListingCardData {
     const sectionLabel = item.section === 'sale' ? 'Venta' : item.section === 'rent' ? 'Arriendo' : 'Proyecto';
-    const metaItems = orderPropertyTags(
-        item.subtitle
-            .split(/[•|;,]|\s+-\s+/g)
-            .map((p) => p.trim())
-            .filter((p) => p.length > 0),
+    const metaItems = orderPropertyCardTags(
+        item.summary?.length
+            ? item.summary
+            : item.subtitle
+                .split(/[•|;,]|\s+-\s+/g)
+                .map((p) => p.trim())
+                .filter((p) => p.length > 0),
     );
     const images = item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : [];
     return {
@@ -57,7 +37,7 @@ function mapFeaturedBoostToPropertyCard(item: FeaturedBoostItem): PropertyListin
         meta: metaItems,
         location: item.location,
         sellerName: item.owner?.name || 'Vendedor',
-        sellerAvatarUrl: resolveListingSellerAvatarUrl(null, item.owner?.avatar),
+        sellerAvatarUrl: resolveListingSellerAvatarUrl({ avatarUrl: item.owner?.avatar }),
         sellerIsFeatured: item.boosted,
         badge: sectionLabel,
         variant: item.section === 'rent' ? 'rent' : item.section === 'project' ? 'project' : 'sale',
@@ -112,7 +92,7 @@ export default function BoostedListingsSlider() {
             onTabChange={setSection}
             loading={loading}
             slides={slides}
-            placeholderAspectClass="aspect-[3/2]"
+            placeholderAspectClass="aspect-[3/4]"
         />
     );
 }

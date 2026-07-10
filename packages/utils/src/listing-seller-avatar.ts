@@ -5,13 +5,13 @@ export type ListingSellerAvatarSource = {
 } | null | undefined;
 
 /**
- * URL de avatar para tarjetas de publicación.
- * Prioridad: logo del perfil público (seller.avatarUrl) → fallback (p. ej. owner.avatar en boosts).
+ * URL de avatar/logo de negocio para tarjetas de publicación.
+ * Solo usa el logo del perfil público (seller.avatarUrl). Sin fallback a avatar personal.
  */
 export function resolveListingSellerAvatarUrl(
     seller: ListingSellerAvatarSource,
-    fallbackAvatarUrl?: string | null,
+    _fallbackAvatarUrl?: string | null,
 ): string | undefined {
-    const raw = seller?.avatarUrl?.trim() || fallbackAvatarUrl?.trim() || null;
+    const raw = seller?.avatarUrl?.trim() || null;
     return resolveAppMediaUrl(raw) ?? undefined;
 }

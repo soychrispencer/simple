@@ -52,6 +52,8 @@ export type FeaturedBoostItem = {
     href: string;
     title: string;
     subtitle: string;
+    /** Tags ordenables para cards; si falta, se deriva de subtitle. */
+    summary?: string[];
     price: string;
     location: string;
     imageUrl?: string;

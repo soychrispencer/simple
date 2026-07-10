@@ -40,8 +40,21 @@ function propertyHighlightTags(summary: string[]) {
         .slice(0, 3);
 }
 
+function expandCompactPropertyTag(entry: string): string {
+    const dorm = entry.match(/^(\d+)\s*D$/i);
+    if (dorm) return `${dorm[1]} dormitorio${dorm[1] === '1' ? '' : 's'}`;
+    const bath = entry.match(/^(\d+)\s*B$/i);
+    if (bath) return `${bath[1]} baño${bath[1] === '1' ? '' : 's'}`;
+    const parking = entry.match(/^(\d+)\s*E$/i);
+    if (parking) return `${parking[1]} estacionamiento${parking[1] === '1' ? '' : 's'}`;
+    const storage = entry.match(/^(\d+)\s*Bo$/i);
+    if (storage) return `${storage[1]} bodega${storage[1] === '1' ? '' : 's'}`;
+    return entry;
+}
+
 function findSummaryValue(summary: string[], patterns: RegExp[]) {
-    return summary.find((entry) => patterns.some((pattern) => pattern.test(entry))) ?? 'Por definir';
+    const match = summary.find((entry) => patterns.some((pattern) => pattern.test(entry)));
+    return match ? expandCompactPropertyTag(match) : 'Por definir';
 }
 
 interface PropertyDetailClientProps {
@@ -105,22 +118,36 @@ export default function PropertyDetailClient({ item }: PropertyDetailClientProps
                             <PublicListingDetailSpecItem
                                 icon={<IconBed size={20} />}
                                 label="Dormitorios"
-                                value={findSummaryValue(item.summary, [/dorm/i, /habitaci/i])}
+                                value={findSummaryValue(item.summary, [/^\d+\s*D$/i, /dorm/i, /habitaci/i])}
                             />
                             <PublicListingDetailSpecItem
                                 icon={<IconBath size={20} />}
                                 label="Baños"
-                                value={findSummaryValue(item.summary, [/baño/i, /bano/i])}
+                                value={findSummaryValue(item.summary, [/^\d+\s*B$/i, /baño/i, /bano/i])}
                             />
                             <PublicListingDetailSpecItem
                                 icon={<IconRuler size={20} />}
-                                label="Superficie"
-                                value={findSummaryValue(item.summary, [/m²/i, /m2/i, /metros/i])}
+                                label={item.summary.some((entry) => /^\d+\s*E$/i.test(entry) || /estacionamiento/i.test(entry))
+                                    && !item.summary.some((entry) => /m²|m2|metros/i.test(entry))
+                                    ? 'Estacionamientos'
+                                    : 'Superficie'}
+                                value={
+                                    findSummaryValue(item.summary, [/m²/i, /m2/i, /metros/i]) !== 'Por definir'
+                                        ? findSummaryValue(item.summary, [/m²/i, /m2/i, /metros/i])
+                                        : findSummaryValue(item.summary, [/^\d+\s*E$/i, /estacionamiento/i])
+                                }
                             />
                             <PublicListingDetailSpecItem
                                 icon={<IconBuilding size={20} />}
-                                label="Tipo"
-                                value={findSummaryValue(item.summary, [/casa|depto|departamento|oficina|local|terreno|bodega/i])}
+                                label={item.summary.some((entry) => /^\d+\s*Bo$/i.test(entry) || /bodega/i.test(entry))
+                                    && !item.summary.some((entry) => /casa|depto|departamento|oficina|local|terreno/i.test(entry))
+                                    ? 'Bodegas'
+                                    : 'Tipo'}
+                                value={
+                                    findSummaryValue(item.summary, [/casa|depto|departamento|oficina|local|terreno/i]) !== 'Por definir'
+                                        ? findSummaryValue(item.summary, [/casa|depto|departamento|oficina|local|terreno/i])
+                                        : findSummaryValue(item.summary, [/^\d+\s*Bo$/i, /bodega/i])
+                                }
                             />
                         </PublicListingDetailSpecGrid>
 
@@ -134,7 +161,7 @@ export default function PropertyDetailClient({ item }: PropertyDetailClientProps
                                             className="rounded-full px-3 py-1 text-xs"
                                             style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
                                         >
-                                            {entry}
+                                            {expandCompactPropertyTag(entry)}
                                         </span>
                                     ))}
                                 </div>
