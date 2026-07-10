@@ -29,6 +29,7 @@ import {
     reelSpecPlaceholder,
     shortenListingLocation,
     vehicleSpecIconForLabel,
+    type MarketplaceReelSpec,
 } from '@simple/ui/listings';
 
 const FILTERS: Array<{ value: SocialSection; label: string }> = [
@@ -42,11 +43,11 @@ function buildClipSpecs(clip: SocialClip) {
     const tags = orderVehicleCardTags(
         (clip.specs ?? []).map((spec) => (spec.value || spec.label).trim()).filter(Boolean),
     );
-    const abbreviated = tags.slice(0, 4).map((label, index) => ({
+    const abbreviated: MarketplaceReelSpec[] = tags.slice(0, 4).map((label, index) => ({
         label: abbreviateListingSpecLabel(label),
         icon: vehicleSpecIconForLabel(label, index),
     }));
-    const slots = [...abbreviated];
+    const slots: MarketplaceReelSpec[] = [...abbreviated];
     while (slots.length < 4) {
         slots.push(reelSpecPlaceholder(slots.length, 'autos'));
     }

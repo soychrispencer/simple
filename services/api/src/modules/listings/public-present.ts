@@ -182,8 +182,6 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         appendUniqueSummary(summary, propertyType);
         if (totalArea != null) appendUniqueSummary(summary, `${totalArea.toLocaleString('es-CL')} m²`);
         if (parkingSpaces != null) appendUniqueSummary(summary, `${parkingSpaces.toLocaleString('es-CL')}E`);
-        if (rooms != null) appendUniqueSummary(summary, `${rooms.toLocaleString('es-CL')}D`);
-        if (bathrooms != null) appendUniqueSummary(summary, `${bathrooms.toLocaleString('es-CL')}B`);
         return summary.slice(0, 4);
     }
 

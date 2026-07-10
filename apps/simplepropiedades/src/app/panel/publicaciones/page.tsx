@@ -157,7 +157,7 @@ function getListingTags(listing: PanelListing): string[] {
     }
 
     const propertyType = String(basic.propertyType || '');
-    const rooms = parseInt(String(basic.rooms ?? basic.bedrooms || '').replace(/[^\d]/g, ''), 10);
+    const rooms = parseInt(String((basic.rooms ?? basic.bedrooms) || '').replace(/[^\d]/g, ''), 10);
     const bathrooms = parseInt(String(basic.bathrooms || '').replace(/[^\d]/g, ''), 10);
     const parking = parseInt(String(basic.parkingSpaces || '').replace(/[^\d]/g, ''), 10);
     const storage = parseInt(String(basic.storageUnits || '').replace(/[^\d]/g, ''), 10);

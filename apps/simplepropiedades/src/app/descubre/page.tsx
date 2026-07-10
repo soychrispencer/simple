@@ -33,6 +33,7 @@ import {
     propertySpecIconForLabel,
     reelSpecPlaceholder,
     shortenListingLocation,
+    type MarketplaceReelSpec,
 } from '@simple/ui/listings';
 
 const FILTERS: Array<{ value: SocialSection; label: string }> = [
@@ -46,11 +47,11 @@ function buildClipSpecs(clip: SocialClip) {
     const tags = orderPropertyCardTags(
         (clip.specs ?? []).map((spec) => (spec.value || spec.label).trim()).filter(Boolean),
     );
-    const abbreviated = tags.slice(0, 4).map((label) => ({
+    const abbreviated: MarketplaceReelSpec[] = tags.slice(0, 4).map((label) => ({
         label: abbreviateListingSpecLabel(label),
         icon: propertySpecIconForLabel(label),
     }));
-    const slots = [...abbreviated];
+    const slots: MarketplaceReelSpec[] = [...abbreviated];
     while (slots.length < 4) {
         slots.push(reelSpecPlaceholder(slots.length, 'propiedades'));
     }
