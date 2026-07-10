@@ -11,7 +11,7 @@ import {
     IconShare3,
     IconVideo,
 } from '@tabler/icons-react';
-import { buildListingDetailMediaSlides, type ListingDetailMediaSlide } from '@simple/utils';
+import { buildListingDetailMediaSlides, LISTING_IMAGE_WIDTHS, optimizeListingImageUrl, type ListingDetailMediaSlide } from '@simple/utils';
 
 export type PublicListingDetailGalleryProps = {
     listingId: string;
@@ -198,14 +198,7 @@ export default function PublicListingDetailGallery({
                                 className={`public-listing-detail-gallery__thumb ${index === activeIndex ? 'public-listing-detail-gallery__thumb--active' : ''}`}
                             >
                                 {slide.type === 'image' ? (
-                                    <Image
-                                        src={slide.url}
-                                        alt=""
-                                        width={88}
-                                        height={88}
-                                        className="h-full w-full object-cover"
-                                        loading="lazy"
-                                    />
+                                    <GalleryThumbImage url={slide.url} />
                                 ) : (
                                     <span className="public-listing-detail-gallery__thumb-video">
                                         <IconVideo size={22} />
@@ -217,6 +210,22 @@ export default function PublicListingDetailGallery({
                 ) : null}
             </div>
         </div>
+    );
+}
+
+function GalleryThumbImage({ url }: { url: string }) {
+    const thumbSrc = optimizeListingImageUrl(url, { width: LISTING_IMAGE_WIDTHS.thumb });
+    return (
+        <Image
+            src={thumbSrc}
+            alt=""
+            width={88}
+            height={88}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            quality={65}
+            unoptimized={thumbSrc !== url}
+        />
     );
 }
 
@@ -256,14 +265,19 @@ function SlideMedia({
         );
     }
 
+    const photoSrc = optimizeListingImageUrl(slide.url, { width: LISTING_IMAGE_WIDTHS.detail });
+    const edgeResized = photoSrc !== slide.url;
+
     return (
         <Image
-            src={slide.url}
+            src={photoSrc}
             alt={title}
             fill
             className="public-listing-detail-gallery__media public-listing-detail-gallery__media--photo"
             priority={priority}
-            sizes="(max-width: 1024px) 100vw, 70vw"
+            sizes="(max-width: 1024px) 100vw, 720px"
+            quality={75}
+            unoptimized={edgeResized}
         />
     );
 }

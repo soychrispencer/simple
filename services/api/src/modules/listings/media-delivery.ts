@@ -191,7 +191,7 @@ export function extractListingMediaUrls(record: ListingMediaSource): string[] {
     const urls = photos
         .map((photo) => toPublicMediaUrl(photo))
         .filter((url) => url.length > 0)
-        .slice(0, 8);
+        .slice(0, 6);
     const remoteUrls = urls.filter((url) => !url.startsWith('data:'));
     return remoteUrls.length > 0 ? remoteUrls : urls;
 }

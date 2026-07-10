@@ -17,11 +17,11 @@ export type OptimizeListingPhotoOptions = {
 };
 
 export const DEFAULT_LISTING_PHOTO_OPTS = {
-    maxWidth: 1800,
-    maxHeight: 1400,
+    maxWidth: 1400,
+    maxHeight: 1200,
     minWidth: 600,
     minHeight: 400,
-    targetBytes: 420_000,
+    targetBytes: 280_000,
 } as const;
 
 function estimateDataUrlBytes(dataUrl: string): number {

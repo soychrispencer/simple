@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAccountAvatarUrl, resolveAppMediaUrl } from './media-url.js';
+import {
+    optimizeListingImageUrl,
+    resolveAccountAvatarUrl,
+    resolveAppMediaUrl,
+} from './media-url.js';
 
 describe('resolveAppMediaUrl', () => {
     it('deja rutas same-origin /uploads sin prefijo de API', () => {
@@ -21,5 +25,24 @@ describe('resolveAppMediaUrl', () => {
 
     it('resolveAccountAvatarUrl es alias de resolveAppMediaUrl', () => {
         expect(resolveAccountAvatarUrl('http://localhost:4000/uploads/x.webp')).toBe('/uploads/x.webp');
+    });
+});
+
+describe('optimizeListingImageUrl', () => {
+    it('envuelve custom domain con /cdn-cgi/image', () => {
+        expect(
+            optimizeListingImageUrl('https://media.simpleplataforma.app/listings/a.webp', { width: 720 }),
+        ).toBe('https://media.simpleplataforma.app/cdn-cgi/image/width=720,quality=72,fit=scale-down,format=auto/listings/a.webp');
+    });
+
+    it('no transforma r2.dev ni data URLs', () => {
+        const r2 = 'https://pub-abc.r2.dev/listings/a.webp';
+        expect(optimizeListingImageUrl(r2)).toBe(r2);
+        expect(optimizeListingImageUrl('data:image/webp;base64,aaa')).toBe('data:image/webp;base64,aaa');
+    });
+
+    it('no doble-envuelve', () => {
+        const already = 'https://media.simpleplataforma.app/cdn-cgi/image/width=400,quality=70,format=auto/listings/a.webp';
+        expect(optimizeListingImageUrl(already, { width: 720 })).toBe(already);
     });
 });

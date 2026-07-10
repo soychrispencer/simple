@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import Image from 'next/image';
 import {
     IconBookmark,
     IconBookmarkFilled,
@@ -14,7 +15,7 @@ import {
     IconVolume,
     IconVolumeOff,
 } from '@tabler/icons-react';
-import { formatListingPrice } from '@simple/utils';
+import { formatListingPrice, LISTING_IMAGE_WIDTHS, optimizeListingImageUrl } from '@simple/utils';
 import type { ListingMode, ListingAccent } from './types';
 import { joinClasses } from '../shared/join-classes';
 import {
@@ -164,6 +165,59 @@ function ReelSpecs({
     );
 }
 
+function OptimizedListingImage({
+    src,
+    alt,
+    width,
+    className,
+    loading = 'lazy',
+    onFatalError,
+}: {
+    src: string;
+    alt: string;
+    width: number;
+    className?: string;
+    loading?: 'lazy' | 'eager';
+    onFatalError?: () => void;
+}) {
+    const edgeOptimized = useMemo(
+        () => optimizeListingImageUrl(src, { width }),
+        [src, width],
+    );
+    const [useOriginal, setUseOriginal] = useState(false);
+    const usingEdge = !useOriginal && edgeOptimized !== src;
+    const displaySrc = usingEdge ? edgeOptimized : src;
+    const sizes = width <= 400
+        ? '160px'
+        : '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px';
+
+    useEffect(() => {
+        setUseOriginal(false);
+    }, [src, edgeOptimized]);
+
+    return (
+        <Image
+            src={displaySrc}
+            alt={alt}
+            fill
+            sizes={sizes}
+            quality={72}
+            className={className}
+            draggable={false}
+            loading={loading}
+            // Si Cloudflare Image Resizing ya recortó, no reprocesar en Next.
+            unoptimized={usingEdge}
+            onError={() => {
+                if (!useOriginal && displaySrc !== src) {
+                    setUseOriginal(true);
+                    return;
+                }
+                onFatalError?.();
+            }}
+        />
+    );
+}
+
 export default function MarketplaceReelListingCard({
     href,
     title,
@@ -267,8 +321,12 @@ export default function MarketplaceReelListingCard({
     );
 
     const currentMedia = media[currentMediaIndex];
-    const videoPoster = currentMedia?.type === 'video'
+    const imageWidth = isList ? LISTING_IMAGE_WIDTHS.list : LISTING_IMAGE_WIDTHS.card;
+    const videoPosterSource = currentMedia?.type === 'video'
         ? (currentMedia.thumbnail || images[0])
+        : undefined;
+    const videoPoster = videoPosterSource
+        ? optimizeListingImageUrl(videoPosterSource, { width: imageWidth })
         : undefined;
     const isVideoPlaying = currentMedia?.type === 'video'
         && (manualPlay || (isHovering && !suppressHoverPlay));
@@ -430,6 +488,7 @@ export default function MarketplaceReelListingCard({
                         aria-hidden
                         className="absolute inset-0 h-full w-full object-cover"
                         draggable={false}
+                        decoding="async"
                     />
                 ) : null}
                 <video
@@ -447,13 +506,13 @@ export default function MarketplaceReelListingCard({
                 />
             </>
         ) : (
-            <img
+            <OptimizedListingImage
                 src={currentMedia.url}
                 alt={title}
-                className="h-full w-full object-cover"
-                draggable={false}
+                width={imageWidth}
+                className="object-cover"
                 loading="lazy"
-                onError={advanceMediaOnError}
+                onFatalError={advanceMediaOnError}
             />
         )
     ) : (
