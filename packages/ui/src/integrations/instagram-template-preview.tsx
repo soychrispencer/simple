@@ -109,7 +109,6 @@ function HighlightIcon({ text, size = 10, color = 'currentColor' }: { text: stri
     );
 }
 
-const INSTAGRAM_SAFE_BOTTOM_STYLE = { bottom: `${INSTAGRAM_CAROUSEL_SAFE_BOTTOM_PCT}%` } as const;
 const INSTAGRAM_PANEL_BOTTOM_PADDING = `calc(0.75rem + ${INSTAGRAM_CAROUSEL_SAFE_BOTTOM_PCT}%)`;
 
 function resolveBrandAppId(appId?: 'simpleautos' | 'simplepropiedades'): SimpleAppId {
@@ -118,12 +117,14 @@ function resolveBrandAppId(appId?: 'simpleautos' | 'simplepropiedades'): SimpleA
 
 function BrandWatermarkOverlay({ appId }: { appId?: 'simpleautos' | 'simplepropiedades' }) {
     return (
-        <div className="absolute inset-x-0 z-[4] flex justify-center px-4" style={INSTAGRAM_SAFE_BOTTOM_STYLE}>
+        <div
+            className="absolute inset-x-0 z-[4] flex justify-center px-4"
+            style={{ bottom: `calc(${INSTAGRAM_CAROUSEL_SAFE_BOTTOM_PCT}% + 10px)` }}
+        >
             <BrandLogo
                 appId={resolveBrandAppId(appId)}
                 variant="watermark"
                 size="sm"
-                className="opacity-55"
             />
         </div>
     );
@@ -214,11 +215,12 @@ function EditorialPremiumOverlayPanel({
                     background: 'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.06) 42%, rgba(0,0,0,0.72) 100%)',
                 }}
             />
-            <div className="absolute top-3 right-3 z-[3] opacity-50">
+            <div className="absolute top-3 right-3 z-[3]">
                 <BrandLogo
                     appId={resolveBrandAppId(template.branding.appId)}
                     variant="watermark"
                     size="sm"
+                    className="scale-90 opacity-90"
                 />
             </div>
             <div

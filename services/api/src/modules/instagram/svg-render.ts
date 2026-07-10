@@ -135,23 +135,25 @@ function renderBrandMarkSvg(options: {
     compact?: boolean;
     opacity?: number;
 }): string {
-    const iconBoxSize = options.compact ? 28 : 34;
-    const iconInner = options.compact ? 14 : 16;
-    const wordmarkSize = options.compact ? 15 : 17;
-    const opacity = options.opacity ?? 0.55;
+    const isCompact = options.compact === true;
+    const iconBoxSize = isCompact ? 30 : 40;
+    const iconInner = isCompact ? 15 : 20;
+    const wordmarkSize = isCompact ? 15 : 19;
+    const opacity = options.opacity ?? (isCompact ? 0.88 : 0.94);
     const radius = Math.round(iconBoxSize * 0.22);
     const { primary, secondary } = splitBrandWordmark(options.appName);
     const iconKey = getBrandMarkIconKey(options.appId);
-    const textX = options.x + iconBoxSize + 8;
-    const textY = options.y + Math.round(iconBoxSize * 0.68);
+    const textX = options.x + iconBoxSize + 10;
+    const textY = options.y + Math.round(iconBoxSize * 0.7);
     const primaryWidth = primary.length * (wordmarkSize * 0.56);
+    const shadowFilter = isCompact ? '' : ' filter="url(#watermarkShadow)"';
 
     return `
-        <g opacity="${opacity}">
-            <rect x="${options.x}" y="${options.y}" width="${iconBoxSize}" height="${iconBoxSize}" rx="${radius}" ry="${radius}" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.28)" stroke-width="1.5" />
-            ${svgBrandMarkIcon(iconKey, options.x + (iconBoxSize - iconInner) / 2, options.y + (iconBoxSize - iconInner) / 2, iconInner, 'rgba(255,255,255,0.92)')}
-            <text x="${textX}" y="${textY}" fill="rgba(255,255,255,0.9)" font-size="${wordmarkSize}" font-weight="600" font-family="Arial, sans-serif">${escapeSvgText(primary)}</text>
-            ${secondary ? `<text x="${textX + primaryWidth}" y="${textY}" fill="rgba(255,255,255,0.62)" font-size="${wordmarkSize}" font-weight="400" font-family="Arial, sans-serif">${escapeSvgText(secondary)}</text>` : ''}
+        <g opacity="${opacity}"${shadowFilter}>
+            <rect x="${options.x}" y="${options.y}" width="${iconBoxSize}" height="${iconBoxSize}" rx="${radius}" ry="${radius}" fill="rgba(255,255,255,0.96)" />
+            ${svgBrandMarkIcon(iconKey, options.x + (iconBoxSize - iconInner) / 2, options.y + (iconBoxSize - iconInner) / 2, iconInner, 'rgba(48,48,48,0.9)', 1.75)}
+            <text x="${textX}" y="${textY}" fill="#FFFFFF" font-size="${wordmarkSize}" font-weight="600" font-family="Arial, sans-serif">${escapeSvgText(primary)}</text>
+            ${secondary ? `<text x="${textX + primaryWidth}" y="${textY}" fill="rgba(255,255,255,0.78)" font-size="${wordmarkSize}" font-weight="400" font-family="Arial, sans-serif">${escapeSvgText(secondary)}</text>` : ''}
         </g>
     `;
 }
@@ -247,10 +249,10 @@ function renderBrandWatermarkSvg(
     template: InstagramRenderTemplate,
 ): string {
     const safeBottom = getInstagramCarouselSafeBottom(height);
-    const iconBoxSize = 34;
-    const blockWidth = 168;
+    const iconBoxSize = 40;
+    const blockWidth = 188;
     const x = Math.round((width - blockWidth) / 2);
-    const y = height - safeBottom - iconBoxSize;
+    const y = height - safeBottom - iconBoxSize - 14;
 
     return renderBrandMarkSvg({
         x,
@@ -272,7 +274,7 @@ function renderPremiumBrandMarkSvg(
         appName: template.branding.appName,
         appId: template.branding.appId,
         compact: true,
-        opacity: 0.5,
+        opacity: 0.88,
     });
 }
 
@@ -537,6 +539,9 @@ export async function buildInstagramTemplateOverlaySvg(
                     <stop offset="40%" stop-color="#000000" stop-opacity="0.42" />
                     <stop offset="100%" stop-color="#000000" stop-opacity="0.9" />
                 </linearGradient>
+                <filter id="watermarkShadow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.42" />
+                </filter>
             </defs>
             <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />
             ${topBand}
