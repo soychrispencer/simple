@@ -107,37 +107,52 @@ function HighlightIcon({ text, size = 10, color = 'currentColor' }: { text: stri
     );
 }
 
-const BRAND_TAGLINE = 'Publicado vía';
+const BRAND_WATERMARK_LOGO_FILTER = 'grayscale(1) brightness(1.85)';
 
 function BrandWatermarkMark({
     appName,
-    tagline = BRAND_TAGLINE,
     compact = false,
 }: {
     appName: string;
-    tagline?: string;
     compact?: boolean;
 }) {
-    const logoClass = compact ? 'h-7 w-7' : 'h-8 w-8';
+    const logoClass = compact ? 'h-6 w-6' : 'h-8 w-8';
 
     return (
         <div className="absolute inset-x-0 bottom-4 z-[4] flex justify-center px-4">
-            <div className={`flex max-w-full items-center gap-2.5 ${compact ? 'opacity-50' : 'opacity-55'}`}>
+            <div className={`flex max-w-full items-center gap-2 ${compact ? 'opacity-50' : 'opacity-55'}`}>
                 <img
                     src="/logo-light.png"
                     alt={appName}
                     className={`${logoClass} shrink-0 object-contain`}
-                    style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}
+                    style={{ filter: BRAND_WATERMARK_LOGO_FILTER }}
                 />
                 <div className="min-w-0 text-left leading-tight text-white">
-                    <div className={`font-medium tracking-[0.12em] uppercase ${compact ? 'text-[8px]' : 'text-[9px]'}`}>
-                        {tagline}
-                    </div>
                     <div className={`font-semibold ${compact ? 'text-[10px]' : 'text-xs'}`}>
                         {appName}
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function ReelSpecsRow({ highlights }: { highlights: string[] }) {
+    const items = highlights.slice(0, 4);
+    if (items.length === 0) return null;
+
+    return (
+        <div className="mb-2 flex flex-wrap items-center justify-center gap-2">
+            {items.map((highlight, index) => (
+                <div key={`${highlight}-${index}`} className="inline-flex flex-col items-center gap-0.5 px-1">
+                    <span className="text-white/90">
+                        <HighlightIcon text={highlight} size={15} color="currentColor" />
+                    </span>
+                    <span className="max-w-[4.5rem] truncate text-[9px] leading-tight font-medium text-white/85">
+                        {highlight}
+                    </span>
+                </div>
+            ))}
         </div>
     );
 }
@@ -175,10 +190,8 @@ function ReelListingChips({
 
 function MarketplaceReelOverlayPanel({
     template,
-    showBrandWatermark = false,
 }: {
     template: InstagramTemplatePreviewData;
-    showBrandWatermark?: boolean;
 }) {
     const brandAccent = getSimpleAppBrand(template.branding.appId ?? 'simpleautos').accentLight;
 
@@ -220,27 +233,80 @@ function MarketplaceReelOverlayPanel({
                     </div>
                 ) : null}
                 {template.highlights && template.highlights.length > 0 ? (
-                    <div className="mb-2 flex items-start justify-center gap-1.5">
+                    <ReelSpecsRow highlights={template.highlights} />
+                ) : null}
+            </div>
+        </>
+    );
+}
+
+function EditorialPremiumOverlayPanel({
+    template,
+}: {
+    template: InstagramTemplatePreviewData;
+}) {
+    const brandAccent = getSimpleAppBrand(template.branding.appId ?? 'simpleautos').accentLight;
+
+    return (
+        <>
+            <ReelListingChips template={template} brandAccent={brandAccent} />
+            <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                    background: 'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.06) 42%, rgba(0,0,0,0.72) 100%)',
+                }}
+            />
+            <div className="absolute top-3 right-3 z-[3] flex items-center gap-1.5 opacity-45">
+                <img
+                    src="/logo-light.png"
+                    alt={template.branding.appName}
+                    className="h-5 w-5 shrink-0 object-contain"
+                    style={{ filter: BRAND_WATERMARK_LOGO_FILTER }}
+                />
+                <span className="text-[10px] font-semibold text-white">{template.branding.appName}</span>
+            </div>
+            <div
+                className="absolute inset-x-0 bottom-0 z-[2] px-4 pt-10 pb-4 text-left"
+                style={{
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.45) 55%, transparent)',
+                }}
+            >
+                <p
+                    className="mb-0.5 font-extrabold tracking-tight"
+                    style={{ fontSize: '1.65rem', color: brandAccent, textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}
+                >
+                    {template.offerPriceLabel || template.priceLabel}
+                </p>
+                {template.offerPriceLabel ? (
+                    <p className="mb-1 text-xs text-white/50 line-through">
+                        {template.priceLabel}
+                    </p>
+                ) : null}
+                {template.title ? (
+                    <h3 className="mb-1.5 line-clamp-2 text-base leading-snug font-bold uppercase tracking-wide text-white">
+                        {template.title}
+                    </h3>
+                ) : null}
+                {template.locationLabel ? (
+                    <div className="mb-2 flex items-center gap-1 text-[12px] font-medium text-white/75">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="shrink-0"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                        <span className="truncate">{template.locationLabel}</span>
+                    </div>
+                ) : null}
+                {template.highlights && template.highlights.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
                         {template.highlights.slice(0, 4).map((highlight, index) => (
-                            <div key={`${highlight}-${index}`} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-                                <span className="text-white/90">
-                                    <HighlightIcon text={highlight} size={16} color="currentColor" />
-                                </span>
-                                <span className="line-clamp-2 text-[9px] leading-tight font-medium text-white/85">
-                                    {highlight}
-                                </span>
-                            </div>
+                            <span
+                                key={`${highlight}-${index}`}
+                                className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/35 px-2 py-0.5 text-[9px] font-semibold text-white/90 backdrop-blur-sm"
+                            >
+                                <HighlightIcon text={highlight} size={11} color="currentColor" />
+                                {highlight}
+                            </span>
                         ))}
                     </div>
                 ) : null}
             </div>
-            {showBrandWatermark ? (
-                <BrandWatermarkMark
-                    appName={template.branding.appName}
-                    tagline={template.branding.badgeText || BRAND_TAGLINE}
-                    compact
-                />
-            ) : null}
         </>
     );
 }
@@ -522,14 +588,11 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             </div>
                         </>
                     ) : template.overlayVariant === 'essential-watermark' ? (
-                        <BrandWatermarkMark
-                            appName={template.branding.appName}
-                            tagline={template.branding.badgeText || BRAND_TAGLINE}
-                        />
+                        <BrandWatermarkMark appName={template.branding.appName} />
                     ) : template.overlayVariant === 'professional-centered' ? (
                         <MarketplaceReelOverlayPanel template={template} />
                     ) : template.overlayVariant === 'signature-complete' ? (
-                        <MarketplaceReelOverlayPanel template={template} showBrandWatermark />
+                        <EditorialPremiumOverlayPanel template={template} />
                     ) : (
                         <>
                             {/* Fallback genérico */}

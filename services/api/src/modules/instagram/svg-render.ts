@@ -172,8 +172,8 @@ const INSTAGRAM_WATERMARK_LOGO_SIZE = 48;
 const INSTAGRAM_WATERMARK_BOTTOM = 44;
 
 export function getInstagramWatermarkLogoPlacement(canvasWidth: number, canvasHeight: number) {
-    const textBlockWidth = 190;
-    const blockWidth = INSTAGRAM_WATERMARK_LOGO_SIZE + 12 + textBlockWidth;
+    const textBlockWidth = 130;
+    const blockWidth = INSTAGRAM_WATERMARK_LOGO_SIZE + 10 + textBlockWidth;
     const blockX = Math.round((canvasWidth - blockWidth) / 2);
     const blockY = canvasHeight - INSTAGRAM_WATERMARK_BOTTOM - INSTAGRAM_WATERMARK_LOGO_SIZE;
 
@@ -185,10 +185,19 @@ export function getInstagramWatermarkLogoPlacement(canvasWidth: number, canvasHe
             left: blockX,
         },
         text: {
-            taglineX: blockX + INSTAGRAM_WATERMARK_LOGO_SIZE + 12,
-            taglineY: blockY + 16,
-            appNameY: blockY + 38,
+            appNameX: blockX + INSTAGRAM_WATERMARK_LOGO_SIZE + 10,
+            appNameY: blockY + 32,
         },
+    };
+}
+
+export function getInstagramPremiumBrandLogoPlacement(canvasWidth: number) {
+    const size = 30;
+    return {
+        width: size,
+        height: size,
+        top: 28,
+        left: canvasWidth - size - 28,
     };
 }
 
@@ -196,16 +205,35 @@ function renderBrandWatermarkSvg(
     width: number,
     height: number,
     appName: string,
-    tagline: string,
 ): string {
     const placement = getInstagramWatermarkLogoPlacement(width, height);
-    const taglineText = escapeSvgText(tagline || 'Publicado vía');
     const appText = escapeSvgText(appName);
 
     return `
-        <text x="${placement.text.taglineX}" y="${placement.text.taglineY}" fill="#FFFFFF" fill-opacity="0.55" font-size="18" font-weight="600">${taglineText}</text>
-        <text x="${placement.text.taglineX}" y="${placement.text.appNameY}" fill="#FFFFFF" fill-opacity="0.6" font-size="22" font-weight="700">${appText}</text>
+        <text x="${placement.text.appNameX}" y="${placement.text.appNameY}" fill="#FFFFFF" fill-opacity="0.6" font-size="22" font-weight="700">${appText}</text>
     `;
+}
+
+function renderCompactSpecsColumnsSvg(cx: number, y: number, highlights: string[]): string {
+    const items = highlights.slice(0, 4);
+    if (items.length === 0) return '';
+
+    const gap = 18;
+    const colWidths = items.map((item) => Math.max(item.length * 8 + 22, 44));
+    const totalW = colWidths.reduce((sum, width) => sum + width, 0) + gap * (items.length - 1);
+    let cursorX = cx - totalW / 2;
+    let specsSvg = '';
+
+    items.forEach((item, index) => {
+        const colW = colWidths[index];
+        const colX = cursorX + colW / 2;
+        const iconKey = getHighlightIconKey(item);
+        specsSvg += svgIcon(iconKey, colX - 10, y, 18, 'rgba(255,255,255,0.9)');
+        specsSvg += `<text x="${colX}" y="${y + 34}" fill="rgba(255,255,255,0.85)" font-size="15" font-weight="500" text-anchor="middle">${escapeSvgText(item)}</text>`;
+        cursorX += colW + gap;
+    });
+
+    return specsSvg;
 }
 
 function renderReelListingChipsSvg(
@@ -242,7 +270,6 @@ function renderMarketplaceReelPanelSvg(
     template: InstagramRenderTemplate,
     brandAccent: string,
     highlights: string[],
-    includeBrandWatermark: boolean,
 ): string {
     const cx = Math.round(width / 2);
     const fullPrice = escapeSvgText(clampTemplateText(template.offerPriceLabel || template.priceLabel || 'Consultar', 20));
@@ -251,7 +278,7 @@ function renderMarketplaceReelPanelSvg(
     const locText = template.locationLabel ? escapeSvgText(clampTemplateText(template.locationLabel, 24)) : '';
     const panelTop = height - Math.round(height * 0.42);
 
-    let y = height - (includeBrandWatermark ? 88 : 36);
+    let y = height - 36;
     let locSvg = '';
     if (locText) {
         y -= 34;
@@ -263,15 +290,8 @@ function renderMarketplaceReelPanelSvg(
     }
     let specsSvg = '';
     if (highlights.length > 0) {
-        y -= 54;
-        const items = highlights.slice(0, 4);
-        const colW = Math.floor((width - 80) / items.length);
-        items.forEach((item, index) => {
-            const colX = 40 + index * colW + Math.round(colW / 2);
-            const iconKey = getHighlightIconKey(item);
-            specsSvg += svgIcon(iconKey, colX - 10, y, 20, 'rgba(255,255,255,0.9)');
-            specsSvg += `<text x="${colX}" y="${y + 38}" fill="rgba(255,255,255,0.85)" font-size="16" font-weight="500" text-anchor="middle">${escapeSvgText(item)}</text>`;
-        });
+        y -= 50;
+        specsSvg = renderCompactSpecsColumnsSvg(cx, y, highlights);
         y -= 8;
     }
     let titleSvg = '';
@@ -296,7 +316,73 @@ function renderMarketplaceReelPanelSvg(
         ${titleSvg}
         ${locSvg}
         ${specsSvg}
-        ${includeBrandWatermark ? renderBrandWatermarkSvg(width, height, template.branding.appName, template.branding.badgeText || 'Publicado vía') : ''}
+    `;
+}
+
+function renderEditorialPremiumPanelSvg(
+    width: number,
+    height: number,
+    template: InstagramRenderTemplate,
+    brandAccent: string,
+    highlights: string[],
+): string {
+    const padX = 40;
+    const fullPrice = escapeSvgText(clampTemplateText(template.offerPriceLabel || template.priceLabel || 'Consultar', 20));
+    const origPrice = template.offerPriceLabel ? escapeSvgText(clampTemplateText(template.priceLabel || '', 20)) : '';
+    const titleText = template.title ? escapeSvgText(clampTemplateText(template.title.toUpperCase(), 56)) : '';
+    const locText = template.locationLabel ? escapeSvgText(clampTemplateText(template.locationLabel, 24)) : '';
+    const appText = escapeSvgText(template.branding.appName);
+    const panelTop = height - Math.round(height * 0.46);
+
+    let y = height - 44;
+    let pillsSvg = '';
+    if (highlights.length > 0) {
+        y -= 34;
+        let pillX = padX;
+        for (const item of highlights.slice(0, 4)) {
+            const label = escapeSvgText(item);
+            const pillW = Math.min(label.length * 9 + 34, 170);
+            pillsSvg += `
+                <rect x="${pillX}" y="${y}" rx="16" ry="16" width="${pillW}" height="30" fill="rgba(0,0,0,0.35)" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" />
+                ${svgIcon(getHighlightIconKey(item), pillX + 8, y + 6, 16, 'rgba(255,255,255,0.9)')}
+                <text x="${pillX + 28}" y="${y + 20}" fill="rgba(255,255,255,0.9)" font-size="15" font-weight="600">${label}</text>
+            `;
+            pillX += pillW + 8;
+        }
+        y -= 10;
+    }
+    let locSvg = '';
+    if (locText) {
+        y -= 28;
+        locSvg = `
+            ${svgIcon('ubicacion', padX, y + 2, 16, 'rgba(255,255,255,0.75)', 2)}
+            <text x="${padX + 22}" y="${y + 18}" fill="rgba(255,255,255,0.75)" font-size="18" font-weight="500">${locText}</text>
+        `;
+        y -= 6;
+    }
+    let titleSvg = '';
+    if (titleText) {
+        y -= 36;
+        titleSvg = `<text x="${padX}" y="${y + 24}" fill="#FFFFFF" font-size="28" font-weight="800">${titleText}</text>`;
+        y -= 6;
+    }
+    let strikeSvg = '';
+    if (origPrice) {
+        y -= 22;
+        strikeSvg = `<text x="${padX}" y="${y + 14}" fill="rgba(255,255,255,0.5)" font-size="18" font-weight="500" text-decoration="line-through">${origPrice}</text>`;
+        y -= 2;
+    }
+    const priceY = y;
+
+    return `
+        <rect x="0" y="${panelTop}" width="${width}" height="${height - panelTop}" fill="url(#editorialGrad)" />
+        ${renderReelListingChipsSvg(width, template, brandAccent)}
+        <text x="${width - padX}" y="52" fill="rgba(255,255,255,0.55)" font-size="18" font-weight="700" text-anchor="end">${appText}</text>
+        ${svgTextElement(fullPrice, { x: padX, y: priceY, fontSize: 62, fontWeight: 800, fill: brandAccent, anchor: 'start' })}
+        ${strikeSvg}
+        ${titleSvg}
+        ${locSvg}
+        ${pillsSvg}
     `;
 }
 
@@ -382,12 +468,11 @@ export async function buildInstagramTemplateOverlaySvg(
             width,
             height,
             template.branding.appName,
-            template.branding.badgeText || 'Publicado vía',
         );
     } else if (template.overlayVariant === 'professional-centered') {
-        detailsBand = renderMarketplaceReelPanelSvg(width, height, template, brandAccent, highlights, false);
+        detailsBand = renderMarketplaceReelPanelSvg(width, height, template, brandAccent, highlights);
     } else if (template.overlayVariant === 'signature-complete') {
-        detailsBand = renderMarketplaceReelPanelSvg(width, height, template, brandAccent, highlights, true);
+        detailsBand = renderEditorialPremiumPanelSvg(width, height, template, brandAccent, highlights);
     } else {
         detailsBand = '';
     }
@@ -417,6 +502,11 @@ export async function buildInstagramTemplateOverlaySvg(
                     <stop offset="0%" stop-color="#000000" stop-opacity="0" />
                     <stop offset="45%" stop-color="#000000" stop-opacity="0.35" />
                     <stop offset="100%" stop-color="#000000" stop-opacity="0.82" />
+                </linearGradient>
+                <linearGradient id="editorialGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#000000" stop-opacity="0" />
+                    <stop offset="40%" stop-color="#000000" stop-opacity="0.42" />
+                    <stop offset="100%" stop-color="#000000" stop-opacity="0.9" />
                 </linearGradient>
             </defs>
             <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />

@@ -6,7 +6,7 @@ import { logger } from '@simple/logger';
 import { asObject, asString } from '../shared/index.js';
 import { isLocalHostname } from '../mercadopago/checkout-helpers.js';
 import { getInstagramPublicApiOrigin } from './service.js';
-import { buildInstagramTemplateOverlaySvg, getInstagramWatermarkLogoPlacement } from './svg-render.js';
+import { buildInstagramTemplateOverlaySvg, getInstagramPremiumBrandLogoPlacement, getInstagramWatermarkLogoPlacement } from './svg-render.js';
 import type { ListingData as InstagramListingData, InstagramTemplateView as InstagramRenderTemplate } from './templates.js';
 
 const API_ROOT_DIR = path.resolve(__dirname, '../../..');
@@ -272,19 +272,16 @@ export async function prepareInstagramImageUrl(
         if (logoBuffer) {
             let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number } | null = null;
 
-            if (variant === 'essential-watermark' || variant === 'signature-complete') {
+            if (variant === 'essential-watermark') {
                 const watermark = getInstagramWatermarkLogoPlacement(1080, targetHeight);
                 logoPlacement = {
                     ...watermark.logo,
-                    width: variant === 'signature-complete' ? 36 : watermark.logo.width,
-                    height: variant === 'signature-complete' ? 36 : watermark.logo.height,
-                    top: variant === 'signature-complete'
-                        ? watermark.logo.top + Math.round((watermark.logo.height - 36) / 2)
-                        : watermark.logo.top,
-                    left: variant === 'signature-complete'
-                        ? watermark.logo.left + Math.round((watermark.logo.width - 36) / 2)
-                        : watermark.logo.left,
-                    opacity: variant === 'signature-complete' ? 0.5 : 0.55,
+                    opacity: 0.55,
+                };
+            } else if (variant === 'signature-complete') {
+                logoPlacement = {
+                    ...getInstagramPremiumBrandLogoPlacement(1080),
+                    opacity: 0.45,
                 };
             } else if (variant.startsWith('property')) {
                 logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
@@ -293,13 +290,18 @@ export async function prepareInstagramImageUrl(
             }
 
             if (logoPlacement) {
-                let logoOverlay = await sharp(logoBuffer)
+                const shouldGreyscale = variant === 'essential-watermark' || variant === 'signature-complete';
+                let logoPipeline = sharp(logoBuffer)
                     .resize({
                         width: logoPlacement.width,
                         height: logoPlacement.height,
                         fit: 'contain',
                         withoutEnlargement: false,
-                    })
+                    });
+                if (shouldGreyscale) {
+                    logoPipeline = logoPipeline.greyscale();
+                }
+                let logoOverlay = await logoPipeline
                     .ensureAlpha()
                     .png()
                     .toBuffer();

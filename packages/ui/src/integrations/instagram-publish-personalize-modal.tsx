@@ -32,9 +32,9 @@ export type InstagramPublishPersonalizeModalProps = {
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
-    'essential-watermark': 'Marca de agua centrada',
-    'professional-centered': 'Ficha con precio y datos',
-    'signature-complete': 'Estilo editorial premium',
+    'essential-watermark': 'Solo marca de agua',
+    'professional-centered': 'Ficha reel centrada',
+    'signature-complete': 'Editorial con precio destacado',
 };
 
 export function InstagramPublishPersonalizeModal({

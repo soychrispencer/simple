@@ -226,8 +226,8 @@ const createProfesionalTemplate = (listing: ListingData): InstagramTemplateView 
     };
 };
 
-// Template 3: PREMIUM - Diseño completo premium, presencia fuerte
-// Concepto: Información exclusiva, posicionamiento alto
+// Template 3: PREMIUM - Estilo editorial: precio en acento, datos alineados a la izquierda
+// Concepto: Look revista / exclusivo, distinto al reel centrado de Profesional
 const createPremiumTemplate = (listing: ListingData): InstagramTemplateView => {
     const brand = getPlatformBrand(listing.vertical);
     const highlights = buildVerticalHighlights(listing);
