@@ -42,10 +42,11 @@ function brandLogoIconWrapStyle(variant: BrandLogoVariant): CSSProperties {
             };
         case 'watermark':
             return {
-                background: 'rgba(255,255,255,0.94)',
-                borderColor: 'rgba(255,255,255,0.94)',
-                color: 'rgba(48,48,48,0.9)',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.24)',
+                background: 'rgba(255,255,255,0.2)',
+                borderColor: 'rgba(255,255,255,0.34)',
+                color: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(6px)',
+                WebkitBackdropFilter: 'blur(6px)',
             };
         default:
             return {
@@ -69,20 +70,20 @@ export function BrandLogo({
     const secondary = brand.shortName.replace(/^Simple/, '') || brand.shortName;
     const wordmarkPrimary =
         variant === 'watermark'
-            ? '#FFFFFF'
+            ? 'rgba(255,255,255,0.9)'
             : variant === 'onAccent'
                 ? 'var(--accent-contrast)'
                 : 'var(--fg)';
     const wordmarkSecondary =
         variant === 'watermark'
-            ? 'rgba(255,255,255,0.78)'
+            ? 'rgba(255,255,255,0.68)'
             : variant === 'onAccent'
                 ? 'color-mix(in oklab, var(--accent-contrast) 88%, transparent)'
                 : 'var(--accent)';
 
     const iconSize =
-        variant === 'watermark' && size === 'sm'
-            ? 18
+        variant === 'watermark'
+            ? 16
             : size === 'sm'
                 ? 16
                 : size === 'lg'
@@ -90,7 +91,7 @@ export function BrandLogo({
                     : 18;
     const wordmarkClass =
         variant === 'watermark'
-            ? 'text-base'
+            ? 'text-sm'
             : size === 'sm'
                 ? 'text-sm'
                 : size === 'lg'
@@ -100,7 +101,7 @@ export function BrandLogo({
     const iconBox = clsx(
         'flex items-center justify-center border transition-[box-shadow,border-color,background-color,transform,filter] duration-[var(--serenatas-motion-duration,180ms)] ease-[var(--serenatas-motion-ease,cubic-bezier(0.16,1,0.3,1))]',
         size === 'sm' && variant !== 'watermark' && 'w-8 h-8 rounded-[var(--radius)]',
-        size === 'sm' && variant === 'watermark' && 'w-10 h-10 rounded-[var(--radius)]',
+        size === 'sm' && variant === 'watermark' && 'w-9 h-9 rounded-[var(--radius)]',
         size === 'md' && 'w-9 h-9 rounded-[var(--radius)]',
         size === 'lg' && 'w-14 h-14 rounded-[var(--radius-lg)]',
         variant === 'default' &&
@@ -115,7 +116,7 @@ export function BrandLogo({
     return (
         <span
             className={clsx('flex items-center gap-2.5 group shrink-0', className)}
-            style={variant === 'watermark' ? { filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.42))' } : undefined}
+            style={variant === 'watermark' ? { filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.32))' } : undefined}
         >
             <span className={iconBox} style={brandLogoIconWrapStyle(variant)}>
                 <Icon size={iconSize} />
