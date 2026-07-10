@@ -11,6 +11,11 @@ export {
     type InstagramTemplatePreviewProps,
 } from './instagram-template-preview';
 export {
+    InstagramPublishPersonalizeModal,
+    type InstagramPublishPersonalizeModalProps,
+    type InstagramPublishTemplateOption,
+} from './instagram-publish-personalize-modal';
+export {
     InstagramIntegrationCard,
     type InstagramIntegrationAccount,
     type InstagramIntegrationCardProps,

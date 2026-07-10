@@ -44,6 +44,8 @@ export type SimplePublishShareIntegration = {
     unavailableReason?: string;
     busy?: boolean;
     published?: boolean;
+    supportsPersonalize?: boolean;
+    onPersonalize?: () => void;
     onPublish?: () => void | Promise<void>;
     /** Publicación manual (ej. Facebook Marketplace). */
     manual?: boolean;

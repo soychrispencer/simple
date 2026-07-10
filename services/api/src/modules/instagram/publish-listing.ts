@@ -2,14 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { logger } from '@simple/logger';
 import type { VerticalType } from '@simple/types';
 import type { InstagramTemplateView } from './templates.js';
-import type { InstagramPublicationContentType } from './account-store.js';
 import {
     publishInstagramCarousel,
     publishInstagramImage,
     publishInstagramReel,
     refreshInstagramAccessToken,
 } from './service.js';
-import type { InstagramAccountRecord, InstagramPublicationRecord } from './account-store.js';
+import type { InstagramAccountRecord, InstagramPublicationContentType, InstagramPublicationRecord } from './account-store.js';
 
 function resolveInstagramPublishAccessToken(account: InstagramAccountRecord): string {
     return account.facebookPageAccessToken?.trim() || account.accessToken;
@@ -70,6 +69,10 @@ export type PublishListingToInstagramDeps = {
         vertical: VerticalType,
         patch: Partial<InstagramAccountRecord>,
     ) => Promise<InstagramAccountRecord | null>;
+    resolvePublishTemplate?: (
+        account: InstagramAccountRecord,
+        listing: PublishListingRecord,
+    ) => InstagramTemplateView | null;
 };
 
 function resolveMediaFormat(
@@ -123,18 +126,25 @@ export function createPublishListingToInstagram(deps: PublishListingToInstagramD
 
         const refreshedAccount = await deps.refreshInstagramAccountIfNeeded(account);
         const publicUrl = deps.buildListingPublicUrlForInstagram(listing);
+        const savedTemplate = !options.template && deps.resolvePublishTemplate
+            ? deps.resolvePublishTemplate(refreshedAccount, listing)
+            : null;
+        const publishTemplate = options.template ?? savedTemplate ?? null;
+        const publishOptions = publishTemplate && !options.template
+            ? { ...options, template: publishTemplate }
+            : options;
         const caption = deps.buildInstagramCaption(
             listing,
             publicUrl,
             refreshedAccount.captionTemplate,
-            options.captionOverride ?? null,
+            publishOptions.captionOverride ?? null,
         );
 
         if (contentType === 'reel') {
-            return publishListingReel(deps, user, listing, refreshedAccount, caption, options);
+            return publishListingReel(deps, user, listing, refreshedAccount, caption, publishOptions);
         }
 
-        return publishListingImages(deps, user, listing, refreshedAccount, caption, contentType, options);
+        return publishListingImages(deps, user, listing, refreshedAccount, caption, contentType, publishOptions);
     };
 }
 

@@ -30,3 +30,11 @@ export function listingHasShareableVideo(listing: ListingMediaSource): boolean {
     const url = getListingVideoUrl(listing);
     return Boolean(url && url.startsWith('http'));
 }
+
+export function getListingPhotoUrls(listing: ListingMediaSource): string[] {
+    const media = asRecord(asRecord(listing.rawData).media);
+    const photos = Array.isArray(media.photos) ? media.photos : [];
+    return photos
+        .map((photo) => readMediaUrl(photo))
+        .filter((url) => Boolean(url));
+}

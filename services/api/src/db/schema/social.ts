@@ -18,6 +18,7 @@ export const instagramAccounts = pgTable('instagram_accounts', {
   scopes: jsonb('scopes'),
   autoPublishEnabled: boolean('auto_publish_enabled').notNull().default(false),
   captionTemplate: text('caption_template'),
+  publishStyle: jsonb('publish_style').$type<Record<string, unknown> | null>(),
   status: varchar('status', { length: 20 }).notNull().default('connected'),
   lastSyncedAt: timestamp('last_synced_at'),
   lastPublishedAt: timestamp('last_published_at'),

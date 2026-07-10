@@ -13,6 +13,11 @@ import {
     createMaybeAutoPublishListing,
     type PublishListingToInstagramDeps,
 } from './publish-listing.js';
+import {
+    resolveInstagramPublishStyle,
+    resolvePublishTemplateForListing,
+} from './publish-preferences.js';
+import type { InstagramAccountRecord } from './account-store.js';
 import { getR2S3Client } from '../media/s3-clients.js';
 
 export type InstagramPublishPresentationInput = {
@@ -100,6 +105,11 @@ export function createInstagramPublishWiring(
         buildListingPublicUrlForInstagram,
         prepareInstagramImageUrl,
         buildInstagramCaption,
+        resolvePublishTemplate: (account: InstagramAccountRecord, listing) => {
+            const style = resolveInstagramPublishStyle(account.publishStyle);
+            const listingData = buildInstagramListingData(listing);
+            return resolvePublishTemplateForListing(style, listingData);
+        },
     };
 
     const publishListingToInstagram = createPublishListingToInstagram(publishListingDeps);

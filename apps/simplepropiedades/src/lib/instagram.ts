@@ -3,6 +3,40 @@ import { apiRequest, buildIntegrationsReturnUrl } from '@simple/utils';
 
 export type InstagramPlanId = 'free' | 'basic' | 'pro' | 'enterprise';
 
+export type InstagramTone = 'professional' | 'casual' | 'excited' | 'luxury' | 'urgent';
+export type InstagramTargetAudience = 'young' | 'professional' | 'investors' | 'families' | 'general';
+
+export type InstagramPublishStyleView = {
+    templateId: 'essential-watermark' | 'professional-centered' | 'signature-complete';
+    layoutVariant: 'square' | 'portrait';
+    tone: InstagramTone;
+    targetAudience: InstagramTargetAudience;
+    useAI: boolean;
+};
+
+export const DEFAULT_INSTAGRAM_PUBLISH_STYLE: InstagramPublishStyleView = {
+    templateId: 'essential-watermark',
+    layoutVariant: 'portrait',
+    tone: 'professional',
+    targetAudience: 'general',
+    useAI: true,
+};
+
+export function parseInstagramPublishStyle(raw: unknown): InstagramPublishStyleView {
+    if (!raw || typeof raw !== 'object') return DEFAULT_INSTAGRAM_PUBLISH_STYLE;
+    const record = raw as Record<string, unknown>;
+    const templateId = record.templateId;
+    return {
+        templateId: templateId === 'professional-centered' || templateId === 'signature-complete'
+            ? templateId
+            : 'essential-watermark',
+        layoutVariant: record.layoutVariant === 'square' ? 'square' : 'portrait',
+        tone: (typeof record.tone === 'string' ? record.tone : 'professional') as InstagramTone,
+        targetAudience: (typeof record.targetAudience === 'string' ? record.targetAudience : 'general') as InstagramTargetAudience,
+        useAI: record.useAI !== false,
+    };
+}
+
 export type InstagramAccountView = {
     id: string;
     vertical: 'autos' | 'propiedades';
@@ -14,6 +48,7 @@ export type InstagramAccountView = {
     scopes: string[];
     autoPublishEnabled: boolean;
     captionTemplate: string | null;
+    publishStyle: InstagramPublishStyleView | null;
     status: 'connected' | 'error' | 'disconnected';
     lastSyncedAt: number | null;
     lastPublishedAt: number | null;
@@ -117,6 +152,34 @@ export async function updateInstagramSettings(input: {
 
     if (status === 401) return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
     return data ?? { ok: false, error: 'No pudimos guardar la configuración.' };
+}
+
+export async function saveInstagramPublishPreferences(input: {
+    templateId: InstagramPublishStyleView['templateId'];
+    layoutVariant: InstagramPublishStyleView['layoutVariant'];
+    tone: InstagramTone;
+    targetAudience: InstagramTargetAudience;
+    useAI: boolean;
+    captionTemplate: string | null;
+}): Promise<{ ok: boolean; account?: InstagramAccountView; error?: string }> {
+    const { status, data } = await apiRequest<{ ok: boolean; account?: InstagramAccountView; error?: string }>(
+        '/api/integrations/instagram/publish-preferences',
+        {
+            method: 'POST',
+            body: JSON.stringify({
+                vertical: 'propiedades',
+                templateId: input.templateId,
+                layoutVariant: input.layoutVariant,
+                tone: input.tone,
+                targetAudience: input.targetAudience,
+                useAI: input.useAI,
+                captionTemplate: input.captionTemplate,
+            }),
+        },
+    );
+
+    if (status === 401) return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
+    return data ?? { ok: false, error: 'No pudimos guardar tu estilo de publicación.' };
 }
 
 export async function disconnectInstagram(): Promise<{ ok: boolean; error?: string }> {

@@ -277,6 +277,16 @@ export const instagramSettingsSchema = z.object({
     captionTemplate: z.string().trim().max(2200).nullable().optional(),
 });
 
+export const instagramPublishPreferencesSchema = z.object({
+    vertical: instagramVerticalSchema,
+    captionTemplate: z.string().trim().max(2200).nullable().optional(),
+    templateId: z.enum(['essential-watermark', 'professional-centered', 'signature-complete']).optional(),
+    layoutVariant: z.enum(['square', 'portrait']).optional(),
+    tone: z.enum(['professional', 'casual', 'excited', 'luxury', 'urgent']).optional(),
+    targetAudience: z.enum(['young', 'professional', 'investors', 'families', 'general']).optional(),
+    useAI: z.boolean().optional(),
+});
+
 export const instagramPublishSchema = z.object({
     vertical: instagramVerticalSchema,
     listingId: z.string().trim().min(1),

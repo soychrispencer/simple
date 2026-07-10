@@ -425,6 +425,7 @@ export type InstagramAccountRecord = {
     scopes: string[];
     autoPublishEnabled: boolean;
     captionTemplate: string | null;
+    publishStyle: Record<string, unknown> | null;
     status: InstagramAccountStatus;
     lastSyncedAt: number | null;
     lastPublishedAt: number | null;

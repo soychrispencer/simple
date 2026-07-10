@@ -24,6 +24,7 @@ export type InstagramAccountRecord = {
     scopes: string[];
     autoPublishEnabled: boolean;
     captionTemplate: string | null;
+    publishStyle: Record<string, unknown> | null;
     status: InstagramAccountStatus;
     lastSyncedAt: number | null;
     lastPublishedAt: number | null;
@@ -85,6 +86,7 @@ export function mapInstagramAccountRow(account: typeof instagramAccounts.$inferS
         scopes: Array.isArray(account.scopes) ? account.scopes.map((item) => asString(item)).filter(Boolean) : [],
         autoPublishEnabled: Boolean(account.autoPublishEnabled),
         captionTemplate: account.captionTemplate ?? null,
+        publishStyle: (account.publishStyle as Record<string, unknown> | null) ?? null,
         status: account.status as InstagramAccountStatus,
         lastSyncedAt: account.lastSyncedAt?.getTime() ?? null,
         lastPublishedAt: account.lastPublishedAt?.getTime() ?? null,
@@ -144,6 +146,7 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
             scopes: account.scopes,
             autoPublishEnabled: account.autoPublishEnabled,
             captionTemplate: account.captionTemplate,
+            publishStyle: account.publishStyle,
             status: account.status,
             lastSyncedAt: account.lastSyncedAt,
             lastPublishedAt: account.lastPublishedAt,
@@ -262,6 +265,7 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         patch: {
             autoPublishEnabled?: boolean;
             captionTemplate?: string | null;
+            publishStyle?: Record<string, unknown> | null;
             status?: InstagramAccountStatus;
             lastPublishedAt?: number | null;
             lastSyncedAt?: number | null;
@@ -277,6 +281,7 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         const [row] = await db.update(instagramAccounts).set({
             autoPublishEnabled: patch.autoPublishEnabled ?? existing.autoPublishEnabled,
             captionTemplate: patch.captionTemplate === undefined ? existing.captionTemplate : patch.captionTemplate,
+            publishStyle: patch.publishStyle === undefined ? existing.publishStyle : patch.publishStyle,
             status: patch.status ?? existing.status,
             lastPublishedAt: patch.lastPublishedAt === undefined
                 ? (existing.lastPublishedAt ? new Date(existing.lastPublishedAt) : null)

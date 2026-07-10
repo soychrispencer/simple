@@ -6,15 +6,25 @@ import {
     type SimplePublishShareIntegration,
 } from '@simple/ui/simple-publish';
 import {
+    InstagramPublishPersonalizeModal,
+    type InstagramPublishTemplateOption,
+} from '@simple/ui/integrations';
+import {
     SIMPLE_PUBLISH_INTEGRATIONS_CONNECT_HREF,
     buildMarketplaceListingCopy,
     buildMarketplacePublicUrl,
     getFacebookMarketplaceCreateUrl,
 } from '@simple/utils';
 import {
+    DEFAULT_INSTAGRAM_PUBLISH_STYLE,
     fetchInstagramIntegrationStatus,
+    generateSmartTemplates,
+    parseInstagramPublishStyle,
     publishListingToInstagramEnhanced,
+    saveInstagramPublishPreferences,
     type InstagramMediaFormat,
+    type InstagramPublishStyleView,
+    type InstagramTemplateView,
 } from '@/lib/instagram';
 import {
     fetchSocialHubStatus,
@@ -24,8 +34,9 @@ import {
 import {
     fetchPanelListingDetail,
     trackPortalIntegration,
+    type PanelListing,
 } from '@/lib/panel-listings';
-import { listingHasShareableVideo } from '@/lib/listing-media';
+import { getListingPhotoUrls, listingHasShareableVideo } from '@/lib/listing-media';
 
 type Props = {
     listingId: string;
@@ -38,6 +49,28 @@ type Props = {
     shareText?: string;
     brandName?: string;
 };
+
+function buildDefaultCaption(listing: {
+    title: string;
+    price?: string | null;
+    description?: string | null;
+    location?: string | null;
+    href: string;
+}, brandName: string): string {
+    const publicUrl = buildMarketplacePublicUrl(listing.href);
+    const base = listing.description?.trim()
+        || `${listing.title}\n${listing.price || 'Consultar precio'}\n${listing.location || ''}`.trim();
+    return `${base}\n\n🔗 Ver más: ${publicUrl}\n\n#${brandName.replace(/\s+/g, '')}`;
+}
+
+function toTemplateOptions(templates: InstagramTemplateView[]): InstagramPublishTemplateOption[] {
+    return templates.map((template) => ({
+        ...template,
+        id: template.id,
+        name: template.name,
+        score: template.score,
+    }));
+}
 
 export function ShareToSocialPanel({
     listingId,
@@ -53,12 +86,21 @@ export function ShareToSocialPanel({
     const [loading, setLoading] = useState(true);
     const [busyKey, setBusyKey] = useState<string | null>(null);
     const [listingHasVideo, setListingHasVideo] = useState(hasVideo);
+    const [listingItem, setListingItem] = useState<PanelListing | null>(null);
     const [igConnected, setIgConnected] = useState(false);
     const [fbConnected, setFbConnected] = useState(false);
     const [tiktokConnected, setTiktokConnected] = useState(false);
     const [youtubeConnected, setYoutubeConnected] = useState(false);
     const [publishedKeys, setPublishedKeys] = useState<Set<string>>(new Set());
     const [marketplacePublished, setMarketplacePublished] = useState(false);
+    const [igPublishStyle, setIgPublishStyle] = useState<InstagramPublishStyleView>(DEFAULT_INSTAGRAM_PUBLISH_STYLE);
+    const [igCaptionTemplate, setIgCaptionTemplate] = useState<string | null>(null);
+    const [personalizeOpen, setPersonalizeOpen] = useState(false);
+    const [personalizeSaving, setPersonalizeSaving] = useState(false);
+    const [templatesLoading, setTemplatesLoading] = useState(false);
+    const [instagramTemplates, setInstagramTemplates] = useState<InstagramPublishTemplateOption[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+    const [personalizeCaption, setPersonalizeCaption] = useState('');
     const [detailMeta, setDetailMeta] = useState({
         title: listingTitle,
         href: listingHref,
@@ -67,9 +109,15 @@ export function ShareToSocialPanel({
         location: listingLocation ?? '',
     });
 
+    const listingImages = useMemo(
+        () => (listingItem ? getListingPhotoUrls(listingItem) : []),
+        [listingItem],
+    );
+
     const loadMarketplaceState = useCallback(async () => {
         const result = await fetchPanelListingDetail(listingId);
         if (!result.ok || !result.item) return;
+        setListingItem(result.item);
         setDetailMeta({
             title: result.item.title,
             href: result.item.href,
@@ -103,10 +151,12 @@ export function ShareToSocialPanel({
                 setFbConnected(Boolean(hub?.platforms.facebook.connected && !hub?.platforms.facebook.needsReconnect));
                 setTiktokConnected(Boolean(hub?.platforms.tiktok.connected));
                 setYoutubeConnected(Boolean(hub?.platforms.youtube.connected));
+                setIgPublishStyle(parseInstagramPublishStyle(instagram?.account?.publishStyle));
+                setIgCaptionTemplate(instagram?.account?.captionTemplate ?? null);
 
                 const published = new Set<string>();
                 for (const item of instagram?.recentPublications ?? []) {
-                    if (item.listingId !== listingId || item.status !== 'published') continue;
+                    if (item.listingId !== listingId) continue;
                     published.add(item.contentType === 'reel' ? 'instagram_reel' : 'instagram_carousel');
                 }
                 for (const item of hub?.recentPublications ?? []) {
@@ -136,15 +186,65 @@ export function ShareToSocialPanel({
         const key = format === 'reel' ? 'instagram_reel' : 'instagram_carousel';
         setBusyKey(key);
         const result = await publishListingToInstagramEnhanced(listingId, {
-            useAI: true,
-            tone: 'professional',
-            targetAudience: 'general',
+            useAI: igPublishStyle.useAI,
+            useTemplates: true,
+            tone: igPublishStyle.tone,
+            targetAudience: igPublishStyle.targetAudience,
+            templateId: igPublishStyle.templateId,
+            layoutVariant: igPublishStyle.layoutVariant,
             mediaFormat: format,
         });
         setBusyKey(null);
         if (result.ok && (result.publication || result.result)) {
             setPublishedKeys((current) => new Set([...current, key]));
         }
+    }
+
+    async function openInstagramPersonalize() {
+        setPersonalizeOpen(true);
+        setPersonalizeCaption(
+            igCaptionTemplate
+            || buildDefaultCaption({
+                title: detailMeta.title || listingTitle,
+                price: detailMeta.price || listingPrice,
+                description: detailMeta.description || listingDescription,
+                location: detailMeta.location || listingLocation,
+                href: detailMeta.href || listingHref,
+            }, brandName),
+        );
+        setSelectedTemplateId(igPublishStyle.templateId);
+        setTemplatesLoading(true);
+        const result = await generateSmartTemplates(listingId);
+        if (!result.ok || !result.recommendedTemplate) {
+            setInstagramTemplates([]);
+            setTemplatesLoading(false);
+            return;
+        }
+        const order = ['essential-watermark', 'professional-centered', 'signature-complete'];
+        const all = [result.recommendedTemplate, ...(result.alternatives ?? [])]
+            .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+        setInstagramTemplates(toTemplateOptions(all));
+        setSelectedTemplateId(igPublishStyle.templateId || result.recommendedTemplate.id);
+        setTemplatesLoading(false);
+    }
+
+    async function saveInstagramPersonalize() {
+        if (!selectedTemplateId) return;
+        const selected = instagramTemplates.find((template) => template.id === selectedTemplateId);
+        setPersonalizeSaving(true);
+        const result = await saveInstagramPublishPreferences({
+            templateId: selectedTemplateId as InstagramPublishStyleView['templateId'],
+            layoutVariant: selected?.layoutVariant ?? igPublishStyle.layoutVariant,
+            tone: igPublishStyle.tone,
+            targetAudience: igPublishStyle.targetAudience,
+            useAI: igPublishStyle.useAI,
+            captionTemplate: personalizeCaption.trim() || null,
+        });
+        setPersonalizeSaving(false);
+        if (!result.ok) return;
+        setIgPublishStyle(parseInstagramPublishStyle(result.account?.publishStyle));
+        setIgCaptionTemplate(result.account?.captionTemplate ?? personalizeCaption.trim() || null);
+        setPersonalizeOpen(false);
     }
 
     async function publishHub(target: SocialPublishTarget) {
@@ -211,6 +311,8 @@ export function ShareToSocialPanel({
             available: true,
             connected: igConnected,
             connectHref,
+            supportsPersonalize: true,
+            onPersonalize: () => void openInstagramPersonalize(),
             onPublish: () => publishInstagram('carousel'),
             busy: busyKey === 'instagram_carousel',
             published: publishedKeys.has('instagram_carousel'),
@@ -223,6 +325,8 @@ export function ShareToSocialPanel({
             connected: igConnected,
             connectHref,
             requiresVideo: true,
+            supportsPersonalize: true,
+            onPersonalize: () => void openInstagramPersonalize(),
             onPublish: () => publishInstagram('reel'),
             busy: busyKey === 'instagram_reel',
             published: publishedKeys.has('instagram_reel'),
@@ -297,22 +401,38 @@ export function ShareToSocialPanel({
     ]);
 
     return (
-        <SimplePublishShareHub
-            brandName={brandName}
-            listingTitle={listingTitle}
-            publishedHref={listingHref}
-            shareText={shareText}
-            integrations={integrations}
-            loading={loading}
-            hasVideo={listingHasVideo}
-            publishAllAction={{
-                onPublishAll: publishAllConnected,
-                busy: busyKey === 'all',
-                disabled: !canPublishAll || loading,
-                disabledReason: !canPublishAll
-                    ? 'Conecta al menos una red en Integraciones.'
-                    : null,
-            }}
-        />
+        <>
+            <SimplePublishShareHub
+                brandName={brandName}
+                listingTitle={listingTitle}
+                publishedHref={listingHref}
+                shareText={shareText}
+                integrations={integrations}
+                loading={loading}
+                hasVideo={listingHasVideo}
+                publishAllAction={{
+                    onPublishAll: publishAllConnected,
+                    busy: busyKey === 'all',
+                    disabled: !canPublishAll || loading,
+                    disabledReason: !canPublishAll
+                        ? 'Conecta al menos una red en Integraciones.'
+                        : null,
+                }}
+            />
+            <InstagramPublishPersonalizeModal
+                open={personalizeOpen}
+                onClose={() => setPersonalizeOpen(false)}
+                brandLabel={brandName}
+                images={listingImages}
+                templates={instagramTemplates}
+                templatesLoading={templatesLoading}
+                selectedTemplateId={selectedTemplateId}
+                onSelectTemplate={setSelectedTemplateId}
+                caption={personalizeCaption}
+                onCaptionChange={setPersonalizeCaption}
+                saving={personalizeSaving}
+                onSave={saveInstagramPersonalize}
+            />
+        </>
     );
 }

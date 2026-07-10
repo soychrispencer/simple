@@ -44,6 +44,7 @@ export interface InstagramRouterDeps {
     getInstagramBusinessAccounts: (token: string) => Promise<any[]>;
     upsertInstagramAccountRecord: (opts: any) => Promise<any>;
     instagramSettingsSchema: any;
+    instagramPublishPreferencesSchema: any;
     updateInstagramAccountSettings: (userId: string, vertical: any, settings: any) => Promise<any>;
     disconnectInstagramAccount: (userId: string, vertical: any) => Promise<void>;
     instagramPublishSchema: any;
@@ -110,6 +111,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         getInstagramBusinessAccounts,
         upsertInstagramAccountRecord,
         instagramSettingsSchema,
+        instagramPublishPreferencesSchema,
         updateInstagramAccountSettings,
         disconnectInstagramAccount,
         instagramPublishSchema,
@@ -303,6 +305,52 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         return c.json({ ok: true, account: instagramAccountToResponse(updated) });
     });
 
+    app.post('/publish-preferences', async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const payload = await c.req.json().catch(() => null);
+        const parsed = instagramPublishPreferencesSchema.safeParse(payload);
+        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+
+        const vertical = parsed.data.vertical;
+        const account = getInstagramAccount(user.id, vertical);
+        if (!account || account.status === 'disconnected') {
+            return c.json({ ok: false, error: 'Primero conecta una cuenta de Instagram.' }, 404);
+        }
+        if (!userCanUseInstagram(user, vertical)) {
+            return c.json({ ok: false, error: 'Instagram está disponible solo para planes Pro y Empresa.' }, 403);
+        }
+
+        const existingStyle = (account.publishStyle && typeof account.publishStyle === 'object')
+            ? account.publishStyle as Record<string, unknown>
+            : {};
+        const publishStyle = {
+            ...existingStyle,
+            ...(parsed.data.templateId ? { templateId: parsed.data.templateId } : {}),
+            ...(parsed.data.layoutVariant ? { layoutVariant: parsed.data.layoutVariant } : {}),
+            ...(parsed.data.tone ? { tone: parsed.data.tone } : {}),
+            ...(parsed.data.targetAudience ? { targetAudience: parsed.data.targetAudience } : {}),
+            ...(parsed.data.useAI !== undefined ? { useAI: parsed.data.useAI } : {}),
+        };
+
+        const updated = await updateInstagramAccountSettings(user.id, vertical, {
+            captionTemplate: parsed.data.captionTemplate === undefined
+                ? undefined
+                : (parsed.data.captionTemplate || null),
+            publishStyle,
+            lastSyncedAt: Date.now(),
+            lastError: null,
+            status: 'connected',
+        });
+
+        if (!updated) {
+            return c.json({ ok: false, error: 'No se pudieron guardar las preferencias.' }, 404);
+        }
+
+        return c.json({ ok: true, account: instagramAccountToResponse(updated) });
+    });
+
     app.post('/disconnect', async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -381,10 +429,16 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
             const listingData = buildInstagramListingData(listing);
             const templates = generateSmartTemplates(listingData);
+            const account = getInstagramAccount(user.id, parsed.data.vertical);
+            const savedStyle = account?.publishStyle ?? null;
+            const resolvedTemplateId = parsed.data.templateId
+                ?? (savedStyle && typeof savedStyle === 'object' && typeof savedStyle.templateId === 'string'
+                    ? savedStyle.templateId
+                    : 'essential-watermark');
             const selectedTemplate = [
                 templates.recommendedTemplate,
                 ...templates.alternatives,
-            ].find((template: any) => template.id === parsed.data.templateId) ?? templates.recommendedTemplate;
+            ].find((template: any) => template.id === resolvedTemplateId) ?? templates.recommendedTemplate;
 
             const publication = await publishListingToInstagram(user, listing, {
                 captionOverride: parsed.data.captionOverride ?? null,

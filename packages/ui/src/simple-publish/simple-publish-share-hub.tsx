@@ -12,6 +12,7 @@ import {
     IconCopy,
     IconExternalLink,
     IconLoader2,
+    IconRefresh,
     IconShare3,
 } from '@tabler/icons-react';
 import { PanelButton } from '../panel/panel-button';
@@ -172,26 +173,66 @@ function IntegrationRow({
                 <ShareIcon icon={item.icon} />
             </div>
             <IntegrationLabel label={item.label} reason={reason} />
-            <div className="flex shrink-0 items-center">
+            <div className="flex shrink-0 items-center gap-1.5">
                 {blocked ? (
                     <PanelButton type="button" variant="secondary" size="sm" disabled>
                         No disponible
                     </PanelButton>
                 ) : item.connected ? (
-                    <PanelButton
-                        type="button"
-                        variant={item.published ? 'secondary' : 'primary'}
-                        size="sm"
-                        disabled={item.busy || !item.onPublish}
-                        onClick={() => void item.onPublish?.()}
-                    >
-                        {item.busy ? (
-                            <IconLoader2 size={14} className="animate-spin" />
-                        ) : item.published ? (
-                            <IconCheck size={14} />
+                    <>
+                        {item.supportsPersonalize && item.onPersonalize ? (
+                            <PanelButton
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={item.busy}
+                                onClick={() => item.onPersonalize?.()}
+                            >
+                                Personalizar
+                            </PanelButton>
                         ) : null}
-                        {item.published ? 'Listo' : 'Publicar'}
-                    </PanelButton>
+                        {item.published ? (
+                            <>
+                                <PanelButton
+                                    type="button"
+                                    variant="success"
+                                    size="sm"
+                                    disabled
+                                    className="pointer-events-none"
+                                >
+                                    <IconCheck size={14} />
+                                    Publicado
+                                </PanelButton>
+                                <button
+                                    type="button"
+                                    aria-label="Republicar"
+                                    title="Republicar"
+                                    disabled={item.busy || !item.onPublish}
+                                    onClick={() => void item.onPublish?.()}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-(--fg-muted) transition hover:bg-(--bg-subtle) hover:text-(--fg) disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {item.busy ? (
+                                        <IconLoader2 size={15} className="animate-spin" />
+                                    ) : (
+                                        <IconRefresh size={15} />
+                                    )}
+                                </button>
+                            </>
+                        ) : (
+                            <PanelButton
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                disabled={item.busy || !item.onPublish}
+                                onClick={() => void item.onPublish?.()}
+                            >
+                                {item.busy ? (
+                                    <IconLoader2 size={14} className="animate-spin" />
+                                ) : null}
+                                {item.busy ? 'Publicando...' : 'Publicar'}
+                            </PanelButton>
+                        )}
+                    </>
                 ) : (
                     <Link href={item.connectHref}>
                         <PanelButton type="button" variant="secondary" size="sm">

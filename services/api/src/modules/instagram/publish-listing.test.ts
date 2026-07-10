@@ -50,6 +50,7 @@ describe('publish-listing', () => {
             scopes: [],
             autoPublishEnabled: false,
             captionTemplate: null,
+            publishStyle: null,
             status: 'connected',
             lastSyncedAt: null,
             lastPublishedAt: null,

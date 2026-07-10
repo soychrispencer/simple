@@ -19,7 +19,7 @@ export type PanelButtonProps = {
 
 type PanelButtonSize = 'sm' | 'md';
 
-type PanelButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'accent';
+type PanelButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'accent' | 'success';
 
 export function PanelButton(props: PanelButtonProps) {
     const {
@@ -106,7 +106,18 @@ export function getPanelButtonStyle(variant: PanelButtonVariant = 'secondary') {
                         '--panel-btn-hover-border': 'var(--accent)',
                         '--panel-btn-hover-shadow': 'none',
                     } as CSSProperties)
-                    : ({
+                    : variant === 'success'
+                        ? ({
+                            '--panel-btn-bg': 'color-mix(in oklab, #22c55e 14%, var(--surface))',
+                            '--panel-btn-color': '#15803d',
+                            '--panel-btn-border': 'color-mix(in oklab, #22c55e 35%, transparent)',
+                            '--panel-btn-shadow': 'none',
+                            '--panel-btn-hover-bg': 'color-mix(in oklab, #22c55e 18%, var(--surface))',
+                            '--panel-btn-hover-color': '#15803d',
+                            '--panel-btn-hover-border': 'color-mix(in oklab, #22c55e 45%, transparent)',
+                            '--panel-btn-hover-shadow': 'none',
+                        } as CSSProperties)
+                        : ({
                         '--panel-btn-bg': 'var(--surface)',
                         '--panel-btn-color': 'var(--fg)',
                         '--panel-btn-border': 'var(--border)',
