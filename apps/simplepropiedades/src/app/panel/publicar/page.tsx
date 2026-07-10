@@ -252,7 +252,7 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
 
     const specs: SimplePublishPreviewCardProps['specs'] = [];
     if (data.setup.operationType !== 'project') {
-        const propertyType = (data.basic.propertyType || '').toLowerCase();
+        const propertyType = (data.setup.propertyType || '').toLowerCase();
         const residential = /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio/.test(propertyType)
             || Boolean(data.basic.rooms)
             || Boolean(data.basic.bathrooms);
@@ -269,8 +269,8 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
                 label: data.basic.storageUnits !== '' ? `${data.basic.storageUnits}Bo` : '—',
             });
         } else {
-            if (data.basic.propertyType) {
-                specs.push({ icon: <IconBuildingStore size={14} />, label: data.basic.propertyType });
+            if (data.setup.propertyType) {
+                specs.push({ icon: <IconBuildingStore size={14} />, label: data.setup.propertyType });
             }
             const surfaceLabel = formatPropertySurfacePreviewLabel(data);
             if (surfaceLabel) specs.push({ icon: <IconRuler size={14} />, label: surfaceLabel });
