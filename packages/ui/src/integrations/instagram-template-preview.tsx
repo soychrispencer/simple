@@ -107,6 +107,108 @@ function HighlightIcon({ text, size = 10, color = 'currentColor' }: { text: stri
     );
 }
 
+const BRAND_TAGLINE = 'Publicado vía';
+
+function BrandWatermarkPill({
+    appName,
+    brandAccent,
+    tagline = BRAND_TAGLINE,
+    compact = false,
+}: {
+    appName: string;
+    brandAccent: string;
+    tagline?: string;
+    compact?: boolean;
+}) {
+    const logoSize = compact ? 'h-9 w-9' : 'h-11 w-11';
+    const padding = compact ? 'px-3 py-2' : 'px-3.5 py-2.5';
+
+    return (
+        <div className="absolute inset-x-0 bottom-4 z-[4] flex justify-center px-4">
+            <div
+                className={`flex max-w-full items-center gap-3 rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-md ${padding}`}
+                style={{ background: 'rgba(12,12,14,0.78)', borderColor: 'rgba(255,255,255,0.16)' }}
+            >
+                <div
+                    className={`flex ${logoSize} shrink-0 items-center justify-center rounded-xl border-2 bg-white/10 p-1.5`}
+                    style={{ borderColor: brandAccent }}
+                >
+                    <img src="/logo-light.png" alt={appName} className="h-full w-full object-contain" />
+                </div>
+                <div className="min-w-0 text-left leading-tight">
+                    <div className="text-[10px] font-semibold tracking-[0.14em] text-white/70 uppercase">
+                        {tagline}
+                    </div>
+                    <div className={`font-extrabold text-white ${compact ? 'text-xs' : 'text-sm'}`}>
+                        {appName}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ServiceBadgesColumn({
+    template,
+    brandAccent,
+}: {
+    template: InstagramTemplatePreviewData;
+    brandAccent: string;
+}) {
+    if (!template.discountLabel && !(template.badges?.length)) return null;
+
+    return (
+        <div className="absolute top-3 right-3 z-[3] flex max-w-[46%] flex-col items-end gap-1.5">
+            {template.discountLabel ? (
+                <span
+                    className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold shadow-lg"
+                    style={{ background: brandAccent, color: '#fff' }}
+                >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><path d="M16 8l-8 8"/></svg>
+                    {template.discountLabel}
+                </span>
+            ) : null}
+            {template.badges?.map((badge, index) => (
+                <span
+                    key={`${badge}-${index}`}
+                    className="inline-flex items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-semibold text-[#111] shadow-md"
+                >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                    {badge}
+                </span>
+            ))}
+        </div>
+    );
+}
+
+function ListingOverlayPrice({
+    template,
+    brandAccent,
+    light = false,
+}: {
+    template: InstagramTemplatePreviewData;
+    brandAccent: string;
+    light?: boolean;
+}) {
+    const priceColor = light ? '#fff' : brandAccent;
+
+    return (
+        <>
+            <div
+                className="font-black tracking-tight"
+                style={{ fontSize: '2.15rem', lineHeight: 1, color: priceColor }}
+            >
+                {template.offerPriceLabel || template.priceLabel}
+            </div>
+            {template.offerPriceLabel ? (
+                <div className={`mt-1 text-sm line-through ${light ? 'text-white/45' : 'text-(--fg-muted)'}`}>
+                    {template.priceLabel}
+                </div>
+            ) : null}
+        </>
+    );
+}
+
 function describePreviewHighlight(value: string): string {
     const normalized = value.toLowerCase();
     if (normalized.includes('m²') || normalized.includes('m2')) return 'Superficie';
@@ -384,172 +486,141 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             </div>
                         </>
                     ) : template.overlayVariant === 'essential-watermark' ? (
-                        <>
-                            {/* ═══ BÁSICO ═══ Solo logo esquina superior izquierda */}
-                            <div className="absolute top-4 left-4" style={{ opacity: 0.5 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
-                            </div>
-                        </>
+                        <BrandWatermarkPill
+                            appName={template.branding.appName}
+                            brandAccent={brandAccent}
+                            tagline={template.branding.badgeText || BRAND_TAGLINE}
+                        />
                     ) : template.overlayVariant === 'professional-centered' ? (
                         <>
-                            {/* ═══ PROFESIONAL ═══ Card de color con logo, precio, título, info, badges */}
-                            {/* Columna derecha: descuento + badges servicios */}
-                            <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>
-                                {template.discountLabel && (
-                                    <span
-                                        className="text-sm font-bold px-4 py-1.5 inline-flex items-center gap-1"
-                                        style={{ background: brandAccent, color: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
-                                    >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><path d="M16 8l-8 8"/></svg>
-                                        {template.discountLabel}
-                                    </span>
-                                )}
-                                {template.badges && template.badges.map((badge, i) => (
-                                    <span
-                                        key={i}
-                                        className="text-[11px] font-semibold px-3 py-1.5 inline-flex items-center gap-1"
-                                        style={{ background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
-                                    >
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-                                        {badge}
-                                    </span>
-                                ))}
-                            </div>
-                            {/* Card de color centrada abajo */}
+                            <ServiceBadgesColumn template={template} brandAccent={brandAccent} />
+                            <div
+                                className="absolute inset-x-0 bottom-0 h-[48%]"
+                                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.18) 55%, transparent 100%)' }}
+                            />
                             <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
-                                {/* Logo flotante sin fondo: mitad dentro, mitad fuera */}
-                                <div className="flex justify-center" style={{ marginBottom: '-24px', position: 'relative', zIndex: 3 }}>
-                                    <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
-                                </div>
                                 <div
-                                    className="overflow-hidden text-center"
-                                    style={{
-                                        background: brandAccent,
-                                        borderRadius: '16px',
-                                        position: 'relative',
-                                        zIndex: 1,
-                                    }}
+                                    className="overflow-hidden rounded-[1.15rem] border shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
+                                    style={{ background: 'rgba(12,12,14,0.94)', borderColor: 'rgba(255,255,255,0.1)' }}
                                 >
-                                    <div className="px-5 pb-4" style={{ paddingTop: '36px' }}>
-                                        {/* Precio grande blanco */}
-                                        <div style={{ fontSize: '2.4rem', fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1, color: '#fff' }}>
-                                            {template.offerPriceLabel || template.priceLabel}
+                                    <div className="h-1" style={{ background: brandAccent }} />
+                                    <div className="px-4 pt-3 pb-4">
+                                        <div className="mb-3 flex items-center justify-center gap-2.5">
+                                            <div
+                                                className="flex h-10 w-10 items-center justify-center rounded-xl border-2 bg-white/5 p-1.5"
+                                                style={{ borderColor: brandAccent }}
+                                            >
+                                                <img src="/logo-light.png" alt={template.branding.appName} className="h-full w-full object-contain" />
+                                            </div>
+                                            <div className="text-left leading-tight">
+                                                <div className="text-[9px] font-semibold tracking-[0.16em] text-white/55 uppercase">
+                                                    {BRAND_TAGLINE}
+                                                </div>
+                                                <div className="text-[11px] font-bold text-white">
+                                                    {template.branding.appName}
+                                                </div>
+                                            </div>
                                         </div>
-                                        {/* Precio original tachado si hay oferta */}
-                                        {template.offerPriceLabel && (
-                                            <div className="text-sm line-through mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                                                {template.priceLabel}
-                                            </div>
-                                        )}
-                                        {/* Título — 1 línea */}
-                                        {template.title && (
-                                            <div className="font-semibold mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
-                                                {template.title}
-                                            </div>
-                                        )}
-                                        {/* Highlights con iconos */}
-                                        {template.highlights && template.highlights.length > 0 && (
-                                            <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
-                                                {template.highlights.slice(0, 4).map((h, i) => (
-                                                    <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                                                        <HighlightIcon text={h} size={10} color="rgba(255,255,255,0.8)" />
-                                                        {h}
+                                        <div className="text-center">
+                                            <ListingOverlayPrice template={template} brandAccent={brandAccent} />
+                                            {template.title ? (
+                                                <div className="mt-2 line-clamp-2 text-[0.92rem] leading-snug font-semibold text-white uppercase">
+                                                    {template.title}
+                                                </div>
+                                            ) : null}
+                                            {template.highlights && template.highlights.length > 0 ? (
+                                                <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5">
+                                                    {template.highlights.slice(0, 4).map((highlight, index) => (
+                                                        <span
+                                                            key={`${highlight}-${index}`}
+                                                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase"
+                                                            style={{ background: `${brandAccent}22`, color: '#fff' }}
+                                                        >
+                                                            <HighlightIcon text={highlight} size={9} color="#fff" />
+                                                            {highlight}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                            {template.locationLabel ? (
+                                                <div className="mt-2.5 flex justify-center">
+                                                    <span
+                                                        className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-[10px] font-bold"
+                                                        style={{ color: brandAccent }}
+                                                    >
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                                                        {template.locationLabel}
                                                     </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {/* Comuna con icono pin */}
-                                        {template.locationLabel && (
-                                            <div className="flex justify-center mt-2.5">
-                                                <span
-                                                    className="text-[11px] font-bold px-3.5 py-1.5 inline-flex items-center gap-1"
-                                                    style={{ background: '#fff', color: brandAccent, borderRadius: '9999px' }}
-                                                >
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
-                                                    {template.locationLabel}
-                                                </span>
-                                            </div>
-                                        )}
+                                                </div>
+                                            ) : null}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </>
                     ) : template.overlayVariant === 'signature-complete' ? (
                         <>
-                            {/* ═══ PREMIUM ═══ Diseño elegante oscuro, branding fuerte */}
-                            {/* Logo light top-left */}
-                            <div className="absolute top-4 left-4" style={{ zIndex: 3, opacity: 0.6 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
-                            </div>
-                            {/* Columna derecha: descuento + badges servicios */}
-                            <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>
-                                {template.discountLabel && (
-                                    <span
-                                        className="text-sm font-bold px-4 py-1.5 inline-flex items-center gap-1"
-                                        style={{ background: brandAccent, color: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
-                                    >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><path d="M16 8l-8 8"/></svg>
-                                        {template.discountLabel}
-                                    </span>
-                                )}
-                                {template.badges && template.badges.map((badge, i) => (
-                                    <span
-                                        key={i}
-                                        className="text-[11px] font-semibold px-3 py-1.5 inline-flex items-center gap-1"
-                                        style={{ background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
-                                    >
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-                                        {badge}
-                                    </span>
-                                ))}
-                            </div>
-                            {/* Gradiente elegante inferior */}
+                            <ServiceBadgesColumn template={template} brandAccent={brandAccent} />
                             <div
-                                className="absolute inset-x-0 bottom-0"
-                                style={{
-                                    background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 40%, rgba(0,0,0,0.3) 70%, transparent 100%)',
-                                    padding: '80px 20px 20px',
-                                }}
+                                className="absolute inset-0"
+                                style={{ background: 'radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.28) 100%)' }}
+                            />
+                            <div
+                                className="absolute inset-x-0 bottom-0 px-4 pt-24 pb-4"
+                                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.72) 42%, transparent 100%)' }}
                             >
-                                <div className="text-center">
-                                    {/* Precio grande */}
-                                    <div style={{ fontSize: '2.4rem', fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1, color: '#fff' }}>
-                                        {template.offerPriceLabel || template.priceLabel}
+                                <div className="mb-3 flex justify-center">
+                                    <div
+                                        className="flex h-12 w-12 items-center justify-center rounded-full border-2 bg-white/10 p-2 shadow-[0_0_0_4px_rgba(232,74,31,0.18)]"
+                                        style={{ borderColor: brandAccent }}
+                                    >
+                                        <img src="/logo-light.png" alt={template.branding.appName} className="h-full w-full object-contain" />
                                     </div>
-                                    {template.offerPriceLabel && (
-                                        <div className="text-sm line-through mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                            {template.priceLabel}
-                                        </div>
-                                    )}
-                                    {/* Título — 1 línea */}
-                                    {template.title && (
-                                        <div className="font-semibold mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
+                                </div>
+                                <div className="mx-auto mb-3 h-0.5 w-14 rounded-full" style={{ background: brandAccent }} />
+                                <div className="text-center">
+                                    <ListingOverlayPrice template={template} brandAccent={brandAccent} light />
+                                    {template.title ? (
+                                        <div className="mt-2 line-clamp-2 text-[0.95rem] leading-snug font-semibold tracking-[0.04em] text-white uppercase">
                                             {template.title}
                                         </div>
-                                    )}
-                                    {/* Highlights con iconos */}
-                                    {template.highlights && template.highlights.length > 0 && (
-                                        <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
-                                            {template.highlights.slice(0, 4).map((h, i) => (
-                                                <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                                                    <HighlightIcon text={h} size={10} color="rgba(255,255,255,0.65)" />
-                                                    {h}
+                                    ) : null}
+                                    {template.highlights && template.highlights.length > 0 ? (
+                                        <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[9px] font-semibold tracking-[0.08em] text-white/70 uppercase">
+                                            {template.highlights.slice(0, 4).map((highlight, index) => (
+                                                <span key={`${highlight}-${index}`} className="inline-flex items-center gap-1">
+                                                    {index > 0 ? <span className="text-white/30">·</span> : null}
+                                                    <HighlightIcon text={highlight} size={9} color="rgba(255,255,255,0.7)" />
+                                                    {highlight}
                                                 </span>
                                             ))}
                                         </div>
-                                    )}
-                                    {/* Comuna con icono pin */}
-                                    {template.locationLabel && (
-                                        <div className="flex justify-center mt-2.5">
-                                            <span
-                                                className="text-[11px] font-bold px-3.5 py-1.5 inline-flex items-center gap-1"
-                                                style={{ background: '#fff', color: brandAccent, borderRadius: '9999px' }}
-                                            >
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                                    ) : null}
+                                    {template.locationLabel ? (
+                                        <div className="mt-2.5 flex justify-center">
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
                                                 {template.locationLabel}
                                             </span>
                                         </div>
-                                    )}
+                                    ) : null}
+                                </div>
+                                <div className="mt-4 flex justify-center">
+                                    <div
+                                        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5"
+                                        style={{ borderColor: 'rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.06)' }}
+                                    >
+                                        <div
+                                            className="flex h-7 w-7 items-center justify-center rounded-lg border bg-white/10 p-1"
+                                            style={{ borderColor: `${brandAccent}88` }}
+                                        >
+                                            <img src="/logo-light.png" alt={template.branding.appName} className="h-full w-full object-contain" />
+                                        </div>
+                                        <div className="text-left leading-tight">
+                                            <div className="text-[8px] font-semibold tracking-[0.14em] text-white/55 uppercase">{BRAND_TAGLINE}</div>
+                                            <div className="text-[10px] font-bold text-white">{template.branding.appName}</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </>

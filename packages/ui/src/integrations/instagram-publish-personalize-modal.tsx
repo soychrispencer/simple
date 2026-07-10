@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { IconHome2 } from '@tabler/icons-react';
+import { getSimpleAppBrand } from '@simple/config';
 import { PanelButton } from '../panel/panel-button';
 import { PanelScrollModal } from '../panel/panel-scroll-modal';
 import {
@@ -30,6 +31,12 @@ export type InstagramPublishPersonalizeModalProps = {
     onSave: () => void | Promise<void>;
 };
 
+const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
+    'essential-watermark': 'Marca de agua centrada',
+    'professional-centered': 'Ficha con precio y datos',
+    'signature-complete': 'Estilo editorial premium',
+};
+
 export function InstagramPublishPersonalizeModal({
     open,
     onClose,
@@ -48,7 +55,27 @@ export function InstagramPublishPersonalizeModal({
     const activeTemplate = templates.find((template) => template.id === selectedTemplateId)
         ?? templates[0]
         ?? null;
+    const previewTemplate = carouselIndex === 0 || !activeTemplate
+        ? activeTemplate
+        : {
+            ...activeTemplate,
+            overlayVariant: 'essential-watermark',
+            eyebrow: '',
+            title: '',
+            headline: '',
+            subtitle: undefined,
+            priceLabel: '',
+            offerPriceLabel: undefined,
+            discountLabel: undefined,
+            locationLabel: '',
+            highlights: [],
+            badges: [],
+            ctaLabel: '',
+        };
     const previewImage = images[carouselIndex] ?? images[0] ?? null;
+    const brandAccent = getSimpleAppBrand(
+        brandLabel.toLowerCase().includes('propiedad') ? 'simplepropiedades' : 'simpleautos',
+    ).accentLight;
 
     if (!open) return null;
 
@@ -83,7 +110,7 @@ export function InstagramPublishPersonalizeModal({
                     <InstagramTemplatePreview
                         className="group mx-auto w-full max-w-[420px]"
                         imageUrl={previewImage}
-                        template={carouselIndex === 0 ? activeTemplate : null}
+                        template={previewTemplate}
                         layoutVariant={activeTemplate?.layoutVariant ?? 'portrait'}
                         fallback={<IconHome2 size={48} />}
                     >
@@ -131,7 +158,7 @@ export function InstagramPublishPersonalizeModal({
                                         : 'Sin plantilla'}
                             </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                             {templates.map((template) => {
                                 const selected = template.id === activeTemplate?.id;
                                 return (
@@ -139,14 +166,17 @@ export function InstagramPublishPersonalizeModal({
                                         key={template.id}
                                         type="button"
                                         onClick={() => onSelectTemplate(template.id)}
-                                        className="flex-1 rounded-lg border px-3 py-2 text-center text-xs font-semibold transition-all"
+                                        className="rounded-xl border px-3 py-2.5 text-left transition-all"
                                         style={{
-                                            borderColor: selected ? 'var(--fg)' : 'var(--border)',
-                                            background: selected ? 'var(--fg)' : 'var(--surface)',
-                                            color: selected ? '#fff' : 'var(--fg)',
+                                            borderColor: selected ? brandAccent : 'var(--border)',
+                                            background: selected ? `color-mix(in oklab, ${brandAccent} 10%, var(--surface))` : 'var(--surface)',
+                                            boxShadow: selected ? `0 0 0 1px color-mix(in oklab, ${brandAccent} 35%, transparent)` : undefined,
                                         }}
                                     >
-                                        {template.name}
+                                        <div className="text-sm font-semibold text-(--fg)">{template.name}</div>
+                                        <div className="mt-0.5 text-[11px] leading-snug text-(--fg-muted)">
+                                            {TEMPLATE_DESCRIPTIONS[template.id] ?? 'Diseño personalizado'}
+                                        </div>
                                     </button>
                                 );
                             })}

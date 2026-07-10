@@ -6,7 +6,7 @@ import { logger } from '@simple/logger';
 import { asObject, asString } from '../shared/index.js';
 import { isLocalHostname } from '../mercadopago/checkout-helpers.js';
 import { getInstagramPublicApiOrigin } from './service.js';
-import { buildInstagramTemplateOverlaySvg } from './svg-render.js';
+import { buildInstagramTemplateOverlaySvg, getInstagramWatermarkLogoPlacement } from './svg-render.js';
 import type { ListingData as InstagramListingData, InstagramTemplateView as InstagramRenderTemplate } from './templates.js';
 
 const API_ROOT_DIR = path.resolve(__dirname, '../../..');
@@ -272,23 +272,24 @@ export async function prepareInstagramImageUrl(
         if (logoBuffer) {
             let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number };
             if (variant === 'essential-watermark') {
-                logoPlacement = { width: 96, height: 96, top: 36, left: 36, opacity: 0.5 };
+                const watermark = getInstagramWatermarkLogoPlacement(1080, targetHeight);
+                logoPlacement = { ...watermark.logo, opacity: 1 };
             } else if (variant === 'professional-centered') {
                 const t = options.template;
                 const hasOrigPrice = !!(t.offerPriceLabel && t.priceLabel);
                 const hasTitle = !!(t.title);
                 const hasHighlights = (t.highlights?.length ?? 0) > 0;
                 const hasLocation = !!(t.locationLabel);
-                let cardHeight = 72 + 80 + 28;
-                if (hasOrigPrice) cardHeight += 28;
-                if (hasTitle) cardHeight += 46;
-                if (hasHighlights) cardHeight += 46;
-                if (hasLocation) cardHeight += 56;
-                cardHeight = Math.max(cardHeight, 260);
+                let cardHeight = 56 + 72 + 28;
+                if (hasOrigPrice) cardHeight += 24;
+                if (hasTitle) cardHeight += 42;
+                if (hasHighlights) cardHeight += 42;
+                if (hasLocation) cardHeight += 52;
+                cardHeight = Math.max(cardHeight, 250);
                 const cardY = targetHeight - 40 - cardHeight;
-                logoPlacement = { width: 96, height: 96, top: cardY - 48, left: (1080 - 96) / 2 };
+                logoPlacement = { width: 56, height: 56, top: cardY + 14, left: Math.round(1080 / 2) - 118 };
             } else if (variant === 'signature-complete') {
-                logoPlacement = { width: 96, height: 96, top: 36, left: 36, opacity: 0.6 };
+                logoPlacement = { width: 72, height: 72, top: targetHeight - 380, left: (1080 - 72) / 2 };
             } else if (variant.startsWith('property')) {
                 logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
             } else {
