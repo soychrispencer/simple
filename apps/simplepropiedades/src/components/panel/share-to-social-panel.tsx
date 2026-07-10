@@ -243,7 +243,7 @@ export function ShareToSocialPanel({
         setPersonalizeSaving(false);
         if (!result.ok) return;
         setIgPublishStyle(parseInstagramPublishStyle(result.account?.publishStyle));
-        setIgCaptionTemplate(result.account?.captionTemplate ?? personalizeCaption.trim() || null);
+        setIgCaptionTemplate(result.account?.captionTemplate ?? (personalizeCaption.trim() || null));
         setPersonalizeOpen(false);
     }
 
