@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
     IconBrandFacebook,
@@ -36,6 +36,9 @@ export type SimplePublishShareHubProps = {
 };
 
 const VIDEO_REQUIRED_MESSAGE = 'Debes subir un video';
+const ACTION_SLOT_CLASS = 'flex w-[8.75rem] shrink-0 items-center justify-end gap-1.5 self-center';
+const PRIMARY_ACTION_CLASS = 'min-w-0 flex-1 justify-center whitespace-nowrap px-2.5';
+const FULL_ACTION_CLASS = 'w-full justify-center whitespace-nowrap px-2.5';
 
 function ShareIcon({ icon }: { icon: SimplePublishShareIcon }) {
     const size = 20;
@@ -57,20 +60,87 @@ function getIntegrationAvailability(
     return { blocked: false, reason: null };
 }
 
-function IntegrationLabel({
+function ShareIntegrationRow({
+    icon,
     label,
     reason,
+    labelAction,
+    actions,
 }: {
+    icon: SimplePublishShareIcon;
     label: string;
     reason?: string | null;
+    labelAction?: ReactNode;
+    actions: ReactNode;
 }) {
     return (
-        <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-(--fg)">{label}</p>
-            {reason ? (
-                <p className="mt-0.5 text-[10px] leading-snug text-(--fg-muted)">{reason}</p>
-            ) : null}
+        <div className="flex items-start gap-3 rounded-xl border border-(--border) bg-(--surface) px-3 py-2.5">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-(--bg-subtle)">
+                <ShareIcon icon={icon} />
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="text-sm leading-snug font-medium text-(--fg)">{label}</p>
+                {reason ? (
+                    <p className="mt-0.5 text-[10px] leading-snug text-(--fg-muted)">{reason}</p>
+                ) : null}
+                {labelAction ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        {labelAction}
+                    </div>
+                ) : null}
+            </div>
+            <div className={ACTION_SLOT_CLASS}>
+                {actions}
+            </div>
         </div>
+    );
+}
+
+function LabelTextAction({
+    children,
+    disabled,
+    onClick,
+}: {
+    children: ReactNode;
+    disabled?: boolean;
+    onClick?: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            disabled={disabled}
+            onClick={onClick}
+            className="text-xs font-medium text-(--fg-secondary) transition hover:text-(--fg) disabled:cursor-not-allowed disabled:opacity-50"
+        >
+            {children}
+        </button>
+    );
+}
+
+function RepublishButton({
+    busy,
+    disabled,
+    onClick,
+}: {
+    busy?: boolean;
+    disabled?: boolean;
+    onClick?: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            aria-label="Republicar"
+            title="Republicar"
+            disabled={disabled}
+            onClick={onClick}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-(--fg-muted) transition hover:bg-(--bg-subtle) hover:text-(--fg) disabled:cursor-not-allowed disabled:opacity-50"
+        >
+            {busy ? (
+                <IconLoader2 size={15} className="animate-spin" />
+            ) : (
+                <IconRefresh size={15} />
+            )}
+        </button>
     );
 }
 
@@ -91,7 +161,6 @@ function ManualIntegrationRow({
 
     async function handlePrimary() {
         if (item.busy || blocked) return;
-
         if (item.published) return;
 
         if (pending) {
@@ -113,44 +182,40 @@ function ManualIntegrationRow({
     const hint = flash ? 'Copiado — pega en Facebook' : reason;
 
     return (
-        <div className="flex items-center gap-3 rounded-xl border border-(--border) bg-(--surface) px-3 py-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-(--bg-subtle)">
-                <ShareIcon icon={item.icon} />
-            </div>
-            <IntegrationLabel label={item.label} reason={hint} />
-            <div className="flex shrink-0 items-center gap-1.5">
-                {item.published && item.onClearPublished ? (
-                    <button
-                        type="button"
-                        disabled={item.busy}
-                        onClick={() => void item.onClearPublished?.()}
-                        className="text-[10px] font-medium text-(--fg-muted) transition hover:text-(--fg)"
-                    >
-                        Quitar
-                    </button>
-                ) : null}
-                {blocked ? (
-                    <PanelButton type="button" variant="secondary" size="sm" disabled>
-                        No disponible
-                    </PanelButton>
-                ) : (
-                    <PanelButton
-                        type="button"
-                        variant={showDone ? 'secondary' : 'primary'}
-                        size="sm"
-                        disabled={item.busy || item.published}
-                        onClick={() => void handlePrimary()}
-                    >
-                        {item.busy ? (
-                            <IconLoader2 size={14} className="animate-spin" />
-                        ) : item.published ? (
-                            <IconCheck size={14} />
-                        ) : null}
-                        {item.busy ? 'Guardando...' : item.published ? 'Listo' : pending ? 'Listo' : 'Publicar'}
-                    </PanelButton>
-                )}
-            </div>
-        </div>
+        <ShareIntegrationRow
+            icon={item.icon}
+            label={item.label}
+            reason={hint}
+            labelAction={item.published && item.onClearPublished ? (
+                <LabelTextAction
+                    disabled={item.busy}
+                    onClick={() => void item.onClearPublished?.()}
+                >
+                    Quitar
+                </LabelTextAction>
+            ) : null}
+            actions={blocked ? (
+                <PanelButton type="button" variant="secondary" size="sm" disabled className={FULL_ACTION_CLASS}>
+                    No disponible
+                </PanelButton>
+            ) : (
+                <PanelButton
+                    type="button"
+                    variant={showDone ? 'secondary' : 'primary'}
+                    size="sm"
+                    className={FULL_ACTION_CLASS}
+                    disabled={item.busy || item.published}
+                    onClick={() => void handlePrimary()}
+                >
+                    {item.busy ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                    ) : item.published ? (
+                        <IconCheck size={14} />
+                    ) : null}
+                    {item.busy ? 'Guardando...' : item.published ? 'Listo' : pending ? 'Listo' : 'Publicar'}
+                </PanelButton>
+            )}
+        />
     );
 }
 
@@ -166,82 +231,72 @@ function IntegrationRow({
     }
 
     const { blocked, reason } = getIntegrationAvailability(item, hasVideo);
+    const showPersonalize = Boolean(
+        item.connected
+        && !blocked
+        && item.supportsPersonalize
+        && item.onPersonalize,
+    );
 
     return (
-        <div className="flex items-center gap-3 rounded-xl border border-(--border) bg-(--surface) px-3 py-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-(--bg-subtle)">
-                <ShareIcon icon={item.icon} />
-            </div>
-            <IntegrationLabel label={item.label} reason={reason} />
-            <div className="flex shrink-0 items-center gap-1.5">
-                {blocked ? (
-                    <PanelButton type="button" variant="secondary" size="sm" disabled>
-                        No disponible
-                    </PanelButton>
-                ) : item.connected ? (
+        <ShareIntegrationRow
+            icon={item.icon}
+            label={item.label}
+            reason={reason}
+            labelAction={showPersonalize ? (
+                <LabelTextAction
+                    disabled={item.busy}
+                    onClick={() => item.onPersonalize?.()}
+                >
+                    Personalizar
+                </LabelTextAction>
+            ) : null}
+            actions={blocked ? (
+                <PanelButton type="button" variant="secondary" size="sm" disabled className={FULL_ACTION_CLASS}>
+                    No disponible
+                </PanelButton>
+            ) : item.connected ? (
+                item.published ? (
                     <>
-                        {item.supportsPersonalize && item.onPersonalize ? (
-                            <PanelButton
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={item.busy}
-                                onClick={() => item.onPersonalize?.()}
-                            >
-                                Personalizar
-                            </PanelButton>
-                        ) : null}
-                        {item.published ? (
-                            <>
-                                <PanelButton
-                                    type="button"
-                                    variant="success"
-                                    size="sm"
-                                    disabled
-                                    className="pointer-events-none"
-                                >
-                                    <IconCheck size={14} />
-                                    Publicado
-                                </PanelButton>
-                                <button
-                                    type="button"
-                                    aria-label="Republicar"
-                                    title="Republicar"
-                                    disabled={item.busy || !item.onPublish}
-                                    onClick={() => void item.onPublish?.()}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-(--fg-muted) transition hover:bg-(--bg-subtle) hover:text-(--fg) disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    {item.busy ? (
-                                        <IconLoader2 size={15} className="animate-spin" />
-                                    ) : (
-                                        <IconRefresh size={15} />
-                                    )}
-                                </button>
-                            </>
-                        ) : (
-                            <PanelButton
-                                type="button"
-                                variant="primary"
-                                size="sm"
-                                disabled={item.busy || !item.onPublish}
-                                onClick={() => void item.onPublish?.()}
-                            >
-                                {item.busy ? (
-                                    <IconLoader2 size={14} className="animate-spin" />
-                                ) : null}
-                                {item.busy ? 'Publicando...' : 'Publicar'}
-                            </PanelButton>
-                        )}
+                        <PanelButton
+                            type="button"
+                            variant="success"
+                            size="sm"
+                            disabled
+                            className={`${PRIMARY_ACTION_CLASS} pointer-events-none`}
+                        >
+                            <IconCheck size={14} />
+                            Publicado
+                        </PanelButton>
+                        <RepublishButton
+                            busy={item.busy}
+                            disabled={item.busy || !item.onPublish}
+                            onClick={() => void item.onPublish?.()}
+                        />
                     </>
                 ) : (
-                    <Link href={item.connectHref}>
-                        <PanelButton type="button" variant="secondary" size="sm">
-                            Conectar
-                        </PanelButton>
-                    </Link>
-                )}
-            </div>
-        </div>
+                    <PanelButton
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        className={FULL_ACTION_CLASS}
+                        disabled={item.busy || !item.onPublish}
+                        onClick={() => void item.onPublish?.()}
+                    >
+                        {item.busy ? (
+                            <IconLoader2 size={14} className="animate-spin" />
+                        ) : null}
+                        {item.busy ? 'Publicando...' : 'Publicar'}
+                    </PanelButton>
+                )
+            ) : (
+                <Link href={item.connectHref} className="w-full">
+                    <PanelButton type="button" variant="secondary" size="sm" className={FULL_ACTION_CLASS}>
+                        Conectar
+                    </PanelButton>
+                </Link>
+            )}
+        />
     );
 }
 

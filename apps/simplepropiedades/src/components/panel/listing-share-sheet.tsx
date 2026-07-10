@@ -19,6 +19,7 @@ export function ListingShareSheet({ listing, onClose }: Props) {
         <PanelScrollSheet
             title="Compartir y publicar"
             subtitle={listing.title}
+            size="xl"
             onClose={onClose}
         >
             <ShareToSocialPanel
