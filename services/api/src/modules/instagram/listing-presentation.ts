@@ -265,62 +265,60 @@ export async function prepareInstagramImageUrl(
 
         const variant = options.template.overlayVariant;
         const appId = options.template.branding.appId;
-        const useLight = ['essential-watermark', 'professional-centered', 'signature-complete'].includes(variant);
+        const useLight = ['essential-watermark', 'signature-complete'].includes(variant);
         const logoBuffer = !appId ? null : useLight
             ? await getInstagramBrandLogoLightBuffer(appId)
             : await getInstagramBrandLogoBuffer(appId);
         if (logoBuffer) {
-            let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number };
-            if (variant === 'essential-watermark') {
+            let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number } | null = null;
+
+            if (variant === 'essential-watermark' || variant === 'signature-complete') {
                 const watermark = getInstagramWatermarkLogoPlacement(1080, targetHeight);
-                logoPlacement = { ...watermark.logo, opacity: 1 };
-            } else if (variant === 'professional-centered') {
-                const t = options.template;
-                const hasOrigPrice = !!(t.offerPriceLabel && t.priceLabel);
-                const hasTitle = !!(t.title);
-                const hasHighlights = (t.highlights?.length ?? 0) > 0;
-                const hasLocation = !!(t.locationLabel);
-                let cardHeight = 56 + 72 + 28;
-                if (hasOrigPrice) cardHeight += 24;
-                if (hasTitle) cardHeight += 42;
-                if (hasHighlights) cardHeight += 42;
-                if (hasLocation) cardHeight += 52;
-                cardHeight = Math.max(cardHeight, 250);
-                const cardY = targetHeight - 40 - cardHeight;
-                logoPlacement = { width: 56, height: 56, top: cardY + 14, left: Math.round(1080 / 2) - 118 };
-            } else if (variant === 'signature-complete') {
-                logoPlacement = { width: 72, height: 72, top: targetHeight - 380, left: (1080 - 72) / 2 };
+                logoPlacement = {
+                    ...watermark.logo,
+                    width: variant === 'signature-complete' ? 36 : watermark.logo.width,
+                    height: variant === 'signature-complete' ? 36 : watermark.logo.height,
+                    top: variant === 'signature-complete'
+                        ? watermark.logo.top + Math.round((watermark.logo.height - 36) / 2)
+                        : watermark.logo.top,
+                    left: variant === 'signature-complete'
+                        ? watermark.logo.left + Math.round((watermark.logo.width - 36) / 2)
+                        : watermark.logo.left,
+                    opacity: variant === 'signature-complete' ? 0.5 : 0.55,
+                };
             } else if (variant.startsWith('property')) {
                 logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
-            } else {
+            } else if (!['professional-centered'].includes(variant)) {
                 logoPlacement = { width: 50, height: 50, top: 30, left: 36 };
             }
 
-            let logoOverlay = await sharp(logoBuffer)
-                .resize({
-                    width: logoPlacement.width,
-                    height: logoPlacement.height,
-                    fit: 'contain',
-                    withoutEnlargement: false,
-                })
-                .ensureAlpha()
-                .png()
-                .toBuffer();
+            if (logoPlacement) {
+                let logoOverlay = await sharp(logoBuffer)
+                    .resize({
+                        width: logoPlacement.width,
+                        height: logoPlacement.height,
+                        fit: 'contain',
+                        withoutEnlargement: false,
+                    })
+                    .ensureAlpha()
+                    .png()
+                    .toBuffer();
 
-            if (logoPlacement.opacity != null && logoPlacement.opacity < 1) {
-                const factor = logoPlacement.opacity;
-                const { data, info } = await sharp(logoOverlay).raw().toBuffer({ resolveWithObject: true });
-                for (let i = 3; i < data.length; i += 4) {
-                    data[i] = Math.round(data[i] * factor);
+                if (logoPlacement.opacity != null && logoPlacement.opacity < 1) {
+                    const factor = logoPlacement.opacity;
+                    const { data, info } = await sharp(logoOverlay).raw().toBuffer({ resolveWithObject: true });
+                    for (let i = 3; i < data.length; i += 4) {
+                        data[i] = Math.round(data[i] * factor);
+                    }
+                    logoOverlay = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
                 }
-                logoOverlay = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
-            }
 
-            composites.push({
-                input: logoOverlay,
-                top: logoPlacement.top,
-                left: logoPlacement.left,
-            });
+                composites.push({
+                    input: logoOverlay,
+                    top: logoPlacement.top,
+                    left: logoPlacement.left,
+                });
+            }
         }
 
         pipeline = pipeline.composite(composites);
