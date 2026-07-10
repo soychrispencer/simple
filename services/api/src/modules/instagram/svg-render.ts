@@ -44,6 +44,25 @@ const SVG_ICON_PATHS: Record<string, string> = {
     descuento: 'M9 9h.01M15 15h.01M16 8l-8 8M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138c.065.71.327 1.39.806 1.946a3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', // percent-badge
 };
 
+const BRAND_MARK_ICON_PATHS: Record<string, string[]> = {
+    steering: [
+        'M20 17v-6a8 8 0 1 0-16 0v6',
+        'M12 15l0 .01',
+        'M12 12l0 .01',
+        'M12 9l0 .01',
+        'M12 6l0 .01',
+    ],
+    door: [
+        'M3 21h18',
+        'M3 7v11',
+        'M3 13h18',
+        'M7 13v5',
+        'M17 13v5',
+        'M7 8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2',
+        'M13 8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2',
+    ],
+};
+
 function getHighlightIconKey(text: string): string {
     const t = text.toLowerCase().trim();
     if (t === 'venta') return 'venta';
@@ -87,6 +106,54 @@ function svgIcon(key: string, x: number, y: number, size: number, fill: string, 
     const p = SVG_ICON_PATHS[key] || SVG_ICON_PATHS['servicio'];
     const scale = size / 24;
     return `<g transform="translate(${x},${y}) scale(${scale})"><path d="${p}" fill="none" stroke="${fill}" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+}
+
+function svgBrandMarkIcon(key: string, x: number, y: number, size: number, fill: string, strokeW = 1.5): string {
+    const paths = BRAND_MARK_ICON_PATHS[key] || BRAND_MARK_ICON_PATHS.steering;
+    const scale = size / 24;
+    return paths
+        .map((path) => `<g transform="translate(${x},${y}) scale(${scale})"><path d="${path}" fill="none" stroke="${fill}" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round"/></g>`)
+        .join('');
+}
+
+function splitBrandWordmark(appName: string): { primary: string; secondary: string } {
+    if (appName.startsWith('Simple') && appName.length > 6) {
+        return { primary: 'Simple', secondary: appName.slice(6) };
+    }
+    return { primary: appName, secondary: '' };
+}
+
+function getBrandMarkIconKey(appId?: string): string {
+    return appId === 'simplepropiedades' ? 'door' : 'steering';
+}
+
+function renderBrandMarkSvg(options: {
+    x: number;
+    y: number;
+    appName: string;
+    appId?: string;
+    compact?: boolean;
+    opacity?: number;
+}): string {
+    const iconBoxSize = options.compact ? 28 : 34;
+    const iconInner = options.compact ? 14 : 16;
+    const wordmarkSize = options.compact ? 15 : 17;
+    const opacity = options.opacity ?? 0.55;
+    const radius = Math.round(iconBoxSize * 0.22);
+    const { primary, secondary } = splitBrandWordmark(options.appName);
+    const iconKey = getBrandMarkIconKey(options.appId);
+    const textX = options.x + iconBoxSize + 8;
+    const textY = options.y + Math.round(iconBoxSize * 0.68);
+    const primaryWidth = primary.length * (wordmarkSize * 0.56);
+
+    return `
+        <g opacity="${opacity}">
+            <rect x="${options.x}" y="${options.y}" width="${iconBoxSize}" height="${iconBoxSize}" rx="${radius}" ry="${radius}" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.28)" stroke-width="1.5" />
+            ${svgBrandMarkIcon(iconKey, options.x + (iconBoxSize - iconInner) / 2, options.y + (iconBoxSize - iconInner) / 2, iconInner, 'rgba(255,255,255,0.92)')}
+            <text x="${textX}" y="${textY}" fill="rgba(255,255,255,0.9)" font-size="${wordmarkSize}" font-weight="600" font-family="Arial, sans-serif">${escapeSvgText(primary)}</text>
+            ${secondary ? `<text x="${textX + primaryWidth}" y="${textY}" fill="rgba(255,255,255,0.62)" font-size="${wordmarkSize}" font-weight="400" font-family="Arial, sans-serif">${escapeSvgText(secondary)}</text>` : ''}
+        </g>
+    `;
 }
 
 function splitTemplatePrice(value: string): { prefix: string; amount: string } {
@@ -168,50 +235,45 @@ function renderSvgTextLines(
         .join('');
 }
 
-const INSTAGRAM_WATERMARK_LOGO_SIZE = 48;
-const INSTAGRAM_WATERMARK_BOTTOM = 44;
+const INSTAGRAM_CAROUSEL_SAFE_BOTTOM_RATIO = 0.06;
 
-export function getInstagramWatermarkLogoPlacement(canvasWidth: number, canvasHeight: number) {
-    const textBlockWidth = 130;
-    const blockWidth = INSTAGRAM_WATERMARK_LOGO_SIZE + 10 + textBlockWidth;
-    const blockX = Math.round((canvasWidth - blockWidth) / 2);
-    const blockY = canvasHeight - INSTAGRAM_WATERMARK_BOTTOM - INSTAGRAM_WATERMARK_LOGO_SIZE;
-
-    return {
-        logo: {
-            width: INSTAGRAM_WATERMARK_LOGO_SIZE,
-            height: INSTAGRAM_WATERMARK_LOGO_SIZE,
-            top: blockY,
-            left: blockX,
-        },
-        text: {
-            appNameX: blockX + INSTAGRAM_WATERMARK_LOGO_SIZE + 10,
-            appNameY: blockY + 32,
-        },
-    };
-}
-
-export function getInstagramPremiumBrandLogoPlacement(canvasWidth: number) {
-    const size = 30;
-    return {
-        width: size,
-        height: size,
-        top: 28,
-        left: canvasWidth - size - 28,
-    };
+export function getInstagramCarouselSafeBottom(canvasHeight: number): number {
+    return Math.round(canvasHeight * INSTAGRAM_CAROUSEL_SAFE_BOTTOM_RATIO);
 }
 
 function renderBrandWatermarkSvg(
     width: number,
     height: number,
-    appName: string,
+    template: InstagramRenderTemplate,
 ): string {
-    const placement = getInstagramWatermarkLogoPlacement(width, height);
-    const appText = escapeSvgText(appName);
+    const safeBottom = getInstagramCarouselSafeBottom(height);
+    const iconBoxSize = 34;
+    const blockWidth = 168;
+    const x = Math.round((width - blockWidth) / 2);
+    const y = height - safeBottom - iconBoxSize;
 
-    return `
-        <text x="${placement.text.appNameX}" y="${placement.text.appNameY}" fill="#FFFFFF" fill-opacity="0.6" font-size="22" font-weight="700">${appText}</text>
-    `;
+    return renderBrandMarkSvg({
+        x,
+        y,
+        appName: template.branding.appName,
+        appId: template.branding.appId,
+    });
+}
+
+function renderPremiumBrandMarkSvg(
+    width: number,
+    template: InstagramRenderTemplate,
+): string {
+    const blockWidth = 132;
+    const x = width - 28 - blockWidth;
+    return renderBrandMarkSvg({
+        x,
+        y: 28,
+        appName: template.branding.appName,
+        appId: template.branding.appId,
+        compact: true,
+        opacity: 0.5,
+    });
 }
 
 function renderCompactSpecsColumnsSvg(cx: number, y: number, highlights: string[]): string {
@@ -236,39 +298,11 @@ function renderCompactSpecsColumnsSvg(cx: number, y: number, highlights: string[
     return specsSvg;
 }
 
-function renderReelListingChipsSvg(
-    width: number,
-    template: InstagramRenderTemplate,
-    brandAccent: string,
-): string {
-    let chipsSvg = '';
-    let chipY = 28;
-    if (template.discountLabel) {
-        const label = escapeSvgText(clampTemplateText(template.discountLabel, 18));
-        const chipW = Math.min(label.length * 14 + 40, 200);
-        chipsSvg += `
-            <rect x="28" y="${chipY}" rx="18" ry="18" width="${chipW}" height="36" fill="${brandAccent}" />
-            <text x="${28 + chipW / 2}" y="${chipY + 24}" fill="#FFFFFF" font-size="18" font-weight="700" text-anchor="middle">${label}</text>
-        `;
-        chipY += 42;
-    }
-    for (const badge of (template.badges ?? []).slice(0, 3)) {
-        const label = escapeSvgText(clampTemplateText(badge, 16));
-        const chipW = Math.min(label.length * 12 + 36, 220);
-        chipsSvg += `
-            <rect x="28" y="${chipY}" rx="18" ry="18" width="${chipW}" height="34" fill="rgba(0,0,0,0.4)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
-            <text x="${28 + chipW / 2}" y="${chipY + 22}" fill="#FFFFFF" font-size="17" font-weight="600" text-anchor="middle">${label}</text>
-        `;
-        chipY += 40;
-    }
-    return chipsSvg;
-}
 
 function renderMarketplaceReelPanelSvg(
     width: number,
     height: number,
     template: InstagramRenderTemplate,
-    brandAccent: string,
     highlights: string[],
 ): string {
     const cx = Math.round(width / 2);
@@ -277,8 +311,9 @@ function renderMarketplaceReelPanelSvg(
     const titleText = template.title ? escapeSvgText(clampTemplateText(template.title, 56)) : '';
     const locText = template.locationLabel ? escapeSvgText(clampTemplateText(template.locationLabel, 24)) : '';
     const panelTop = height - Math.round(height * 0.42);
+    const safeBottom = getInstagramCarouselSafeBottom(height);
 
-    let y = height - 36;
+    let y = height - safeBottom - 12;
     let locSvg = '';
     if (locText) {
         y -= 34;
@@ -310,7 +345,6 @@ function renderMarketplaceReelPanelSvg(
 
     return `
         <rect x="0" y="${panelTop}" width="${width}" height="${height - panelTop}" fill="url(#reelPanelGrad)" />
-        ${renderReelListingChipsSvg(width, template, brandAccent)}
         ${svgTextElement(fullPrice, { x: cx, y: priceY, fontSize: 58, fontWeight: 700, fill: '#FFFFFF', anchor: 'middle' })}
         ${strikeSvg}
         ${titleSvg}
@@ -331,10 +365,10 @@ function renderEditorialPremiumPanelSvg(
     const origPrice = template.offerPriceLabel ? escapeSvgText(clampTemplateText(template.priceLabel || '', 20)) : '';
     const titleText = template.title ? escapeSvgText(clampTemplateText(template.title.toUpperCase(), 56)) : '';
     const locText = template.locationLabel ? escapeSvgText(clampTemplateText(template.locationLabel, 24)) : '';
-    const appText = escapeSvgText(template.branding.appName);
     const panelTop = height - Math.round(height * 0.46);
+    const safeBottom = getInstagramCarouselSafeBottom(height);
 
-    let y = height - 44;
+    let y = height - safeBottom - 12;
     let pillsSvg = '';
     if (highlights.length > 0) {
         y -= 34;
@@ -376,8 +410,7 @@ function renderEditorialPremiumPanelSvg(
 
     return `
         <rect x="0" y="${panelTop}" width="${width}" height="${height - panelTop}" fill="url(#editorialGrad)" />
-        ${renderReelListingChipsSvg(width, template, brandAccent)}
-        <text x="${width - padX}" y="52" fill="rgba(255,255,255,0.55)" font-size="18" font-weight="700" text-anchor="end">${appText}</text>
+        ${renderPremiumBrandMarkSvg(width, template)}
         ${svgTextElement(fullPrice, { x: padX, y: priceY, fontSize: 62, fontWeight: 800, fill: brandAccent, anchor: 'start' })}
         ${strikeSvg}
         ${titleSvg}
@@ -464,13 +497,9 @@ export async function buildInstagramTemplateOverlaySvg(
             <text x="${width - 76}" y="${height - bottomBandHeight + 152}" fill="${template.colors.textInverse}" font-size="18" font-weight="700" text-anchor="end">${ctaLabel}</text>
         `;
     } else if (template.overlayVariant === 'essential-watermark') {
-        detailsBand = renderBrandWatermarkSvg(
-            width,
-            height,
-            template.branding.appName,
-        );
+        detailsBand = renderBrandWatermarkSvg(width, height, template);
     } else if (template.overlayVariant === 'professional-centered') {
-        detailsBand = renderMarketplaceReelPanelSvg(width, height, template, brandAccent, highlights);
+        detailsBand = renderMarketplaceReelPanelSvg(width, height, template, highlights);
     } else if (template.overlayVariant === 'signature-complete') {
         detailsBand = renderEditorialPremiumPanelSvg(width, height, template, brandAccent, highlights);
     } else {

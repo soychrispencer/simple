@@ -1,7 +1,9 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
-import { getSimpleAppBrand } from '@simple/config';
+import { getSimpleAppBrand, type SimpleAppId } from '@simple/config';
+import { BrandLogo } from '../brand/brand-logo';
+import { INSTAGRAM_CAROUSEL_SAFE_BOTTOM_PCT } from './instagram-layout';
 
 export type InstagramTemplatePreviewData = {
     layoutVariant: 'square' | 'portrait';
@@ -107,32 +109,22 @@ function HighlightIcon({ text, size = 10, color = 'currentColor' }: { text: stri
     );
 }
 
-const BRAND_WATERMARK_LOGO_FILTER = 'grayscale(1) brightness(1.85)';
+const INSTAGRAM_SAFE_BOTTOM_STYLE = { bottom: `${INSTAGRAM_CAROUSEL_SAFE_BOTTOM_PCT}%` } as const;
+const INSTAGRAM_PANEL_BOTTOM_PADDING = `calc(0.75rem + ${INSTAGRAM_CAROUSEL_SAFE_BOTTOM_PCT}%)`;
 
-function BrandWatermarkMark({
-    appName,
-    compact = false,
-}: {
-    appName: string;
-    compact?: boolean;
-}) {
-    const logoClass = compact ? 'h-6 w-6' : 'h-8 w-8';
+function resolveBrandAppId(appId?: 'simpleautos' | 'simplepropiedades'): SimpleAppId {
+    return appId ?? 'simpleautos';
+}
 
+function BrandWatermarkOverlay({ appId }: { appId?: 'simpleautos' | 'simplepropiedades' }) {
     return (
-        <div className="absolute inset-x-0 bottom-4 z-[4] flex justify-center px-4">
-            <div className={`flex max-w-full items-center gap-2 ${compact ? 'opacity-50' : 'opacity-55'}`}>
-                <img
-                    src="/logo-light.png"
-                    alt={appName}
-                    className={`${logoClass} shrink-0 object-contain`}
-                    style={{ filter: BRAND_WATERMARK_LOGO_FILTER }}
-                />
-                <div className="min-w-0 text-left leading-tight text-white">
-                    <div className={`font-semibold ${compact ? 'text-[10px]' : 'text-xs'}`}>
-                        {appName}
-                    </div>
-                </div>
-            </div>
+        <div className="absolute inset-x-0 z-[4] flex justify-center px-4" style={INSTAGRAM_SAFE_BOTTOM_STYLE}>
+            <BrandLogo
+                appId={resolveBrandAppId(appId)}
+                variant="watermark"
+                size="sm"
+                className="opacity-55"
+            />
         </div>
     );
 }
@@ -157,47 +149,13 @@ function ReelSpecsRow({ highlights }: { highlights: string[] }) {
     );
 }
 
-function ReelListingChips({
-    template,
-    brandAccent,
-}: {
-    template: InstagramTemplatePreviewData;
-    brandAccent: string;
-}) {
-    if (!template.discountLabel && !(template.badges?.length)) return null;
-
-    return (
-        <div className="absolute top-3 left-3 z-[3] flex max-w-[46%] flex-col items-start gap-1">
-            {template.discountLabel ? (
-                <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    style={{ background: brandAccent, color: '#fff' }}
-                >
-                    {template.discountLabel}
-                </span>
-            ) : null}
-            {template.badges?.map((badge, index) => (
-                <span
-                    key={`${badge}-${index}`}
-                    className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/40 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm"
-                >
-                    {badge}
-                </span>
-            ))}
-        </div>
-    );
-}
-
 function MarketplaceReelOverlayPanel({
     template,
 }: {
     template: InstagramTemplatePreviewData;
 }) {
-    const brandAccent = getSimpleAppBrand(template.branding.appId ?? 'simpleautos').accentLight;
-
     return (
         <>
-            <ReelListingChips template={template} brandAccent={brandAccent} />
             <div
                 className="pointer-events-none absolute inset-0"
                 style={{
@@ -205,8 +163,9 @@ function MarketplaceReelOverlayPanel({
                 }}
             />
             <div
-                className="absolute inset-x-0 bottom-0 z-[2] px-3 pt-8 pb-3 text-center"
+                className="absolute inset-x-0 bottom-0 z-[2] px-3 pt-8 text-center"
                 style={{
+                    paddingBottom: INSTAGRAM_PANEL_BOTTOM_PADDING,
                     background: 'linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0.35) 55%, transparent)',
                 }}
             >
@@ -249,25 +208,23 @@ function EditorialPremiumOverlayPanel({
 
     return (
         <>
-            <ReelListingChips template={template} brandAccent={brandAccent} />
             <div
                 className="pointer-events-none absolute inset-0"
                 style={{
                     background: 'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.06) 42%, rgba(0,0,0,0.72) 100%)',
                 }}
             />
-            <div className="absolute top-3 right-3 z-[3] flex items-center gap-1.5 opacity-45">
-                <img
-                    src="/logo-light.png"
-                    alt={template.branding.appName}
-                    className="h-5 w-5 shrink-0 object-contain"
-                    style={{ filter: BRAND_WATERMARK_LOGO_FILTER }}
+            <div className="absolute top-3 right-3 z-[3] opacity-50">
+                <BrandLogo
+                    appId={resolveBrandAppId(template.branding.appId)}
+                    variant="watermark"
+                    size="sm"
                 />
-                <span className="text-[10px] font-semibold text-white">{template.branding.appName}</span>
             </div>
             <div
-                className="absolute inset-x-0 bottom-0 z-[2] px-4 pt-10 pb-4 text-left"
+                className="absolute inset-x-0 bottom-0 z-[2] px-4 pt-10 text-left"
                 style={{
+                    paddingBottom: INSTAGRAM_PANEL_BOTTOM_PADDING,
                     background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.45) 55%, transparent)',
                 }}
             >
@@ -588,7 +545,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             </div>
                         </>
                     ) : template.overlayVariant === 'essential-watermark' ? (
-                        <BrandWatermarkMark appName={template.branding.appName} />
+                        <BrandWatermarkOverlay appId={template.branding.appId} />
                     ) : template.overlayVariant === 'professional-centered' ? (
                         <MarketplaceReelOverlayPanel template={template} />
                     ) : template.overlayVariant === 'signature-complete' ? (

@@ -9,6 +9,7 @@ import {
     InstagramTemplatePreview,
     type InstagramTemplatePreviewData,
 } from './instagram-template-preview';
+import { INSTAGRAM_CAROUSEL_SAFE_BOTTOM_PCT } from './instagram-layout';
 
 export type InstagramPublishTemplateOption = InstagramTemplatePreviewData & {
     id: string;
@@ -130,7 +131,10 @@ export function InstagramPublishPersonalizeModal({
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6" /></svg>
                                 </button>
-                                <div className="absolute right-0 bottom-4 left-0 flex justify-center gap-1.5">
+                                <div
+                                    className="absolute right-0 left-0 flex justify-center gap-1.5"
+                                    style={{ bottom: `${INSTAGRAM_CAROUSEL_SAFE_BOTTOM_PCT}%` }}
+                                >
                                     {images.map((_, index) => (
                                         <div
                                             key={`slide-${index}`}

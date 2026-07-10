@@ -6,7 +6,7 @@ import { logger } from '@simple/logger';
 import { asObject, asString } from '../shared/index.js';
 import { isLocalHostname } from '../mercadopago/checkout-helpers.js';
 import { getInstagramPublicApiOrigin } from './service.js';
-import { buildInstagramTemplateOverlaySvg, getInstagramPremiumBrandLogoPlacement, getInstagramWatermarkLogoPlacement } from './svg-render.js';
+import { buildInstagramTemplateOverlaySvg } from './svg-render.js';
 import type { ListingData as InstagramListingData, InstagramTemplateView as InstagramRenderTemplate } from './templates.js';
 
 const API_ROOT_DIR = path.resolve(__dirname, '../../..');
@@ -265,43 +265,25 @@ export async function prepareInstagramImageUrl(
 
         const variant = options.template.overlayVariant;
         const appId = options.template.branding.appId;
-        const useLight = ['essential-watermark', 'signature-complete'].includes(variant);
-        const logoBuffer = !appId ? null : useLight
-            ? await getInstagramBrandLogoLightBuffer(appId)
-            : await getInstagramBrandLogoBuffer(appId);
+        const skipBrandLogoComposite = ['essential-watermark', 'signature-complete', 'professional-centered'].includes(variant);
+        const logoBuffer = !appId || skipBrandLogoComposite ? null : await getInstagramBrandLogoBuffer(appId);
         if (logoBuffer) {
             let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number } | null = null;
 
-            if (variant === 'essential-watermark') {
-                const watermark = getInstagramWatermarkLogoPlacement(1080, targetHeight);
-                logoPlacement = {
-                    ...watermark.logo,
-                    opacity: 0.55,
-                };
-            } else if (variant === 'signature-complete') {
-                logoPlacement = {
-                    ...getInstagramPremiumBrandLogoPlacement(1080),
-                    opacity: 0.45,
-                };
-            } else if (variant.startsWith('property')) {
+            if (variant.startsWith('property')) {
                 logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
-            } else if (!['professional-centered'].includes(variant)) {
+            } else {
                 logoPlacement = { width: 50, height: 50, top: 30, left: 36 };
             }
 
             if (logoPlacement) {
-                const shouldGreyscale = variant === 'essential-watermark' || variant === 'signature-complete';
-                let logoPipeline = sharp(logoBuffer)
+                let logoOverlay = await sharp(logoBuffer)
                     .resize({
                         width: logoPlacement.width,
                         height: logoPlacement.height,
                         fit: 'contain',
                         withoutEnlargement: false,
-                    });
-                if (shouldGreyscale) {
-                    logoPipeline = logoPipeline.greyscale();
-                }
-                let logoOverlay = await logoPipeline
+                    })
                     .ensureAlpha()
                     .png()
                     .toBuffer();

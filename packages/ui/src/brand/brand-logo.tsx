@@ -5,7 +5,7 @@ import { IconCalendar, IconConfetti, IconDoor, IconLayoutDashboard, IconSteering
 import clsx from 'clsx';
 import { getSimpleAppBrand, type SimpleAppId } from '@simple/config';
 
-export type BrandLogoVariant = 'default' | 'ghost' | 'onAccent';
+export type BrandLogoVariant = 'default' | 'ghost' | 'onAccent' | 'watermark';
 
 export type BrandLogoProps = {
     appId: SimpleAppId;
@@ -40,6 +40,12 @@ function brandLogoIconWrapStyle(variant: BrandLogoVariant): CSSProperties {
                 color: 'var(--accent)',
                 boxShadow: 'var(--shadow-sm)',
             };
+        case 'watermark':
+            return {
+                background: 'rgba(255,255,255,0.12)',
+                borderColor: 'rgba(255,255,255,0.28)',
+                color: 'rgba(255,255,255,0.92)',
+            };
         default:
             return {
                 background: 'var(--accent)',
@@ -63,11 +69,18 @@ export function BrandLogo({
     const iconSize = size === 'sm' ? 16 : size === 'lg' ? 26 : 18;
     const wordmarkClass = size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-lg' : 'text-base';
 
-    const wordmarkPrimary = variant === 'onAccent' ? 'var(--accent-contrast)' : 'var(--fg)';
+    const wordmarkPrimary =
+        variant === 'watermark'
+            ? 'rgba(255,255,255,0.9)'
+            : variant === 'onAccent'
+                ? 'var(--accent-contrast)'
+                : 'var(--fg)';
     const wordmarkSecondary =
-        variant === 'onAccent'
-            ? 'color-mix(in oklab, var(--accent-contrast) 88%, transparent)'
-            : 'var(--accent)';
+        variant === 'watermark'
+            ? 'rgba(255,255,255,0.62)'
+            : variant === 'onAccent'
+                ? 'color-mix(in oklab, var(--accent-contrast) 88%, transparent)'
+                : 'var(--accent)';
 
     const iconBox = clsx(
         'flex items-center justify-center border transition-[box-shadow,border-color,background-color,transform,filter] duration-[var(--serenatas-motion-duration,180ms)] ease-[var(--serenatas-motion-ease,cubic-bezier(0.16,1,0.3,1))]',
@@ -79,7 +92,8 @@ export function BrandLogo({
         variant === 'ghost' &&
             'group-hover:border-[color:var(--accent)] group-hover:bg-[var(--accent-subtle)] group-hover:shadow-sm group-hover:-translate-y-px',
         variant === 'onAccent' &&
-            'group-hover:[box-shadow:var(--shadow-md)] group-hover:brightness-[1.03] group-hover:-translate-y-px'
+            'group-hover:[box-shadow:var(--shadow-md)] group-hover:brightness-[1.03] group-hover:-translate-y-px',
+        variant === 'watermark' && 'shadow-none'
     );
 
     return (
