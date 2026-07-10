@@ -1,15 +1,17 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
     IconBookmark,
     IconBookmarkFilled,
     IconChevronLeft,
     IconChevronRight,
+    IconLayoutGrid,
     IconPhoto,
     IconShare3,
     IconVideo,
+    IconX,
 } from '@tabler/icons-react';
 import { buildListingDetailMediaSlides, LISTING_IMAGE_WIDTHS, optimizeListingImageUrl, type ListingDetailMediaSlide } from '@simple/utils';
 
@@ -21,6 +23,8 @@ export type PublicListingDetailGalleryProps = {
     shareText?: string;
     className?: string;
 };
+
+const GRID_VISIBLE = 5;
 
 export default function PublicListingDetailGallery({
     listingId,
@@ -36,29 +40,28 @@ export default function PublicListingDetailGallery({
     );
     const poster = images[0];
     const hasMultiple = slides.length > 1;
+    const gridSlides = slides.slice(0, GRID_VISIBLE);
+    const extraCount = Math.max(0, slides.length - GRID_VISIBLE);
 
-    const [activeIndex, setActiveIndex] = useState(0);
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [isSaved, setIsSaved] = useState(() => {
         if (typeof window === 'undefined') return false;
         return localStorage.getItem(`saved-listing-${listingId}`) === 'true';
     });
     const [showCopied, setShowCopied] = useState(false);
-    const touchStartX = useRef<number | null>(null);
 
-    const currentSlide = slides[activeIndex] ?? null;
-    const stageClass = currentSlide?.type === 'video-embed'
-        ? 'public-listing-detail-gallery__stage--embed'
-        : currentSlide?.type === 'video-native'
-            ? 'public-listing-detail-gallery__stage--video'
-            : 'public-listing-detail-gallery__stage--photo';
-
-    const goTo = useCallback((index: number) => {
-        if (slides.length <= 1) return;
-        setActiveIndex((index + slides.length) % slides.length);
+    const openLightbox = useCallback((index: number) => {
+        setLightboxIndex(((index % slides.length) + slides.length) % slides.length);
     }, [slides.length]);
 
-    const handlePrev = useCallback(() => goTo(activeIndex - 1), [activeIndex, goTo]);
-    const handleNext = useCallback(() => goTo(activeIndex + 1), [activeIndex, goTo]);
+    const closeLightbox = useCallback(() => {
+        setLightboxIndex(null);
+    }, []);
+
+    const goLightbox = useCallback((index: number) => {
+        if (slides.length <= 0) return;
+        setLightboxIndex(((index % slides.length) + slides.length) % slides.length);
+    }, [slides.length]);
 
     const handleSave = useCallback(() => {
         setIsSaved((prev) => {
@@ -92,20 +95,28 @@ export default function PublicListingDetailGallery({
         }
     }, [shareText, title]);
 
-    const handleTouchStart = (event: React.TouchEvent) => {
-        touchStartX.current = event.touches[0]?.clientX ?? null;
-    };
+    useEffect(() => {
+        if (lightboxIndex === null) return;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
 
-    const handleTouchEnd = (event: React.TouchEvent) => {
-        if (touchStartX.current === null) return;
-        const endX = event.changedTouches[0]?.clientX ?? touchStartX.current;
-        const diff = touchStartX.current - endX;
-        if (Math.abs(diff) > 48) {
-            if (diff > 0) handleNext();
-            else handlePrev();
-        }
-        touchStartX.current = null;
-    };
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') closeLightbox();
+            if (event.key === 'ArrowLeft') goLightbox(lightboxIndex - 1);
+            if (event.key === 'ArrowRight') goLightbox(lightboxIndex + 1);
+        };
+
+        window.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', onKeyDown);
+        };
+    }, [closeLightbox, goLightbox, lightboxIndex]);
+
+    const mosaicClass = [
+        'public-listing-detail-gallery__mosaic',
+        `public-listing-detail-gallery__mosaic--count-${Math.min(Math.max(slides.length, 1), GRID_VISIBLE)}`,
+    ].join(' ');
 
     return (
         <div
@@ -115,121 +126,103 @@ export default function PublicListingDetailGallery({
                 className,
             ].filter(Boolean).join(' ')}
         >
-            <div
-                className={[
-                    'public-listing-detail-gallery__showcase',
-                    hasMultiple ? 'public-listing-detail-gallery__showcase--multi' : '',
-                ].join(' ')}
-            >
-                <div
-                    className={`public-listing-detail-gallery__stage ${stageClass}`}
-                    onTouchStart={handleTouchStart}
-                    onTouchEnd={handleTouchEnd}
-                >
-                    {currentSlide ? (
-                        <>
-                            <SlideMedia slide={currentSlide} title={title} poster={poster} priority={activeIndex === 0} />
-
-                            <div className="public-listing-detail-gallery__actions">
+            <div className="public-listing-detail-gallery__frame">
+                {slides.length === 0 ? (
+                    <div className="public-listing-detail-gallery__empty">
+                        <IconPhoto size={48} />
+                        <span>Sin imagen disponible</span>
+                    </div>
+                ) : (
+                    <div className={mosaicClass}>
+                        {gridSlides.map((slide, index) => {
+                            const isHero = index === 0;
+                            const isLastVisible = index === gridSlides.length - 1 && extraCount > 0;
+                            return (
                                 <button
+                                    key={`${slide.type}-${slide.url}-${index}`}
                                     type="button"
-                                    onClick={handleSave}
-                                    className="public-listing-detail-gallery__icon-btn"
-                                    aria-label={isSaved ? 'Quitar de guardados' : 'Guardar'}
+                                    className={[
+                                        'public-listing-detail-gallery__tile',
+                                        isHero ? 'public-listing-detail-gallery__tile--hero' : '',
+                                        `public-listing-detail-gallery__tile--${index + 1}`,
+                                    ].filter(Boolean).join(' ')}
+                                    onClick={() => openLightbox(index)}
+                                    aria-label={
+                                        slide.type === 'image'
+                                            ? `Ver imagen ${index + 1} en grande`
+                                            : 'Ver video en grande'
+                                    }
                                 >
-                                    {isSaved ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
-                                </button>
-                                <div className="relative">
-                                    <button
-                                        type="button"
-                                        onClick={() => void handleShare()}
-                                        className="public-listing-detail-gallery__icon-btn"
-                                        aria-label="Compartir"
-                                    >
-                                        <IconShare3 size={20} />
-                                    </button>
-                                    {showCopied ? (
-                                        <span className="public-listing-detail-gallery__toast">Copiado</span>
+                                    <TileMedia slide={slide} title={title} poster={poster} priority={isHero} />
+                                    {slide.type !== 'image' ? (
+                                        <span className="public-listing-detail-gallery__tile-video">
+                                            <IconVideo size={isHero ? 28 : 20} />
+                                        </span>
                                     ) : null}
-                                </div>
-                            </div>
+                                    {isLastVisible ? (
+                                        <span className="public-listing-detail-gallery__tile-more">
+                                            +{extraCount}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
-                            {hasMultiple ? (
-                                <>
-                                    <button
-                                        type="button"
-                                        onClick={handlePrev}
-                                        className="public-listing-detail-gallery__nav public-listing-detail-gallery__nav--prev"
-                                        aria-label="Anterior"
-                                    >
-                                        <IconChevronLeft size={20} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleNext}
-                                        className="public-listing-detail-gallery__nav public-listing-detail-gallery__nav--next"
-                                        aria-label="Siguiente"
-                                    >
-                                        <IconChevronRight size={20} />
-                                    </button>
-                                    <div className="public-listing-detail-gallery__counter">
-                                        {activeIndex + 1} / {slides.length}
-                                    </div>
-                                </>
-                            ) : null}
-                        </>
-                    ) : (
-                        <div className="public-listing-detail-gallery__empty">
-                            <IconPhoto size={48} />
-                            <span>Sin imagen disponible</span>
-                        </div>
-                    )}
+                <div className="public-listing-detail-gallery__actions">
+                    <button
+                        type="button"
+                        onClick={handleSave}
+                        className="public-listing-detail-gallery__icon-btn"
+                        aria-label={isSaved ? 'Quitar de guardados' : 'Guardar'}
+                    >
+                        {isSaved ? <IconBookmarkFilled size={20} /> : <IconBookmark size={20} />}
+                    </button>
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => void handleShare()}
+                            className="public-listing-detail-gallery__icon-btn"
+                            aria-label="Compartir"
+                        >
+                            <IconShare3 size={20} />
+                        </button>
+                        {showCopied ? (
+                            <span className="public-listing-detail-gallery__toast">Copiado</span>
+                        ) : null}
+                    </div>
                 </div>
 
                 {hasMultiple ? (
-                    <div className="public-listing-detail-gallery__thumb-rail" aria-label="Miniaturas">
-                        {slides.map((slide, index) => (
-                            <button
-                                key={`${slide.type}-${slide.url}-${index}`}
-                                type="button"
-                                onClick={() => setActiveIndex(index)}
-                                aria-label={slide.type === 'image' ? `Ver imagen ${index + 1}` : 'Ver video'}
-                                aria-current={index === activeIndex}
-                                className={`public-listing-detail-gallery__thumb ${index === activeIndex ? 'public-listing-detail-gallery__thumb--active' : ''}`}
-                            >
-                                {slide.type === 'image' ? (
-                                    <GalleryThumbImage url={slide.url} />
-                                ) : (
-                                    <span className="public-listing-detail-gallery__thumb-video">
-                                        <IconVideo size={22} />
-                                    </span>
-                                )}
-                            </button>
-                        ))}
-                    </div>
+                    <button
+                        type="button"
+                        className="public-listing-detail-gallery__show-all"
+                        onClick={() => openLightbox(0)}
+                    >
+                        <IconLayoutGrid size={16} />
+                        Ver todas
+                    </button>
                 ) : null}
             </div>
+
+            {lightboxIndex !== null && slides[lightboxIndex] ? (
+                <Lightbox
+                    slides={slides}
+                    index={lightboxIndex}
+                    title={title}
+                    poster={poster}
+                    onClose={closeLightbox}
+                    onSelect={goLightbox}
+                    onPrev={() => goLightbox(lightboxIndex - 1)}
+                    onNext={() => goLightbox(lightboxIndex + 1)}
+                />
+            ) : null}
         </div>
     );
 }
 
-function GalleryThumbImage({ url }: { url: string }) {
-    const thumbSrc = optimizeListingImageUrl(url, { width: LISTING_IMAGE_WIDTHS.thumb });
-    return (
-        <Image
-            src={thumbSrc}
-            alt=""
-            width={88}
-            height={88}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            quality={65}
-            unoptimized={thumbSrc !== url}
-        />
-    );
-}
-
-function SlideMedia({
+function TileMedia({
     slide,
     title,
     poster,
@@ -240,13 +233,211 @@ function SlideMedia({
     poster?: string;
     priority?: boolean;
 }) {
+    if (slide.type !== 'image') {
+        if (poster) {
+            const src = optimizeListingImageUrl(poster, {
+                width: priority ? LISTING_IMAGE_WIDTHS.detail : LISTING_IMAGE_WIDTHS.card,
+            });
+            return (
+                <Image
+                    src={src}
+                    alt=""
+                    fill
+                    className="public-listing-detail-gallery__tile-img"
+                    sizes={priority ? '(max-width: 1024px) 100vw, 60vw' : '(max-width: 1024px) 50vw, 20vw'}
+                    quality={priority ? 75 : 65}
+                    priority={priority}
+                    unoptimized={src !== poster}
+                />
+            );
+        }
+        return <span className="public-listing-detail-gallery__tile-fallback" aria-hidden />;
+    }
+
+    const src = optimizeListingImageUrl(slide.url, {
+        width: priority ? LISTING_IMAGE_WIDTHS.detail : LISTING_IMAGE_WIDTHS.card,
+    });
+    return (
+        <Image
+            src={src}
+            alt={title}
+            fill
+            className="public-listing-detail-gallery__tile-img"
+            sizes={priority ? '(max-width: 1024px) 100vw, 60vw' : '(max-width: 1024px) 50vw, 20vw'}
+            quality={priority ? 75 : 65}
+            priority={priority}
+            unoptimized={src !== slide.url}
+        />
+    );
+}
+
+function Lightbox({
+    slides,
+    index,
+    title,
+    poster,
+    onClose,
+    onSelect,
+    onPrev,
+    onNext,
+}: {
+    slides: ListingDetailMediaSlide[];
+    index: number;
+    title: string;
+    poster?: string;
+    onClose: () => void;
+    onSelect: (index: number) => void;
+    onPrev: () => void;
+    onNext: () => void;
+}) {
+    const slide = slides[index]!;
+    const hasMultiple = slides.length > 1;
+
+    return (
+        <div
+            className="public-listing-detail-lightbox"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Galería de ${title}`}
+        >
+            <button
+                type="button"
+                className="public-listing-detail-lightbox__backdrop"
+                aria-label="Cerrar galería"
+                onClick={onClose}
+            />
+
+            <div className="public-listing-detail-lightbox__chrome">
+                <span className="public-listing-detail-lightbox__counter">
+                    {index + 1} / {slides.length}
+                </span>
+                <button
+                    type="button"
+                    className="public-listing-detail-lightbox__close"
+                    onClick={onClose}
+                    aria-label="Cerrar"
+                >
+                    <IconX size={22} />
+                </button>
+            </div>
+
+            {hasMultiple ? (
+                <>
+                    <button
+                        type="button"
+                        className="public-listing-detail-lightbox__nav public-listing-detail-lightbox__nav--prev"
+                        onClick={onPrev}
+                        aria-label="Anterior"
+                    >
+                        <IconChevronLeft size={24} />
+                    </button>
+                    <button
+                        type="button"
+                        className="public-listing-detail-lightbox__nav public-listing-detail-lightbox__nav--next"
+                        onClick={onNext}
+                        aria-label="Siguiente"
+                    >
+                        <IconChevronRight size={24} />
+                    </button>
+                </>
+            ) : null}
+
+            <div className="public-listing-detail-lightbox__stage">
+                <LightboxMedia slide={slide} title={title} poster={poster} />
+            </div>
+
+            {hasMultiple ? (
+                <div className="public-listing-detail-lightbox__thumbs" aria-label="Miniaturas">
+                    {slides.map((entry, thumbIndex) => (
+                        <button
+                            key={`lb-${entry.type}-${entry.url}-${thumbIndex}`}
+                            type="button"
+                            className={[
+                                'public-listing-detail-lightbox__thumb',
+                                thumbIndex === index ? 'public-listing-detail-lightbox__thumb--active' : '',
+                            ].filter(Boolean).join(' ')}
+                            onClick={() => onSelect(thumbIndex)}
+                            aria-label={entry.type === 'image' ? `Ir a imagen ${thumbIndex + 1}` : 'Ir al video'}
+                            aria-current={thumbIndex === index}
+                        >
+                            <LightboxThumb slide={entry} poster={poster} />
+                        </button>
+                    ))}
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
+function LightboxThumb({
+    slide,
+    poster,
+}: {
+    slide: ListingDetailMediaSlide;
+    poster?: string;
+}) {
+    if (slide.type === 'image') {
+        const src = optimizeListingImageUrl(slide.url, { width: LISTING_IMAGE_WIDTHS.thumb });
+        return (
+            <Image
+                src={src}
+                alt=""
+                width={72}
+                height={54}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                quality={60}
+                unoptimized={src !== slide.url}
+            />
+        );
+    }
+    if (poster) {
+        const src = optimizeListingImageUrl(poster, { width: LISTING_IMAGE_WIDTHS.thumb });
+        return (
+            <span className="public-listing-detail-lightbox__thumb-video">
+                <Image
+                    src={src}
+                    alt=""
+                    width={72}
+                    height={54}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    quality={60}
+                    unoptimized={src !== poster}
+                />
+                <span className="public-listing-detail-lightbox__thumb-video-icon">
+                    <IconVideo size={16} />
+                </span>
+            </span>
+        );
+    }
+    return (
+        <span className="public-listing-detail-lightbox__thumb-video">
+            <span className="public-listing-detail-lightbox__thumb-video-icon">
+                <IconVideo size={18} />
+            </span>
+        </span>
+    );
+}
+
+function LightboxMedia({
+    slide,
+    title,
+    poster,
+}: {
+    slide: ListingDetailMediaSlide;
+    title: string;
+    poster?: string;
+}) {
     if (slide.type === 'video-native') {
         return (
             <video
+                key={slide.url}
                 src={slide.url}
-                className="public-listing-detail-gallery__media public-listing-detail-gallery__media--video"
+                className="public-listing-detail-lightbox__media public-listing-detail-lightbox__media--video"
                 controls
                 playsInline
+                autoPlay
                 preload="metadata"
                 poster={poster}
             />
@@ -256,28 +447,28 @@ function SlideMedia({
     if (slide.type === 'video-embed') {
         return (
             <iframe
+                key={slide.url}
                 src={slide.url}
                 title={`Video de ${title}`}
-                className="public-listing-detail-gallery__media public-listing-detail-gallery__media--embed"
+                className="public-listing-detail-lightbox__media public-listing-detail-lightbox__media--embed"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
             />
         );
     }
 
-    const photoSrc = optimizeListingImageUrl(slide.url, { width: LISTING_IMAGE_WIDTHS.detail });
-    const edgeResized = photoSrc !== slide.url;
-
+    const src = optimizeListingImageUrl(slide.url, { width: LISTING_IMAGE_WIDTHS.detail });
     return (
         <Image
-            src={photoSrc}
+            key={slide.url}
+            src={src}
             alt={title}
-            fill
-            className="public-listing-detail-gallery__media public-listing-detail-gallery__media--photo"
-            priority={priority}
-            sizes="(max-width: 1024px) 100vw, 720px"
-            quality={75}
-            unoptimized={edgeResized}
+            width={1600}
+            height={1200}
+            className="public-listing-detail-lightbox__media public-listing-detail-lightbox__media--photo"
+            quality={85}
+            priority
+            unoptimized={src !== slide.url}
         />
     );
 }

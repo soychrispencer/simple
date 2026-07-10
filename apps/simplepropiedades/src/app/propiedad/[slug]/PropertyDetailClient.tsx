@@ -115,73 +115,73 @@ export default function PropertyDetailClient({ item }: PropertyDetailClientProps
                     />
 
                     <PublicListingDetailSpecGrid>
-                            <PublicListingDetailSpecItem
-                                icon={<IconBed size={20} />}
-                                label="Dormitorios"
-                                value={findSummaryValue(item.summary, [/^\d+\s*D$/i, /dorm/i, /habitaci/i])}
-                            />
-                            <PublicListingDetailSpecItem
-                                icon={<IconBath size={20} />}
-                                label="Baños"
-                                value={findSummaryValue(item.summary, [/^\d+\s*B$/i, /baño/i, /bano/i])}
-                            />
-                            <PublicListingDetailSpecItem
-                                icon={<IconRuler size={20} />}
-                                label={item.summary.some((entry) => /^\d+\s*E$/i.test(entry) || /estacionamiento/i.test(entry))
-                                    && !item.summary.some((entry) => /m²|m2|metros/i.test(entry))
-                                    ? 'Estacionamientos'
-                                    : 'Superficie'}
-                                value={
-                                    findSummaryValue(item.summary, [/m²/i, /m2/i, /metros/i]) !== 'Por definir'
-                                        ? findSummaryValue(item.summary, [/m²/i, /m2/i, /metros/i])
-                                        : findSummaryValue(item.summary, [/^\d+\s*E$/i, /estacionamiento/i])
-                                }
-                            />
-                            <PublicListingDetailSpecItem
-                                icon={<IconBuilding size={20} />}
-                                label={item.summary.some((entry) => /^\d+\s*Bo$/i.test(entry) || /bodega/i.test(entry))
-                                    && !item.summary.some((entry) => /casa|depto|departamento|oficina|local|terreno/i.test(entry))
-                                    ? 'Bodegas'
-                                    : 'Tipo'}
-                                value={
-                                    findSummaryValue(item.summary, [/casa|depto|departamento|oficina|local|terreno/i]) !== 'Por definir'
-                                        ? findSummaryValue(item.summary, [/casa|depto|departamento|oficina|local|terreno/i])
-                                        : findSummaryValue(item.summary, [/^\d+\s*Bo$/i, /bodega/i])
-                                }
-                            />
-                        </PublicListingDetailSpecGrid>
+                        <PublicListingDetailSpecItem
+                            icon={<IconBed size={20} />}
+                            label="Dormitorios"
+                            value={findSummaryValue(item.summary, [/^\d+\s*D$/i, /dorm/i, /habitaci/i])}
+                        />
+                        <PublicListingDetailSpecItem
+                            icon={<IconBath size={20} />}
+                            label="Baños"
+                            value={findSummaryValue(item.summary, [/^\d+\s*B$/i, /baño/i, /bano/i])}
+                        />
+                        <PublicListingDetailSpecItem
+                            icon={<IconRuler size={20} />}
+                            label={item.summary.some((entry) => /^\d+\s*E$/i.test(entry) || /estacionamiento/i.test(entry))
+                                && !item.summary.some((entry) => /m²|m2|metros/i.test(entry))
+                                ? 'Estacionamientos'
+                                : 'Superficie'}
+                            value={
+                                findSummaryValue(item.summary, [/m²/i, /m2/i, /metros/i]) !== 'Por definir'
+                                    ? findSummaryValue(item.summary, [/m²/i, /m2/i, /metros/i])
+                                    : findSummaryValue(item.summary, [/^\d+\s*E$/i, /estacionamiento/i])
+                            }
+                        />
+                        <PublicListingDetailSpecItem
+                            icon={<IconBuilding size={20} />}
+                            label={item.summary.some((entry) => /^\d+\s*Bo$/i.test(entry) || /bodega/i.test(entry))
+                                && !item.summary.some((entry) => /casa|depto|departamento|oficina|local|terreno/i.test(entry))
+                                ? 'Bodegas'
+                                : 'Tipo'}
+                            value={
+                                findSummaryValue(item.summary, [/casa|depto|departamento|oficina|local|terreno/i]) !== 'Por definir'
+                                    ? findSummaryValue(item.summary, [/casa|depto|departamento|oficina|local|terreno/i])
+                                    : findSummaryValue(item.summary, [/^\d+\s*Bo$/i, /bodega/i])
+                            }
+                        />
+                    </PublicListingDetailSpecGrid>
 
-                        {item.summary.length > 0 ? (
-                            <PanelCard size="lg">
-                                <PanelBlockHeader title="Resumen" className="mb-4" />
-                                <div className="flex flex-wrap gap-2">
-                                    {item.summary.map((entry) => (
-                                        <span
-                                            key={entry}
-                                            className="rounded-full px-3 py-1 text-xs"
-                                            style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
-                                        >
-                                            {expandCompactPropertyTag(entry)}
-                                        </span>
-                                    ))}
-                                </div>
-                            </PanelCard>
-                        ) : null}
-
+                    {item.summary.length > 0 ? (
                         <PanelCard size="lg">
-                            <PanelBlockHeader title="Descripción" className="mb-3" />
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap md:text-base" style={{ color: 'var(--fg-secondary)' }}>
-                                {item.description || 'Esta publicación no incluye descripción adicional.'}
-                            </p>
+                            <PanelBlockHeader title="Resumen" className="mb-4" />
+                            <div className="flex flex-wrap gap-2">
+                                {item.summary.map((entry) => (
+                                    <span
+                                        key={entry}
+                                        className="rounded-full px-3 py-1 text-xs"
+                                        style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
+                                    >
+                                        {expandCompactPropertyTag(entry)}
+                                    </span>
+                                ))}
+                            </div>
                         </PanelCard>
+                    ) : null}
 
-                        {item.seller?.username ? (
-                            <SellerProductsCrossSell
-                                sellerUsername={item.seller.username}
-                                sellerName={item.seller.name}
-                                profileHref={item.seller.profileHref}
-                            />
-                        ) : null}
+                    <PanelCard size="lg">
+                        <PanelBlockHeader title="Descripción" className="mb-3" />
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap md:text-base" style={{ color: 'var(--fg-secondary)' }}>
+                            {item.description || 'Esta publicación no incluye descripción adicional.'}
+                        </p>
+                    </PanelCard>
+
+                    {item.seller?.username ? (
+                        <SellerProductsCrossSell
+                            sellerUsername={item.seller.username}
+                            sellerName={item.seller.name}
+                            profileHref={item.seller.profileHref}
+                        />
+                    ) : null}
                 </div>
 
                 <aside className="public-listing-detail-layout__aside">
