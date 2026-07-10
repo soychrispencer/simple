@@ -125,6 +125,7 @@ function BrandWatermarkOverlay({ appId }: { appId?: 'simpleautos' | 'simplepropi
                 appId={resolveBrandAppId(appId)}
                 variant="watermark"
                 size="sm"
+                showIcon={false}
                 className="opacity-80"
             />
         </div>
@@ -221,7 +222,8 @@ function EditorialPremiumOverlayPanel({
                     appId={resolveBrandAppId(template.branding.appId)}
                     variant="watermark"
                     size="sm"
-                    className="scale-[0.92] opacity-75"
+                    showIcon={false}
+                    className="opacity-75"
                 />
             </div>
             <div

@@ -44,25 +44,6 @@ const SVG_ICON_PATHS: Record<string, string> = {
     descuento: 'M9 9h.01M15 15h.01M16 8l-8 8M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138c.065.71.327 1.39.806 1.946a3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', // percent-badge
 };
 
-const BRAND_MARK_ICON_PATHS: Record<string, string[]> = {
-    steering: [
-        'M20 17v-6a8 8 0 1 0-16 0v6',
-        'M12 15l0 .01',
-        'M12 12l0 .01',
-        'M12 9l0 .01',
-        'M12 6l0 .01',
-    ],
-    door: [
-        'M3 21h18',
-        'M3 7v11',
-        'M3 13h18',
-        'M7 13v5',
-        'M17 13v5',
-        'M7 8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2',
-        'M13 8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2',
-    ],
-};
-
 function getHighlightIconKey(text: string): string {
     const t = text.toLowerCase().trim();
     if (t === 'venta') return 'venta';
@@ -108,14 +89,6 @@ function svgIcon(key: string, x: number, y: number, size: number, fill: string, 
     return `<g transform="translate(${x},${y}) scale(${scale})"><path d="${p}" fill="none" stroke="${fill}" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round"/></g>`;
 }
 
-function svgBrandMarkIcon(key: string, x: number, y: number, size: number, fill: string, strokeW = 1.5): string {
-    const paths = BRAND_MARK_ICON_PATHS[key] || BRAND_MARK_ICON_PATHS.steering;
-    const scale = size / 24;
-    return paths
-        .map((path) => `<g transform="translate(${x},${y}) scale(${scale})"><path d="${path}" fill="none" stroke="${fill}" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round"/></g>`)
-        .join('');
-}
-
 function splitBrandWordmark(appName: string): { primary: string; secondary: string } {
     if (appName.startsWith('Simple') && appName.length > 6) {
         return { primary: 'Simple', secondary: appName.slice(6) };
@@ -123,37 +96,32 @@ function splitBrandWordmark(appName: string): { primary: string; secondary: stri
     return { primary: appName, secondary: '' };
 }
 
-function getBrandMarkIconKey(appId?: string): string {
-    return appId === 'simplepropiedades' ? 'door' : 'steering';
-}
-
-function renderBrandMarkSvg(options: {
+function renderBrandWordmarkSvg(options: {
     x: number;
     y: number;
     appName: string;
-    appId?: string;
     compact?: boolean;
     opacity?: number;
+    align?: 'start' | 'middle' | 'end';
 }): string {
-    const isCompact = options.compact === true;
-    const iconBoxSize = isCompact ? 28 : 36;
-    const iconInner = isCompact ? 14 : 17;
-    const wordmarkSize = isCompact ? 14 : 17;
-    const opacity = options.opacity ?? (isCompact ? 0.78 : 0.8);
-    const radius = Math.round(iconBoxSize * 0.22);
+    const wordmarkSize = options.compact ? 14 : 17;
+    const opacity = options.opacity ?? 0.8;
     const { primary, secondary } = splitBrandWordmark(options.appName);
-    const iconKey = getBrandMarkIconKey(options.appId);
-    const textX = options.x + iconBoxSize + 9;
-    const textY = options.y + Math.round(iconBoxSize * 0.7);
     const primaryWidth = primary.length * (wordmarkSize * 0.56);
-    const shadowFilter = isCompact ? '' : ' filter="url(#watermarkShadow)"';
+    const secondaryWidth = secondary ? secondary.length * (wordmarkSize * 0.52) : 0;
+    const totalWidth = primaryWidth + secondaryWidth;
+    const align = options.align ?? 'start';
+
+    let textX = options.x;
+    if (align === 'middle') textX = options.x - totalWidth / 2;
+    if (align === 'end') textX = options.x - totalWidth;
+
+    const shadowFilter = options.compact ? '' : ' filter="url(#watermarkShadow)"';
 
     return `
         <g opacity="${opacity}"${shadowFilter}>
-            <rect x="${options.x}" y="${options.y}" width="${iconBoxSize}" height="${iconBoxSize}" rx="${radius}" ry="${radius}" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.34)" stroke-width="1.25" />
-            ${svgBrandMarkIcon(iconKey, options.x + (iconBoxSize - iconInner) / 2, options.y + (iconBoxSize - iconInner) / 2, iconInner, 'rgba(255,255,255,0.92)', 1.6)}
-            <text x="${textX}" y="${textY}" fill="rgba(255,255,255,0.9)" font-size="${wordmarkSize}" font-weight="600" font-family="Arial, sans-serif">${escapeSvgText(primary)}</text>
-            ${secondary ? `<text x="${textX + primaryWidth}" y="${textY}" fill="rgba(255,255,255,0.68)" font-size="${wordmarkSize}" font-weight="400" font-family="Arial, sans-serif">${escapeSvgText(secondary)}</text>` : ''}
+            <text x="${textX}" y="${options.y}" fill="rgba(255,255,255,0.9)" font-size="${wordmarkSize}" font-weight="600" font-family="Arial, sans-serif">${escapeSvgText(primary)}</text>
+            ${secondary ? `<text x="${textX + primaryWidth}" y="${options.y}" fill="rgba(255,255,255,0.68)" font-size="${wordmarkSize}" font-weight="400" font-family="Arial, sans-serif">${escapeSvgText(secondary)}</text>` : ''}
         </g>
     `;
 }
@@ -249,16 +217,14 @@ function renderBrandWatermarkSvg(
     template: InstagramRenderTemplate,
 ): string {
     const safeBottom = getInstagramCarouselSafeBottom(height);
-    const iconBoxSize = 36;
-    const blockWidth = 172;
-    const x = Math.round((width - blockWidth) / 2);
-    const y = height - safeBottom - iconBoxSize - 14;
+    const cx = Math.round(width / 2);
+    const y = height - safeBottom - 6;
 
-    return renderBrandMarkSvg({
-        x,
+    return renderBrandWordmarkSvg({
+        x: cx,
         y,
         appName: template.branding.appName,
-        appId: template.branding.appId,
+        align: 'middle',
     });
 }
 
@@ -266,15 +232,13 @@ function renderPremiumBrandMarkSvg(
     width: number,
     template: InstagramRenderTemplate,
 ): string {
-    const blockWidth = 132;
-    const x = width - 28 - blockWidth;
-    return renderBrandMarkSvg({
-        x,
-        y: 28,
+    return renderBrandWordmarkSvg({
+        x: width - 28,
+        y: 42,
         appName: template.branding.appName,
-        appId: template.branding.appId,
         compact: true,
         opacity: 0.75,
+        align: 'end',
     });
 }
 

@@ -11,6 +11,7 @@ export type BrandLogoProps = {
     appId: SimpleAppId;
     className?: string;
     showWordmark?: boolean;
+    showIcon?: boolean;
     size?: 'sm' | 'md' | 'lg';
     /** default: caja con tokens de acento; ghost: más liviano; onAccent: sobre fondos con --accent (p. ej. marketing/auth). */
     variant?: BrandLogoVariant;
@@ -62,6 +63,7 @@ export function BrandLogo({
     appId,
     className,
     showWordmark = true,
+    showIcon = true,
     size = 'md',
     variant = 'default',
 }: BrandLogoProps) {
@@ -115,12 +117,14 @@ export function BrandLogo({
 
     return (
         <span
-            className={clsx('flex items-center gap-2.5 group shrink-0', className)}
+            className={clsx('flex items-center group shrink-0', showIcon ? 'gap-2.5' : 'gap-0', className)}
             style={variant === 'watermark' ? { filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.32))' } : undefined}
         >
-            <span className={iconBox} style={brandLogoIconWrapStyle(variant)}>
-                <Icon size={iconSize} />
-            </span>
+            {showIcon ? (
+                <span className={iconBox} style={brandLogoIconWrapStyle(variant)}>
+                    <Icon size={iconSize} />
+                </span>
+            ) : null}
             {showWordmark ? (
                 <span
                     className={clsx(
