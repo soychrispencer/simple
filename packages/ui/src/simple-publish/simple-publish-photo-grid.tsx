@@ -224,7 +224,7 @@ export function SimplePublishPhotoGrid({
             <input
                 ref={inputRef}
                 type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
+                accept="image/*"
                 multiple
                 className="hidden"
                 onChange={(event) => {

@@ -2125,7 +2125,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                         <input
                             ref={videoInputRef}
                             type="file"
-                            accept="video/mp4,video/webm,video/quicktime"
+                            accept="video/*"
                             onChange={(event) => void handleVideoFile(event.target.files)}
                             className="hidden"
                         />
