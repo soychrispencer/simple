@@ -97,6 +97,7 @@ export function ShareToSocialPanel({
     const [igCaptionTemplate, setIgCaptionTemplate] = useState<string | null>(null);
     const [personalizeOpen, setPersonalizeOpen] = useState(false);
     const [personalizeSaving, setPersonalizeSaving] = useState(false);
+    const [personalizeError, setPersonalizeError] = useState<string | null>(null);
     const [templatesLoading, setTemplatesLoading] = useState(false);
     const [instagramTemplates, setInstagramTemplates] = useState<InstagramPublishTemplateOption[]>([]);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -201,6 +202,7 @@ export function ShareToSocialPanel({
     }
 
     async function openInstagramPersonalize() {
+        setPersonalizeError(null);
         setPersonalizeOpen(true);
         setPersonalizeCaption(
             igCaptionTemplate
@@ -229,21 +231,38 @@ export function ShareToSocialPanel({
     }
 
     async function saveInstagramPersonalize() {
-        if (!selectedTemplateId) return;
-        const selected = instagramTemplates.find((template) => template.id === selectedTemplateId);
+        const templateId = (selectedTemplateId
+            ?? instagramTemplates[0]?.id
+            ?? null) as InstagramPublishStyleView['templateId'] | null;
+        if (!templateId) {
+            setPersonalizeError('Elige un diseño antes de guardar.');
+            return;
+        }
+        const selected = instagramTemplates.find((template) => template.id === templateId);
         setPersonalizeSaving(true);
+        setPersonalizeError(null);
         const result = await saveInstagramPublishPreferences({
-            templateId: selectedTemplateId as InstagramPublishStyleView['templateId'],
-            layoutVariant: selected?.layoutVariant ?? igPublishStyle.layoutVariant,
+            templateId,
+            layoutVariant: (selected?.layoutVariant as InstagramPublishStyleView['layoutVariant'])
+                ?? igPublishStyle.layoutVariant,
             tone: igPublishStyle.tone,
             targetAudience: igPublishStyle.targetAudience,
             useAI: igPublishStyle.useAI,
             captionTemplate: personalizeCaption.trim() || null,
         });
         setPersonalizeSaving(false);
-        if (!result.ok) return;
-        setIgPublishStyle(parseInstagramPublishStyle(result.account?.publishStyle));
+        if (!result.ok) {
+            setPersonalizeError(result.error ?? 'No pudimos guardar el estilo.');
+            return;
+        }
+        const parsed = parseInstagramPublishStyle(result.account?.publishStyle);
+        setIgPublishStyle({
+            ...parsed,
+            templateId,
+            layoutVariant: selected?.layoutVariant === 'square' ? 'square' : (parsed.layoutVariant ?? 'portrait'),
+        });
         setIgCaptionTemplate(result.account?.captionTemplate ?? (personalizeCaption.trim() || null));
+        setSelectedTemplateId(templateId);
         setPersonalizeOpen(false);
     }
 
@@ -279,7 +298,11 @@ export function ShareToSocialPanel({
             publicUrl: buildMarketplacePublicUrl(href),
             brandLabel: brandName,
         });
-        await navigator.clipboard.writeText(copy);
+        try {
+            await navigator.clipboard.writeText(copy);
+        } catch {
+            // El hub ya abrió Marketplace; el pegado manual sigue siendo posible.
+        }
     }
 
     async function markMarketplacePublished() {
@@ -432,6 +455,7 @@ export function ShareToSocialPanel({
                 onCaptionChange={setPersonalizeCaption}
                 saving={personalizeSaving}
                 onSave={saveInstagramPersonalize}
+                error={personalizeError}
             />
         </>
     );

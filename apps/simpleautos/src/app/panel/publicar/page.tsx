@@ -1428,8 +1428,7 @@ function Step1PhotosAndIdentity({
                                 <input
                                     ref={videoInputRef}
                                     type="file"
-                                    accept="video/*"
-                                    capture="environment"
+                                    accept="video/mp4,video/webm,video/quicktime"
                                     onChange={(event) => void handleVideoFile(event.target.files)}
                                     className="hidden"
                                 />

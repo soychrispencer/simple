@@ -30,6 +30,7 @@ export type InstagramPublishPersonalizeModalProps = {
     onCaptionChange: (value: string) => void;
     saving: boolean;
     onSave: () => void | Promise<void>;
+    error?: string | null;
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
@@ -51,6 +52,7 @@ export function InstagramPublishPersonalizeModal({
     onCaptionChange,
     saving,
     onSave,
+    error = null,
 }: InstagramPublishPersonalizeModalProps) {
     const [carouselIndex, setCarouselIndex] = useState(0);
     const activeTemplate = templates.find((template) => template.id === selectedTemplateId)
@@ -201,6 +203,9 @@ export function InstagramPublishPersonalizeModal({
                         className="mb-2 min-h-[180px] w-full flex-1 resize-none rounded-xl border border-(--border) bg-(--surface-sunken) p-4 text-sm text-(--fg) focus:ring-2 focus:ring-blue-500 focus:outline-none"
                         placeholder="Escribe el pie de foto que quieres reutilizar..."
                     />
+                    {error ? (
+                        <p className="mb-2 text-sm text-(--color-error)">{error}</p>
+                    ) : null}
                     <p className="text-[11px] leading-snug text-(--fg-muted)">
                         Este estilo se guarda en tu cuenta. Después solo toca Publicar y usaremos tu diseño y pie de foto.
                     </p>

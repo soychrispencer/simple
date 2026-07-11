@@ -135,6 +135,12 @@ NEXT_PUBLIC_API_URL=
 API_INTERNAL_URL=https://api.simpleplataforma.app
 NEXT_PUBLIC_APP_URL=https://simpleautos.app
 GOOGLE_AI_API_KEY=                   # ver .env local de simpleautos → GOOGLE_AI_API_KEY
+# Maps / Places: preferir clave en simple-api (GOOGLE_MAPS_BROWSER_KEY o GOOGLE_MAPS_API_KEY)
+# expuesta vía GET /api/public/maps-browser-key. En Google Cloud Console → HTTP referrers:
+#   https://simpleautos.app/*
+#   https://www.simpleautos.app/*
+#   http://localhost:3002/*   (dev)
+# APIs: Maps JavaScript API + Places API (New). Redeploy si usás NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY.
 ```
 
 ---
@@ -153,6 +159,7 @@ GOOGLE_AI_API_KEY=                   # ver .env local de simpleautos → GOOGLE_
 NEXT_PUBLIC_API_URL=
 API_INTERNAL_URL=https://api.simpleplataforma.app
 NEXT_PUBLIC_APP_URL=https://simplepropiedades.app
+# Maps: misma clave browser que Autos (referrers https://simplepropiedades.app/* en GCP).
 ```
 
 ---

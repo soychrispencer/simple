@@ -280,6 +280,12 @@ async function publishListingImages(
         deps.logDebug(
             `[instagram] failed to prepare cover image: ${e instanceof Error ? e.message : String(e)}`,
         );
+        // Si eligieron un diseño con ficha, no publicamos en silencio solo con watermark.
+        if (options.template && options.template.overlayVariant !== 'essential-watermark') {
+            throw new Error(
+                'No se pudo aplicar el diseño de Instagram a la portada. Revisa las fotos del aviso e inténtalo de nuevo.',
+            );
+        }
     }
 
     const watermarkTemplate: InstagramTemplateView | null = options.template

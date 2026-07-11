@@ -26,7 +26,7 @@ describe('ListingLocationEditor addressHintMode', () => {
                 showSimpleVisibilityToggle={false}
             />,
         );
-        expect(screen.getByText('Escribe la dirección o elige una sugerencia.')).toBeInTheDocument();
+        expect(screen.getByText('Escribe y elige una sugerencia de Google, o completa región y comuna.')).toBeInTheDocument();
     });
 
     it('no muestra hint en modo none', () => {
@@ -46,7 +46,7 @@ describe('ListingLocationEditor addressHintMode', () => {
                 showSimpleVisibilityToggle={false}
             />,
         );
-        expect(screen.queryByText('Escribe la dirección o elige una sugerencia.')).not.toBeInTheDocument();
+        expect(screen.queryByText('Escribe y elige una sugerencia de Google, o completa región y comuna.')).not.toBeInTheDocument();
         expect(screen.queryByText('Selecciona una sugerencia cuando aparezca.')).not.toBeInTheDocument();
     });
 });

@@ -10,11 +10,11 @@ import {
     Field,
     StyledSelect,
     applyPlaceToLocation,
+    attachGooglePlacesAddressField,
     buildGoogleMapsUrls,
     buildOsmUrls,
     clearResolvedGeo,
     createEmptyGeoPoint,
-    createGooglePlacesAutocomplete,
     fieldError,
     fieldInvalid,
     joinClasses,
@@ -24,7 +24,7 @@ import {
     GoogleMapIcon,
     ShareIcon,
     type FieldErrorMap,
-    type GooglePlaceResult,
+    type GooglePlacesAddressAttachment,
     type SelectOption,
     type VisibilityOption,
 } from './location-shared';
@@ -217,14 +217,16 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         onSaveToAddressBook,
     } = props;
     const [addressInputEl, setAddressInputEl] = useState<HTMLInputElement | null>(null);
+    const [placesHostEl, setPlacesHostEl] = useState<HTMLDivElement | null>(null);
     const addressInputRef = (el: HTMLInputElement | null) => { setAddressInputEl(el); };
-    const addressInputElRef = useRef<HTMLInputElement | null>(null);
+    const placesHostRef = (el: HTMLDivElement | null) => { setPlacesHostEl(el); };
     const locationRef = useRef(location);
     const regionsRef = useRef(regions);
     const communesRef = useRef(communes);
     const allCommunesRef = useRef(allCommunes ?? communes);
     const onChangeRef = useRef(onChange);
-    const autocompleteRef = useRef<any>(null);
+    const placesAttachmentRef = useRef<GooglePlacesAddressAttachment | null>(null);
+    const lastSyncedAddressRef = useRef(location.addressLine1 || '');
     const googlePlacesKey = resolveGoogleMapsBrowserKey(googleMapsApiKey) ?? '';
     const [autocompleteReady, setAutocompleteReady] = useState(false);
 
@@ -259,52 +261,67 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
     }, [onChange]);
 
     useEffect(() => {
-        addressInputElRef.current = addressInputEl;
-    }, [addressInputEl]);
-
-    useEffect(() => {
-        if (!googlePlacesKey || location.sourceMode === 'area_only' || !addressInputEl) {
+        if (!googlePlacesKey || location.sourceMode === 'area_only' || !addressInputEl || !placesHostEl) {
+            placesAttachmentRef.current?.destroy();
+            placesAttachmentRef.current = null;
             setAutocompleteReady(false);
             return;
         }
 
         let disposed = false;
 
-        void createGooglePlacesAutocomplete(addressInputEl, googlePlacesKey, {
-            componentRestrictions: { country: 'cl' },
-            fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-        }).then((autocomplete) => {
-            if (disposed || !autocomplete || !addressInputElRef.current) {
+        void attachGooglePlacesAddressField({
+            apiKey: googlePlacesKey,
+            input: addressInputEl,
+            host: placesHostEl,
+            countryCode: 'cl',
+            placeholder: 'Ej: Av. Italia 1452',
+            onPlaceSelected: (place) => {
+                const nextLocation = applyPlaceToLocation(
+                    place,
+                    locationRef.current,
+                    regionsRef.current,
+                    allCommunesRef.current,
+                );
+                lastSyncedAddressRef.current = nextLocation.addressLine1 || '';
+                onChangeRef.current(nextLocation);
+            },
+            onTextChange: (value) => {
+                const current = locationRef.current;
+                lastSyncedAddressRef.current = value;
+                onChangeRef.current(patchListingLocation(current, {
+                    addressLine1: value,
+                    sourceAddressId: current.sourceMode === 'saved_address' ? null : current.sourceAddressId,
+                    sourceMode: current.sourceMode === 'saved_address' ? 'custom' : current.sourceMode,
+                    ...clearResolvedGeo(current),
+                }));
+            },
+        }).then((attachment) => {
+            if (disposed || !attachment) {
                 setAutocompleteReady(false);
                 return;
             }
-
-            const googleMaps = (window as typeof window & { google?: any }).google?.maps;
-            if (autocompleteRef.current && googleMaps?.event?.clearInstanceListeners) {
-                googleMaps.event.clearInstanceListeners(autocompleteRef.current);
-            }
-
-            autocomplete.addListener('place_changed', () => {
-                const place = autocomplete.getPlace?.() as GooglePlaceResult | undefined;
-                if (!place) return;
-                const nextLocation = applyPlaceToLocation(place, locationRef.current, regionsRef.current, allCommunesRef.current);
-                onChangeRef.current(nextLocation);
-            });
-
-            autocompleteRef.current = autocomplete;
+            placesAttachmentRef.current = attachment;
+            const initial = locationRef.current.addressLine1 || '';
+            lastSyncedAddressRef.current = initial;
+            attachment.setValue(initial);
             setAutocompleteReady(true);
         });
 
         return () => {
             disposed = true;
-            const googleMaps = (window as typeof window & { google?: any }).google?.maps;
-            if (autocompleteRef.current && googleMaps?.event?.clearInstanceListeners) {
-                googleMaps.event.clearInstanceListeners(autocompleteRef.current);
-            }
-            autocompleteRef.current = null;
+            placesAttachmentRef.current?.destroy();
+            placesAttachmentRef.current = null;
             setAutocompleteReady(false);
         };
-    }, [googlePlacesKey, googleMapsApiKey, location.sourceMode, addressInputEl]);
+    }, [googlePlacesKey, googleMapsApiKey, location.sourceMode, addressInputEl, placesHostEl]);
+
+    useEffect(() => {
+        const next = location.addressLine1 || '';
+        if (next === lastSyncedAddressRef.current) return;
+        lastSyncedAddressRef.current = next;
+        placesAttachmentRef.current?.setValue(next);
+    }, [location.addressLine1]);
 
     const addressHint = addressHintMode === 'none'
         ? undefined
@@ -428,19 +445,22 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
                     <div className="flex items-center gap-2">
-                        <input
-                            ref={addressInputRef}
-                            className={joinClasses('form-input min-w-0 flex-1', fieldInvalid(errors, 'addressLine1') && 'form-input-error')}
-                            value={location.addressLine1 || ''}
-                            autoComplete="off"
-                            onChange={(event) => onChange(patchListingLocation(location, {
-                                addressLine1: event.target.value,
-                                sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-                                sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-                                ...clearResolvedGeo(location),
-                            }))}
-                            placeholder="Ej: Av. Italia 1452"
-                        />
+                        <div className="relative min-w-0 flex-1">
+                            <input
+                                ref={addressInputRef}
+                                className={joinClasses('form-input min-w-0 w-full', fieldInvalid(errors, 'addressLine1') && 'form-input-error')}
+                                value={location.addressLine1 || ''}
+                                autoComplete="off"
+                                onChange={(event) => onChange(patchListingLocation(location, {
+                                    addressLine1: event.target.value,
+                                    sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
+                                    sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
+                                    ...clearResolvedGeo(location),
+                                }))}
+                                placeholder="Ej: Av. Italia 1452"
+                            />
+                            <div ref={placesHostRef} className="hidden min-w-0 w-full" />
+                        </div>
                         {mapsActionButtons}
                     </div>
                 </Field>
@@ -454,20 +474,22 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
                     <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <input
-                            ref={addressInputRef}
-                            className={joinClasses('form-input', fieldInvalid(errors, 'addressLine1') && 'form-input-error')}
-                            style={{ flex: 1 }}
-                            value={location.addressLine1 || ''}
-                            autoComplete="street-address"
-                            onChange={(event) => onChange(patchListingLocation(location, {
-                                addressLine1: event.target.value,
-                                sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-                                sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-                                ...clearResolvedGeo(location),
-                            }))}
-                            placeholder="Ej: Av. Italia 1452"
-                        />
+                        <div className="relative min-w-0 flex-1">
+                            <input
+                                ref={addressInputRef}
+                                className={joinClasses('form-input w-full', fieldInvalid(errors, 'addressLine1') && 'form-input-error')}
+                                value={location.addressLine1 || ''}
+                                autoComplete="street-address"
+                                onChange={(event) => onChange(patchListingLocation(location, {
+                                    addressLine1: event.target.value,
+                                    sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
+                                    sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
+                                    ...clearResolvedGeo(location),
+                                }))}
+                                placeholder="Ej: Av. Italia 1452"
+                            />
+                            <div ref={placesHostRef} className="hidden min-w-0 w-full" />
+                        </div>
                         {internalMapsUrl ? (
                             <a
                                 href={internalMapsUrl}

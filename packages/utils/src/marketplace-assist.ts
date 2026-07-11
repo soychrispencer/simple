@@ -1,5 +1,6 @@
 export const FACEBOOK_MARKETPLACE_VEHICLE_URL = 'https://www.facebook.com/marketplace/create/vehicle';
-export const FACEBOOK_MARKETPLACE_HOME_URL = 'https://www.facebook.com/marketplace/create';
+/** Formulario de vivienda (venta/arriendo). El picker genérico `/create` no preselecciona el tipo. */
+export const FACEBOOK_MARKETPLACE_HOME_URL = 'https://www.facebook.com/marketplace/create/home';
 
 export type MarketplaceAssistVertical = 'autos' | 'propiedades';
 

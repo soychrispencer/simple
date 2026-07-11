@@ -3,7 +3,7 @@
 export * from './modern-select';
 export * from './modern-datetime-input';
 
-// Deuda técnica: Google Places Autocomplete (API clásica). Migrar a PlaceAutocompleteElement cuando actualicemos la integración.
+// Google Places: PlaceAutocompleteElement (API nueva) con fallback a Autocomplete legacy.
 import { joinClasses } from './shared/join-classes';
 import {
     PanelBlockHeader,

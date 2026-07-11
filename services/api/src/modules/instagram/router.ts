@@ -8,6 +8,11 @@ import {
     resolveIntegrationRequestHost,
 } from '../integrations/app-origin.js';
 import { getMetaPagesWithInstagram } from './service.js';
+import {
+    resolveInstagramPublishStyle,
+    resolvePublishTemplateForListing,
+    type InstagramTemplateId,
+} from './publish-preferences.js';
 
 export interface InstagramRouterDeps {
     authUser: (c: Context) => Promise<any>;
@@ -428,17 +433,20 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             }
 
             const listingData = buildInstagramListingData(listing);
-            const templates = generateSmartTemplates(listingData);
             const account = getInstagramAccount(user.id, parsed.data.vertical);
-            const savedStyle = account?.publishStyle ?? null;
-            const resolvedTemplateId = parsed.data.templateId
-                ?? (savedStyle && typeof savedStyle === 'object' && typeof savedStyle.templateId === 'string'
-                    ? savedStyle.templateId
-                    : 'essential-watermark');
-            const selectedTemplate = [
-                templates.recommendedTemplate,
-                ...templates.alternatives,
-            ].find((template: any) => template.id === resolvedTemplateId) ?? templates.recommendedTemplate;
+            const savedStyle = resolveInstagramPublishStyle(account?.publishStyle ?? null);
+            const requestTemplateId = parsed.data.templateId;
+            const validRequestTemplate = requestTemplateId === 'essential-watermark'
+                || requestTemplateId === 'professional-centered'
+                || requestTemplateId === 'signature-complete'
+                ? requestTemplateId as InstagramTemplateId
+                : null;
+            const style = {
+                ...savedStyle,
+                ...(validRequestTemplate ? { templateId: validRequestTemplate } : {}),
+                ...(parsed.data.layoutVariant ? { layoutVariant: parsed.data.layoutVariant } : {}),
+            };
+            const selectedTemplate = resolvePublishTemplateForListing(style, listingData);
 
             const publication = await publishListingToInstagram(user, listing, {
                 captionOverride: parsed.data.captionOverride ?? null,

@@ -159,6 +159,20 @@ function ManualIntegrationRow({
         if (item.published) setPending(false);
     }, [item.published]);
 
+    async function openAssistAndCopy() {
+        // Abrir primero (gesto de usuario) para que el navegador no bloquee el popup.
+        if (item.openHref) {
+            window.open(item.openHref, '_blank', 'noopener,noreferrer');
+        }
+        try {
+            await item.onCopyAssist?.();
+            setFlash(true);
+            window.setTimeout(() => setFlash(false), 2200);
+        } catch {
+            // El portapapeles puede fallar; igual dejamos el flujo en pending.
+        }
+    }
+
     async function handlePrimary() {
         if (item.busy || blocked) return;
         if (item.published) return;
@@ -169,17 +183,21 @@ function ManualIntegrationRow({
             return;
         }
 
-        await item.onCopyAssist?.();
-        if (item.openHref) {
-            window.open(item.openHref, '_blank', 'noopener,noreferrer');
-        }
-        setFlash(true);
+        await openAssistAndCopy();
         setPending(true);
-        window.setTimeout(() => setFlash(false), 2200);
     }
 
-    const showDone = item.published || pending;
-    const hint = flash ? 'Copiado — pega en Facebook' : reason;
+    async function handleRepublish() {
+        if (item.busy || blocked) return;
+        await openAssistAndCopy();
+        if (!item.published) setPending(true);
+    }
+
+    const hint = flash
+        ? 'Copiado — pega en Facebook'
+        : pending && !item.published
+            ? 'Cuando esté publicado en Marketplace, pulsa Listo'
+            : reason;
 
     return (
         <ShareIntegrationRow
@@ -198,21 +216,39 @@ function ManualIntegrationRow({
                 <PanelButton type="button" variant="secondary" size="sm" disabled className={FULL_ACTION_CLASS}>
                     No disponible
                 </PanelButton>
+            ) : item.published ? (
+                <>
+                    <PanelButton
+                        type="button"
+                        variant="success"
+                        size="sm"
+                        disabled
+                        className={`${PRIMARY_ACTION_CLASS} pointer-events-none`}
+                    >
+                        <IconCheck size={14} />
+                        Publicado
+                    </PanelButton>
+                    <RepublishButton
+                        busy={item.busy}
+                        disabled={item.busy}
+                        onClick={() => void handleRepublish()}
+                    />
+                </>
             ) : (
                 <PanelButton
                     type="button"
-                    variant={showDone ? 'secondary' : 'primary'}
+                    variant={pending ? 'secondary' : 'primary'}
                     size="sm"
                     className={FULL_ACTION_CLASS}
-                    disabled={item.busy || item.published}
+                    disabled={item.busy}
                     onClick={() => void handlePrimary()}
                 >
                     {item.busy ? (
                         <IconLoader2 size={14} className="animate-spin" />
-                    ) : item.published ? (
+                    ) : pending ? (
                         <IconCheck size={14} />
                     ) : null}
-                    {item.busy ? 'Guardando...' : item.published ? 'Listo' : pending ? 'Listo' : 'Publicar'}
+                    {item.busy ? 'Guardando...' : pending ? 'Listo' : 'Publicar'}
                 </PanelButton>
             )}
         />

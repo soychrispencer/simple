@@ -98,6 +98,16 @@ export function ensureGooglePlacesDropdownStyles() {
     const style = document.createElement('style');
     style.dataset.googlePacStyles = 'true';
     style.textContent = `
+        gmp-place-autocomplete {
+            width: 100%;
+            display: block;
+            color-scheme: inherit;
+            --gmp-mat-color-surface: var(--surface, #fff);
+            --gmp-mat-color-on-surface: var(--fg, #111);
+            --gmp-mat-color-on-surface-variant: var(--fg-muted, #666);
+            --gmp-mat-color-primary: var(--accent, #e11d48);
+            border-radius: var(--radius-button, 0.75rem);
+        }
         .pac-container {
             margin-top: 8px !important;
             border: 1px solid var(--border) !important;
@@ -267,20 +277,17 @@ type GooglePlacesAutocompleteCtor = new (
 
 export type GooglePlacesAutocompleteInstance = InstanceType<GooglePlacesAutocompleteCtor>;
 
-async function resolvePlacesAutocompleteClass(): Promise<GooglePlacesAutocompleteCtor | null> {
-    const googleMaps = (window as typeof window & { google?: { maps?: any } }).google?.maps;
-    if (!googleMaps) return null;
-    if (googleMaps.places?.Autocomplete) return googleMaps.places.Autocomplete;
-    if (typeof googleMaps.importLibrary === 'function') {
-        try {
-            const places = await googleMaps.importLibrary('places');
-            return places?.Autocomplete ?? googleMaps.places?.Autocomplete ?? null;
-        } catch {
-            return null;
-        }
-    }
-    return null;
-}
+export type GooglePlacesAddressAttachment = {
+    mode: 'element' | 'legacy';
+    destroy: () => void;
+    setValue: (value: string) => void;
+};
+
+type PlaceAutocompleteElementLike = HTMLElement & {
+    value?: string;
+    placeholder?: string;
+    includedRegionCodes?: string[];
+};
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => {
@@ -288,20 +295,211 @@ function sleep(ms: number): Promise<void> {
     });
 }
 
-/** Con `loading=async`, el script puede disparar onload antes de que Places esté listo. */
-async function waitForPlacesAutocomplete(maxMs = 12000): Promise<boolean> {
+function getGoogleMaps(): any | null {
+    return (window as typeof window & { google?: { maps?: any } }).google?.maps ?? null;
+}
+
+async function importPlacesLibrary(): Promise<any | null> {
+    const googleMaps = getGoogleMaps();
+    if (!googleMaps) return null;
+    if (typeof googleMaps.importLibrary === 'function') {
+        try {
+            return await googleMaps.importLibrary('places');
+        } catch {
+            return googleMaps.places ?? null;
+        }
+    }
+    return googleMaps.places ?? null;
+}
+
+async function resolvePlacesAutocompleteClass(): Promise<GooglePlacesAutocompleteCtor | null> {
+    const places = await importPlacesLibrary();
+    const googleMaps = getGoogleMaps();
+    return places?.Autocomplete ?? googleMaps?.places?.Autocomplete ?? null;
+}
+
+async function resolvePlaceAutocompleteElementCtor(): Promise<(new (opts?: Record<string, unknown>) => PlaceAutocompleteElementLike) | null> {
+    const places = await importPlacesLibrary();
+    const googleMaps = getGoogleMaps();
+    return places?.PlaceAutocompleteElement ?? googleMaps?.places?.PlaceAutocompleteElement ?? null;
+}
+
+/** Espera Places (element o legacy) tras cargar el script con loading=async. */
+async function waitForPlacesReady(maxMs = 12000): Promise<boolean> {
     const started = Date.now();
     while (Date.now() - started < maxMs) {
-        if (await resolvePlacesAutocompleteReady()) return true;
+        if (await resolvePlaceAutocompleteElementCtor()) return true;
+        if (await resolvePlacesAutocompleteClass()) return true;
         await sleep(120);
     }
     return false;
 }
 
-async function resolvePlacesAutocompleteReady(): Promise<boolean> {
-    return Boolean(await resolvePlacesAutocompleteClass());
+export function placeFromNewPlacesApi(place: any): GooglePlaceResult {
+    const components = Array.isArray(place?.addressComponents)
+        ? place.addressComponents.map((component: any) => ({
+            long_name: component?.longText || component?.long_name || '',
+            short_name: component?.shortText || component?.short_name || '',
+            types: Array.isArray(component?.types) ? component.types : [],
+        }))
+        : place?.address_components;
+
+    const location = place?.location;
+    const lat = typeof location?.lat === 'function'
+        ? location.lat()
+        : (typeof location?.lat === 'number' ? location.lat : undefined);
+    const lng = typeof location?.lng === 'function'
+        ? location.lng()
+        : (typeof location?.lng === 'number' ? location.lng : undefined);
+
+    return {
+        address_components: components,
+        formatted_address: place?.formattedAddress || place?.formatted_address,
+        name: place?.displayName || place?.name,
+        geometry: typeof lat === 'number' && typeof lng === 'number'
+            ? {
+                location: {
+                    lat: () => lat,
+                    lng: () => lng,
+                },
+            }
+            : undefined,
+    };
 }
 
+/**
+ * Adjunta Places al campo de dirección.
+ * Prefiere PlaceAutocompleteElement (API nueva); si no está disponible, usa Autocomplete legacy.
+ */
+export async function attachGooglePlacesAddressField(options: {
+    apiKey: string;
+    input: HTMLInputElement;
+    host: HTMLElement;
+    countryCode?: string;
+    placeholder?: string;
+    onPlaceSelected: (place: GooglePlaceResult) => void;
+    onTextChange?: (value: string) => void;
+}): Promise<GooglePlacesAddressAttachment | null> {
+    const {
+        apiKey,
+        input,
+        host,
+        countryCode = 'cl',
+        placeholder,
+        onPlaceSelected,
+        onTextChange,
+    } = options;
+
+    const loaded = await loadGooglePlacesScript(apiKey);
+    if (!loaded) return null;
+    ensureGooglePlacesDropdownStyles();
+
+    const PlaceAutocompleteElement = await resolvePlaceAutocompleteElementCtor();
+    if (PlaceAutocompleteElement) {
+        try {
+            host.replaceChildren();
+            const element = new PlaceAutocompleteElement({
+                includedRegionCodes: [countryCode.toLowerCase()],
+            });
+            if (placeholder) element.placeholder = placeholder;
+            if (input.value) element.value = input.value;
+            input.classList.add('hidden');
+            input.setAttribute('aria-hidden', 'true');
+            input.tabIndex = -1;
+            host.classList.remove('hidden');
+            host.appendChild(element);
+
+            const handleSelect = async (event: Event) => {
+                const anyEvent = event as Event & {
+                    placePrediction?: { toPlace?: () => any };
+                    detail?: { placePrediction?: { toPlace?: () => any } };
+                };
+                const prediction = anyEvent.placePrediction ?? anyEvent.detail?.placePrediction;
+                if (!prediction?.toPlace) return;
+                const place = prediction.toPlace();
+                await place.fetchFields({
+                    fields: ['displayName', 'formattedAddress', 'location', 'addressComponents'],
+                });
+                const normalized = placeFromNewPlacesApi(place);
+                const nextValue = buildAddressLineFromPlace(normalized).trim()
+                    || normalized.formatted_address
+                    || '';
+                if (nextValue) {
+                    input.value = nextValue;
+                    element.value = nextValue;
+                }
+                onPlaceSelected(normalized);
+            };
+
+            const handleInput = () => {
+                const value = String(element.value ?? '');
+                input.value = value;
+                onTextChange?.(value);
+            };
+
+            element.addEventListener('gmp-select', handleSelect as EventListener);
+            element.addEventListener('input', handleInput);
+
+            return {
+                mode: 'element',
+                setValue: (value: string) => {
+                    element.value = value;
+                    input.value = value;
+                },
+                destroy: () => {
+                    element.removeEventListener('gmp-select', handleSelect as EventListener);
+                    element.removeEventListener('input', handleInput);
+                    element.remove();
+                    host.replaceChildren();
+                    host.classList.add('hidden');
+                    input.classList.remove('hidden');
+                    input.removeAttribute('aria-hidden');
+                    input.tabIndex = 0;
+                },
+            };
+        } catch {
+            host.replaceChildren();
+            host.classList.add('hidden');
+            input.classList.remove('hidden');
+            input.removeAttribute('aria-hidden');
+            input.tabIndex = 0;
+        }
+    }
+
+    const Autocomplete = await resolvePlacesAutocompleteClass();
+    if (!Autocomplete) return null;
+
+    host.classList.add('hidden');
+    host.replaceChildren();
+    input.classList.remove('hidden');
+    input.removeAttribute('aria-hidden');
+    input.tabIndex = 0;
+
+    const autocomplete = new Autocomplete(input, {
+        componentRestrictions: { country: countryCode.toLowerCase() },
+        fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+    });
+    const googleMaps = getGoogleMaps();
+    autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace?.() as GooglePlaceResult | undefined;
+        if (!place) return;
+        onPlaceSelected(place);
+    });
+
+    return {
+        mode: 'legacy',
+        setValue: (value: string) => {
+            input.value = value;
+        },
+        destroy: () => {
+            if (googleMaps?.event?.clearInstanceListeners) {
+                googleMaps.event.clearInstanceListeners(autocomplete);
+            }
+        },
+    };
+}
+
+/** @deprecated Usa attachGooglePlacesAddressField. */
 export async function createGooglePlacesAutocomplete(
     input: HTMLInputElement,
     apiKey: string,
@@ -331,31 +529,30 @@ export function loadGooglePlacesScript(apiKey: string): Promise<boolean> {
     if (googlePlacesScriptPromise) return googlePlacesScriptPromise;
 
     googlePlacesScriptPromise = (async () => {
-        const readyNow = await resolvePlacesAutocompleteReady();
-        if (readyNow) return true;
+        if (await waitForPlacesReady(400)) return true;
 
-        const existingScript = document.querySelector<HTMLScriptElement>('script[data-google-places-script="true"]');
-        if (existingScript) {
-            if (existingScript.dataset.googlePlacesFailed === 'true') {
-                existingScript.remove();
-            } else if (existingScript.dataset.googlePlacesLoaded !== 'true') {
+        const existing = document.querySelector<HTMLScriptElement>('script[data-google-places-script="true"]');
+        if (existing) {
+            if (existing.dataset.googlePlacesFailed === 'true') {
+                existing.remove();
+            } else if (existing.dataset.googlePlacesLoaded !== 'true') {
                 const waited = await new Promise<boolean>((resolve) => {
                     const timer = window.setTimeout(() => resolve(false), 12000);
-                    existingScript.addEventListener('load', () => {
+                    existing.addEventListener('load', () => {
                         window.clearTimeout(timer);
-                        void waitForPlacesAutocomplete().then(resolve);
+                        void waitForPlacesReady().then(resolve);
                     }, { once: true });
-                    existingScript.addEventListener('error', () => {
+                    existing.addEventListener('error', () => {
                         window.clearTimeout(timer);
                         resolve(false);
                     }, { once: true });
                 });
                 if (waited) return true;
-                existingScript.remove();
-            } else if (await waitForPlacesAutocomplete(2000)) {
+                existing.remove();
+            } else if (await waitForPlacesReady(2000)) {
                 return true;
             } else {
-                existingScript.remove();
+                existing.remove();
             }
         }
 
@@ -363,7 +560,7 @@ export function loadGooglePlacesScript(apiKey: string): Promise<boolean> {
             const callbackName = `__simpleGooglePlacesInit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
             const win = window as typeof window & Record<string, unknown>;
             const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL&v=weekly&callback=${callbackName}`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL&v=weekly&loading=async&callback=${callbackName}`;
             script.async = true;
             script.defer = true;
             script.dataset.googlePlacesScript = 'true';
@@ -371,7 +568,7 @@ export function loadGooglePlacesScript(apiKey: string): Promise<boolean> {
             win[callbackName] = () => {
                 script.dataset.googlePlacesLoaded = 'true';
                 delete win[callbackName];
-                void waitForPlacesAutocomplete().then(resolve);
+                void waitForPlacesReady().then(resolve);
             };
             script.onerror = () => {
                 script.dataset.googlePlacesFailed = 'true';
@@ -381,7 +578,7 @@ export function loadGooglePlacesScript(apiKey: string): Promise<boolean> {
             document.head.appendChild(script);
         });
 
-        return loaded && (await waitForPlacesAutocomplete(2000));
+        return loaded && (await waitForPlacesReady(2000));
     })().catch(() => false);
 
     void googlePlacesScriptPromise.then((ok) => {

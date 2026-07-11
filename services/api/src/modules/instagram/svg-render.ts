@@ -103,9 +103,10 @@ function renderBrandWordmarkSvg(options: {
     compact?: boolean;
     opacity?: number;
     align?: 'start' | 'middle' | 'end';
+    fontSize?: number;
 }): string {
-    const wordmarkSize = options.compact ? 14 : 17;
-    const opacity = options.opacity ?? 0.8;
+    const wordmarkSize = options.fontSize ?? (options.compact ? 14 : 28);
+    const opacity = options.opacity ?? 0.95;
     const { primary, secondary } = splitBrandWordmark(options.appName);
     const primaryWidth = primary.length * (wordmarkSize * 0.56);
     const secondaryWidth = secondary ? secondary.length * (wordmarkSize * 0.52) : 0;
@@ -120,8 +121,8 @@ function renderBrandWordmarkSvg(options: {
 
     return `
         <g opacity="${opacity}"${shadowFilter}>
-            <text x="${textX}" y="${options.y}" fill="rgba(255,255,255,0.9)" font-size="${wordmarkSize}" font-weight="600" font-family="Arial, sans-serif">${escapeSvgText(primary)}</text>
-            ${secondary ? `<text x="${textX + primaryWidth}" y="${options.y}" fill="rgba(255,255,255,0.68)" font-size="${wordmarkSize}" font-weight="400" font-family="Arial, sans-serif">${escapeSvgText(secondary)}</text>` : ''}
+            <text x="${textX}" y="${options.y}" fill="rgba(255,255,255,0.96)" font-size="${wordmarkSize}" font-weight="700" font-family="Arial, sans-serif">${escapeSvgText(primary)}</text>
+            ${secondary ? `<text x="${textX + primaryWidth}" y="${options.y}" fill="rgba(255,255,255,0.82)" font-size="${wordmarkSize}" font-weight="500" font-family="Arial, sans-serif">${escapeSvgText(secondary)}</text>` : ''}
         </g>
     `;
 }
@@ -217,15 +218,43 @@ function renderBrandWatermarkSvg(
     template: InstagramRenderTemplate,
 ): string {
     const safeBottom = getInstagramCarouselSafeBottom(height);
+    const fontSize = 28;
+    const { primary, secondary } = splitBrandWordmark(template.branding.appName);
+    const primaryWidth = primary.length * (fontSize * 0.56);
+    const secondaryWidth = secondary ? secondary.length * (fontSize * 0.52) : 0;
+    const textWidth = primaryWidth + secondaryWidth;
+    const padX = 18;
+    const padY = 10;
+    const pillW = Math.round(textWidth + padX * 2);
+    const pillH = Math.round(fontSize + padY * 2);
     const cx = Math.round(width / 2);
-    const y = height - safeBottom - 6;
+    const pillX = Math.round(cx - pillW / 2);
+    const pillY = height - safeBottom - pillH - 8;
+    const textY = pillY + padY + Math.round(fontSize * 0.78);
 
-    return renderBrandWordmarkSvg({
-        x: cx,
-        y,
-        appName: template.branding.appName,
-        align: 'middle',
-    });
+    return `
+        <g>
+            <rect
+                x="${pillX}"
+                y="${pillY}"
+                width="${pillW}"
+                height="${pillH}"
+                rx="${Math.round(pillH / 2)}"
+                ry="${Math.round(pillH / 2)}"
+                fill="rgba(0,0,0,0.42)"
+                stroke="rgba(255,255,255,0.28)"
+                stroke-width="1"
+            />
+            ${renderBrandWordmarkSvg({
+                x: cx,
+                y: textY,
+                appName: template.branding.appName,
+                align: 'middle',
+                fontSize,
+                opacity: 1,
+            })}
+        </g>
+    `;
 }
 
 function renderPremiumBrandMarkSvg(
@@ -503,8 +532,8 @@ export async function buildInstagramTemplateOverlaySvg(
                     <stop offset="40%" stop-color="#000000" stop-opacity="0.42" />
                     <stop offset="100%" stop-color="#000000" stop-opacity="0.9" />
                 </linearGradient>
-                <filter id="watermarkShadow" x="-30%" y="-30%" width="160%" height="160%">
-                    <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.28" />
+                <filter id="watermarkShadow" x="-40%" y="-40%" width="180%" height="180%">
+                    <feDropShadow dx="0" dy="1" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.45" />
                 </filter>
             </defs>
             <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />

@@ -19,7 +19,7 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconCamera, IconGripVertical, IconPlus, IconStar, IconX } from '@tabler/icons-react';
+import { IconGripVertical, IconPhoto, IconPlus, IconStar, IconX } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
 
 export type SimplePublishPhoto = {
@@ -79,7 +79,7 @@ function SortableTile({
                     className="pointer-events-none flex h-full w-full items-center justify-center bg-(--bg-muted)"
                     aria-hidden
                 >
-                    <IconCamera size={22} className="text-(--fg-muted)" />
+                    <IconPhoto size={22} className="text-(--fg-muted)" />
                 </div>
             )}
             {index === 0 ? (
@@ -98,12 +98,12 @@ function SortableTile({
                     onRemove(photo.id);
                 }}
                 onPointerDown={(event) => event.stopPropagation()}
-                className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                className="absolute top-1.5 right-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-sm opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
                 aria-label="Quitar foto"
             >
-                <IconX size={12} />
+                <IconX size={14} />
             </button>
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-black/20 opacity-0 transition-opacity [@media(hover:hover)]:flex [@media(hover:hover)]:group-hover:opacity-100">
                 <IconGripVertical size={18} className="text-white" />
             </div>
         </div>
@@ -167,7 +167,7 @@ export function SimplePublishPhotoGrid({
                     )}
                 >
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-(--bg-subtle)">
-                        <IconCamera size={26} className="text-(--accent)" />
+                        <IconPhoto size={26} className="text-(--accent)" />
                     </div>
                     <p className="text-sm font-medium text-(--fg)">Seleccionar fotos</p>
                     <p className="mt-1 text-xs text-(--fg-muted)">
@@ -224,7 +224,7 @@ export function SimplePublishPhotoGrid({
             <input
                 ref={inputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
                 multiple
                 className="hidden"
                 onChange={(event) => {
