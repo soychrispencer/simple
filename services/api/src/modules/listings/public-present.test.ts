@@ -124,7 +124,7 @@ describe('listingToPublicResponse', () => {
         expect(item.summary).toEqual(['2D', '1B', '1E', '1Bo']);
     });
 
-    it('summary no residencial usa tipo y m²', () => {
+    it('summary oficina usa tipo, m², estacionamientos y bodegas', () => {
         const item = present.listingToPublicResponse(baseListing({
             vertical: 'propiedades',
             section: 'sale',
@@ -134,10 +134,46 @@ describe('listingToPublicResponse', () => {
                     propertyType: 'Oficina',
                     totalArea: 120,
                     parkingSpaces: 2,
+                    storageUnits: 1,
                 },
             },
         }));
-        expect(item.summary).toEqual(['Oficina', '120 m²', '2E']);
+        expect(item.summary).toEqual(['Oficina', '120 m²', '2E', '1Bo']);
+    });
+
+    it('summary terreno usa tipo y superficie (sin forzar E/Bo)', () => {
+        const item = present.listingToPublicResponse(baseListing({
+            vertical: 'propiedades',
+            section: 'sale',
+            title: 'Parcela Pucón',
+            rawData: {
+                basic: {
+                    propertyType: 'Parcela',
+                    totalArea: 5000,
+                    condition: 'Usado',
+                },
+            },
+        }));
+        expect(item.summary).toEqual(['Parcela', '5.000 m²', 'Usado']);
+    });
+
+    it('summary local comercial usa programa D/B/E/Bo', () => {
+        const item = present.listingToPublicResponse(baseListing({
+            vertical: 'propiedades',
+            section: 'sale',
+            title: 'Local comercial',
+            rawData: {
+                basic: {
+                    propertyType: 'Local comercial',
+                    rooms: 2,
+                    bathrooms: 1,
+                    parkingSpaces: 1,
+                    storageUnits: 0,
+                    totalArea: 90,
+                },
+            },
+        }));
+        expect(item.summary).toEqual(['2D', '1B', '1E', '0Bo']);
     });
 
     it('summary autos prioriza año, tipo, km y combustible', () => {
@@ -156,6 +192,21 @@ describe('listingToPublicResponse', () => {
         expect(item.summary).toEqual(['2020', 'Sedán', '45.000 km', 'Bencina', 'Automático']);
         expect(item.year).toBe('2020');
         expect(item.condition).toBe('Seminuevo');
+    });
+
+    it('summary maquinaria usa horas en lugar de km', () => {
+        const item = present.listingToPublicResponse(baseListing({
+            rawData: {
+                setup: { vehicleType: 'machinery' },
+                basic: {
+                    year: '2018',
+                    mileage: '1200',
+                    fuelType: 'Diésel',
+                    transmission: 'Manual',
+                },
+            },
+        }));
+        expect(item.summary).toEqual(['2018', 'Maquinaria', '1.200 h', 'Diésel', 'Manual']);
     });
 
     it('expone precio lista y descuento cuando hay oferta', () => {

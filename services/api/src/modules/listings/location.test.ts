@@ -49,6 +49,15 @@ describe('buildLocationPublicLabel', () => {
             'Sector Oriente, Providencia',
         );
     });
+
+    it('en commune_only solo expone la comuna', () => {
+        expect(buildLocationPublicLabel(baseLocation({
+            publicLabel: '',
+            visibilityMode: 'commune_only',
+            communeName: 'Providencia',
+            regionName: 'Región Metropolitana',
+        }))).toBe('Providencia');
+    });
 });
 
 describe('humanizePublicLocationFallback', () => {

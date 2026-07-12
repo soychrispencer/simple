@@ -18,7 +18,6 @@ import {
     IconBuildingCommunity,
     IconBuildingSkyscraper,
     IconBuildingStore,
-    IconBox,
     IconCalculator,
     IconCamera,
     IconCheck,
@@ -28,10 +27,8 @@ import {
     IconHome2,
     IconKey,
     IconMapPin,
-    IconParking,
     IconPhoto,
     IconPlus,
-    IconRuler,
     IconShare3,
     IconSparkles,
     IconStar,
@@ -43,9 +40,10 @@ import {
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
-import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress } from '@simple/utils';
+import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress, PROPERTY_CONDITION_OPTIONS, showsPropertyCondition, normalizePropertyCondition, buildPropertyCardSummaryTags } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
+import { abbreviateListingSpecLabel, propertySpecIconForLabel } from '@simple/ui/listings';
 import { useAuth } from '@simple/auth';
 import { uploadMediaFile } from '@simple/utils';
 import { getPublicationLifecyclePolicy, type PublicationLifecyclePolicy } from '@simple/config';
@@ -220,23 +218,6 @@ const PROPERTY_STEP_COPY: Record<StepId, { title: string; description: string }>
     },
 };
 
-function formatPropertySurfacePreviewLabel(data: WizardData): string | null {
-    const pt = data.setup.propertyType;
-    const isResidential = pt === 'Casa' || pt === 'Departamento';
-    const usable = data.basic.usableArea.trim();
-    const total = data.basic.totalArea.trim();
-
-    if (isResidential) {
-        if (usable && total) return `${usable} m² út. · ${total} m² tot.`;
-        if (usable) return `${usable} m² útiles`;
-        if (total) return `${total} m²`;
-        return null;
-    }
-
-    if (total) return `${total} m²`;
-    return null;
-}
-
 function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCardProps {
     const title = data.setup.operationType === 'project'
         ? data.project.projectName || data.basic.title || 'Título del aviso'
@@ -270,35 +251,33 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
         ? Math.round((1 - offerNum / listNum) * 100)
         : undefined;
 
-    const specs: SimplePublishPreviewCardProps['specs'] = [];
-    if (data.setup.operationType !== 'project') {
-        const propertyType = (data.setup.propertyType || '').toLowerCase();
-        const residential = /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio/.test(propertyType)
-            || Boolean(data.basic.rooms)
-            || Boolean(data.basic.bathrooms);
-
-        if (residential) {
-            specs.push({ icon: <IconBed size={14} />, label: data.basic.rooms ? `${data.basic.rooms}D` : '—' });
-            specs.push({ icon: <IconBath size={14} />, label: data.basic.bathrooms ? `${data.basic.bathrooms}B` : '—' });
-            specs.push({
-                icon: <IconParking size={14} />,
-                label: data.basic.parkingSpaces !== '' ? `${data.basic.parkingSpaces}E` : '—',
-            });
-            specs.push({
-                icon: <IconBox size={14} />,
-                label: data.basic.storageUnits !== '' ? `${data.basic.storageUnits}Bo` : '—',
-            });
-        } else {
-            if (data.setup.propertyType) {
-                specs.push({ icon: <IconBuildingStore size={14} />, label: data.setup.propertyType });
-            }
-            const surfaceLabel = formatPropertySurfacePreviewLabel(data);
-            if (surfaceLabel) specs.push({ icon: <IconRuler size={14} />, label: surfaceLabel });
-            if (data.basic.parkingSpaces !== '') {
-                specs.push({ icon: <IconParking size={14} />, label: `${data.basic.parkingSpaces}E` });
-            }
-        }
-    }
+    const specs: SimplePublishPreviewCardProps['specs'] = data.setup.operationType === 'project'
+        ? buildPropertyCardSummaryTags({
+            operationType: 'project',
+            availableUnits: data.project.availableUnits,
+            usableAreaFrom: data.project.usableAreaFrom,
+            usableAreaTo: data.project.usableAreaTo,
+            deliveryStatus: data.project.deliveryStatus,
+            salesStage: data.project.salesStage,
+        }).map((label) => ({
+            icon: propertySpecIconForLabel(label),
+            label: abbreviateListingSpecLabel(label),
+        }))
+        : buildPropertyCardSummaryTags({
+            propertyType: data.setup.propertyType,
+            operationType: data.setup.operationType,
+            rooms: data.basic.rooms,
+            bathrooms: data.basic.bathrooms,
+            parkingSpaces: data.basic.parkingSpaces,
+            storageUnits: data.basic.storageUnits,
+            totalArea: data.basic.totalArea,
+            usableArea: data.basic.usableArea,
+            commercialUse: data.basic.commercialUse,
+            condition: data.basic.condition,
+        }).map((label) => ({
+            icon: propertySpecIconForLabel(label),
+            label: abbreviateListingSpecLabel(label),
+        }));
 
     const extraChips: SimplePublishPreviewCardProps['extraChips'] = [];
     if (data.setup.operationType === 'project' && data.project.salesStage) {
@@ -322,8 +301,6 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
         extraChips,
         ctaLabel: data.setup.operationType === 'rent' ? 'Ver disponibilidad' : data.setup.operationType === 'project' ? 'Ver proyecto' : 'Ver detalle',
         sellerName: 'Tu negocio',
-        brandLabel: 'SimplePropiedades',
-        footerHint: 'Así se verá en SimplePropiedades',
     };
 }
 
@@ -446,7 +423,6 @@ function PropertyTypePicker({
     );
 }
 
-const CONDITION_OPTIONS = ['Nuevo', 'Entrega inmediata', 'Usado', 'Remodelado', 'A refaccionar', 'En verde'].map((value) => ({ value, label: value }));
 const CURRENCY_OPTIONS = ['UF', 'CLP', 'USD'].map((value) => ({ value, label: value }));
 const YES_NO_OPTIONS = ['Sí', 'No'].map((value) => ({ value, label: value }));
 const ORIENTATION_OPTIONS = ['Norte', 'Sur', 'Oriente', 'Poniente', 'Nororiente', 'Norponiente', 'Suroriente', 'Surponiente'].map((value) => ({ value, label: value }));
@@ -758,6 +734,10 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
         commercial: { ...defaults.commercial, ...(parsed.data.commercial || {}) },
         review: { ...defaults.review, ...(parsed.data.review || {}) },
     };
+    next.basic.condition = normalizePropertyCondition(next.basic.condition, {
+        operationType: next.setup.operationType,
+        propertyType: next.setup.propertyType,
+    });
     return {
         data: next,
         valuationEstimate: parsed.valuationEstimate ?? null,
@@ -940,7 +920,10 @@ function buildValuationRequest(data: WizardData): PropertyValuationRequest | nul
         parkingSpaces: parseNumber(data.basic.parkingSpaces),
         storageUnits: parseNumber(data.basic.storageUnits),
         yearBuilt: inferredYearBuilt,
-        condition: data.basic.condition.trim() || null,
+        condition: normalizePropertyCondition(data.basic.condition, {
+            operationType: data.setup.operationType,
+            propertyType: data.setup.propertyType,
+        }) || null,
     };
 }
 
@@ -955,10 +938,21 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
             if (!data.project.developerName.trim()) errors['project.developerName'] = '';
         } else {
             const pt = data.setup.propertyType;
-            const isResidential = pt === 'Casa' || pt === 'Departamento';
+            const needsProgram = pt === 'Casa' || pt === 'Departamento' || pt === 'Local comercial';
             if (parseNumber(data.basic.totalArea) == null) errors['basic.totalArea'] = '';
-            if (!data.basic.condition.trim()) errors['basic.condition'] = '';
-            if (isResidential) {
+            if (
+                showsPropertyCondition({
+                    operationType: data.setup.operationType,
+                    propertyType: data.setup.propertyType,
+                })
+                && !normalizePropertyCondition(data.basic.condition, {
+                    operationType: data.setup.operationType,
+                    propertyType: data.setup.propertyType,
+                })
+            ) {
+                errors['basic.condition'] = '';
+            }
+            if (needsProgram) {
                 if (parseNumber(data.basic.rooms) == null) errors['basic.rooms'] = '';
                 if (parseNumber(data.basic.bathrooms) == null) errors['basic.bathrooms'] = '';
             }
@@ -1109,9 +1103,15 @@ function countPropertyAttributes(data: WizardData): number {
 }
 
 function createPropertyBasicForPayload(data: WizardData) {
+    const condition = normalizePropertyCondition(data.basic.condition, {
+        operationType: data.setup.operationType,
+        propertyType: data.setup.propertyType,
+    });
+
     if (data.setup.operationType === 'project') {
         return {
             ...data.basic,
+            condition: null,
             propertyType: data.setup.propertyType,
             type: data.setup.propertyType,
             operationType: data.setup.operationType,
@@ -1138,6 +1138,7 @@ function createPropertyBasicForPayload(data: WizardData) {
 
     return {
         ...data.basic,
+        condition: condition || null,
         propertyType: data.setup.propertyType,
         type: data.setup.propertyType,
         operationType: data.setup.operationType,
@@ -1158,7 +1159,8 @@ function buildProgramLabel(data: WizardData): string {
     }
 
     const isResidential = data.setup.propertyType === 'Casa' || data.setup.propertyType === 'Departamento';
-    const surfaceLabel = isResidential && data.basic.usableArea.trim()
+    const isLocalComercial = data.setup.propertyType === 'Local comercial';
+    const surfaceLabel = (isResidential || isLocalComercial) && data.basic.usableArea.trim()
         ? `${data.basic.usableArea.trim()} m² útiles`
         : data.basic.totalArea.trim()
             ? `${data.basic.totalArea.trim()} m²`
@@ -1173,8 +1175,8 @@ function buildProgramLabel(data: WizardData): string {
 }
 
 function buildPreviewLocation(data: WizardData): string {
-    return data.location.publicLabel
-        || data.location.communeName
+    return data.location.communeName
+        || data.location.publicLabel
         || data.location.communeId
         || data.location.regionName
         || 'Ubicación pendiente';
@@ -1287,6 +1289,13 @@ function StepSetup(props: {
                             onClick={() => setData((current) => ({
                                 ...current,
                                 setup: { ...current.setup, operationType: card.value },
+                                basic: {
+                                    ...current.basic,
+                                    condition: normalizePropertyCondition(current.basic.condition, {
+                                        operationType: card.value,
+                                        propertyType: current.setup.propertyType,
+                                    }),
+                                },
                                 commercial: { ...current.commercial, currency: getDefaultCurrencyForOperation(card.value) },
                             }))}
                             selected={data.setup.operationType === card.value}
@@ -1311,6 +1320,13 @@ function StepSetup(props: {
                     onChange={(next) => setData((current) => ({
                         ...current,
                         setup: { ...current.setup, propertyType: next },
+                        basic: {
+                            ...current.basic,
+                            condition: normalizePropertyCondition(current.basic.condition, {
+                                operationType: current.setup.operationType,
+                                propertyType: next,
+                            }),
+                        },
                     }))}
                     invalid={Object.prototype.hasOwnProperty.call(errors, 'setup.propertyType')}
                 />
@@ -1329,13 +1345,19 @@ function PropertyInmuebleFields(props: {
     const pt = data.setup.propertyType;
     const isLand = pt === 'Terreno' || pt === 'Parcela';
     const isResidential = pt === 'Casa' || pt === 'Departamento';
+    const isLocalComercial = pt === 'Local comercial';
     const isOficina = pt === 'Oficina';
-    const isCommercialUnit = pt === 'Local comercial' || pt === 'Bodega';
+    const isCommercialUnit = isLocalComercial || pt === 'Bodega';
+    const showProgram = isResidential || isLocalComercial;
     const showCard = scope === 'card';
     const showDetail = scope === 'detail';
     const showParking = isResidential || isOficina || isCommercialUnit;
     const showStorage = isResidential || isOficina || isCommercialUnit;
     const showUsableArea = isResidential || isOficina || isCommercialUnit;
+    const showCondition = showsPropertyCondition({
+        operationType: data.setup.operationType,
+        propertyType: pt,
+    });
     const isInvalid = (key: string) => Object.prototype.hasOwnProperty.call(errors, key);
     const invalidInputClass = (key: string) => (isInvalid(key) ? ' form-input-error' : '');
     const surfaceFieldsResidential = (
@@ -1363,33 +1385,35 @@ function PropertyInmuebleFields(props: {
         <div className="space-y-4">
             {showCard ? (
             <>
+                {showCondition ? (
                 <Field label="Condición" required>
                     <ModernSelect
                         value={data.basic.condition}
                         onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))}
                         placeholder="Seleccionar"
-                        options={CONDITION_OPTIONS}
+                        options={PROPERTY_CONDITION_OPTIONS}
                         ariaLabel="Seleccionar condición"
                         triggerClassName={isInvalid('basic.condition') ? 'form-input-error' : undefined}
                     />
                 </Field>
+                ) : null}
 
                 <div className="space-y-3">
                     <p className="text-xs font-medium prop-publish-muted">
-                        {isLand ? 'Superficie' : isResidential ? 'Programa y superficie' : 'Superficie y capacidad'}
+                        {isLand ? 'Superficie' : showProgram ? 'Programa y superficie' : 'Superficie y capacidad'}
                     </p>
-                    {isResidential ? (
+                    {showProgram ? (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <Field label="Dormitorios" required>
                                 <div className="relative">
                                     <IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" />
-                                    <input className={`form-input pl-10${invalidInputClass('basic.rooms')}`} type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" />
+                                    <input className={`form-input pl-10${invalidInputClass('basic.rooms')}`} type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder={isLocalComercial ? '0' : '3'} />
                                 </div>
                             </Field>
                             <Field label="Baños" required>
                                 <div className="relative">
                                     <IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" />
-                                    <input className={`form-input pl-10${invalidInputClass('basic.bathrooms')}`} type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" />
+                                    <input className={`form-input pl-10${invalidInputClass('basic.bathrooms')}`} type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder={isLocalComercial ? '1' : '2'} />
                                 </div>
                             </Field>
                             <Field label="Estacionamientos" required>
@@ -1415,7 +1439,7 @@ function PropertyInmuebleFields(props: {
                             </Field>
                         )}
                     </div>
-                    {!isResidential && showParking ? (
+                    {!showProgram && showParking ? (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <Field label="Estacionamientos" required>
                                 <input className={`form-input${invalidInputClass('basic.parkingSpaces')}`} type="number" min={0} value={data.basic.parkingSpaces} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, parkingSpaces: event.target.value } }))} placeholder={isOficina ? '2' : '1'} />
@@ -1795,7 +1819,7 @@ function StepBasic(props: {
                 showVisibilityField={false}
                 showSimpleVisibilityToggle={false}
                 showAddressLine2={false}
-                showGoogleMapsLink
+                showGoogleMapsLink={false}
                 showPublicPreviewCard={false}
                 showActionBar={false}
                 publishVertical="propiedades"
@@ -1809,11 +1833,21 @@ function StepBasic(props: {
             {data.location.geoPoint.latitude != null
                 && data.location.geoPoint.longitude != null
                 && data.location.geoPoint.provider !== 'catalog_seed' ? (
-                <div className="mt-3">
+                <div className="mt-3 space-y-2">
                     <PublishLocationMap
                         latitude={data.location.geoPoint.latitude}
                         longitude={data.location.geoPoint.longitude}
                     />
+                    <p className="text-xs">
+                        <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${data.location.geoPoint.latitude},${data.location.geoPoint.longitude}`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-(--fg-muted) underline-offset-2 hover:underline hover:text-(--fg)"
+                        >
+                            Abrir en Google Maps
+                        </a>
+                    </p>
                 </div>
             ) : null}
         </>
@@ -1855,11 +1889,6 @@ function StepBasic(props: {
                 {isProject ? (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                            <div className="md:col-span-2">
-                                <Field label="Condición">
-                                    <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
-                                </Field>
-                            </div>
                             {!omitTitle ? (
                             <Field label="Título publicitario" required error={errors['basic.title']} hint="Titular comercial que aparecerá en la publicación.">
                                 <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Proyecto con entrega inmediata en Ñuñoa" />
@@ -1887,18 +1916,17 @@ function StepBasic(props: {
             <>
             <AccordionGroup
                 title={isProject ? 'Identidad del proyecto' : 'Datos esenciales'}
-                description={isProject ? 'Nombre, desarrollador y etapa comercial del proyecto.' : 'Condición, programa y superficie. Lo que aparece en la tarjeta.'}
+                description={isProject
+                    ? 'Nombre, desarrollador y etapa comercial del proyecto.'
+                    : data.setup.propertyType === 'Terreno' || data.setup.propertyType === 'Parcela'
+                        ? 'Superficie y datos del terreno. Lo que aparece en la tarjeta.'
+                        : 'Condición, programa y superficie. Lo que aparece en la tarjeta.'}
                 open={openSections.main}
                 onToggle={() => setOpenSections((current) => ({ ...current, main: !current.main }))}
             >
                 {isProject ? (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                            <div className="md:col-span-2">
-                                <Field label="Condición">
-                                    <ModernSelect value={data.basic.condition} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, condition: value } }))} placeholder="Seleccionar" options={CONDITION_OPTIONS} ariaLabel="Seleccionar condición" />
-                                </Field>
-                            </div>
                             {!omitTitle ? (
                             <Field label="Título publicitario" required error={errors['basic.title']} hint="Titular comercial que aparecerá en la publicación.">
                                 <input className="form-input" value={data.basic.title} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))} placeholder="Ej: Proyecto con entrega inmediata en Ñuñoa" />

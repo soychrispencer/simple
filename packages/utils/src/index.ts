@@ -75,5 +75,6 @@ export * from './listing-draft-media.js';
 export * from './listing-media.js';
 export * from './listing-distribution.js';
 export * from './marketplace-assist.js';
+export * from './listing-card-specs.js';
 export * from './publish/index.js';
 export * from './simple-publish/index.js';

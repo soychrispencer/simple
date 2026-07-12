@@ -113,13 +113,20 @@ function ReelSpecs({
     list?: boolean;
     accent?: ListingAccent;
 }) {
-    const abbreviated = specs.slice(0, 4).map((spec) => ({
-        ...spec,
-        label: abbreviateListingSpecLabel(spec.label),
-    }));
+    const abbreviated = specs
+        .slice(0, 4)
+        .map((spec) => ({
+            ...spec,
+            label: abbreviateListingSpecLabel(spec.label),
+        }))
+        .filter((spec) => {
+            const label = spec.label.trim();
+            return Boolean(label) && label !== '—';
+        });
+
+    if (abbreviated.length === 0) return null;
 
     if (list) {
-        if (abbreviated.length === 0) return null;
         return (
             <div className="marketplace-reel-card__specs marketplace-reel-card__specs--list">
                 {abbreviated.map((spec, index) => (
@@ -132,38 +139,24 @@ function ReelSpecs({
         );
     }
 
-    const slots: MarketplaceReelSpec[] = [...abbreviated];
-    while (slots.length < 4) {
-        slots.push(reelSpecPlaceholder(slots.length, accent));
-    }
-
+    // Solo tags con dato real: no rellenar a 4 con "—" (terreno/bodega suelen tener 2–3).
     return (
         <>
-            {slots.map((spec, index) => {
-                const isPlaceholder = !abbreviated[index] || !spec.label || spec.label === '—';
-                return (
-                    <span
-                        key={`${spec.label}-${index}`}
-                        className={
-                            isPlaceholder
-                                ? 'marketplace-reel-card__spec-stack marketplace-reel-card__spec-stack--placeholder'
-                                : 'marketplace-reel-card__spec-stack'
-                        }
-                        aria-hidden={isPlaceholder ? true : undefined}
-                    >
-                        {spec.icon ? (
-                            <span className="marketplace-reel-card__spec-stack-icon">{spec.icon}</span>
-                        ) : (
-                            <span className="marketplace-reel-card__spec-stack-icon">
-                                {reelSpecPlaceholder(index, accent).icon}
-                            </span>
-                        )}
-                        <span className="marketplace-reel-card__spec-stack-label">
-                            {isPlaceholder ? '—' : spec.label}
+            {abbreviated.map((spec, index) => (
+                <span
+                    key={`${spec.label}-${index}`}
+                    className="marketplace-reel-card__spec-stack"
+                >
+                    {spec.icon ? (
+                        <span className="marketplace-reel-card__spec-stack-icon">{spec.icon}</span>
+                    ) : (
+                        <span className="marketplace-reel-card__spec-stack-icon">
+                            {reelSpecPlaceholder(index, accent).icon}
                         </span>
-                    </span>
-                );
-            })}
+                    )}
+                    <span className="marketplace-reel-card__spec-stack-label">{spec.label}</span>
+                </span>
+            ))}
         </>
     );
 }

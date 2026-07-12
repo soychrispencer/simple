@@ -5,6 +5,10 @@ import {
     type VehicleValuationRequest,
 } from '@simple/types';
 import { VEHICLE_CONDITION_OPTIONS } from './publish/vehicle-condition.js';
+import {
+    PROPERTY_CONDITION_OPTIONS,
+    showsPropertyCondition,
+} from './publish/property-condition.js';
 
 export type ValuationSupplementField = {
     id: string;
@@ -15,15 +19,6 @@ export type ValuationSupplementField = {
     hint?: string;
     options?: Array<{ value: string; label: string }>;
 };
-
-export const PROPERTY_CONDITION_OPTIONS = [
-    'Nuevo',
-    'Entrega inmediata',
-    'Usado',
-    'Remodelado',
-    'A refaccionar',
-    'En verde',
-].map((value) => ({ value, label: value }));
 
 export const PROPERTY_TYPE_OPTIONS = [
     'Departamento',
@@ -105,7 +100,11 @@ function parseYear(value: unknown): number | null {
 
 function isResidentialPropertyType(propertyType?: string): boolean {
     const normalized = String(propertyType ?? '').toLowerCase();
-    return normalized.includes('casa') || normalized.includes('depto') || normalized.includes('departamento');
+    return normalized.includes('casa')
+        || normalized.includes('depto')
+        || normalized.includes('departamento')
+        || normalized.includes('local comercial')
+        || normalized === 'local';
 }
 
 function makeField(
@@ -144,9 +143,16 @@ export function getPropertyValuationSupplementFields(ctx: PropertyValuationConte
         if (parseNonNegativeNumber(ctx.bathrooms) == null) {
             fields.push(makeField('bathrooms', 'Baños', false, 'number', { placeholder: 'Ej. 2' }));
         }
-        if (isBlank(ctx.condition)) {
-            fields.push(makeField('condition', 'Condición', false, 'select', { options: PROPERTY_CONDITION_OPTIONS }));
-        }
+    }
+
+    if (
+        isBlank(ctx.condition)
+        && showsPropertyCondition({
+            operationType: ctx.operationType,
+            propertyType: ctx.propertyType,
+        })
+    ) {
+        fields.push(makeField('condition', 'Condición', false, 'select', { options: PROPERTY_CONDITION_OPTIONS }));
     }
 
     if (parseNonNegativeNumber(ctx.parkingSpaces) == null) {

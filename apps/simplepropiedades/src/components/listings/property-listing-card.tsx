@@ -4,15 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@simple/auth';
 import { isListingSaved, subscribeSavedListings, toggleSavedListing } from '@simple/utils';
-import {
-    IconBed,
-    IconBath,
-    IconBox,
-    IconBuilding,
-    IconHome,
-    IconParking,
-    IconRuler,
-} from '@tabler/icons-react';
+import { IconHome } from '@tabler/icons-react';
 import {
     MarketplaceReelListingCard,
     abbreviateListingSpecLabel,
@@ -96,51 +88,35 @@ function buildSpecs(data: PropertyListingCardData): MarketplaceReelSpec[] {
         (allText.includes('casa') ? 'Casa' :
             allText.includes('departamento') || allText.includes('depto') ? 'Depto' :
                 allText.includes('oficina') ? 'Oficina' :
-                    allText.includes('local') ? 'Local' :
-                        allText.includes('terreno') ? 'Terreno' :
-                            allText.includes('bodega') ? 'Bodega' : 'Propiedad');
+                    allText.includes('local') ? 'Local comercial' :
+                        allText.includes('parcela') ? 'Parcela' :
+                            allText.includes('terreno') ? 'Terreno' :
+                                allText.includes('bodega') ? 'Bodega' : 'Propiedad');
 
-    const residential = /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio/i.test(type);
-    const specs: MarketplaceReelSpec[] = [];
-
-    if (residential) {
-        const bedMatch = allText.match(/(\d+)\s*(dorm|dormitorio|hab|habitacion|habitación|d\b)/);
-        const bedrooms = data.bedrooms != null ? `${data.bedrooms}D` : (bedMatch ? `${bedMatch[1]}D` : '');
-        specs.push({
-            icon: <IconBed size={18} />,
-            label: bedrooms ? abbreviateListingSpecLabel(bedrooms) : '—',
-        });
-
-        const bathMatch = allText.match(/(\d+)\s*(baño|bano|baños|b\b)/);
-        const bathrooms = data.bathrooms != null ? `${data.bathrooms}B` : (bathMatch ? `${bathMatch[1]}B` : '');
-        specs.push({
-            icon: <IconBath size={18} />,
-            label: bathrooms ? abbreviateListingSpecLabel(bathrooms) : '—',
-        });
-
-        const parking = data.parkingSpaces != null ? `${data.parkingSpaces}E` : '';
-        specs.push({
-            icon: <IconParking size={18} />,
-            label: parking ? abbreviateListingSpecLabel(parking) : '—',
-        });
-
-        const storage = data.storageUnits != null ? `${data.storageUnits}Bo` : '';
-        specs.push({
-            icon: <IconBox size={18} />,
-            label: storage ? abbreviateListingSpecLabel(storage) : '—',
-        });
-
-        return specs.slice(0, 4);
+    const fallbackTags: string[] = [];
+    if (/casa|depto|departamento|local/i.test(type)) {
+        if (data.bedrooms != null) fallbackTags.push(`${data.bedrooms}D`);
+        if (data.bathrooms != null) fallbackTags.push(`${data.bathrooms}B`);
+        if (data.parkingSpaces != null) fallbackTags.push(`${data.parkingSpaces}E`);
+        if (data.storageUnits != null) fallbackTags.push(`${data.storageUnits}Bo`);
+    } else if (/terreno|parcela/i.test(type)) {
+        fallbackTags.push(type);
+        if (data.surface) fallbackTags.push(data.surface.includes('m') ? data.surface : `${data.surface} m²`);
+    } else if (/oficina/i.test(type)) {
+        fallbackTags.push(type);
+        if (data.surface) fallbackTags.push(data.surface.includes('m') ? data.surface : `${data.surface} m²`);
+        if (data.parkingSpaces != null) fallbackTags.push(`${data.parkingSpaces}E`);
+        if (data.storageUnits != null) fallbackTags.push(`${data.storageUnits}Bo`);
+    } else {
+        fallbackTags.push(type);
+        if (data.surface) fallbackTags.push(data.surface.includes('m') ? data.surface : `${data.surface} m²`);
+        if (data.parkingSpaces != null) fallbackTags.push(`${data.parkingSpaces}E`);
     }
 
-    specs.push({ icon: <IconBuilding size={18} />, label: abbreviateListingSpecLabel(type) });
-    const surfaceMatch = allText.match(/(\d+[\d.]*)\s*(m2|m²|metros)/);
-    const surface = data.surface || (surfaceMatch ? `${surfaceMatch[1]} m²` : '');
-    if (surface) specs.push({ icon: <IconRuler size={18} />, label: abbreviateListingSpecLabel(surface) });
-    if (data.parkingSpaces != null) {
-        specs.push({ icon: <IconParking size={18} />, label: abbreviateListingSpecLabel(`${data.parkingSpaces}E`) });
-    }
-    return specs.slice(0, 4);
+    return orderPropertyCardTags(fallbackTags, type).map((label) => ({
+        icon: propertySpecIconForLabel(label),
+        label: abbreviateListingSpecLabel(label),
+    }));
 }
 
 function buildChips(data: PropertyListingCardData): MarketplaceReelChip[] {

@@ -16,8 +16,8 @@ import type { MarketplaceReelSpec } from '../marketplace-reel-listing-card';
 
 function specIcon(accent: ListingAccent, index: number): ReactNode {
     const autosCycle = [IconCar, IconGauge, IconGasStation, IconManualGearbox];
-    // Residencial: dorm / baño / est. / bodega
-    const propCycle = [IconBed, IconBath, IconParking, IconBox];
+    // Placeholders neutros (no forzar dorm/baño en terreno/parcela).
+    const propCycle = [IconBuilding, IconRuler, IconParking, IconBox];
     const cycle = accent === 'propiedades' ? propCycle : autosCycle;
     const Icon = cycle[index] ?? cycle[0];
     return createElement(Icon, { size: 18 });
@@ -30,7 +30,8 @@ export function propertySpecIconForLabel(label: string): ReactNode {
     if (/^\d+\s*b\b/.test(lower) || /baño|bano/.test(lower)) return createElement(IconBath, { size: 18 });
     if (/est\.?|estacionamiento|\d+\s*e\b/.test(lower)) return createElement(IconParking, { size: 18 });
     if (/bod|bodega|\d+\s*bo\b/.test(lower)) return createElement(IconBox, { size: 18 });
-    if (/m²|m2|metros|superficie/.test(lower)) return createElement(IconRuler, { size: 18 });
+    if (/m²|m2|metros|superficie|út\.|utiles|útiles/.test(lower)) return createElement(IconRuler, { size: 18 });
+    if (/unidad/.test(lower)) return createElement(IconBuilding, { size: 18 });
     return createElement(IconBuilding, { size: 18 });
 }
 
@@ -40,7 +41,7 @@ export function shortenListingLocation(location: string): string {
     if (!trimmed) return trimmed;
 
     const parts = trimmed
-        .split(/\s*(?:,|·|\||\/|-)\s*/)
+        .split(/\s*(?:,|·|\||\/)\s*/)
         .map((part) => part.trim())
         .filter(Boolean);
 
@@ -48,9 +49,21 @@ export function shortenListingLocation(location: string): string {
 
     const isRegionLike = (value: string) =>
         /^(regi[oó]n|rm|chile|metropolitana)\b/i.test(value)
-        || /\bregi[oó]n\b/i.test(value);
+        || /\bregi[oó]n\b/i.test(value)
+        || /\bmetropolitana\b/i.test(value);
 
-    const commune = parts.find((part) => !isRegionLike(part)) ?? parts[0];
+    const isAddressLike = (value: string) =>
+        /\d/.test(value)
+        || /^(av\.?|avenida|calle|pasaje|psje\.?|camino|ruta)\b/i.test(value);
+
+    const withoutRegion = parts.filter((part) => !isRegionLike(part));
+    const communeCandidates = withoutRegion.filter((part) => !isAddressLike(part));
+    // Preferir la última parte tipo comuna (p. ej. "Sector X, Providencia, Región…").
+    const commune = (communeCandidates.length > 0
+        ? communeCandidates[communeCandidates.length - 1]
+        : withoutRegion[withoutRegion.length - 1])
+        ?? parts[0];
+
     if (commune.length > 28) return `${commune.slice(0, 27)}…`;
     return commune;
 }
@@ -76,8 +89,16 @@ export function abbreviateListingSpecLabel(label: string): string {
     const storage = trimmed.match(/^(\d+)\s*(bod\.?|bodegas?|bo)$/i);
     if (storage) return Number(storage[1]) === 1 ? '1 bod.' : `${storage[1]} bod.`;
 
-    const surface = trimmed.match(/^(\d+(?:[.,]\d+)?)\s*(m²|m2|mt2|mts?²?)$/i);
+    const surface = trimmed.match(/^(\d+(?:[.,]\d+)?)\s*(m²|m2|mt2|mts?²?)(?:\s*út\.?)?$/i);
     if (surface) return `${surface[1].replace(',', '.')} m²`;
+
+    const hours = trimmed.match(/^([\d.\s,]+)\s*(h|hrs?|horas?)$/i);
+    if (hours) {
+        const digits = hours[1].replace(/[^\d]/g, '');
+        const num = Number(digits);
+        if (!Number.isNaN(num) && num > 0) return `${num} h`;
+        return 'h';
+    }
 
     const km = trimmed.match(/^([\d.\s,]+)\s*(km|kil[oó]metros?)$/i);
     if (km) {
@@ -123,7 +144,21 @@ export function abbreviateListingSpecLabel(label: string): string {
 
 export function isResidentialPropertyType(propertyType?: string | null): boolean {
     const value = (propertyType ?? '').toLowerCase();
-    return /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio/.test(value);
+    return /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio|local comercial|^local$/.test(value);
+}
+
+function isLandPropertyType(propertyType?: string | null): boolean {
+    const value = (propertyType ?? '').toLowerCase();
+    return value === 'terreno' || value === 'parcela' || /\bterreno\b|\bparcela\b/.test(value);
+}
+
+function isOfficePropertyType(propertyType?: string | null): boolean {
+    return (propertyType ?? '').toLowerCase().includes('oficina');
+}
+
+function isWarehousePropertyType(propertyType?: string | null): boolean {
+    const value = (propertyType ?? '').toLowerCase();
+    return value === 'bodega' || /^bodega\b/.test(value);
 }
 
 function pickTag(tags: string[], patterns: RegExp[]): string | null {
@@ -134,14 +169,16 @@ function pickTag(tags: string[], patterns: RegExp[]): string | null {
 }
 
 /**
- * Ordena tags de propiedades para cards.
- * Residencial: dorm → baño → est. → bodega.
+ * Ordena tags de propiedades para cards según tipo.
  */
 export function orderPropertyCardTags(tags: string[], propertyType?: string | null): string[] {
     const normalized = tags.map((tag) => tag.trim()).filter(Boolean);
     if (normalized.length === 0) return [];
 
-    if (isResidentialPropertyType(propertyType) || normalized.some((tag) => /^\d+\s*D$/i.test(tag) || /dorm|hab/i.test(tag))) {
+    const looksProgram = isResidentialPropertyType(propertyType)
+        || normalized.some((tag) => /^\d+\s*D$/i.test(tag) || /dorm|hab/i.test(tag));
+
+    if (looksProgram) {
         const ordered = [
             pickTag(normalized, [/^\d+\s*D$/i, /dorm|hab/i]),
             pickTag(normalized, [/^\d+\s*B$/i, /baño|bano/i]),
@@ -151,11 +188,40 @@ export function orderPropertyCardTags(tags: string[], propertyType?: string | nu
         return ordered.slice(0, 4);
     }
 
+    if (isLandPropertyType(propertyType) || normalized.some((tag) => /terreno|parcela/i.test(tag))) {
+        const ordered = [
+            pickTag(normalized, [/terreno|parcela/i]),
+            pickTag(normalized, [/m²|m2|metros|superficie/i]),
+            pickTag(normalized, [/retail|oficina|restaurant|industria|salud|educaci|servicios|uso/i]),
+            pickTag(normalized, [/nuevo|usado|remodelado|refaccionar|entrega|verde|condici/i]),
+        ].filter(Boolean) as string[];
+        return [...ordered, ...normalized].slice(0, 4);
+    }
+
+    if (isOfficePropertyType(propertyType)) {
+        const ordered = [
+            pickTag(normalized, [/oficina/i]),
+            pickTag(normalized, [/m²|m2|metros|superficie/i]),
+            pickTag(normalized, [/^\d+\s*E$/i, /est\.?|estacionamiento/i]),
+            pickTag(normalized, [/^\d+\s*Bo$/i, /bod|bodega/i]),
+        ].filter(Boolean) as string[];
+        return [...ordered, ...normalized].slice(0, 4);
+    }
+
+    if (isWarehousePropertyType(propertyType)) {
+        const ordered = [
+            pickTag(normalized, [/bodega/i]),
+            pickTag(normalized, [/m²|m2|metros|superficie|út/i]),
+            pickTag(normalized, [/^\d+\s*E$/i, /est\.?|estacionamiento/i]),
+        ].filter(Boolean) as string[];
+        return [...ordered, ...normalized].slice(0, 4);
+    }
+
     const ordered = [
-        pickTag(normalized, [/casa|departamento|depto|oficina|terreno|local|bodega|estacionamiento/i]),
-        pickTag(normalized, [/m²|m2|metros|superficie/i]),
-        pickTag(normalized, [/est\.?|estacionamiento/i]),
-        pickTag(normalized, [/unidad/i]),
+        pickTag(normalized, [/casa|departamento|depto|oficina|terreno|local|bodega|parcela|estacionamiento|proyecto/i]),
+        pickTag(normalized, [/m²|m2|metros|superficie|unidad/i]),
+        pickTag(normalized, [/^\d+\s*E$/i, /est\.?|estacionamiento/i]),
+        pickTag(normalized, [/^\d+\s*Bo$/i, /bod|bodega/i]),
     ].filter(Boolean) as string[];
 
     return [...ordered, ...normalized].slice(0, 4);
@@ -163,7 +229,7 @@ export function orderPropertyCardTags(tags: string[], propertyType?: string | nu
 
 /**
  * Ordena tags de vehículos para cards.
- * Tipo/categoría → km → combustible → transmisión (sin año: ya va en el título).
+ * Tipo/categoría → km/h → combustible → transmisión (sin año: ya va en el título).
  */
 export function orderVehicleCardTags(tags: string[]): string[] {
     const normalized = tags
@@ -174,20 +240,22 @@ export function orderVehicleCardTags(tags: string[]): string[] {
     if (normalized.length === 0) return [];
 
     const ordered = [
-        pickTag(normalized, [/auto|sedán|sedan|hatchback|suv|camioneta|pickup|van|bus|deportivo|coupe|moto|cuatrimoto|convertible/i]),
-        pickTag(normalized, [/km|kilometraje|kil[oó]metro/i]),
+        pickTag(normalized, [/auto|sedán|sedan|hatchback|suv|camioneta|pickup|van|bus|deportivo|coupe|moto|cuatrimoto|convertible|cami[oó]n|maquinaria|n[aá]utico|a[eé]reo/i]),
+        pickTag(normalized, [/km|kilometraje|kil[oó]metro|\d+\s*h\b|horas?/i]),
         pickTag(normalized, [/bencina|gasolina|diesel|diésel|híbrido|hibrido|eléctrico|electrico|gas|petróleo/i]),
-        pickTag(normalized, [/automático|automatico|manual|cvt|secuencial/i]),
+        pickTag(normalized, [/automático|automatico|manual|cvt|secuencial|tiptronic|dct|dsg/i]),
     ].filter(Boolean) as string[];
 
-    return ordered.slice(0, 4);
+    return [...ordered, ...normalized].slice(0, 4);
 }
 
 /** Ícono de spec de vehículos según el contenido del label. */
 export function vehicleSpecIconForLabel(label: string, index = 0): ReactNode {
     const trimmed = label.trim();
     const lower = trimmed.toLowerCase();
-    if (/km|kilometraje|kil[oó]metro|\d+\s*k\b|\d+\s*mil\b/.test(lower)) return createElement(IconGauge, { size: 18 });
+    if (/km|kilometraje|kil[oó]metro|\d+\s*k\b|\d+\s*mil\b|\d+\s*h\b|horas?/.test(lower)) {
+        return createElement(IconGauge, { size: 18 });
+    }
     if (/bencina|gasolina|diesel|diésel|híbrido|hibrido|eléctrico|electrico|gas|petróleo|eléct\./.test(lower)) {
         return createElement(IconGasStation, { size: 18 });
     }
@@ -198,9 +266,13 @@ export function vehicleSpecIconForLabel(label: string, index = 0): ReactNode {
     return specIcon('autos', index);
 }
 
-export function buildReelSpecsFromMetaTags(metaTags: string[], accent: ListingAccent): MarketplaceReelSpec[] {
+export function buildReelSpecsFromMetaTags(
+    metaTags: string[],
+    accent: ListingAccent,
+    options?: { propertyType?: string | null },
+): MarketplaceReelSpec[] {
     const tags = accent === 'propiedades'
-        ? orderPropertyCardTags(metaTags)
+        ? orderPropertyCardTags(metaTags, options?.propertyType)
         : orderVehicleCardTags(metaTags);
 
     return tags.map((label, index) => ({

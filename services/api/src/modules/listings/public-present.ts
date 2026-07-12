@@ -1,5 +1,9 @@
 import type { BoostSection } from '../../lib/domain-types.js';
 import { asObject, asString } from '../shared/helpers.js';
+import {
+    buildPropertyCardSummaryTags,
+    buildVehicleCardSummaryTags,
+} from '@simple/utils';
 
 export type { BoostSection };
 
@@ -164,19 +168,16 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
     function extractAutosSummary(record: ListingPublicRecord): string[] {
         const payload = asObject(record.rawData);
         const basic = asObject(payload.basic);
-        const summary: string[] = [];
+        const setup = asObject(payload.setup);
 
-        // Año en summary para highlights/legacy; la card lo filtra (va en el título).
-        appendUniqueSummary(summary, extractAutosYear(record) ?? '');
-        appendUniqueSummary(summary, asString(basic.bodyType));
-
-        const mileage = parseNumberFromString(basic.mileage);
-        if (mileage != null) appendUniqueSummary(summary, `${mileage.toLocaleString('es-CL')} km`);
-
-        appendUniqueSummary(summary, asString(basic.fuelType));
-        appendUniqueSummary(summary, asString(basic.transmission));
-
-        return summary.slice(0, 5);
+        return buildVehicleCardSummaryTags({
+            vehicleType: asString(setup.vehicleType) || asString(basic.vehicleType),
+            bodyType: asString(basic.bodyType),
+            year: extractAutosYear(record),
+            mileage: basic.mileage,
+            fuelType: asString(basic.fuelType),
+            transmission: asString(basic.transmission),
+        });
     }
 
     function extractPropertiesSummary(record: ListingPublicRecord): string[] {
@@ -184,48 +185,25 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         const setup = asObject(payload.setup);
         const basic = asObject(payload.basic);
         const project = asObject(payload.project);
-        const summary: string[] = [];
-        const isProject = record.section === 'project' || asString(setup.operationType) === 'project';
 
-        if (isProject) {
-            appendUniqueSummary(summary, asString(project.projectName));
-            const availableUnits = parseNumberFromString(project.availableUnits);
-            if (availableUnits != null) appendUniqueSummary(summary, `${availableUnits.toLocaleString('es-CL')} unidades`);
-
-            const usableAreaFrom = parseNumberFromString(project.usableAreaFrom);
-            const usableAreaTo = parseNumberFromString(project.usableAreaTo);
-            if (usableAreaFrom != null && usableAreaTo != null && usableAreaTo > usableAreaFrom) {
-                appendUniqueSummary(summary, `${usableAreaFrom.toLocaleString('es-CL')}-${usableAreaTo.toLocaleString('es-CL')} m²`);
-            } else if (usableAreaFrom != null) {
-                appendUniqueSummary(summary, `Desde ${usableAreaFrom.toLocaleString('es-CL')} m²`);
-            }
-
-            appendUniqueSummary(summary, asString(project.deliveryStatus));
-            appendUniqueSummary(summary, asString(project.salesStage));
-            return summary.slice(0, 5);
-        }
-
-        const rooms = parseNumberFromString(basic.rooms);
-        const bathrooms = parseNumberFromString(basic.bathrooms);
-        const parkingSpaces = parseNumberFromString(basic.parkingSpaces);
-        const storageUnits = parseNumberFromString(basic.storageUnits);
-        const totalArea = parseNumberFromString(basic.totalArea ?? basic.surface);
-        const propertyType = asString(basic.propertyType);
-        const residential = /casa|depto|departamento|townhouse|loft|penthouse|duplex|dúplex|studio|estudio/i.test(propertyType);
-
-        if (residential || rooms != null || bathrooms != null) {
-            // Residencial: dorm → baño → est. → bodega (coherente en cards)
-            if (rooms != null) appendUniqueSummary(summary, `${rooms.toLocaleString('es-CL')}D`);
-            if (bathrooms != null) appendUniqueSummary(summary, `${bathrooms.toLocaleString('es-CL')}B`);
-            if (parkingSpaces != null) appendUniqueSummary(summary, `${parkingSpaces.toLocaleString('es-CL')}E`);
-            if (storageUnits != null) appendUniqueSummary(summary, `${storageUnits.toLocaleString('es-CL')}Bo`);
-            return summary.slice(0, 4);
-        }
-
-        appendUniqueSummary(summary, propertyType);
-        if (totalArea != null) appendUniqueSummary(summary, `${totalArea.toLocaleString('es-CL')} m²`);
-        if (parkingSpaces != null) appendUniqueSummary(summary, `${parkingSpaces.toLocaleString('es-CL')}E`);
-        return summary.slice(0, 4);
+        return buildPropertyCardSummaryTags({
+            propertyType: asString(basic.propertyType) || asString(setup.propertyType),
+            operationType: asString(setup.operationType),
+            section: record.section,
+            rooms: basic.rooms,
+            bathrooms: basic.bathrooms,
+            parkingSpaces: basic.parkingSpaces,
+            storageUnits: basic.storageUnits,
+            totalArea: basic.totalArea ?? basic.surface,
+            usableArea: basic.usableArea,
+            commercialUse: asString(basic.commercialUse),
+            condition: asString(basic.condition),
+            availableUnits: project.availableUnits,
+            usableAreaFrom: project.usableAreaFrom,
+            usableAreaTo: project.usableAreaTo,
+            deliveryStatus: asString(project.deliveryStatus),
+            salesStage: asString(project.salesStage),
+        });
     }
 
     function extractListingSummary(record: ListingPublicRecord): string[] {

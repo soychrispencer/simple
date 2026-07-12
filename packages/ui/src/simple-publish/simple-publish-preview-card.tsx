@@ -38,8 +38,6 @@ export type SimplePublishPreviewCardProps = {
     ctaLabel?: string;
     sellerName?: string;
     sellerAvatarUrl?: string;
-    brandLabel?: string;
-    footerHint?: string;
     className?: string;
 };
 
@@ -60,8 +58,6 @@ export function SimplePublishPreviewCard({
     ctaLabel = 'Ver detalle',
     sellerName = 'Tu negocio',
     sellerAvatarUrl,
-    brandLabel = 'Simple',
-    footerHint = 'Así se verá en el marketplace',
     className,
 }: SimplePublishPreviewCardProps) {
     const [resolvedSellerName, setResolvedSellerName] = useState(sellerName);
@@ -140,13 +136,6 @@ export function SimplePublishPreviewCard({
                 emptyMediaLabel="Agrega la portada"
                 className="!max-w-none !rounded-none !border-0 !shadow-none"
             />
-
-            <div className="flex items-center justify-between border-t border-(--border) px-3 py-2">
-                <p className="text-[10px] text-(--fg-muted)">{footerHint}</p>
-                <span className="rounded-full bg-(--accent) px-2 py-0.5 text-[10px] font-semibold text-(--accent-contrast)">
-                    {brandLabel}
-                </span>
-            </div>
         </div>
     );
 }

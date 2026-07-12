@@ -27,3 +27,12 @@ export {
     vehicleConditionsForPublisher,
     type VehicleConditionValue,
 } from './vehicle-condition.js';
+export {
+    PROPERTY_UNIT_CONDITION_VALUES,
+    PROPERTY_CONDITION_OPTIONS,
+    isLandPropertyType,
+    showsPropertyCondition,
+    isPropertyUnitConditionValue,
+    normalizePropertyCondition,
+    type PropertyUnitConditionValue,
+} from './property-condition.js';

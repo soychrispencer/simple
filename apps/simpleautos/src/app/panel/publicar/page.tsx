@@ -28,10 +28,11 @@ import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
-import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, VEHICLE_APPEARANCE_OPTIONS, VEHICLE_TECH_EQUIPMENT_OPTIONS, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue } from '@simple/utils';
+import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, VEHICLE_APPEARANCE_OPTIONS, VEHICLE_TECH_EQUIPMENT_OPTIONS, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
 import { ModernSelect } from '@simple/ui/forms';
+import { abbreviateListingSpecLabel, vehicleSpecIconForLabel } from '@simple/ui/listings';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { fetchPublishAddressBook, pickDefaultPublishAddress, uploadMediaFile, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, resolveLocationNames, createAddressBookEntry } from '@simple/utils';
 import type { AddressBookEntry, ListingLocation } from '@simple/types';
@@ -213,8 +214,9 @@ function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalo
     const brandName = form.brandId === '__custom__' ? form.customBrand : catalog?.brands.find((b) => b.id === form.brandId)?.name || '';
     const modelName = form.modelId === '__custom__' ? form.customModel : catalog?.models.find((m) => m.id === form.modelId)?.name || '';
     const title = form.title || [brandName, modelName, form.year].filter(Boolean).join(' ') || 'Título del aviso';
-    const location = form.location.publicLabel
-        || [form.location.communeName, form.location.regionName].filter(Boolean).join(', ')
+    const location = form.location.communeName
+        || form.location.publicLabel
+        || form.location.regionName
         || 'Ubicación pendiente';
     const badge = form.listingType === 'sale' ? 'Venta' : form.listingType === 'rent' ? 'Arriendo' : 'Subasta';
     const mainPriceDigits = parseDigits(form.price);
@@ -233,15 +235,20 @@ function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalo
         ? Math.round((1 - Number(offerPriceDigits) / Number(mainPriceDigits)) * 100)
         : undefined;
 
-    const specs: SimplePublishPreviewCardProps['specs'] = [];
     const vehicleTypeLabel = VEHICLE_TYPES.find((item) => item.value === form.vehicleType)?.label;
-    if (vehicleTypeLabel) specs.push({ icon: <IconCar size={11} />, label: vehicleTypeLabel });
-    if (form.mileage) {
-        const usageSuffix = form.vehicleType === 'nautical' || form.vehicleType === 'machinery' || form.vehicleType === 'aerial' ? ' h' : ' km';
-        specs.push({ icon: <IconGauge size={11} />, label: `${form.mileage}${usageSuffix}` });
-    }
-    if (form.fuelType) specs.push({ icon: <IconGasStation size={11} />, label: form.fuelType });
-    if (form.transmission) specs.push({ icon: <IconManualGearbox size={11} />, label: form.transmission });
+    const specs: SimplePublishPreviewCardProps['specs'] = buildVehicleCardSummaryTags({
+        vehicleType: form.vehicleType,
+        vehicleTypeLabel,
+        mileage: form.mileage,
+        fuelType: form.fuelType,
+        transmission: form.transmission,
+    })
+        .filter((label) => !/^(19|20)\d{2}$/.test(label))
+        .slice(0, 4)
+        .map((label, index) => ({
+            icon: vehicleSpecIconForLabel(label, index),
+            label: abbreviateListingSpecLabel(label),
+        }));
 
     const extraChips: SimplePublishPreviewCardProps['extraChips'] = [];
     if (form.financing) extraChips.push({ label: 'Financiamiento' });
@@ -262,8 +269,6 @@ function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalo
         extraChips,
         ctaLabel: form.listingType === 'rent' ? 'Ver disponibilidad' : form.listingType === 'auction' ? 'Ver subasta' : 'Ver detalle',
         sellerName: 'Tu negocio',
-        brandLabel: 'SimpleAutos',
-        footerHint: 'Así se verá en SimpleAutos',
     };
 }
 
@@ -2347,7 +2352,7 @@ function StepAutosLocation({
                 showVisibilityField={false}
                 showSimpleVisibilityToggle={false}
                 showAddressLine2={false}
-                showGoogleMapsLink
+                showGoogleMapsLink={false}
                 showPublicPreviewCard={false}
                 showActionBar={false}
                 publishVertical="autos"
@@ -2359,11 +2364,21 @@ function StepAutosLocation({
             {location.geoPoint.latitude != null
                 && location.geoPoint.longitude != null
                 && location.geoPoint.provider !== 'catalog_seed' ? (
-                <div className="mt-3">
+                <div className="mt-3 space-y-2">
                     <PublishLocationMap
                         latitude={location.geoPoint.latitude}
                         longitude={location.geoPoint.longitude}
                     />
+                    <p className="text-xs">
+                        <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${location.geoPoint.latitude},${location.geoPoint.longitude}`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-(--fg-muted) underline-offset-2 hover:underline hover:text-(--fg)"
+                        >
+                            Abrir en Google Maps
+                        </a>
+                    </p>
                 </div>
             ) : null}
             {savingAddress ? (

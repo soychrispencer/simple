@@ -98,22 +98,35 @@ export function ensureGooglePlacesDropdownStyles() {
 
     const style = document.createElement('style');
     style.dataset.googlePacStyles = 'true';
-    style.dataset.googlePacStylesVersion = '3';
+    style.dataset.googlePacStylesVersion = '6';
     style.textContent = `
+        /* Un solo borde/foco en el host (= .form-input); el widget de Google va sin chrome. */
         .location-places-host {
             width: 100%;
             min-width: 0;
-            display: flex;
-            align-items: stretch;
+            display: block;
             box-sizing: border-box;
             height: 42px;
             min-height: 42px;
             padding: 0;
+            margin: 0;
             border: 1px solid var(--border);
             border-radius: var(--radius);
             background-color: var(--bg-subtle);
             overflow: visible;
             transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+        }
+        /* No pisar Tailwind .hidden: si no, queda un segundo input vacío. */
+        .location-places-host.hidden,
+        .location-places-host[hidden] {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            overflow: hidden !important;
+            pointer-events: none !important;
         }
         .dark .location-places-host,
         [data-theme="dark"] .location-places-host {
@@ -133,11 +146,11 @@ export function ensureGooglePlacesDropdownStyles() {
         .location-places-host gmp-place-autocomplete,
         gmp-place-autocomplete.location-places-element {
             width: 100% !important;
-            flex: 1 1 auto !important;
             display: block !important;
             box-sizing: border-box !important;
             height: 100% !important;
             min-height: 100% !important;
+            max-height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             border: none !important;
@@ -152,7 +165,7 @@ export function ensureGooglePlacesDropdownStyles() {
             --gmp-mat-color-surface: transparent;
             --gmp-mat-color-on-surface: var(--fg, #111);
             --gmp-mat-color-on-surface-variant: var(--fg-muted, #666);
-            --gmp-mat-color-primary: var(--accent, #e11d48);
+            --gmp-mat-color-primary: transparent;
             --gmp-mat-color-outline: transparent;
             --gmp-mat-color-outline-decorative: transparent;
         }
@@ -165,26 +178,41 @@ export function ensureGooglePlacesDropdownStyles() {
             border: none !important;
             outline: none !important;
             box-shadow: none !important;
+            background: transparent !important;
         }
-        /* Quita el anillo azul Material de Google */
+        gmp-place-autocomplete.location-places-element::part(focus-ring),
         gmp-place-autocomplete::part(focus-ring) {
             display: none !important;
+            visibility: hidden !important;
             opacity: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
             border: none !important;
+            border-radius: 0 !important;
             box-shadow: none !important;
             outline: none !important;
+            background: transparent !important;
+            pointer-events: none !important;
+            --md-focus-ring-color: transparent !important;
+            --md-focus-ring-width: 0 !important;
         }
+        gmp-place-autocomplete.location-places-element::part(input),
         gmp-place-autocomplete::part(input) {
             font-family: inherit !important;
             font-size: var(--text-sm, 0.875rem) !important;
+            line-height: 1.25 !important;
             color: var(--fg) !important;
             background: transparent !important;
             border: none !important;
             outline: none !important;
             box-shadow: none !important;
             padding: 0 14px !important;
-            height: 42px !important;
-            min-height: 42px !important;
+            height: 40px !important;
+            min-height: 40px !important;
         }
         gmp-place-autocomplete::part(prediction-list) {
             z-index: 100000 !important;
@@ -220,16 +248,10 @@ export function ensureGooglePlacesDropdownStyles() {
             overflow: hidden !important;
             cursor: pointer !important;
         }
-        .pac-item:first-child {
-            border-top: 0 !important;
-        }
+        .pac-item:first-child { border-top: 0 !important; }
         .pac-item:hover,
-        .pac-item-selected {
-            background: var(--bg-subtle) !important;
-        }
-        .pac-icon {
-            display: none !important;
-        }
+        .pac-item-selected { background: var(--bg-subtle) !important; }
+        .pac-icon { display: none !important; }
         .pac-item-query {
             flex-shrink: 0 !important;
             font-size: 13px !important;
@@ -239,9 +261,7 @@ export function ensureGooglePlacesDropdownStyles() {
             text-overflow: ellipsis !important;
             white-space: nowrap !important;
         }
-        .pac-matched {
-            font-weight: 700 !important;
-        }
+        .pac-matched { font-weight: 700 !important; }
         .pac-item span:not(.pac-icon):not(.pac-item-query) {
             flex: 1 !important;
             font-size: 12px !important;
@@ -457,7 +477,8 @@ export function placeFromNewPlacesApi(place: any): GooglePlaceResult {
 
 /**
  * Adjunta Places al campo de dirección.
- * Prefiere PlaceAutocompleteElement (API nueva); si no está disponible, usa Autocomplete legacy.
+ * Prefiere Autocomplete legacy sobre el input nativo (mismo focus que .form-input).
+ * Si no está disponible, usa PlaceAutocompleteElement con estilos del host.
  */
 export async function attachGooglePlacesAddressField(options: {
     apiKey: string;
@@ -524,6 +545,11 @@ export async function attachGooglePlacesAddressField(options: {
         }
     };
 
+    // Preferimos Autocomplete legacy sobre el <input class="form-input">:
+    // el PlaceAutocompleteElement trae anillo Material que no se alinea con nuestro focus.
+    const legacy = await attachLegacyAutocomplete();
+    if (legacy) return legacy;
+
     const PlaceAutocompleteElement = await resolvePlaceAutocompleteElementCtor();
     if (PlaceAutocompleteElement) {
         try {
@@ -533,10 +559,11 @@ export async function attachGooglePlacesAddressField(options: {
             });
             element.classList.add('location-places-element');
             try {
-                element.style.setProperty('border', 'none');
-                element.style.setProperty('background-color', 'transparent');
-                element.style.setProperty('outline', 'none');
-                element.style.setProperty('box-shadow', 'none');
+                // Chrome lo lleva el host (.form-input); el widget no debe pintar borde/anillo propio.
+                element.style.setProperty('border', 'none', 'important');
+                element.style.setProperty('outline', 'none', 'important');
+                element.style.setProperty('box-shadow', 'none', 'important');
+                element.style.setProperty('background-color', 'transparent', 'important');
                 element.style.setProperty('color-scheme', 'inherit');
             } catch {
                 // ignore
@@ -560,6 +587,23 @@ export async function attachGooglePlacesAddressField(options: {
             input.tabIndex = -1;
             host.classList.remove('hidden');
             host.appendChild(element);
+
+            // Si el shadow no está cerrado, matamos el anillo Material por dentro.
+            try {
+                const shadow = (element as HTMLElement & { shadowRoot?: ShadowRoot | null }).shadowRoot;
+                if (shadow && !shadow.querySelector('style[data-simple-places-chrome]')) {
+                    const shadowStyle = document.createElement('style');
+                    shadowStyle.dataset.simplePlacesChrome = 'true';
+                    shadowStyle.textContent = `
+                        .focus-ring { display: none !important; opacity: 0 !important; }
+                        .widget-container { border: none !important; box-shadow: none !important; outline: none !important; }
+                        .input-container { border: none !important; box-shadow: none !important; outline: none !important; }
+                    `;
+                    shadow.appendChild(shadowStyle);
+                }
+            } catch {
+                // shadow cerrado: nos quedamos con ::part(focus-ring)
+            }
 
             const handleSelect = async (event: Event) => {
                 const anyEvent = event as Event & {
@@ -635,7 +679,7 @@ export async function attachGooglePlacesAddressField(options: {
         }
     }
 
-    return attachLegacyAutocomplete();
+    return null;
 }
 
 /** @deprecated Usa attachGooglePlacesAddressField. */

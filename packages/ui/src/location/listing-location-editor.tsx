@@ -22,8 +22,6 @@ import {
     buildLocationQuery,
     buildSavedAddressSelectOptions,
     listPublishAddressBookEntries,
-    GoogleMapIcon,
-    ShareIcon,
     type FieldErrorMap,
     type GooglePlacesAddressAttachment,
     type SelectOption,
@@ -406,35 +404,6 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             />
         </Field>
     );
-    const mapsActionButtons = internalMapsUrl ? (
-        <div className="flex h-[42px] shrink-0 items-center gap-2">
-            <a
-                href={internalMapsUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Ver en Maps"
-                title="Ver en Maps"
-                className="loc-editor-source-btn inline-flex size-[42px] items-center justify-center rounded-[var(--radius)] border transition-colors hover:opacity-80"
-            >
-                <GoogleMapIcon />
-            </a>
-            <button
-                type="button"
-                aria-label="Compartir dirección"
-                title="Compartir dirección"
-                onClick={() => {
-                    if (typeof navigator !== 'undefined' && navigator.share) {
-                        void navigator.share({ title: location.label || 'Dirección', url: internalMapsUrl });
-                    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                        void navigator.clipboard.writeText(internalMapsUrl);
-                    }
-                }}
-                className="loc-editor-source-btn inline-flex size-[42px] items-center justify-center rounded-[var(--radius)] border transition-colors hover:opacity-80"
-            >
-                <ShareIcon />
-            </button>
-        </div>
-    ) : null;
     const locationMetaFields = showLocationMeta ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Nombre de la dirección" required>
@@ -470,35 +439,32 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         simpleMode ? (
             <div className={joinClasses('grid gap-3', showAddressLine2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1')}>
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
-                    <div className="flex h-[42px] items-center gap-2">
-                        <div className="relative min-w-0 flex-1 overflow-visible">
-                            <input
-                                ref={addressInputRef}
-                                className={joinClasses(
-                                    'form-input min-w-0 w-full',
-                                    placesUiMode === 'element' && 'hidden',
-                                    fieldInvalid(errors, 'addressLine1') && 'form-input-error',
-                                )}
-                                value={location.addressLine1 || ''}
-                                autoComplete="off"
-                                onChange={(event) => onChange(patchListingLocation(location, {
-                                    addressLine1: event.target.value,
-                                    sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-                                    sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-                                    ...clearResolvedGeo(location),
-                                }))}
-                                placeholder="Ej: Av. Italia 1452"
-                            />
-                            <div
-                                ref={placesHostRef}
-                                className={joinClasses(
-                                    'location-places-host min-w-0 w-full',
-                                    placesUiMode !== 'element' && 'hidden',
-                                    fieldInvalid(errors, 'addressLine1') && 'location-places-host--error',
-                                )}
-                            />
-                        </div>
-                        {mapsActionButtons}
+                    <div className="relative min-w-0 w-full h-[42px] overflow-visible">
+                        <input
+                            ref={addressInputRef}
+                            className={joinClasses(
+                                'form-input min-w-0 w-full',
+                                placesUiMode === 'element' && 'hidden',
+                                fieldInvalid(errors, 'addressLine1') && 'form-input-error',
+                            )}
+                            value={location.addressLine1 || ''}
+                            autoComplete="off"
+                            onChange={(event) => onChange(patchListingLocation(location, {
+                                addressLine1: event.target.value,
+                                sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
+                                sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
+                                ...clearResolvedGeo(location),
+                            }))}
+                            placeholder="Ej: Av. Italia 1452"
+                        />
+                        <div
+                            ref={placesHostRef}
+                            className={joinClasses(
+                                'location-places-host absolute inset-0 min-w-0 w-full',
+                                placesUiMode !== 'element' && 'hidden',
+                                fieldInvalid(errors, 'addressLine1') && 'location-places-host--error',
+                            )}
+                        />
                     </div>
                 </Field>
                 {showAddressLine2 ? (
@@ -511,7 +477,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
                     <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <div className="relative min-w-0 flex-1 overflow-visible">
+                        <div className="relative min-w-0 flex-1 h-[42px] overflow-visible">
                             <input
                                 ref={addressInputRef}
                                 className={joinClasses(
@@ -532,7 +498,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                             <div
                                 ref={placesHostRef}
                                 className={joinClasses(
-                                    'location-places-host min-w-0 w-full',
+                                    'location-places-host absolute inset-0 min-w-0 w-full',
                                     placesUiMode !== 'element' && 'hidden',
                                     fieldInvalid(errors, 'addressLine1') && 'location-places-host--error',
                                 )}
@@ -639,6 +605,18 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                     </div>
                     ) : null}
                     {addressFields}
+                    {showGoogleMapsLink && internalMapsUrl ? (
+                        <p className="text-xs">
+                            <a
+                                href={internalMapsUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-medium loc-editor-fg underline-offset-2 hover:underline"
+                            >
+                                Abrir en Google Maps
+                            </a>
+                        </p>
+                    ) : null}
                     {showAreaFields ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {regionField}

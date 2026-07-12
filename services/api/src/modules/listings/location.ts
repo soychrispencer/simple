@@ -324,9 +324,10 @@ export function buildLocationPublicLabel(location: Partial<ListingLocation> | nu
     if (visibilityMode === 'hidden') return '';
     if (visibilityMode === 'exact') return [address, neighborhood, commune, region].filter(Boolean).join(', ');
     if (visibilityMode === 'approximate' || visibilityMode === 'sector_only') {
-        return [neighborhood, commune, region].filter(Boolean).join(', ');
+        return [neighborhood, commune].filter(Boolean).join(', ') || commune || region;
     }
-    return [commune, region].filter(Boolean).join(', ');
+    // commune_only (default): solo comuna en público / cards
+    return commune || region;
 }
 
 export function humanizePublicLocationFallback(value: string | null | undefined): string {
