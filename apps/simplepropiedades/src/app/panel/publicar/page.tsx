@@ -41,7 +41,7 @@ import {
     IconGripVertical,
 } from '@tabler/icons-react';
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
 import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
@@ -970,6 +970,16 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
             }
         }
         if (parseNumber(data.commercial.price) == null) errors['commercial.price'] = '';
+        if (data.setup.operationType !== 'project') {
+            const offerError = getOfferPriceValidationError({
+                mainPrice: data.commercial.price,
+                offerPrice: data.commercial.offerPrice,
+                discountPercent: data.commercial.discountPercent,
+                offerPriceMode: data.commercial.offerPriceMode,
+                parseMainPrice: (value) => parseNumber(value),
+            });
+            if (offerError) errors['commercial.offerPrice'] = offerError;
+        }
         if (!data.location.regionId) errors['location.regionId'] = '';
         if (!data.location.communeId) errors['location.communeId'] = '';
         if (!data.location.addressLine1?.trim()) errors['location.addressLine1'] = '';
@@ -2478,6 +2488,8 @@ function StepCommercial(props: {
         offerPriceMode: data.commercial.offerPriceMode,
         amountSuffix,
         parseMainPrice: (value: string) => parseNumber(value),
+        error: errors['commercial.offerPrice'],
+        invalid: Object.prototype.hasOwnProperty.call(errors, 'commercial.offerPrice'),
         onOfferPriceChange: (value: string) => setData((current) => ({
             ...current,
             commercial: { ...current.commercial, offerPrice: value },

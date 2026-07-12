@@ -27,7 +27,7 @@ import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form'
 import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton, PanelSummaryCard, PanelScrollModal } from '@simple/ui/panel';
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, VEHICLE_APPEARANCE_OPTIONS, VEHICLE_TECH_EQUIPMENT_OPTIONS, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
@@ -423,6 +423,13 @@ function validateAutosStep(step: 1 | 2 | 3 | 4, form: FormData): Record<string, 
             errors.condition = '';
         }
         if (!parseDigits(form.price)) errors.price = '';
+        const offerError = getOfferPriceValidationError({
+            mainPrice: form.price,
+            offerPrice: form.offerPrice,
+            discountPercent: form.discountPercent,
+            offerPriceMode: form.offerPriceMode,
+        });
+        if (offerError) errors.offerPrice = offerError;
         if (!form.location.regionId) errors['location.regionId'] = '';
         if (!form.location.communeId) errors['location.communeId'] = '';
         if (!form.location.addressLine1?.trim()) errors['location.addressLine1'] = '';
@@ -2208,6 +2215,8 @@ function StepAutosPrice({
                         onDiscountPercentChange: (value) => updateForm('discountPercent', value),
                         onOfferPriceModeChange: (value) => updateForm('offerPriceMode', value),
                         formatThousands: true,
+                        error: fieldErrors.offerPrice,
+                        invalid: isAutosFieldInvalid(fieldErrors, 'offerPrice'),
                     }}
                 />
                 {form.listingType !== 'auction' ? (

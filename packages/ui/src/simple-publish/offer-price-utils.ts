@@ -24,6 +24,37 @@ function defaultParseMainPrice(value: string): number | null {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+/** Mensaje si el precio oferta no es menor al precio normal (o % inválido). */
+export function getOfferPriceValidationError(input: ResolveOfferPriceInput): string | null {
+    const {
+        mainPrice,
+        offerPrice,
+        discountPercent,
+        offerPriceMode,
+        parseMainPrice = defaultParseMainPrice,
+    } = input;
+
+    const main = parseMainPrice(mainPrice);
+    if (main == null) return null;
+
+    if (offerPriceMode === '%') {
+        const raw = parseDigits(discountPercent).slice(0, 2);
+        if (!raw) return null;
+        const pct = Number.parseInt(raw, 10);
+        if (!Number.isFinite(pct) || pct < 1 || pct > 99) {
+            return 'El descuento debe ser entre 1% y 99%.';
+        }
+        return null;
+    }
+
+    const offer = parseMainPrice(offerPrice);
+    if (offer == null) return null;
+    if (offer >= main) {
+        return 'El precio oferta debe ser menor al precio normal.';
+    }
+    return null;
+}
+
 /** Calcula el precio oferta final a partir del precio lista y modo $ o %. */
 export function resolveOfferPriceValue(input: ResolveOfferPriceInput): string {
     const {
@@ -37,6 +68,8 @@ export function resolveOfferPriceValue(input: ResolveOfferPriceInput): string {
     const main = parseMainPrice(mainPrice);
     if (main == null) return '';
 
+    if (getOfferPriceValidationError(input)) return '';
+
     if (offerPriceMode === '%' && discountPercent.trim()) {
         const pct = Number.parseInt(parseDigits(discountPercent).slice(0, 2), 10);
         if (Number.isFinite(pct) && pct > 0 && pct < 100) {
@@ -46,5 +79,6 @@ export function resolveOfferPriceValue(input: ResolveOfferPriceInput): string {
     }
 
     const offer = parseMainPrice(offerPrice);
-    return offer != null ? String(offer) : '';
+    if (offer == null || offer >= main) return '';
+    return String(offer);
 }

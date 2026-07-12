@@ -2,7 +2,11 @@
 
 import { ModernSelect } from '../forms';
 import type { OfferPriceMode } from './offer-price-utils';
-import { formatClPriceInput, parseDigits } from './offer-price-utils';
+import {
+    formatClPriceInput,
+    getOfferPriceValidationError,
+    parseDigits,
+} from './offer-price-utils';
 
 export type SimplePublishOfferPriceFieldsProps = {
     mainPrice: string;
@@ -17,6 +21,9 @@ export type SimplePublishOfferPriceFieldsProps = {
     /** Si true, formatea miles con puntos (autos CLP). */
     formatThousands?: boolean;
     parseMainPrice?: (value: string) => number | null;
+    /** Error externo (validación al continuar). */
+    error?: string;
+    invalid?: boolean;
 };
 
 function defaultParseMainPrice(value: string): number | null {
@@ -38,18 +45,33 @@ export function SimplePublishOfferPriceFields(props: SimplePublishOfferPriceFiel
         amountSuffix = '$',
         formatThousands = false,
         parseMainPrice = defaultParseMainPrice,
+        error,
+        invalid = false,
     } = props;
 
     const formatInput = (value: string) => (formatThousands ? formatClPriceInput(value) : parseDigits(value));
+
+    const liveError = getOfferPriceValidationError({
+        mainPrice,
+        offerPrice,
+        discountPercent,
+        offerPriceMode,
+        parseMainPrice,
+    });
+    const shownError = error?.trim() || liveError || null;
+    const showInvalid = Boolean(shownError) || invalid;
 
     const handleOfferInput = (raw: string) => {
         if (offerPriceMode === '%') {
             const pct = parseDigits(raw).slice(0, 2);
             onDiscountPercentChange(pct);
             const main = parseMainPrice(mainPrice);
-            if (main != null && pct) {
-                const offer = Math.round(main * (1 - Number.parseInt(pct, 10) / 100));
+            const pctNum = pct ? Number.parseInt(pct, 10) : NaN;
+            if (main != null && Number.isFinite(pctNum) && pctNum >= 1 && pctNum <= 99) {
+                const offer = Math.round(main * (1 - pctNum / 100));
                 onOfferPriceChange(formatThousands ? offer.toLocaleString('es-CL') : String(offer));
+            } else {
+                onOfferPriceChange('');
             }
             return;
         }
@@ -60,12 +82,16 @@ export function SimplePublishOfferPriceFields(props: SimplePublishOfferPriceFiel
         const offer = parseMainPrice(next);
         if (main != null && offer != null && offer < main) {
             const pct = Math.round((1 - offer / main) * 100);
-            if (pct > 0) onDiscountPercentChange(String(pct));
+            if (pct > 0 && pct < 100) onDiscountPercentChange(String(pct));
+            else onDiscountPercentChange('');
+        } else {
+            onDiscountPercentChange('');
         }
     };
 
     const displayOffer = offerPriceMode === '%' ? discountPercent : offerPrice;
     const resolvedSuffix = offerPriceMode === '%' ? '%' : amountSuffix;
+    const canPreview = Boolean(offerPrice) && !liveError;
 
     return (
         <div>
@@ -73,13 +99,16 @@ export function SimplePublishOfferPriceFields(props: SimplePublishOfferPriceFiel
                 Precio oferta (opcional)
             </label>
             <div className="flex gap-2">
-                <div className="form-input flex flex-1 items-center gap-2 !px-0 overflow-hidden">
+                <div
+                    className={`form-input flex flex-1 items-center gap-2 !px-0 overflow-hidden${showInvalid ? ' form-input-error' : ''}`}
+                >
                     <input
                         type="text"
                         inputMode="numeric"
                         placeholder={offerPriceMode === '%' ? '10' : (formatThousands ? '16.990.000' : '5000')}
                         value={displayOffer}
                         onChange={(event) => handleOfferInput(event.target.value)}
+                        aria-invalid={showInvalid || undefined}
                         className="min-w-0 flex-1 border-none bg-transparent px-3 text-sm font-medium outline-none"
                     />
                     <span className="shrink-0 pr-3 text-sm font-semibold text-(--fg-muted)">
@@ -101,7 +130,10 @@ export function SimplePublishOfferPriceFields(props: SimplePublishOfferPriceFiel
                     />
                 </div>
             </div>
-            {offerPrice ? (
+            {shownError ? (
+                <p className="mt-1.5 text-xs text-(--danger)">{shownError}</p>
+            ) : null}
+            {canPreview ? (
                 <div className="panel-publish-price-preview">
                     <span className="text-xs text-(--fg-muted)">Precio final en tarjeta</span>
                     <div className="flex items-center gap-2">

@@ -55,6 +55,7 @@ export {
     formatClPriceInput,
     parseDigits,
     resolveOfferPriceValue,
+    getOfferPriceValidationError,
     type OfferPriceMode,
     type ResolveOfferPriceInput,
 } from './offer-price-utils';
