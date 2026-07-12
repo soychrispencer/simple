@@ -578,15 +578,13 @@ function filterSecurityOptions(propertyType: string, operationType: string): Spe
 
 function initialAttributeSections(data: WizardData) {
     const isProject = data.setup.operationType === 'project';
-    const isLand = data.setup.propertyType === 'Terreno' || data.setup.propertyType === 'Parcela';
-    const isResidential = data.setup.propertyType === 'Casa' || data.setup.propertyType === 'Departamento';
     return {
-        saleOptions: false,
-        characteristics: !isProject,
-        extended: isResidential || (!isProject && !isLand),
+        saleOptions: !isProject,
+        characteristics: false,
+        extended: false,
         project: isProject,
         equipment: false,
-        commercial: isLand || data.setup.operationType === 'rent',
+        commercial: false,
         tour360: false,
     } as const;
 }

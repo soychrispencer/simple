@@ -1896,10 +1896,10 @@ function StepAutosDetails({
     const isWrecked = form.condition === 'Siniestrado';
     const [openSections, setOpenSections] = useState<Record<'appearance' | 'tech' | 'saleOptions' | 'owners' | 'history' | 'equipment' | 'fleet' | 'consignment', boolean>>({
         appearance: true,
-        tech: showTechSheet,
+        tech: false,
         saleOptions: false,
-        owners: form.vehicleType === 'car' || form.vehicleType === 'truck',
-        history: true,
+        owners: false,
+        history: false,
         equipment: false,
         fleet: false,
         consignment: false,
@@ -1909,9 +1909,9 @@ function StepAutosDetails({
         setOpenSections((current) => ({
             ...current,
             appearance: true,
-            tech: form.vehicleType === 'car' || form.vehicleType === 'truck' || form.vehicleType === 'motorcycle',
-            history: true,
-            owners: form.vehicleType === 'car' || form.vehicleType === 'truck',
+            tech: false,
+            history: false,
+            owners: false,
         }));
     }, [form.vehicleType]);
 
