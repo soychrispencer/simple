@@ -62,6 +62,7 @@ export function SimplePublishVideoBlock({
     };
 
     return (
+        <div data-publish-invalid={invalid ? 'true' : undefined}>
         <SimplePublishSurface>
             <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -145,7 +146,8 @@ export function SimplePublishVideoBlock({
                 desktopLabel="Subir video"
             />
 
-            {error?.trim() ? <p className="mt-3 text-xs text-(--color-error)">{error}</p> : null}
+            {error?.trim() ? <p className="mt-3 text-xs text-(--color-error)" data-publish-error="true">{error}</p> : null}
         </SimplePublishSurface>
+        </div>
     );
 }

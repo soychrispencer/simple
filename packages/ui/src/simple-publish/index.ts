@@ -67,6 +67,7 @@ export {
 export {
     SimplePublishMediaScreen,
     type SimplePublishMediaScreenProps,
+    type SimplePublishPhotoProcessProgress,
 } from './simple-publish-media-screen';
 export {
     SimplePublishVideoBlock,
@@ -85,6 +86,7 @@ export {
     SimplePublishMediaUploadNotice,
     type SimplePublishMediaUploadNoticeProps,
 } from './simple-publish-media-upload-notice';
+export { scrollToFirstPublishError } from './scroll-to-first-publish-error';
 export { SimplePublishCtaCard } from './simple-publish-cta-card';
 export {
     SimplePublishShareHub,

@@ -38,7 +38,7 @@ import {
     IconGripVertical,
 } from '@tabler/icons-react';
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
 import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress, PROPERTY_CONDITION_OPTIONS, showsPropertyCondition, normalizePropertyCondition, buildPropertyCardSummaryTags } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
@@ -2191,6 +2191,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
     const videoGalleryInputRef = useRef<HTMLInputElement>(null);
     const videoCameraInputRef = useRef<HTMLInputElement>(null);
     const [processingPhotos, setProcessingPhotos] = useState(false);
+    const [photoProcessProgress, setPhotoProcessProgress] = useState<{ current: number; total: number } | null>(null);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
     const [videoProcessError, setVideoProcessError] = useState<string | null>(null);
 
@@ -2201,10 +2202,13 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
 
         setProcessingPhotos(true);
         setPhotoProcessError(null);
+        setPhotoProcessProgress({ current: 0, total: toAdd.length });
 
         try {
             const newPhotos: PanelMediaAsset[] = [];
-            for (const file of toAdd) {
+            for (let index = 0; index < toAdd.length; index += 1) {
+                const file = toAdd[index];
+                setPhotoProcessProgress({ current: index + 1, total: toAdd.length });
                 const optimized = await optimizeListingPhotoFile(file);
                 newPhotos.push({
                     id: Math.random().toString(36).slice(2),
@@ -2234,6 +2238,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
             setPhotoProcessError(error instanceof Error ? error.message : 'No se pudieron procesar las fotos.');
         } finally {
             setProcessingPhotos(false);
+            setPhotoProcessProgress(null);
         }
     };
 
@@ -2314,6 +2319,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                 recommendedPhotos={8}
                 photoError={photoProcessError || undefined}
                 photoInvalid={Object.prototype.hasOwnProperty.call(errors, 'media.photos')}
+                photoProcessProgress={photoProcessProgress}
                 onAddFiles={handleFiles}
                 onRemovePhoto={removePhoto}
                 onReorderPhotos={(photos) => {
@@ -3420,6 +3426,7 @@ export default function PublishWizardPage() {
         setErrors(nextErrors);
         if (Object.keys(nextErrors).length > 0) {
             setMessage(null);
+            scrollToFirstPublishError();
             return;
         }
         setMessage(null);
@@ -3495,6 +3502,7 @@ export default function PublishWizardPage() {
                 setStep(stepItem.id);
                 setErrors(stepErrors);
                 setMessage(null);
+                scrollToFirstPublishError({ delayMs: 80 });
                 return;
             }
         }

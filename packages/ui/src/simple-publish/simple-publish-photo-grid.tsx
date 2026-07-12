@@ -36,6 +36,8 @@ export type SimplePublishPhotoGridProps = {
     recommendedPhotos?: number;
     error?: string;
     invalid?: boolean;
+    /** Bloquea agregar/reordenar mientras se optimizan fotos. */
+    disabled?: boolean;
     onAddFiles: (files: FileList) => void;
     onRemovePhoto: (id: string) => void;
     onReorderPhotos: (photos: SimplePublishPhoto[]) => void;
@@ -118,6 +120,7 @@ export function SimplePublishPhotoGrid({
     recommendedPhotos = 8,
     error,
     invalid = false,
+    disabled = false,
     onAddFiles,
     onRemovePhoto,
     onReorderPhotos,
@@ -136,9 +139,10 @@ export function SimplePublishPhotoGrid({
 
     const missingRecommended = Math.max(recommendedPhotos - photos.length, 0);
     const progressPercent = Math.min((photos.length / recommendedPhotos) * 100, 100);
-    const canAddMore = photos.length < maxPhotos;
+    const canAddMore = !disabled && photos.length < maxPhotos;
 
     const handleDragEnd = (event: DragEndEvent) => {
+        if (disabled) return;
         const { active, over } = event;
         if (!over || active.id === over.id) return;
         const oldIndex = photos.findIndex((photo) => photo.id === active.id);
@@ -147,16 +151,19 @@ export function SimplePublishPhotoGrid({
     };
 
     const openGallery = () => {
+        if (disabled) return;
         galleryInputRef.current?.click();
         setSourceOpen(false);
     };
 
     const openCamera = () => {
+        if (disabled) return;
         cameraInputRef.current?.click();
         setSourceOpen(false);
     };
 
     const handleAddMore = () => {
+        if (disabled) return;
         if (!prefersCamera) {
             openGallery();
             return;
@@ -165,19 +172,22 @@ export function SimplePublishPhotoGrid({
     };
 
     const handleFiles = (files: FileList | null) => {
+        if (disabled) return;
         if (files?.length) onAddFiles(files);
     };
 
     return (
-        <div className="space-y-3">
+        <div className={joinClasses('space-y-3', disabled && 'pointer-events-none opacity-60')}>
             {photos.length === 0 ? (
                 <div
                     onDragOver={(event) => {
+                        if (disabled) return;
                         event.preventDefault();
                         setDragOver(true);
                     }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={(event) => {
+                        if (disabled) return;
                         event.preventDefault();
                         setDragOver(false);
                         onAddFiles(event.dataTransfer.files);
@@ -275,7 +285,7 @@ export function SimplePublishPhotoGrid({
                 desktopLabel="Subir fotos"
             />
 
-            {error?.trim() ? <p className="text-xs text-(--color-error)">{error}</p> : null}
+            {error?.trim() ? <p className="text-xs text-(--color-error)" data-publish-error="true">{error}</p> : null}
         </div>
     );
 }

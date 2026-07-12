@@ -21,14 +21,14 @@ export function SimplePublishRequiredMark() {
 
 export function SimplePublishField({ label, required, error, hint, children }: SimplePublishFieldProps) {
     return (
-        <div>
+        <div data-publish-invalid={error?.trim() ? 'true' : undefined}>
             <label className="mb-1 block text-sm font-medium text-(--fg)">
                 {label}
                 {required ? <SimplePublishRequiredMark /> : null}
             </label>
             {children}
             {hint ? <p className="mt-1 text-xs text-(--fg-muted)">{hint}</p> : null}
-            {error?.trim() ? <p className="mt-2 text-xs text-(--color-error)">{error}</p> : null}
+            {error?.trim() ? <p className="mt-2 text-xs text-(--color-error)" data-publish-error="true">{error}</p> : null}
         </div>
     );
 }

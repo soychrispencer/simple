@@ -27,7 +27,7 @@ import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form'
 import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton, PanelSummaryCard, PanelScrollModal } from '@simple/ui/panel';
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, VEHICLE_APPEARANCE_OPTIONS, VEHICLE_TECH_EQUIPMENT_OPTIONS, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
@@ -781,6 +781,7 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
         setFieldErrors(nextErrors);
         if (Object.keys(nextErrors).length > 0) {
             setPublishError(null);
+            scrollToFirstPublishError();
             return;
         }
         setPublishError(null);
@@ -806,6 +807,7 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                     setFieldErrors(stepValidationErrors);
                     setStep(stepNumber);
                     setPublishError(null);
+                    scrollToFirstPublishError({ delayMs: 80 });
                     return;
                 }
             }
@@ -1503,6 +1505,7 @@ function Step1PhotosAndIdentity({
     const videoCameraInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
     const [processingPhotos, setProcessingPhotos] = useState(false);
+    const [photoProcessProgress, setPhotoProcessProgress] = useState<{ current: number; total: number } | null>(null);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
     const [videoProcessError, setVideoProcessError] = useState<string | null>(null);
 
@@ -1520,10 +1523,13 @@ function Step1PhotosAndIdentity({
 
         setProcessingPhotos(true);
         setPhotoProcessError(null);
+        setPhotoProcessProgress({ current: 0, total: toAdd.length });
 
         try {
             const newPhotos: FormData['photos'] = [];
-            for (const sourceFile of toAdd) {
+            for (let index = 0; index < toAdd.length; index += 1) {
+                const sourceFile = toAdd[index];
+                setPhotoProcessProgress({ current: index + 1, total: toAdd.length });
                 const optimized = await optimizeListingPhotoFile(sourceFile);
                 const blob = await fetch(optimized.dataUrl).then((response) => response.blob());
                 const file = new File([blob], optimized.name, { type: optimized.mimeType });
@@ -1545,6 +1551,7 @@ function Step1PhotosAndIdentity({
             setPhotoProcessError(error instanceof Error ? error.message : 'No se pudieron procesar las fotos.');
         } finally {
             setProcessingPhotos(false);
+            setPhotoProcessProgress(null);
         }
     };
 
@@ -1651,6 +1658,7 @@ function Step1PhotosAndIdentity({
                         recommendedPhotos={5}
                         photoError={photoProcessError || undefined}
                         photoInvalid={isAutosFieldInvalid(fieldErrors, 'photos')}
+                        photoProcessProgress={photoProcessProgress}
                         onAddFiles={(files) => void handleFiles(files)}
                         onRemovePhoto={removePhoto}
                         onReorderPhotos={(photos) => {
