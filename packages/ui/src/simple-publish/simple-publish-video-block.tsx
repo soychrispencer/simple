@@ -1,24 +1,19 @@
 'use client';
 
-import { IconBrandYoutube, IconCamera, IconLink, IconPhoto, IconVideo, IconX } from '@tabler/icons-react';
-import {
-    PUBLISH_VIDEO_MAX_DURATION_SECONDS,
-    PUBLISH_VIDEO_MAX_SIZE_MB,
-    PUBLISH_VIDEO_MAX_SOURCE_SIZE_MB,
-} from '@simple/utils';
+import { useState } from 'react';
+import { IconLink, IconPlus, IconVideo, IconX } from '@tabler/icons-react';
+import { PUBLISH_VIDEO_MAX_DURATION_SECONDS } from '@simple/utils';
+import { MediaSourceSheet } from './media-source-sheet';
+import { usePrefersCameraSource } from './media-source-picker';
 import { SimplePublishSurface } from './simple-publish-surface';
 
 export type SimplePublishVideoBlockProps = {
-    /** Vista previa del clip subido (blob o URL pública). */
     uploadPreviewUrl?: string | null;
     uploadFileName?: string | null;
-    /** Enlace YouTube/Vimeo — excluyente con el clip subido. */
     externalUrl?: string;
     error?: string;
     invalid?: boolean;
-    /** Galería / archivos (sin capture). */
     onPickGallery?: () => void;
-    /** Cámara (con capture en el input del host). */
     onPickCamera?: () => void;
     /** @deprecated Usa onPickGallery. */
     onPickUpload?: () => void;
@@ -38,124 +33,117 @@ export function SimplePublishVideoBlock({
     onClearUpload,
     onExternalUrlChange,
 }: SimplePublishVideoBlockProps) {
+    const [sourceOpen, setSourceOpen] = useState(false);
+    const prefersCamera = usePrefersCameraSource();
     const hasUpload = Boolean(uploadPreviewUrl);
     const hasExternal = Boolean(externalUrl.trim());
     const uploadLocked = hasExternal;
     const externalLocked = hasUpload;
     const pickGallery = onPickGallery ?? onPickUpload;
-    const canPick = Boolean(pickGallery || onPickCamera);
+
+    const openGallery = () => {
+        pickGallery?.();
+        setSourceOpen(false);
+    };
+
+    const openCamera = () => {
+        onPickCamera?.();
+        setSourceOpen(false);
+    };
+
+    const handleAddVideo = () => {
+        if (uploadLocked || (!pickGallery && !onPickCamera)) return;
+        // Desktop: sin cámara → abre el selector de archivos directo.
+        if (!prefersCamera) {
+            pickGallery?.();
+            return;
+        }
+        setSourceOpen(true);
+    };
 
     return (
         <SimplePublishSurface>
-            <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 text-sm font-semibold text-(--fg)">
-                    <IconVideo size={17} className="text-(--accent)" />
-                    Video opcional (vertical 9:16)
+            <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="inline-flex items-center gap-2 text-sm font-semibold text-(--fg)">
+                        <IconVideo size={17} className="text-(--accent)" />
+                        Video
+                        <span className="font-normal text-(--fg-muted)">(opcional)</span>
+                    </p>
+                    <p className="mt-0.5 text-xs text-(--fg-muted)">
+                        Vertical · máx. {PUBLISH_VIDEO_MAX_DURATION_SECONDS} s
+                    </p>
                 </div>
-                <p className="mt-1 text-xs leading-relaxed text-(--fg-muted)">
-                    Un solo video para la tarjeta tipo red social, el feed Descubre e Instagram/TikTok.
-                    Sube un clip o pega un enlace de YouTube/Vimeo. Máx. {PUBLISH_VIDEO_MAX_DURATION_SECONDS} s;
-                    videos grandes se comprimen solos al subir (hasta {PUBLISH_VIDEO_MAX_SOURCE_SIZE_MB} MB de origen → {PUBLISH_VIDEO_MAX_SIZE_MB} MB).
-                </p>
             </div>
 
-            <div className="mt-4 space-y-4">
-                <div className="space-y-2">
-                    <p className="text-xs font-medium text-(--fg)">Subir clip</p>
-                    {hasUpload ? (
-                        <div className="grid grid-cols-[88px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-(--border) p-3">
-                            <video
-                                src={uploadPreviewUrl ?? undefined}
-                                className="h-24 w-[88px] rounded-xl bg-black object-cover"
-                                muted
-                                playsInline
-                            />
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-(--fg)">
-                                    {uploadFileName ?? 'Clip seleccionado'}
-                                </p>
-                                <p className="mt-1 text-xs text-(--fg-muted)">
-                                    Formato vertical recomendado · MP4, WEBM o MOV
-                                </p>
-                            </div>
-                            {onClearUpload ? (
-                                <button
-                                    type="button"
-                                    onClick={onClearUpload}
-                                    className="flex h-9 w-9 items-center justify-center rounded-full border border-(--border) text-(--fg-muted)"
-                                    aria-label="Quitar clip"
-                                >
-                                    <IconX size={16} />
-                                </button>
-                            ) : null}
+            <div className="mt-4 space-y-3">
+                {hasUpload ? (
+                    <div className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-(--border) p-2.5">
+                        <video
+                            src={uploadPreviewUrl ?? undefined}
+                            className="h-20 w-[72px] rounded-xl bg-black object-cover"
+                            muted
+                            playsInline
+                        />
+                        <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-(--fg)">
+                                {uploadFileName ?? 'Clip listo'}
+                            </p>
+                            <p className="mt-0.5 text-xs text-(--fg-muted)">Se usará en Descubre y redes</p>
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-2 gap-2">
+                        {onClearUpload ? (
                             <button
                                 type="button"
-                                onClick={onPickCamera}
-                                disabled={uploadLocked || !onPickCamera}
-                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-(--border) bg-(--bg) text-sm font-medium text-(--fg) transition hover:border-(--accent) disabled:cursor-not-allowed disabled:opacity-45"
+                                onClick={onClearUpload}
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-(--border) text-(--fg-muted)"
+                                aria-label="Quitar clip"
                             >
-                                <IconCamera size={16} />
-                                Cámara
+                                <IconX size={16} />
                             </button>
-                            <button
-                                type="button"
-                                onClick={pickGallery}
-                                disabled={uploadLocked || !pickGallery}
-                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-(--border) bg-(--bg) text-sm font-medium text-(--fg) transition hover:border-(--accent) disabled:cursor-not-allowed disabled:opacity-45"
-                            >
-                                <IconPhoto size={16} />
-                                Galería
-                            </button>
-                        </div>
-                    )}
-                    {uploadLocked ? (
-                        <p className="text-[11px] text-(--fg-muted)">
-                            Quita el enlace externo para subir un clip.
-                        </p>
-                    ) : !canPick ? (
-                        <p className="text-[11px] text-(--fg-muted)">
-                            No hay selector de video disponible.
-                        </p>
-                    ) : null}
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <div className="h-px flex-1 bg-(--border)" />
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-(--fg-muted)">o</span>
-                    <div className="h-px flex-1 bg-(--border)" />
-                </div>
-
-                <div className="space-y-2">
-                    <p className="text-xs font-medium text-(--fg)">Enlace de YouTube o Vimeo</p>
-                    <div className="relative">
-                        <IconLink
-                            size={16}
-                            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-(--fg-muted)"
-                        />
-                        <input
-                            className={`form-input w-full pl-9${invalid ? ' form-input-error' : ''}`}
-                            placeholder="https://www.youtube.com/... o https://vimeo.com/..."
-                            value={externalUrl}
-                            disabled={externalLocked || !onExternalUrlChange}
-                            onChange={(event) => onExternalUrlChange?.(event.target.value)}
-                        />
+                        ) : null}
                     </div>
-                    {externalLocked ? (
-                        <p className="text-[11px] text-(--fg-muted)">
-                            Quita el clip subido para usar un enlace externo.
-                        </p>
-                    ) : null}
-                    {hasExternal && !externalLocked ? (
-                        <div className="flex items-center gap-2 rounded-xl border border-(--border) bg-(--bg-subtle)/50 px-3 py-2 text-xs text-(--fg-muted)">
-                            <IconBrandYoutube size={16} className="shrink-0 text-(--fg-muted)" />
-                            <span className="truncate">{externalUrl.trim()}</span>
-                        </div>
-                    ) : null}
+                ) : (
+                    <button
+                        type="button"
+                        onClick={handleAddVideo}
+                        disabled={uploadLocked || (!pickGallery && !onPickCamera)}
+                        className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-(--border) bg-(--bg-subtle)/40 text-sm font-semibold text-(--fg) transition hover:border-(--accent)/50 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                        <IconPlus size={18} className="text-(--accent)" />
+                        {prefersCamera ? 'Agregar video' : 'Subir video'}
+                    </button>
+                )}
+
+                {uploadLocked ? (
+                    <p className="text-[11px] text-(--fg-muted)">Quita el enlace para subir un clip.</p>
+                ) : null}
+
+                <div className="relative">
+                    <IconLink
+                        size={15}
+                        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-(--fg-muted)"
+                    />
+                    <input
+                        className={`form-input w-full pl-9 text-sm${invalid ? ' form-input-error' : ''}`}
+                        placeholder="O pega un link de YouTube / Vimeo"
+                        value={externalUrl}
+                        disabled={externalLocked || !onExternalUrlChange}
+                        onChange={(event) => onExternalUrlChange?.(event.target.value)}
+                    />
                 </div>
+                {externalLocked ? (
+                    <p className="text-[11px] text-(--fg-muted)">Quita el clip para usar un enlace.</p>
+                ) : null}
             </div>
+
+            <MediaSourceSheet
+                open={sourceOpen}
+                title="Agregar video"
+                onClose={() => setSourceOpen(false)}
+                onCamera={openCamera}
+                onGallery={openGallery}
+                desktopLabel="Subir video"
+            />
 
             {error?.trim() ? <p className="mt-3 text-xs text-(--color-error)">{error}</p> : null}
         </SimplePublishSurface>

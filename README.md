@@ -51,12 +51,14 @@ pnpm run dev:all
 
 ```bash
 # Desarrollo
-pnpm run dev:all              # Todas las apps + API
+pnpm run dev:all              # Todas las apps + API (webpack; menos RAM)
+pnpm run dev:all:turbo        # Igual, con Turbopack (más rápido, mucho más RAM)
 pnpm run dev:api              # Solo API
-pnpm run dev:autos            # Solo SimpleAutos
+pnpm run dev:autos            # Solo SimpleAutos (Turbopack)
 pnpm run dev:propiedades      # Solo SimplePropiedades
 pnpm run dev:agenda           # Solo SimpleAgenda
 pnpm run dev:serenatas        # Solo SimpleSerenatas
+pnpm run dev:ui:watch         # Recompila @simple/ui al editar el paquete compartido
 
 # Build
 pnpm run build                # Todas las apps y packages

@@ -198,7 +198,7 @@ const STEPS = PROPERTY_PUBLISH_STEPS;
 const PROPERTY_STEP_COPY: Record<StepId, { title: string; description: string }> = {
     media: {
         title: 'Fotos y video',
-        description: 'Sube lo esencial para tu tarjeta. La primera foto será la portada.',
+        description: 'La primera foto es la portada.',
     },
     basics: {
         title: 'Datos del inmueble',

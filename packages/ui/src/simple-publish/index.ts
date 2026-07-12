@@ -72,6 +72,15 @@ export {
     type SimplePublishVideoBlockProps,
 } from './simple-publish-video-block';
 export {
+    MediaSourceSheet,
+    type MediaSourceSheetProps,
+} from './media-source-sheet';
+export {
+    MediaSourcePicker,
+    usePrefersCameraSource,
+    type MediaSourcePickerProps,
+} from './media-source-picker';
+export {
     SimplePublishMediaUploadNotice,
     type SimplePublishMediaUploadNoticeProps,
 } from './simple-publish-media-upload-notice';

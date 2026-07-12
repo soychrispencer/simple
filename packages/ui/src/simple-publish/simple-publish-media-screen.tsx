@@ -32,7 +32,7 @@ export function SimplePublishMediaScreen({
         <div className="space-y-4">
             <SimplePublishSurface>
                 <label className="mb-3 block text-sm font-medium text-(--fg)">
-                    Fotos y portada
+                    Fotos
                     <SimplePublishRequiredMark />
                 </label>
                 <SimplePublishPhotoGrid

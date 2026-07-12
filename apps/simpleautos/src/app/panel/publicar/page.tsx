@@ -185,7 +185,7 @@ const PUBLISH_STEPS = AUTOS_PUBLISH_STEPS;
 const AUTOS_STEP_COPY: Record<number, { title: string; description: string }> = {
     1: {
         title: 'Fotos y video',
-        description: 'Sube lo esencial para tu tarjeta. La primera foto será la portada.',
+        description: 'La primera foto es la portada.',
     },
     2: {
         title: 'Datos del vehículo',
