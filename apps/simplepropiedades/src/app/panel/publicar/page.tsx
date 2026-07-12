@@ -38,7 +38,7 @@ import {
     IconGripVertical,
 } from '@tabler/icons-react';
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishPhotoProcessNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPhotoProcessProgress, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
 import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress, PROPERTY_CONDITION_OPTIONS, showsPropertyCondition, normalizePropertyCondition, buildPropertyCardSummaryTags } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
@@ -2320,14 +2320,22 @@ function SortablePhotoTile({ photo, index, onRemove }: { photo: PanelMediaAsset;
     );
 }
 
-function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
-    const { data, setData, errors } = props;
+function StepMedia(props: {
+    data: WizardData;
+    setData: WizardSetter;
+    errors: Record<string, string>;
+    onPhotoProcessProgressChange?: (progress: SimplePublishPhotoProcessProgress | null) => void;
+}) {
+    const { data, setData, errors, onPhotoProcessProgressChange } = props;
     const videoGalleryInputRef = useRef<HTMLInputElement>(null);
     const videoCameraInputRef = useRef<HTMLInputElement>(null);
     const [processingPhotos, setProcessingPhotos] = useState(false);
-    const [photoProcessProgress, setPhotoProcessProgress] = useState<{ current: number; total: number } | null>(null);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
     const [videoProcessError, setVideoProcessError] = useState<string | null>(null);
+
+    const reportPhotoProgress = (progress: SimplePublishPhotoProcessProgress | null) => {
+        onPhotoProcessProgressChange?.(progress);
+    };
 
     const handleFiles = async (files: FileList) => {
         if (processingPhotos) return;
@@ -2336,13 +2344,13 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
 
         setProcessingPhotos(true);
         setPhotoProcessError(null);
-        setPhotoProcessProgress({ current: 0, total: toAdd.length });
+        reportPhotoProgress({ current: 0, total: toAdd.length });
 
         try {
             const newPhotos: PanelMediaAsset[] = [];
             for (let index = 0; index < toAdd.length; index += 1) {
                 const file = toAdd[index];
-                setPhotoProcessProgress({ current: index + 1, total: toAdd.length });
+                reportPhotoProgress({ current: index + 1, total: toAdd.length });
                 const optimized = await optimizeListingPhotoFile(file);
                 newPhotos.push({
                     id: Math.random().toString(36).slice(2),
@@ -2372,7 +2380,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
             setPhotoProcessError(error instanceof Error ? error.message : 'No se pudieron procesar las fotos.');
         } finally {
             setProcessingPhotos(false);
-            setPhotoProcessProgress(null);
+            reportPhotoProgress(null);
         }
     };
 
@@ -2453,7 +2461,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                 recommendedPhotos={8}
                 photoError={photoProcessError || undefined}
                 photoInvalid={Object.prototype.hasOwnProperty.call(errors, 'media.photos')}
-                photoProcessProgress={photoProcessProgress}
+                photosBusy={processingPhotos}
                 onAddFiles={handleFiles}
                 onRemovePhoto={removePhoto}
                 onReorderPhotos={(photos) => {
@@ -3249,6 +3257,8 @@ export default function PublishWizardPage() {
     const [operatorDefaultsApplied, setOperatorDefaultsApplied] = useState(false);
     const [draftLoaded, setDraftLoaded] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [photoProcessProgress, setPhotoProcessProgress] = useState<SimplePublishPhotoProcessProgress | null>(null);
+    const processingPhotos = photoProcessProgress != null;
     const [, setLastSavedAt] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
     const [draftSavedNote, setDraftSavedNote] = useState<string | null>(null);
@@ -3903,8 +3913,8 @@ export default function PublishWizardPage() {
                     if (step === 'publish') void publishNow();
                     else void goNext();
                 },
-                disabled: publishing || savingDraft || editingLoading || editLoadFailed || (step === 'publish' && publishBlocked),
-                loading: publishing || savingDraft,
+                disabled: publishing || savingDraft || editingLoading || editLoadFailed || processingPhotos || (step === 'publish' && publishBlocked),
+                loading: publishing || savingDraft || processingPhotos,
             }}
             notices={(
                 <>
@@ -3932,7 +3942,14 @@ export default function PublishWizardPage() {
             <SimplePublishPageFrame
                 preview={<SimplePublishPreviewCard {...buildPropertyPreviewCardProps(data)} />}
             >
-                {step === 'media' && <StepMedia data={data} setData={setData} errors={errors} />}
+                {step === 'media' && (
+                    <StepMedia
+                        data={data}
+                        setData={setData}
+                        errors={errors}
+                        onPhotoProcessProgressChange={setPhotoProcessProgress}
+                    />
+                )}
                 {step === 'basics' && (
                     <StepBasics
                         data={data}
@@ -3989,15 +4006,18 @@ export default function PublishWizardPage() {
                 )}
                 <SimplePublishCtaCard
                     label={continueLabel}
-                    loadingLabel={step === 'publish'
-                        ? (isEditing ? 'Guardando...' : 'Publicando...')
-                        : undefined}
+                    loadingLabel={processingPhotos
+                        ? 'Optimizando fotos…'
+                        : step === 'publish'
+                            ? (isEditing ? 'Guardando...' : 'Publicando...')
+                            : undefined}
                     onClick={() => {
                         if (step === 'publish') void publishNow();
                         else void goNext();
                     }}
-                    disabled={publishing || editingLoading || editLoadFailed || (step === 'publish' && publishBlocked)}
-                    loading={publishing}
+                    disabled={publishing || editingLoading || editLoadFailed || processingPhotos || (step === 'publish' && publishBlocked)}
+                    loading={publishing || processingPhotos}
+                    preamble={step === 'media' ? <SimplePublishPhotoProcessNotice progress={photoProcessProgress} /> : undefined}
                     hint={step === 'publish' ? 'Al publicar, tu aviso quedará visible en SimplePropiedades de inmediato.' : undefined}
                     icon={step === 'publish' ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
                 />

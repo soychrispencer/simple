@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import {
     IconBed,
     IconBuilding,
     IconRuler,
     IconBath,
+    IconChevronDown,
 } from '@tabler/icons-react';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
@@ -59,6 +61,40 @@ function findSummaryValue(summary: string[], patterns: RegExp[]) {
 
 interface PropertyDetailClientProps {
     item: PublicListing;
+}
+
+function CollapsibleSection({
+    title,
+    children,
+    defaultExpanded = false,
+}: {
+    title: string;
+    children: React.ReactNode;
+    defaultExpanded?: boolean;
+}) {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+    return (
+        <PanelCard size="lg">
+            <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="flex w-full items-center justify-between text-left"
+                aria-expanded={isExpanded}
+            >
+                <PanelBlockHeader title={title} className="mb-0" />
+                <IconChevronDown
+                    size={20}
+                    className="transition-transform duration-200"
+                    style={{
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        color: 'var(--fg-secondary)',
+                    }}
+                />
+            </button>
+            {isExpanded && <div className="mt-4">{children}</div>}
+        </PanelCard>
+    );
 }
 
 export default function PropertyDetailClient({ item }: PropertyDetailClientProps) {
@@ -152,8 +188,7 @@ export default function PropertyDetailClient({ item }: PropertyDetailClientProps
                     </PublicListingDetailSpecGrid>
 
                     {item.summary.length > 0 ? (
-                        <PanelCard size="lg">
-                            <PanelBlockHeader title="Resumen" className="mb-4" />
+                        <CollapsibleSection title="Resumen" defaultExpanded={true}>
                             <div className="flex flex-wrap gap-2">
                                 {item.summary.map((entry) => (
                                     <span
@@ -165,22 +200,23 @@ export default function PropertyDetailClient({ item }: PropertyDetailClientProps
                                     </span>
                                 ))}
                             </div>
-                        </PanelCard>
+                        </CollapsibleSection>
                     ) : null}
 
-                    <PanelCard size="lg">
-                        <PanelBlockHeader title="Descripción" className="mb-3" />
+                    <CollapsibleSection title="Descripción" defaultExpanded={false}>
                         <p className="text-sm leading-relaxed whitespace-pre-wrap md:text-base" style={{ color: 'var(--fg-secondary)' }}>
                             {item.description || 'Esta publicación no incluye descripción adicional.'}
                         </p>
-                    </PanelCard>
+                    </CollapsibleSection>
 
                     {item.seller?.username ? (
-                        <SellerProductsCrossSell
-                            sellerUsername={item.seller.username}
-                            sellerName={item.seller.name}
-                            profileHref={item.seller.profileHref}
-                        />
+                        <CollapsibleSection title="Más publicaciones del vendedor" defaultExpanded={false}>
+                            <SellerProductsCrossSell
+                                sellerUsername={item.seller.username}
+                                sellerName={item.seller.name}
+                                profileHref={item.seller.profileHref}
+                            />
+                        </CollapsibleSection>
                     ) : null}
                 </div>
 

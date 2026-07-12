@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import {
     IconCalendar,
@@ -7,6 +8,7 @@ import {
     IconGauge,
     IconGasStation,
     IconManualGearbox,
+    IconChevronDown,
 } from '@tabler/icons-react';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
@@ -55,6 +57,40 @@ function resolveTransmission(summary: string[]): string {
 
 interface VehicleDetailClientProps {
     item: PublicListing;
+}
+
+function CollapsibleSection({
+    title,
+    children,
+    defaultExpanded = false,
+}: {
+    title: string;
+    children: React.ReactNode;
+    defaultExpanded?: boolean;
+}) {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+    return (
+        <PanelCard size="lg">
+            <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="flex w-full items-center justify-between text-left"
+                aria-expanded={isExpanded}
+            >
+                <PanelBlockHeader title={title} className="mb-0" />
+                <IconChevronDown
+                    size={20}
+                    className="transition-transform duration-200"
+                    style={{
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        color: 'var(--fg-secondary)',
+                    }}
+                />
+            </button>
+            {isExpanded && <div className="mt-4">{children}</div>}
+        </PanelCard>
+    );
 }
 
 export default function VehicleDetailClient({ item }: VehicleDetailClientProps) {
@@ -153,19 +189,20 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                         />
                     </PublicListingDetailSpecGrid>
 
-                    <PanelCard size="lg">
-                        <PanelBlockHeader title="Descripción del vendedor" className="mb-3" />
+                    <CollapsibleSection title="Descripción del vendedor" defaultExpanded={true}>
                         <div className="text-sm leading-relaxed whitespace-pre-wrap md:text-base" style={{ color: 'var(--fg-secondary)' }}>
                             {item.description || 'Esta publicación no incluye descripción adicional.'}
                         </div>
-                    </PanelCard>
+                    </CollapsibleSection>
 
                     {item.seller?.username ? (
-                        <SellerProductsCrossSell
-                            sellerUsername={item.seller.username}
-                            sellerName={item.seller.name}
-                            profileHref={item.seller.profileHref}
-                        />
+                        <CollapsibleSection title="Más publicaciones del vendedor" defaultExpanded={false}>
+                            <SellerProductsCrossSell
+                                sellerUsername={item.seller.username}
+                                sellerName={item.seller.name}
+                                profileHref={item.seller.profileHref}
+                            />
+                        </CollapsibleSection>
                     ) : null}
                 </div>
 

@@ -65,5 +65,7 @@ export type SimplePublishCtaCardProps = {
     loading?: boolean;
     loadingLabel?: string;
     hint?: string;
+    /** Contenido encima del botón (ej. progreso de optimización de fotos). */
+    preamble?: ReactNode;
     icon?: ReactNode;
 };

@@ -67,8 +67,12 @@ export {
 export {
     SimplePublishMediaScreen,
     type SimplePublishMediaScreenProps,
-    type SimplePublishPhotoProcessProgress,
 } from './simple-publish-media-screen';
+export {
+    SimplePublishPhotoProcessNotice,
+    type SimplePublishPhotoProcessNoticeProps,
+    type SimplePublishPhotoProcessProgress,
+} from './simple-publish-photo-process-notice';
 export {
     SimplePublishVideoBlock,
     type SimplePublishVideoBlockProps,

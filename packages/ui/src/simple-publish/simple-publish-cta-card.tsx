@@ -12,6 +12,7 @@ export function SimplePublishCtaCard({
     loading = false,
     loadingLabel,
     hint,
+    preamble,
     icon,
 }: SimplePublishCtaCardProps) {
     return (
@@ -19,6 +20,7 @@ export function SimplePublishCtaCard({
             size="md"
             className="mt-8 bg-linear-to-b from-(--surface) to-(--bg-subtle)/40"
         >
+            {preamble ? <div className="mb-3">{preamble}</div> : null}
             {hint ? <p className="mb-3 text-xs leading-relaxed text-(--fg-muted)">{hint}</p> : null}
             <PanelButton
                 type="button"

@@ -27,7 +27,7 @@ import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form'
 import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton, PanelSummaryCard, PanelScrollModal } from '@simple/ui/panel';
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishPhotoProcessNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPhotoProcessProgress, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, vehicleAppearanceOptionsForType, vehicleTechEquipmentOptionsForType, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
@@ -570,6 +570,8 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
     const [mediaUploadProgress, setMediaUploadProgress] = useState<DraftMediaUploadProgress | null>(null);
     const [publishError, setPublishError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [photoProcessProgress, setPhotoProcessProgress] = useState<SimplePublishPhotoProcessProgress | null>(null);
+    const processingPhotos = photoProcessProgress != null;
     const [editingLoading, setEditingLoading] = useState(false);
     const [editLoadFailed, setEditLoadFailed] = useState(false);
     const [resettingWizard, setResettingWizard] = useState(false);
@@ -1218,8 +1220,8 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                     if (step === 4) void handlePublish();
                     else void goNext();
                 },
-                disabled: loading || savingDraft || editingLoading || editLoadFailed || (step === 4 && publishBlocked),
-                loading: loading || savingDraft,
+                disabled: loading || savingDraft || editingLoading || editLoadFailed || processingPhotos || (step === 4 && publishBlocked),
+                loading: loading || savingDraft || processingPhotos,
             }}
             notices={(
                 <>
@@ -1243,7 +1245,14 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                         preview={<SimplePublishPreviewCard {...buildAutosPreviewCardProps(form, catalog)} />}
                     >
                         {step === 1 && (
-                            <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="media" fieldErrors={fieldErrors} />
+                            <Step1PhotosAndIdentity
+                                form={form}
+                                updateForm={updateForm}
+                                catalog={catalog}
+                                section="media"
+                                fieldErrors={fieldErrors}
+                                onPhotoProcessProgressChange={setPhotoProcessProgress}
+                            />
                         )}
                         {step === 2 && (
                             <div className="space-y-5">
@@ -1291,15 +1300,18 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                                 : step === 1
                                     ? 'Continuar'
                                     : 'Continuar'}
-                            loadingLabel={step === 4
-                                ? (isEditing ? 'Guardando...' : 'Publicando...')
-                                : 'Avanzando...'}
+                            loadingLabel={processingPhotos
+                                ? 'Optimizando fotos…'
+                                : step === 4
+                                    ? (isEditing ? 'Guardando...' : 'Publicando...')
+                                    : 'Avanzando...'}
                             onClick={() => {
                                 if (step === 4) void handlePublish();
                                 else void goNext();
                             }}
-                            disabled={editingLoading || editLoadFailed || (step === 4 && publishBlocked)}
-                            loading={loading}
+                            disabled={editingLoading || editLoadFailed || processingPhotos || (step === 4 && publishBlocked)}
+                            loading={loading || processingPhotos}
+                            preamble={step === 1 ? <SimplePublishPhotoProcessNotice progress={photoProcessProgress} /> : undefined}
                             hint={step === 4 ? 'Al publicar, tu aviso quedará visible en SimpleAutos de inmediato.' : undefined}
                             icon={step === 4 ? <IconCheck size={18} /> : <IconArrowRight size={18} />}
                         />
@@ -1500,6 +1512,7 @@ function Step1PhotosAndIdentity({
     section = 'all',
     operatorContext,
     fieldErrors = {},
+    onPhotoProcessProgressChange,
 }: {
     form: FormData;
     updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
@@ -1507,15 +1520,19 @@ function Step1PhotosAndIdentity({
     section?: 'media' | 'identity' | 'all';
     operatorContext?: AutosOperatorPublishContext;
     fieldErrors?: Record<string, string>;
+    onPhotoProcessProgressChange?: (progress: SimplePublishPhotoProcessProgress | null) => void;
 }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoGalleryInputRef = useRef<HTMLInputElement>(null);
     const videoCameraInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
     const [processingPhotos, setProcessingPhotos] = useState(false);
-    const [photoProcessProgress, setPhotoProcessProgress] = useState<{ current: number; total: number } | null>(null);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
     const [videoProcessError, setVideoProcessError] = useState<string | null>(null);
+
+    const reportPhotoProgress = (progress: SimplePublishPhotoProcessProgress | null) => {
+        onPhotoProcessProgressChange?.(progress);
+    };
 
     // DnD sensors
     const sensors = useSensors(
@@ -1531,13 +1548,13 @@ function Step1PhotosAndIdentity({
 
         setProcessingPhotos(true);
         setPhotoProcessError(null);
-        setPhotoProcessProgress({ current: 0, total: toAdd.length });
+        reportPhotoProgress({ current: 0, total: toAdd.length });
 
         try {
             const newPhotos: FormData['photos'] = [];
             for (let index = 0; index < toAdd.length; index += 1) {
                 const sourceFile = toAdd[index];
-                setPhotoProcessProgress({ current: index + 1, total: toAdd.length });
+                reportPhotoProgress({ current: index + 1, total: toAdd.length });
                 const optimized = await optimizeListingPhotoFile(sourceFile);
                 const blob = await fetch(optimized.dataUrl).then((response) => response.blob());
                 const file = new File([blob], optimized.name, { type: optimized.mimeType });
@@ -1559,7 +1576,7 @@ function Step1PhotosAndIdentity({
             setPhotoProcessError(error instanceof Error ? error.message : 'No se pudieron procesar las fotos.');
         } finally {
             setProcessingPhotos(false);
-            setPhotoProcessProgress(null);
+            reportPhotoProgress(null);
         }
     };
 
@@ -1666,7 +1683,7 @@ function Step1PhotosAndIdentity({
                         recommendedPhotos={5}
                         photoError={photoProcessError || undefined}
                         photoInvalid={isAutosFieldInvalid(fieldErrors, 'photos')}
-                        photoProcessProgress={photoProcessProgress}
+                        photosBusy={processingPhotos}
                         onAddFiles={(files) => void handleFiles(files)}
                         onRemovePhoto={removePhoto}
                         onReorderPhotos={(photos) => {
