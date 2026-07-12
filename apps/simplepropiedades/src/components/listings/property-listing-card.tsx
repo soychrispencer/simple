@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@simple/auth';
 import { isListingSaved, subscribeSavedListings, toggleSavedListing } from '@simple/utils';
-import { IconHome } from '@tabler/icons-react';
+import { IconBuilding, IconHome } from '@tabler/icons-react';
 import {
     MarketplaceReelListingCard,
     abbreviateListingSpecLabel,
