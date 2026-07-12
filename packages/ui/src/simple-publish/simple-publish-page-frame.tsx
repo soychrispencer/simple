@@ -16,7 +16,10 @@ export function SimplePublishPageFrame({ children, preview }: SimplePublishPageF
                 <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-(--fg-muted)">
                     Vista previa
                 </p>
-                {preview}
+                {/* En móvil, aspect 3:4 a ancho completo no cabe en viewport; acotar al ancho desktop / alto disponible. */}
+                <div className="mx-auto w-full max-w-[min(100%,17rem,calc((100dvh-15rem)*0.75))] xl:max-w-none">
+                    {preview}
+                </div>
             </aside>
         </div>
     );
