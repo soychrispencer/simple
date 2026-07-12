@@ -121,6 +121,11 @@ type WizardData = {
         commercialUse: string;
         securityType: string;
         specialConditions: string;
+        constructionYear: string;
+        landRol: string;
+        landUrbanized: string;
+        waterFeasibility: string;
+        electricityFeasibility: string;
     };
     project: {
         projectName: string;
@@ -166,6 +171,8 @@ type WizardData = {
         offerPriceMode: '$' | '%';
         commonExpenseType: string;
         commonExpenses: string;
+        contributions: string;
+        rentGuarantee: string;
         availableFrom: string;
         contactName: string;
         contactPhone: string;
@@ -210,7 +217,7 @@ const PROPERTY_STEP_COPY: Record<StepId, { title: string; description: string }>
     },
     attributes: {
         title: 'Detalles del inmueble',
-        description: 'Completa la ficha con atributos, equipamiento y condiciones comerciales.',
+        description: 'Nada es obligatorio. Estos datos mejoran búsquedas y la confianza del aviso.',
     },
     publish: {
         title: 'Publicar',
@@ -425,11 +432,12 @@ function PropertyTypePicker({
 
 const CURRENCY_OPTIONS = ['UF', 'CLP', 'USD'].map((value) => ({ value, label: value }));
 const YES_NO_OPTIONS = ['Sí', 'No'].map((value) => ({ value, label: value }));
+const FURNISHED_OPTIONS = ['Sí', 'No', 'Parcial'].map((value) => ({ value, label: value }));
 const ORIENTATION_OPTIONS = ['Norte', 'Sur', 'Oriente', 'Poniente', 'Nororiente', 'Norponiente', 'Suroriente', 'Surponiente'].map((value) => ({ value, label: value }));
 const DEPARTMENT_TYPE_OPTIONS = ['Estudio', 'Tradicional', 'Dúplex', 'Tríplex', 'Loft', 'Penthouse'].map((value) => ({ value, label: value }));
-const SECURITY_TYPE_OPTIONS = ['Conserjería 24/7', 'Control de acceso', 'Circuito cerrado', 'Seguridad privada', 'Portería simple', 'Sin seguridad formal'].map((value) => ({ value, label: value }));
 const COMMON_EXPENSE_TYPE_OPTIONS = ['No informa', 'Fijo', 'Variable', 'Incluido', 'No aplica'].map((value) => ({ value, label: value }));
 const COMMERCIAL_USE_OPTIONS = ['Retail', 'Oficinas', 'Restaurant/Cafetería', 'Bodega/Logística', 'Industria', 'Salud', 'Educación', 'Servicios'].map((value) => ({ value, label: value }));
+const LAND_USE_OPTIONS = ['Habitacional', 'Agrícola', 'Forestal', 'Industrial', 'Comercial', 'Mixto', 'Otros'].map((value) => ({ value, label: value }));
 const PROJECT_SALES_STAGE_OPTIONS = ['Lanzamiento', 'Preventa', 'En verde', 'En blanco', 'Últimas unidades', 'Entrega inmediata'].map((value) => ({ value, label: value }));
 const PROJECT_DELIVERY_STATUS_OPTIONS = ['Entrega inmediata', 'Entrega este año', 'Entrega futura', 'Por confirmar'].map((value) => ({ value, label: value }));
 
@@ -503,6 +511,86 @@ const SECURITY_OPTIONS = [
     { code: 'security_cameras', label: 'Cámaras de seguridad' },
 ] as const;
 
+type SpecOption = { code: string; label: string };
+
+function propertySpecProfile(propertyType: string, operationType: string) {
+    const isLand = propertyType === 'Terreno' || propertyType === 'Parcela';
+    const isResidential = propertyType === 'Casa' || propertyType === 'Departamento';
+    const isProject = operationType === 'project';
+    const isCommercial = propertyType === 'Oficina' || propertyType === 'Local comercial' || propertyType === 'Bodega';
+    return { isLand, isResidential, isProject, isCommercial };
+}
+
+function filterAmenityOptions(propertyType: string, operationType: string): SpecOption[] {
+    const { isLand, isProject, isCommercial, isResidential } = propertySpecProfile(propertyType, operationType);
+    if (isLand) {
+        return AMENITY_OPTIONS.filter((item) => ['green_areas', 'wheelchair_ramp'].includes(item.code));
+    }
+    if (isCommercial && !isProject) {
+        return AMENITY_OPTIONS.filter((item) =>
+            ['elevator', 'visitor_parking', 'reception', 'cowork', 'wheelchair_ramp', 'rooftop'].includes(item.code),
+        );
+    }
+    if (isResidential || isProject) return [...AMENITY_OPTIONS];
+    return [...AMENITY_OPTIONS];
+}
+
+function filterServiceOptions(propertyType: string, operationType: string): SpecOption[] {
+    const { isLand, isCommercial } = propertySpecProfile(propertyType, operationType);
+    if (isLand) {
+        return SERVICE_OPTIONS.filter((item) =>
+            ['water', 'natural_gas', 'solar_energy', 'generator', 'cistern', 'internet'].includes(item.code),
+        );
+    }
+    if (isCommercial) {
+        return SERVICE_OPTIONS.filter((item) =>
+            !['laundry_hookup', 'cable_tv', 'satellite_tv'].includes(item.code),
+        );
+    }
+    return [...SERVICE_OPTIONS];
+}
+
+function filterEnvironmentOptions(propertyType: string, operationType: string): SpecOption[] {
+    const { isLand, isCommercial, isResidential, isProject } = propertySpecProfile(propertyType, operationType);
+    if (isLand) {
+        return ENVIRONMENT_OPTIONS.filter((item) =>
+            ['garden', 'patio', 'grill', 'pool', 'terrace'].includes(item.code),
+        );
+    }
+    if (isCommercial && !isProject) {
+        return ENVIRONMENT_OPTIONS.filter((item) =>
+            ['kitchen', 'balcony', 'terrace', 'patio', 'laundry_room', 'multiuse_room', 'homeoffice'].includes(item.code),
+        );
+    }
+    if (isResidential || isProject) return [...ENVIRONMENT_OPTIONS];
+    return [...ENVIRONMENT_OPTIONS];
+}
+
+function filterSecurityOptions(propertyType: string, operationType: string): SpecOption[] {
+    const { isLand } = propertySpecProfile(propertyType, operationType);
+    if (isLand) {
+        return SECURITY_OPTIONS.filter((item) =>
+            ['gated_community', 'controlled_access', 'security_cameras'].includes(item.code),
+        );
+    }
+    return SECURITY_OPTIONS.filter((item) => item.code !== 'commercial_use' || propertyType === 'Local comercial' || propertyType === 'Oficina' || propertyType === 'Bodega');
+}
+
+function initialAttributeSections(data: WizardData) {
+    const isProject = data.setup.operationType === 'project';
+    const isLand = data.setup.propertyType === 'Terreno' || data.setup.propertyType === 'Parcela';
+    const isResidential = data.setup.propertyType === 'Casa' || data.setup.propertyType === 'Departamento';
+    return {
+        saleOptions: false,
+        characteristics: !isProject,
+        extended: isResidential || (!isProject && !isLand),
+        project: isProject,
+        equipment: false,
+        commercial: isLand || data.setup.operationType === 'rent',
+        tour360: false,
+    } as const;
+}
+
 function getOperationLabel(operationType: PropertyOperation) {
     if (operationType === 'rent') return 'Arriendo';
     if (operationType === 'project') return 'Proyecto';
@@ -559,6 +647,11 @@ function createDefaultData(): WizardData {
             commercialUse: '',
             securityType: '',
             specialConditions: '',
+            constructionYear: '',
+            landRol: '',
+            landUrbanized: '',
+            waterFeasibility: '',
+            electricityFeasibility: '',
         },
         project: {
             projectName: '',
@@ -609,6 +702,8 @@ function createDefaultData(): WizardData {
             offerPriceMode: '$',
             commonExpenseType: 'No informa',
             commonExpenses: '',
+            contributions: '',
+            rentGuarantee: '',
             availableFrom: '',
             contactName: '',
             contactPhone: '',
@@ -956,10 +1051,11 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
                 if (parseNumber(data.basic.rooms) == null) errors['basic.rooms'] = '';
                 if (parseNumber(data.basic.bathrooms) == null) errors['basic.bathrooms'] = '';
             }
-            if (parseNumber(data.basic.parkingSpaces) == null) {
+            const isLandType = pt === 'Terreno' || pt === 'Parcela';
+            if (!isLandType && parseNumber(data.basic.parkingSpaces) == null) {
                 errors['basic.parkingSpaces'] = '';
             }
-            if (parseNumber(data.basic.storageUnits) == null) {
+            if (!isLandType && parseNumber(data.basic.storageUnits) == null) {
                 errors['basic.storageUnits'] = '';
             }
         }
@@ -1461,14 +1557,36 @@ function PropertyInmuebleFields(props: {
                         <ModernSelect value={data.basic.petsAllowed} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, petsAllowed: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si admite mascotas" />
                     </Field>
                     <Field label="Amoblado">
-                        <ModernSelect value={data.basic.furnished} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, furnished: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si está amoblado" />
+                        <ModernSelect value={data.basic.furnished} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, furnished: value } }))} placeholder="Seleccionar" options={FURNISHED_OPTIONS} ariaLabel="Seleccionar si está amoblado" />
                     </Field>
                 </div>
             ) : null}
 
-            {showDetail && (isLand || !isResidential) ? (
-                <Field label="Uso de suelo / tipo de local">
-                    <ModernSelect value={data.basic.commercialUse} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, commercialUse: value } }))} placeholder="Seleccionar" options={COMMERCIAL_USE_OPTIONS} ariaLabel="Seleccionar uso de suelo" />
+            {showDetail && isLand ? (
+                <div className="space-y-3">
+                    <Field label="Uso de suelo" hint="Dato clave para terrenos y parcelas.">
+                        <ModernSelect value={data.basic.commercialUse} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, commercialUse: value } }))} placeholder="Seleccionar" options={LAND_USE_OPTIONS} ariaLabel="Seleccionar uso de suelo" />
+                    </Field>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Field label="Rol del terreno">
+                            <input className="form-input" value={data.basic.landRol} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, landRol: event.target.value } }))} placeholder="Ej: 1234-5" />
+                        </Field>
+                        <Field label="Urbanizado">
+                            <ModernSelect value={data.basic.landUrbanized} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, landUrbanized: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar si está urbanizado" />
+                        </Field>
+                        <Field label="Factibilidad de agua">
+                            <ModernSelect value={data.basic.waterFeasibility} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, waterFeasibility: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar factibilidad de agua" />
+                        </Field>
+                        <Field label="Factibilidad de luz">
+                            <ModernSelect value={data.basic.electricityFeasibility} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, electricityFeasibility: value } }))} placeholder="Seleccionar" options={YES_NO_OPTIONS} ariaLabel="Seleccionar factibilidad de luz" />
+                        </Field>
+                    </div>
+                </div>
+            ) : null}
+
+            {showDetail && !isLand && !isResidential ? (
+                <Field label="Uso / tipo de local" hint="Ayuda a filtrar oficinas, locales y bodegas.">
+                    <ModernSelect value={data.basic.commercialUse} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, commercialUse: value } }))} placeholder="Seleccionar" options={COMMERCIAL_USE_OPTIONS} ariaLabel="Seleccionar uso comercial" />
                 </Field>
             ) : null}
         </div>
@@ -1542,22 +1660,24 @@ function PropertyExtendedAttributeFields(props: {
             <div className="space-y-4">
                 <p className="text-xs font-medium prop-publish-muted">Características adicionales</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Antigüedad (años)">
-                        <input className="form-input" type="number" min={0} value={data.basic.propertyAge} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, propertyAge: event.target.value } }))} placeholder="6" />
-                    </Field>
+                    {!isLand ? (
+                        <Field label="Antigüedad (años)">
+                            <input className="form-input" type="number" min={0} value={data.basic.propertyAge} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, propertyAge: event.target.value } }))} placeholder="6" />
+                        </Field>
+                    ) : null}
+                    {!isLand ? (
+                        <Field label="Año de construcción">
+                            <input className="form-input" type="number" min={1900} max={2100} value={data.basic.constructionYear} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, constructionYear: event.target.value } }))} placeholder="2018" />
+                        </Field>
+                    ) : null}
                     {isDepartamento ? (
                         <Field label="Tipo de departamento">
                             <ModernSelect value={data.basic.departmentType} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, departmentType: value } }))} placeholder="Seleccionar" options={DEPARTMENT_TYPE_OPTIONS} ariaLabel="Seleccionar tipo de departamento" />
                         </Field>
                     ) : null}
-                    {!isLocalOrBodega ? (
+                    {!isLocalOrBodega && !isLand ? (
                         <Field label="Orientación">
                             <ModernSelect value={data.basic.orientation} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, orientation: value } }))} placeholder="Seleccionar" options={ORIENTATION_OPTIONS} ariaLabel="Seleccionar orientación" />
-                        </Field>
-                    ) : null}
-                    {!isLand ? (
-                        <Field label="Tipo de seguridad">
-                            <ModernSelect value={data.basic.securityType} onChange={(value) => setData((current) => ({ ...current, basic: { ...current.basic, securityType: value } }))} placeholder="Seleccionar" options={SECURITY_TYPE_OPTIONS} ariaLabel="Seleccionar tipo de seguridad" />
                         </Field>
                     ) : null}
                 </div>
@@ -2105,6 +2225,12 @@ function StepSpecs(props: { data: WizardData; setData: WizardSetter; minimal?: b
         environment: false,
         security: false,
     });
+    const propertyType = data.setup.propertyType;
+    const operationType = data.setup.operationType;
+    const amenityOptions = filterAmenityOptions(propertyType, operationType);
+    const serviceOptions = filterServiceOptions(propertyType, operationType);
+    const environmentOptions = filterEnvironmentOptions(propertyType, operationType);
+    const securityOptions = filterSecurityOptions(propertyType, operationType);
 
     const toggleSpecCode = (scope: 'amenityCodes' | 'serviceCodes' | 'environmentCodes' | 'securityCodes', code: string) => {
         setData((current) => ({
@@ -2124,33 +2250,40 @@ function StepSpecs(props: { data: WizardData; setData: WizardSetter; minimal?: b
             <h2 className="type-section-title">{data.setup.operationType === 'project' ? 'Características del proyecto' : 'Características y equipamiento'}</h2>
             ) : null}
 
-            <AccordionGroup title="Comodidades y equipamiento" description={data.setup.operationType === 'project' ? 'Amenidades del proyecto y espacios comunes.' : 'Amenidades y equipamiento del edificio.'} open={openSections.amenities} onToggle={() => setOpenSections((current) => ({ ...current, amenities: !current.amenities }))}>
+            {amenityOptions.length > 0 ? (
+            <AccordionGroup title="Comodidades y equipamiento" description={data.setup.operationType === 'project' ? 'Amenidades del proyecto y espacios comunes.' : 'Amenidades relevantes para este tipo de inmueble.'} open={openSections.amenities} onToggle={() => setOpenSections((current) => ({ ...current, amenities: !current.amenities }))}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                    {AMENITY_OPTIONS.map((item) => (
+                    {amenityOptions.map((item) => (
                         <SelectableChip key={item.code} label={item.label} active={data.specs.amenityCodes.includes(item.code)} onToggle={() => toggleSpecCode('amenityCodes', item.code)} />
                     ))}
                 </div>
             </AccordionGroup>
+            ) : null}
 
-            <AccordionGroup title="Servicios" description={data.setup.operationType === 'project' ? 'Servicios e infraestructura disponible para las unidades o áreas comunes.' : 'Servicios instalados o disponibles en la propiedad.'} open={openSections.services} onToggle={() => setOpenSections((current) => ({ ...current, services: !current.services }))}>
+            {serviceOptions.length > 0 ? (
+            <AccordionGroup title="Servicios" description={data.setup.operationType === 'project' ? 'Servicios e infraestructura disponible.' : 'Servicios instalados o factibles.'} open={openSections.services} onToggle={() => setOpenSections((current) => ({ ...current, services: !current.services }))}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                    {SERVICE_OPTIONS.map((item) => (
+                    {serviceOptions.map((item) => (
                         <SelectableChip key={item.code} label={item.label} active={data.specs.serviceCodes.includes(item.code)} onToggle={() => toggleSpecCode('serviceCodes', item.code)} />
                     ))}
                 </div>
             </AccordionGroup>
+            ) : null}
 
-            <AccordionGroup title="Ambientes y espacios" description={data.setup.operationType === 'project' ? 'Espacios interiores, exteriores y atributos de las tipologías del proyecto.' : 'Ambientes interiores, exteriores y espacios de apoyo.'} open={openSections.environment} onToggle={() => setOpenSections((current) => ({ ...current, environment: !current.environment }))}>
+            {environmentOptions.length > 0 ? (
+            <AccordionGroup title="Ambientes y espacios" description="Espacios interiores o exteriores del inmueble." open={openSections.environment} onToggle={() => setOpenSections((current) => ({ ...current, environment: !current.environment }))}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                    {ENVIRONMENT_OPTIONS.map((item) => (
+                    {environmentOptions.map((item) => (
                         <SelectableChip key={item.code} label={item.label} active={data.specs.environmentCodes.includes(item.code)} onToggle={() => toggleSpecCode('environmentCodes', item.code)} />
                     ))}
                 </div>
             </AccordionGroup>
+            ) : null}
 
-            <AccordionGroup title="Seguridad y condiciones especiales" description={data.setup.operationType === 'project' ? 'Seguridad del proyecto, control de acceso y notas comerciales para portales.' : 'Seguridad, control de acceso y condiciones de uso del inmueble.'} open={openSections.security} onToggle={() => setOpenSections((current) => ({ ...current, security: !current.security }))}>
+            {securityOptions.length > 0 ? (
+            <AccordionGroup title="Seguridad y acceso" description="Control de acceso y condiciones de seguridad (evita duplicar con otros campos)."} open={openSections.security} onToggle={() => setOpenSections((current) => ({ ...current, security: !current.security }))}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 mb-3">
-                    {SECURITY_OPTIONS.map((item) => (
+                    {securityOptions.map((item) => (
                         <SelectableChip key={item.code} label={item.label} active={data.specs.securityCodes.includes(item.code)} onToggle={() => toggleSpecCode('securityCodes', item.code)} />
                     ))}
                 </div>
@@ -2158,6 +2291,7 @@ function StepSpecs(props: { data: WizardData; setData: WizardSetter; minimal?: b
                     <textarea className="form-textarea" rows={4} value={data.specs.notes} onChange={(event) => setData((current) => ({ ...current, specs: { ...current.specs, notes: event.target.value } }))} placeholder="Ej: excelente orientación térmica, remodelación 2024, ideal para renta corta o empresa." />
                 </Field>
             </AccordionGroup>
+            ) : null}
         </section>
     );
 }
@@ -2686,6 +2820,14 @@ function StepCommercial(props: {
                                 <Field label="Gastos comunes (si aplica)">
                                     <input className="form-input" type="number" min={0} value={data.commercial.commonExpenses} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, commonExpenses: event.target.value } }))} placeholder="150000" />
                                 </Field>
+                                <Field label="Contribuciones (mensual aprox.)">
+                                    <input className="form-input" type="number" min={0} value={data.commercial.contributions} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, contributions: event.target.value } }))} placeholder="45000" />
+                                </Field>
+                                {data.setup.operationType === 'rent' ? (
+                                    <Field label="Garantía / meses de garantía" hint="Ej: 1 mes, 2 meses o monto.">
+                                        <input className="form-input" value={data.commercial.rentGuarantee} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, rentGuarantee: event.target.value } }))} placeholder="1 mes" />
+                                    </Field>
+                                ) : null}
                             </div>
                         </div>
                     ) : null
@@ -2841,15 +2983,12 @@ function StepAttributes(props: {
 }) {
     const { data, setData, errors, lifecyclePolicy, ...commercialProps } = props;
     const isProject = data.setup.operationType === 'project';
-    const [openSections, setOpenSections] = useState<Record<'saleOptions' | 'characteristics' | 'extended' | 'project' | 'equipment' | 'commercial' | 'tour360', boolean>>({
-        saleOptions: false,
-        characteristics: false,
-        extended: false,
-        project: false,
-        equipment: false,
-        commercial: false,
-        tour360: false,
-    });
+    const isLand = data.setup.propertyType === 'Terreno' || data.setup.propertyType === 'Parcela';
+    const [openSections, setOpenSections] = useState(() => ({ ...initialAttributeSections(data) }));
+
+    useEffect(() => {
+        setOpenSections({ ...initialAttributeSections(data) });
+    }, [data.setup.operationType, data.setup.propertyType]);
 
     const toggle = (key: keyof typeof openSections) => {
         setOpenSections((current) => ({ ...current, [key]: !current[key] }));
@@ -2857,6 +2996,10 @@ function StepAttributes(props: {
 
     return (
         <div className="space-y-5">
+            <p className="text-sm leading-relaxed text-(--fg-muted)">
+                Nada es obligatorio. Completar estos datos mejora búsquedas y la confianza del aviso.
+            </p>
+
             {!isProject ? (
                 <SimplePublishOptionalSection
                     title="Opciones de venta"
@@ -2876,22 +3019,35 @@ function StepAttributes(props: {
             {!isProject ? (
                 <>
                     <SimplePublishOptionalSection
-                        title="Características del inmueble"
-                        description="Mascotas, amoblado y atributos adicionales de la ficha."
+                        title={isLand ? 'Uso de suelo y factibilidad' : 'Características del inmueble'}
+                        description={isLand ? 'Rol, urbanización y factibilidades del terreno.' : 'Mascotas, amoblado y atributos de la ficha.'}
                         open={openSections.characteristics}
                         onToggle={() => toggle('characteristics')}
                     >
                         <PropertyInmuebleFields data={data} setData={setData} errors={errors} scope="detail" />
                     </SimplePublishOptionalSection>
 
-                    <SimplePublishOptionalSection
-                        title="Atributos extendidos"
-                        description="Orientación, antigüedad, torre y condiciones especiales."
-                        open={openSections.extended}
-                        onToggle={() => toggle('extended')}
-                    >
-                        <PropertyExtendedAttributeFields data={data} setData={setData} />
-                    </SimplePublishOptionalSection>
+                    {!isLand ? (
+                        <SimplePublishOptionalSection
+                            title="Atributos extendidos"
+                            description="Orientación, piso, antigüedad y condiciones especiales."
+                            open={openSections.extended}
+                            onToggle={() => toggle('extended')}
+                        >
+                            <PropertyExtendedAttributeFields data={data} setData={setData} />
+                        </SimplePublishOptionalSection>
+                    ) : (
+                        <SimplePublishOptionalSection
+                            title="Notas del terreno"
+                            description="Condiciones especiales u observaciones comerciales."
+                            open={openSections.extended}
+                            onToggle={() => toggle('extended')}
+                        >
+                            <Field label="Condiciones especiales">
+                                <textarea className="form-input resize-y min-h-[88px]" rows={3} value={data.basic.specialConditions} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, specialConditions: event.target.value } }))} placeholder="Opcional" />
+                            </Field>
+                        </SimplePublishOptionalSection>
+                    )}
                 </>
             ) : (
                 <SimplePublishOptionalSection
@@ -2906,7 +3062,7 @@ function StepAttributes(props: {
 
             <SimplePublishOptionalSection
                 title="Equipamiento"
-                description="Comodidades, servicios y ambientes."
+                description="Comodidades y servicios filtrados para este tipo de inmueble."
                 open={openSections.equipment}
                 onToggle={() => toggle('equipment')}
             >
@@ -2915,7 +3071,7 @@ function StepAttributes(props: {
 
             <SimplePublishOptionalSection
                 title="Condiciones comerciales"
-                description="Gastos comunes y disponibilidad."
+                description="Gastos comunes, disponibilidad y condiciones de arriendo."
                 open={openSections.commercial}
                 onToggle={() => toggle('commercial')}
             >

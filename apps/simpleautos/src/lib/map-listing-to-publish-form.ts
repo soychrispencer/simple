@@ -30,6 +30,10 @@ export type PublishFormData = {
     offerPriceMode: '$' | '%';
     fuelType: string;
     transmission: string;
+    engineSize: string;
+    traction: string;
+    doors: string;
+    version: string;
     condition: VehicleConditionValue | '';
     maintenanceUpToDate: boolean;
     technicalReviewUpToDate: boolean;
@@ -175,6 +179,10 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
         offerPriceMode: '$',
         fuelType: asString(basic.fuelType, 'Bencina'),
         transmission: asString(basic.transmission, 'Manual'),
+        engineSize: asString(basic.engineSize),
+        traction: asString(basic.traction),
+        doors: asString(basic.doors),
+        version: asString(basic.version),
         condition: parseVehicleCondition(basic.condition, DEFAULT_VEHICLE_CONDITION),
         maintenanceUpToDate: asBool(specs.maintenanceBook),
         technicalReviewUpToDate: asBool(specs.technicalReview),

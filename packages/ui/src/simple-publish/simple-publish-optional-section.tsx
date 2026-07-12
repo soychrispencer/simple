@@ -11,6 +11,8 @@ export type SimplePublishOptionalSectionProps = {
     onToggle: () => void;
     children: ReactNode;
     className?: string;
+    /** Muestra etiqueta “Opcional” junto al título (paso de detalles). */
+    optional?: boolean;
 };
 
 export function SimplePublishOptionalSection({
@@ -20,6 +22,7 @@ export function SimplePublishOptionalSection({
     onToggle,
     children,
     className,
+    optional = true,
 }: SimplePublishOptionalSectionProps) {
     return (
         <PanelCard size="md" className={joinClasses('overflow-hidden !p-0', className)}>
@@ -28,8 +31,15 @@ export function SimplePublishOptionalSection({
                 onClick={onToggle}
                 className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left md:px-5"
             >
-                <span>
-                    <span className="block text-sm font-medium text-(--fg)">{title}</span>
+                <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-(--fg)">{title}</span>
+                        {optional ? (
+                            <span className="rounded-full bg-(--bg-muted) px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-(--fg-muted)">
+                                Opcional
+                            </span>
+                        ) : null}
+                    </span>
                     {description ? (
                         <span className="mt-0.5 block text-xs text-(--fg-muted)">{description}</span>
                     ) : null}

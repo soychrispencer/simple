@@ -30,6 +30,32 @@ export const VEHICLE_TECH_EQUIPMENT_OPTIONS: VehicleEquipmentOption[] = [
     { code: 'lane_assist', label: 'Asistente de carril', group: 'equipment' },
 ];
 
+const CAR_LIKE = new Set(['car', 'truck']);
+const MOTO = new Set(['motorcycle']);
+
+export function vehicleAppearanceOptionsForType(vehicleType: string): VehicleEquipmentOption[] {
+    if (CAR_LIKE.has(vehicleType)) return VEHICLE_APPEARANCE_OPTIONS;
+    if (MOTO.has(vehicleType)) {
+        return VEHICLE_APPEARANCE_OPTIONS.filter((item) =>
+            ['alloy_wheels', 'fog_lights'].includes(item.code),
+        );
+    }
+    return [];
+}
+
+export function vehicleTechEquipmentOptionsForType(vehicleType: string): VehicleEquipmentOption[] {
+    if (CAR_LIKE.has(vehicleType)) return VEHICLE_TECH_EQUIPMENT_OPTIONS;
+    if (MOTO.has(vehicleType)) {
+        return VEHICLE_TECH_EQUIPMENT_OPTIONS.filter((item) =>
+            ['abs', 'bluetooth', 'backup_camera'].includes(item.code),
+        );
+    }
+    // Maquinaria / náutico / aéreo: subset mínimo
+    return VEHICLE_TECH_EQUIPMENT_OPTIONS.filter((item) =>
+        ['bluetooth', 'ac'].includes(item.code),
+    );
+}
+
 /** Todas las opciones (apariencia + técnico) para parseo y labels. */
 export const VEHICLE_EQUIPMENT_OPTIONS: VehicleEquipmentOption[] = [
     ...VEHICLE_APPEARANCE_OPTIONS,

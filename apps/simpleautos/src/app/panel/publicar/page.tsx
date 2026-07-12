@@ -28,7 +28,7 @@ import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
-import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, VEHICLE_APPEARANCE_OPTIONS, VEHICLE_TECH_EQUIPMENT_OPTIONS, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags } from '@simple/utils';
+import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, vehicleAppearanceOptionsForType, vehicleTechEquipmentOptionsForType, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
 import { ModernSelect } from '@simple/ui/forms';
@@ -77,6 +77,10 @@ interface FormData {
     offerPriceMode: '$' | '%';
     fuelType: string;
     transmission: string;
+    engineSize: string;
+    traction: string;
+    doors: string;
+    version: string;
     condition: VehicleConditionValue | '';
     // Historial (chips)
     maintenanceUpToDate: boolean;
@@ -128,6 +132,10 @@ const EMPTY_FORM: FormData = {
     offerPriceMode: '$',
     fuelType: 'Bencina',
     transmission: 'Manual',
+    engineSize: '',
+    traction: '',
+    doors: '',
+    version: '',
     condition: DEFAULT_VEHICLE_CONDITION,
     maintenanceUpToDate: false,
     technicalReviewUpToDate: false,
@@ -202,7 +210,7 @@ const AUTOS_STEP_COPY: Record<number, { title: string; description: string }> = 
     },
     3: {
         title: 'Detalles del vehículo',
-        description: 'Completa la ficha con historial, equipamiento y condiciones comerciales.',
+        description: 'Nada es obligatorio. Estos datos mejoran búsquedas y la confianza del aviso.',
     },
     4: {
         title: 'Publicar',
@@ -978,18 +986,18 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                     title: form.title || `${brandName} ${modelName} ${form.year}`.trim(),
                     description: form.description || '',
                     year: form.year,
-                    version: '',
-                    versionMode: 'catalog',
+                    version: form.version || '',
+                    versionMode: form.version ? 'custom' : 'catalog',
                     color: form.color || '',
                     mileage: parseDigits(form.mileage),
                     condition: form.condition || '',
                     bodyType: '',
                     fuelType: form.fuelType || '',
                     transmission: form.transmission || '',
-                    traction: '',
-                    engineSize: '',
+                    traction: form.traction || '',
+                    engineSize: form.engineSize || '',
                     powerHp: '',
-                    doors: '',
+                    doors: form.doors || '',
                     seats: '',
                     exteriorColor: form.color || '',
                     interiorColor: form.interiorColor || '',
@@ -1863,16 +1871,32 @@ function StepAutosDetails({
     const showAppearanceColors = form.vehicleType === 'car'
         || form.vehicleType === 'motorcycle'
         || form.vehicleType === 'truck';
+    const showTechSheet = form.vehicleType === 'car'
+        || form.vehicleType === 'truck'
+        || form.vehicleType === 'motorcycle';
+    const appearanceOptions = vehicleAppearanceOptionsForType(form.vehicleType);
+    const techOptions = vehicleTechEquipmentOptionsForType(form.vehicleType);
     const isWrecked = form.condition === 'Siniestrado';
-    const [openSections, setOpenSections] = useState<Record<'appearance' | 'saleOptions' | 'owners' | 'history' | 'equipment' | 'fleet' | 'consignment', boolean>>({
+    const [openSections, setOpenSections] = useState<Record<'appearance' | 'tech' | 'saleOptions' | 'owners' | 'history' | 'equipment' | 'fleet' | 'consignment', boolean>>({
         appearance: true,
+        tech: showTechSheet,
         saleOptions: false,
-        owners: false,
-        history: false,
+        owners: form.vehicleType === 'car' || form.vehicleType === 'truck',
+        history: true,
         equipment: false,
         fleet: false,
         consignment: false,
     });
+
+    useEffect(() => {
+        setOpenSections((current) => ({
+            ...current,
+            appearance: true,
+            tech: form.vehicleType === 'car' || form.vehicleType === 'truck' || form.vehicleType === 'motorcycle',
+            history: true,
+            owners: form.vehicleType === 'car' || form.vehicleType === 'truck',
+        }));
+    }, [form.vehicleType]);
 
     const toggle = (key: keyof typeof openSections) => {
         setOpenSections((current) => ({ ...current, [key]: !current[key] }));
@@ -1887,9 +1911,13 @@ function StepAutosDetails({
 
     return (
         <div className="space-y-5">
+            <p className="text-sm leading-relaxed text-(--fg-muted)">
+                Nada es obligatorio. Completar estos datos mejora búsquedas y la confianza del aviso.
+            </p>
+
             <SimplePublishOptionalSection
                 title="Apariencia"
-                description="Color exterior, interior y detalles de estilo."
+                description="Color y detalles de estilo según el tipo de vehículo."
                 open={openSections.appearance}
                 onToggle={() => toggle('appearance')}
             >
@@ -1905,22 +1933,90 @@ function StepAutosDetails({
                                 <ColorPicker value={form.interiorColor} onChange={(c) => updateForm('interiorColor', c)} />
                             </div>
                         </div>
-                    ) : null}
-                    <div>
-                        <label className="mb-2 block text-sm font-medium text-(--fg)">Estilo y detalles estéticos</label>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            {VEHICLE_APPEARANCE_OPTIONS.map((option) => (
-                                <SelectableChip
-                                    key={option.code}
-                                    label={option.label}
-                                    active={form.featureCodes.includes(option.code)}
-                                    onToggle={() => toggleFeature(option.code)}
-                                />
-                            ))}
+                    ) : (
+                        <p className="text-xs text-(--fg-muted)">Para este tipo de vehículo prioriza historial y ficha técnica.</p>
+                    )}
+                    {appearanceOptions.length > 0 ? (
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-(--fg)">Estilo y detalles estéticos</label>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {appearanceOptions.map((option) => (
+                                    <SelectableChip
+                                        key={option.code}
+                                        label={option.label}
+                                        active={form.featureCodes.includes(option.code)}
+                                        onToggle={() => toggleFeature(option.code)}
+                                    />
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    ) : null}
                 </div>
             </SimplePublishOptionalSection>
+
+            {showTechSheet ? (
+                <SimplePublishOptionalSection
+                    title="Ficha técnica"
+                    description="Versión, cilindrada, tracción y puertas."
+                    open={openSections.tech}
+                    onToggle={() => toggle('tech')}
+                >
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label className="mb-1.5 block text-sm font-medium text-(--fg)">Versión / trim</label>
+                            <input
+                                className="form-input"
+                                value={form.version}
+                                onChange={(event) => updateForm('version', event.target.value)}
+                                placeholder="Ej: Limited, GLX, Sport"
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1.5 block text-sm font-medium text-(--fg)">Cilindrada</label>
+                            <input
+                                className="form-input"
+                                value={form.engineSize}
+                                onChange={(event) => updateForm('engineSize', event.target.value)}
+                                placeholder="Ej: 1.6, 2.0"
+                            />
+                        </div>
+                        {form.vehicleType !== 'motorcycle' ? (
+                            <>
+                                <div>
+                                    <label className="mb-1.5 block text-sm font-medium text-(--fg)">Tracción</label>
+                                    <ModernSelect
+                                        value={form.traction}
+                                        onChange={(value) => updateForm('traction', value)}
+                                        placeholder="Seleccionar"
+                                        options={[
+                                            { value: '', label: 'Seleccionar' },
+                                            { value: '2WD', label: '2WD' },
+                                            { value: '4x2', label: '4x2' },
+                                            { value: '4x4', label: '4x4' },
+                                            { value: 'AWD', label: 'AWD' },
+                                        ]}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-1.5 block text-sm font-medium text-(--fg)">Puertas</label>
+                                    <ModernSelect
+                                        value={form.doors}
+                                        onChange={(value) => updateForm('doors', value)}
+                                        placeholder="Seleccionar"
+                                        options={[
+                                            { value: '', label: 'Seleccionar' },
+                                            { value: '2', label: '2' },
+                                            { value: '3', label: '3' },
+                                            { value: '4', label: '4' },
+                                            { value: '5', label: '5' },
+                                        ]}
+                                    />
+                                </div>
+                            </>
+                        ) : null}
+                    </div>
+                </SimplePublishOptionalSection>
+            ) : null}
 
             {form.listingType !== 'rent' ? (
                 <SimplePublishOptionalSection
@@ -1999,23 +2095,25 @@ function StepAutosDetails({
                 </div>
             </SimplePublishOptionalSection>
 
-            <SimplePublishOptionalSection
-                title="Equipamiento"
-                description="Seguridad, confort y tecnología del vehículo."
-                open={openSections.equipment}
-                onToggle={() => toggle('equipment')}
-            >
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {VEHICLE_TECH_EQUIPMENT_OPTIONS.map((option) => (
-                        <SelectableChip
-                            key={option.code}
-                            label={option.label}
-                            active={form.featureCodes.includes(option.code)}
-                            onToggle={() => toggleFeature(option.code)}
-                        />
-                    ))}
-                </div>
-            </SimplePublishOptionalSection>
+            {techOptions.length > 0 ? (
+                <SimplePublishOptionalSection
+                    title="Equipamiento"
+                    description="Seguridad, confort y tecnología relevantes para este vehículo."
+                    open={openSections.equipment}
+                    onToggle={() => toggle('equipment')}
+                >
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {techOptions.map((option) => (
+                            <SelectableChip
+                                key={option.code}
+                                label={option.label}
+                                active={form.featureCodes.includes(option.code)}
+                                onToggle={() => toggleFeature(option.code)}
+                            />
+                        ))}
+                    </div>
+                </SimplePublishOptionalSection>
+            ) : null}
 
             {operatorContext?.showFleetRentFields ? (
                 <SimplePublishOptionalSection

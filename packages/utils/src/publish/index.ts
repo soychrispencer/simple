@@ -16,6 +16,8 @@ export {
     buildVehicleFeatureCodes,
     getVehicleEquipmentLabels,
     parseVehicleEquipmentCodes,
+    vehicleAppearanceOptionsForType,
+    vehicleTechEquipmentOptionsForType,
     type VehicleEquipmentOption,
 } from './vehicle-equipment.js';
 export {
