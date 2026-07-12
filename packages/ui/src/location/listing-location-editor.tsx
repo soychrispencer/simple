@@ -407,14 +407,14 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         </Field>
     );
     const mapsActionButtons = internalMapsUrl ? (
-        <div className="flex shrink-0 gap-2">
+        <div className="flex h-[42px] shrink-0 items-center gap-2">
             <a
                 href={internalMapsUrl}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Ver en Maps"
                 title="Ver en Maps"
-                className="loc-editor-source-btn inline-flex size-10 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
+                className="loc-editor-source-btn inline-flex size-[42px] items-center justify-center rounded-[var(--radius)] border transition-colors hover:opacity-80"
             >
                 <GoogleMapIcon />
             </a>
@@ -429,7 +429,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                         void navigator.clipboard.writeText(internalMapsUrl);
                     }
                 }}
-                className="loc-editor-source-btn inline-flex size-10 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
+                className="loc-editor-source-btn inline-flex size-[42px] items-center justify-center rounded-[var(--radius)] border transition-colors hover:opacity-80"
             >
                 <ShareIcon />
             </button>
@@ -470,7 +470,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         simpleMode ? (
             <div className={joinClasses('grid gap-3', showAddressLine2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1')}>
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex h-[42px] items-center gap-2">
                         <div className="relative min-w-0 flex-1 overflow-visible">
                             <input
                                 ref={addressInputRef}

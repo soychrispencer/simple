@@ -98,17 +98,17 @@ export function ensureGooglePlacesDropdownStyles() {
 
     const style = document.createElement('style');
     style.dataset.googlePacStyles = 'true';
-    style.dataset.googlePacStylesVersion = '2';
+    style.dataset.googlePacStylesVersion = '3';
     style.textContent = `
         .location-places-host {
             width: 100%;
             min-width: 0;
             display: flex;
-            align-items: center;
+            align-items: stretch;
             box-sizing: border-box;
             height: 42px;
             min-height: 42px;
-            padding: 0 2px;
+            padding: 0;
             border: 1px solid var(--border);
             border-radius: var(--radius);
             background-color: var(--bg-subtle);
@@ -121,10 +121,14 @@ export function ensureGooglePlacesDropdownStyles() {
         }
         .location-places-host:focus-within {
             border-color: var(--field-focus-border, var(--accent));
-            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+            box-shadow: inset 0 0 0 1px var(--field-focus-border, var(--accent));
+            background-color: var(--surface);
         }
         .location-places-host--error {
             border-color: var(--danger, #dc2626);
+        }
+        .location-places-host--error:focus-within {
+            box-shadow: inset 0 0 0 1px var(--danger, #dc2626);
         }
         .location-places-host gmp-place-autocomplete,
         gmp-place-autocomplete.location-places-element {
@@ -132,26 +136,65 @@ export function ensureGooglePlacesDropdownStyles() {
             flex: 1 1 auto !important;
             display: block !important;
             box-sizing: border-box !important;
-            height: 38px !important;
-            min-height: 38px !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            margin: 0 !important;
             padding: 0 !important;
             border: none !important;
-            border-radius: calc(var(--radius) - 2px) !important;
+            border-radius: 0 !important;
             background: transparent !important;
+            background-color: transparent !important;
             color: var(--fg) !important;
             color-scheme: inherit;
             overflow: visible !important;
+            outline: none !important;
             box-shadow: none !important;
             --gmp-mat-color-surface: transparent;
             --gmp-mat-color-on-surface: var(--fg, #111);
             --gmp-mat-color-on-surface-variant: var(--fg-muted, #666);
             --gmp-mat-color-primary: var(--accent, #e11d48);
             --gmp-mat-color-outline: transparent;
+            --gmp-mat-color-outline-decorative: transparent;
         }
+        .location-places-host gmp-place-autocomplete:focus,
+        .location-places-host gmp-place-autocomplete:focus-visible,
         .location-places-host gmp-place-autocomplete:focus-within,
+        gmp-place-autocomplete.location-places-element:focus,
+        gmp-place-autocomplete.location-places-element:focus-visible,
         gmp-place-autocomplete.location-places-element:focus-within {
             border: none !important;
+            outline: none !important;
             box-shadow: none !important;
+        }
+        /* Quita el anillo azul Material de Google */
+        gmp-place-autocomplete::part(focus-ring) {
+            display: none !important;
+            opacity: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+        gmp-place-autocomplete::part(input) {
+            font-family: inherit !important;
+            font-size: var(--text-sm, 0.875rem) !important;
+            color: var(--fg) !important;
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            padding: 0 14px !important;
+            height: 42px !important;
+            min-height: 42px !important;
+        }
+        gmp-place-autocomplete::part(prediction-list) {
+            z-index: 100000 !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 14px !important;
+            background: var(--surface) !important;
+            box-shadow: 0 18px 44px rgba(0,0,0,0.16) !important;
+            margin-top: 6px !important;
+            overflow: hidden !important;
+            font-family: inherit !important;
         }
         .pac-container {
             margin-top: 8px !important;
@@ -489,6 +532,15 @@ export async function attachGooglePlacesAddressField(options: {
                 includedRegionCodes: [countryCode.toLowerCase()],
             });
             element.classList.add('location-places-element');
+            try {
+                element.style.setProperty('border', 'none');
+                element.style.setProperty('background-color', 'transparent');
+                element.style.setProperty('outline', 'none');
+                element.style.setProperty('box-shadow', 'none');
+                element.style.setProperty('color-scheme', 'inherit');
+            } catch {
+                // ignore
+            }
             if (placeholder) {
                 try {
                     element.placeholder = placeholder;
