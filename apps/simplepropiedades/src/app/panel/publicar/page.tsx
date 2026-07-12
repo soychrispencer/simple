@@ -2281,7 +2281,7 @@ function StepSpecs(props: { data: WizardData; setData: WizardSetter; minimal?: b
             ) : null}
 
             {securityOptions.length > 0 ? (
-            <AccordionGroup title="Seguridad y acceso" description="Control de acceso y condiciones de seguridad (evita duplicar con otros campos)."} open={openSections.security} onToggle={() => setOpenSections((current) => ({ ...current, security: !current.security }))}>
+            <AccordionGroup title="Seguridad y acceso" description="Control de acceso y condiciones de seguridad (evita duplicar con otros campos)." open={openSections.security} onToggle={() => setOpenSections((current) => ({ ...current, security: !current.security }))}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 mb-3">
                     {securityOptions.map((item) => (
                         <SelectableChip key={item.code} label={item.label} active={data.specs.securityCodes.includes(item.code)} onToggle={() => toggleSpecCode('securityCodes', item.code)} />
