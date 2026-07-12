@@ -98,7 +98,7 @@ export function ensureGooglePlacesDropdownStyles() {
 
     const style = document.createElement('style');
     style.dataset.googlePacStyles = 'true';
-    style.dataset.googlePacStylesVersion = '6';
+    style.dataset.googlePacStylesVersion = '7';
     style.textContent = `
         /* Un solo borde/foco en el host (= .form-input); el widget de Google va sin chrome. */
         .location-places-host {
@@ -162,10 +162,10 @@ export function ensureGooglePlacesDropdownStyles() {
             overflow: visible !important;
             outline: none !important;
             box-shadow: none !important;
-            --gmp-mat-color-surface: transparent;
+            --gmp-mat-color-surface: var(--surface);
             --gmp-mat-color-on-surface: var(--fg, #111);
             --gmp-mat-color-on-surface-variant: var(--fg-muted, #666);
-            --gmp-mat-color-primary: transparent;
+            --gmp-mat-color-primary: var(--accent, #e11d48);
             --gmp-mat-color-outline: transparent;
             --gmp-mat-color-outline-decorative: transparent;
         }
@@ -224,26 +224,40 @@ export function ensureGooglePlacesDropdownStyles() {
             overflow: hidden !important;
             font-family: inherit !important;
         }
+        /* Dropdown clásico: lista bajo el input, nunca pantalla completa en móvil. */
         .pac-container {
-            margin-top: 8px !important;
+            position: absolute !important;
+            margin-top: 4px !important;
             border: 1px solid var(--border) !important;
             border-radius: 14px !important;
             background: var(--surface) !important;
+            color: var(--fg) !important;
             box-shadow: 0 18px 44px rgba(0,0,0,0.16) !important;
             overflow: hidden !important;
             z-index: 100000 !important;
             font-family: inherit !important;
+            max-width: min(100vw - 24px, 480px) !important;
+            max-height: min(50vh, 280px) !important;
+            overflow-y: auto !important;
+            pointer-events: auto !important;
+        }
+        .pac-container:empty {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
         }
         .pac-item {
             display: flex !important;
             align-items: center !important;
             gap: 8px !important;
-            padding: 10px 16px !important;
+            padding: 12px 16px !important;
             border-top: 1px solid var(--border) !important;
             color: var(--fg) !important;
             font-size: 13px !important;
-            line-height: 1 !important;
-            background: transparent !important;
+            line-height: 1.2 !important;
+            background: var(--surface) !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             cursor: pointer !important;
@@ -477,8 +491,8 @@ export function placeFromNewPlacesApi(place: any): GooglePlaceResult {
 
 /**
  * Adjunta Places al campo de dirección.
- * Prefiere Autocomplete legacy sobre el input nativo (mismo focus que .form-input).
- * Si no está disponible, usa PlaceAutocompleteElement con estilos del host.
+ * Solo Autocomplete legacy sobre el input nativo: el PlaceAutocompleteElement
+ * en móvil abre un modal a pantalla completa que a menudo se ve en blanco.
  */
 export async function attachGooglePlacesAddressField(options: {
     apiKey: string;
@@ -494,9 +508,7 @@ export async function attachGooglePlacesAddressField(options: {
         input,
         host,
         countryCode = 'cl',
-        placeholder,
         onPlaceSelected,
-        onTextChange,
     } = options;
 
     const loaded = await loadGooglePlacesScript(apiKey);
@@ -511,175 +523,50 @@ export async function attachGooglePlacesAddressField(options: {
         input.tabIndex = 0;
     };
 
-    const attachLegacyAutocomplete = async (): Promise<GooglePlacesAddressAttachment | null> => {
-        const Autocomplete = await resolvePlacesAutocompleteClass();
-        if (!Autocomplete) return null;
-
+    const Autocomplete = await resolvePlacesAutocompleteClass();
+    if (!Autocomplete) {
         resetToNativeInput();
-
-        try {
-            const autocomplete = new Autocomplete(input, {
-                componentRestrictions: { country: countryCode.toLowerCase() },
-                fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-            });
-            const googleMaps = getGoogleMaps();
-            autocomplete.addListener('place_changed', () => {
-                const place = autocomplete.getPlace?.() as GooglePlaceResult | undefined;
-                if (!place) return;
-                onPlaceSelected(place);
-            });
-
-            return {
-                mode: 'legacy',
-                setValue: (value: string) => {
-                    input.value = value;
-                },
-                destroy: () => {
-                    if (googleMaps?.event?.clearInstanceListeners) {
-                        googleMaps.event.clearInstanceListeners(autocomplete);
-                    }
-                },
-            };
-        } catch {
-            return null;
-        }
-    };
-
-    // Preferimos Autocomplete legacy sobre el <input class="form-input">:
-    // el PlaceAutocompleteElement trae anillo Material que no se alinea con nuestro focus.
-    const legacy = await attachLegacyAutocomplete();
-    if (legacy) return legacy;
-
-    const PlaceAutocompleteElement = await resolvePlaceAutocompleteElementCtor();
-    if (PlaceAutocompleteElement) {
-        try {
-            host.replaceChildren();
-            const element = new PlaceAutocompleteElement({
-                includedRegionCodes: [countryCode.toLowerCase()],
-            });
-            element.classList.add('location-places-element');
-            try {
-                // Chrome lo lleva el host (.form-input); el widget no debe pintar borde/anillo propio.
-                element.style.setProperty('border', 'none', 'important');
-                element.style.setProperty('outline', 'none', 'important');
-                element.style.setProperty('box-shadow', 'none', 'important');
-                element.style.setProperty('background-color', 'transparent', 'important');
-                element.style.setProperty('color-scheme', 'inherit');
-            } catch {
-                // ignore
-            }
-            if (placeholder) {
-                try {
-                    element.placeholder = placeholder;
-                } catch {
-                    // Algunos builds no exponen placeholder.
-                }
-            }
-            if (input.value) {
-                try {
-                    element.value = input.value;
-                } catch {
-                    // ignore
-                }
-            }
-            input.classList.add('hidden');
-            input.setAttribute('aria-hidden', 'true');
-            input.tabIndex = -1;
-            host.classList.remove('hidden');
-            host.appendChild(element);
-
-            // Si el shadow no está cerrado, matamos el anillo Material por dentro.
-            try {
-                const shadow = (element as HTMLElement & { shadowRoot?: ShadowRoot | null }).shadowRoot;
-                if (shadow && !shadow.querySelector('style[data-simple-places-chrome]')) {
-                    const shadowStyle = document.createElement('style');
-                    shadowStyle.dataset.simplePlacesChrome = 'true';
-                    shadowStyle.textContent = `
-                        .focus-ring { display: none !important; opacity: 0 !important; }
-                        .widget-container { border: none !important; box-shadow: none !important; outline: none !important; }
-                        .input-container { border: none !important; box-shadow: none !important; outline: none !important; }
-                    `;
-                    shadow.appendChild(shadowStyle);
-                }
-            } catch {
-                // shadow cerrado: nos quedamos con ::part(focus-ring)
-            }
-
-            const handleSelect = async (event: Event) => {
-                const anyEvent = event as Event & {
-                    placePrediction?: { toPlace?: () => any };
-                    place?: any;
-                    detail?: {
-                        placePrediction?: { toPlace?: () => any };
-                        place?: any;
-                    };
-                };
-                const prediction = anyEvent.placePrediction
-                    ?? anyEvent.detail?.placePrediction
-                    ?? null;
-                const directPlace = anyEvent.place ?? anyEvent.detail?.place ?? null;
-
-                let placeObj = directPlace;
-                if (!placeObj && prediction?.toPlace) {
-                    placeObj = prediction.toPlace();
-                }
-                if (!placeObj) return;
-
-                if (typeof placeObj.fetchFields === 'function') {
-                    await placeObj.fetchFields({
-                        fields: ['displayName', 'formattedAddress', 'location', 'addressComponents'],
-                    });
-                }
-
-                const normalized = placeFromNewPlacesApi(placeObj);
-                const nextValue = buildAddressLineFromPlace(normalized).trim()
-                    || normalized.formatted_address
-                    || '';
-                if (nextValue) {
-                    input.value = nextValue;
-                    try {
-                        element.value = nextValue;
-                    } catch {
-                        // ignore
-                    }
-                }
-                onPlaceSelected(normalized);
-            };
-
-            const handleInput = () => {
-                const value = String((element as PlaceAutocompleteElementLike).value ?? '');
-                input.value = value;
-                onTextChange?.(value);
-            };
-
-            element.addEventListener('gmp-select', handleSelect as EventListener);
-            element.addEventListener('gmp-placeselect', handleSelect as EventListener);
-            element.addEventListener('input', handleInput);
-
-            return {
-                mode: 'element',
-                setValue: (value: string) => {
-                    try {
-                        element.value = value;
-                    } catch {
-                        // ignore
-                    }
-                    input.value = value;
-                },
-                destroy: () => {
-                    element.removeEventListener('gmp-select', handleSelect as EventListener);
-                    element.removeEventListener('gmp-placeselect', handleSelect as EventListener);
-                    element.removeEventListener('input', handleInput);
-                    element.remove();
-                    resetToNativeInput();
-                },
-            };
-        } catch {
-            resetToNativeInput();
-        }
+        return null;
     }
 
-    return null;
+    resetToNativeInput();
+
+    try {
+        // Evita hojas de autocompletado del navegador encima de Places en iOS/Android.
+        input.setAttribute('autocomplete', 'off');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'off');
+        input.setAttribute('spellcheck', 'false');
+        input.setAttribute('enterkeyhint', 'search');
+        input.setAttribute('data-lpignore', 'true');
+        input.setAttribute('data-1p-ignore', 'true');
+
+        const autocomplete = new Autocomplete(input, {
+            componentRestrictions: { country: countryCode.toLowerCase() },
+            fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+        });
+        const googleMaps = getGoogleMaps();
+        autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace?.() as GooglePlaceResult | undefined;
+            if (!place) return;
+            onPlaceSelected(place);
+        });
+
+        return {
+            mode: 'legacy',
+            setValue: (value: string) => {
+                input.value = value;
+            },
+            destroy: () => {
+                if (googleMaps?.event?.clearInstanceListeners) {
+                    googleMaps.event.clearInstanceListeners(autocomplete);
+                }
+            },
+        };
+    } catch {
+        resetToNativeInput();
+        return null;
+    }
 }
 
 /** @deprecated Usa attachGooglePlacesAddressField. */
