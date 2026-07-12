@@ -471,7 +471,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             <div className={joinClasses('grid gap-3', showAddressLine2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1')}>
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
                     <div className="flex items-center gap-2">
-                        <div className="relative min-w-0 flex-1">
+                        <div className="relative min-w-0 flex-1 overflow-visible">
                             <input
                                 ref={addressInputRef}
                                 className={joinClasses(
@@ -491,7 +491,11 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                             />
                             <div
                                 ref={placesHostRef}
-                                className={joinClasses('min-w-0 w-full', placesUiMode !== 'element' && 'hidden')}
+                                className={joinClasses(
+                                    'location-places-host min-w-0 w-full',
+                                    placesUiMode !== 'element' && 'hidden',
+                                    fieldInvalid(errors, 'addressLine1') && 'location-places-host--error',
+                                )}
                             />
                         </div>
                         {mapsActionButtons}
@@ -507,7 +511,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
                     <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <div className="relative min-w-0 flex-1">
+                        <div className="relative min-w-0 flex-1 overflow-visible">
                             <input
                                 ref={addressInputRef}
                                 className={joinClasses(
@@ -527,7 +531,11 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                             />
                             <div
                                 ref={placesHostRef}
-                                className={joinClasses('min-w-0 w-full', placesUiMode !== 'element' && 'hidden')}
+                                className={joinClasses(
+                                    'location-places-host min-w-0 w-full',
+                                    placesUiMode !== 'element' && 'hidden',
+                                    fieldInvalid(errors, 'addressLine1') && 'location-places-host--error',
+                                )}
                             />
                         </div>
                         {internalMapsUrl ? (

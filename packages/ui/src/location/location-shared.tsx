@@ -93,20 +93,65 @@ export function clearResolvedGeo(location: ListingLocation): Partial<ListingLoca
 
 export function ensureGooglePlacesDropdownStyles() {
     if (typeof document === 'undefined') return;
-    if (document.head.querySelector('style[data-google-pac-styles="true"]')) return;
+    const existing = document.head.querySelector('style[data-google-pac-styles="true"]');
+    if (existing) existing.remove();
 
     const style = document.createElement('style');
     style.dataset.googlePacStyles = 'true';
+    style.dataset.googlePacStylesVersion = '2';
     style.textContent = `
-        gmp-place-autocomplete {
+        .location-places-host {
             width: 100%;
-            display: block;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+            height: 42px;
+            min-height: 42px;
+            padding: 0 2px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background-color: var(--bg-subtle);
+            overflow: visible;
+            transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+        }
+        .dark .location-places-host,
+        [data-theme="dark"] .location-places-host {
+            background-color: var(--bg-muted);
+        }
+        .location-places-host:focus-within {
+            border-color: var(--field-focus-border, var(--accent));
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+        }
+        .location-places-host--error {
+            border-color: var(--danger, #dc2626);
+        }
+        .location-places-host gmp-place-autocomplete,
+        gmp-place-autocomplete.location-places-element {
+            width: 100% !important;
+            flex: 1 1 auto !important;
+            display: block !important;
+            box-sizing: border-box !important;
+            height: 38px !important;
+            min-height: 38px !important;
+            padding: 0 !important;
+            border: none !important;
+            border-radius: calc(var(--radius) - 2px) !important;
+            background: transparent !important;
+            color: var(--fg) !important;
             color-scheme: inherit;
-            --gmp-mat-color-surface: var(--surface, #fff);
+            overflow: visible !important;
+            box-shadow: none !important;
+            --gmp-mat-color-surface: transparent;
             --gmp-mat-color-on-surface: var(--fg, #111);
             --gmp-mat-color-on-surface-variant: var(--fg-muted, #666);
             --gmp-mat-color-primary: var(--accent, #e11d48);
-            border-radius: var(--radius-button, 0.75rem);
+            --gmp-mat-color-outline: transparent;
+        }
+        .location-places-host gmp-place-autocomplete:focus-within,
+        gmp-place-autocomplete.location-places-element:focus-within {
+            border: none !important;
+            box-shadow: none !important;
         }
         .pac-container {
             margin-top: 8px !important;
@@ -394,6 +439,48 @@ export async function attachGooglePlacesAddressField(options: {
     if (!loaded) return null;
     ensureGooglePlacesDropdownStyles();
 
+    const resetToNativeInput = () => {
+        host.replaceChildren();
+        host.classList.add('hidden');
+        input.classList.remove('hidden');
+        input.removeAttribute('aria-hidden');
+        input.tabIndex = 0;
+    };
+
+    const attachLegacyAutocomplete = async (): Promise<GooglePlacesAddressAttachment | null> => {
+        const Autocomplete = await resolvePlacesAutocompleteClass();
+        if (!Autocomplete) return null;
+
+        resetToNativeInput();
+
+        try {
+            const autocomplete = new Autocomplete(input, {
+                componentRestrictions: { country: countryCode.toLowerCase() },
+                fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+            });
+            const googleMaps = getGoogleMaps();
+            autocomplete.addListener('place_changed', () => {
+                const place = autocomplete.getPlace?.() as GooglePlaceResult | undefined;
+                if (!place) return;
+                onPlaceSelected(place);
+            });
+
+            return {
+                mode: 'legacy',
+                setValue: (value: string) => {
+                    input.value = value;
+                },
+                destroy: () => {
+                    if (googleMaps?.event?.clearInstanceListeners) {
+                        googleMaps.event.clearInstanceListeners(autocomplete);
+                    }
+                },
+            };
+        } catch {
+            return null;
+        }
+    };
+
     const PlaceAutocompleteElement = await resolvePlaceAutocompleteElementCtor();
     if (PlaceAutocompleteElement) {
         try {
@@ -401,8 +488,21 @@ export async function attachGooglePlacesAddressField(options: {
             const element = new PlaceAutocompleteElement({
                 includedRegionCodes: [countryCode.toLowerCase()],
             });
-            if (placeholder) element.placeholder = placeholder;
-            if (input.value) element.value = input.value;
+            element.classList.add('location-places-element');
+            if (placeholder) {
+                try {
+                    element.placeholder = placeholder;
+                } catch {
+                    // Algunos builds no exponen placeholder.
+                }
+            }
+            if (input.value) {
+                try {
+                    element.value = input.value;
+                } catch {
+                    // ignore
+                }
+            }
             input.classList.add('hidden');
             input.setAttribute('aria-hidden', 'true');
             input.tabIndex = -1;
@@ -412,91 +512,78 @@ export async function attachGooglePlacesAddressField(options: {
             const handleSelect = async (event: Event) => {
                 const anyEvent = event as Event & {
                     placePrediction?: { toPlace?: () => any };
-                    detail?: { placePrediction?: { toPlace?: () => any } };
+                    place?: any;
+                    detail?: {
+                        placePrediction?: { toPlace?: () => any };
+                        place?: any;
+                    };
                 };
-                const prediction = anyEvent.placePrediction ?? anyEvent.detail?.placePrediction;
-                if (!prediction?.toPlace) return;
-                const place = prediction.toPlace();
-                await place.fetchFields({
-                    fields: ['displayName', 'formattedAddress', 'location', 'addressComponents'],
-                });
-                const normalized = placeFromNewPlacesApi(place);
+                const prediction = anyEvent.placePrediction
+                    ?? anyEvent.detail?.placePrediction
+                    ?? null;
+                const directPlace = anyEvent.place ?? anyEvent.detail?.place ?? null;
+
+                let placeObj = directPlace;
+                if (!placeObj && prediction?.toPlace) {
+                    placeObj = prediction.toPlace();
+                }
+                if (!placeObj) return;
+
+                if (typeof placeObj.fetchFields === 'function') {
+                    await placeObj.fetchFields({
+                        fields: ['displayName', 'formattedAddress', 'location', 'addressComponents'],
+                    });
+                }
+
+                const normalized = placeFromNewPlacesApi(placeObj);
                 const nextValue = buildAddressLineFromPlace(normalized).trim()
                     || normalized.formatted_address
                     || '';
                 if (nextValue) {
                     input.value = nextValue;
-                    element.value = nextValue;
+                    try {
+                        element.value = nextValue;
+                    } catch {
+                        // ignore
+                    }
                 }
                 onPlaceSelected(normalized);
             };
 
             const handleInput = () => {
-                const value = String(element.value ?? '');
+                const value = String((element as PlaceAutocompleteElementLike).value ?? '');
                 input.value = value;
                 onTextChange?.(value);
             };
 
             element.addEventListener('gmp-select', handleSelect as EventListener);
+            element.addEventListener('gmp-placeselect', handleSelect as EventListener);
             element.addEventListener('input', handleInput);
 
             return {
                 mode: 'element',
                 setValue: (value: string) => {
-                    element.value = value;
+                    try {
+                        element.value = value;
+                    } catch {
+                        // ignore
+                    }
                     input.value = value;
                 },
                 destroy: () => {
                     element.removeEventListener('gmp-select', handleSelect as EventListener);
+                    element.removeEventListener('gmp-placeselect', handleSelect as EventListener);
                     element.removeEventListener('input', handleInput);
                     element.remove();
-                    host.replaceChildren();
-                    host.classList.add('hidden');
-                    input.classList.remove('hidden');
-                    input.removeAttribute('aria-hidden');
-                    input.tabIndex = 0;
+                    resetToNativeInput();
                 },
             };
         } catch {
-            host.replaceChildren();
-            host.classList.add('hidden');
-            input.classList.remove('hidden');
-            input.removeAttribute('aria-hidden');
-            input.tabIndex = 0;
+            resetToNativeInput();
         }
     }
 
-    const Autocomplete = await resolvePlacesAutocompleteClass();
-    if (!Autocomplete) return null;
-
-    host.classList.add('hidden');
-    host.replaceChildren();
-    input.classList.remove('hidden');
-    input.removeAttribute('aria-hidden');
-    input.tabIndex = 0;
-
-    const autocomplete = new Autocomplete(input, {
-        componentRestrictions: { country: countryCode.toLowerCase() },
-        fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-    });
-    const googleMaps = getGoogleMaps();
-    autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace?.() as GooglePlaceResult | undefined;
-        if (!place) return;
-        onPlaceSelected(place);
-    });
-
-    return {
-        mode: 'legacy',
-        setValue: (value: string) => {
-            input.value = value;
-        },
-        destroy: () => {
-            if (googleMaps?.event?.clearInstanceListeners) {
-                googleMaps.event.clearInstanceListeners(autocomplete);
-            }
-        },
-    };
+    return attachLegacyAutocomplete();
 }
 
 /** @deprecated Usa attachGooglePlacesAddressField. */
