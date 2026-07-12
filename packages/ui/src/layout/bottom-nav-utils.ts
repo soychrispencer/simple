@@ -28,9 +28,9 @@ export function isExactBottomNavHref(a: string, b: string): boolean {
     return left.pathname === right.pathname && left.search === right.search;
 }
 
-/** Oculta el footer marketplace en rutas del panel (el panel usa su propio bottom nav). */
+/** Oculta el footer marketplace en rutas del panel (panel/publicar van sin chrome inferior). */
 export function shouldHideMarketplaceMobileNav(pathname: string): boolean {
-    return isPanelOperatorPath(pathname) && !pathname.startsWith('/panel/publicar');
+    return isPanelOperatorPath(pathname);
 }
 
 /** Rutas del panel operador: sin header/footer de marketing (el panel trae su propio chrome). */

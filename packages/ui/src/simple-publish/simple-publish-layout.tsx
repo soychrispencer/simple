@@ -135,7 +135,7 @@ export function SimplePublishLayout({
                 onStepChange={onStepChange}
             />
 
-            <main className="mx-auto max-w-3xl px-4 pt-5 pb-12 lg:max-w-5xl lg:px-8 lg:pb-16">
+            <main className="mx-auto max-w-3xl px-4 pt-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] lg:max-w-5xl lg:px-8 lg:pb-16">
                 {notices ? <div className="mb-5 space-y-3">{notices}</div> : null}
                 {children}
             </main>
