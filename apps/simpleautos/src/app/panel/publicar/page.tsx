@@ -1252,7 +1252,8 @@ function Step1PhotosAndIdentity({
     fieldErrors?: Record<string, string>;
 }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const videoInputRef = useRef<HTMLInputElement>(null);
+    const videoGalleryInputRef = useRef<HTMLInputElement>(null);
+    const videoCameraInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
     const [processingPhotos, setProcessingPhotos] = useState(false);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
@@ -1421,14 +1422,23 @@ function Step1PhotosAndIdentity({
                                     externalUrl={form.videoExternalUrl}
                                     error={videoProcessError || undefined}
                                     invalid={isAutosFieldInvalid(fieldErrors, 'video')}
-                                    onPickUpload={() => videoInputRef.current?.click()}
+                                    onPickGallery={() => videoGalleryInputRef.current?.click()}
+                                    onPickCamera={() => videoCameraInputRef.current?.click()}
                                     onClearUpload={removeVideo}
                                     onExternalUrlChange={handleExternalVideoUrl}
                                 />
                                 <input
-                                    ref={videoInputRef}
+                                    ref={videoGalleryInputRef}
                                     type="file"
                                     accept="video/*"
+                                    onChange={(event) => void handleVideoFile(event.target.files)}
+                                    className="hidden"
+                                />
+                                <input
+                                    ref={videoCameraInputRef}
+                                    type="file"
+                                    accept="video/*"
+                                    capture="environment"
                                     onChange={(event) => void handleVideoFile(event.target.files)}
                                     className="hidden"
                                 />

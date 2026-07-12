@@ -1,6 +1,6 @@
 'use client';
 
-import { IconBrandYoutube, IconLink, IconUpload, IconVideo, IconX } from '@tabler/icons-react';
+import { IconBrandYoutube, IconCamera, IconLink, IconPhoto, IconVideo, IconX } from '@tabler/icons-react';
 import {
     PUBLISH_VIDEO_MAX_DURATION_SECONDS,
     PUBLISH_VIDEO_MAX_SIZE_MB,
@@ -16,6 +16,11 @@ export type SimplePublishVideoBlockProps = {
     externalUrl?: string;
     error?: string;
     invalid?: boolean;
+    /** Galería / archivos (sin capture). */
+    onPickGallery?: () => void;
+    /** Cámara (con capture en el input del host). */
+    onPickCamera?: () => void;
+    /** @deprecated Usa onPickGallery. */
     onPickUpload?: () => void;
     onClearUpload?: () => void;
     onExternalUrlChange?: (value: string) => void;
@@ -27,6 +32,8 @@ export function SimplePublishVideoBlock({
     externalUrl = '',
     error,
     invalid = false,
+    onPickGallery,
+    onPickCamera,
     onPickUpload,
     onClearUpload,
     onExternalUrlChange,
@@ -35,6 +42,8 @@ export function SimplePublishVideoBlock({
     const hasExternal = Boolean(externalUrl.trim());
     const uploadLocked = hasExternal;
     const externalLocked = hasUpload;
+    const pickGallery = onPickGallery ?? onPickUpload;
+    const canPick = Boolean(pickGallery || onPickCamera);
 
     return (
         <SimplePublishSurface>
@@ -81,19 +90,34 @@ export function SimplePublishVideoBlock({
                             ) : null}
                         </div>
                     ) : (
-                        <button
-                            type="button"
-                            onClick={onPickUpload}
-                            disabled={uploadLocked || !onPickUpload}
-                            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-(--border) bg-(--bg) text-sm font-medium text-(--fg) transition hover:border-(--accent) disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                            <IconUpload size={16} />
-                            Seleccionar video
-                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={onPickCamera}
+                                disabled={uploadLocked || !onPickCamera}
+                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-(--border) bg-(--bg) text-sm font-medium text-(--fg) transition hover:border-(--accent) disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                                <IconCamera size={16} />
+                                Cámara
+                            </button>
+                            <button
+                                type="button"
+                                onClick={pickGallery}
+                                disabled={uploadLocked || !pickGallery}
+                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-(--border) bg-(--bg) text-sm font-medium text-(--fg) transition hover:border-(--accent) disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                                <IconPhoto size={16} />
+                                Galería
+                            </button>
+                        </div>
                     )}
                     {uploadLocked ? (
                         <p className="text-[11px] text-(--fg-muted)">
                             Quita el enlace externo para subir un clip.
+                        </p>
+                    ) : !canPick ? (
+                        <p className="text-[11px] text-(--fg-muted)">
+                            No hay selector de video disponible.
                         </p>
                     ) : null}
                 </div>

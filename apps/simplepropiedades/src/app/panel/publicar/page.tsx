@@ -1975,7 +1975,8 @@ function SortablePhotoTile({ photo, index, onRemove }: { photo: PanelMediaAsset;
 
 function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
     const { data, setData, errors } = props;
-    const videoInputRef = useRef<HTMLInputElement>(null);
+    const videoGalleryInputRef = useRef<HTMLInputElement>(null);
+    const videoCameraInputRef = useRef<HTMLInputElement>(null);
     const [processingPhotos, setProcessingPhotos] = useState(false);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
     const [videoProcessError, setVideoProcessError] = useState<string | null>(null);
@@ -2118,14 +2119,23 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                             externalUrl={data.media.videoUrl}
                             error={videoProcessError || undefined}
                             invalid={Object.prototype.hasOwnProperty.call(errors, 'media.video')}
-                            onPickUpload={() => videoInputRef.current?.click()}
+                            onPickGallery={() => videoGalleryInputRef.current?.click()}
+                            onPickCamera={() => videoCameraInputRef.current?.click()}
                             onClearUpload={clearUploadVideo}
                             onExternalUrlChange={handleExternalVideoUrl}
                         />
                         <input
-                            ref={videoInputRef}
+                            ref={videoGalleryInputRef}
                             type="file"
                             accept="video/*"
+                            onChange={(event) => void handleVideoFile(event.target.files)}
+                            className="hidden"
+                        />
+                        <input
+                            ref={videoCameraInputRef}
+                            type="file"
+                            accept="video/*"
+                            capture="environment"
                             onChange={(event) => void handleVideoFile(event.target.files)}
                             className="hidden"
                         />

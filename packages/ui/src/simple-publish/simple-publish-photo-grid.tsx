@@ -19,7 +19,7 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconGripVertical, IconPhoto, IconPlus, IconStar, IconX } from '@tabler/icons-react';
+import { IconCamera, IconGripVertical, IconPhoto, IconPlus, IconStar, IconX } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
 
 export type SimplePublishPhoto = {
@@ -110,6 +110,37 @@ function SortableTile({
     );
 }
 
+function SourcePickerButtons({
+    onCamera,
+    onGallery,
+    compact = false,
+}: {
+    onCamera: () => void;
+    onGallery: () => void;
+    compact?: boolean;
+}) {
+    return (
+        <div className={joinClasses('grid grid-cols-2 gap-2', compact ? '' : 'mt-4')}>
+            <button
+                type="button"
+                onClick={onCamera}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-(--border) bg-(--bg) text-sm font-medium text-(--fg) transition hover:border-(--accent)"
+            >
+                <IconCamera size={16} />
+                Cámara
+            </button>
+            <button
+                type="button"
+                onClick={onGallery}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-(--border) bg-(--bg) text-sm font-medium text-(--fg) transition hover:border-(--accent)"
+            >
+                <IconPhoto size={16} />
+                Galería
+            </button>
+        </div>
+    );
+}
+
 export function SimplePublishPhotoGrid({
     photos,
     maxPhotos = 20,
@@ -120,8 +151,10 @@ export function SimplePublishPhotoGrid({
     onRemovePhoto,
     onReorderPhotos,
 }: SimplePublishPhotoGridProps) {
-    const inputRef = useRef<HTMLInputElement>(null);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
+    const [showAddSources, setShowAddSources] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -140,14 +173,24 @@ export function SimplePublishPhotoGrid({
         onReorderPhotos(arrayMove(photos, oldIndex, newIndex));
     };
 
-    const openPicker = () => inputRef.current?.click();
+    const openGallery = () => {
+        setShowAddSources(false);
+        galleryInputRef.current?.click();
+    };
+
+    const openCamera = () => {
+        setShowAddSources(false);
+        cameraInputRef.current?.click();
+    };
+
+    const handleFiles = (files: FileList | null) => {
+        if (files?.length) onAddFiles(files);
+    };
 
     return (
         <div className="space-y-3">
             {photos.length === 0 ? (
-                <button
-                    type="button"
-                    onClick={openPicker}
+                <div
                     onDragOver={(event) => {
                         event.preventDefault();
                         setDragOver(true);
@@ -163,17 +206,18 @@ export function SimplePublishPhotoGrid({
                         invalid && !dragOver && 'border-(--color-error)',
                         dragOver
                             ? 'border-(--accent) bg-(--accent-subtle)/30'
-                            : !invalid && 'border-(--border) hover:border-(--accent)/45 hover:bg-(--bg-subtle)/50',
+                            : !invalid && 'border-(--border)',
                     )}
                 >
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-(--bg-subtle)">
                         <IconPhoto size={26} className="text-(--accent)" />
                     </div>
-                    <p className="text-sm font-medium text-(--fg)">Seleccionar fotos</p>
+                    <p className="text-sm font-medium text-(--fg)">Agregar fotos</p>
                     <p className="mt-1 text-xs text-(--fg-muted)">
-                        La primera será portada · Máximo {maxPhotos} · Arrastra para ordenar
+                        Cámara o galería · La primera será portada · Máximo {maxPhotos}
                     </p>
-                </button>
+                    <SourcePickerButtons onCamera={openCamera} onGallery={openGallery} />
+                </div>
             ) : (
                 <>
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -190,7 +234,7 @@ export function SimplePublishPhotoGrid({
                                 {photos.length < maxPhotos ? (
                                     <button
                                         type="button"
-                                        onClick={openPicker}
+                                        onClick={() => setShowAddSources((prev) => !prev)}
                                         className="flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-(--border) text-(--accent) transition-colors hover:border-(--accent) hover:bg-(--accent-subtle)/20"
                                     >
                                         <IconPlus size={20} />
@@ -200,6 +244,10 @@ export function SimplePublishPhotoGrid({
                             </div>
                         </SortableContext>
                     </DndContext>
+
+                    {showAddSources && photos.length < maxPhotos ? (
+                        <SourcePickerButtons onCamera={openCamera} onGallery={openGallery} compact />
+                    ) : null}
 
                     <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs text-(--fg-muted)">
@@ -221,14 +269,27 @@ export function SimplePublishPhotoGrid({
                 </>
             )}
 
+            {/* Galería / archivos: sin capture */}
             <input
-                ref={inputRef}
+                ref={galleryInputRef}
                 type="file"
                 accept="image/*"
                 multiple
                 className="hidden"
                 onChange={(event) => {
-                    if (event.target.files) onAddFiles(event.target.files);
+                    handleFiles(event.target.files);
+                    event.target.value = '';
+                }}
+            />
+            {/* Cámara: capture fuerza la app de cámara en Android/iOS */}
+            <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(event) => {
+                    handleFiles(event.target.files);
                     event.target.value = '';
                 }}
             />
