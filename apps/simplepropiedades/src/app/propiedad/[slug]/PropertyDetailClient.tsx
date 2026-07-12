@@ -187,6 +187,8 @@ export default function PropertyDetailClient({ item }: PropertyDetailClientProps
                 <aside className="public-listing-detail-layout__aside">
                     <PublicListingDetailPriceCard
                         price={item.price}
+                        priceOriginal={item.priceOriginal}
+                        discountPercent={item.discountPercent}
                         publishedAgo={item.publishedAgo}
                         views={item.views}
                     />

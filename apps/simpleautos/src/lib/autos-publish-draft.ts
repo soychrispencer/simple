@@ -1,4 +1,4 @@
-import { createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, parseVehicleEquipmentCodes, type DraftMediaUploadProgress, type ListingDraftEnvelope } from '@simple/utils';
+import { createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, parseVehicleEquipmentCodes, parseVehicleCondition, DEFAULT_VEHICLE_CONDITION, type DraftMediaUploadProgress, type ListingDraftEnvelope } from '@simple/utils';
 import { patchListingLocation, createEmptyListingLocation, type ListingLocation } from '@simple/types';
 import type { PublishFormData } from '@/lib/map-listing-to-publish-form';
 
@@ -140,10 +140,11 @@ export function mergeAutosPublishDraft(raw: unknown): { form: PublishFormData; s
         discountPercent: data.discountPercent ?? '',
         mileage: data.mileage ?? '',
         color: data.color ?? '',
+        interiorColor: typeof data.interiorColor === 'string' ? data.interiorColor : '',
         offerPriceMode: data.offerPriceMode === '%' ? '%' : '$',
         fuelType: data.fuelType ?? 'Bencina',
         transmission: data.transmission ?? 'Manual',
-        condition: data.condition === 'Nuevo' || data.condition === 'Seminuevo' || data.condition === 'Usado' ? data.condition : '',
+        condition: parseVehicleCondition(data.condition, DEFAULT_VEHICLE_CONDITION),
         maintenanceUpToDate: !!data.maintenanceUpToDate,
         technicalReviewUpToDate: !!data.technicalReviewUpToDate,
         papersUpToDate: !!data.papersUpToDate,

@@ -1,6 +1,6 @@
 import type { PanelListing } from '@/lib/panel-listings';
 import type { VehicleCatalogType } from '@/lib/publish-wizard-catalog';
-import { isSupportedExternalVideoUrl, parseVehicleEquipmentCodes } from '@simple/utils';
+import { isSupportedExternalVideoUrl, parseVehicleEquipmentCodes, parseVehicleCondition, DEFAULT_VEHICLE_CONDITION, type VehicleConditionValue } from '@simple/utils';
 import { createEmptyListingLocation, patchListingLocation, type ListingLocation } from '@simple/types';
 
 export type PublishFormPhoto = {
@@ -26,10 +26,11 @@ export type PublishFormData = {
     discountPercent: string;
     mileage: string;
     color: string;
+    interiorColor: string;
     offerPriceMode: '$' | '%';
     fuelType: string;
     transmission: string;
-    condition: 'Nuevo' | 'Seminuevo' | 'Usado' | '';
+    condition: VehicleConditionValue | '';
     maintenanceUpToDate: boolean;
     technicalReviewUpToDate: boolean;
     papersUpToDate: boolean;
@@ -170,10 +171,11 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
         discountPercent: '',
         mileage: basic.mileage != null ? String(basic.mileage) : '',
         color: asString(basic.color) || asString(basic.exteriorColor),
+        interiorColor: asString(basic.interiorColor),
         offerPriceMode: '$',
         fuelType: asString(basic.fuelType, 'Bencina'),
         transmission: asString(basic.transmission, 'Manual'),
-        condition: (basic.condition as PublishFormData['condition']) || '',
+        condition: parseVehicleCondition(basic.condition, DEFAULT_VEHICLE_CONDITION),
         maintenanceUpToDate: asBool(specs.maintenanceBook),
         technicalReviewUpToDate: asBool(specs.technicalReview),
         papersUpToDate: asBool(specs.paidPermit),

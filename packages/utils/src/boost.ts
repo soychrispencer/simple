@@ -54,7 +54,13 @@ export type FeaturedBoostItem = {
     subtitle: string;
     /** Tags ordenables para cards; si falta, se deriva de subtitle. */
     summary?: string[];
+    /** Condición del vehículo (autos). */
+    condition?: string | null;
     price: string;
+    /** Precio lista cuando hay oferta. */
+    priceOriginal?: string | null;
+    /** Descuento 1–99 cuando hay oferta. */
+    discountPercent?: number | null;
     location: string;
     imageUrl?: string;
     imageUrls?: string[];

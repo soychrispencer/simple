@@ -32,6 +32,8 @@ function mapFeaturedBoostToPropertyCard(item: FeaturedBoostItem): PropertyListin
         href: item.href,
         title: item.title,
         price: item.price,
+        priceOriginal: item.priceOriginal ?? undefined,
+        discountPercent: item.discountPercent ?? undefined,
         priceLabel: undefined,
         subtitle: item.subtitle,
         meta: metaItems,

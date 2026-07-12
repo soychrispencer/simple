@@ -31,6 +31,8 @@ function mapFeaturedBoostToVehicleCard(item: FeaturedBoostItem): VehicleListingC
         href: item.href,
         title: item.title,
         price: item.price,
+        priceOriginal: item.priceOriginal ?? undefined,
+        discountPercent: item.discountPercent ?? undefined,
         priceLabel: undefined,
         subtitle: item.subtitle,
         meta: metaItems,
@@ -41,6 +43,7 @@ function mapFeaturedBoostToVehicleCard(item: FeaturedBoostItem): VehicleListingC
         badge: sectionLabel,
         variant: item.section === 'rent' ? 'rent' : item.section === 'auction' ? 'auction' : 'sale',
         images,
+        condition: item.condition ?? undefined,
         isSponsored: item.boosted,
         engagement: {
             views24h: 0,

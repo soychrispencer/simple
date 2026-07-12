@@ -33,6 +33,11 @@ export type ListFeaturedBoostedDeps = {
     listingsById: Map<string, { id: string; rawData?: unknown; locationData?: unknown; location?: string; vertical?: string; section?: string }>;
     extractListingMediaUrls: (record: { rawData?: unknown }) => string[];
     extractListingSummary?: (record: { id: string; rawData?: unknown; vertical?: string; section?: string }) => string[];
+    extractAutosCondition?: (record: { id: string; rawData?: unknown; vertical?: string; section?: string }) => string | null;
+    extractPublicOfferPricing?: (record: { id: string; rawData?: unknown; vertical?: string; section?: string }) => {
+        priceOriginal: string | null;
+        discountPercent: number | null;
+    };
     buildLocationPublicLabel: (locationData: unknown) => string;
     humanizePublicLocationFallback: (location: string) => string;
     sanitizeUser: (user: { id: string }) => unknown;
@@ -94,13 +99,22 @@ export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
                             .split(/\s*[•|;]\s*/)
                             .map((part) => part.trim())
                             .filter(Boolean);
+                    const condition = sourceListing && deps.extractAutosCondition
+                        ? deps.extractAutosCondition(sourceListing)
+                        : null;
+                    const offerPricing = sourceListing && deps.extractPublicOfferPricing
+                        ? deps.extractPublicOfferPricing(sourceListing)
+                        : { priceOriginal: null, discountPercent: null };
                     return {
                         id: target.id,
                         href: target.href,
                         title: target.title,
                         subtitle: summary.length > 0 ? summary.join(' • ') : target.subtitle,
                         summary,
+                        condition,
                         price: target.price,
+                        priceOriginal: offerPricing.priceOriginal,
+                        discountPercent: offerPricing.discountPercent,
                         location,
                         imageUrl,
                         imageUrls: listingImageUrls,

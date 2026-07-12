@@ -149,9 +149,28 @@ describe('listingToPublicResponse', () => {
                     mileage: '45000',
                     fuelType: 'Bencina',
                     transmission: 'Automático',
+                    condition: 'Seminuevo',
                 },
             },
         }));
         expect(item.summary).toEqual(['2020', 'Sedán', '45.000 km', 'Bencina', 'Automático']);
+        expect(item.year).toBe('2020');
+        expect(item.condition).toBe('Seminuevo');
+    });
+
+    it('expone precio lista y descuento cuando hay oferta', () => {
+        const item = present.listingToPublicResponse(baseListing({
+            price: '$ 16.990.000',
+            rawData: {
+                commercial: {
+                    currency: 'CLP',
+                    price: '18990000',
+                    offerPrice: '16990000',
+                },
+            },
+        }));
+        expect(item.price).toBe('$ 16.990.000');
+        expect(item.priceOriginal).toBe('$ 18.990.000');
+        expect(item.discountPercent).toBe(11);
     });
 });

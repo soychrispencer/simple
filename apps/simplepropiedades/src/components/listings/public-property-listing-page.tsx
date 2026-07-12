@@ -30,6 +30,8 @@ function toCardData(item: PublicListing): PropertyListingCardData {
         href: item.href,
         title: item.title,
         price: item.price,
+        priceOriginal: item.priceOriginal ?? undefined,
+        discountPercent: item.discountPercent ?? undefined,
         priceLabel: item.section === 'project' ? 'Proyecto' : item.section === 'rent' ? 'Arriendo' : 'Precio',
         subtitle: item.description,
         meta,

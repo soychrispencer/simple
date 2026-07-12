@@ -84,6 +84,7 @@ export function useMarketplaceOperatorPublishDefaults(
             return {
                 showFleetRentFields: autosListingType === 'rent',
                 showConsignmentFields: false,
+                canSelectNewCondition: false,
             };
         }
         return resolveOperatorPublishContext('autos', profile, { autosListingType }).autos;

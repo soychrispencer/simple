@@ -761,6 +761,8 @@ const listFeaturedBoosted = createListFeaturedBoosted({
     listingsById,
     extractListingMediaUrls,
     extractListingSummary: (record) => extractListingSummary(record as ListingRecord),
+    extractAutosCondition: (record) => extractAutosCondition(record as ListingRecord),
+    extractPublicOfferPricing: (record) => extractPublicOfferPricing(record as ListingRecord),
     buildLocationPublicLabel: (locationData) =>
         buildLocationPublicLabel(locationData as Parameters<typeof buildLocationPublicLabel>[0]),
     humanizePublicLocationFallback,
@@ -1024,6 +1026,8 @@ function getUrlPathSegment(url: string, fromEnd = 1): string {
 
 const {
     extractListingSummary,
+    extractAutosCondition,
+    extractPublicOfferPricing,
     isPublicListingVisible,
     matchesListingSlug,
     listingToPublicResponse,

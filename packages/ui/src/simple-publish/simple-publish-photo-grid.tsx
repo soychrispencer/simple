@@ -19,9 +19,10 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { IconGripVertical, IconPhoto, IconStar, IconX } from '@tabler/icons-react';
+import { IconGripVertical, IconPhoto, IconPlus, IconStar, IconX } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
-import { MediaSourcePicker } from './media-source-picker';
+import { MediaSourcePicker, usePrefersCameraSource } from './media-source-picker';
+import { MediaSourceSheet } from './media-source-sheet';
 
 export type SimplePublishPhoto = {
     id: string;
@@ -124,6 +125,8 @@ export function SimplePublishPhotoGrid({
     const galleryInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
+    const [sourceOpen, setSourceOpen] = useState(false);
+    const prefersCamera = usePrefersCameraSource();
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -143,8 +146,23 @@ export function SimplePublishPhotoGrid({
         onReorderPhotos(arrayMove(photos, oldIndex, newIndex));
     };
 
-    const openGallery = () => galleryInputRef.current?.click();
-    const openCamera = () => cameraInputRef.current?.click();
+    const openGallery = () => {
+        galleryInputRef.current?.click();
+        setSourceOpen(false);
+    };
+
+    const openCamera = () => {
+        cameraInputRef.current?.click();
+        setSourceOpen(false);
+    };
+
+    const handleAddMore = () => {
+        if (!prefersCamera) {
+            openGallery();
+            return;
+        }
+        setSourceOpen(true);
+    };
 
     const handleFiles = (files: FileList | null) => {
         if (files?.length) onAddFiles(files);
@@ -191,18 +209,20 @@ export function SimplePublishPhotoGrid({
                                         onRemove={onRemovePhoto}
                                     />
                                 ))}
+                                {canAddMore ? (
+                                    <button
+                                        type="button"
+                                        onClick={handleAddMore}
+                                        className="flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-(--border) text-(--accent) transition-colors hover:border-(--accent) hover:bg-(--accent-subtle)/20"
+                                        aria-label="Agregar fotos"
+                                    >
+                                        <IconPlus size={22} />
+                                        <span className="text-[10px] font-medium">Agregar</span>
+                                    </button>
+                                ) : null}
                             </div>
                         </SortableContext>
                     </DndContext>
-
-                    {canAddMore ? (
-                        <MediaSourcePicker
-                            size="compact"
-                            onCamera={openCamera}
-                            onGallery={openGallery}
-                            desktopLabel="Agregar fotos"
-                        />
-                    ) : null}
 
                     <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs text-(--fg-muted)">
@@ -244,6 +264,15 @@ export function SimplePublishPhotoGrid({
                     handleFiles(event.target.files);
                     event.target.value = '';
                 }}
+            />
+
+            <MediaSourceSheet
+                open={sourceOpen}
+                title="Agregar fotos"
+                onClose={() => setSourceOpen(false)}
+                onCamera={openCamera}
+                onGallery={openGallery}
+                desktopLabel="Subir fotos"
             />
 
             {error?.trim() ? <p className="text-xs text-(--color-error)">{error}</p> : null}

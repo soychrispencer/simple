@@ -34,9 +34,6 @@ export function parseListingPriceAmount(price: string): number {
 function buildExtraBadges(data: MarketplaceCardLike): ListingBadge[] {
     const badges: ListingBadge[] = [];
     if (data.projectStatus) badges.push({ label: data.projectStatus, tone: 'info' });
-    if (data.discountPercent && data.discountPercent > 0) {
-        badges.push({ label: `-${data.discountPercent}%`, tone: 'warning' });
-    }
     if (data.financing) badges.push({ label: 'Financiamiento', tone: 'neutral' });
     if (data.exchange) badges.push({ label: 'Permuta', tone: 'neutral' });
     else if (data.negotiable) badges.push({ label: 'Conversable', tone: 'neutral' });

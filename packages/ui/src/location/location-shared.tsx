@@ -775,6 +775,21 @@ function sortAddressBookEntries(entries: AddressBookEntry[]): AddressBookEntry[]
     });
 }
 
+export function listPublishAddressBookEntries(
+    addressBook: AddressBookEntry[],
+    vertical?: 'autos' | 'propiedades' | 'serenatas',
+): AddressBookEntry[] {
+    const business = sortAddressBookEntries(
+        addressBook.filter((entry) => entry.scope === 'business' && (
+            !vertical || entry.vertical === vertical || entry.vertical == null
+        )),
+    );
+    const personal = sortAddressBookEntries(
+        addressBook.filter((entry) => entry.scope === 'personal'),
+    );
+    return [...business, ...personal];
+}
+
 export function buildSavedAddressSelectOptions(
     addressBook: AddressBookEntry[],
     vertical?: 'autos' | 'propiedades' | 'serenatas',
@@ -823,11 +838,18 @@ export function mapWindowByPrecision(precision: ListingLocation['publicGeoPoint'
 }
 
 export function buildOsmUrls(latitude: number, longitude: number, precision: ListingLocation['publicGeoPoint']['precision']) {
-    const zoom = mapZoomByPrecision(precision);
+    const { latDelta, lonDelta } = mapWindowByPrecision(precision);
+    const south = latitude - latDelta;
+    const north = latitude + latDelta;
+    const west = longitude - lonDelta;
+    const east = longitude + lonDelta;
+    const lat = latitude.toFixed(6);
+    const lon = longitude.toFixed(6);
     return {
-        embedUrl: null,
-        imageUrl: `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude.toFixed(6)},${longitude.toFixed(6)}&zoom=${zoom}&size=1200x520&markers=${latitude.toFixed(6)},${longitude.toFixed(6)},red-pushpin`,
-        externalUrl: `https://www.openstreetmap.org/?mlat=${latitude.toFixed(6)}&mlon=${longitude.toFixed(6)}#map=15/${latitude.toFixed(6)}/${longitude.toFixed(6)}`,
+        // staticmap.openstreetmap.de dejó de resolver DNS; usamos el embed oficial.
+        embedUrl: `https://www.openstreetmap.org/export/embed.html?bbox=${west.toFixed(6)}%2C${south.toFixed(6)}%2C${east.toFixed(6)}%2C${north.toFixed(6)}&layer=mapnik&marker=${lat}%2C${lon}`,
+        imageUrl: null as string | null,
+        externalUrl: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=15/${lat}/${lon}`,
         providerLabel: 'OpenStreetMap',
     };
 }
@@ -865,11 +887,16 @@ export function buildGoogleMapsUrls(
     const searchTarget = query.trim() || previewTarget;
     if (!previewTarget && !searchTarget) return null;
 
+    const key = embedKey?.trim() || '';
+    const hasCoords = latitude != null && longitude != null;
+
     return {
-        embedUrl: embedKey
-            ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(embedKey)}&q=${encodeURIComponent(previewTarget || searchTarget)}&zoom=${zoom}`
+        embedUrl: key
+            ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(key)}&q=${encodeURIComponent(previewTarget || searchTarget)}&zoom=${zoom}`
             : null,
-        imageUrl: null,
+        imageUrl: key && hasCoords
+            ? `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(previewTarget)}&zoom=${zoom}&size=640x320&scale=2&maptype=roadmap&markers=${encodeURIComponent(`color:red|${previewTarget}`)}&key=${encodeURIComponent(key)}`
+            : null,
         externalUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchTarget || previewTarget)}`,
         providerLabel: 'Google Maps',
     };

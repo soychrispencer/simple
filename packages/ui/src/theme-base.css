@@ -2535,12 +2535,12 @@ button:disabled,
     text-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
 }
 
-/* Grid overlay: precio+título con avatar; ubicación debajo; tags + menú */
+/* Grid overlay: precio + título con tag de ciudad; specs + menú */
 .marketplace-reel-card--grid .marketplace-reel-card__head {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 0.35rem;
+    gap: 0;
     min-width: 0;
 }
 
@@ -2564,7 +2564,7 @@ button:disabled,
     min-width: 0;
     flex-direction: column;
     justify-content: center;
-    gap: 0.08rem;
+    gap: 0.1rem;
 }
 
 .marketplace-reel-card--grid .marketplace-reel-card__price {
@@ -2576,24 +2576,42 @@ button:disabled,
     line-height: 1.05;
     color: #fff;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     text-shadow: 0 1px 10px rgb(0 0 0 / 0.5);
 }
 
-.marketplace-reel-card--grid .marketplace-reel-card__price-original {
-    margin: 0;
-    text-align: left;
+.marketplace-reel-card--grid .marketplace-reel-card__price-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.marketplace-reel-card--grid .marketplace-reel-card__discount {
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 88%, #fff);
+    color: #fff;
     font-size: 0.62rem;
-    color: rgb(255 255 255 / 0.55);
-    text-decoration: line-through;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: 780;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    padding: 0.28rem 0.45rem;
+    box-shadow: 0 1px 8px rgb(0 0 0 / 0.28);
+}
+
+.marketplace-reel-card--grid .marketplace-reel-card__title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .marketplace-reel-card--grid .marketplace-reel-card__title {
     margin: 0;
+    min-width: 0;
+    flex: 1 1 auto;
     text-align: left;
     font-size: 0.72rem;
     font-weight: 550;
@@ -2605,31 +2623,29 @@ button:disabled,
     text-shadow: 0 1px 6px rgb(0 0 0 / 0.4);
 }
 
-.marketplace-reel-card--grid .marketplace-reel-card__location {
+.marketplace-reel-card--grid .marketplace-reel-card__location--tag {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    max-width: 100%;
+    gap: 0.18rem;
+    flex: 0 1 auto;
     min-width: 0;
+    max-width: 46%;
     margin: 0;
-    font-size: 0.66rem;
+    border-radius: 0.4rem;
+    border: 1px solid rgb(255 255 255 / 0.2);
+    background: rgb(0 0 0 / 0.38);
+    padding: 0.14rem 0.4rem;
+    font-size: 0.58rem;
     font-weight: 600;
-    line-height: 1.2;
+    line-height: 1.15;
     color: rgb(255 255 255 / 0.9);
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     text-shadow: none;
 }
 
-.marketplace-reel-card--grid .marketplace-reel-card__location--tag {
-    width: fit-content;
-    border-radius: 0.45rem;
-    border: 1px solid rgb(255 255 255 / 0.22);
-    background: rgb(0 0 0 / 0.42);
-    padding: 0.18rem 0.45rem;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-.marketplace-reel-card--grid .marketplace-reel-card__location span {
+.marketplace-reel-card--grid .marketplace-reel-card__location--tag span {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2866,6 +2882,14 @@ button:disabled,
     gap: 0.25rem;
 }
 
+.marketplace-reel-card--list .marketplace-reel-card__price-row--list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.15rem;
+}
+
 .marketplace-reel-card--list .marketplace-reel-card__price,
 .marketplace-reel-card--list .marketplace-reel-card__price--list {
     margin-bottom: 0;
@@ -2878,14 +2902,23 @@ button:disabled,
     text-shadow: none;
 }
 
-.marketplace-reel-card--list .marketplace-reel-card__price-original,
-.marketplace-reel-card--list .marketplace-reel-card__price-original--list {
-    margin-bottom: 0;
-    text-align: left;
-    font-size: 0.75rem;
-    color: var(--fg-muted);
-    text-decoration: line-through;
-    text-shadow: none;
+.marketplace-reel-card--list .marketplace-reel-card__price-row--offer .marketplace-reel-card__price,
+.marketplace-reel-card--list .marketplace-reel-card__price-row--offer .marketplace-reel-card__price--list {
+    color: var(--accent);
+}
+
+.marketplace-reel-card--list .marketplace-reel-card__discount,
+.marketplace-reel-card--list .marketplace-reel-card__discount--list {
+    display: inline-flex;
+    margin-top: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 0.2rem 0.45rem;
+    align-self: center;
 }
 
 .marketplace-reel-card--list .marketplace-reel-card__title,
@@ -2916,14 +2949,6 @@ button:disabled,
     font-weight: 600;
     color: var(--fg-secondary);
     text-shadow: none;
-}
-
-.marketplace-reel-card--list .marketplace-reel-card__location--tag {
-    width: fit-content;
-    border-radius: 0.45rem;
-    border: 1px solid var(--border);
-    background: color-mix(in oklab, var(--bg-muted) 88%, var(--surface));
-    padding: 0.18rem 0.45rem;
 }
 
 .marketplace-reel-card--list .marketplace-reel-card__actions .marketplace-reel-card__icon-btn {
@@ -3541,11 +3566,54 @@ button:disabled,
     margin-bottom: 1rem;
 }
 
+.public-listing-detail-price-card__amount-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+}
+
+@media (min-width: 1024px) {
+    .public-listing-detail-price-card__amount-row {
+        justify-content: flex-start;
+    }
+}
+
 .public-listing-detail-price-card__amount {
+    margin: 0;
     font-size: clamp(1.875rem, 4vw, 2.25rem);
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--fg);
+    line-height: 1.1;
+}
+
+.public-listing-detail-price-card--offer .public-listing-detail-price-card__amount {
+    color: var(--accent);
+}
+
+.public-listing-detail-price-card__discount {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 0.3rem 0.65rem;
+}
+
+.public-listing-detail-price-card__original {
+    margin: 0.4rem 0 0;
+    font-size: 0.9375rem;
+    color: var(--fg-muted);
+}
+
+.public-listing-detail-price-card__original span {
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
 }
 
 .public-listing-detail-price-card__meta {

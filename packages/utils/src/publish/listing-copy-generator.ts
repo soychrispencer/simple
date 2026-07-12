@@ -74,8 +74,14 @@ export function generateAutosListingDescription(input: AutosCopyInput): string {
     let hook = '';
     if (input.condition === 'Nuevo') {
         hook = `✨ ${input.brandName} ${input.modelName} 0km, sin uso y listo para transferir.`;
-    } else if (input.condition === 'Seminuevo' || (age !== null && age <= 3)) {
+    } else if (input.condition === 'Seminuevo' || (age !== null && age <= 3 && input.condition !== 'Siniestrado' && input.condition !== 'Para desarme')) {
         hook = `🌟 ${input.condition === 'Seminuevo' ? 'Seminuevo' : 'Poco uso'}, en excelente estado${kmNum && kmNum < 50000 ? ' y con bajo kilometraje' : ''}.`;
+    } else if (input.condition === 'Siniestrado') {
+        hook = '⚠️ Vehículo siniestrado: revisa el estado real y la documentación antes de transferir.';
+    } else if (input.condition === 'Para desarme') {
+        hook = '🔧 Ideal para desarme o repuestos; útil si buscas piezas específicas.';
+    } else if (input.condition === 'Colección') {
+        hook = `🏆 ${input.brandName} ${input.modelName} de colección, para quienes buscan un clásico.`;
     } else if (input.ownerCount === '1') {
         hook = '👤 Único dueño, mantenido al día y en muy buen estado.';
     } else if (kmNum && kmNum < 80000) {

@@ -97,8 +97,14 @@ export function abbreviateListingSpecLabel(label: string): string {
     if (lower === 'manual') return 'Manual';
     if (lower === 'secuencial') return 'Secuenc.';
     if (lower === 'cvt') return 'CVT';
+    if (lower === 'dct / dsg' || lower === 'dct' || lower === 'dsg') return 'DCT';
+    if (lower === 'tiptronic') return 'Tiptronic';
     if (lower === 'seminuevo' || lower === 'semi-nuevo' || lower === 'semi nuevo') return 'Seminuevo';
     if (lower === 'nuevo') return 'Nuevo';
+    if (lower === 'usado') return 'Usado';
+    if (lower === 'siniestrado') return 'Siniestrado';
+    if (lower === 'para desarme' || lower === 'desarme') return 'Desarme';
+    if (lower === 'colección' || lower === 'coleccion') return 'Colección';
     if (lower === 'departamento') return 'Depto';
     if (lower === 'estacionamiento' || lower === 'estacionamientos') return 'Estac.';
     if (lower === 'bodega' || lower === 'bodegas') return 'Bodega';

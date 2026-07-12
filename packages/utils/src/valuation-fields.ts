@@ -4,6 +4,7 @@ import {
     type PropertyValuationRequest,
     type VehicleValuationRequest,
 } from '@simple/types';
+import { VEHICLE_CONDITION_OPTIONS } from './publish/vehicle-condition.js';
 
 export type ValuationSupplementField = {
     id: string;
@@ -34,11 +35,16 @@ export const PROPERTY_TYPE_OPTIONS = [
     'Parcela',
 ].map((value) => ({ value, label: value }));
 
-export const VEHICLE_CONDITION_OPTIONS = ['Nuevo', 'Seminuevo', 'Usado'].map((value) => ({ value, label: value }));
-
 export const VEHICLE_FUEL_OPTIONS = ['Bencina', 'Diésel', 'Eléctrico', 'Híbrido', 'Gas'].map((value) => ({ value, label: value }));
 
-export const VEHICLE_TRANSMISSION_OPTIONS = ['Manual', 'Automática', 'CVT'].map((value) => ({ value, label: value }));
+export const VEHICLE_TRANSMISSION_OPTIONS = [
+    'Manual',
+    'Automática',
+    'CVT',
+    'Secuencial',
+    'DCT / DSG',
+    'Tiptronic',
+].map((value) => ({ value, label: value }));
 
 export type PropertyValuationContext = {
     operationType?: 'sale' | 'rent' | 'project';

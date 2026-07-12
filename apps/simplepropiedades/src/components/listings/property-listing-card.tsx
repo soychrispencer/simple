@@ -146,9 +146,6 @@ function buildSpecs(data: PropertyListingCardData): MarketplaceReelSpec[] {
 function buildChips(data: PropertyListingCardData): MarketplaceReelChip[] {
     const chips: MarketplaceReelChip[] = [{ label: variantLabel(data.variant) }];
     if (data.projectStatus) chips.push({ label: data.projectStatus });
-    if (data.discountPercent && data.discountPercent > 0) {
-        chips.push({ label: `-${data.discountPercent}%`, tone: 'accent' });
-    }
     if (data.financing) chips.push({ label: 'Financiamiento' });
     if (data.negotiable) chips.push({ label: 'Conversable' });
     return chips;
@@ -193,6 +190,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
                 title={data.title}
                 price={data.price}
                 priceOriginal={data.priceOriginal}
+                discountPercent={data.discountPercent}
                 location={data.location}
                 ctaLabel={ctaLabel}
                 images={data.images}
@@ -226,6 +224,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
             title={data.title}
             price={data.price}
             priceOriginal={data.priceOriginal}
+            discountPercent={data.discountPercent}
             location={data.location}
             ctaLabel={ctaLabel}
             images={data.images}

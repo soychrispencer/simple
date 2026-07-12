@@ -21,6 +21,7 @@ import {
     addressSummary,
     buildLocationQuery,
     buildSavedAddressSelectOptions,
+    listPublishAddressBookEntries,
     GoogleMapIcon,
     ShareIcon,
     type FieldErrorMap,
@@ -81,6 +82,7 @@ export type LocationMapPreviewProps = {
 
 
 export function LocationMapPreview({ location, title = 'Mapa público', subtitle, mode = 'public', showTechnicalMeta = false }: LocationMapPreviewProps) {
+    const [imageFailed, setImageFailed] = useState(false);
     const previewGeoPoint = mode === 'internal'
         ? location.geoPoint
         : (location.publicMapEnabled && location.visibilityMode !== 'hidden'
@@ -88,14 +90,15 @@ export function LocationMapPreview({ location, title = 'Mapa público', subtitle
             : createEmptyGeoPoint());
     const addressQuery = buildLocationQuery(location, mode);
     const canUsePrecisePoint = previewGeoPoint.latitude != null && previewGeoPoint.longitude != null && previewGeoPoint.provider !== 'catalog_seed';
+    const mapsKey = resolveGoogleMapsBrowserKey();
     const googleUrls = buildGoogleMapsUrls(
         canUsePrecisePoint ? previewGeoPoint.latitude : null,
         canUsePrecisePoint ? previewGeoPoint.longitude : null,
         previewGeoPoint.precision,
         addressQuery,
-        process.env.NEXT_PUBLIC_GOOGLE_MAPS_EMBED_KEY
+        mapsKey,
     );
-    const previewUrls = canUsePrecisePoint
+    const osmUrls = canUsePrecisePoint
         ? buildOsmUrls(previewGeoPoint.latitude!, previewGeoPoint.longitude!, previewGeoPoint.precision)
         : null;
     const subtitleText = subtitle || (
@@ -103,7 +106,10 @@ export function LocationMapPreview({ location, title = 'Mapa público', subtitle
             ? [location.addressLine1, location.neighborhood, location.communeName, location.regionName].filter(Boolean).join(', ') || 'Sin dirección interna todavía.'
             : location.publicLabel || 'Sin vista pública todavía.'
     );
-    const externalMapsUrl = googleUrls?.externalUrl || previewUrls?.externalUrl || null;
+    const externalMapsUrl = googleUrls?.externalUrl || osmUrls?.externalUrl || null;
+    // OSM embed no requiere API key; Google Embed solo si la clave tiene Maps Embed API.
+    const embedUrl = osmUrls?.embedUrl || googleUrls?.embedUrl || null;
+    const imageUrl = !imageFailed ? (googleUrls?.imageUrl || osmUrls?.imageUrl || null) : null;
     const statusLabel = !addressQuery
         ? 'Completa la dirección'
         : canUsePrecisePoint
@@ -112,6 +118,10 @@ export function LocationMapPreview({ location, title = 'Mapa público', subtitle
     const emptyStateText = !addressQuery
         ? (mode === 'internal' ? 'Escribe una dirección para mostrar la ubicación.' : 'Sin dirección pública todavía.')
         : 'Aún no pudimos ubicar esta dirección con precisión. Verifica la dirección o activa Google Places para usar sugerencias.';
+
+    useEffect(() => {
+        setImageFailed(false);
+    }, [previewGeoPoint.latitude, previewGeoPoint.longitude, imageUrl]);
 
     return (
         <div className="loc-editor-card rounded-card border p-4">
@@ -125,10 +135,20 @@ export function LocationMapPreview({ location, title = 'Mapa público', subtitle
                 </span>
             </div>
             <div className="loc-editor-map-frame relative mt-3 h-52 overflow-hidden rounded-card border">
-                {previewUrls?.imageUrl ? (
+                {embedUrl ? (
+                    <iframe
+                        title={title}
+                        src={embedUrl}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        className="absolute inset-0 h-full w-full border-0"
+                        allowFullScreen
+                    />
+                ) : imageUrl ? (
                     <img
                         alt={title}
-                        src={previewUrls.imageUrl}
+                        src={imageUrl}
+                        onError={() => setImageFailed(true)}
                         className="absolute inset-0 h-full w-full object-cover"
                     />
                 ) : externalMapsUrl ? (
@@ -229,6 +249,8 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
     const lastSyncedAddressRef = useRef(location.addressLine1 || '');
     const googlePlacesKey = resolveGoogleMapsBrowserKey(googleMapsApiKey) ?? '';
     const [autocompleteReady, setAutocompleteReady] = useState(false);
+    /** PlaceAutocompleteElement muestra su propio input; el nativo debe ocultarse vía React. */
+    const [placesUiMode, setPlacesUiMode] = useState<'element' | 'legacy' | null>(null);
 
     const sourceOptions = useMemo(() => {
         const base = [
@@ -265,6 +287,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             placesAttachmentRef.current?.destroy();
             placesAttachmentRef.current = null;
             setAutocompleteReady(false);
+            setPlacesUiMode(null);
             return;
         }
 
@@ -299,12 +322,14 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         }).then((attachment) => {
             if (disposed || !attachment) {
                 setAutocompleteReady(false);
+                setPlacesUiMode(null);
                 return;
             }
             placesAttachmentRef.current = attachment;
             const initial = locationRef.current.addressLine1 || '';
             lastSyncedAddressRef.current = initial;
             attachment.setValue(initial);
+            setPlacesUiMode(attachment.mode);
             setAutocompleteReady(true);
         });
 
@@ -313,6 +338,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             placesAttachmentRef.current?.destroy();
             placesAttachmentRef.current = null;
             setAutocompleteReady(false);
+            setPlacesUiMode(null);
         };
     }, [googlePlacesKey, googleMapsApiKey, location.sourceMode, addressInputEl, placesHostEl]);
 
@@ -442,13 +468,17 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
     ) : null;
     const addressFields = location.sourceMode !== 'area_only' ? (
         simpleMode ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className={joinClasses('grid gap-3', showAddressLine2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1')}>
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
                     <div className="flex items-center gap-2">
                         <div className="relative min-w-0 flex-1">
                             <input
                                 ref={addressInputRef}
-                                className={joinClasses('form-input min-w-0 w-full', fieldInvalid(errors, 'addressLine1') && 'form-input-error')}
+                                className={joinClasses(
+                                    'form-input min-w-0 w-full',
+                                    placesUiMode === 'element' && 'hidden',
+                                    fieldInvalid(errors, 'addressLine1') && 'form-input-error',
+                                )}
                                 value={location.addressLine1 || ''}
                                 autoComplete="off"
                                 onChange={(event) => onChange(patchListingLocation(location, {
@@ -459,7 +489,10 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                                 }))}
                                 placeholder="Ej: Av. Italia 1452"
                             />
-                            <div ref={placesHostRef} className="hidden min-w-0 w-full" />
+                            <div
+                                ref={placesHostRef}
+                                className={joinClasses('min-w-0 w-full', placesUiMode !== 'element' && 'hidden')}
+                            />
                         </div>
                         {mapsActionButtons}
                     </div>
@@ -477,7 +510,11 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                         <div className="relative min-w-0 flex-1">
                             <input
                                 ref={addressInputRef}
-                                className={joinClasses('form-input w-full', fieldInvalid(errors, 'addressLine1') && 'form-input-error')}
+                                className={joinClasses(
+                                    'form-input w-full',
+                                    placesUiMode === 'element' && 'hidden',
+                                    fieldInvalid(errors, 'addressLine1') && 'form-input-error',
+                                )}
                                 value={location.addressLine1 || ''}
                                 autoComplete="street-address"
                                 onChange={(event) => onChange(patchListingLocation(location, {
@@ -488,7 +525,10 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                                 }))}
                                 placeholder="Ej: Av. Italia 1452"
                             />
-                            <div ref={placesHostRef} className="hidden min-w-0 w-full" />
+                            <div
+                                ref={placesHostRef}
+                                className={joinClasses('min-w-0 w-full', placesUiMode !== 'element' && 'hidden')}
+                            />
                         </div>
                         {internalMapsUrl ? (
                             <a
@@ -532,26 +572,63 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                 <>
                     {locationMetaFields}
                     {showSavedAddressPicker ? (
-                    <Field label="Usar dirección" hint={!addressBookLoading && addressBook.length === 0 ? 'Aún no tienes direcciones guardadas. Completa el formulario y usa «Guardar en libreta».' : undefined}>
-                        <StyledSelect
-                            value={savedAddressSelectValue}
-                            placeholder={addressBookLoading ? 'Cargando...' : 'Nueva dirección'}
-                            disabled={addressBookLoading}
-                            options={savedAddressOptions}
-                            onChange={(nextValue) => {
-                                if (!nextValue || nextValue === '__new__') {
-                                    onChange(patchListingLocation(location, {
+                    <div className="space-y-2">
+                        <div className="flex items-end justify-between gap-2">
+                            <p className="text-sm font-medium loc-editor-fg">Elegir ubicación</p>
+                            {fieldError(errors, 'sourceAddressId') ? (
+                                <p className="text-xs text-(--color-error)">{fieldError(errors, 'sourceAddressId')}</p>
+                            ) : null}
+                        </div>
+                        {addressBookLoading ? (
+                            <p className="text-xs loc-editor-muted">Cargando direcciones guardadas…</p>
+                        ) : addressBook.length > 0 ? (
+                            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                                {listPublishAddressBookEntries(addressBook, publishVertical).map((entry) => {
+                                    const selected = location.sourceMode === 'saved_address' && location.sourceAddressId === entry.id;
+                                    return (
+                                        <button
+                                            key={entry.id}
+                                            type="button"
+                                            onClick={() => onChange(applyAddressBookEntryToLocation(entry, location))}
+                                            className={joinClasses(
+                                                'min-w-[148px] max-w-[200px] shrink-0 rounded-2xl border px-3 py-2.5 text-left transition',
+                                                selected
+                                                    ? 'border-(--accent) bg-(--accent-subtle)/40'
+                                                    : 'border-(--border) bg-(--bg-subtle)/40 hover:border-(--accent)/40',
+                                            )}
+                                        >
+                                            <p className="truncate text-sm font-semibold loc-editor-fg">
+                                                {entry.label || entry.addressLine1 || 'Dirección'}
+                                            </p>
+                                            <p className="mt-0.5 truncate text-[11px] loc-editor-muted">
+                                                {[entry.communeName, entry.regionName].filter(Boolean).join(' · ') || entry.addressLine1}
+                                            </p>
+                                        </button>
+                                    );
+                                })}
+                                <button
+                                    type="button"
+                                    onClick={() => onChange(patchListingLocation(location, {
                                         sourceMode: 'custom',
                                         sourceAddressId: null,
-                                    }));
-                                    return;
-                                }
-                                const nextAddress = addressBook.find((item) => item.id === nextValue);
-                                if (!nextAddress) return;
-                                onChange(applyAddressBookEntryToLocation(nextAddress, location));
-                            }}
-                        />
-                    </Field>
+                                    }))}
+                                    className={joinClasses(
+                                        'min-w-[120px] shrink-0 rounded-2xl border border-dashed px-3 py-2.5 text-left transition',
+                                        location.sourceMode !== 'saved_address'
+                                            ? 'border-(--accent) bg-(--accent-subtle)/30'
+                                            : 'border-(--border) hover:border-(--accent)/40',
+                                    )}
+                                >
+                                    <p className="text-sm font-semibold loc-editor-fg">Nueva</p>
+                                    <p className="mt-0.5 text-[11px] loc-editor-muted">Buscar o escribir</p>
+                                </button>
+                            </div>
+                        ) : (
+                            <p className="text-xs loc-editor-muted">
+                                Aún no tienes direcciones guardadas. Completa abajo y usa «Guardar en libreta».
+                            </p>
+                        )}
+                    </div>
                     ) : null}
                     {addressFields}
                     {showAreaFields ? (
@@ -577,11 +654,18 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                                 </label>
                             ) : <div />}
                             {onSaveToAddressBook && location.sourceMode !== 'saved_address' ? (
-                                <PanelButton type="button" variant="ghost" size="sm" onClick={() => void onSaveToAddressBook()}>
+                                <PanelButton type="button" variant="secondary" size="sm" onClick={() => void onSaveToAddressBook()}>
                                     Guardar en libreta
                                 </PanelButton>
                             ) : null}
                         </div>
+                    ) : null}
+                    {showPublicPreviewCard ? (
+                        <LocationMapPreview
+                            location={location}
+                            title="Confirmar en el mapa"
+                            mode="internal"
+                        />
                     ) : null}
                 </>
             ) : (

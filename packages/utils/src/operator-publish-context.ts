@@ -10,6 +10,8 @@ type OperatorProfileInput = {
 export type AutosOperatorPublishContext = {
     showFleetRentFields: boolean;
     showConsignmentFields: boolean;
+    /** Condición «Nuevo» solo para cuentas empresa (concesionaria). */
+    canSelectNewCondition: boolean;
 };
 
 export type PropiedadesOperatorPublishContext = {
@@ -43,6 +45,7 @@ export function resolveAutosOperatorPublishContext(
     return {
         showFleetRentFields: listingType === 'rent' || fleetOperator,
         showConsignmentFields: listingType === 'sale' && consignmentOperator,
+        canSelectNewCondition: profile.accountKind === 'company',
     };
 }
 

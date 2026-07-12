@@ -28,17 +28,23 @@ import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
-import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, VEHICLE_EQUIPMENT_OPTIONS } from '@simple/utils';
+import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, VEHICLE_APPEARANCE_OPTIONS, VEHICLE_TECH_EQUIPMENT_OPTIONS, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
 import { ModernSelect } from '@simple/ui/forms';
 import { ColorPicker } from '@/components/ui/color-picker';
-import { fetchPublishAddressBook, pickDefaultPublishAddress, uploadMediaFile, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, resolveLocationNames } from '@simple/utils';
+import { fetchPublishAddressBook, pickDefaultPublishAddress, uploadMediaFile, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, resolveLocationNames, createAddressBookEntry } from '@simple/utils';
 import type { AddressBookEntry, ListingLocation } from '@simple/types';
 import { applyAddressBookEntryToLocation, createEmptyListingLocation, patchListingLocation } from '@simple/types';
 import { ListingLocationEditor, pickListingLocationFieldErrors } from '@simple/ui/location';
 import { useGoogleMapsBrowserKey } from '@simple/ui/address-book';
 import { AUTOS_PUBLISH_STEPS } from '@/components/panel/publish/publish-steps';
+import dynamic from 'next/dynamic';
+
+const PublishLocationMap = dynamic(() => import('@/components/map/publish-location-map'), {
+    ssr: false,
+    loading: () => <div className="mt-3 h-52 animate-pulse rounded-xl border bg-(--bg-subtle)" />,
+});
 
 // =============================================================================
 // TIPOS
@@ -66,10 +72,11 @@ interface FormData {
     // Paso 2: Estado (expandible)
     mileage: string;
     color: string;
+    interiorColor: string;
     offerPriceMode: '$' | '%';
     fuelType: string;
     transmission: string;
-    condition: 'Nuevo' | 'Seminuevo' | 'Usado' | '';
+    condition: VehicleConditionValue | '';
     // Historial (chips)
     maintenanceUpToDate: boolean;
     technicalReviewUpToDate: boolean;
@@ -116,10 +123,11 @@ const EMPTY_FORM: FormData = {
     discountPercent: '',
     mileage: '',
     color: '',
+    interiorColor: '',
     offerPriceMode: '$',
     fuelType: 'Bencina',
     transmission: 'Manual',
-    condition: '',
+    condition: DEFAULT_VEHICLE_CONDITION,
     maintenanceUpToDate: false,
     technicalReviewUpToDate: false,
     papersUpToDate: false,
@@ -189,7 +197,7 @@ const AUTOS_STEP_COPY: Record<number, { title: string; description: string }> = 
     },
     2: {
         title: 'Datos del vehículo',
-        description: 'Operación, marca, precio y ubicación.',
+        description: 'Identidad, ubicación y precio.',
     },
     3: {
         title: 'Detalles del vehículo',
@@ -209,15 +217,20 @@ function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalo
         || [form.location.communeName, form.location.regionName].filter(Boolean).join(', ')
         || 'Ubicación pendiente';
     const badge = form.listingType === 'sale' ? 'Venta' : form.listingType === 'rent' ? 'Arriendo' : 'Subasta';
-    const priceValue = resolveOfferPriceValue({
+    const mainPriceDigits = parseDigits(form.price);
+    const offerPriceDigits = parseDigits(resolveOfferPriceValue({
         mainPrice: form.price,
         offerPrice: form.offerPrice,
         discountPercent: form.discountPercent,
         offerPriceMode: form.offerPriceMode,
-    }) || form.price;
-    const price = priceValue ? `$${formatClPriceInput(priceValue)}` : '$Consultar';
-    const priceOriginal = form.offerPrice && form.price
-        ? `$${formatClPriceInput(form.price)}`
+    }));
+    const priceDigits = offerPriceDigits || mainPriceDigits;
+    const price = priceDigits ? `$${formatClPriceInput(priceDigits)}` : '$Consultar';
+    const priceOriginal = offerPriceDigits && mainPriceDigits && offerPriceDigits !== mainPriceDigits
+        ? `$${formatClPriceInput(mainPriceDigits)}`
+        : undefined;
+    const discountPercent = offerPriceDigits && mainPriceDigits && Number(offerPriceDigits) < Number(mainPriceDigits)
+        ? Math.round((1 - Number(offerPriceDigits) / Number(mainPriceDigits)) * 100)
         : undefined;
 
     const specs: SimplePublishPreviewCardProps['specs'] = [];
@@ -231,7 +244,6 @@ function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalo
     if (form.transmission) specs.push({ icon: <IconManualGearbox size={11} />, label: form.transmission });
 
     const extraChips: SimplePublishPreviewCardProps['extraChips'] = [];
-    if (form.discountPercent) extraChips.push({ label: `-${form.discountPercent}%`, tone: 'accent' });
     if (form.financing) extraChips.push({ label: 'Financiamiento' });
     if (form.exchange) extraChips.push({ label: 'Permuta' });
     else if (form.negotiable) extraChips.push({ label: 'Conversable' });
@@ -240,6 +252,7 @@ function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalo
         badge,
         price,
         priceOriginal,
+        discountPercent: discountPercent && discountPercent > 0 && discountPercent < 100 ? discountPercent : undefined,
         title,
         location,
         accent: 'autos',
@@ -271,8 +284,114 @@ const LISTING_TYPES = [
 ] as const;
 
 const FUEL_TYPES = ['Bencina', 'Diésel', 'Eléctrico', 'Híbrido', 'Gas'];
-const TRANSMISSIONS = ['Manual', 'Automática', 'CVT'];
-const CONDITIONS = ['Nuevo', 'Seminuevo', 'Usado'];
+const TRANSMISSIONS = ['Manual', 'Automática', 'CVT', 'Secuencial', 'DCT / DSG', 'Tiptronic'];
+const PUBLISH_YEAR_MAX = new Date().getFullYear() + 1;
+const PUBLISH_YEAR_MIN = 1950;
+const YEAR_OPTIONS = Array.from({ length: PUBLISH_YEAR_MAX - PUBLISH_YEAR_MIN + 1 }, (_, index) => {
+    const year = String(PUBLISH_YEAR_MAX - index);
+    return { value: year, label: year };
+});
+
+const VEHICLE_TYPE_BY_VALUE = Object.fromEntries(
+    VEHICLE_TYPES.map((item) => [item.value, item]),
+) as Record<VehicleCatalogType, (typeof VEHICLE_TYPES)[number]>;
+
+function VehicleTypePicker({
+    value,
+    onChange,
+}: {
+    value: VehicleCatalogType;
+    onChange: (value: VehicleCatalogType) => void;
+}) {
+    const isOtherMobile = value !== 'car';
+    const isOtherDesktop = value !== 'car' && value !== 'motorcycle';
+    const [showOthersMobile, setShowOthersMobile] = useState(isOtherMobile);
+    const [showOthersDesktop, setShowOthersDesktop] = useState(isOtherDesktop);
+
+    useEffect(() => {
+        if (isOtherMobile) setShowOthersMobile(true);
+        if (isOtherDesktop) setShowOthersDesktop(true);
+    }, [isOtherMobile, isOtherDesktop]);
+
+    const mobileOthers = VEHICLE_TYPES.filter((item) => item.value !== 'car');
+    const desktopOthers = VEHICLE_TYPES.filter((item) => item.value !== 'car' && item.value !== 'motorcycle');
+
+    const renderTypeCard = (
+        item: { value: VehicleCatalogType; label: string; Icon: (typeof VEHICLE_TYPES)[number]['Icon'] },
+        options?: { className?: string; collapseOthers?: 'mobile' | 'desktop' | 'both' },
+    ) => (
+        <PanelChoiceCard
+            key={item.value}
+            onClick={() => {
+                onChange(item.value);
+                if (options?.collapseOthers === 'mobile' || options?.collapseOthers === 'both') {
+                    setShowOthersMobile(false);
+                }
+                if (options?.collapseOthers === 'desktop' || options?.collapseOthers === 'both') {
+                    setShowOthersDesktop(false);
+                }
+            }}
+            selected={value === item.value}
+            className={options?.className ?? 'min-h-[52px] px-3'}
+        >
+            <div className="flex items-center gap-2.5">
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full panel-publish-icon">
+                    <item.Icon size={15} />
+                </span>
+                <p className="truncate text-sm font-medium text-(--fg)">{item.label}</p>
+            </div>
+        </PanelChoiceCard>
+    );
+
+    return (
+        <div className="space-y-2">
+            {/* Móvil: Auto | Otro tipo */}
+            <div className="grid grid-cols-2 gap-2 md:hidden">
+                {renderTypeCard({ ...VEHICLE_TYPE_BY_VALUE.car, label: 'Auto' }, { collapseOthers: 'mobile' })}
+                <PanelChoiceCard
+                    onClick={() => setShowOthersMobile((current) => !current)}
+                    selected={isOtherMobile}
+                    className="min-h-[52px] px-3"
+                >
+                    <div className="flex items-center gap-2.5">
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full panel-publish-icon">
+                            <IconPlus size={15} />
+                        </span>
+                        <p className="truncate text-sm font-medium text-(--fg)">Otro tipo</p>
+                    </div>
+                </PanelChoiceCard>
+            </div>
+            {showOthersMobile ? (
+                <div className="grid grid-cols-2 gap-2 md:hidden">
+                    {mobileOthers.map((item) => renderTypeCard(item))}
+                </div>
+            ) : null}
+
+            {/* Desktop: Auto | Moto | Otro tipo */}
+            <div className="hidden grid-cols-3 gap-2 md:grid">
+                {renderTypeCard({ ...VEHICLE_TYPE_BY_VALUE.car, label: 'Auto' }, { collapseOthers: 'desktop' })}
+                {renderTypeCard(VEHICLE_TYPE_BY_VALUE.motorcycle, { collapseOthers: 'desktop' })}
+                <PanelChoiceCard
+                    onClick={() => setShowOthersDesktop((current) => !current)}
+                    selected={isOtherDesktop}
+                    className="min-h-[52px] px-3"
+                >
+                    <div className="flex items-center gap-2.5">
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full panel-publish-icon">
+                            <IconPlus size={15} />
+                        </span>
+                        <p className="truncate text-sm font-medium text-(--fg)">Otro tipo</p>
+                    </div>
+                </PanelChoiceCard>
+            </div>
+            {showOthersDesktop ? (
+                <div className="hidden grid-cols-2 gap-2 md:grid lg:grid-cols-3">
+                    {desktopOthers.map((item) => renderTypeCard(item))}
+                </div>
+            ) : null}
+        </div>
+    );
+}
 
 function requiresVehicleCondition(listingType: FormData['listingType']): boolean {
     return listingType === 'sale' || listingType === 'auction';
@@ -408,7 +527,7 @@ export default function PublicarPage() {
 
     const [step, setStep] = useState<Step>(1);
     const [form, setForm] = useState<FormData>(EMPTY_FORM);
-    const { hint: operatorHint, defaults: operatorDefaults, context: operatorContext, ready: operatorDefaultsReady } = useMarketplaceOperatorPublishDefaults('autos', { enabled: !isEditing, autosListingType: form.listingType });
+    const { hint: operatorHint, defaults: operatorDefaults, context: operatorContext, ready: operatorDefaultsReady } = useMarketplaceOperatorPublishDefaults('autos', { enabled: true, autosListingType: form.listingType });
     const [operatorDefaultsApplied, setOperatorDefaultsApplied] = useState(false);
     const [catalog, setCatalog] = useState<PublishWizardCatalog | null>(null);
     const [loading, setLoading] = useState(false);
@@ -440,6 +559,17 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
     useEffect(() => {
         formRef.current = form;
     }, [form]);
+
+    useEffect(() => {
+        const autosCtx = operatorContext as AutosOperatorPublishContext;
+        if (!operatorDefaultsReady || autosCtx.canSelectNewCondition) return;
+        if (form.condition !== 'Nuevo') return;
+        setForm((current) => (
+            current.condition === 'Nuevo'
+                ? { ...current, condition: DEFAULT_VEHICLE_CONDITION }
+                : current
+        ));
+    }, [operatorContext, operatorDefaultsReady, form.condition]);
 
     useEffect(() => {
         stepRef.current = step;
@@ -848,7 +978,7 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                     doors: '',
                     seats: '',
                     exteriorColor: form.color || '',
-                    interiorColor: '',
+                    interiorColor: form.interiorColor || '',
                     vin: '',
                     plate: '',
                     specific: {},
@@ -1101,6 +1231,7 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                                     onLocationChange={(next) => updateForm('location', next)}
                                     addressBook={addressBook}
                                     addressBookLoading={addressBookLoading}
+                                    onAddressBookChange={setAddressBook}
                                     communes={locationCommunes}
                                     geocoding={geocoding}
                                     onGeocodeLocation={() => void handleGeocodeLocation()}
@@ -1233,6 +1364,110 @@ function SortablePhotoItem({
                 <IconGripVertical size={20} className="text-white" />
             </div>
         </div>
+    );
+}
+
+// =============================================================================
+// CAMPOS DEL VEHÍCULO (paso 2)
+// =============================================================================
+
+function AutosConditionFields({
+    form,
+    updateForm,
+    canSelectNew,
+    invalid = false,
+}: {
+    form: FormData;
+    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
+    canSelectNew: boolean;
+    invalid?: boolean;
+}) {
+    const options = vehicleConditionsForPublisher(canSelectNew);
+
+    return (
+        <div>
+            <label className="mb-1.5 block text-sm font-medium text-(--fg)">Condición<SimplePublishRequiredMark /></label>
+            <ModernSelect
+                value={form.condition || DEFAULT_VEHICLE_CONDITION}
+                onChange={(value) => {
+                    const next = (value || DEFAULT_VEHICLE_CONDITION) as VehicleConditionValue;
+                    updateForm('condition', next);
+                    if (next === 'Siniestrado' && form.noAccidents) {
+                        updateForm('noAccidents', false);
+                    }
+                }}
+                options={options.map((cond) => ({ value: cond, label: cond }))}
+                triggerClassName={invalid ? 'form-input-error' : undefined}
+                ariaLabel="Seleccionar condición"
+            />
+        </div>
+    );
+}
+
+function AutosMileageField({
+    form,
+    updateForm,
+}: {
+    form: FormData;
+    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
+}) {
+    const vehicleType = form.vehicleType;
+    const mileageLabel = vehicleType === 'nautical' ? 'Horas de motor' : vehicleType === 'machinery' || vehicleType === 'aerial' ? 'Horas de uso' : 'Kilometraje';
+    const mileagePlaceholder = vehicleType === 'nautical' ? '320' : vehicleType === 'machinery' || vehicleType === 'aerial' ? '1.200' : '45.000';
+    const mileageSuffix = vehicleType === 'nautical' || vehicleType === 'machinery' || vehicleType === 'aerial' ? 'h' : 'km';
+
+    return (
+        <div>
+            <label className="mb-1.5 block text-sm font-medium text-(--fg)">{mileageLabel}</label>
+            <div className="relative">
+                <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder={mileagePlaceholder}
+                    value={form.mileage}
+                    onChange={(e) => updateForm('mileage', formatNumber(e.target.value))}
+                    className="form-input pr-12"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-(--fg-muted)">{mileageSuffix}</span>
+            </div>
+        </div>
+    );
+}
+
+function AutosFuelAndTransmissionFields({
+    form,
+    updateForm,
+}: {
+    form: FormData;
+    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
+}) {
+    const isMotorcycle = form.vehicleType === 'motorcycle';
+
+    return (
+        <>
+            <div className={isMotorcycle ? 'col-span-2' : undefined}>
+                <label className="mb-1.5 block text-sm font-medium text-(--fg)">Combustible</label>
+                <ModernSelect
+                    value={form.fuelType}
+                    onChange={(value) => updateForm('fuelType', value)}
+                    options={FUEL_TYPES.map((fuel) => ({ value: fuel, label: fuel }))}
+                    placeholder="Seleccionar"
+                    ariaLabel="Seleccionar combustible"
+                />
+            </div>
+            {!isMotorcycle ? (
+                <div>
+                    <label className="mb-1.5 block text-sm font-medium text-(--fg)">Transmisión</label>
+                    <ModernSelect
+                        value={form.transmission}
+                        onChange={(value) => updateForm('transmission', value)}
+                        options={TRANSMISSIONS.map((trans) => ({ value: trans, label: trans }))}
+                        placeholder="Seleccionar"
+                        ariaLabel="Seleccionar transmisión"
+                    />
+                </div>
+            ) : null}
+        </>
     );
 }
 
@@ -1472,232 +1707,97 @@ function Step1PhotosAndIdentity({
             </SimplePublishSection>
 
             <SimplePublishSection title="Tipo de vehículo">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {VEHICLE_TYPES.map(({ value, label, Icon }) => (
-                        <PanelChoiceCard
-                            key={value}
-                            onClick={() => updateForm('vehicleType', value)}
-                            selected={form.vehicleType === value}
-                            className="min-h-[52px] px-3"
-                        >
-                            <div className="flex items-center gap-2.5">
-                                <span className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0 panel-publish-icon">
-                                    <Icon size={15} />
-                                </span>
-                                <p className="text-sm font-medium truncate text-(--fg)">{label}</p>
-                            </div>
-                        </PanelChoiceCard>
-                    ))}
-                </div>
+                <VehicleTypePicker
+                    value={form.vehicleType}
+                    onChange={(value) => updateForm('vehicleType', value)}
+                />
             </SimplePublishSection>
             
             <SimplePublishSection title="Datos del vehículo">
-                <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                            <label className="block text-sm font-medium mb-1.5 text-(--fg)">Marca<SimplePublishRequiredMark /></label>
-                            <ModernSelect
-                                value={form.brandId}
-                                onChange={(v) => {
-                                    updateForm('brandId', v);
-                                    updateForm('modelId', '');
-                                }}
-                                triggerClassName={isAutosFieldInvalid(fieldErrors, 'brandId') || isAutosFieldInvalid(fieldErrors, 'customBrand') ? 'form-input-error' : undefined}
-                                options={[
-                                    { value: '', label: 'Seleccionar' },
-                                    ...brands.map(b => ({ value: b.id, label: b.name })),
-                                    { value: '__custom__', label: 'Otra marca' }
-                                ]}
-                            />
-                            {form.brandId === '__custom__' && (
-                                <input
-                                    type="text"
-                                    placeholder="Nombre marca"
-                                    value={form.customBrand}
-                                    onChange={(e) => updateForm('customBrand', e.target.value)}
-                                    className={`form-input mt-2${autosInvalidClass(fieldErrors, 'customBrand')}`}
-                                />
-                            )}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-1.5 text-(--fg)">Modelo<SimplePublishRequiredMark /></label>
-                            <ModernSelect
-                                value={form.modelId}
-                                onChange={(v) => updateForm('modelId', v)}
-                                disabled={!form.brandId}
-                                triggerClassName={isAutosFieldInvalid(fieldErrors, 'modelId') || isAutosFieldInvalid(fieldErrors, 'customModel') ? 'form-input-error' : undefined}
-                                options={[
-                                    { value: '', label: form.brandId ? 'Seleccionar' : 'Primero marca' },
-                                    ...models.map(m => ({ value: m.id, label: m.name })),
-                                    { value: '__custom__', label: 'Otro modelo' }
-                                ]}
-                            />
-                            {form.modelId === '__custom__' && (
-                                <input
-                                    type="text"
-                                    placeholder="Nombre modelo"
-                                    value={form.customModel}
-                                    onChange={(e) => updateForm('customModel', e.target.value)}
-                                    className={`form-input mt-2${autosInvalidClass(fieldErrors, 'customModel')}`}
-                                />
-                            )}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-1.5 text-(--fg)">Año<SimplePublishRequiredMark /></label>
-                            <input
-                                type="number"
-                                inputMode="numeric"
-                                placeholder="2020"
-                                min={1900}
-                                max={2027}
-                                value={form.year}
-                                onChange={(e) => {
-                                    const val = e.target.value.slice(0, 4);
-                                    const num = parseInt(val);
-                                    if (val === '' || (num >= 0 && num <= 2027)) {
-                                        updateForm('year', val);
-                                    }
-                                }}
-                                className={`form-input${autosInvalidClass(fieldErrors, 'year')}`}
-                            />
-                        </div>
-                    </div>
-
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3">
                     {requiresVehicleCondition(form.listingType) ? (
-                        <AutosConditionFields form={form} updateForm={updateForm} invalid={isAutosFieldInvalid(fieldErrors, 'condition')} />
+                        <div className="col-span-2">
+                            <AutosConditionFields
+                                form={form}
+                                updateForm={updateForm}
+                                canSelectNew={Boolean(operatorContext?.canSelectNewCondition)}
+                                invalid={isAutosFieldInvalid(fieldErrors, 'condition')}
+                            />
+                        </div>
                     ) : null}
 
-                    <AutosCardSpecsFields form={form} updateForm={updateForm} />
+                    <div>
+                        <label className="mb-1.5 block text-sm font-medium text-(--fg)">Marca<SimplePublishRequiredMark /></label>
+                        <ModernSelect
+                            value={form.brandId}
+                            onChange={(v) => {
+                                updateForm('brandId', v);
+                                updateForm('modelId', '');
+                            }}
+                            triggerClassName={isAutosFieldInvalid(fieldErrors, 'brandId') || isAutosFieldInvalid(fieldErrors, 'customBrand') ? 'form-input-error' : undefined}
+                            options={[
+                                { value: '', label: 'Seleccionar' },
+                                ...brands.map(b => ({ value: b.id, label: b.name })),
+                                { value: '__custom__', label: 'Otra marca' }
+                            ]}
+                        />
+                        {form.brandId === '__custom__' && (
+                            <input
+                                type="text"
+                                placeholder="Nombre marca"
+                                value={form.customBrand}
+                                onChange={(e) => updateForm('customBrand', e.target.value)}
+                                className={`form-input mt-2${autosInvalidClass(fieldErrors, 'customBrand')}`}
+                            />
+                        )}
+                    </div>
+
+                    <div>
+                        <label className="mb-1.5 block text-sm font-medium text-(--fg)">Modelo<SimplePublishRequiredMark /></label>
+                        <ModernSelect
+                            value={form.modelId}
+                            onChange={(v) => updateForm('modelId', v)}
+                            disabled={!form.brandId}
+                            triggerClassName={isAutosFieldInvalid(fieldErrors, 'modelId') || isAutosFieldInvalid(fieldErrors, 'customModel') ? 'form-input-error' : undefined}
+                            options={[
+                                { value: '', label: form.brandId ? 'Seleccionar' : 'Primero marca' },
+                                ...models.map(m => ({ value: m.id, label: m.name })),
+                                { value: '__custom__', label: 'Otro modelo' }
+                            ]}
+                        />
+                        {form.modelId === '__custom__' && (
+                            <input
+                                type="text"
+                                placeholder="Nombre modelo"
+                                value={form.customModel}
+                                onChange={(e) => updateForm('customModel', e.target.value)}
+                                className={`form-input mt-2${autosInvalidClass(fieldErrors, 'customModel')}`}
+                            />
+                        )}
+                    </div>
+
+                    <div>
+                        <label className="mb-1.5 block text-sm font-medium text-(--fg)">Año<SimplePublishRequiredMark /></label>
+                        <ModernSelect
+                            value={form.year}
+                            onChange={(value) => updateForm('year', value)}
+                            options={
+                                form.year && !YEAR_OPTIONS.some((option) => option.value === form.year)
+                                    ? [{ value: form.year, label: form.year }, ...YEAR_OPTIONS]
+                                    : YEAR_OPTIONS
+                            }
+                            placeholder="Seleccionar"
+                            triggerClassName={isAutosFieldInvalid(fieldErrors, 'year') ? 'form-input-error' : undefined}
+                            ariaLabel="Seleccionar año"
+                        />
+                    </div>
+
+                    <AutosMileageField form={form} updateForm={updateForm} />
+
+                    <AutosFuelAndTransmissionFields form={form} updateForm={updateForm} />
                 </div>
             </SimplePublishSection>
             </>
-            ) : null}
-        </div>
-    );
-}
-
-// =============================================================================
-// CAMPOS DEL VEHÍCULO (paso 2)
-// =============================================================================
-
-function AutosConditionFields({
-    form,
-    updateForm,
-    invalid = false,
-}: {
-    form: FormData;
-    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
-    invalid?: boolean;
-}) {
-    return (
-        <div className="space-y-3">
-            <label className="block text-sm font-medium text-(--fg)">Condición<SimplePublishRequiredMark /></label>
-            <div className={`grid grid-cols-3 gap-3 rounded-xl${invalid ? ' ring-2 ring-(--color-error)' : ''}`}>
-                {CONDITIONS.map((cond) => (
-                    <PanelChoiceCard
-                        key={cond}
-                        onClick={() => updateForm('condition', cond as FormData['condition'])}
-                        selected={form.condition === cond}
-                        className="min-h-[44px] px-2 text-center"
-                    >
-                        <span className="text-sm font-medium">{cond}</span>
-                    </PanelChoiceCard>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function AutosCardSpecsFields({
-    form,
-    updateForm,
-}: {
-    form: FormData;
-    updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
-}) {
-    const vehicleType = form.vehicleType;
-    const isMotorcycle = vehicleType === 'motorcycle';
-    const isHeavyOrSpecial = vehicleType === 'truck' || vehicleType === 'bus' || vehicleType === 'machinery' || vehicleType === 'nautical' || vehicleType === 'aerial';
-    const mileageLabel = vehicleType === 'nautical' ? 'Horas de motor' : vehicleType === 'machinery' || vehicleType === 'aerial' ? 'Horas de uso' : 'Kilometraje';
-    const mileagePlaceholder = vehicleType === 'nautical' ? '320' : vehicleType === 'machinery' || vehicleType === 'aerial' ? '1.200' : '45.000';
-    const mileageSuffix = vehicleType === 'nautical' || vehicleType === 'machinery' || vehicleType === 'aerial' ? 'h' : 'km';
-    const showTransmission = !isMotorcycle;
-    const showColor = vehicleType === 'car' || vehicleType === 'motorcycle' || vehicleType === 'truck';
-
-    return (
-        <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                    <label className="block text-sm font-medium mb-1.5 text-(--fg)">{mileageLabel}</label>
-                    <div className="relative">
-                        <input
-                            type="text"
-                            inputMode="numeric"
-                            placeholder={mileagePlaceholder}
-                            value={form.mileage}
-                            onChange={(e) => updateForm('mileage', formatNumber(e.target.value))}
-                            className="form-input pr-12"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-(--fg-muted)">{mileageSuffix}</span>
-                    </div>
-                </div>
-                {!isHeavyOrSpecial ? (
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5 text-(--fg)">Combustible</label>
-                        <ModernSelect
-                            value={form.fuelType}
-                            onChange={(value) => updateForm('fuelType', value)}
-                            options={FUEL_TYPES.map((fuel) => ({ value: fuel, label: fuel }))}
-                            placeholder="Seleccionar"
-                            ariaLabel="Seleccionar combustible"
-                        />
-                    </div>
-                ) : null}
-            </div>
-
-            {isHeavyOrSpecial ? (
-                <div>
-                    <label className="block text-sm font-medium mb-2 text-(--fg)">Combustible</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {FUEL_TYPES.map((fuel) => (
-                            <PanelChoiceCard
-                                key={fuel}
-                                onClick={() => updateForm('fuelType', fuel)}
-                                selected={form.fuelType === fuel}
-                                className="min-h-[44px] px-2 text-center"
-                            >
-                                <span className="text-sm font-medium">{fuel}</span>
-                            </PanelChoiceCard>
-                        ))}
-                    </div>
-                </div>
-            ) : null}
-
-            {showTransmission ? (
-                <div>
-                    <label className="block text-sm font-medium mb-2 text-(--fg)">Transmisión</label>
-                    <div className="grid grid-cols-3 gap-3">
-                        {TRANSMISSIONS.map((trans) => (
-                            <PanelChoiceCard
-                                key={trans}
-                                onClick={() => updateForm('transmission', trans)}
-                                selected={form.transmission === trans}
-                                className="min-h-[44px] px-2 text-center"
-                            >
-                                <span className="text-sm font-medium">{trans}</span>
-                            </PanelChoiceCard>
-                        ))}
-                    </div>
-                </div>
-            ) : null}
-
-            {showColor ? (
-                <div>
-                    <label className="block text-sm font-medium mb-2 text-(--fg)">Color</label>
-                    <ColorPicker value={form.color} onChange={(c) => updateForm('color', c)} />
-                </div>
             ) : null}
         </div>
     );
@@ -1740,7 +1840,12 @@ function StepAutosDetails({
     updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
     operatorContext?: AutosOperatorPublishContext;
 }) {
-    const [openSections, setOpenSections] = useState<Record<'saleOptions' | 'owners' | 'history' | 'equipment' | 'fleet' | 'consignment', boolean>>({
+    const showAppearanceColors = form.vehicleType === 'car'
+        || form.vehicleType === 'motorcycle'
+        || form.vehicleType === 'truck';
+    const isWrecked = form.condition === 'Siniestrado';
+    const [openSections, setOpenSections] = useState<Record<'appearance' | 'saleOptions' | 'owners' | 'history' | 'equipment' | 'fleet' | 'consignment', boolean>>({
+        appearance: true,
         saleOptions: false,
         owners: false,
         history: false,
@@ -1753,8 +1858,50 @@ function StepAutosDetails({
         setOpenSections((current) => ({ ...current, [key]: !current[key] }));
     };
 
+    const toggleFeature = (code: string) => {
+        const next = form.featureCodes.includes(code)
+            ? form.featureCodes.filter((item) => item !== code)
+            : [...form.featureCodes, code];
+        updateForm('featureCodes', next);
+    };
+
     return (
         <div className="space-y-5">
+            <SimplePublishOptionalSection
+                title="Apariencia"
+                description="Color exterior, interior y detalles de estilo."
+                open={openSections.appearance}
+                onToggle={() => toggle('appearance')}
+            >
+                <div className="space-y-4">
+                    {showAppearanceColors ? (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-(--fg)">Color exterior</label>
+                                <ColorPicker value={form.color} onChange={(c) => updateForm('color', c)} />
+                            </div>
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-(--fg)">Color interior</label>
+                                <ColorPicker value={form.interiorColor} onChange={(c) => updateForm('interiorColor', c)} />
+                            </div>
+                        </div>
+                    ) : null}
+                    <div>
+                        <label className="mb-2 block text-sm font-medium text-(--fg)">Estilo y detalles estéticos</label>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {VEHICLE_APPEARANCE_OPTIONS.map((option) => (
+                                <SelectableChip
+                                    key={option.code}
+                                    label={option.label}
+                                    active={form.featureCodes.includes(option.code)}
+                                    onToggle={() => toggleFeature(option.code)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </SimplePublishOptionalSection>
+
             {form.listingType !== 'rent' ? (
                 <SimplePublishOptionalSection
                     title="Opciones de venta"
@@ -1813,11 +1960,17 @@ function StepAutosDetails({
                         checked={form.papersUpToDate}
                         onChange={(v) => updateForm('papersUpToDate', v)}
                     />
-                    <ToggleChip
-                        label="Sin siniestros declarados"
-                        checked={form.noAccidents}
-                        onChange={(v) => updateForm('noAccidents', v)}
-                    />
+                    {!isWrecked ? (
+                        <ToggleChip
+                            label="Sin siniestros declarados"
+                            checked={form.noAccidents}
+                            onChange={(v) => updateForm('noAccidents', v)}
+                        />
+                    ) : (
+                        <p className="text-xs text-(--fg-muted)">
+                            Condición «Siniestrado»: no aplica el claim de sin siniestros.
+                        </p>
+                    )}
                     <ToggleChip
                         label="Garantía vigente"
                         checked={form.warranty}
@@ -1828,22 +1981,17 @@ function StepAutosDetails({
 
             <SimplePublishOptionalSection
                 title="Equipamiento"
-                description="Selecciona lo que incluye el vehículo."
+                description="Seguridad, confort y tecnología del vehículo."
                 open={openSections.equipment}
                 onToggle={() => toggle('equipment')}
             >
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {VEHICLE_EQUIPMENT_OPTIONS.map((option) => (
+                    {VEHICLE_TECH_EQUIPMENT_OPTIONS.map((option) => (
                         <SelectableChip
                             key={option.code}
                             label={option.label}
                             active={form.featureCodes.includes(option.code)}
-                            onToggle={() => {
-                                const next = form.featureCodes.includes(option.code)
-                                    ? form.featureCodes.filter((code) => code !== option.code)
-                                    : [...form.featureCodes, option.code];
-                                updateForm('featureCodes', next);
-                            }}
+                            onToggle={() => toggleFeature(option.code)}
                         />
                     ))}
                 </div>
@@ -2112,6 +2260,7 @@ function StepAutosLocation({
     onLocationChange,
     addressBook,
     addressBookLoading,
+    onAddressBookChange,
     communes,
     geocoding,
     onGeocodeLocation,
@@ -2122,12 +2271,52 @@ function StepAutosLocation({
     onLocationChange: (next: ListingLocation) => void;
     addressBook: AddressBookEntry[];
     addressBookLoading: boolean;
+    onAddressBookChange: (next: AddressBookEntry[]) => void;
     communes: Array<{ id: string; name: string }>;
     geocoding: boolean;
     onGeocodeLocation: () => void | Promise<void>;
     googleMapsApiKey?: string;
     fieldErrors?: Record<string, string>;
 }) {
+    const [savingAddress, setSavingAddress] = useState(false);
+    const [saveAddressNote, setSaveAddressNote] = useState<string | null>(null);
+
+    const handleSaveToAddressBook = async () => {
+        if (savingAddress) return;
+        if (!location.addressLine1?.trim() || !location.regionId || !location.communeId) {
+            setSaveAddressNote('Completa dirección, región y comuna antes de guardar.');
+            return;
+        }
+        setSavingAddress(true);
+        setSaveAddressNote(null);
+        const result = await createAddressBookEntry({
+            kind: 'branch',
+            scope: 'business',
+            vertical: 'autos',
+            label: location.label?.trim() || location.addressLine1.trim(),
+            countryCode: location.countryCode || 'CL',
+            regionId: location.regionId,
+            regionName: location.regionName,
+            communeId: location.communeId,
+            communeName: location.communeName,
+            neighborhood: location.neighborhood,
+            addressLine1: location.addressLine1,
+            addressLine2: location.addressLine2,
+            postalCode: location.postalCode,
+            arrivalInstructions: location.arrivalInstructions,
+            geoPoint: location.geoPoint,
+            isDefault: addressBook.filter((item) => item.scope === 'business').length === 0,
+        });
+        setSavingAddress(false);
+        if (!result.ok) {
+            setSaveAddressNote(result.error || 'No se pudo guardar la dirección.');
+            return;
+        }
+        const refreshed = await fetchPublishAddressBook('autos');
+        if (refreshed.ok) onAddressBookChange(refreshed.items);
+        setSaveAddressNote('Dirección guardada en la libreta.');
+    };
+
     return (
         <SimplePublishSection title="Ubicación">
             <ListingLocationEditor
@@ -2147,14 +2336,32 @@ function StepAutosLocation({
                 addressFirst
                 showSourceSelector={false}
                 showVisibilityField={false}
+                showSimpleVisibilityToggle={false}
+                showAddressLine2={false}
                 showGoogleMapsLink
                 showPublicPreviewCard={false}
                 showActionBar={false}
                 publishVertical="autos"
                 geocoding={geocoding}
                 onGeocode={onGeocodeLocation}
+                onSaveToAddressBook={() => void handleSaveToAddressBook()}
                 errors={pickListingLocationFieldErrors(fieldErrors)}
             />
+            {location.geoPoint.latitude != null
+                && location.geoPoint.longitude != null
+                && location.geoPoint.provider !== 'catalog_seed' ? (
+                <div className="mt-3">
+                    <PublishLocationMap
+                        latitude={location.geoPoint.latitude}
+                        longitude={location.geoPoint.longitude}
+                    />
+                </div>
+            ) : null}
+            {savingAddress ? (
+                <p className="mt-2 text-xs text-(--fg-muted)">Guardando dirección…</p>
+            ) : saveAddressNote ? (
+                <p className="mt-2 text-xs text-(--fg-muted)">{saveAddressNote}</p>
+            ) : null}
         </SimplePublishSection>
     );
 }

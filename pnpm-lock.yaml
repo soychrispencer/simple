@@ -315,6 +315,9 @@ importers:
       jspdf:
         specifier: ^4.2.1
         version: 4.2.1
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
       next:
         specifier: ^16.2.9
         version: 16.2.9(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -327,6 +330,9 @@ importers:
       react-dom:
         specifier: ^19.2.7
         version: 19.2.7(react@19.2.7)
+      react-leaflet:
+        specifier: ^5.0.0
+        version: 5.0.0(leaflet@1.9.4)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       swiper:
         specifier: ^14.0.1
         version: 14.0.1
@@ -334,6 +340,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.3.2
         version: 4.3.2
+      '@types/leaflet':
+        specifier: ^1.9.21
+        version: 1.9.21
       '@types/node':
         specifier: ^26.0.1
         version: 26.0.1

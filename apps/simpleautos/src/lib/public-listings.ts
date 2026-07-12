@@ -11,6 +11,10 @@ export type PublicListing = {
     title: string;
     description: string;
     price: string;
+    /** Precio lista tachado cuando hay oferta. */
+    priceOriginal?: string | null;
+    /** Porcentaje de descuento (1–99) si hay oferta. */
+    discountPercent?: number | null;
     href: string;
     location: string;
     views: number;
@@ -22,6 +26,10 @@ export type PublicListing = {
     images: string[];
     videoUrl?: string | null;
     summary: string[];
+    /** Año del vehículo (autos). */
+    year?: string | null;
+    /** Condición del vehículo (Usado, Seminuevo, Nuevo, …). */
+    condition?: string | null;
     seller: {
         id: string;
         name: string;

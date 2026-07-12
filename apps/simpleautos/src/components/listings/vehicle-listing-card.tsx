@@ -64,6 +64,8 @@ export type VehicleListingCardData = {
     financing?: boolean;
     exchange?: boolean;
     negotiable?: boolean;
+    /** Condición (detalle público); no se muestra como chip en la card. */
+    condition?: string;
 };
 
 type Props = {
@@ -117,9 +119,6 @@ function buildSpecs(data: VehicleListingCardData): MarketplaceReelSpec[] {
 
 function buildChips(data: VehicleListingCardData): MarketplaceReelChip[] {
     const chips: MarketplaceReelChip[] = [{ label: variantLabel(data.variant) }];
-    if (data.discountPercent && data.discountPercent > 0) {
-        chips.push({ label: `-${data.discountPercent}%`, tone: 'accent' });
-    }
     if (data.financing) chips.push({ label: 'Financiamiento' });
     if (data.exchange) chips.push({ label: 'Permuta' });
     else if (data.negotiable) chips.push({ label: 'Conversable' });
@@ -166,6 +165,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
                 title={data.title}
                 price={data.price}
                 priceOriginal={data.priceOriginal}
+                discountPercent={data.discountPercent}
                 location={data.location}
                 ctaLabel={ctaLabel}
                 images={data.images}
@@ -199,6 +199,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
             title={data.title}
             price={data.price}
             priceOriginal={data.priceOriginal}
+            discountPercent={data.discountPercent}
             location={data.location}
             ctaLabel={ctaLabel}
             images={data.images}

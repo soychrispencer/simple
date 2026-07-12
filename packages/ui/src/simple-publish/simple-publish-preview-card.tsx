@@ -18,6 +18,8 @@ export type SimplePublishPreviewCardProps = {
     price: string;
     /** Precio lista tachado cuando hay oferta. */
     priceOriginal?: string;
+    /** Badge de descuento junto al precio. */
+    discountPercent?: number;
     title: string;
     location: string;
     accent?: ListingAccent;
@@ -45,6 +47,7 @@ export function SimplePublishPreviewCard({
     badge,
     price,
     priceOriginal,
+    discountPercent,
     title,
     location,
     accent = 'autos',
@@ -122,6 +125,7 @@ export function SimplePublishPreviewCard({
                 title={title}
                 price={price}
                 priceOriginal={priceOriginal}
+                discountPercent={discountPercent}
                 location={location}
                 ctaLabel={ctaLabel}
                 images={resolvedPhotos}

@@ -27,6 +27,8 @@ function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardD
         href: item.href,
         title: item.title,
         price: item.price,
+        priceOriginal: item.priceOriginal ?? undefined,
+        discountPercent: item.discountPercent ?? undefined,
         subtitle: item.description,
         meta: metaItems,
         location: item.location || 'Chile',
@@ -38,6 +40,7 @@ function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardD
         variant: item.section,
         images: item.images,
         videoUrl: item.videoUrl ?? undefined,
+        condition: item.condition ?? undefined,
         listedSince: listedLabel,
         engagement: {
             views24h: item.views,

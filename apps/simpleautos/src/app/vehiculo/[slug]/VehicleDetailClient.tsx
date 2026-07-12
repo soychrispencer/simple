@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import {
     IconCalendar,
+    IconCar,
     IconGauge,
     IconGasStation,
     IconManualGearbox,
@@ -23,6 +24,7 @@ import {
 } from '@simple/ui/listings';
 import { PanelBlockHeader } from '@simple/ui/panel';
 import { PanelCard } from '@simple/ui/panel';
+import { isVehicleConditionValue } from '@simple/utils';
 
 function sectionBadgeTone(section: PublicListing['section']) {
     if (section === 'auction') return 'info' as const;
@@ -35,6 +37,20 @@ function vehicleHighlightTags(summary: string[]) {
         const lower = entry.toLowerCase();
         return lower.includes('dueño') || lower.includes('garantía');
     });
+}
+
+function resolveVehicleCondition(item: PublicListing): string {
+    if (item.condition && isVehicleConditionValue(item.condition)) return item.condition;
+    if (item.condition?.trim()) return item.condition.trim();
+    const fromSummary = item.summary.find((entry) => isVehicleConditionValue(entry));
+    return fromSummary || 'Usado';
+}
+
+function resolveTransmission(summary: string[]): string {
+    const known = summary.find((entry) =>
+        /manual|automática|automatico|automático|cvt|secuencial|dct|dsg|tiptronic/i.test(entry),
+    );
+    return known || 'Por definir';
 }
 
 interface VehicleDetailClientProps {
@@ -111,9 +127,14 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
 
                     <PublicListingDetailSpecGrid>
                         <PublicListingDetailSpecItem
+                            icon={<IconCar size={20} />}
+                            label="Condición"
+                            value={resolveVehicleCondition(item)}
+                        />
+                        <PublicListingDetailSpecItem
                             icon={<IconCalendar size={20} />}
                             label="Año"
-                            value={item.summary.find((entry) => /^\d{4}$/.test(entry)) || 'N/A'}
+                            value={item.year || item.summary.find((entry) => /^\d{4}$/.test(entry)) || 'N/A'}
                         />
                         <PublicListingDetailSpecItem
                             icon={<IconGauge size={20} />}
@@ -123,7 +144,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                         <PublicListingDetailSpecItem
                             icon={<IconManualGearbox size={20} />}
                             label="Transmisión"
-                            value={item.summary.find((entry) => ['Manual', 'Automática', 'CVT'].includes(entry)) || 'Por definir'}
+                            value={resolveTransmission(item.summary)}
                         />
                         <PublicListingDetailSpecItem
                             icon={<IconGasStation size={20} />}
@@ -151,6 +172,8 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                 <aside className="public-listing-detail-layout__aside">
                     <PublicListingDetailPriceCard
                         price={item.price}
+                        priceOriginal={item.priceOriginal}
+                        discountPercent={item.discountPercent}
                         publishedAgo={item.publishedAgo}
                         views={item.views}
                     >

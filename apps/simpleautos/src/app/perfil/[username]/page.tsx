@@ -20,6 +20,8 @@ function toCardData(item: PublicListing): VehicleListingCardData {
         href: item.href,
         title: item.title,
         price: item.price,
+        priceOriginal: item.priceOriginal ?? undefined,
+        discountPercent: item.discountPercent ?? undefined,
         priceLabel: item.section === 'rent' ? 'Arriendo' : item.section === 'auction' ? 'Oferta actual' : 'Precio',
         subtitle: item.description,
         meta: orderVehicleCardTags(item.summary),
@@ -32,6 +34,7 @@ function toCardData(item: PublicListing): VehicleListingCardData {
         variant: item.section,
         images: item.images,
         videoUrl: item.videoUrl ?? undefined,
+        condition: item.condition ?? undefined,
         listedSince: `Actualizado hace ${item.publishedAgo}`,
         engagement: {
             views24h: item.views,

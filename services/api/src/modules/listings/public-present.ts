@@ -118,11 +118,56 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         summary.push(normalized);
     }
 
+    function extractAutosCondition(record: ListingPublicRecord): string | null {
+        const payload = asObject(record.rawData);
+        const basic = asObject(payload.basic);
+        const condition = asString(basic.condition).trim();
+        return condition || null;
+    }
+
+    function extractAutosYear(record: ListingPublicRecord): string | null {
+        const payload = asObject(record.rawData);
+        const basic = asObject(payload.basic);
+        const year = asString(basic.year).trim();
+        return /^(19|20)\d{2}$/.test(year) ? year : null;
+    }
+
+    /** Precio lista + % descuento cuando hay oferta distinta al precio publicado. */
+    function extractPublicOfferPricing(record: ListingPublicRecord): {
+        priceOriginal: string | null;
+        discountPercent: number | null;
+    } {
+        const payload = asObject(record.rawData);
+        const commercial = asObject(payload.commercial);
+        const listDigits = asString(commercial.price).replace(/\D/g, '');
+        const offerDigits = asString(commercial.offerPrice).replace(/\D/g, '');
+        const list = listDigits ? Number(listDigits) : NaN;
+        const offer = offerDigits ? Number(offerDigits) : NaN;
+        if (!Number.isFinite(list) || !Number.isFinite(offer) || offer <= 0 || list <= offer) {
+            return { priceOriginal: null, discountPercent: null };
+        }
+
+        const currency = asString(commercial.currency).toUpperCase() || 'CLP';
+        const formatted = list.toLocaleString('es-CL');
+        const priceOriginal = currency === 'UF'
+            ? `UF ${formatted}`
+            : currency === 'USD'
+                ? `USD ${formatted}`
+                : `$ ${formatted}`;
+        const discountPercent = Math.round((1 - offer / list) * 100);
+        return {
+            priceOriginal,
+            discountPercent: discountPercent > 0 && discountPercent < 100 ? discountPercent : null,
+        };
+    }
+
     function extractAutosSummary(record: ListingPublicRecord): string[] {
         const payload = asObject(record.rawData);
         const basic = asObject(payload.basic);
         const summary: string[] = [];
 
+        // Año en summary para highlights/legacy; la card lo filtra (va en el título).
+        appendUniqueSummary(summary, extractAutosYear(record) ?? '');
         appendUniqueSummary(summary, asString(basic.bodyType));
 
         const mileage = parseNumberFromString(basic.mileage);
@@ -131,7 +176,7 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         appendUniqueSummary(summary, asString(basic.fuelType));
         appendUniqueSummary(summary, asString(basic.transmission));
 
-        return summary.slice(0, 4);
+        return summary.slice(0, 5);
     }
 
     function extractPropertiesSummary(record: ListingPublicRecord): string[] {
@@ -237,6 +282,19 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
             images: extractListingMediaUrls(record),
             videoUrl: extractListingVideoUrl(record),
             summary: extractListingSummary(record),
+            ...(() => {
+                const offerPricing = extractPublicOfferPricing(record);
+                return {
+                    priceOriginal: offerPricing.priceOriginal,
+                    discountPercent: offerPricing.discountPercent,
+                };
+            })(),
+            ...(record.vertical === 'autos'
+                ? {
+                    year: extractAutosYear(record),
+                    condition: extractAutosCondition(record),
+                }
+                : {}),
             seller: owner ? {
                 id: owner.id,
                 name: sellerName,
@@ -254,6 +312,8 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         extractListingMediaUrls,
         extractListingVideoUrl,
         extractListingSummary,
+        extractAutosCondition,
+        extractPublicOfferPricing,
         isPublicListingVisible,
         matchesListingSlug,
         listingToPublicResponse,

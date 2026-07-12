@@ -28,6 +28,8 @@ function mapPublicListingToPropertyCard(item: PublicListing): PropertyListingCar
         href: item.href,
         title: item.title,
         price: item.price,
+        priceOriginal: item.priceOriginal ?? undefined,
+        discountPercent: item.discountPercent ?? undefined,
         subtitle: item.description,
         meta: metaItems,
         location: item.location || 'Chile',

@@ -45,7 +45,10 @@ export type MarketplaceReelListingCardProps = {
     href: string;
     title: string;
     price: string;
+    /** Precio lista; se muestra en el detalle, no en la card. */
     priceOriginal?: string;
+    /** Badge de descuento junto al precio oferta. */
+    discountPercent?: number;
     location: string;
     mode?: ListingMode;
     accent?: ListingAccent;
@@ -222,7 +225,8 @@ export default function MarketplaceReelListingCard({
     href,
     title,
     price,
-    priceOriginal,
+    priceOriginal: _priceOriginal,
+    discountPercent,
     location,
     mode = 'grid',
     accent = 'autos',
@@ -672,18 +676,23 @@ export default function MarketplaceReelListingCard({
 
                 <div className="marketplace-reel-card__list-content flex min-w-0 flex-1 flex-col rounded-r-2xl p-3 sm:p-3.5">
                     <div className="marketplace-reel-card__list-body min-w-0 flex-1">
-                        <p className="marketplace-reel-card__price marketplace-reel-card__price--list">{formatCardPrice(price)}</p>
-                        {priceOriginal ? (
-                            <p className="marketplace-reel-card__price-original marketplace-reel-card__price-original--list">
-                                {formatCardPrice(priceOriginal)}
-                            </p>
-                        ) : null}
-                        <h3 className="marketplace-reel-card__title marketplace-reel-card__title--list">{title}</h3>
-                        <div className="marketplace-reel-card__location marketplace-reel-card__location--list marketplace-reel-card__location--tag">
-                            <IconMapPin size={12} className="shrink-0" />
-                            <span className="truncate">{shortenListingLocation(location)}</span>
+                        <div className={joinClasses(
+                            'marketplace-reel-card__price-row marketplace-reel-card__price-row--list',
+                            discountPercent && discountPercent > 0 ? 'marketplace-reel-card__price-row--offer' : null,
+                        )}>
+                            <p className="marketplace-reel-card__price marketplace-reel-card__price--list">{formatCardPrice(price)}</p>
+                            {discountPercent && discountPercent > 0 ? (
+                                <span className="marketplace-reel-card__discount marketplace-reel-card__discount--list">-{discountPercent}%</span>
+                            ) : null}
                         </div>
+                        <h3 className="marketplace-reel-card__title marketplace-reel-card__title--list">{title}</h3>
                         <ReelSpecs specs={specs} list accent={accent} />
+                        {location ? (
+                            <div className="marketplace-reel-card__location marketplace-reel-card__location--list">
+                                <IconMapPin size={12} className="shrink-0" />
+                                <span className="truncate">{shortenListingLocation(location)}</span>
+                            </div>
+                        ) : null}
                     </div>
 
                     <div className="marketplace-reel-card__actions marketplace-reel-card__actions--list">
@@ -773,20 +782,27 @@ export default function MarketplaceReelListingCard({
 
             <div className="marketplace-reel-card__panel absolute inset-x-0 bottom-0 z-10 px-3 pb-2.5 pt-10 sm:px-3.5 sm:pb-3 sm:pt-12">
                 <div className="marketplace-reel-card__head">
-                    {location ? (
-                        <div className="marketplace-reel-card__location marketplace-reel-card__location--tag">
-                            <IconMapPin size={11} className="shrink-0" />
-                            <span>{shortenListingLocation(location)}</span>
-                        </div>
-                    ) : null}
                     <div className="marketplace-reel-card__identity">
                         {sellerAvatarControl}
                         <div className="marketplace-reel-card__head-text">
-                            <p className="marketplace-reel-card__price">{formatCardPrice(price)}</p>
-                            {priceOriginal ? (
-                                <p className="marketplace-reel-card__price-original">{formatCardPrice(priceOriginal)}</p>
-                            ) : null}
-                            <h3 className="marketplace-reel-card__title">{title}</h3>
+                            <div className={joinClasses(
+                                'marketplace-reel-card__price-row',
+                                discountPercent && discountPercent > 0 ? 'marketplace-reel-card__price-row--offer' : null,
+                            )}>
+                                <p className="marketplace-reel-card__price">{formatCardPrice(price)}</p>
+                                {discountPercent && discountPercent > 0 ? (
+                                    <span className="marketplace-reel-card__discount">-{discountPercent}%</span>
+                                ) : null}
+                            </div>
+                            <div className="marketplace-reel-card__title-row">
+                                <h3 className="marketplace-reel-card__title">{title}</h3>
+                                {location ? (
+                                    <span className="marketplace-reel-card__location marketplace-reel-card__location--tag">
+                                        <IconMapPin size={10} className="shrink-0" />
+                                        <span>{shortenListingLocation(location)}</span>
+                                    </span>
+                                ) : null}
+                            </div>
                         </div>
                     </div>
                 </div>

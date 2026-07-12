@@ -11,6 +11,10 @@ export type PublicListing = {
     title: string;
     description: string;
     price: string;
+    /** Precio lista tachado cuando hay oferta. */
+    priceOriginal?: string | null;
+    /** Porcentaje de descuento (1–99) si hay oferta. */
+    discountPercent?: number | null;
     href: string;
     location: string;
     views: number;
