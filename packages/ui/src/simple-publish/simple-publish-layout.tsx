@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { IconArrowLeft, IconArrowRight, IconCheck, IconDeviceFloppy, IconLoader2, IconRefresh, IconX } from '@tabler/icons-react';
 import { SimplePublishProgress } from './simple-publish-progress';
 import type { SimplePublishHeaderContinue, SimplePublishHeaderReset, SimplePublishHeaderSave, SimplePublishStep } from './types';
@@ -42,6 +42,14 @@ export function SimplePublishLayout({
     children,
 }: SimplePublishLayoutProps) {
     const pageTitle = isEditing ? 'Editar publicación' : title;
+
+    useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        const nested = document.querySelector('.panel-content-frame, [data-scroll-container]');
+        if (nested instanceof HTMLElement) {
+            nested.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [stepIndex]);
 
     return (
         <div className="min-h-screen bg-(--bg)">
