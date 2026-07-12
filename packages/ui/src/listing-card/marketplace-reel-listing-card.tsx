@@ -167,6 +167,7 @@ function OptimizedListingImage({
     width,
     className,
     loading = 'lazy',
+    priority = false,
     onFatalError,
 }: {
     src: string;
@@ -174,6 +175,7 @@ function OptimizedListingImage({
     width: number;
     className?: string;
     loading?: 'lazy' | 'eager';
+    priority?: boolean;
     onFatalError?: () => void;
 }) {
     const edgeOptimized = useMemo(
@@ -183,6 +185,7 @@ function OptimizedListingImage({
     const [useOriginal, setUseOriginal] = useState(false);
     const usingEdge = !useOriginal && edgeOptimized !== src;
     const displaySrc = usingEdge ? edgeOptimized : src;
+    const isLocalDataUrl = displaySrc.startsWith('data:') || displaySrc.startsWith('blob:');
     const sizes = width <= 400
         ? '160px'
         : '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px';
@@ -200,9 +203,10 @@ function OptimizedListingImage({
             quality={72}
             className={className}
             draggable={false}
-            loading={loading}
-            // Si Cloudflare Image Resizing ya recortó, no reprocesar en Next.
-            unoptimized={usingEdge}
+            loading={priority ? undefined : loading}
+            priority={priority}
+            // Cloudflare Image Resizing / data URLs no deben reprocesarse en Next.
+            unoptimized={usingEdge || isLocalDataUrl}
             onError={() => {
                 if (!useOriginal && displaySrc !== src) {
                     setUseOriginal(true);
@@ -508,7 +512,8 @@ export default function MarketplaceReelListingCard({
                 alt={title}
                 width={imageWidth}
                 className="object-cover"
-                loading="lazy"
+                loading={preview ? 'eager' : 'lazy'}
+                priority={preview}
                 onFatalError={advanceMediaOnError}
             />
         )

@@ -23,6 +23,7 @@ const nextConfig: NextConfig = {
         formats: ['image/avif', 'image/webp'],
         deviceSizes: [640, 750, 828, 1080, 1200, 1920],
         imageSizes: [96, 128, 256, 384, 640],
+        qualities: [72, 75],
     },
     async rewrites() {
         return [

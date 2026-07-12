@@ -10,7 +10,7 @@ export const metadata: Metadata = buildSimpleAppMetadata('simpleserenatas');
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="es" suppressHydrationWarning>
+        <html lang="es" data-scroll-behavior="smooth" suppressHydrationWarning>
             <body className={simpleFontClassName}>
                 <ThemeProvider>
                     <MetaPixel />

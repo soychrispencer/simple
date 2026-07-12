@@ -9,7 +9,7 @@ export const metadata: Metadata = buildSimpleAppMetadata('simpleadmin');
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="es" suppressHydrationWarning>
+        <html lang="es" data-scroll-behavior="smooth" suppressHydrationWarning>
             <body className={simpleFontClassName}>
                 <ThemeProvider>
                     <ClientProviders>{children}</ClientProviders>
