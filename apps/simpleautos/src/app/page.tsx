@@ -50,42 +50,42 @@ type SponsoredBlock = {
 const BASE_SLIDES: HeroSlide[] = [
     {
         id: 'base-1',
-        headline: 'Encuentra tu auto ideal.',
-        sub: 'Miles de vehículos verificados. Compra, arrienda o subasta de forma simple y segura.',
-        cta: 'Explorar',
+        headline: 'Compra y vende autos en Chile.',
+        sub: 'El marketplace de vehículos verificados: explora, publica o participa en subastas.',
+        cta: 'Ver autos',
         href: '/ventas',
         sponsored: false,
         overlayEnabled: true,
         align: 'left',
-        desktopImageUrl: '/hero/discover.svg',
-        mobileImageUrl: '/hero/discover.svg',
-        heroPosition: 'center center',
+        desktopImageUrl: '/hero/discover.jpg',
+        mobileImageUrl: '/hero/discover.jpg',
+        heroPosition: 'center right',
     },
     {
         id: 'base-2',
-        headline: 'Vende rápido, sin complicaciones.',
-        sub: 'Publica en minutos o déjanos gestionar todo con nuestra venta asistida.',
-        cta: 'Publicar',
+        headline: 'Publica tu auto y vende más rápido.',
+        sub: 'Súbelo en minutos o deja que nuestro equipo gestione la venta por ti.',
+        cta: 'Publicar auto',
         href: '/panel/publicar',
         sponsored: false,
         overlayEnabled: true,
         align: 'left',
-        desktopImageUrl: '/hero/sell.svg',
-        mobileImageUrl: '/hero/sell.svg',
+        desktopImageUrl: '/hero/sell.jpg',
+        mobileImageUrl: '/hero/sell.jpg',
         heroPosition: 'center center',
     },
     {
         id: 'base-3',
-        headline: 'Subastas en vivo.',
-        sub: 'Participa en subastas reales y consigue el mejor precio.',
+        headline: 'Subastas reales de vehículos.',
+        sub: 'Puja en vivo y consigue mejores precios en autos verificados.',
         cta: 'Ver subastas',
         href: '/subastas',
         sponsored: false,
         overlayEnabled: true,
         align: 'left',
-        desktopImageUrl: '/hero/auction.svg',
-        mobileImageUrl: '/hero/auction.svg',
-        heroPosition: 'center center',
+        desktopImageUrl: '/hero/auction.jpg',
+        mobileImageUrl: '/hero/auction.jpg',
+        heroPosition: 'center right',
     },
 ];
 
@@ -310,6 +310,14 @@ export default function HomePage() {
                         >
                             {showOverlayContent ? (
                                 <>
+                                    {!activeSlide.sponsored ? (
+                                        <p
+                                            className="mb-3 text-sm font-semibold tracking-[0.14em] uppercase"
+                                            style={{ color: heroImage ? 'rgba(255,255,255,0.78)' : 'var(--fg-muted)' }}
+                                        >
+                                            SimpleAutos
+                                        </p>
+                                    ) : null}
                                     <h1 className="text-[clamp(2.5rem,5.5vw,4.5rem)] font-semibold leading-[1.05] mb-5" style={{ color: contentColor }}>
                                         {activeSlide.headline}
                                     </h1>

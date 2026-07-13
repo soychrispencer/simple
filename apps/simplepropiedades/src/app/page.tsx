@@ -50,42 +50,42 @@ type SponsoredBlock = {
 const BASE_SLIDES: HeroSlide[] = [
     {
         id: 'base-1',
-        headline: 'Tu hogar está aquí.',
-        sub: 'Miles de propiedades verificadas. Compra, arrienda o invierte en proyectos.',
-        cta: 'Explorar',
+        headline: 'Compra y arrienda propiedades en Chile.',
+        sub: 'El marketplace inmobiliario: casas, departamentos y proyectos verificados.',
+        cta: 'Ver propiedades',
         href: '/ventas',
         sponsored: false,
         overlayEnabled: true,
         align: 'left',
-        desktopImageUrl: '/hero/home.svg',
-        mobileImageUrl: '/hero/home.svg',
-        heroPosition: 'center center',
+        desktopImageUrl: '/hero/home.jpg',
+        mobileImageUrl: '/hero/home.jpg',
+        heroPosition: 'center right',
     },
     {
         id: 'base-2',
-        headline: 'Arrienda de forma segura.',
-        sub: 'Contratos transparentes, arrendatarios verificados y soporte.',
+        headline: 'Arriendos claros y seguros.',
+        sub: 'Encuentra departamentos y casas con condiciones transparentes y soporte.',
         cta: 'Ver arriendos',
         href: '/arriendos',
         sponsored: false,
         overlayEnabled: true,
         align: 'left',
-        desktopImageUrl: '/hero/rent.svg',
-        mobileImageUrl: '/hero/rent.svg',
+        desktopImageUrl: '/hero/rent.jpg',
+        mobileImageUrl: '/hero/rent.jpg',
         heroPosition: 'center center',
     },
     {
         id: 'base-3',
-        headline: 'Proyectos desde plano.',
-        sub: 'Invierte desde la fase inicial con precios de preventa.',
+        headline: 'Proyectos inmobiliarios en preventa.',
+        sub: 'Invierte desde plano con precios de lanzamiento y tipologías claras.',
         cta: 'Ver proyectos',
         href: '/proyectos',
         sponsored: false,
         overlayEnabled: true,
         align: 'left',
-        desktopImageUrl: '/hero/projects.svg',
-        mobileImageUrl: '/hero/projects.svg',
-        heroPosition: 'center center',
+        desktopImageUrl: '/hero/projects.jpg',
+        mobileImageUrl: '/hero/projects.jpg',
+        heroPosition: 'center right',
     },
 ];
 
@@ -305,6 +305,14 @@ export default function HomePage() {
                         >
                             {showOverlayContent ? (
                                 <>
+                                    {!activeSlide.sponsored ? (
+                                        <p
+                                            className="mb-3 text-sm font-semibold tracking-[0.14em] uppercase"
+                                            style={{ color: heroImage ? 'rgba(255,255,255,0.78)' : 'var(--fg-muted)' }}
+                                        >
+                                            SimplePropiedades
+                                        </p>
+                                    ) : null}
                                     <h1 className="text-[clamp(2.5rem,5.5vw,4.5rem)] font-semibold leading-[1.05] mb-5" style={{ color: contentColor }}>
                                         {activeSlide.headline}
                                     </h1>

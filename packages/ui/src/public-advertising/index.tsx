@@ -59,7 +59,7 @@ export function PublicAdBannerStrip({
     sponsoredLabel = 'Patrocinado',
     showPlaceholderWhenEmpty = false,
     placeholderLabel = 'Espacio publicitario',
-    placeholderImageUrl = '/hero/discover.svg',
+    placeholderImageUrl = '/hero/discover.jpg',
 }: PublicAdBannerStripProps) {
     const client = useMemo(() => createAdvertisingClient(vertical), [vertical]);
     const [campaign, setCampaign] = useState<BannerView | null>(null);
@@ -174,7 +174,7 @@ export function PublicAdInlineCard({
     placementSection,
     className = '',
     placeholderLabel = 'Espacio publicitario',
-    placeholderImageUrl = '/hero/discover.svg',
+    placeholderImageUrl = '/hero/discover.jpg',
 }: PublicAdInlineCardProps) {
     const client = useMemo(() => createAdvertisingClient(vertical), [vertical]);
     const [campaign, setCampaign] = useState<BannerView | null>(null);
@@ -275,8 +275,8 @@ const CARD_ROW_PLACEHOLDERS: Partial<Record<AdvertisingVertical, string[]>> = {
         'https://images.unsplash.com/photo-1764593821767-352919115758?auto=format&fit=crop&w=900&q=80',
         'https://images.unsplash.com/photo-1769230367203-7bd409f483c9?auto=format&fit=crop&w=900&q=80',
     ],
-    autos: ['/hero/discover.svg', '/hero/sell.svg', '/hero/auction.svg'],
-    propiedades: ['/hero/home.svg', '/hero/rent.svg', '/hero/projects.svg'],
+    autos: ['/hero/discover.jpg', '/hero/sell.jpg', '/hero/auction.jpg'],
+    propiedades: ['/hero/home.jpg', '/hero/rent.jpg', '/hero/projects.jpg'],
 };
 
 export type PublicAdCardRowProps = {

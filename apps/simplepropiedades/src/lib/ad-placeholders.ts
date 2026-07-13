@@ -6,17 +6,17 @@ export type AdPlaceholderVisual = {
 };
 
 const HOME_PLACEHOLDER: AdPlaceholderVisual = {
-    imageUrl: '/hero/home.svg',
+    imageUrl: '/hero/home.jpg',
     label: 'Publicidad',
 };
 
 const RENT_PLACEHOLDER: AdPlaceholderVisual = {
-    imageUrl: '/hero/rent.svg',
+    imageUrl: '/hero/rent.jpg',
     label: 'Publicidad',
 };
 
 const PROJECTS_PLACEHOLDER: AdPlaceholderVisual = {
-    imageUrl: '/hero/projects.svg',
+    imageUrl: '/hero/projects.jpg',
     label: 'Publicidad',
 };
 
