@@ -11,6 +11,7 @@ import {
     users,
 } from '../../db/schema.js';
 import { validateGroupForSerenata } from './availability.js';
+import { emitSerenataTimelineAsync } from './timeline.js';
 import { insertInAppNotifications } from '../../lib/platform-in-app-notifications.js';
 import type { AssignGroupSideEffects } from '../../lib/serenatas-notification-delivery.js';
 
@@ -221,6 +222,15 @@ export async function assignSerenataMusicianGroup(
         status: 'scheduled',
         updatedAt: new Date(),
     }).where(eq(serenatas.id, current.id)).returning();
+
+    if (item.status !== current.status) {
+        emitSerenataTimelineAsync('serenata.status_changed', item, {
+            actor: 'owner',
+            fromStatus: current.status,
+            toStatus: item.status,
+            payload: { groupId: group.id },
+        });
+    }
 
     if (item.clientId) {
         const client = await tx.query.serenataClients.findFirst({ where: eq(serenataClients.id, item.clientId) });

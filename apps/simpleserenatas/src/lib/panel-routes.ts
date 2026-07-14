@@ -20,10 +20,12 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     eventos: 'serenatas',
     musica: 'serenatas',
     solicitudes: 'solicitudes',
+    contactos: 'contactos',
     'mi-negocio': 'mi-negocio',
     'mi-grupo': 'mi-negocio',
     publicar: 'mi-negocio',
-    servicios: 'mi-negocio',
+    servicios: 'servicios',
+    'mis-servicios': 'servicios',
     groups: 'mi-negocio',
     jornadas: 'mi-negocio',
     invitaciones: 'invitations',
@@ -55,8 +57,9 @@ export const SECTION_TO_PANEL_SLUG: Record<Section, string> = {
     serenatas: 'serenatas',
     guardados: 'guardados',
     solicitudes: 'solicitudes',
+    contactos: 'contactos',
     'mi-negocio': 'mi-negocio',
-    servicios: 'mi-negocio',
+    servicios: 'mis-servicios',
     groups: 'mi-negocio',
     invitations: 'invitaciones',
     agenda: 'agenda',
@@ -118,7 +121,11 @@ export function resolvePanelActivePathname(routerPathname: string, section: Sect
 }
 
 export function isMiNegocioPanelSection(section: Section): boolean {
-    return section === 'mi-negocio' || section === 'servicios' || section === 'groups';
+    return section === 'mi-negocio' || section === 'groups';
+}
+
+export function isMisServiciosPanelSection(section: Section): boolean {
+    return section === 'servicios';
 }
 
 export function isAccountPanelSection(section: Section): boolean {
@@ -127,7 +134,7 @@ export function isAccountPanelSection(section: Section): boolean {
 
 /** Secciones cuyo shell ya aplica `container-app` (no usar `PanelPageFrame` con padding). */
 export function usesOwnPanelPageShell(section: Section): boolean {
-    return isMiNegocioPanelSection(section) || isAccountPanelSection(section);
+    return isMiNegocioPanelSection(section) || isMisServiciosPanelSection(section) || isAccountPanelSection(section);
 }
 
 /** Secciones cuyo contenido ya trae `container-app` propio (p. ej. `PanelMessagesInbox`). */
@@ -138,6 +145,9 @@ export function skipsPanelPageFrame(section: Section): boolean {
 export function panelPathFromSection(section: Section, groupSlug?: string | null): string {
     if (section === 'grupo' && groupSlug) {
         return panelGroupHref(groupSlug);
+    }
+    if (isMisServiciosPanelSection(section)) {
+        return '/panel/mis-servicios';
     }
     if (isMiNegocioPanelSection(section)) {
         return '/panel/mi-negocio';
@@ -150,14 +160,15 @@ export function panelSectionHref(
     section: Section,
     query?: Record<string, string | null | undefined>,
 ): string {
-    if (section === 'mi-negocio' || section === 'servicios' || section === 'groups') {
+    if (section === 'servicios') {
+        return '/panel/mis-servicios';
+    }
+    if (section === 'mi-negocio' || section === 'groups') {
         const tabParam = query?.tab;
         const tab: MiNegocioTab =
-            section === 'servicios'
-                ? 'servicios'
-                : section === 'groups'
-                  ? 'grupos'
-                  : normalizeMiNegocioTab(tabParam ?? null) ?? 'datos';
+            section === 'groups'
+                ? 'grupos'
+                : normalizeMiNegocioTab(tabParam ?? null) ?? 'datos';
         return panelMiNegocioHref(tab);
     }
 
@@ -204,7 +215,6 @@ export function miNegocioTabFromPanelPath(pathname: string, search: string): MiN
     const match = pathname.match(/^\/panel\/([^/?#]+)/);
     const slug = match?.[1];
     if (slug === 'disponibilidad' || slug === 'horarios') return 'horarios';
-    if (slug === 'servicios') return 'servicios';
     if (slug === 'jornadas' || slug === 'groups') return 'grupos';
     if (slug === 'publicar') return 'configuraciones';
     return miNegocioTabFromSearch(search);
@@ -230,12 +240,18 @@ export function resolveCanonicalMarketplaceRedirect(pathname: string, search: st
 
 /** Redirige slugs legacy de Mi Negocio / servicios a la ruta canónica. */
 export function resolveCanonicalMiNegocioRedirect(pathname: string, search: string): string | null {
-    // Already on a valid sub-route or canonical path — no redirect needed
-    if (/^\/panel\/mi-negocio(\/[^/?#]*)?$/.test(pathname)) return null;
+    if (/^\/panel\/mis-servicios(\/[^/?#]*)?$/.test(pathname)) return null;
+    if (/^\/panel\/mi-negocio(\/[^/?#]*)?$/.test(pathname)) {
+        if (/^\/panel\/mi-negocio\/servicios(\/[^/?#]*)?$/.test(pathname)) {
+            return '/panel/mis-servicios';
+        }
+        return null;
+    }
     const match = pathname.match(/^\/panel\/([^/?#]+)/);
     if (!match) return null;
     const slug = match[1];
-    const legacySlugs = new Set(['mi-grupo', 'publicar', 'disponibilidad', 'horarios', 'servicios', 'jornadas', 'groups']);
+    if (slug === 'servicios') return '/panel/mis-servicios';
+    const legacySlugs = new Set(['mi-grupo', 'publicar', 'disponibilidad', 'horarios', 'jornadas', 'groups']);
     if (!legacySlugs.has(slug)) return null;
     return panelMiNegocioHref(miNegocioTabFromPanelPath(pathname, search));
 }
@@ -267,9 +283,14 @@ export function legacyQueryToPanelPath(search: string, options?: LegacyQueryToPa
         return qs ? `${path}?${qs}` : path;
     }
 
-    if (section === 'mi-negocio' || section === 'servicios' || section === 'groups') {
+    if (section === 'servicios') {
+        params.delete('tab');
+        const qs = params.toString();
+        return qs ? `/panel/mis-servicios?${qs}` : '/panel/mis-servicios';
+    }
+    if (section === 'mi-negocio' || section === 'groups') {
         const tab =
-            section === 'servicios' ? 'servicios' : section === 'groups' ? 'grupos' : miNegocioTabFromSearch(params.toString());
+            section === 'groups' ? 'grupos' : miNegocioTabFromSearch(params.toString());
         params.delete('tab');
         const qs = params.toString();
         const path = panelMiNegocioHref(tab);

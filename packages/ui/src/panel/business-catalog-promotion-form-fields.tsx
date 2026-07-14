@@ -51,7 +51,7 @@ export function BusinessCatalogPromotionFormFields({
                 />
             </PanelField>
             {resolved.couponCode ? (
-                <PanelField label="Código cupón" hint="Opcional. El paciente lo ingresa al reservar.">
+                <PanelField label="Código cupón" hint="Opcional. El cliente lo ingresa al reservar.">
                     <input
                         type="text"
                         value={values.code}

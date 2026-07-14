@@ -149,7 +149,13 @@ function validateMarketplacePromotion(values: CatalogPromotionFormValues): strin
     return validateCatalogPromotionAppliesTo(values);
 }
 
-function BusinessOperatorServicesEditorContent({ vertical }: { vertical: PublicProfileVertical }) {
+function BusinessOperatorServicesEditorContent({
+    vertical,
+    createHref,
+}: {
+    vertical: PublicProfileVertical;
+    createHref?: string;
+}) {
     const categories = useMemo(() => getOperatorServiceCategories(vertical), [vertical]);
     const [tab, setTab] = useState<TabKey>('services');
     const [serviceOptions, setServiceOptions] = useState<CatalogServiceOption[]>([]);
@@ -380,6 +386,7 @@ function BusinessOperatorServicesEditorContent({ vertical }: { vertical: PublicP
                     emptyForm={EMPTY_SERVICE}
                     resetKey={vertical}
                     formLayout="modal"
+                    createHref={createHref}
                     onItemsChange={onServicesItemsChange}
                     onSaved={refreshServiceOptions}
                     resolveFormFieldsProps={({ form, setForm }) => ({
@@ -394,6 +401,13 @@ function BusinessOperatorServicesEditorContent({ vertical }: { vertical: PublicP
                         onModalityChange: (key, value) => setForm((prev) => ({ ...prev, [key]: value })),
                     })}
                     copy={{
+                        actionLabel: createHref ? 'Publicar servicio' : 'Nuevo servicio',
+                        ...(createHref
+                            ? {
+                                emptyDescription:
+                                    'Crea el primero desde Publicar. Aquí podrás editarlo, packs y promociones.',
+                            }
+                            : null),
                         archiveMessage: (name) => `"${name}" se pausará y dejará de mostrarse en tu perfil. Podrás reactivarlo con el interruptor.`,
                     }}
                 />
@@ -431,10 +445,16 @@ function BusinessOperatorServicesEditorContent({ vertical }: { vertical: PublicP
     );
 }
 
-export function BusinessOperatorServicesEditor({ vertical }: { vertical: PublicProfileVertical }) {
+export function BusinessOperatorServicesEditor({
+    vertical,
+    createHref,
+}: {
+    vertical: PublicProfileVertical;
+    createHref?: string;
+}) {
     return (
         <PanelConfirmProvider>
-            <BusinessOperatorServicesEditorContent vertical={vertical} />
+            <BusinessOperatorServicesEditorContent vertical={vertical} createHref={createHref} />
         </PanelConfirmProvider>
     );
 }

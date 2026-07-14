@@ -392,6 +392,21 @@ export async function fetchAgendaClient(id: string): Promise<{ client: AgendaCli
     return { client: data.client, appointments: data.appointments ?? [] };
 }
 
+export type AgendaTimelineEvent = {
+    id: string;
+    type: string;
+    occurredAt: string;
+    actor: string;
+    subjectKind: string;
+    subjectId: string;
+    payload: Record<string, unknown> | null;
+};
+
+export async function fetchAgendaClientTimeline(clientId: string): Promise<AgendaTimelineEvent[]> {
+    const data = await apiFetch<{ ok: boolean; events?: AgendaTimelineEvent[] }>(`/api/agenda/clients/${clientId}/timeline`);
+    return data?.ok ? (data.events ?? []) : [];
+}
+
 // ── Client tags ───────────────────────────────────────────────────────────────
 
 export type AgendaClientTag = {

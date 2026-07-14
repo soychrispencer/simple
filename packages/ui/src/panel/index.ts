@@ -598,6 +598,16 @@ export {
     type PanelMessagesInboxProps,
 } from './panel-messages-inbox.js';
 export {
+    MarketplaceContactsView,
+    type MarketplaceContactsCopy,
+    type MarketplaceContactsViewProps,
+} from './marketplace-contacts-view.js';
+export {
+    RelationshipNotesPanel,
+    RelationshipNotesIcon,
+    type RelationshipNotesPanelProps,
+} from './relationship-notes-panel.js';
+export {
     ContextMessagesLink,
     ContextMessagesInlineLink,
 } from './context-messages-link.js';

@@ -8,7 +8,6 @@ import {
     PanelBlockHeader,
     PanelButton,
     PanelCard,
-    PanelNotice,
     PanelSwitch,
     BUSINESS_OPERATIONAL_ALERTS_BROWSER_SUBSECTION,
     BUSINESS_OPERATIONAL_ALERTS_EMAIL_SUBSECTION,
@@ -21,124 +20,91 @@ import {
     type AccountNotificationPrefs,
 } from '@simple/utils';
 import { useAgendaBookingAlerts } from '@/hooks/use-agenda-booking-alerts';
-
-const AGENDA_EMAIL_ROWS = [
-    {
-        key: 'emailNotifyRequests' as const,
-        icon: IconCalendarEvent,
-        title: 'Nuevas reservas online',
-        description: 'Correo cuando un paciente reserva desde tu perfil público (pendiente o confirmada).',
-    },
-    {
-        key: 'emailNotifyAgenda' as const,
-        icon: IconUserX,
-        title: 'Cancelaciones de pacientes',
-        description: 'Correo cuando un paciente cancela o reprograma una cita.',
-    },
-];
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 
 export function useAgendaProfessionalNotificationPrefs() {
-    const [phone, setPhone] = useState('');
     const [prefs, setPrefs] = useState<AccountNotificationPrefs>(() => accountNotificationPrefsFromUser(null));
+    const [dirty, setDirty] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [touched, setTouched] = useState(false);
-    const baselineRef = useRef<AccountNotificationPrefs | null>(null);
+    const baselineRef = useRef<string>('');
 
     useEffect(() => {
-        void fetchAccountUser().then((response) => {
-            const user = response.ok ? response.user ?? null : null;
-            const snapshot = accountNotificationPrefsFromUser(user);
-            setPrefs(snapshot);
-            setPhone(user?.phone?.trim() ?? '');
-            baselineRef.current = snapshot;
+        let active = true;
+        void fetchAccountUser().then((result) => {
+            if (!active) return;
+            const next = accountNotificationPrefsFromUser(result.user);
+            baselineRef.current = JSON.stringify(next);
+            setPrefs(next);
+            setDirty(false);
             setLoading(false);
         });
+        return () => {
+            active = false;
+        };
     }, []);
 
-    const dirty = touched || (baselineRef.current
-        ? JSON.stringify(prefs) !== JSON.stringify(baselineRef.current)
-        : false);
-
-    const updatePrefs = (next: AccountNotificationPrefs) => {
-        setTouched(true);
+    function updatePrefs(next: AccountNotificationPrefs) {
         setPrefs(next);
-    };
+        setDirty(JSON.stringify(next) !== baselineRef.current);
+    }
 
-    const save = async (): Promise<string | null> => {
-        if (!baselineRef.current || !dirty) return null;
-        const response = await saveAccountNotificationPrefs(prefs, phone);
-        if (!response.ok || !response.user) {
-            return response.error ?? 'No pudimos guardar tus preferencias.';
+    async function save(): Promise<string | null> {
+        const result = await saveAccountNotificationPrefs(prefs);
+        if (!result.ok) {
+            return result.error ?? 'No pudimos guardar tus preferencias.';
         }
-        const snapshot = accountNotificationPrefsFromUser(response.user);
-        setPrefs(snapshot);
-        baselineRef.current = snapshot;
-        setTouched(false);
+        baselineRef.current = JSON.stringify(prefs);
+        setDirty(false);
         return null;
-    };
+    }
 
-    return { prefs, loading, dirty, updatePrefs, save };
+    return { prefs, updatePrefs, dirty, loading, save };
 }
 
 function AgendaInboxAlertsSettings() {
     const alerts = useAgendaBookingAlerts({ enabled: true });
-    const browserDenied = alerts.notificationPermission === 'denied';
-    const browserGranted = alerts.browserNotificationsEnabled;
-
     return (
-        <>
+        <div className="space-y-3">
             <BusinessOperationalAlertSettingRow
                 icon={IconBell}
-                title="Sonido al llegar reserva"
-                description="Campana breve cuando entra una reserva online pendiente de confirmación."
-                action={
+                title="Sonido de nuevas reservas"
+                description="Aviso sonoro cuando llega una reserva pendiente en tu agenda."
+                right={
                     <PanelSwitch
                         checked={!alerts.soundMuted}
-                        onChange={() => alerts.toggleSoundMuted()}
-                        ariaLabel="Sonido al llegar reserva"
+                        onCheckedChange={() => alerts.toggleSoundMuted()}
+                        aria-label="Sonido de nuevas reservas"
                     />
                 }
             />
-            {alerts.browserNotificationsSupported ? (
-                <div className="space-y-2">
-                    <BusinessOperationalAlertSettingRow
-                        icon={IconBrowser}
-                        title="Avisos del navegador"
-                        description="Notificación del sistema si la pestaña no está activa y llega una reserva nueva."
-                        action={
-                            !browserGranted && !browserDenied ? (
-                                <PanelButton
-                                    type="button"
-                                    size="sm"
-                                    variant="secondary"
-                                    className="shrink-0"
-                                    onClick={() => void alerts.requestBrowserNotifications()}
-                                >
-                                    Activar avisos
-                                </PanelButton>
-                            ) : (
-                                <PanelSwitch
-                                    checked={browserGranted}
-                                    onChange={() => {
-                                        if (!browserGranted) void alerts.requestBrowserNotifications();
-                                    }}
-                                    ariaLabel="Avisos del navegador"
-                                    disabled={browserGranted || browserDenied}
-                                />
-                            )
-                        }
-                    />
-                    {browserGranted ? (
-                        <p className="px-1 text-xs text-fg-muted">Activado en este navegador.</p>
-                    ) : null}
-                    {browserDenied ? (
-                        <PanelNotice tone="warning" className="text-xs">
-                            Los avisos están bloqueados. Actívalos en la configuración de sitios de tu navegador.
-                        </PanelNotice>
-                    ) : null}
-                </div>
-            ) : null}
-        </>
+            <BusinessOperationalAlertSettingRow
+                icon={IconBrowser}
+                title="Notificaciones del navegador"
+                description={
+                    alerts.notificationPermission === 'granted'
+                        ? 'Activas. Te avisamos aunque estés en otra pestaña.'
+                        : alerts.notificationPermission === 'denied'
+                            ? 'Bloqueadas en este navegador. Actívalas desde la configuración del sitio.'
+                            : 'Opcional. Útiles si dejas el panel abierto en segundo plano.'
+                }
+                right={
+                    alerts.notificationPermission === 'granted' ? (
+                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Activas</span>
+                    ) : alerts.notificationPermission === 'denied' ? (
+                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Bloqueadas</span>
+                    ) : (
+                        <PanelButton
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void alerts.requestBrowserNotifications()}
+                        >
+                            Activar
+                        </PanelButton>
+                    )
+                }
+            />
+        </div>
     );
 }
 
@@ -151,11 +117,27 @@ export function AgendaOperationalAlertsSettings({
     onPrefsChange: (next: AccountNotificationPrefs) => void;
     disabled?: boolean;
 }) {
+    const vocab = useAgendaVocab();
+    const emailRows = [
+        {
+            key: 'emailNotifyRequests' as const,
+            icon: IconCalendarEvent,
+            title: 'Nuevas reservas online',
+            description: `Correo cuando un ${vocab.client} reserva desde tu perfil público (pendiente o confirmada).`,
+        },
+        {
+            key: 'emailNotifyAgenda' as const,
+            icon: IconUserX,
+            title: `Cancelaciones de ${vocab.clients}`,
+            description: `Correo cuando un ${vocab.client} cancela o reprograma una cita.`,
+        },
+    ];
+
     return (
         <PanelCard size="lg" className="space-y-8">
             <PanelBlockHeader
                 title={BUSINESS_OPERATIONAL_ALERTS_SECTION.title}
-                description="Alertas cuando llegan reservas online o un paciente cancela."
+                description={`Alertas cuando llegan reservas online o un ${vocab.client} cancela.`}
                 className="mb-0"
             />
 
@@ -171,19 +153,18 @@ export function AgendaOperationalAlertsSettings({
                 title={BUSINESS_OPERATIONAL_ALERTS_EMAIL_SUBSECTION.title}
                 description={BUSINESS_OPERATIONAL_ALERTS_EMAIL_SUBSECTION.description}
             >
-                {AGENDA_EMAIL_ROWS.map(({ key, icon, title, description }) => (
+                {emailRows.map(({ key, icon, title, description }) => (
                     <BusinessOperationalAlertSettingRow
                         key={key}
                         icon={icon}
                         title={title}
                         description={description}
-                        action={
+                        right={
                             <PanelSwitch
                                 checked={prefs[key]}
-                                onChange={(checked) => onPrefsChange({ ...prefs, [key]: checked })}
-                                size="sm"
-                                ariaLabel={`${title} por correo`}
                                 disabled={disabled}
+                                onCheckedChange={(checked) => onPrefsChange({ ...prefs, [key]: checked })}
+                                aria-label={title}
                             />
                         }
                     />

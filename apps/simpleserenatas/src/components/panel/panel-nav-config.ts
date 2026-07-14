@@ -9,6 +9,7 @@ import {
     IconBell,
     IconCalendar,
     IconMap,
+    IconAddressBook,
     IconChartBar,
     IconCash,
     IconUser,
@@ -16,6 +17,7 @@ import {
     IconBookmark,
     IconMessageCircle,
     IconRocket,
+    IconListDetails,
 } from '@tabler/icons-react';
 import { serenatasApi, type Profiles } from '@/lib/serenatas-api';
 import { CLIENT_MARKETPLACE_HREF, isClientMarketplaceHref } from '@/lib/client-marketplace';
@@ -70,7 +72,12 @@ export function getPrimaryActionConfig(
 
 export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     const items: PanelNavItem[] = [
-        { id: 'home', href: panelSectionHref('home'), label: 'Mi panel', icon: IconLayoutDashboard },
+        {
+            id: 'home',
+            href: panelSectionHref('home'),
+            label: mode === 'client' ? 'Mi portal' : 'Mi panel',
+            icon: IconLayoutDashboard,
+        },
     ];
 
     if (mode === 'client') {
@@ -88,11 +95,13 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
         items.push({ id: 'solicitudes', href: panelSectionHref('solicitudes'), label: 'Solicitudes', icon: IconBell });
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
         items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
+        items.push({ id: 'contactos', href: panelSectionHref('contactos'), label: 'Contactos', icon: IconAddressBook });
+        items.push({ id: 'servicios', href: panelSectionHref('servicios'), label: 'Mis servicios', icon: IconListDetails });
         items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
-        items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
         items.push({ id: 'publicidad', href: panelSectionHref('publicidad'), label: 'Publicidad', icon: IconRocket });
         items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconCash });
         items.push({ id: 'estadisticas', href: panelSectionHref('estadisticas'), label: 'Estadísticas', icon: IconChartBar });
+        items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
     } else if (profiles.musician) {
         items.push({ id: 'invitations', href: panelSectionHref('invitations'), label: 'Invitaciones', icon: IconUsersGroup });
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
@@ -145,7 +154,10 @@ export function isPanelNavActive(pathname: string, href: string, currentSection?
         const url = new URL(href, 'http://localhost');
         const hrefSection = sectionFromPanelPath(url.pathname) ?? url.searchParams.get('section');
         if (hrefSection && currentSection) {
-            if (hrefSection === 'mi-negocio' && (currentSection === 'mi-negocio' || currentSection === 'servicios' || currentSection === 'groups')) {
+            if (hrefSection === 'servicios' && currentSection === 'servicios') {
+                return true;
+            }
+            if (hrefSection === 'mi-negocio' && (currentSection === 'mi-negocio' || currentSection === 'groups')) {
                 return true;
             }
             if (

@@ -103,6 +103,8 @@ export const POST_JOURNAL_TAGS = [
     '0136_boost_orders_target_columns',
     '0137_marketplace_operator_products',
     '0138_instagram_publish_style',
+    '0139_timeline_events',
+    '0140_relationship_notes',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

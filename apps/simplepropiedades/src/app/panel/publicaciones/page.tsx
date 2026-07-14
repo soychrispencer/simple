@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
     IconBrandWhatsapp,
     IconChevronLeft,
@@ -184,6 +184,7 @@ function getListingTags(listing: PanelListing): string[] {
 
 export default function PublicacionesPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { user, authLoading, requireAuth } = useAuth();
     const [listings, setListings] = useState<PanelListing[]>([]);
     const [loading, setLoading] = useState(true);
@@ -199,6 +200,12 @@ export default function PublicacionesPage() {
     }, [viewMode]);
     const [filter, setFilter] = useState<FilterKey>('all');
     const [kindTab, setKindTab] = useState<KindTab>('listings');
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab === 'services' || tab === 'products' || tab === 'listings') {
+            setKindTab(tab);
+        }
+    }, [searchParams]);
     const [instagramPublications, setInstagramPublications] = useState<InstagramPublicationView[]>([]);
     const [notice, setNotice] = useState<string | null>(null);
     const [statusBusyKey, setStatusBusyKey] = useState<string | null>(null);

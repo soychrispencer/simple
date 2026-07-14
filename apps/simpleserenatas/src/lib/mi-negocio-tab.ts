@@ -1,4 +1,4 @@
-export const MI_NEGOCIO_TABS = ['datos', 'apariencia', 'direcciones', 'horarios', 'servicios', 'repertorio', 'grupos', 'configuraciones'] as const;
+export const MI_NEGOCIO_TABS = ['datos', 'apariencia', 'direcciones', 'horarios', 'repertorio', 'grupos', 'configuraciones'] as const;
 
 export type MiNegocioTab = (typeof MI_NEGOCIO_TABS)[number];
 
@@ -7,6 +7,8 @@ const LEGACY_TAB_ALIASES: Record<string, MiNegocioTab> = {
     'medios-pago': 'configuraciones',
     cobros: 'configuraciones',
     disponibilidad: 'horarios',
+    /** Catálogo movido a /panel/mis-servicios — alias evita romper normalización. */
+    servicios: 'datos',
 };
 
 export function isMiNegocioTab(value: string | null | undefined): value is MiNegocioTab {
@@ -40,8 +42,6 @@ export function miNegocioTabLabel(tab: MiNegocioTab): string {
             return 'Direcciones';
         case 'horarios':
             return 'Horario';
-        case 'servicios':
-            return 'Servicios';
         case 'repertorio':
             return 'Repertorio';
         case 'grupos':

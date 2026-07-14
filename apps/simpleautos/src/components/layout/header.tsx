@@ -19,13 +19,13 @@ const publicLinks: MarketplacePublicLink[] = [
     { href: '/servicios', label: 'Servicios' },
     { href: '/productos', label: 'Productos' },
     {
-        href: '/precalificacion-financiamiento',
+        href: '/simulador-credito-automotriz',
         label: 'Herramientas',
         items: [
             {
-                href: '/precalificacion-financiamiento',
-                label: 'Precalificación de financiamiento',
-                description: 'Evalúa tu perfil antes de pedir crédito — no es simulador de cuotas',
+                href: '/simulador-credito-automotriz',
+                label: 'Simulador de crédito automotriz',
+                description: 'Estima cuota, CAE referencial y capacidad de pago',
             },
             {
                 href: '/servicios/venta-asistida',

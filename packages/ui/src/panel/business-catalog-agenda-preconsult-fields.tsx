@@ -47,7 +47,7 @@ export function BusinessCatalogAgendaPreconsultFields({
         <PanelField label="Preguntas pre-consulta" className={className}>
             <div className="flex flex-col gap-2">
                 <p className="text-xs text-fg-muted">
-                    El paciente las responde al reservar. Las verás en la ficha de la cita.
+                    El cliente las responde al reservar. Las verás en la ficha de la cita.
                 </p>
                 {fields.map((field, index) => (
                     <div key={field.id} className="flex flex-col gap-2 rounded-xl border border-border bg-bg-subtle p-3">

@@ -1,5 +1,5 @@
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
-import { panelMiNegocioHref } from '@/lib/panel-routes';
+import { panelMiNegocioHref, panelSectionHref } from '@/lib/panel-routes';
 import { providerPublicMediaMissing } from '@/lib/marketplace-group-display';
 
 export type ProviderGroupPublishInput = Pick<
@@ -107,7 +107,7 @@ export function getProviderGroupPublishRequirements(
             id: 'services',
             label: 'Al menos un servicio con precio',
             met: activeServiceCount > 0,
-            href: panelMiNegocioHref('servicios'),
+            href: panelSectionHref('servicios'),
         },
         ...(group?.accountKind === 'company' ? [{
             id: 'legal',

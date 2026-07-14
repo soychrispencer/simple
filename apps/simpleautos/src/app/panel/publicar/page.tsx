@@ -28,7 +28,7 @@ import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishPhotoProcessNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPhotoProcessProgress, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
-import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, vehicleAppearanceOptionsForType, vehicleTechEquipmentOptionsForType, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, type PublishType } from '@simple/utils';
+import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, vehicleAppearanceOptionsForType, vehicleTechEquipmentOptionsForType, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, validateBusinessServiceModality, type PublishType } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
 import { ModernSelect } from '@simple/ui/forms';
@@ -71,6 +71,12 @@ interface FormData {
     discountPercent: string;
     catalogCategory: string;
     servicePricingMode: 'fixed' | 'quote';
+    catalogPromoPrice: string;
+    serviceDurationMinutes: string;
+    serviceIsOnline: boolean;
+    serviceIsPresential: boolean;
+    productStock: string;
+    productSku: string;
     
     // Paso 2: Estado (expandible)
     mileage: string;
@@ -130,6 +136,12 @@ const EMPTY_FORM: FormData = {
     discountPercent: '',
     catalogCategory: 'other',
     servicePricingMode: 'fixed',
+    catalogPromoPrice: '',
+    serviceDurationMinutes: '',
+    serviceIsOnline: true,
+    serviceIsPresential: true,
+    productStock: '',
+    productSku: '',
     mileage: '',
     color: '',
     interiorColor: '',
@@ -887,6 +899,18 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                 const priceDigits = parseDigits(form.price);
 
                 if (form.listingType === 'service') {
+                    const modalityError = validateBusinessServiceModality({
+                        isOnline: form.serviceIsOnline,
+                        isPresential: form.serviceIsPresential,
+                    });
+                    if (modalityError) {
+                        setPublishError(modalityError);
+                        return;
+                    }
+                    const promoDigits = parseDigits(form.catalogPromoPrice);
+                    const duration = form.serviceDurationMinutes.trim()
+                        ? Number(form.serviceDurationMinutes.replace(/[^\d]/g, ''))
+                        : null;
                     const result = await createOperatorService('autos', {
                         name,
                         description,
@@ -894,6 +918,10 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                         category: form.catalogCategory || 'other',
                         pricingMode: form.servicePricingMode,
                         price: form.servicePricingMode === 'quote' ? null : (priceDigits || null),
+                        promoPrice: form.servicePricingMode === 'fixed' && promoDigits ? promoDigits : null,
+                        durationMinutes: Number.isFinite(duration) && duration && duration > 0 ? duration : null,
+                        isOnline: form.serviceIsOnline,
+                        isPresential: form.serviceIsPresential,
                         currency: 'CLP',
                         isActive: true,
                     });
@@ -909,12 +937,17 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                         hasVideo: false,
                     });
                 } else {
+                    const promoDigits = parseDigits(form.catalogPromoPrice);
+                    const stockRaw = form.productStock.trim().replace(/[^\d]/g, '');
                     const result = await createOperatorProduct('autos', {
                         name,
                         description,
                         imageUrl: imageUrl ?? null,
                         category: form.catalogCategory || 'other',
                         price: priceDigits,
+                        promoPrice: promoDigits || null,
+                        stock: stockRaw ? Number(stockRaw) : null,
+                        sku: form.productSku.trim() || null,
                         currency: 'CLP',
                         isActive: true,
                     });
@@ -1924,6 +1957,77 @@ function Step1PhotosAndIdentity({
                                 />
                             </div>
                         ) : null}
+                        {form.listingType === 'product' || form.servicePricingMode === 'fixed' ? (
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-(--fg)">Precio promo (opcional)</label>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={form.catalogPromoPrice}
+                                    onChange={(e) => updateForm('catalogPromoPrice', formatClPriceInput(e.target.value))}
+                                    placeholder="0"
+                                    className="form-input"
+                                />
+                            </div>
+                        ) : null}
+                        {form.listingType === 'service' ? (
+                            <>
+                                <div>
+                                    <label className="mb-1.5 block text-sm font-medium text-(--fg)">Duración (min, opcional)</label>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={form.serviceDurationMinutes}
+                                        onChange={(e) => updateForm('serviceDurationMinutes', e.target.value.replace(/[^\d]/g, '').slice(0, 4))}
+                                        placeholder="60"
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-1.5 block text-sm font-medium text-(--fg)">Modalidad</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <PanelChoiceCard
+                                            selected={form.serviceIsPresential}
+                                            onClick={() => updateForm('serviceIsPresential', !form.serviceIsPresential)}
+                                            className="h-12 px-3 text-sm"
+                                        >
+                                            En taller
+                                        </PanelChoiceCard>
+                                        <PanelChoiceCard
+                                            selected={form.serviceIsOnline}
+                                            onClick={() => updateForm('serviceIsOnline', !form.serviceIsOnline)}
+                                            className="h-12 px-3 text-sm"
+                                        >
+                                            A domicilio
+                                        </PanelChoiceCard>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="mb-1.5 block text-sm font-medium text-(--fg)">Stock (opcional)</label>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={form.productStock}
+                                        onChange={(e) => updateForm('productStock', e.target.value.replace(/[^\d]/g, '').slice(0, 6))}
+                                        placeholder="10"
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-1.5 block text-sm font-medium text-(--fg)">SKU (opcional)</label>
+                                    <input
+                                        type="text"
+                                        value={form.productSku}
+                                        onChange={(e) => updateForm('productSku', e.target.value.slice(0, 40))}
+                                        placeholder="CZ-001"
+                                        className="form-input"
+                                    />
+                                </div>
+                            </div>
+                        )}
                         <div>
                             <label className="mb-1.5 block text-sm font-medium text-(--fg)">Categoría</label>
                             <ModernSelect

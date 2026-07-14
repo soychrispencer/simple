@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX, IconDownload, IconEdit, IconTrash, IconAlertCircle, IconCheck, IconPhone, IconMail, IconBrandWhatsapp, IconChevronDown, IconTag } from '@tabler/icons-react';
 import Link from 'next/link';
 import { fetchAgendaClients, createAgendaClient, updateAgendaClient, deleteAgendaClient, fetchClientTags, type AgendaClient, type AgendaClientTag } from '@/lib/agenda-api';
-import { vocab } from '@/lib/vocabulary';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 
 type ClientForm = {
@@ -41,6 +41,7 @@ const emptyForm = (): ClientForm => ({
 type EditForm = ClientForm & Record<string, string>;
 
 export default function ClientesPage() {
+    const vocab = useAgendaVocab();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [clients, setClients] = useState<AgendaClient[]>([]);
@@ -365,7 +366,7 @@ export default function ClientesPage() {
                                 <textarea
                                     value={form.internalNotes}
                                     onChange={(e) => set('internalNotes', e.target.value)}
-                                    placeholder="Notas privadas sobre este paciente..."
+                                    placeholder={`Notas privadas sobre este ${vocab.client}...`}
                                     rows={3}
                                     className="field-input resize-none"
                                 />
@@ -509,7 +510,7 @@ export default function ClientesPage() {
                             </div>
                             <Field label="Derivado por / cómo llegó"><input type="text" value={editForm.referredBy} onChange={(e) => setEditForm((p) => ({ ...p, referredBy: e.target.value }))} className="field-input" /></Field>
                             <Field label="Notas internas">
-                                <textarea value={editForm.internalNotes} onChange={(e) => setEditForm((p) => ({ ...p, internalNotes: e.target.value }))} rows={3} placeholder="Notas privadas sobre este paciente..." className="field-input resize-none" />
+                                <textarea value={editForm.internalNotes} onChange={(e) => setEditForm((p) => ({ ...p, internalNotes: e.target.value }))} rows={3} placeholder={`Notas privadas sobre este ${vocab.client}...`} className="field-input resize-none" />
                             </Field>
                             {editError && <p className="flex items-center gap-1.5 text-sm" style={{ color: '#dc2626' }}><IconAlertCircle size={13} />{editError}</p>}
                     </div>

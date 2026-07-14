@@ -7,6 +7,7 @@ import {
     deliverSerenataAgendaNotification,
     deliverSerenataRequestNotification,
 } from '../../lib/serenatas-notification-delivery.js';
+import { emitSerenataTimelineAsync } from './timeline.js';
 
 function minutesFromEventTime(value: string) {
     const [rawHours, rawMinutes] = value.split(':');
@@ -303,6 +304,13 @@ export async function expirePendingSerenatas(now = new Date()) {
 
         if (!updated) continue;
 
+        emitSerenataTimelineAsync('serenata.status_changed', updated, {
+            actor: 'system',
+            fromStatus: row.status,
+            toStatus: updated.status,
+            payload: { reason: 'sla_timeout' },
+        });
+
         if (updated.clientId) {
             const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.id, updated.clientId) });
             if (client) {
@@ -463,6 +471,13 @@ export async function cancelClientPendingSerenata(
     if (!item) {
         return { ok: false as const, error: 'Esta solicitud ya no está pendiente.', status: 409 as const };
     }
+
+    emitSerenataTimelineAsync('serenata.status_changed', item, {
+        actor: 'client',
+        fromStatus: pending.status,
+        toStatus: item.status,
+        payload: reason ? { reason } : undefined,
+    });
 
     if (item.ownerId) {
         const owner = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, item.ownerId) });

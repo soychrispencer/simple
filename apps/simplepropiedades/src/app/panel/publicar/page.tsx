@@ -43,7 +43,7 @@ import {
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishPhotoProcessNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, formatClPriceInput, parseDigits, type SimplePublishPhotoProcessProgress, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
-import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress, PROPERTY_CONDITION_OPTIONS, showsPropertyCondition, normalizePropertyCondition, buildPropertyCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, type PublishType } from '@simple/utils';
+import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress, PROPERTY_CONDITION_OPTIONS, showsPropertyCondition, normalizePropertyCondition, buildPropertyCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, validateBusinessServiceModality, type PublishType } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { abbreviateListingSpecLabel, propertySpecIconForLabel } from '@simple/ui/listings';
@@ -100,6 +100,12 @@ type WizardData = {
         propertyType: string;
         catalogCategory: string;
         servicePricingMode: 'fixed' | 'quote';
+        catalogPromoPrice: string;
+        serviceDurationMinutes: string;
+        serviceIsOnline: boolean;
+        serviceIsPresential: boolean;
+        productStock: string;
+        productSku: string;
     };
     basic: {
         title: string;
@@ -639,6 +645,12 @@ function createDefaultData(): WizardData {
             propertyType: 'Departamento',
             catalogCategory: 'other',
             servicePricingMode: 'fixed',
+            catalogPromoPrice: '',
+            serviceDurationMinutes: '',
+            serviceIsOnline: true,
+            serviceIsPresential: true,
+            productStock: '',
+            productSku: '',
         },
         basic: {
             title: '',
@@ -1495,6 +1507,92 @@ function StepSetup(props: {
                                 />
                             </SimplePublishField>
                         ) : null}
+                        {data.setup.operationType === 'product' || data.setup.servicePricingMode === 'fixed' ? (
+                            <SimplePublishField label="Precio promo (opcional)">
+                                <input
+                                    className="form-input"
+                                    inputMode="numeric"
+                                    value={data.setup.catalogPromoPrice}
+                                    onChange={(e) => setData((c) => ({
+                                        ...c,
+                                        setup: { ...c.setup, catalogPromoPrice: formatClPriceInput(e.target.value) },
+                                    }))}
+                                    placeholder="0"
+                                />
+                            </SimplePublishField>
+                        ) : null}
+                        {data.setup.operationType === 'service' ? (
+                            <>
+                                <SimplePublishField label="Duración (min, opcional)">
+                                    <input
+                                        className="form-input"
+                                        inputMode="numeric"
+                                        value={data.setup.serviceDurationMinutes}
+                                        onChange={(e) => setData((c) => ({
+                                            ...c,
+                                            setup: {
+                                                ...c.setup,
+                                                serviceDurationMinutes: e.target.value.replace(/[^\d]/g, '').slice(0, 4),
+                                            },
+                                        }))}
+                                        placeholder="60"
+                                    />
+                                </SimplePublishField>
+                                <SimplePublishField label="Modalidad">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <PanelChoiceCard
+                                            selected={data.setup.serviceIsPresential}
+                                            onClick={() => setData((c) => ({
+                                                ...c,
+                                                setup: { ...c.setup, serviceIsPresential: !c.setup.serviceIsPresential },
+                                            }))}
+                                            className="h-12 px-3 text-sm"
+                                        >
+                                            Presencial
+                                        </PanelChoiceCard>
+                                        <PanelChoiceCard
+                                            selected={data.setup.serviceIsOnline}
+                                            onClick={() => setData((c) => ({
+                                                ...c,
+                                                setup: { ...c.setup, serviceIsOnline: !c.setup.serviceIsOnline },
+                                            }))}
+                                            className="h-12 px-3 text-sm"
+                                        >
+                                            Online
+                                        </PanelChoiceCard>
+                                    </div>
+                                </SimplePublishField>
+                            </>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                                <SimplePublishField label="Stock (opcional)">
+                                    <input
+                                        className="form-input"
+                                        inputMode="numeric"
+                                        value={data.setup.productStock}
+                                        onChange={(e) => setData((c) => ({
+                                            ...c,
+                                            setup: {
+                                                ...c.setup,
+                                                productStock: e.target.value.replace(/[^\d]/g, '').slice(0, 6),
+                                            },
+                                        }))}
+                                        placeholder="10"
+                                    />
+                                </SimplePublishField>
+                                <SimplePublishField label="SKU (opcional)">
+                                    <input
+                                        className="form-input"
+                                        value={data.setup.productSku}
+                                        onChange={(e) => setData((c) => ({
+                                            ...c,
+                                            setup: { ...c.setup, productSku: e.target.value.slice(0, 40) },
+                                        }))}
+                                        placeholder="CZ-001"
+                                    />
+                                </SimplePublishField>
+                            </div>
+                        )}
                         <SimplePublishField label="Categoría">
                             <ModernSelect
                                 value={data.setup.catalogCategory}
@@ -3859,6 +3957,18 @@ export default function PublishWizardPage() {
             const description = data.basic.description.trim() || null;
             const priceDigits = parseDigits(data.commercial.price);
             if (data.setup.operationType === 'service') {
+                const modalityError = validateBusinessServiceModality({
+                    isOnline: data.setup.serviceIsOnline,
+                    isPresential: data.setup.serviceIsPresential,
+                });
+                if (modalityError) {
+                    setMessage(modalityError);
+                    return;
+                }
+                const promoDigits = parseDigits(data.setup.catalogPromoPrice);
+                const duration = data.setup.serviceDurationMinutes.trim()
+                    ? Number(data.setup.serviceDurationMinutes.replace(/[^\d]/g, ''))
+                    : null;
                 const result = await createOperatorService('propiedades', {
                     name,
                     description,
@@ -3866,6 +3976,10 @@ export default function PublishWizardPage() {
                     category: data.setup.catalogCategory || 'other',
                     pricingMode: data.setup.servicePricingMode,
                     price: data.setup.servicePricingMode === 'quote' ? null : (priceDigits || null),
+                    promoPrice: data.setup.servicePricingMode === 'fixed' && promoDigits ? promoDigits : null,
+                    durationMinutes: Number.isFinite(duration) && duration && duration > 0 ? duration : null,
+                    isOnline: data.setup.serviceIsOnline,
+                    isPresential: data.setup.serviceIsPresential,
                     currency: 'CLP',
                     isActive: true,
                 });
@@ -3876,12 +3990,17 @@ export default function PublishWizardPage() {
                 const publication = operatorServiceToPublication(result.item, { verticalId: 'propiedades' });
                 setPublished({ id: publication.id, href: publication.href, title: publication.title, hasVideo: false });
             } else {
+                const promoDigits = parseDigits(data.setup.catalogPromoPrice);
+                const stockRaw = data.setup.productStock.trim().replace(/[^\d]/g, '');
                 const result = await createOperatorProduct('propiedades', {
                     name,
                     description,
                     imageUrl: imageUrl ?? null,
                     category: data.setup.catalogCategory || 'other',
                     price: priceDigits,
+                    promoPrice: promoDigits || null,
+                    stock: stockRaw ? Number(stockRaw) : null,
+                    sku: data.setup.productSku.trim() || null,
                     currency: 'CLP',
                     isActive: true,
                 });

@@ -8,6 +8,7 @@ import { appendOrCreateContextMessage } from './platform-context-threads.js';
 import { getMessageThreadByContext } from './service.js';
 import { notifyMessageThreadActivity } from './thread-notifications.js';
 import { resolveMessageThreadListingDisplay } from './message-thread-context.js';
+import { getMarketplaceContactDetail, listMarketplaceContacts } from './marketplace-contacts.js';
 import { publicSectionLabel } from '../../lib/format-relative.js';
 import type { BoostSection } from '../../lib/domain-types.js';
 
@@ -198,6 +199,37 @@ export function createMessagesRouter(deps: MessagesRouterDeps) {
             return total + Math.max(0, count);
         }, 0);
         return c.json({ ok: true, unreadCount });
+    });
+
+    app.get('/contacts', async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const vertical = parseVertical(c.req.query('vertical'));
+        if (vertical !== 'autos' && vertical !== 'propiedades') {
+            return c.json({ ok: false, error: 'Contactos de leads solo aplica a Autos y Propiedades.' }, 400);
+        }
+
+        const q = c.req.query('q')?.trim() ?? '';
+        const items = await listMarketplaceContacts(messageDeps, user.id, vertical, q);
+        return c.json({ ok: true, items });
+    });
+
+    app.get('/contacts/detail', async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const vertical = parseVertical(c.req.query('vertical'));
+        if (vertical !== 'autos' && vertical !== 'propiedades') {
+            return c.json({ ok: false, error: 'Contactos de leads solo aplica a Autos y Propiedades.' }, 400);
+        }
+
+        const buyerUserId = c.req.query('buyerUserId')?.trim() ?? '';
+        if (!buyerUserId) return c.json({ ok: false, error: 'Contacto requerido' }, 400);
+
+        const detail = await getMarketplaceContactDetail(messageDeps, user.id, vertical, buyerUserId);
+        if (!detail) return c.json({ ok: false, error: 'Contacto no encontrado' }, 404);
+        return c.json({ ok: true, ...detail });
     });
 
     app.get('/threads', async (c) => {

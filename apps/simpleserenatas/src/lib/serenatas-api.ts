@@ -557,6 +557,48 @@ export type MusicianPayout = {
     serenataPrice?: number | null;
 };
 
+export type OwnerContact = {
+    id: string;
+    clientId: string | null;
+    displayName: string;
+    phone: string | null;
+    email: string | null;
+    serenataCount: number;
+    completedCount: number;
+    lastEventDate: string | null;
+    lastStatus: string;
+    lastSerenataId: string;
+    sources: string[];
+};
+
+export type OwnerContactSerenata = {
+    id: string;
+    recipientName: string;
+    status: string;
+    source: string;
+    eventDate: string | null;
+    eventTime: string | null;
+    price: number | null;
+    comuna: string | null;
+    address: string | null;
+};
+
+export type OwnerContactTimelineEvent = {
+    id: string;
+    type: string;
+    occurredAt: string;
+    actor: string;
+    subjectKind: string;
+    subjectId: string;
+    payload: Record<string, unknown> | null;
+};
+
+export type OwnerContactDetail = {
+    contact: OwnerContact;
+    serenatas: OwnerContactSerenata[];
+    events: OwnerContactTimelineEvent[];
+};
+
 export type MusicianPayoutLineInput = {
     musicianId?: string | null;
     musicianName?: string | null;
@@ -619,6 +661,14 @@ export const serenatasApi = {
         const query = status ? `?status=${encodeURIComponent(status)}` : '';
         return request<{ items: MusicianPayout[] }>(`/serenatas/owner/musician-payouts${query}`);
     },
+    ownerContacts: (q?: string) => {
+        const query = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
+        return request<{ items: OwnerContact[] }>(`/serenatas/owner/contacts${query}`);
+    },
+    ownerContactDetail: (id: string) =>
+        request<OwnerContactDetail>(
+            `/serenatas/owner/contacts/detail?id=${encodeURIComponent(id)}`,
+        ),
     musicianPayouts: (status?: 'pending' | 'paid') => {
         const query = status ? `?status=${encodeURIComponent(status)}` : '';
         return request<{ items: MusicianPayout[] }>(`/serenatas/musician/payouts${query}`);

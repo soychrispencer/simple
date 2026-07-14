@@ -56,8 +56,8 @@ const DEFAULT_COPY: Record<MessageVertical, PanelMessagesCopy> = {
     },
     agenda: {
         title: 'Mensajes',
-        description: 'Conversaciones con pacientes y consultas de tu agenda',
-        emptyInbox: 'Cuando un paciente te escriba desde tu perfil o una reserva aparecerá aquí.',
+        description: 'Conversaciones con clientes y consultas de tu agenda',
+        emptyInbox: 'Cuando un cliente te escriba desde tu perfil o una reserva aparecerá aquí.',
         emptyArchived: 'Todavía no has archivado conversaciones.',
         emptySpam: 'No hay conversaciones marcadas como spam.',
         footerHint: 'Cada mensaje queda vinculado al contacto de la consulta.',

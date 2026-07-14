@@ -1,5 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { createMarketplaceMiNegocioServiciosPage } from '@simple/ui/panel';
-
-export default createMarketplaceMiNegocioServiciosPage('propiedades');
+/** Crear/administrar catálogo vive en Mis publicaciones. */
+export default function MiNegocioServiciosRedirectPage() {
+    redirect('/panel/publicaciones?tab=services');
+}

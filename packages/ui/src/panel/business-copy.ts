@@ -252,8 +252,8 @@ export const PUBLIC_PROFILE_PRODUCTS_EMPTY_MESSAGE =
     'Este perfil aún no publica productos en su tienda.';
 
 export const BUSINESS_CATALOG_EDITOR_PRODUCTS_SECTION = {
-    title: 'Productos del negocio',
-    description: 'Catálogo visible en tu perfil público y en la sección Productos.',
+    title: 'Productos',
+    description: 'Publica nuevos desde Publicar. Aquí editas stock, precios y visibilidad.',
 } as const;
 
 /** Mensaje cuando un perfil público no tiene catálogo de servicios activo. */
@@ -262,8 +262,8 @@ export const PUBLIC_PROFILE_CATALOG_EMPTY_MESSAGE =
 
 /** Encabezado interno opcional cuando el shell no lleva acciones propias del catálogo. */
 export const BUSINESS_CATALOG_EDITOR_SECTION = {
-    title: 'Servicios del negocio',
-    description: 'Catálogo visible en tu perfil público y en la pestaña Servicios.',
+    title: 'Servicios',
+    description: 'Publica nuevos desde Publicar. Aquí editas, packs y promociones.',
 } as const;
 
 export const BUSINESS_SCHEDULE_EMPTY = {
@@ -372,8 +372,8 @@ export const AGENDA_BUSINESS_PAGINA_PAGE = AGENDA_BUSINESS_PERFIL_PAGE;
 export const AGENDA_BUSINESS_DATOS_PAGE = AGENDA_BUSINESS_PERFIL_PAGE;
 
 export const AGENDA_BUSINESS_SERVICIOS_PAGE = {
-    title: 'Servicios',
-    description: 'Catálogo de sesiones, packs y promociones de tu negocio.',
+    title: 'Mis servicios',
+    description: 'Administra sesiones, packs y promociones. Aquí editas; el perfil se configura en Mi negocio.',
 } as const;
 
 export const AGENDA_BUSINESS_HORARIOS_PAGE = {
@@ -417,8 +417,8 @@ export const SERENATAS_BUSINESS_DATOS_PAGE = {
 } as const;
 
 export const SERENATAS_BUSINESS_SERVICIOS_PAGE = {
-    title: 'Servicios',
-    description: 'Servicios, packs y promociones visibles en tu ficha y en el marketplace.',
+    title: 'Mis servicios',
+    description: 'Administra servicios, packs y promociones. Aquí editas; el perfil se configura en Mi negocio.',
 } as const;
 
 export const SERENATAS_BUSINESS_HORARIOS_PAGE = {
@@ -464,6 +464,7 @@ const SERENATAS_BUSINESS_PAGE_BY_TAB = {
     apariencia: SERENATAS_BUSINESS_APARIENCIA_PAGE,
     direcciones: SERENATAS_BUSINESS_DIRECCIONES_PAGE,
     horarios: SERENATAS_BUSINESS_HORARIOS_PAGE,
+    /** Sigue disponible para copy de Mis servicios; ya no es tab de Mi negocio. */
     servicios: SERENATAS_BUSINESS_SERVICIOS_PAGE,
     repertorio: SERENATAS_BUSINESS_REPERTORIO_PAGE,
     grupos: SERENATAS_BUSINESS_GRUPOS_PAGE,

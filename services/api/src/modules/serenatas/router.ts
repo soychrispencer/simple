@@ -41,6 +41,11 @@ import {
     syncOwnerSerenataSongSelections,
 } from './repertoire.js';
 import { listOwnerSerenatas, listMusicianAgenda, listMusicianSerenatas } from './owner-listings.js';
+import { filterOwnerContacts, getOwnerContactDetail, listOwnerContacts } from './contacts.js';
+import {
+    emitSerenataTimelineAsync,
+    maybeEmitSerenataRelationshipCreated,
+} from './timeline.js';
 import {
     cancelClientPendingSerenata,
     listOwnerSerenatasNeedingClosure,
@@ -638,6 +643,16 @@ export async function publishPaidSerenataToOwners(userId: string, serenataId: st
     }).where(and(eq(serenatas.id, serenataId), eq(serenatas.status, 'payment_pending'))).returning();
     if (!item) return null;
 
+    emitSerenataTimelineAsync('payment.paid', item, {
+        actor: 'client',
+        payload: { orderId, paymentStatus: 'paid' },
+    });
+    emitSerenataTimelineAsync('serenata.status_changed', item, {
+        actor: 'system',
+        fromStatus: 'payment_pending',
+        toStatus: item.status,
+    });
+
     if (item.providerGroupId) {
         await notifyPaidMarketplaceSerenataToOwner(item);
         if (item.ownerId) {
@@ -917,6 +932,28 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const status = statusRaw === 'pending' || statusRaw === 'paid' ? statusRaw : undefined;
         const items = await listOwnerMusicianPayouts(required.owner.id, status);
         return c.json({ ok: true, items });
+    });
+
+    app.get('/serenatas/owner/contacts', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        const required = await requireOwner(c, user.id);
+        if (!required.ok) return required.response;
+        const q = c.req.query('q')?.trim() ?? '';
+        const items = filterOwnerContacts(await listOwnerContacts(required.owner.id), q);
+        return c.json({ ok: true, items });
+    });
+
+    app.get('/serenatas/owner/contacts/detail', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        const required = await requireOwner(c, user.id);
+        if (!required.ok) return required.response;
+        const id = c.req.query('id')?.trim() ?? '';
+        if (!id) return jsonError(c, 'Contacto requerido', 400);
+        const detail = await getOwnerContactDetail(required.owner.id, id);
+        if (!detail) return jsonError(c, 'Contacto no encontrado', 404);
+        return c.json({ ok: true, ...detail });
     });
 
     app.get('/serenatas/musician/payouts', async (c) => {
@@ -1320,6 +1357,12 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 providerGroupId: item.providerGroupId,
                 message: item.message,
             });
+            maybeEmitSerenataRelationshipCreated(item, 'owner');
+            emitSerenataTimelineAsync('serenata.created', item, {
+                actor: 'owner',
+                toStatus: item.status,
+                payload: { recipientName: item.recipientName },
+            });
         }
         return c.json({ ok: true, item }, 201);
     });
@@ -1591,6 +1634,13 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 serenataId: item.id,
             });
         }
+        if (nextStatus && nextStatus !== current.status) {
+            emitSerenataTimelineAsync('serenata.status_changed', item, {
+                actor: 'owner',
+                fromStatus: current.status,
+                toStatus: nextStatus,
+            });
+        }
         return c.json({ ok: true, item });
     });
 
@@ -1664,6 +1714,12 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             inArray(serenatas.status, ['scheduled', 'accepted_pending_group']),
         )).returning();
         if (!item) return jsonError(c, 'No se pudo cancelar la serenata.', 409);
+        emitSerenataTimelineAsync('serenata.status_changed', item, {
+            actor: 'owner',
+            fromStatus: current.status,
+            toStatus: item.status,
+            payload: { reason: parsed.data.cancelReason.trim() },
+        });
         await notifySerenataClient(item.clientId, {
             type: 'client_serenata_cancelled',
             title: 'Serenata cancelada',
@@ -1697,6 +1753,11 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             eq(serenatas.status, 'scheduled'),
         )).returning();
         if (!item) return jsonError(c, 'No se pudo completar la serenata.', 409);
+        emitSerenataTimelineAsync('serenata.status_changed', item, {
+            actor: 'owner',
+            fromStatus: current.status,
+            toStatus: item.status,
+        });
         await notifySerenataClient(item.clientId, {
             type: 'client_serenata_completed',
             title: 'Serenata completada',
@@ -1768,6 +1829,15 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             eq(serenatas.status, 'completed'),
         )).returning();
         if (!item) return jsonError(c, 'No se pudo confirmar la serenata.', 409);
+        if (item.clientRating != null) {
+            emitSerenataTimelineAsync('serenata.reviewed', item, {
+                actor: 'client',
+                payload: {
+                    rating: item.clientRating,
+                    hasComment: Boolean(item.clientReviewComment),
+                },
+            });
+        }
         if (item.providerGroupId && item.clientRating != null) {
             await recordProviderGroupRating(item.providerGroupId);
         }

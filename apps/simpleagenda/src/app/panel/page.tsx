@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { fetchAgendaStats, fetchAgendaProfile, type AgendaStats, type AgendaProfile, type AgendaWeekDay } from '@/lib/agenda-api';
 import { fmtCLP, fmtTodayLabel } from '@simple/utils';
 import { usePanelFormatters } from '@simple/auth';
-import { vocab } from '@/lib/vocabulary';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { PanelPageHeader } from '@simple/ui/panel';
 import { PanelStatCard } from '@simple/ui/panel';
 
@@ -113,6 +113,7 @@ function RevenueTrend({ current, prev, loading }: { current: number; prev: numbe
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function PanelHomePage() {
+    const vocab = useAgendaVocab();
     const [stats, setStats] = useState<AgendaStats | null>(null);
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [loading, setLoading] = useState(true);

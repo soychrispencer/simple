@@ -1,16 +1,20 @@
-import { Suspense } from 'react';
-import type { Metadata } from 'next';
-import { FinancingPrecheckWizard } from '@/components/financing/financing-precheck-wizard';
+import { redirect } from 'next/navigation';
+import { SIMULADOR_CREDITO_PATH } from '@/lib/financiamiento/listing-href';
 
-export const metadata: Metadata = {
-    title: 'Precalificación de financiamiento | SimpleAutos',
-    description: 'Asistente para precalificar tu perfil antes de solicitar crédito automotriz en Chile. No es aprobación ni simulación de cuotas.',
-};
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-export default function PrecalificacionFinanciamientoPage() {
-    return (
-        <Suspense fallback={<div className="marketplace-flow-page container-app marketplace-flow-body text-sm text-[var(--fg-muted)]">Cargando asistente…</div>}>
-            <FinancingPrecheckWizard />
-        </Suspense>
-    );
+/** Alias legacy de la ruta antigua de precalificación. */
+export default async function PrecalificacionFinanciamientoRedirect({
+    searchParams,
+}: {
+    searchParams: SearchParams;
+}) {
+    const params = await searchParams;
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (typeof value === 'string') query.set(key, value);
+        else if (Array.isArray(value)) value.forEach((v) => query.append(key, v));
+    }
+    const qs = query.toString();
+    redirect(qs ? `${SIMULADOR_CREDITO_PATH}?${qs}` : SIMULADOR_CREDITO_PATH);
 }

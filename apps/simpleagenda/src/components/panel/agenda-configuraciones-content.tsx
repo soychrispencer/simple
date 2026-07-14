@@ -28,7 +28,7 @@ import {
     AgendaOperationalAlertsSettings,
     useAgendaProfessionalNotificationPrefs,
 } from '@/components/panel/agenda-operational-alerts-settings';
-import { vocab } from '@/lib/vocabulary';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 
 type BookingForm = {
     confirmationMode: 'auto' | 'manual';
@@ -62,6 +62,7 @@ function paymentFormDirty(profile: AgendaProfile, form: BusinessPaymentMethodsVa
 }
 
 export function AgendaConfiguracionesContent() {
+    const vocab = useAgendaVocab();
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [bookingForm, setBookingForm] = useState<BookingForm | null>(null);
     const [paymentForm, setPaymentForm] = useState<BusinessPaymentMethodsValue>(emptyBusinessPaymentMethodsValue());
@@ -210,9 +211,9 @@ export function AgendaConfiguracionesContent() {
                         integrationsHref: '/panel/mi-cuenta/integraciones',
                     }}
                     copy={{
-                        advancePaymentDescription: 'Aplica a cualquier método activo. El paciente verá las instrucciones antes de confirmar.',
-                        advancePaymentInstructionsHint: 'Se muestran al paciente en la pantalla de confirmación.',
-                        transferDescription: 'El paciente recibirá tus datos para transferirte.',
+                        advancePaymentDescription: `Aplica a cualquier método activo. El ${vocab.client} verá las instrucciones antes de confirmar.`,
+                        advancePaymentInstructionsHint: `Se muestran al ${vocab.client} en la pantalla de confirmación.`,
+                        transferDescription: `El ${vocab.client} recibirá tus datos para transferirte.`,
                     }}
                 />
             </div>

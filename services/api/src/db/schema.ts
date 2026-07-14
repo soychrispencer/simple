@@ -1715,4 +1715,52 @@ export const platformNotifications = pgTable('platform_notifications', {
   userUnreadIdx: index('platform_notifications_user_unread_idx').on(table.userId, table.isRead),
 }));
 
+/** Relationship Engine — append-only product timeline (not admin audit). */
+export const timelineEvents = pgTable('timeline_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  type: varchar('type', { length: 80 }).notNull(),
+  occurredAt: timestamp('occurred_at').notNull().defaultNow(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  businessId: uuid('business_id').notNull(),
+  personKind: varchar('person_kind', { length: 40 }),
+  personId: varchar('person_id', { length: 80 }),
+  subjectKind: varchar('subject_kind', { length: 60 }).notNull(),
+  subjectId: varchar('subject_id', { length: 80 }).notNull(),
+  actor: varchar('actor', { length: 40 }).notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown> | null>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  businessPersonOccurredIdx: index('timeline_events_business_person_occurred_idx').on(
+    table.businessId,
+    table.personId,
+    table.occurredAt,
+  ),
+  businessSubjectIdx: index('timeline_events_business_subject_idx').on(
+    table.businessId,
+    table.subjectKind,
+    table.subjectId,
+  ),
+  businessOccurredIdx: index('timeline_events_business_occurred_idx').on(table.businessId, table.occurredAt),
+}));
+
+/** Relationship Engine — private notes on a contact (business × person). */
+export const relationshipNotes = pgTable('relationship_notes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  businessId: uuid('business_id').notNull(),
+  personKind: varchar('person_kind', { length: 40 }).notNull().default('opaque'),
+  personId: varchar('person_id', { length: 160 }).notNull(),
+  body: text('body').notNull(),
+  authorUserId: uuid('author_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  businessPersonCreatedIdx: index('relationship_notes_business_person_created_idx').on(
+    table.vertical,
+    table.businessId,
+    table.personId,
+    table.createdAt,
+  ),
+}));
+
 // ═══════════════════════════════════════════════════════════════════════════════

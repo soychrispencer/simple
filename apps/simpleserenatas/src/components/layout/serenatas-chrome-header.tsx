@@ -153,7 +153,7 @@ export function SerenatasChromeHeader({
 function ChromeHeaderPlaceholder() {
     return (
         <div
-            className="h-16 shrink-0 border-b border-border bg-(--bg)"
+            className="min-h-[4.25rem] shrink-0 border-b border-border bg-(--bg) py-2 md:min-h-[4.5rem]"
             aria-hidden
         />
     );

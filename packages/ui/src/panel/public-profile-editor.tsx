@@ -52,6 +52,7 @@ import {
 import type { AddressBookEntry } from '@simple/types';
 import { PanelButton } from './panel-button.js';
 import { PanelCard } from './panel-card.js';
+import { PanelField } from './panel-display.js';
 import { PanelBlockHeader, PanelNotice } from './panel-primitives.js';
 import { PanelSectionSaveFooter, panelSectionSaveLabel } from './panel-section-save-footer.js';
 import { PanelProfileBrandImages } from './panel-profile-brand-images.js';
@@ -186,18 +187,6 @@ function uploadPublicProfileImage(purpose: 'logo' | 'cover', file: File): Promis
 function previewUrl(pathname: string | null): string | null {
     if (!pathname || typeof window === 'undefined') return null;
     return `${window.location.origin}${pathname}`;
-}
-
-function Field({ label, icon, children, className }: { label: string; icon?: React.ReactNode; children: React.ReactNode; className?: string }) {
-    return (
-        <div className={className ? `space-y-1.5 ${className}` : 'space-y-1.5'}>
-            <label className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: 'var(--fg-secondary)' }}>
-                {icon}
-                {label}
-            </label>
-            {children}
-        </div>
-    );
 }
 
 function SummaryItem({ label, value }: { label: string; value: string }) {
@@ -555,9 +544,14 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                             className="mb-0"
                         />
 
-                        <Field label={BUSINESS_PUBLIC_NAME_FIELD.label} icon={<IconUser size={14} />} className="sm:col-span-2">
+                        <PanelField
+                            label={BUSINESS_PUBLIC_NAME_FIELD.label}
+                            required
+                            icon={<IconUser size={14} />}
+                            className="sm:col-span-2"
+                        >
                             <input className="form-input" value={form.displayName} onChange={(event) => handleDisplayNameChange(event.target.value)} placeholder={vertical === 'propiedades' ? 'Ej: Inmobiliaria Las Condes' : 'Ej: Ignacio Autos Boutique'} />
-                        </Field>
+                        </PanelField>
 
                         <OperatorProfileFields
                             vertical={vertical}
@@ -596,10 +590,13 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                             }}
                         />
 
-                        <Field label={BUSINESS_DESCRIPTION_FIELD.label} icon={<IconNotebook size={14} />}>
+                        <PanelField
+                            label={BUSINESS_DESCRIPTION_FIELD.label}
+                            icon={<IconNotebook size={14} />}
+                            hint={BUSINESS_DESCRIPTION_FIELD.hint}
+                        >
                             <textarea className="form-textarea min-h-[160px]" value={form.bio ?? ''} onChange={(event) => updateForm('bio', event.target.value)} placeholder={vertical === 'propiedades' ? BUSINESS_DESCRIPTION_FIELD.placeholderMarketplacePropiedades : BUSINESS_DESCRIPTION_FIELD.placeholderMarketplaceAutos} />
-                            <p className="text-xs leading-5" style={{ color: 'var(--fg-muted)' }}>{BUSINESS_DESCRIPTION_FIELD.hint}</p>
-                        </Field>
+                        </PanelField>
                     </PanelCard>
     );
 

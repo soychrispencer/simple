@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { IconLoader2 } from '@tabler/icons-react';
 import {
-    BUSINESS_CATALOG_EDITOR_SECTION,
     BusinessCatalogTabs,
     PanelConfirmProvider,
     type BusinessCatalogTabKey,
@@ -54,8 +53,6 @@ export function ProviderGroupServicesCatalog({
     return (
         <PanelConfirmProvider>
             <div className="w-full space-y-6">
-                <p className="text-sm text-fg-secondary">{BUSINESS_CATALOG_EDITOR_SECTION.description}</p>
-
                 <BusinessCatalogTabs
                     active={tab}
                     variant="buttons"

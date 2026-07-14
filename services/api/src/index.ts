@@ -226,6 +226,7 @@ import {
     userNotificationLog,
     platformNotifications,
     mortgageRates,
+    timelineEvents,
 } from './db/schema.js';
 import { createAccountCache } from './modules/accounts/account-cache.js';
 import { createAddressBookService } from './modules/accounts/address-book-service.js';
@@ -2459,6 +2460,7 @@ app.route('/api/serenatas', createSerenatasRouter({
             agendaNotificationEvents,
             pushSubscriptions,
             users,
+            timelineEvents,
         },
         dbHelpers: { eq, and, or, asc, desc, gte, lte, lt, inArray, isNull },
         getAgendaProfile,

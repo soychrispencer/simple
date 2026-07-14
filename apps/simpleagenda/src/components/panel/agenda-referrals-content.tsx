@@ -14,6 +14,7 @@ import {
     IconExternalLink,
 } from '@tabler/icons-react';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import {
     PanelAccountShell,
     PanelBlockHeader,
@@ -72,6 +73,7 @@ function platformReferralUrl(profile: AgendaProfile | null): string {
 }
 
 export function AgendaReferralsContent() {
+    const vocab = useAgendaVocab();
     const fmt = usePanelFormatters();
     const [referrals, setReferrals] = useState<AgendaReferral[]>([]);
     const [stats, setStats] = useState<ReferralStats>({ total: 0, pending: 0, converted: 0, rewarded: 0 });
@@ -128,7 +130,7 @@ export function AgendaReferralsContent() {
 
     const handleCreate = async () => {
         setCreateError('');
-        if (!form.referrerClientId) { setCreateError('Selecciona el paciente que recomendó.'); return; }
+        if (!form.referrerClientId) { setCreateError(`Selecciona el ${vocab.client} que recomendó.`); return; }
         if (!form.refereeName.trim()) { setCreateError('Indica el nombre del referido.'); return; }
         setCreating(true);
         const res = await createAgendaReferral({
@@ -168,7 +170,7 @@ export function AgendaReferralsContent() {
                 activeKey="referidos"
                 tabs={accountSectionTabs}
                 title={ACCOUNT_REFERRALS_PAGE.title}
-                description={ACCOUNT_REFERRALS_PAGE.description}
+                description={`Seguimiento de recomendaciones de ${vocab.clients} y link para invitar colegas.`}
             >
                 <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                     <IconLoader2 size={16} className="animate-spin" aria-hidden />
@@ -183,7 +185,7 @@ export function AgendaReferralsContent() {
             activeKey="referidos"
             tabs={accountSectionTabs}
             title={ACCOUNT_REFERRALS_PAGE.title}
-            description={ACCOUNT_REFERRALS_PAGE.description}
+            description={`Seguimiento de recomendaciones de ${vocab.clients} y link para invitar colegas.`}
             actions={
                 <PanelButton variant="accent" size="sm" onClick={() => setShowCreate(true)}>
                     <IconPlus size={15} />
@@ -192,7 +194,7 @@ export function AgendaReferralsContent() {
             }
         >
             <PanelNotice tone="neutral">
-                Herramienta opcional para premiar pacientes que te traen nuevos contactos. El beneficio lo defines tú; Simple no interviene en el premio.
+                Herramienta opcional para premiar {vocab.clients} que te traen nuevos contactos. El beneficio lo defines tú; Simple no interviene en el premio.
             </PanelNotice>
 
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -205,12 +207,12 @@ export function AgendaReferralsContent() {
             <div className="grid gap-4 lg:grid-cols-2">
                 <PanelCard size="md">
                     <PanelBlockHeader
-                        title="Recomendaciones de pacientes"
+                        title={`Recomendaciones de ${vocab.clients}`}
                         description="Registra quién refirió a quién y marca el estado cuando reserve."
                         className="mb-4"
                     />
                     <ol className="mb-4 space-y-2 text-sm text-fg-secondary">
-                        <li>1. Un paciente te recomienda a alguien</li>
+                        <li>1. Un {vocab.client} te recomienda a alguien</li>
                         <li>2. Guardas el contacto aquí</li>
                         <li>3. Si agenda, lo marcas convertido o premiado</li>
                     </ol>
@@ -265,7 +267,7 @@ export function AgendaReferralsContent() {
                     <div className="p-6">
                         <PanelEmptyState
                             title="Sin referidos aún"
-                            description="Cuando un paciente te recomiende a alguien, regístralo aquí para hacer seguimiento."
+                            description={`Cuando un ${vocab.client} te recomiende a alguien, regístralo aquí para hacer seguimiento.`}
                         />
                     </div>
                 ) : (
@@ -347,7 +349,7 @@ export function AgendaReferralsContent() {
                     )}
                 >
                     <div className="flex flex-col gap-4">
-                            <PanelField label="Paciente que recomendó" required>
+                            <PanelField label={`${vocab.Client} que recomendó`} required>
                                 <select
                                     value={form.referrerClientId}
                                     onChange={(e) => setForm((p) => ({ ...p, referrerClientId: e.target.value }))}

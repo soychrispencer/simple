@@ -21,9 +21,9 @@ export const BUSINESS_CATALOG_TAB_LABELS_PUBLIC: Record<BusinessCatalogTabKey, s
 };
 
 export const AGENDA_BUSINESS_CATALOG_HREFS: Record<BusinessCatalogTabKey, string> = {
-    services: '/panel/mi-negocio/servicios',
-    packs: '/panel/mi-negocio/packs',
-    promotions: '/panel/mi-negocio/promociones',
+    services: '/panel/mis-servicios',
+    packs: '/panel/mis-servicios/packs',
+    promotions: '/panel/mis-servicios/promociones',
 };
 
 export type BusinessCatalogTabsProps = {

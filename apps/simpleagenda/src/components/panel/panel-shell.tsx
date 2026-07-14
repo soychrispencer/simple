@@ -8,20 +8,22 @@ import { PanelShell as SharedPanelShell } from '@simple/ui/panel';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
 import { getPanelNavItems, isPanelNavActive, panelRoleLabel, type PanelRole } from '@/components/panel/panel-nav-config';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 
 const STORAGE_COLLAPSED = 'simpleagenda:panel:collapsed';
 
 export function PanelShell({ children }: { children: ReactNode }) {
     const { user } = useAuth();
     const role: PanelRole = user?.role ?? 'user';
+    const vocab = useAgendaVocab();
 
     usePushNotifications(!!user);
 
     const pathname = usePathname() ?? '';
 
     const navItems = useMemo(
-        () => getPanelNavItems(role).map(({ href, label, icon, badge }) => ({ href, label, icon, badge })),
-        [role]
+        () => getPanelNavItems(role, vocab.Clients).map(({ href, label, icon, badge }) => ({ href, label, icon, badge })),
+        [role, vocab.Clients],
     );
     const activeHref = useMemo(
         () => navItems.find((item) => isPanelNavActive(pathname, item.href))?.href ?? null,

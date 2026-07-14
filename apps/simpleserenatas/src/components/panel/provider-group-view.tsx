@@ -37,6 +37,7 @@ import { useProviderGroupScope } from '@/hooks/use-provider-group-scope';
 import { WorkZonesPicker } from '@/components/panel/work-zones-picker';
 import { FieldInput, FieldTextarea, type FormStatus } from './shared';
 import { publicMariachiProfileUrl } from '@/lib/public-mariachi-routes';
+import { IconNotebook, IconUser } from '@tabler/icons-react';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
 
@@ -270,7 +271,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                         className="mb-0"
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <PanelField label={BUSINESS_PUBLIC_NAME_FIELD.label} className="sm:col-span-2">
+                        <PanelField label={BUSINESS_PUBLIC_NAME_FIELD.label} required icon={<IconUser size={14} />} className="sm:col-span-2">
                             <FieldInput
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
@@ -308,7 +309,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                                 }}
                             />
                         </div>
-                        <PanelField label={BUSINESS_DESCRIPTION_FIELD.label} hint={BUSINESS_DESCRIPTION_FIELD.hint} className="sm:col-span-2">
+                        <PanelField label={BUSINESS_DESCRIPTION_FIELD.label} hint={BUSINESS_DESCRIPTION_FIELD.hint} icon={<IconNotebook size={14} />} className="sm:col-span-2">
                             <FieldTextarea
                                 rows={4}
                                 value={description}

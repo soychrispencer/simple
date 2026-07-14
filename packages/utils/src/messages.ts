@@ -163,6 +163,81 @@ export async function fetchMessageUnreadCount(vertical: MessageVertical): Promis
     return Math.max(0, data.unreadCount ?? 0);
 }
 
+export type MarketplaceContactSource = 'message' | 'saved' | 'follow';
+
+export type MarketplaceContact = {
+    id: string;
+    buyerUserId: string;
+    displayName: string;
+    email: string | null;
+    threadCount: number;
+    unreadCount: number;
+    lastMessageAt: number | null;
+    lastListingTitle: string | null;
+    lastThreadId: string | null;
+    sources: MarketplaceContactSource[];
+};
+
+export type MarketplaceContactLead = {
+    threadId: string;
+    listingId: string | null;
+    listingTitle: string | null;
+    listingHref: string | null;
+    unreadCount: number;
+    lastMessageAt: number | null;
+    lastMessagePreview: string | null;
+    folder: 'inbox' | 'archived' | 'spam';
+};
+
+export type MarketplaceContactTimelineEvent = {
+    id: string;
+    type: string;
+    occurredAt: string;
+    actor: string;
+    subjectKind: string;
+    subjectId: string;
+    payload: Record<string, unknown> | null;
+};
+
+export type MarketplaceContactDetail = {
+    contact: MarketplaceContact;
+    leads: MarketplaceContactLead[];
+    events: MarketplaceContactTimelineEvent[];
+};
+
+export async function fetchMarketplaceContacts(
+    vertical: Extract<MessageVertical, 'autos' | 'propiedades'>,
+    q = '',
+): Promise<MarketplaceContact[]> {
+    const params = new URLSearchParams({ vertical });
+    if (q.trim()) params.set('q', q.trim());
+    const { ok, data } = await apiFetch<ApiResponse<{ items?: MarketplaceContact[] }>>(
+        `/api/messages/contacts?${params.toString()}`,
+        { method: 'GET' },
+    );
+    if (!ok || !data?.ok || !Array.isArray(data.items)) return [];
+    return data.items;
+}
+
+export async function fetchMarketplaceContactDetail(
+    vertical: Extract<MessageVertical, 'autos' | 'propiedades'>,
+    buyerUserId: string,
+): Promise<MarketplaceContactDetail | null> {
+    const params = new URLSearchParams({
+        vertical,
+        buyerUserId,
+    });
+    const { ok, data } = await apiFetch<
+        ApiResponse<Partial<MarketplaceContactDetail>>
+    >(`/api/messages/contacts/detail?${params.toString()}`, { method: 'GET' });
+    if (!ok || !data?.ok || !data.contact) return null;
+    return {
+        contact: data.contact,
+        leads: data.leads ?? [],
+        events: data.events ?? [],
+    };
+}
+
 export function notifyPanelMessagesChanged(): void {
     if (typeof window === 'undefined') return;
     window.dispatchEvent(new Event('simple:panel-notifications-changed'));

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview - Simulador crédito automotriz SimpleAutos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .font-mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="bg-zinc-50">
+<div id="root" class="mx-auto w-full max-w-6xl px-4 py-8 sm:py-12"></div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Este archivo es SOLO para previsualizar la lógica y el diseño en el navegador.
+// La versión real para tu repo Next.js está en /lib y /components (TypeScript).
+// ---------------------------------------------------------------------------
+
+const TASAS = { preferencial: 0.0085, promedioMercado: 0.012, conservadora: 0.0165 };
+const AJUSTES = {
+  usadoMas8: 0.003, usadoEntre4y8: 0.0012, pieBajo10: 0.0025,
+  pieAlto30: -0.001, plazoLargo48: 0.0012, independiente: 0.0012,
+};
+const COSTOS = { seguroPct: 0.0004, gastosOperacionales: 120000, timbresPctMensual: 0.00066, timbresTope: 0.008 };
+const LIMITES = { cargaComoda: 0.25, cargaAjustada: 0.3, capacidadMax: 0.3, antiguedadAlta: 8, plazoMaxUsadoAntiguo: 36 };
+
+function cuotaFrancesa(monto, tasa, n) {
+  if (n <= 0) return 0;
+  if (tasa <= 0) return monto / n;
+  return (monto * tasa) / (1 - Math.pow(1 + tasa, -n));
+}
+
+function simular(input) {
+  const anioActual = new Date().getFullYear();
+  const antiguedad = input.tipoVehiculo === 'usado' ? Math.max(anioActual - input.anioVehiculo, 0) : 0;
+  const pieMonto = Math.min(Math.max(input.pieMonto, 0), input.precioVehiculo);
+  const monto = Math.max(input.precioVehiculo - pieMonto, 0);
+  const piePct = input.precioVehiculo > 0 ? pieMonto / input.precioVehiculo : 0;
+
+  let ajuste = 0;
+  if (input.tipoVehiculo === 'usado') {
+    if (antiguedad > LIMITES.antiguedadAlta) ajuste += AJUSTES.usadoMas8;
+    else if (antiguedad >= 4) ajuste += AJUSTES.usadoEntre4y8;
+  }
+  if (piePct < 0.1) ajuste += AJUSTES.pieBajo10;
+  else if (piePct >= 0.3) ajuste += AJUSTES.pieAlto30;
+  if (input.plazoMeses > 48) ajuste += AJUSTES.plazoLargo48;
+  if (input.tipoTrabajador === 'independiente') ajuste += AJUSTES.independiente;
+
+  const tasas = {
+    preferencial: TASAS.preferencial,
+    promedioMercado: Math.max(TASAS.preferencial, TASAS.promedioMercado + ajuste),
+    conservadora: Math.max(TASAS.promedioMercado, TASAS.conservadora + ajuste),
+  };
+
+  function escenario(nivel, etiqueta, tasa) {
+    const cuotaCredito = cuotaFrancesa(monto, tasa, input.plazoMeses);
+    const seguro = monto * COSTOS.seguroPct;
+    const cuotaTotal = cuotaCredito + seguro;
+    const gastos = COSTOS.gastosOperacionales;
+    const timbres = Math.min(monto * COSTOS.timbresPctMensual * input.plazoMeses, monto * COSTOS.timbresTope);
+    const costoTotal = cuotaTotal * input.plazoMeses + gastos + timbres;
+    const tasaAnual = Math.pow(1 + tasa, 12) - 1;
+    const plazoAnios = input.plazoMeses / 12;
+    const extra = monto > 0 ? (seguro * 12 + (gastos + timbres) / Math.max(plazoAnios, 1)) / monto : 0;
+    return { nivel, etiqueta, tasa, cuotaCredito, seguro, cuotaTotal, gastos, timbres, costoTotal, cae: tasaAnual + extra };
+  }
+
+  const escenarios = [
+    escenario('preferencial', 'Tasa preferencial', tasas.preferencial),
+    escenario('promedioMercado', 'Promedio de mercado', tasas.promedioMercado),
+    escenario('conservadora', 'Escenario conservador', tasas.conservadora),
+  ];
+
+  const cuotaRef = escenarios[1].cuotaTotal;
+  const totalMensual = cuotaRef + input.otrasDeudas;
+  const pctRenta = input.rentaLiquida > 0 ? totalMensual / input.rentaLiquida : 1;
+  let nivelCarga = 'comoda';
+  if (pctRenta > LIMITES.cargaAjustada) nivelCarga = 'alta';
+  else if (pctRenta > LIMITES.cargaComoda) nivelCarga = 'ajustada';
+
+  const capacidadDisponible = Math.max(input.rentaLiquida * LIMITES.capacidadMax - input.otrasDeudas, 0);
+  const tasaRef = tasas.promedioMercado;
+  const montoMax = tasaRef > 0
+    ? (capacidadDisponible * (1 - Math.pow(1 + tasaRef, -input.plazoMeses))) / tasaRef
+    : capacidadDisponible * input.plazoMeses;
+
+  let pieMinSugerido = 0.1;
+  let plazoMaxSugerido = 60;
+  if (input.tipoVehiculo === 'usado') {
+    if (antiguedad > LIMITES.antiguedadAlta) { pieMinSugerido = 0.3; plazoMaxSugerido = LIMITES.plazoMaxUsadoAntiguo; }
+    else pieMinSugerido = 0.2;
+  }
+
+  const advertencias = [];
+  if (piePct < pieMinSugerido) advertencias.push(`El pie ingresado (${(piePct*100).toFixed(0)}%) está bajo el mínimo habitual (~${(pieMinSugerido*100).toFixed(0)}%). Puede subir la tasa o exigir aval.`);
+  if (input.plazoMeses > plazoMaxSugerido) advertencias.push(`Para esta antigüedad, la mayoría limita el plazo a ${plazoMaxSugerido} meses.`);
+  if (nivelCarga === 'alta') advertencias.push('La cuota estimada supera el 30% de la renta líquida: principal motivo de rechazo.');
+  if (input.rentaLiquida > 0 && input.rentaLiquida < 350000) advertencias.push('La renta líquida está bajo el mínimo habitual exigido (~$350.000).');
+
+  return { monto, piePct, antiguedad, escenarios, nivelCarga, pctRenta, montoMax, advertencias };
+}
+
+function fmt(v) { return v.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }); }
+function fmtPct(v, d=1) { return (v*100).toFixed(d) + '%'; }
+
+const REQUISITOS = [
+  'Cédula de identidad vigente (chilena o extranjero con residencia definitiva).',
+  'Edad mínima 18 años (la mayoría pide 21-26 años; hasta 65-84 como tope según entidad).',
+  'Renta líquida mínima habitual entre $350.000 y $600.000 (dependiente); mayor para independientes.',
+  'Antigüedad laboral: 12 meses (dependiente) o 24 meses (independiente, con declaración de renta).',
+  'Sin morosidades vigentes ni protestos (informe de deuda CMF/DICOM).',
+  'Últimas 3 liquidaciones de sueldo o declaraciones de renta, según el caso.',
+];
+
+const state = {
+  precioVehiculo: 12500000, tipoVehiculo: 'usado', anioVehiculo: new Date().getFullYear() - 4,
+  pieMonto: 2500000, plazoMeses: 48, rentaLiquida: 900000, tipoTrabajador: 'dependiente', otrasDeudas: 0,
+};
+
+const COLOR_CARGA = {
+  comoda: { texto: 'text-emerald-700', punto: 'bg-emerald-500', borde: 'border-emerald-200', fondo: 'bg-emerald-50', msg: 'Carga financiera cómoda' },
+  ajustada: { texto: 'text-amber-700', punto: 'bg-amber-500', borde: 'border-amber-200', fondo: 'bg-amber-50', msg: 'Carga financiera ajustada' },
+  alta: { texto: 'text-red-700', punto: 'bg-red-500', borde: 'border-red-200', fondo: 'bg-red-50', msg: 'Carga financiera alta: riesgo de rechazo' },
+};
+
+function render() {
+  const r = simular(state);
+  const mercado = r.escenarios[1];
+  const c = COLOR_CARGA[r.nivelCarga];
+  const root = document.getElementById('root');
+
+  root.innerHTML = `
+    <div class="mb-8 max-w-2xl">
+      <p class="text-xs font-semibold uppercase tracking-wide text-amber-600">Herramienta de precalificación</p>
+      <h1 class="mt-2 text-2xl sm:text-3xl font-bold text-zinc-900">Simulador de crédito automotriz</h1>
+      <p class="mt-2 text-sm text-zinc-600">Estima tu cuota mensual, el costo total del crédito y tu capacidad de financiamiento antes de solicitar una evaluación real. Valores referenciales según rangos públicos del mercado chileno.</p>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div class="lg:col-span-2 space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 h-fit">
+        ${campoMoneda('precioVehiculo', 'Precio del vehículo', state.precioVehiculo)}
+        ${segmentado('tipoVehiculo', 'Tipo de vehículo', [['usado','Usado'],['nuevo','Nuevo (0 km)']], state.tipoVehiculo)}
+        ${state.tipoVehiculo === 'usado' ? `
+        <label class="block">
+          <span class="text-sm font-medium text-zinc-700">Año del vehículo</span>
+          <input type="number" id="anioVehiculo" value="${state.anioVehiculo}" class="mt-1.5 w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-500" />
+        </label>` : ''}
+        <div>
+          <div class="flex items-baseline justify-between">
+            <span class="text-sm font-medium text-zinc-700">Pie</span>
+            <span class="text-xs text-zinc-500">${fmtPct(r.piePct,0)}</span>
+          </div>
+          <input type="range" id="pieRange" min="0" max="${state.precioVehiculo}" step="50000" value="${state.pieMonto}" class="mt-2 w-full accent-amber-500" />
+          <div class="mt-1.5">${campoMoneda('pieMonto', '', state.pieMonto)}</div>
+        </div>
+        <div>
+          <div class="flex items-baseline justify-between">
+            <span class="text-sm font-medium text-zinc-700">Plazo</span>
+            <span class="text-xs text-zinc-500">${state.plazoMeses} meses</span>
+          </div>
+          <input type="range" id="plazoRange" min="12" max="60" step="6" value="${state.plazoMeses}" class="mt-2 w-full accent-amber-500" />
+        </div>
+        ${campoMoneda('rentaLiquida', 'Renta líquida mensual', state.rentaLiquida)}
+        ${segmentado('tipoTrabajador', 'Situación laboral', [['dependiente','Dependiente'],['independiente','Independiente']], state.tipoTrabajador)}
+        ${campoMoneda('otrasDeudas', 'Otras deudas mensuales (opcional)', state.otrasDeudas)}
+      </div>
+
+      <div class="lg:col-span-3 space-y-5">
+        <div class="rounded-2xl bg-zinc-900 p-6 sm:p-7 text-white">
+          <p class="text-xs uppercase tracking-wide text-zinc-400">Cuota mensual estimada · escenario de mercado</p>
+          <p class="mt-2 font-mono text-4xl sm:text-5xl font-semibold">${fmt(Math.round(mercado.cuotaTotal))}</p>
+          <p class="mt-1 text-xs text-zinc-400">Incluye cuota de crédito + seguro de desgravamen estimado. Tasa referencial: ${fmtPct(mercado.tasa,2)} mensual.</p>
+          <div class="mt-4 flex items-center gap-2 rounded-lg ${c.fondo} border ${c.borde} px-3 py-2">
+            <span class="h-2 w-2 rounded-full ${c.punto}"></span>
+            <span class="text-sm font-medium ${c.texto}">${c.msg}</span>
+            <span class="ml-auto text-xs text-zinc-500">${fmtPct(r.pctRenta,0)} de tu renta</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          ${r.escenarios.map(e => `
+            <div class="rounded-xl border p-4 ${e.nivel === 'promedioMercado' ? 'border-amber-300 bg-amber-50/60' : 'border-zinc-200 bg-white'}">
+              <p class="text-xs font-medium text-zinc-500">${e.etiqueta}</p>
+              <p class="mt-1 font-mono text-lg font-semibold text-zinc-900">${fmt(Math.round(e.cuotaTotal))}</p>
+              <p class="text-xs text-zinc-500">al mes</p>
+              <div class="mt-3 space-y-1 text-xs text-zinc-500">
+                <div class="flex justify-between"><span>Tasa mensual</span><span>${fmtPct(e.tasa,2)}</span></div>
+                <div class="flex justify-between"><span>CAE referencial*</span><span>${fmtPct(e.cae,1)}</span></div>
+                <div class="flex justify-between"><span>Costo total crédito</span><span>${fmt(Math.round(e.costoTotal))}</span></div>
+              </div>
+            </div>`).join('')}
+        </div>
+        <p class="text-xs text-zinc-400 -mt-2">*CAE referencial simplificado con fines comparativos. No reemplaza la Carga Anual Equivalente legal de cada entidad.</p>
+
+        <div class="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
+          <p class="text-sm font-medium text-zinc-700">Monto máximo de financiamiento referencial</p>
+          <p class="mt-1 font-mono text-2xl font-semibold text-zinc-900">${fmt(Math.round(r.montoMax))}</p>
+          <p class="mt-1 text-xs text-zinc-500">Estimado con el 30% de tu renta líquida menos otras deudas, a la tasa de mercado. Cada entidad usa su propio modelo de evaluación.</p>
+          ${r.advertencias.length > 0 ? `<div class="mt-4 space-y-2">${r.advertencias.map(a => `<div class="flex gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800"><span>!</span><span>${a}</span></div>`).join('')}</div>` : ''}
+        </div>
+
+        <div class="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
+          <p class="text-sm font-medium text-zinc-700">Requisitos generales del mercado</p>
+          <ul class="mt-3 space-y-2">
+            ${REQUISITOS.map(req => `<li class="flex gap-2 text-sm text-zinc-600"><span class="mt-0.5 text-zinc-400">·</span><span>${req}</span></li>`).join('')}
+          </ul>
+        </div>
+
+        <button id="btnSolicitar" class="w-full rounded-xl bg-amber-500 px-5 py-3.5 text-sm font-semibold text-zinc-900 hover:bg-amber-400">Quiero que me contacten con una evaluación real</button>
+        <p class="text-xs text-zinc-400 text-center px-4">SimpleAutos es un marketplace de publicación y contacto. No es una entidad financiera ni concesionaria: esta precalificación es orientativa y no constituye una oferta, aprobación ni compromiso de crédito.</p>
+      </div>
+    </div>
+  `;
+
+  bindEvents();
+}
+
+function campoMoneda(id, label, valor) {
+  return `
+    <label class="block">
+      ${label ? `<span class="text-sm font-medium text-zinc-700">${label}</span>` : ''}
+      <div class="${label ? 'mt-1.5' : ''} flex items-center rounded-lg border border-zinc-300 bg-white px-3 focus-within:ring-2 focus-within:ring-amber-500">
+        <span class="text-zinc-400 text-sm mr-1">$</span>
+        <input type="text" inputmode="numeric" id="${id}" value="${valor ? valor.toLocaleString('es-CL') : ''}" class="w-full py-2.5 text-zinc-900 outline-none text-sm" />
+      </div>
+    </label>`;
+}
+
+function segmentado(id, label, opciones, valor) {
+  return `
+    <div>
+      <span class="text-sm font-medium text-zinc-700">${label}</span>
+      <div class="mt-1.5 grid grid-cols-2 gap-2" data-group="${id}">
+        ${opciones.map(([v, l]) => `
+          <button type="button" data-value="${v}" class="seg-btn rounded-lg border px-3 py-2.5 text-sm font-medium ${valor === v ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 bg-white text-zinc-600'}">${l}</button>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function bindEvents() {
+  ['precioVehiculo','pieMonto','rentaLiquida','otrasDeudas'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', (e) => {
+      const n = parseInt(e.target.value.replace(/[^\d]/g,''),10) || 0;
+      state[id] = n;
+      render();
+    });
+  });
+  const anio = document.getElementById('anioVehiculo');
+  if (anio) anio.addEventListener('input', (e) => { state.anioVehiculo = parseInt(e.target.value,10) || new Date().getFullYear(); render(); });
+
+  const pieRange = document.getElementById('pieRange');
+  if (pieRange) pieRange.addEventListener('input', (e) => { state.pieMonto = parseInt(e.target.value,10); render(); });
+  const plazoRange = document.getElementById('plazoRange');
+  if (plazoRange) plazoRange.addEventListener('input', (e) => { state.plazoMeses = parseInt(e.target.value,10); render(); });
+
+  document.querySelectorAll('[data-group]').forEach(group => {
+    const key = group.getAttribute('data-group');
+    group.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => { state[key] = btn.getAttribute('data-value'); render(); });
+    });
+  });
+
+  const btn = document.getElementById('btnSolicitar');
+  if (btn) btn.addEventListener('click', () => {
+    const r = simular(state);
+    const msg = encodeURIComponent(`Hola SimpleAutos, quiero precalificar financiamiento.\nVehículo: ${fmt(state.precioVehiculo)} (${state.tipoVehiculo})\nPie: ${fmt(state.pieMonto)}\nPlazo: ${state.plazoMeses} meses\nCuota estimada: ${fmt(Math.round(r.escenarios[1].cuotaTotal))}/mes`);
+    window.open(`https://wa.me/56978623828?text=${msg}`, '_blank');
+  });
+}
+
+render();
+</script>
+</body>
+</html>

@@ -58,15 +58,15 @@ export default function PanelHomePage() {
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Link href="/panel/mi-negocio/productos" className="block lg:col-span-2">
+                    <Link href="/panel/publicaciones?tab=products" className="block lg:col-span-2">
                         <PanelCard size="md" className="flex items-center justify-between gap-4 transition-opacity hover:opacity-95">
                             <div className="flex items-center gap-3">
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
                                     <IconShoppingBag size={18} />
                                 </div>
                                 <div>
-                                    <p className="font-semibold" style={{ color: 'var(--fg)' }}>Tu tienda</p>
-                                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Vende accesorios, repuestos y productos desde tu perfil.</p>
+                                    <p className="font-semibold" style={{ color: 'var(--fg)' }}>Productos</p>
+                                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Publícalos y adminístralos en Mis publicaciones.</p>
                                 </div>
                             </div>
                             <IconChevronRight size={14} style={{ color: 'var(--fg-faint)' }} />

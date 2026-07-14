@@ -151,3 +151,46 @@ export function resolveAgendaOperatorFields(input: {
         operatorSubtypeCustom: '',
     };
 }
+
+/** Sustantivo de CRM en UI: dominio sigue siendo `client`. */
+export type AgendaClientNoun = 'paciente' | 'cliente' | 'alumno';
+
+/** Profesiones clínicas / centros de salud → «paciente». */
+const AGENDA_PATIENT_SUBTYPE_IDS = new Set([
+    'medico_a',
+    'psicologo_a_clinico_a',
+    'nutricionista',
+    'kinesiologo_a',
+    'fonoaudiologo_a',
+    'terapeuta_ocupacional',
+    'podologo_a',
+    'veterinario_a',
+    'dentista',
+    'enfermero_a',
+    'matrona',
+    'musicoterapeuta',
+    'terapeuta_holistico_a',
+    'clinica',
+    'centro_medico',
+    'centro_de_kinesiologia',
+    'centro_de_psicologia',
+]);
+
+/** Educación / formación → «alumno». */
+const AGENDA_STUDENT_SUBTYPE_IDS = new Set([
+    'profesor_a_particular',
+    'academia_instituto',
+    'entrenador_a_personal',
+]);
+
+/**
+ * Label de persona en CRM según el subtype del negocio.
+ * Default: cliente (abogado, coach, estética, etc.).
+ */
+export function resolveAgendaClientNoun(operatorSubtype?: string | null): AgendaClientNoun {
+    const id = operatorSubtype?.trim() || '';
+    if (!id || id === 'other') return 'cliente';
+    if (AGENDA_PATIENT_SUBTYPE_IDS.has(id)) return 'paciente';
+    if (AGENDA_STUDENT_SUBTYPE_IDS.has(id)) return 'alumno';
+    return 'cliente';
+}

@@ -30,6 +30,11 @@ import {
     normalizeOperatorSiteAccentHex,
     type OperatorTier,
 } from '@simple/utils';
+import {
+    agendaBusiness,
+    agendaClientPerson,
+    emitTimelineEvent,
+} from '../platform/timeline-events.js';
 
 export interface AgendaRouterDeps {
     authUser: (c: Context) => Promise<any>;
@@ -61,6 +66,7 @@ export interface AgendaRouterDeps {
         agendaNotificationEvents: any;
         pushSubscriptions: any;
         users: any;
+        timelineEvents: any;
     };
     dbHelpers: { eq: any; and: any; or: any; asc: any; desc: any; gte: any; lte: any; lt: any; inArray: any; isNull: any };
     getAgendaProfile: (userId: string) => Promise<any>;
@@ -312,6 +318,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         agendaClientAttachments, agendaAppointments, agendaSessionNotes, agendaPayments,
         agendaPromotions, agendaPacks, agendaClientPacks, agendaGroupAttendees,
         agendaNpsResponses, agendaReferrals, agendaNotificationEvents, pushSubscriptions, users,
+        timelineEvents,
     } = tables;
 
     function getGoogleOAuth2Client() {
@@ -860,6 +867,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         if (!body.firstName) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
         const [client] = await db.insert(agendaClients).values({ professionalId: profile.id, firstName: String(body.firstName), lastName: typeof body.lastName === 'string' ? body.lastName || null : null, email: typeof body.email === 'string' ? body.email || null : null, phone: typeof body.phone === 'string' ? body.phone || null : null, whatsapp: typeof body.whatsapp === 'string' ? body.whatsapp || null : null, rut: typeof body.rut === 'string' ? body.rut || null : null, dateOfBirth: typeof body.dateOfBirth === 'string' ? body.dateOfBirth || null : null, gender: typeof body.gender === 'string' ? body.gender || null : null, occupation: typeof body.occupation === 'string' ? body.occupation || null : null, city: typeof body.city === 'string' ? body.city || null : null, referredBy: typeof body.referredBy === 'string' ? body.referredBy || null : null, internalNotes: typeof body.internalNotes === 'string' ? body.internalNotes || null : null }).returning();
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'relationship.created',
+            business: agendaBusiness(profile.id),
+            person: agendaClientPerson(client.id),
+            subject: { kind: 'agenda_client', id: client.id },
+            actor: 'professional',
+            payload: { source: 'manual' },
+        });
         return c.json({ ok: true, client });
     });
 
@@ -878,6 +893,29 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         for (const n of sessionNotes) notesByAppt[n.appointmentId] = n.content;
         const tagRows = await db.select({ id: agendaClientTags.id, name: agendaClientTags.name, color: agendaClientTags.color }).from(agendaClientTagAssignments).innerJoin(agendaClientTags, eq(agendaClientTagAssignments.tagId, agendaClientTags.id)).where(eq(agendaClientTagAssignments.clientId, id));
         return c.json({ ok: true, client: { ...client, tags: tagRows }, appointments: appointments.map((a: any) => ({ ...a, sessionNote: notesByAppt[a.id] ?? null })) });
+    });
+
+    app.get('/clients/:id/timeline', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const profile = await getAgendaProfile(user.id);
+        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const id = c.req.param('id') ?? '';
+        const client = await db.query.agendaClients.findFirst({
+            where: and(eq(agendaClients.id, id), eq(agendaClients.professionalId, profile.id)),
+        });
+        if (!client) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
+        const events = await db
+            .select()
+            .from(timelineEvents)
+            .where(and(
+                eq(timelineEvents.businessId, profile.id),
+                eq(timelineEvents.personId, id),
+                eq(timelineEvents.vertical, 'agenda'),
+            ))
+            .orderBy(desc(timelineEvents.occurredAt))
+            .limit(100);
+        return c.json({ ok: true, events });
     });
 
     app.put('/clients/:id', requireVerifiedSession, async (c) => {
@@ -1016,6 +1054,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!name) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
         if (!url) return c.json({ ok: false, error: 'El archivo es requerido' }, 400);
         const [attachment] = await db.insert(agendaClientAttachments).values({ professionalId: profile.id, clientId, name, url, mimeType: typeof body.mimeType === 'string' ? body.mimeType : null, sizeBytes: typeof body.sizeBytes === 'number' ? body.sizeBytes : null, kind }).returning();
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'file.attached',
+            business: agendaBusiness(profile.id),
+            person: agendaClientPerson(clientId),
+            subject: { kind: 'agenda_attachment', id: attachment.id },
+            actor: 'professional',
+            payload: { name, kind },
+        });
         return c.json({ ok: true, attachment });
     });
 
@@ -1055,6 +1101,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         let note;
         if (existing) { const [updated] = await db.update(agendaSessionNotes).set({ content: String(body.content), updatedAt: new Date() }).where(eq(agendaSessionNotes.id, existing.id)).returning(); note = updated; }
         else { const [created] = await db.insert(agendaSessionNotes).values({ appointmentId: String(body.appointmentId), professionalId: profile.id, clientId: appt.clientId ?? null, content: String(body.content) }).returning(); note = created; }
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'note.written',
+            business: agendaBusiness(profile.id),
+            person: agendaClientPerson(appt.clientId),
+            subject: { kind: 'agenda_session_note', id: note.id },
+            actor: 'professional',
+            payload: { appointmentId: appt.id, created: !existing },
+        });
         return c.json({ ok: true, note });
     });
 
@@ -1135,7 +1189,18 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             appointmentsList.push(appt);
             if (i === 0) { const sr = await syncToGoogleCalendar(profile, { ...appt, googleEventId: null, modality: appt.modality }, 'create'); if (sr?.eventId) await db.update(agendaAppointments).set({ googleEventId: sr.eventId }).where(eq(agendaAppointments.id, appt.id)); }
         }
-        if (clientPack) { const nu = clientPack.sessionsUsed + totalOccurrences; await db.update(agendaClientPacks).set({ sessionsUsed: nu, status: nu >= clientPack.sessionsTotal ? 'completed' : clientPack.status, updatedAt: new Date() }).where(eq(agendaClientPacks.id, clientPack.id)); }
+        if (clientPack) {
+            const nu = clientPack.sessionsUsed + totalOccurrences;
+            await db.update(agendaClientPacks).set({ sessionsUsed: nu, status: nu >= clientPack.sessionsTotal ? 'completed' : clientPack.status, updatedAt: new Date() }).where(eq(agendaClientPacks.id, clientPack.id));
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'pack.session_consumed',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(clientPack.clientId),
+                subject: { kind: 'agenda_client_pack', id: clientPack.id },
+                actor: 'professional',
+                payload: { sessionsUsed: nu, sessionsTotal: clientPack.sessionsTotal, appointments: totalOccurrences },
+            });
+        }
         const firstAppt = appointmentsList[0];
         const tz = profile.timezone ?? 'America/Santiago';
         const fmtT = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
@@ -1158,6 +1223,20 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             entityType: 'appointment',
             entityId: firstAppt.id,
         });
+        for (const appt of appointmentsList) {
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'booking.confirmed',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(appt.clientId),
+                subject: { kind: 'agenda_appointment', id: appt.id },
+                actor: 'professional',
+                payload: {
+                    status: appt.status,
+                    startsAt: appt.startsAt instanceof Date ? appt.startsAt.toISOString() : appt.startsAt,
+                    source: 'panel',
+                },
+            });
+        }
         return c.json({ ok: true, appointment: appointmentsList[0], appointments: appointmentsList });
     });
 
@@ -1198,6 +1277,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (status === 'cancelled') { void syncToGoogleCalendar(profile, updated, 'delete'); }
         else { void syncToGoogleCalendar(profile, updated, 'update'); }
         if (status === 'completed') void ensureNpsForAppointment(profile.id, updated.id, updated.clientId).catch(() => {});
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'booking.status_changed',
+            business: agendaBusiness(profile.id),
+            person: agendaClientPerson(updated.clientId),
+            subject: { kind: 'agenda_appointment', id: updated.id },
+            actor: 'professional',
+            payload: { from: prev?.status ?? null, to: status },
+        });
         return c.json({ ok: true, appointment: updated });
     });
 
@@ -1215,7 +1302,17 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const conditions: SQL[] = [eq(agendaAppointments.professionalId, profile.id), eq(agendaAppointments.seriesId, anchor.seriesId), or(eq(agendaAppointments.status, 'confirmed'), eq(agendaAppointments.status, 'pending'))];
         if (scope === 'future') conditions.push(gte(agendaAppointments.startsAt, anchor.startsAt));
         const cancelled = await db.update(agendaAppointments).set({ status: 'cancelled', cancelledAt: new Date(), cancelledBy: 'professional', cancellationReason: typeof body.cancellationReason === 'string' ? body.cancellationReason : null, updatedAt: new Date() }).where(and(...conditions)).returning();
-        for (const appt of cancelled) void syncToGoogleCalendar(profile, appt, 'delete');
+        for (const appt of cancelled) {
+            void syncToGoogleCalendar(profile, appt, 'delete');
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'booking.status_changed',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(appt.clientId),
+                subject: { kind: 'agenda_appointment', id: appt.id },
+                actor: 'professional',
+                payload: { from: 'confirmed', to: 'cancelled', scope },
+            });
+        }
         return c.json({ ok: true, count: cancelled.length, cancelled });
     });
 
@@ -1330,6 +1427,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const refereeClientId = typeof body.refereeClientId === 'string' && body.refereeClientId ? body.refereeClientId : null;
         if (!refereeName && !refereeClientId) return c.json({ ok: false, error: 'Indica el nombre del referido' }, 400);
         const [created] = await db.insert(agendaReferrals).values({ professionalId:profile.id, referrerClientId, refereeClientId, refereeName:refereeName||null, refereePhone:typeof body.refereePhone==='string'?body.refereePhone.trim().slice(0,40):null, rewardNote:typeof body.rewardNote==='string'?body.rewardNote.slice(0,500):null }).returning();
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'referral.created',
+            business: agendaBusiness(profile.id),
+            person: agendaClientPerson(referrerClientId),
+            subject: { kind: 'agenda_referral', id: created.id },
+            actor: 'professional',
+            payload: { refereeName: created.refereeName, refereeClientId: created.refereeClientId },
+        });
         return c.json({ ok: true, referral: created });
     });
 
@@ -1347,6 +1452,16 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (Object.keys(patch).length===0) return c.json({ ok: false, error: 'Sin cambios' }, 400);
         const [updated] = await db.update(agendaReferrals).set(patch).where(and(eq(agendaReferrals.id,id),eq(agendaReferrals.professionalId,profile.id))).returning();
         if (!updated) return c.json({ ok: false, error: 'Referido no encontrado' }, 404);
+        if (body.status === 'converted' || body.status === 'rewarded') {
+            emitTimelineEvent(db, timelineEvents, {
+                type: body.status === 'converted' ? 'referral.converted' : 'referral.rewarded',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(updated.referrerClientId),
+                subject: { kind: 'agenda_referral', id: updated.id },
+                actor: 'professional',
+                payload: { status: updated.status },
+            });
+        }
         return c.json({ ok: true, referral: updated });
     });
 
@@ -1552,6 +1667,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (sessionsTotal === null || sessionsTotal <= 0) return c.json({ ok: false, error: 'Indica cuántas sesiones incluye el pack.' }, 400);
         const [created] = await db.insert(agendaClientPacks).values({ professionalId: profile.id, packId: packId ?? null, clientId, name, sessionsTotal: Math.floor(sessionsTotal), sessionsUsed: 0, pricePaid: pricePaid !== null ? String(pricePaid) : null, currency, appliesTo, serviceIds, expiresAt, status: 'active', notes: typeof body.notes === 'string' ? body.notes : null }).returning();
         await logAudit({ professionalId: profile.id, entityType: 'client_pack', entityId: created.id, action: 'create', metadata: { clientId, packId, name, sessionsTotal: created.sessionsTotal }, ctx: c });
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'pack.purchased',
+            business: agendaBusiness(profile.id),
+            person: agendaClientPerson(clientId),
+            subject: { kind: 'agenda_client_pack', id: created.id },
+            actor: 'professional',
+            payload: { name: created.name, sessionsTotal: created.sessionsTotal, pricePaid: created.pricePaid },
+        });
         return c.json({ ok: true, clientPack: created });
     });
 
@@ -1620,6 +1743,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const pricePaid = parseOptionalNumber(body.pricePaid);
         const [created] = await db.insert(agendaGroupAttendees).values({ sessionId: serviceId, professionalId: profile.id, clientId, clientName, clientEmail: clientEmail || null, clientPhone: clientPhone || null, status: 'registered', pricePaid: pricePaid !== null ? String(pricePaid) : null, paidAt: pricePaid !== null ? new Date() : null, notes: typeof body.notes === 'string' ? body.notes : null }).returning();
         await logAudit({ professionalId: profile.id, entityType: 'group_attendee', entityId: created.id, action: 'create', metadata: { serviceId, clientName, clientId }, ctx: c });
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'group.attendee_registered',
+            business: agendaBusiness(profile.id),
+            person: agendaClientPerson(clientId),
+            subject: { kind: 'agenda_group_attendee', id: created.id },
+            actor: 'professional',
+            payload: { serviceId, clientName },
+        });
         return c.json({ ok: true, attendee: created });
     });
 
@@ -1640,6 +1771,16 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if ('pricePaid' in body) { const v = parseOptionalNumber(body.pricePaid); patch.pricePaid = v !== null ? String(v) : null; if (v !== null && !existing.paidAt) patch.paidAt = new Date(); if (v === null) patch.paidAt = null; }
         if ('notes' in body) patch.notes = typeof body.notes === 'string' ? body.notes : null;
         const [updated] = await db.update(agendaGroupAttendees).set(patch).where(and(eq(agendaGroupAttendees.id, id), eq(agendaGroupAttendees.professionalId, profile.id))).returning();
+        if (typeof body.status === 'string' && body.status !== existing.status) {
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'group.attendee_status_changed',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(updated.clientId),
+                subject: { kind: 'agenda_group_attendee', id: updated.id },
+                actor: 'professional',
+                payload: { from: existing.status, to: updated.status },
+            });
+        }
         return c.json({ ok: true, attendee: updated });
     });
 
@@ -1674,6 +1815,24 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         if (!body.amount) return c.json({ ok: false, error: 'El monto es requerido' }, 400);
         const [payment] = await db.insert(agendaPayments).values({ professionalId: profile.id, appointmentId: typeof body.appointmentId === 'string' ? body.appointmentId||null : null, clientId: typeof body.clientId === 'string' ? body.clientId||null : null, amount: String(body.amount), currency: typeof body.currency === 'string' ? body.currency : profile.currency, method: typeof body.method === 'string' ? body.method||null : null, status: typeof body.status === 'string' ? body.status : 'pending', paidAt: body.status === 'paid' ? new Date() : null, notes: typeof body.notes === 'string' ? body.notes||null : null }).returning();
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'payment.recorded',
+            business: agendaBusiness(profile.id),
+            person: agendaClientPerson(payment.clientId),
+            subject: { kind: 'agenda_payment', id: payment.id },
+            actor: 'professional',
+            payload: { amount: payment.amount, status: payment.status, method: payment.method },
+        });
+        if (payment.status === 'paid') {
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'payment.paid',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(payment.clientId),
+                subject: { kind: 'agenda_payment', id: payment.id },
+                actor: 'professional',
+                payload: { amount: payment.amount, method: payment.method },
+            });
+        }
         return c.json({ ok: true, payment });
     });
 
@@ -1690,6 +1849,25 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (body.status === 'paid' && !body.paidAt) patch.paidAt = new Date();
         const [updated] = await db.update(agendaPayments).set(patch).where(and(eq(agendaPayments.id, id), eq(agendaPayments.professionalId, profile.id))).returning();
         if (!updated) return c.json({ ok: false, error: 'Cobro no encontrado' }, 404);
+        if (body.status === 'paid') {
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'payment.paid',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(updated.clientId),
+                subject: { kind: 'agenda_payment', id: updated.id },
+                actor: 'professional',
+                payload: { amount: updated.amount, method: updated.method },
+            });
+        } else if (body.status === 'refunded') {
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'payment.refunded',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(updated.clientId),
+                subject: { kind: 'agenda_payment', id: updated.id },
+                actor: 'professional',
+                payload: { amount: updated.amount },
+            });
+        }
         return c.json({ ok: true, payment: updated });
     });
 
@@ -1849,7 +2027,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             await db.update(agendaAppointments).set({ paymentStatus: 'paid', status: 'confirmed', updatedAt: new Date() }).where(eq(agendaAppointments.id, appt.id));
             const existingPayment = await db.query.agendaPayments.findFirst({ where: and(eq(agendaPayments.appointmentId, appt.id), eq(agendaPayments.status, 'paid')) });
             if (!existingPayment && appt.price) {
-                await db.insert(agendaPayments).values({
+                const [createdPayment] = await db.insert(agendaPayments).values({
                     professionalId: appt.professionalId,
                     appointmentId: appt.id,
                     clientId: appt.clientId ?? null,
@@ -1859,8 +2037,26 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                     status: 'paid',
                     paidAt: new Date(),
                     notes: `Pago automático MP ref: ${paymentId}`,
-                });
+                }).returning();
+                if (createdPayment) {
+                    emitTimelineEvent(db, timelineEvents, {
+                        type: 'payment.paid',
+                        business: agendaBusiness(appt.professionalId),
+                        person: agendaClientPerson(appt.clientId),
+                        subject: { kind: 'agenda_payment', id: createdPayment.id },
+                        actor: 'system',
+                        payload: { amount: createdPayment.amount, method: 'mercadopago', source: 'webhook' },
+                    });
+                }
             }
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'booking.confirmed',
+                business: agendaBusiness(appt.professionalId),
+                person: agendaClientPerson(appt.clientId),
+                subject: { kind: 'agenda_appointment', id: appt.id },
+                actor: 'system',
+                payload: { source: 'mercadopago_webhook' },
+            });
             return c.json({ ok: true });
         } catch (e) {
             console.error('[agenda] MP webhook error:', e);
@@ -1998,7 +2194,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
     const {
         agendaProfessionalProfiles, agendaServices, agendaAvailabilityRules, agendaBlockedSlots,
         agendaLocations, agendaClients, agendaAppointments, agendaPromotions, agendaPacks, agendaNpsResponses, users,
-        pushSubscriptions,
+        pushSubscriptions, timelineEvents,
     } = tables;
 
     const publicReadLimit = rateLimit({ name: 'agenda-read', limit: 60, windowMs: 60_000 });
@@ -2083,6 +2279,14 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         if (!record) return c.json({ ok: false, error: 'Encuesta no encontrada' }, 404);
         if (record.submittedAt) return c.json({ ok: false, error: 'Esta encuesta ya fue respondida' }, 409);
         await db.update(agendaNpsResponses).set({ score, comment, submittedAt: new Date() }).where(eq(agendaNpsResponses.id, record.id));
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'nps.submitted',
+            business: agendaBusiness(record.professionalId),
+            person: agendaClientPerson(record.clientId),
+            subject: { kind: 'agenda_appointment', id: record.appointmentId },
+            actor: 'client',
+            payload: { score, npsResponseId: record.id },
+        });
         return c.json({ ok: true });
     });
 
@@ -2186,6 +2390,14 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const [updated] = await db.update(agendaAppointments).set({ status: 'cancelled', cancelledAt: new Date(), cancelledBy: 'client', cancellationReason: typeof body.reason === 'string' ? body.reason||null : null, updatedAt: new Date() }).where(eq(agendaAppointments.id, id)).returning();
         await logAudit({ professionalId: updated.professionalId, entityType: 'appointment', entityId: updated.id, action: 'cancel', metadata: { source: 'client_self_cancel', reason: typeof body.reason === 'string' ? body.reason.slice(0,200) : null }, ctx: c });
         if (profile) void syncToGoogleCalendar(profile, updated, 'delete');
+        emitTimelineEvent(db, timelineEvents, {
+            type: 'booking.status_changed',
+            business: agendaBusiness(updated.professionalId),
+            person: agendaClientPerson(updated.clientId),
+            subject: { kind: 'agenda_appointment', id: updated.id },
+            actor: 'client',
+            payload: { from: appt.status, to: 'cancelled', cancelledBy: 'client' },
+        });
         if (profile) {
             const tz2 = profile.timezone ?? 'America/Santiago';
             const fmtT2 = (d: Date) => d.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:tz2 });
@@ -2297,10 +2509,48 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             insertedAppointments.push(inserted);
         }
         const appointment = insertedAppointments[0];
-        if (appliedPromotion) await db.update(agendaPromotions).set({ usesCount: sql`${agendaPromotions.usesCount} + 1`, updatedAt: new Date() }).where(eq(agendaPromotions.id, appliedPromotion.id));
+        if (appliedPromotion) {
+            await db.update(agendaPromotions).set({ usesCount: sql`${agendaPromotions.usesCount} + 1`, updatedAt: new Date() }).where(eq(agendaPromotions.id, appliedPromotion.id));
+        }
         const seriesApptIds = insertedAppointments.map((a) => a.id);
-        if (!existingClient) { const [nc] = await db.insert(agendaClients).values({ professionalId: profile.id, firstName: bookingFirstName, lastName: bookingLastName, email: bookingEmail, phone: bookingPhone }).returning({ id: agendaClients.id }); if (nc) await db.update(agendaAppointments).set({ clientId: nc.id }).where(inArray(agendaAppointments.id, seriesApptIds)); }
-        else { await db.update(agendaAppointments).set({ clientId: existingClient.id }).where(inArray(agendaAppointments.id, seriesApptIds)); }
+        let resolvedClientId: string | null = existingClient?.id ?? null;
+        if (!existingClient) {
+            const [nc] = await db.insert(agendaClients).values({ professionalId: profile.id, firstName: bookingFirstName, lastName: bookingLastName, email: bookingEmail, phone: bookingPhone }).returning({ id: agendaClients.id });
+            if (nc) {
+                resolvedClientId = nc.id;
+                await db.update(agendaAppointments).set({ clientId: nc.id }).where(inArray(agendaAppointments.id, seriesApptIds));
+                emitTimelineEvent(db, timelineEvents, {
+                    type: 'relationship.created',
+                    business: agendaBusiness(profile.id),
+                    person: agendaClientPerson(nc.id),
+                    subject: { kind: 'agenda_client', id: nc.id },
+                    actor: 'client',
+                    payload: { source: 'public_booking' },
+                });
+            }
+        } else {
+            await db.update(agendaAppointments).set({ clientId: existingClient.id }).where(inArray(agendaAppointments.id, seriesApptIds));
+        }
+        if (appliedPromotion && resolvedClientId) {
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'offer.applied',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(resolvedClientId),
+                subject: { kind: 'agenda_appointment', id: appointment.id },
+                actor: 'client',
+                payload: { promotionId: appliedPromotion.id, code: appliedPromotion.code },
+            });
+        }
+        for (const inserted of insertedAppointments) {
+            emitTimelineEvent(db, timelineEvents, {
+                type: status === 'pending' ? 'booking.requested' : 'booking.confirmed',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(resolvedClientId),
+                subject: { kind: 'agenda_appointment', id: inserted.id },
+                actor: 'client',
+                payload: { status, source: 'public', startsAt: inserted.startsAt instanceof Date ? inserted.startsAt.toISOString() : inserted.startsAt },
+            });
+        }
         const isOnlineBooking = bookingModality === 'online';
         const gcConnected = !!(profile.googleAccessToken && profile.googleCalendarId);
         if (isOnlineBooking && gcConnected) {

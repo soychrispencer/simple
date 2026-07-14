@@ -27,6 +27,10 @@ import {
 import { cleanupReplacedMediaUrl } from '../media/stored-object.js';
 import { eventDateYmd, todayYmdInChile } from './lifecycle.js';
 import {
+    emitSerenataTimelineAsync,
+    maybeEmitSerenataRelationshipCreated,
+} from './timeline.js';
+import {
     deliverSerenataInvitation,
     deliverSerenataRequestNotification,
 } from '../../lib/serenatas-notification-delivery.js';
@@ -2328,6 +2332,12 @@ export async function createMarketplaceSerenata(
             providerGroupId: item.providerGroupId,
             message: payload.message ?? null,
         });
+        maybeEmitSerenataRelationshipCreated(item, 'client');
+        emitSerenataTimelineAsync('serenata.requested', item, {
+            actor: 'client',
+            toStatus: item.status,
+            payload: { recipientName: item.recipientName },
+        });
     }
 
     return { ok: true as const, item };
@@ -2365,6 +2375,12 @@ export async function acceptMarketplaceSerenata(
         inArray(serenatas.status, ['pending', 'pending_open']),
     )).returning();
     if (!item) return { ok: false as const, error: 'Esta solicitud ya fue tomada.' };
+
+    emitSerenataTimelineAsync('serenata.status_changed', item, {
+        actor: 'owner',
+        fromStatus: pending.status,
+        toStatus: item.status,
+    });
 
     if (item.clientId) {
         const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.id, item.clientId) });
@@ -2421,6 +2437,13 @@ export async function rejectMarketplaceSerenata(ownerId: string, serenataId: str
         inArray(serenatas.status, ['pending', 'pending_open']),
     )).returning();
     if (!item) return { ok: false as const, error: 'Esta solicitud ya no está disponible.' };
+
+    emitSerenataTimelineAsync('serenata.status_changed', item, {
+        actor: 'owner',
+        fromStatus: pending.status,
+        toStatus: item.status,
+        payload: rejectReason ? { reason: rejectReason } : undefined,
+    });
 
     if (item.clientId) {
         const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.id, item.clientId) });

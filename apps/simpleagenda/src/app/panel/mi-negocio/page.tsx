@@ -13,7 +13,7 @@ import {
     loadSocialLinksFromProfile,
     type SocialLink,
 } from '@/lib/agenda-mi-negocio-social';
-import { vocab } from '@/lib/vocabulary';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import {
     getOperatorSubtypes,
     requiresOperatorSubtype,
@@ -38,6 +38,7 @@ import {
 } from '@simple/ui/panel';
 import { AgendaMiNegocioShell, AgendaMiNegocioLoading } from '@/components/panel/agenda-mi-negocio-shell';
 import { AgendaPublicProfileLocationContact, resolveDefaultAgendaLocation, type AgendaPublicContactForm } from '@/components/panel/agenda-public-profile-location-contact';
+import { IconNotebook, IconUser } from '@tabler/icons-react';
 import type { StructuredLocation } from '@simple/types';
 import {
     agendaBusinessLocationFromProfile,
@@ -48,6 +49,7 @@ import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app';
 
 export default function PerfilConfigPage() {
+    const vocab = useAgendaVocab();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -264,7 +266,7 @@ export default function PerfilConfigPage() {
                         className="mb-0"
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <PanelField label={BUSINESS_PUBLIC_NAME_FIELD.label} required className="sm:col-span-2">
+                        <PanelField label={BUSINESS_PUBLIC_NAME_FIELD.label} required icon={<IconUser size={14} />} className="sm:col-span-2">
                             <input type="text" value={form.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="Ej: Dra. Maria Gonzalez" className="form-input" />
                         </PanelField>
                         <div className="sm:col-span-2">
@@ -299,7 +301,7 @@ export default function PerfilConfigPage() {
                                 }}
                             />
                         </div>
-                        <PanelField label={BUSINESS_DESCRIPTION_FIELD.label} hint={BUSINESS_DESCRIPTION_FIELD.hint} className="sm:col-span-2">
+                        <PanelField label={BUSINESS_DESCRIPTION_FIELD.label} hint={BUSINESS_DESCRIPTION_FIELD.hint} icon={<IconNotebook size={14} />} className="sm:col-span-2">
                             <textarea
                                 value={form.bio}
                                 onChange={(e) => set('bio', e.target.value)}

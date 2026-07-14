@@ -3,7 +3,7 @@ import { resolveSerenatasBillingAccess, resolveSerenatasBillingAccessFromCatalog
 import { fetchSubscriptionCatalog } from '@/lib/payments';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
 import { countPricedActiveServices } from '@/lib/provider-group-publish';
-import { panelMiNegocioHref } from '@/lib/panel-routes';
+import { panelMiNegocioHref, panelSectionHref } from '@/lib/panel-routes';
 
 export type SerenatasBusinessSetupStatus = {
     steps: BusinessSetupStep[];
@@ -79,7 +79,7 @@ export async function fetchSerenatasBusinessSetupStatus(): Promise<SerenatasBusi
             id: 'servicios',
             label: 'Servicios',
             description: 'Paquetes con precio para que te contraten.',
-            href: panelMiNegocioHref('servicios'),
+            href: panelSectionHref('servicios'),
             complete: activeServiceCount > 0,
         },
         {

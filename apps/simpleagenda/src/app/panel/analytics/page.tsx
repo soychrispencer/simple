@@ -18,6 +18,7 @@ import {
     type NpsResponseRow,
 } from '@/lib/agenda-api';
 import { fmtCLP } from '@/lib/format';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { usePanelFormatters } from '@simple/auth';
 
 const MAX_BARS = 12;
@@ -79,6 +80,7 @@ function npsColor(score: number) {
 }
 
 export default function AnalyticsPage() {
+    const vocab = useAgendaVocab();
     const fmt = usePanelFormatters();
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [nps, setNps] = useState<NpsResponseRow[]>([]);
@@ -293,10 +295,10 @@ export default function AnalyticsPage() {
                     )}
                 </SectionCard>
 
-                <SectionCard title="Pacientes más frecuentes" right={<IconUsers size={14} style={{ color: 'var(--fg-muted)' }} />}>
+                <SectionCard title={`${vocab.Clients} más frecuentes`} right={<IconUsers size={14} style={{ color: 'var(--fg-muted)' }} />}>
                     {topClients.length === 0 ? (
                         <div className="text-sm py-6 text-center" style={{ color: 'var(--fg-muted)' }}>
-                            Sin pacientes recurrentes.
+                            Sin {vocab.clients} recurrentes.
                         </div>
                     ) : (
                         <ul className="space-y-2">

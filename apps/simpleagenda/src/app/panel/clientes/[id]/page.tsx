@@ -27,9 +27,11 @@ import {
     IconPackage,
     IconEdit,
     IconAlertTriangle,
+    IconHistory,
 } from '@tabler/icons-react';
 import {
     fetchAgendaClient,
+    fetchAgendaClientTimeline,
     updateAgendaClient,
     deleteAgendaClient,
     fetchClientAttachments,
@@ -52,7 +54,9 @@ import {
     type ClientTag,
     type AgendaClientPack,
     type AgendaPack,
+    type AgendaTimelineEvent,
 } from '@/lib/agenda-api';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { usePanelFormatters } from '@simple/auth';
 
@@ -72,7 +76,38 @@ const STATUS_COLORS: Record<string, string> = {
     no_show: '#9CA3AF',
 };
 
+const TIMELINE_LABELS: Record<string, string> = {
+    'relationship.created': 'Alta en agenda',
+    'relationship.updated': 'Ficha actualizada',
+    'booking.requested': 'Reserva solicitada',
+    'booking.confirmed': 'Cita confirmada',
+    'booking.status_changed': 'Cambio de estado de cita',
+    'payment.recorded': 'Cobro registrado',
+    'payment.paid': 'Pago recibido',
+    'payment.refunded': 'Pago devuelto',
+    'payment.waived': 'Pago condonado',
+    'pack.purchased': 'Pack / bono asignado',
+    'pack.session_consumed': 'Sesión de pack usada',
+    'offer.applied': 'Promoción aplicada',
+    'note.written': 'Nota de sesión',
+    'file.attached': 'Archivo adjunto',
+    'referral.created': 'Referido registrado',
+    'referral.converted': 'Referido convertido',
+    'referral.rewarded': 'Referido premiado',
+    'nps.submitted': 'Encuesta de satisfacción',
+    'group.attendee_registered': 'Inscrito en sesión grupal',
+    'group.attendee_status_changed': 'Estado en sesión grupal',
+    'conversation.started': 'Conversación iniciada',
+    'conversation.message_sent': 'Mensaje enviado',
+    'lead.opened': 'Lead abierto',
+};
+
+function timelineEventLabel(type: string): string {
+    return TIMELINE_LABELS[type] ?? type;
+}
+
 export default function ClienteFichaPage() {
+    const vocab = useAgendaVocab();
     const fmt = usePanelFormatters();
     const params = useParams();
     const router = useRouter();
@@ -95,7 +130,7 @@ export default function ClienteFichaPage() {
     const [uploadError, setUploadError] = useState('');
     const [deletingAttId, setDeletingAttId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'notes' | 'files'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'notes' | 'files' | 'timeline'>('overview');
 
     const [allTags, setAllTags] = useState<AgendaClientTag[]>([]);
     const [assignedTags, setAssignedTags] = useState<ClientTag[]>([]);
@@ -109,6 +144,8 @@ export default function ClienteFichaPage() {
     const [packSelection, setPackSelection] = useState<string>('');
     const [packBusy, setPackBusy] = useState(false);
     const [packError, setPackError] = useState<string | null>(null);
+    const [timeline, setTimeline] = useState<AgendaTimelineEvent[]>([]);
+    const [timelineLoading, setTimelineLoading] = useState(true);
 
     const toggleApptNotes = (apptId: string) => {
         setExpandedNotes((prev) => {
@@ -120,12 +157,13 @@ export default function ClienteFichaPage() {
 
     useEffect(() => {
         const load = async () => {
-            const [data, atts, tags, packs, catalog] = await Promise.all([
+            const [data, atts, tags, packs, catalog, events] = await Promise.all([
                 fetchAgendaClient(id),
                 fetchClientAttachments(id),
                 fetchClientTags(),
                 fetchClientPacks({ clientId: id }),
                 fetchAgendaPacks(),
+                fetchAgendaClientTimeline(id),
             ]);
             if (!data) { router.push('/panel/clientes'); return; }
             setClient(data.client);
@@ -136,6 +174,8 @@ export default function ClienteFichaPage() {
             setAssignedTags(data.client.tags ?? []);
             setClientPacks(packs);
             setAvailablePacks(catalog.filter((p) => p.isActive));
+            setTimeline(events);
+            setTimelineLoading(false);
             setLoading(false);
         };
         void load();
@@ -276,7 +316,7 @@ export default function ClienteFichaPage() {
         if (result.ok) {
             router.push('/panel/clientes');
         } else {
-            setDeleteError(result.error ?? 'No se pudo eliminar el paciente.');
+            setDeleteError(result.error ?? `No se pudo eliminar el ${vocab.client}.`);
         }
     };
 
@@ -319,7 +359,7 @@ export default function ClienteFichaPage() {
                 style={{ color: 'var(--fg-muted)' }}
             >
                 <IconArrowLeft size={14} />
-                Volver a pacientes
+                Volver a {vocab.clients}
             </button>
 
             {/* Header card */}
@@ -341,8 +381,8 @@ export default function ClienteFichaPage() {
                                 <button
                                     type="button"
                                     onClick={handleEditClient}
-                                    aria-label="Editar paciente"
-                                    title="Editar paciente"
+                                    aria-label={`Editar ${vocab.client}`}
+                                    title={`Editar ${vocab.client}`}
                                     className="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                 >
@@ -351,8 +391,8 @@ export default function ClienteFichaPage() {
                                 <button
                                     type="button"
                                     onClick={() => { setDeleteError(''); setConfirmDelete(true); }}
-                                    aria-label="Eliminar paciente"
-                                    title="Eliminar paciente"
+                                    aria-label={`Eliminar ${vocab.client}`}
+                                    title={`Eliminar ${vocab.client}`}
                                     className="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40"
                                     style={{ borderColor: 'var(--border)', color: '#dc2626' }}
                                 >
@@ -470,10 +510,11 @@ export default function ClienteFichaPage() {
             <div
                 className="flex items-center gap-1 mb-5 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0"
                 role="tablist"
-                aria-label="Secciones del paciente"
+                aria-label={`Secciones del ${vocab.client}`}
             >
                 {[
                     { key: 'overview' as const, label: 'Resumen', icon: IconUserCircle },
+                    { key: 'timeline' as const, label: `Historial${timeline.length > 0 ? ` (${timeline.length})` : ''}`, icon: IconHistory },
                     { key: 'sessions' as const, label: `Sesiones${appointments.length > 0 ? ` (${appointments.length})` : ''}`, icon: IconClipboardList },
                     { key: 'notes' as const, label: 'Notas', icon: IconNotes },
                     { key: 'files' as const, label: `Archivos${attachments.length > 0 ? ` (${attachments.length})` : ''}`, icon: IconPaperclip },
@@ -499,6 +540,48 @@ export default function ClienteFichaPage() {
                     );
                 })}
             </div>
+
+            {/* Tab: Historial */}
+            {activeTab === 'timeline' && (
+                <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                    {timelineLoading ? (
+                        <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                            <IconLoader2 size={16} className="animate-spin" /> Cargando historial…
+                        </div>
+                    ) : timeline.length === 0 ? (
+                        <p className="text-sm text-center py-8" style={{ color: 'var(--fg-muted)' }}>
+                            Todavía no hay eventos registrados. Se irán agregando con citas, pagos y altas.
+                        </p>
+                    ) : (
+                        <ol className="relative space-y-4 border-l pl-4" style={{ borderColor: 'var(--border)' }}>
+                            {timeline.map((event) => {
+                                const statusTo = typeof event.payload?.to === 'string' ? event.payload.to : null;
+                                const amount = typeof event.payload?.amount === 'string' || typeof event.payload?.amount === 'number'
+                                    ? String(event.payload.amount)
+                                    : null;
+                                return (
+                                    <li key={event.id} className="relative">
+                                        <span
+                                            className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full"
+                                            style={{ background: 'var(--accent)' }}
+                                            aria-hidden
+                                        />
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                            {timelineEventLabel(event.type)}
+                                            {statusTo ? ` → ${statusTo}` : null}
+                                        </p>
+                                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                                            {fmt.dateTimeShort(event.occurredAt)}
+                                            {amount ? ` · $${amount}` : ''}
+                                            {event.actor ? ` · ${event.actor}` : ''}
+                                        </p>
+                                    </li>
+                                );
+                            })}
+                        </ol>
+                    )}
+                </div>
+            )}
 
             {/* Tab: Resumen */}
             {activeTab === 'overview' && (
@@ -714,7 +797,7 @@ export default function ClienteFichaPage() {
 
                 {attachments.length === 0 ? (
                     <p className="text-xs py-3" style={{ color: 'var(--fg-muted)' }}>
-                        Sube recetas, exámenes, consentimientos, imágenes u otros archivos relacionados con este paciente.
+                        Sube recetas, exámenes, consentimientos, imágenes u otros archivos relacionados con este {vocab.client}.
                     </p>
                 ) : (
                     <div className="flex flex-col gap-2">
@@ -856,7 +939,7 @@ export default function ClienteFichaPage() {
                                         )}
                                         {appt.clientNotes && (
                                             <div>
-                                                <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--fg-muted)' }}>Notas del paciente</p>
+                                                <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--fg-muted)' }}>Notas del {vocab.client}</p>
                                                 <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--fg)' }}>{appt.clientNotes}</p>
                                             </div>
                                         )}
@@ -880,7 +963,7 @@ export default function ClienteFichaPage() {
                                 <IconAlertTriangle size={18} />
                             </div>
                             <div className="min-w-0">
-                                <h2 id="cliente-delete-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Eliminar paciente</h2>
+                                <h2 id="cliente-delete-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Eliminar {vocab.client}</h2>
                                 <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>
                                     Se eliminará a <span style={{ color: 'var(--fg)', fontWeight: 600 }}>{fullName}</span> y su historial. Esta acción no se puede deshacer.
                                 </p>

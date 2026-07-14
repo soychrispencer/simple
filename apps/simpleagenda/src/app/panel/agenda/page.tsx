@@ -49,7 +49,7 @@ import {
     type AgendaClientPack,
 } from '@/lib/agenda-api';
 import { fmtDateShort as formatDate, fmtTime as formatTime, fmtDateTz } from '@/lib/format';
-import { vocab } from '@/lib/vocabulary';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { ContextMessagesLink } from '@simple/ui/panel';
 import { resolveBookingModality } from '@simple/utils';
@@ -155,6 +155,7 @@ const DAY_VIEW_HOUR_HEIGHT = 56;
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function AgendaPage() {
+    const vocab = useAgendaVocab();
     const searchParams = useSearchParams();
     const router = useRouter();
     const [view, setView] = useState<ViewMode>('week');
@@ -851,7 +852,7 @@ export default function AgendaPage() {
                             return (
                                 <button
                                     key={gs.id}
-                                    onClick={(e) => { e.stopPropagation(); router.push(`/panel/mi-negocio/servicios/${gs.id}`); }}
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/panel/mis-servicios/${gs.id}`); }}
                                     className="absolute left-14 sm:left-16 right-2 rounded-lg px-2.5 py-1.5 text-left transition-opacity hover:opacity-90 z-20 overflow-hidden"
                                     style={{
                                         top,
@@ -957,7 +958,7 @@ export default function AgendaPage() {
                                     {loading ? null : combined.slice(0, 3).map((item) => item.kind === 'group' ? (
                                         <button
                                             key={`g-${item.data.id}`}
-                                            onClick={(e) => { e.stopPropagation(); router.push(`/panel/mi-negocio/servicios/${item.data.id}`); }}
+                                            onClick={(e) => { e.stopPropagation(); router.push(`/panel/mis-servicios/${item.data.id}`); }}
                                             className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate mb-0.5 transition-opacity hover:opacity-80 flex items-center gap-1"
                                             style={{ background: '#8b5cf6', color: '#fff' }}
                                         >
@@ -1289,7 +1290,7 @@ export default function AgendaPage() {
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold">Encuesta de satisfacción</p>
                                         <p className="text-xs">
-                                            Comparte el enlace para que tu paciente responda.
+                                            Comparte el enlace para que tu {vocab.client} responda.
                                         </p>
                                     </div>
                                 </div>

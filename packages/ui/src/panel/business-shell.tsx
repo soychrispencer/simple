@@ -70,7 +70,9 @@ export function PanelBusinessShell({
             ) : null}
             {title ? <PanelPageHeader title={title} description={description} actions={actions} /> : null}
             <div className="flex flex-col gap-6">
-                <PanelSectionTabs items={tabs} activeKey={activeKey} ariaLabel={ariaLabel} onChange={onTabChange} />
+                {tabs.length > 0 ? (
+                    <PanelSectionTabs items={tabs} activeKey={activeKey} ariaLabel={ariaLabel} onChange={onTabChange} />
+                ) : null}
                 {children}
             </div>
         </div>

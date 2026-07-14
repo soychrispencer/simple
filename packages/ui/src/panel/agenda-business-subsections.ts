@@ -15,14 +15,14 @@ const AGENDA_BUSINESS_SUBSECTIONS: Record<AgendaBusinessSubsectionKey, AgendaBus
     packs: {
         activeKey: 'servicios',
         subsectionBack: {
-            href: '/panel/mi-negocio/servicios',
+            href: '/panel/mis-servicios',
             label: AGENDA_BUSINESS_SERVICIOS_PAGE.title,
         },
     },
     promociones: {
         activeKey: 'servicios',
         subsectionBack: {
-            href: '/panel/mi-negocio/servicios',
+            href: '/panel/mis-servicios',
             label: AGENDA_BUSINESS_SERVICIOS_PAGE.title,
         },
     },

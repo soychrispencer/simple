@@ -17,6 +17,7 @@ const ProfileView = dynamic(() => import('@/components/panel/account-view').then
 const HomeView = dynamic(() => import('@/components/panel/home-view').then((mod) => mod.HomeView));
 const InvitationsView = dynamic(() => import('@/components/panel/invitations-view').then((mod) => mod.InvitationsView));
 const MapView = dynamic(() => import('@/components/panel/map-view').then((mod) => mod.MapView));
+const ContactosView = dynamic(() => import('@/components/panel/contactos-view').then((mod) => mod.ContactosView));
 const ClientSerenatasView = dynamic(() =>
     import('@/components/panel/serenatas-view').then((mod) => mod.ClientSerenatasView),
 );
@@ -178,7 +179,10 @@ export function PanelContent(props: PanelContentProps) {
             );
         }
         return (
-            <PanelSectionPage title="Mis serenatas" description="Historial y seguimiento de las serenatas que contrataste.">
+            <PanelSectionPage
+                title="Mis serenatas"
+                description="Solicitudes y eventos vinculados a tu cuenta. Acciones de pago, mensajes y confirmación van aquí."
+            >
                 <ClientSerenatasView
                     serenatas={props.serenatas}
                     action={props.panelAction}
@@ -285,15 +289,28 @@ export function PanelContent(props: PanelContentProps) {
         );
     }
 
+    if (props.section === 'contactos') {
+        return props.mode === 'work' && props.ownerFeaturesEnabled ? (
+            <PanelSectionPage
+                title="Contactos"
+                description="Contratantes, historial de serenatas y cambios de estado."
+            >
+                <ContactosView />
+            </PanelSectionPage>
+        ) : (
+            <PanelHomePage {...props} />
+        );
+    }
+
     return <PanelHomePage {...props} />;
 }
 
 function PanelHomePage(props: PanelContentProps) {
-    const title = 'Mi panel';
+    const title = props.mode === 'client' ? 'Mi portal' : 'Mi panel';
     const description =
         props.mode === 'work'
             ? 'Resumen de invitaciones, serenatas y operación.'
-            : 'Seguimiento de tus serenatas contratadas y acceso al marketplace.';
+            : 'Tus serenatas, pagos y mensajes — lo contratado con tu cuenta.';
 
     return (
         <PanelSectionPage title={title} description={description}>

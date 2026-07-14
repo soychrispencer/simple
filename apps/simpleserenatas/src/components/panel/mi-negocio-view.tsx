@@ -6,7 +6,6 @@ import { GroupsView } from '@/components/panel/groups-view';
 import { ProviderGroupView } from '@/components/panel/provider-group-view';
 import { ProviderAvailabilityView } from '@/components/panel/provider-availability-view';
 import { ProviderSettingsView } from '@/components/panel/provider-settings-view';
-import { ProviderServicesView } from '@/components/panel/provider-services-view';
 import { ProviderRepertoireView } from '@/components/panel/provider-repertoire-view';
 import { MiNegocioPublishToggle } from '@/components/panel/mi-negocio-publish-toggle';
 import {
@@ -42,7 +41,6 @@ export function MiNegocioView({
                 <ProviderGroupView refresh={refresh} />
             ) : null}
             {tab === 'direcciones' ? <PanelBusinessAddressesContent vertical="serenatas" /> : null}
-            {tab === 'servicios' ? <ProviderServicesView refresh={refresh} /> : null}
             {tab === 'horarios' ? <ProviderAvailabilityView /> : null}
             {tab === 'repertorio' ? <ProviderRepertoireView refresh={refresh} /> : null}
             {tab === 'grupos' ? (

@@ -14,6 +14,7 @@ export * from './image-file.js';
 export * from './media-url.js';
 export * from './listing-seller-avatar.js';
 export * from './messages.js';
+export * from './relationship-notes.js';
 export * from './panel-notifications.js';
 export * from './payments.js';
 export * from './business-payment-methods.js';

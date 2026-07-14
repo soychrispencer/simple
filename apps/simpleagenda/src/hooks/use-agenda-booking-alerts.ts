@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchAgendaAppointments, type AgendaAppointment } from '@/lib/agenda-api';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import {
     isAgendaBookingSoundMuted,
     playAgendaBookingAlertSound,
@@ -17,6 +18,7 @@ function isPendingOnlineBooking(item: AgendaAppointment): boolean {
 }
 
 export function useAgendaBookingAlerts({ enabled }: Options) {
+    const vocab = useAgendaVocab();
     const [soundMuted, setSoundMuted] = useState(() =>
         typeof window === 'undefined' ? true : isAgendaBookingSoundMuted(),
     );
@@ -72,7 +74,7 @@ export function useAgendaBookingAlerts({ enabled }: Options) {
                 try {
                     new Notification(newIds.length === 1 ? 'Nueva reserva pendiente' : `${newIds.length} reservas nuevas`, {
                         body: first
-                            ? `${first.clientName ?? 'Paciente'} · ${new Date(first.startsAt).toLocaleString('es-CL')}`
+                            ? `${first.clientName ?? vocab.Client} · ${new Date(first.startsAt).toLocaleString('es-CL')}`
                             : 'Revisa tu agenda para confirmar.',
                         tag: `agenda-booking-${newIds[0]}`,
                     });
@@ -82,7 +84,7 @@ export function useAgendaBookingAlerts({ enabled }: Options) {
             }
         }
         knownIdsRef.current = new Set(ids);
-    }, [enabled, pending, pendingSignature]);
+    }, [enabled, pending, pendingSignature, vocab.Client]);
 
     function toggleSoundMuted() {
         const next = !isAgendaBookingSoundMuted();

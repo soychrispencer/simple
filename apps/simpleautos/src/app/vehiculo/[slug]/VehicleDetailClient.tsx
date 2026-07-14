@@ -13,7 +13,7 @@ import {
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
 import { SellerProductsCrossSell } from '@/components/listings/seller-products-cross-sell';
-import { buildPrecheckHrefFromListing } from '@/lib/financing-precheck';
+import { buildSimuladorCreditoHrefFromListing } from '@/lib/financiamiento/listing-href';
 import { type PublicListing } from '@/lib/public-listings';
 import { buildVehicleJsonLd, JsonLd } from '@/lib/schema';
 import {
@@ -123,11 +123,11 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
 
     const financingLink = item.section === 'sale' ? (
         <Link
-            href={buildPrecheckHrefFromListing(item)}
+            href={buildSimuladorCreditoHrefFromListing(item)}
             className="mt-5 flex w-full items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition-colors hover:bg-[var(--bg-subtle)]"
             style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
         >
-            Precalificar financiamiento
+            Simular crédito automotriz
         </Link>
     ) : null;
 

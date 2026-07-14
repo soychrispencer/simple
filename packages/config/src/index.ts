@@ -79,7 +79,9 @@ export type PublicationLifecycleStep =
     | 'sale'
     | 'rent'
     | 'auction'
-    | 'project';
+    | 'project'
+    | 'service'
+    | 'product';
 
 export type PublicationLifecyclePolicy = {
     appId: Extract<SimpleAppId, 'simpleautos' | 'simplepropiedades'>;
@@ -269,6 +271,24 @@ const PUBLICATION_LIFECYCLE_RULES: Record<`${Extract<SimpleAppId, 'simpleautos' 
         summaryLabel: 'Revisión cada 60 días',
         notice: 'El aviso quedará activo por defecto. Revisaremos su vigencia cada 60 días y, si hace falta renovarlo, te avisaremos antes de despublicarlo.',
     },
+    'simpleautos:service': {
+        appId: 'simpleautos',
+        operationType: 'service',
+        initialStatus: 'active',
+        reviewIntervalDays: null,
+        reviewGraceDays: null,
+        summaryLabel: 'Activo hasta que lo pauses',
+        notice: 'El servicio quedará visible en tu perfil y en el explorador hasta que lo pauses o edites desde Mis publicaciones.',
+    },
+    'simpleautos:product': {
+        appId: 'simpleautos',
+        operationType: 'product',
+        initialStatus: 'active',
+        reviewIntervalDays: null,
+        reviewGraceDays: null,
+        summaryLabel: 'Activo hasta que lo pauses',
+        notice: 'El producto quedará visible en tu perfil y en el explorador hasta que lo pauses o edites desde Mis publicaciones.',
+    },
     'simplepropiedades:sale': {
         appId: 'simplepropiedades',
         operationType: 'sale',
@@ -304,6 +324,24 @@ const PUBLICATION_LIFECYCLE_RULES: Record<`${Extract<SimpleAppId, 'simpleautos' 
         reviewGraceDays: 30,
         summaryLabel: 'Revisión cada 120 días',
         notice: 'El proyecto quedará activo por defecto. Revisaremos su vigencia cada 120 días y, si hace falta renovar la información de entrega, unidades o rangos, te lo avisaremos antes de despublicarlo.',
+    },
+    'simplepropiedades:service': {
+        appId: 'simplepropiedades',
+        operationType: 'service',
+        initialStatus: 'active',
+        reviewIntervalDays: null,
+        reviewGraceDays: null,
+        summaryLabel: 'Activo hasta que lo pauses',
+        notice: 'El servicio quedará visible en tu perfil y en el explorador hasta que lo pauses o edites desde Mis publicaciones.',
+    },
+    'simplepropiedades:product': {
+        appId: 'simplepropiedades',
+        operationType: 'product',
+        initialStatus: 'active',
+        reviewIntervalDays: null,
+        reviewGraceDays: null,
+        summaryLabel: 'Activo hasta que lo pauses',
+        notice: 'El producto quedará visible en tu perfil y en el explorador hasta que lo pauses o edites desde Mis publicaciones.',
     },
 };
 

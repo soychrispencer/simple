@@ -32,7 +32,7 @@ import {
     type AgendaAppointment,
 } from '@/lib/agenda-api';
 import { fmtCLP, fmtDateMedium as fmtDate } from '@/lib/format';
-import { vocab } from '@/lib/vocabulary';
+import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AGENDA_FINANCE_PAGE } from '@simple/ui/panel';
 
 const METHOD_LABELS: Record<string, string> = {
@@ -98,6 +98,7 @@ const sanitizePhone = (phone: string | null | undefined) => {
 };
 
 export default function PagosPage() {
+    const vocab = useAgendaVocab();
     const [payments, setPayments] = useState<AgendaPayment[]>([]);
     const [clients, setClients] = useState<AgendaClient[]>([]);
     const [appointments, setAppointments] = useState<AgendaAppointment[]>([]);
@@ -375,7 +376,7 @@ export default function PagosPage() {
                 <div className="min-w-0">
                     <h1 className="text-2xl font-bold agenda-pagos-title">{AGENDA_FINANCE_PAGE.title}</h1>
                     <p className="text-sm mt-0.5 agenda-pagos-muted">
-                        {AGENDA_FINANCE_PAGE.description}
+                        {`Registra y controla los pagos de tus sesiones y ${vocab.clients}.`}
                     </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

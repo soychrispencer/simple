@@ -488,3 +488,31 @@ export const agendaNotificationEvents = pgTable('agenda_notification_events', {
   appointmentIdx: index('agenda_notification_events_appointment_idx').on(table.appointmentId),
   createdAtIdx: index('agenda_notification_events_created_at_idx').on(table.createdAt),
 }));
+
+/** Same table as monolith schema — Relationship Engine timeline. */
+export const timelineEvents = pgTable('timeline_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  type: varchar('type', { length: 80 }).notNull(),
+  occurredAt: timestamp('occurred_at').notNull().defaultNow(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  businessId: uuid('business_id').notNull(),
+  personKind: varchar('person_kind', { length: 40 }),
+  personId: varchar('person_id', { length: 80 }),
+  subjectKind: varchar('subject_kind', { length: 60 }).notNull(),
+  subjectId: varchar('subject_id', { length: 80 }).notNull(),
+  actor: varchar('actor', { length: 40 }).notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown> | null>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  businessPersonOccurredIdx: index('timeline_events_business_person_occurred_idx').on(
+    table.businessId,
+    table.personId,
+    table.occurredAt,
+  ),
+  businessSubjectIdx: index('timeline_events_business_subject_idx').on(
+    table.businessId,
+    table.subjectKind,
+    table.subjectId,
+  ),
+  businessOccurredIdx: index('timeline_events_business_occurred_idx').on(table.businessId, table.occurredAt),
+}));

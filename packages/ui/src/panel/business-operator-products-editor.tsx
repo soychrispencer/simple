@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react';
 import {
     createOperatorProduct,
@@ -65,7 +66,13 @@ function validateProductForm(form: ProductForm): string | null {
     return validateOperatorProductPromoPrice(form.price, form.promoPrice);
 }
 
-function BusinessOperatorProductsEditorContent({ vertical }: { vertical: PublicProfileVertical }) {
+function BusinessOperatorProductsEditorContent({
+    vertical,
+    createHref,
+}: {
+    vertical: PublicProfileVertical;
+    createHref?: string;
+}) {
     const categories = useMemo(() => getOperatorProductCategories(vertical), [vertical]);
     const { confirm } = usePanelConfirm();
     const [loading, setLoading] = useState(true);
@@ -92,6 +99,7 @@ function BusinessOperatorProductsEditorContent({ vertical }: { vertical: PublicP
     }, [load]);
 
     function openCreate() {
+        if (createHref) return;
         setEditingId(null);
         setForm(EMPTY_FORM);
         setFormOpen(true);
@@ -112,6 +120,7 @@ function BusinessOperatorProductsEditorContent({ vertical }: { vertical: PublicP
     }
 
     async function handleSave() {
+        if (createHref && !editingId) return;
         const validationError = validateProductForm(form);
         if (validationError) {
             setError(validationError);
@@ -159,18 +168,26 @@ function BusinessOperatorProductsEditorContent({ vertical }: { vertical: PublicP
     }
 
     const activeCount = items.filter((item) => item.isActive).length;
+    const createButton = createHref ? (
+        <Link href={createHref} className="inline-flex">
+            <PanelButton type="button">
+                <IconPlus size={16} />
+                Publicar producto
+            </PanelButton>
+        </Link>
+    ) : (
+        <PanelButton type="button" onClick={openCreate}>
+            <IconPlus size={16} />
+            Agregar producto
+        </PanelButton>
+    );
 
     return (
         <div className="space-y-6">
             <PanelBlockHeader
                 title={BUSINESS_CATALOG_EDITOR_PRODUCTS_SECTION.title}
                 description={BUSINESS_CATALOG_EDITOR_PRODUCTS_SECTION.description}
-                actions={(
-                    <PanelButton type="button" onClick={openCreate}>
-                        <IconPlus size={16} />
-                        Agregar producto
-                    </PanelButton>
-                )}
+                actions={createButton}
             />
 
             {error ? <PanelNotice tone="warning">{error}</PanelNotice> : null}
@@ -180,13 +197,10 @@ function BusinessOperatorProductsEditorContent({ vertical }: { vertical: PublicP
             ) : items.length === 0 && !formOpen ? (
                 <PanelEmptyState
                     title="Sin productos todavía"
-                    description="Agrega accesorios, repuestos o artículos que vendas junto a tu negocio."
-                    action={(
-                        <PanelButton type="button" onClick={openCreate}>
-                            <IconPlus size={16} />
-                            Crear primer producto
-                        </PanelButton>
-                    )}
+                    description={createHref
+                        ? 'Crea el primero desde Publicar. Aquí podrás editar stock, precios y visibilidad.'
+                        : 'Agrega accesorios, repuestos o artículos que vendas junto a tu negocio.'}
+                    action={createButton}
                 />
             ) : (
                 <PanelList>
@@ -215,7 +229,7 @@ function BusinessOperatorProductsEditorContent({ vertical }: { vertical: PublicP
                 </PanelList>
             )}
 
-            {formOpen ? (
+            {formOpen && (!createHref || editingId) ? (
                 <PanelCard size="lg" className="space-y-4 p-4 md:p-6">
                     <PanelBlockHeader
                         title={editingId ? 'Editar producto' : 'Nuevo producto'}
@@ -268,10 +282,16 @@ function BusinessOperatorProductsEditorContent({ vertical }: { vertical: PublicP
     );
 }
 
-export function BusinessOperatorProductsEditor({ vertical }: { vertical: PublicProfileVertical }) {
+export function BusinessOperatorProductsEditor({
+    vertical,
+    createHref,
+}: {
+    vertical: PublicProfileVertical;
+    createHref?: string;
+}) {
     return (
         <PanelConfirmProvider>
-            <BusinessOperatorProductsEditorContent vertical={vertical} />
+            <BusinessOperatorProductsEditorContent vertical={vertical} createHref={createHref} />
         </PanelConfirmProvider>
     );
 }

@@ -84,6 +84,13 @@ function ClientHome(props: Parameters<typeof HomeView>[0]) {
 
     return (
         <div className="grid gap-4">
+            <PanelCard size="md" className="bg-accent-soft/40">
+                <p className="text-sm font-semibold text-fg">Tu espacio de contratante</p>
+                <p className="mt-1 text-sm text-fg-muted">
+                    Aquí ves solo lo tuyo: solicitudes en curso, fechas próximas y cierres pendientes. No es el panel del mariachi.
+                </p>
+            </PanelCard>
+
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <PanelStatCard label="Contratadas" value={String(props.serenatas.length)} />
                 <PanelStatCard label="En proceso" value={String(pending.length)} />

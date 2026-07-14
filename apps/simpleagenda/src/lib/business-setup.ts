@@ -6,6 +6,8 @@ import {
     fetchAgendaServices,
     hasAgendaFullAccess,
 } from '@/lib/agenda-api';
+import { resolveAgendaOperatorFields } from '@simple/utils';
+import { buildAgendaVocabFromSubtype } from '@/lib/vocabulary';
 
 export type AgendaBusinessSetupStatus = {
     steps: BusinessSetupStep[];
@@ -28,6 +30,12 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
         fetchAgendaAvailability().catch(() => ({ rules: [], blockedSlots: [] })),
     ]);
 
+    const operator = resolveAgendaOperatorFields({
+        accountKind: profile?.accountKind,
+        operatorSubtype: profile?.operatorSubtype,
+        profession: profile?.profession,
+    });
+    const vocab = buildAgendaVocabFromSubtype(operator.operatorSubtype);
     const billing: PanelBillingAccess = profile && hasAgendaFullAccess(profile)
         ? {
             status: profile.plan === 'pro' || profile.plan === 'enterprise' ? 'pro' : 'trial',
@@ -52,7 +60,7 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
         {
             id: 'perfil',
             label: 'Perfil público',
-            description: 'Nombre, profesión y contacto visible para tus pacientes.',
+            description: `Nombre, profesión y contacto visible para tus ${vocab.clients}.`,
             href: '/panel/mi-negocio',
             complete: hasProfile,
         },
@@ -60,7 +68,7 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
             id: 'servicios',
             label: 'Servicios y sesiones',
             description: 'Define qué ofreces y a qué precio.',
-            href: '/panel/mi-negocio/servicios',
+            href: '/panel/mis-servicios',
             complete: hasServices,
         },
         {
@@ -73,7 +81,7 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
         {
             id: 'cobros',
             label: 'Medios de pago',
-            description: 'Indica cómo te pagan tus pacientes.',
+            description: `Indica cómo te pagan tus ${vocab.clients}.`,
             href: '/panel/mi-negocio/configuraciones',
             complete: hasPayments,
         },

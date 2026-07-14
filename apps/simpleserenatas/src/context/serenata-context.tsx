@@ -42,6 +42,7 @@ export type Section =
     | 'serenatas'
     | 'guardados'
     | 'solicitudes'
+    | 'contactos'
     | 'mi-negocio'
     | 'servicios'
     | 'groups'
@@ -368,7 +369,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         query?: Record<string, string | null | undefined>,
     ) => {
         const normalized =
-            next === 'servicios' || next === 'groups'
+            next === 'groups'
                 ? 'mi-negocio'
                 : next === 'grupos'
                   ? 'mariachis'

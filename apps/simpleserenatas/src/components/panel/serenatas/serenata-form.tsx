@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -22,7 +22,7 @@ import {
     SerenataFormResponsiveLayout,
 } from '../serenata-form-layout';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
-import { panelMiNegocioHref } from '@/lib/panel-routes';
+import { panelMiNegocioHref, panelSectionHref } from '@/lib/panel-routes';
 import {
     OWNER_COLLECTION_METHOD_OPTIONS,
     type OwnerCollectionMethod,
@@ -336,7 +336,7 @@ export function SerenataForm({
             {hasMariachi && !servicesLoading && activeServices.length === 0 ? (
                 <PanelNotice tone="warning">
                     Crea al menos un servicio con precio en{' '}
-                    <Link href={panelMiNegocioHref('servicios')} prefetch={false} className="font-medium text-accent underline">
+                    <Link href={panelSectionHref('servicios')} prefetch={false} className="font-medium text-accent underline">
                         Mi negocio → Servicios
                     </Link>
                     .

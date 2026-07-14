@@ -9,7 +9,8 @@ export type PlatformCapability =
     | 'calendar'
     | 'booking'
     | 'payments'
-    | 'availability';
+    | 'availability'
+    | 'portal';
 
 /** Tipo de publicación (UI: “¿Qué quieres publicar?”). */
 export type PublishType = 'sale' | 'rent' | 'auction' | 'project' | 'service' | 'product';
@@ -50,7 +51,7 @@ export const VERTICAL_CONFIG_NORTH: Record<'agenda' | 'serenatas', VerticalConfi
         id: 'serenatas',
         name: 'SimpleSerenatas',
         publishTypes: ['service', 'product'],
-        capabilities: ['publications', 'calendar', 'payments', 'messages', 'availability'],
+        capabilities: ['publications', 'calendar', 'payments', 'messages', 'availability', 'portal'],
     },
 };
 

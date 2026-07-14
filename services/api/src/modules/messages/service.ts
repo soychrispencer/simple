@@ -2,9 +2,77 @@ import { eq, and, or, desc, asc } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { MessageThreadListingDisplay } from './message-thread-context.js';
 import type { MessageEntryRecord, MessageSenderRole, MessageThreadRecord } from './row-mappers.js';
+import { agendaAppointments, timelineEvents } from '../../db/schema.js';
+import {
+    agendaClientPerson,
+    emitTimelineEvent,
+} from '../platform/timeline-events.js';
+import type { TimelineVertical } from '@simple/utils';
 
 export type MessageFolder = 'inbox' | 'archived' | 'spam';
 export type { MessageThreadRecord, MessageEntryRecord, MessageSenderRole };
+
+async function resolveTimelineRefsForThread(
+    deps: MessageServiceDeps,
+    thread: MessageThreadRecord,
+): Promise<{
+    businessId: string;
+    person: ReturnType<typeof agendaClientPerson> | { id: string; kind: 'user' };
+}> {
+    if (
+        thread.vertical === 'agenda'
+        && thread.contextType === 'agenda_appointment'
+        && thread.contextId
+    ) {
+        try {
+            const appt = await deps.db.query.agendaAppointments.findFirst({
+                where: deps.eq(agendaAppointments.id, thread.contextId),
+            });
+            if (appt?.professionalId) {
+                return {
+                    businessId: appt.professionalId,
+                    person: agendaClientPerson(appt.clientId) ?? { id: thread.buyerUserId, kind: 'user' },
+                };
+            }
+        } catch (error) {
+            console.error('[timeline] resolve agenda message refs failed', error);
+        }
+    }
+    return {
+        businessId: thread.ownerUserId,
+        person: { id: thread.buyerUserId, kind: 'user' },
+    };
+}
+
+function emitMessageTimeline(
+    deps: MessageServiceDeps,
+    thread: MessageThreadRecord,
+    type: 'conversation.started' | 'conversation.message_sent' | 'lead.opened',
+    actor: 'professional' | 'buyer' | 'client',
+    subjectId: string,
+    payload?: Record<string, unknown>,
+): void {
+    void resolveTimelineRefsForThread(deps, thread).then((refs) => {
+        const vertical = (['agenda', 'serenatas', 'autos', 'propiedades'].includes(thread.vertical)
+            ? thread.vertical
+            : 'platform') as TimelineVertical;
+        emitTimelineEvent(deps.db, timelineEvents, {
+            type,
+            business: { vertical, id: refs.businessId },
+            person: refs.person,
+            subject: { kind: 'message_thread', id: subjectId },
+            actor,
+            payload: {
+                contextType: thread.contextType,
+                contextId: thread.contextId,
+                listingId: thread.listingId,
+                ...payload,
+            },
+        });
+    }).catch((error: unknown) => {
+        console.error('[timeline] message emit failed', type, error);
+    });
+}
 
 export type MessageServiceDeps = {
     db: any;
@@ -274,7 +342,12 @@ export async function createMessageThread(
         createdAt: now,
         updatedAt: now,
     }).returning();
-    return deps.mapMessageThreadRow(rows[0]);
+    const thread = deps.mapMessageThreadRow(rows[0]);
+    emitMessageTimeline(deps, thread, 'conversation.started', 'buyer', thread.id, { source: 'listing' });
+    if (thread.vertical === 'autos' || thread.vertical === 'propiedades') {
+        emitMessageTimeline(deps, thread, 'lead.opened', 'buyer', thread.id, { source: 'listing' });
+    }
+    return thread;
 }
 
 export async function createContextMessageThread(
@@ -304,7 +377,12 @@ export async function createContextMessageThread(
         createdAt: now,
         updatedAt: now,
     }).returning();
-    return deps.mapMessageThreadRow(rows[0]);
+    const thread = deps.mapMessageThreadRow(rows[0]);
+    emitMessageTimeline(deps, thread, 'conversation.started', 'buyer', thread.id, {
+        source: 'context',
+        contextType: input.contextType,
+    });
+    return thread;
 }
 
 export async function createMessageEntry(
@@ -325,7 +403,24 @@ export async function createMessageEntry(
         body: input.body,
         createdAt,
     }).returning();
-    return deps.mapMessageEntryRow(rows[0]);
+    const entry = deps.mapMessageEntryRow(rows[0]);
+    void deps.db.query.messageThreads.findFirst({
+        where: deps.eq(deps.tables.messageThreads.id, input.threadId),
+    }).then((row: any) => {
+        if (!row) return;
+        const thread = deps.mapMessageThreadRow(row);
+        emitMessageTimeline(
+            deps,
+            thread,
+            'conversation.message_sent',
+            input.senderRole === 'seller' ? 'professional' : 'buyer',
+            input.threadId,
+            { entryId: entry.id, senderRole: input.senderRole },
+        );
+    }).catch((error: unknown) => {
+        console.error('[timeline] message entry emit failed', error);
+    });
+    return entry;
 }
 
 async function updateMessageThreadRecord(

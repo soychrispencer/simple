@@ -3,7 +3,7 @@ export const FINANCE_NAV_LABEL = 'Finanzas' as const;
 
 export const AGENDA_FINANCE_PAGE = {
     title: FINANCE_NAV_LABEL,
-    description: 'Registra y controla los pagos de tus sesiones y pacientes.',
+    description: 'Registra y controla los pagos de tus sesiones y clientes.',
 } as const;
 
 export const SERENATAS_FINANCE_PAGE = {

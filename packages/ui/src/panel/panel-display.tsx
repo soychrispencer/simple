@@ -60,6 +60,7 @@ export type PanelFieldProps = {
     label: string;
     hint?: string;
     required?: boolean;
+    icon?: ReactNode;
     children: ReactNode;
     className?: string;
 };
@@ -296,12 +297,16 @@ export function PanelAccountProfileCard(props: PanelAccountProfileCardProps) {
 }
 
 export function PanelField(props: PanelFieldProps) {
-    const { label, hint, required, children, className } = props;
+    const { label, hint, required, icon, children, className } = props;
     const fieldId = useId();
     return (
         <div className={joinClasses('flex flex-col gap-1.5', className)}>
-            <label htmlFor={fieldId} className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
-                {label}{required ? <span style={{ color: 'var(--color-error)' }} className="ml-0.5">*</span> : null}
+            <label htmlFor={fieldId} className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
+                {icon ? <span className="inline-flex shrink-0 text-[var(--fg-muted)]" aria-hidden>{icon}</span> : null}
+                <span>
+                    {label}
+                    {required ? <span style={{ color: 'var(--color-error)' }} className="ml-0.5">*</span> : null}
+                </span>
             </label>
             {React.isValidElement(children)
                 ? React.cloneElement(children as React.ReactElement<Record<string, unknown>>, { id: fieldId })

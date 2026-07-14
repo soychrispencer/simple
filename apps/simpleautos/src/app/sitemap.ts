@@ -15,8 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         { url: `${BASE_URL}/contacto`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
         { url: `${BASE_URL}/faq`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
         { url: `${BASE_URL}/servicios`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-        { url: `${BASE_URL}/precalificacion-financiamiento`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.65 },
-        { url: `${BASE_URL}/simulador-financiamiento`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
+        { url: `${BASE_URL}/simulador-credito-automotriz`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.65 },
         { url: `${BASE_URL}/terminos`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.2 },
         { url: `${BASE_URL}/privacidad`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.2 },
     ];

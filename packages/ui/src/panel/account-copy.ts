@@ -30,7 +30,7 @@ export const ACCOUNT_SECURITY_PAGE = {
 
 export const ACCOUNT_REFERRALS_PAGE = {
     title: 'Referidos',
-    description: 'Seguimiento de recomendaciones de pacientes y link para invitar colegas.',
+    description: 'Seguimiento de recomendaciones de clientes y link para invitar colegas.',
 } as const;
 
 export const ACCOUNT_INTEGRATIONS_PAGE = {

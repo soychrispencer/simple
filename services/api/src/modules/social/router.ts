@@ -1,5 +1,8 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { timelineEvents } from '../../db/schema.js';
+import { emitTimelineEvent } from '../platform/timeline-events.js';
+import type { TimelineVertical } from '@simple/utils';
 
 export interface SocialRouterDeps {
     authUser: (c: Context) => Promise<any>;
@@ -20,6 +23,11 @@ export interface SocialRouterDeps {
     getPublishedSellerProfile: (userId: string, vertical: any) => any;
     usernameFromName: (name: string) => string;
     formatAgo: (ts: number) => string;
+}
+
+function asMarketplaceVertical(value: unknown): TimelineVertical | null {
+    if (value === 'autos' || value === 'propiedades') return value;
+    return null;
 }
 
 export function createSocialRouter(deps: SocialRouterDeps) {
@@ -89,6 +97,20 @@ export function createSocialRouter(deps: SocialRouterDeps) {
                 listingId,
                 savedAt: new Date(),
             });
+            const vertical = asMarketplaceVertical(targetListing.vertical);
+            if (vertical && targetListing.ownerId && targetListing.ownerId !== user.id) {
+                emitTimelineEvent(db, timelineEvents, {
+                    type: 'engagement.saved',
+                    business: { vertical, id: targetListing.ownerId },
+                    person: { id: user.id, kind: 'user' },
+                    subject: { kind: 'listing', id: listingId },
+                    actor: 'buyer',
+                    payload: {
+                        listingId,
+                        listingTitle: targetListing.title ?? null,
+                    },
+                });
+            }
         }
 
         const items = await getSavedListingsByUser(user.id);
@@ -210,6 +232,17 @@ export function createSocialRouter(deps: SocialRouterDeps) {
                 vertical,
                 followedAt: new Date(),
             });
+            const marketVertical = asMarketplaceVertical(vertical);
+            if (marketVertical) {
+                emitTimelineEvent(db, timelineEvents, {
+                    type: 'engagement.followed',
+                    business: { vertical: marketVertical, id: followeeUserId },
+                    person: { id: user.id, kind: 'user' },
+                    subject: { kind: 'public_profile', id: followeeUserId },
+                    actor: 'buyer',
+                    payload: { followeeUserId },
+                });
+            }
         }
 
         const updated = await getFollowsByUser(user.id);
@@ -225,4 +258,3 @@ export function createSocialRouter(deps: SocialRouterDeps) {
 
     return app;
 }
-

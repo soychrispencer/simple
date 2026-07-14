@@ -81,5 +81,7 @@ export type BusinessCatalogServiceEditorProps<
     onNotice?: (message: string) => void;
     onItemsChange?: (items: T[]) => void;
     toolbarSummary?: (items: T[]) => string;
+    /** Si existe, “Nuevo” navega a Publicar en lugar de abrir el formulario de alta. */
+    createHref?: string;
     className?: string;
 };

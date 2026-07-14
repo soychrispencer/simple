@@ -32,6 +32,7 @@ export function BusinessCatalogServiceEditor<
     onNotice,
     onItemsChange,
     toolbarSummary,
+    createHref,
     className = 'w-full space-y-6',
 }: BusinessCatalogServiceEditorProps<T, TForm>) {
     const copy = { ...DEFAULT_CATALOG_SERVICE_EDITOR_COPY, ...copyInput };
@@ -210,7 +211,9 @@ export function BusinessCatalogServiceEditor<
         <div className={className}>
             <BusinessCatalogEditorToolbar
                 summary={summary}
-                onAction={openCreate}
+                actionLabel={copy.actionLabel}
+                onAction={createHref ? undefined : openCreate}
+                actionHref={createHref}
                 hideAction={formOpen}
             />
             {listNotice ? <PanelNotice tone="warning">{listNotice}</PanelNotice> : null}
