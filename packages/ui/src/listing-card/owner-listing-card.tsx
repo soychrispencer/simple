@@ -252,15 +252,18 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
             <div className="marketplace-reel-card__actions w-full">
                 <ShareMenuDropdown />
                 {boostReelButton}
-                <ListingOwnerActions
-                    variant="reel"
-                    secondary={secondaryActions}
-                    busyActionKey={busyActionKey}
-                    menuPlacement="auto"
-                />
             </div>
         </div>
     );
+
+    const ownerIdentityMenu = mode === 'grid' ? (
+        <ListingOwnerActions
+            variant="reel"
+            secondary={secondaryActions}
+            busyActionKey={busyActionKey}
+            menuPlacement="auto"
+        />
+    ) : null;
 
     const reelCard = (
         <MarketplaceReelListingCard
@@ -280,6 +283,7 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
             onNavigate={activate}
             shareText={title}
             footerActions={reelFooterActions}
+            identityMenu={ownerIdentityMenu}
             className={mode === 'grid' ? 'h-full' : mode === 'list' ? 'marketplace-reel-card--owner-list' : undefined}
         />
     );

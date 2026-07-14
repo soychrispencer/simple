@@ -74,6 +74,8 @@ export type MarketplaceReelListingCardProps = {
     /** Vista previa del wizard: misma apariencia, sin navegación ni menús funcionales. */
     preview?: boolean;
     footerActions?: ReactNode;
+    /** Menú ⋮ junto al bloque avatar/precio/título (p. ej. acciones del dueño en panel). */
+    identityMenu?: ReactNode;
     className?: string;
 };
 
@@ -247,6 +249,7 @@ export default function MarketplaceReelListingCard({
     emptyMediaLabel = 'Sin fotos',
     preview = false,
     footerActions,
+    identityMenu,
     className,
 }: MarketplaceReelListingCardProps) {
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
@@ -779,6 +782,21 @@ export default function MarketplaceReelListingCard({
             ) : null}
 
             <div className="marketplace-reel-card__panel absolute inset-x-0 bottom-0 z-10 px-3 pb-2.5 pt-10 sm:px-3.5 sm:pb-3 sm:pt-12">
+                <div className="marketplace-reel-card__meta-row">
+                    <div className="marketplace-reel-card__specs marketplace-reel-card__specs--stack">
+                        <ReelSpecs specs={specs} accent={accent} />
+                        {location ? (
+                            <span className="marketplace-reel-card__spec-stack marketplace-reel-card__spec-stack--location">
+                                <span className="marketplace-reel-card__spec-stack-icon">
+                                    <IconMapPin size={18} stroke={1.75} />
+                                </span>
+                                <span className="marketplace-reel-card__spec-stack-label">
+                                    {shortenListingLocation(location)}
+                                </span>
+                            </span>
+                        ) : null}
+                    </div>
+                </div>
                 <div className="marketplace-reel-card__head">
                     <div className="marketplace-reel-card__identity">
                         {sellerAvatarControl}
@@ -792,25 +810,14 @@ export default function MarketplaceReelListingCard({
                                     <span className="marketplace-reel-card__discount">-{discountPercent}%</span>
                                 ) : null}
                             </div>
-                            <div className="marketplace-reel-card__title-row">
-                                <h3 className="marketplace-reel-card__title">{title}</h3>
-                                {location ? (
-                                    <span className="marketplace-reel-card__location marketplace-reel-card__location--tag">
-                                        <IconMapPin size={10} className="shrink-0" />
-                                        <span>{shortenListingLocation(location)}</span>
-                                    </span>
-                                ) : null}
-                            </div>
+                            <h3 className="marketplace-reel-card__title">{title}</h3>
                         </div>
+                        {identityMenu ? (
+                            <span className="marketplace-reel-card__meta-menu">{identityMenu}</span>
+                        ) : footerActions ? null : (
+                            <span className="marketplace-reel-card__meta-menu">{moreMenuControl}</span>
+                        )}
                     </div>
-                </div>
-                <div className="marketplace-reel-card__meta-row">
-                    <div className="marketplace-reel-card__specs marketplace-reel-card__specs--stack">
-                        <ReelSpecs specs={specs} accent={accent} />
-                    </div>
-                    {footerActions ? null : (
-                        <span className="marketplace-reel-card__meta-menu">{moreMenuControl}</span>
-                    )}
                 </div>
                 {footerActions ? (
                     <div className="marketplace-reel-card__actions marketplace-reel-card__actions--owner">
