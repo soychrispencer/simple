@@ -313,8 +313,8 @@ import {
     toNullIfEmpty,
 } from './modules/public-profile/normalize.js';
 import { createPublicProfilePresentation } from './modules/public-profile/presentation.js';
-import { fetchPublishedOperatorCatalog, searchPublicOperatorCatalog } from './modules/public-profile/operator-services.js';
-import { fetchPublishedOperatorProducts, mountOperatorProductsRoutes, searchPublicOperatorProducts } from './modules/public-profile/operator-products.js';
+import { fetchPublishedOperatorCatalog, getPublicOperatorServiceById, searchPublicOperatorCatalog } from './modules/public-profile/operator-services.js';
+import { fetchPublishedOperatorProducts, getPublicOperatorProductById, mountOperatorProductsRoutes, searchPublicOperatorProducts } from './modules/public-profile/operator-products.js';
 import { buildMarketplaceOperatorAnalytics } from './modules/public-profile/operator-analytics.js';
 import { isMarketplaceVertical } from './modules/public-profile/marketplace-plan-limits.js';
 import {
@@ -2397,6 +2397,8 @@ app.route('/api/public', createPublicRouter({
     buildPublicProfileResponse,
     searchPublicOperatorCatalog: (input) => searchPublicOperatorCatalog(operatorServicesDbDeps, input),
     searchPublicOperatorProducts: (input) => searchPublicOperatorProducts(operatorProductsDbDeps, input),
+    getPublicOperatorServiceById: (input) => getPublicOperatorServiceById(operatorServicesDbDeps, input),
+    getPublicOperatorProductById: (input) => getPublicOperatorProductById(operatorProductsDbDeps, input),
     geocodeLocationRequestSchema,
     normalizeListingLocation,
     geocodeLocationRemotely,

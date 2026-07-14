@@ -58,7 +58,7 @@ const PANEL_NAV_ITEMS: PanelNavItem[] = [
 
     { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
 
-    { href: '/panel/publicaciones', label: 'Publicaciones', icon: IconFileText },
+    { href: '/panel/publicaciones', label: 'Mis publicaciones', icon: IconFileText },
 
     { href: '/panel/publicar', label: 'Nueva publicación', icon: IconPlus },
 

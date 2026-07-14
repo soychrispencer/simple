@@ -42,10 +42,12 @@ export function BusinessProductPublicCard({
     item,
     vertical,
     showConsult = true,
+    href,
 }: {
     item: BusinessProductPublicCardData;
     vertical: PublicProfileVertical;
     showConsult?: boolean;
+    href?: string;
 }) {
     const imageSrc = resolveProductCardImage(item);
     const priceLabel = formatOperatorProductPrice({
@@ -56,17 +58,25 @@ export function BusinessProductPublicCard({
     const categoryLabel = resolveOperatorProductCategoryLabel(vertical, item.category);
     const hasPromo = Boolean(item.promoPrice);
     const consultHref = item.consultHref ?? item.providerHref ?? null;
+    const titleNode = href ? (
+        <Link href={href} className="text-base font-semibold text-fg hover:underline">{item.name}</Link>
+    ) : (
+        <h3 className="text-base font-semibold text-fg">{item.name}</h3>
+    );
 
     return (
         <PanelCard size="md" className="flex h-full flex-col gap-4 p-4">
             <div className={`relative aspect-[4/3] w-full ${BUSINESS_CATALOG_IMAGE_FRAME_CLASS}`}>
+                {href ? (
+                    <Link href={href} className="absolute inset-0 z-1" aria-label={item.name} />
+                ) : null}
                 {imageSrc ? (
                     <Image src={imageSrc} alt={item.name} fill className={BUSINESS_CATALOG_IMAGE_MEDIA_CLASS} sizes="(max-width:768px) 100vw, 33vw" unoptimized />
                 ) : (
                     <div className="flex h-full items-center justify-center text-sm text-fg-muted">Sin imagen</div>
                 )}
                 {hasPromo ? (
-                    <div className="absolute left-3 top-3">
+                    <div className="absolute left-3 top-3 z-2">
                         <PanelStatusBadge label="Oferta" tone="info" size="sm" />
                     </div>
                 ) : null}
@@ -74,7 +84,7 @@ export function BusinessProductPublicCard({
             <div className="flex flex-1 flex-col gap-3 pt-0.5">
                 <div className="space-y-1.5">
                     <p className="text-xs font-medium uppercase tracking-wide text-fg-muted">{categoryLabel}</p>
-                    <h3 className="text-base font-semibold text-fg">{item.name}</h3>
+                    {titleNode}
                     {item.description ? <p className="line-clamp-2 text-sm leading-6 text-fg-secondary">{item.description}</p> : null}
                 </div>
                 <div className="mt-auto space-y-2">

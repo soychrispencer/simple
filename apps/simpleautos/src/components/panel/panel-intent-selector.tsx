@@ -27,14 +27,14 @@ const OPTIONS: IntentOption[] = [
         key: 'products',
         title: 'Vender productos',
         description: 'Accesorios, repuestos, stickers y más en tu tienda.',
-        href: '/panel/mi-negocio/productos',
+        href: '/panel/publicar?op=product',
         icon: <IconShoppingBag size={18} />,
     },
     {
         key: 'services',
         title: 'Ofrecer servicios',
         description: 'Lavado, taller, detailing u otros servicios automotrices.',
-        href: '/panel/mi-negocio/servicios',
+        href: '/panel/publicar?op=service',
         icon: <IconTool size={18} />,
     },
 ];

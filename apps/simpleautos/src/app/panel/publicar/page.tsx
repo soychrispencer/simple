@@ -13,7 +13,7 @@ import {
     arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable, } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-    IconArrowLeft, IconArrowRight, IconCheck, IconCamera, IconPhoto, IconX, IconUpload, IconMapPin, IconCurrencyDollar, IconCar, IconMotorbike, IconTruck, IconBus, IconTractor, IconAnchor, IconPlane, IconTag, IconKey, IconHammer, IconSparkles, IconShare3, IconBrandWhatsapp, IconLoader2, IconPlus, IconTrash, IconGripVertical, IconStar, IconGauge, IconEngine, IconSteeringWheel, IconRocket, IconCalendar, IconGasStation, IconManualGearbox, IconBrandInstagram, IconExternalLink, IconLock, IconVideo, IconCalculator,
+    IconArrowLeft, IconArrowRight, IconCheck, IconCamera, IconPhoto, IconX, IconUpload, IconMapPin, IconCurrencyDollar, IconCar, IconMotorbike, IconTruck, IconBus, IconTractor, IconAnchor, IconPlane, IconTag, IconKey, IconHammer, IconTool, IconBox, IconSparkles, IconShare3, IconBrandWhatsapp, IconLoader2, IconPlus, IconTrash, IconGripVertical, IconStar, IconGauge, IconEngine, IconSteeringWheel, IconRocket, IconCalendar, IconGasStation, IconManualGearbox, IconBrandInstagram, IconExternalLink, IconLock, IconVideo, IconCalculator,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import {
@@ -28,7 +28,7 @@ import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishPhotoProcessNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPhotoProcessProgress, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
-import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, vehicleAppearanceOptionsForType, vehicleTechEquipmentOptionsForType, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags } from '@simple/utils';
+import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, vehicleAppearanceOptionsForType, vehicleTechEquipmentOptionsForType, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, type PublishType } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
 import { ModernSelect } from '@simple/ui/forms';
@@ -52,7 +52,7 @@ const PublishLocationMap = dynamic(() => import('@/components/map/publish-locati
 // =============================================================================
 
 type Step = 1 | 2 | 3 | 4 | 'success';
-type ListingType = 'sale' | 'rent' | 'auction';
+type ListingType = PublishType;
 
 interface FormData {
     // Paso 1: Identidad
@@ -69,6 +69,8 @@ interface FormData {
     price: string;
     offerPrice: string;
     discountPercent: string;
+    catalogCategory: string;
+    servicePricingMode: 'fixed' | 'quote';
     
     // Paso 2: Estado (expandible)
     mileage: string;
@@ -126,6 +128,8 @@ const EMPTY_FORM: FormData = {
     price: '',
     offerPrice: '',
     discountPercent: '',
+    catalogCategory: 'other',
+    servicePricingMode: 'fixed',
     mileage: '',
     color: '',
     interiorColor: '',
@@ -219,6 +223,21 @@ const AUTOS_STEP_COPY: Record<number, { title: string; description: string }> = 
 };
 
 function buildAutosPreviewCardProps(form: FormData, catalog: PublishWizardCatalog | null): SimplePublishPreviewCardProps {
+    if (isCatalogPublishType(form.listingType)) {
+        const priceDigits = parseDigits(form.price);
+        const price = form.listingType === 'service' && form.servicePricingMode === 'quote'
+            ? 'A cotizar'
+            : (priceDigits ? `$${formatClPriceInput(priceDigits)}` : '$Consultar');
+        return {
+            title: form.title.trim() || (form.listingType === 'service' ? 'Nuevo servicio' : 'Nuevo producto'),
+            location: form.listingType === 'service' ? 'Servicio' : 'Producto',
+            badge: form.listingType === 'service' ? 'Servicio' : 'Producto',
+            price,
+            coverUrl: form.photos.find((p) => p.isCover)?.preview || form.photos[0]?.preview,
+            specs: [],
+            ctaLabel: 'Ver detalle',
+        };
+    }
     const brandName = form.brandId === '__custom__' ? form.customBrand : catalog?.brands.find((b) => b.id === form.brandId)?.name || '';
     const modelName = form.modelId === '__custom__' ? form.customModel : catalog?.models.find((m) => m.id === form.modelId)?.name || '';
     const title = form.title || [brandName, modelName, form.year].filter(Boolean).join(' ') || 'Título del aviso';
@@ -290,11 +309,16 @@ const VEHICLE_TYPES = [
     { value: 'aerial', label: 'Aéreo', Icon: IconPlane },
 ] as const;
 
-const LISTING_TYPES = [
-    { value: 'sale', label: 'Venta', Icon: IconTag },
-    { value: 'rent', label: 'Arriendo', Icon: IconKey },
-    { value: 'auction', label: 'Subasta', Icon: IconHammer },
-] as const;
+const PUBLISH_TYPE_ICONS: Record<PublishType, typeof IconTag> = {
+    sale: IconTag,
+    rent: IconKey,
+    auction: IconHammer,
+    project: IconRocket,
+    service: IconTool,
+    product: IconBox,
+};
+
+const AUTOS_PUBLISH_TYPE_OPTIONS = getPublishTypeDefinitions(getVerticalConfig('autos').publishTypes);
 
 const FUEL_TYPES = ['Bencina', 'Diésel', 'Eléctrico', 'Híbrido', 'Gas'];
 const TRANSMISSIONS = ['Manual', 'Automática', 'CVT', 'Secuencial', 'DCT / DSG', 'Tiptronic'];
@@ -412,15 +436,24 @@ function requiresVehicleCondition(listingType: FormData['listingType']): boolean
 
 function validateAutosStep(step: 1 | 2 | 3 | 4, form: FormData): Record<string, string> {
     const errors: Record<string, string> = {};
+    const isCatalog = isCatalogPublishType(form.listingType);
 
     if (step === 1) {
-        if (form.photos.length < 1) errors.photos = '';
+        if (!isCatalog && form.photos.length < 1) errors.photos = '';
         if (form.videoExternalUrl.trim() && !isSupportedExternalVideoUrl(form.videoExternalUrl.trim())) {
             errors.video = '';
         }
     }
 
     if (step === 2) {
+        if (isCatalog) {
+            if (!form.title.trim()) errors.title = '';
+            if (form.listingType === 'product' && !parseDigits(form.price)) errors.price = '';
+            if (form.listingType === 'service' && form.servicePricingMode === 'fixed' && !parseDigits(form.price)) {
+                errors.price = '';
+            }
+            return errors;
+        }
         if (!form.brandId) {
             errors.brandId = '';
         } else if (form.brandId === '__custom__' && !form.customBrand.trim()) {
@@ -689,9 +722,18 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
 
     useEffect(() => {
         if (!operatorDefaultsReady || operatorDefaultsApplied || isEditing || draftLoaded || !operatorDefaults?.autos) return;
-        setForm((current) => ({ ...current, listingType: operatorDefaults.autos!.listingType }));
+        setForm((current) => {
+            if (isCatalogPublishType(current.listingType)) return current;
+            return { ...current, listingType: operatorDefaults.autos!.listingType };
+        });
         setOperatorDefaultsApplied(true);
     }, [operatorDefaultsReady, operatorDefaults, operatorDefaultsApplied, isEditing, draftLoaded]);
+
+    useEffect(() => {
+        const op = searchParams.get('op');
+        if (op !== 'service' && op !== 'product') return;
+        setForm((current) => ({ ...current, listingType: op }));
+    }, [searchParams]);
     
     const updateForm = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
         setForm(prev => ({ ...prev, [key]: value }));
@@ -795,7 +837,11 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
             return;
         }
         setPublishError(null);
-        const nextStep = (step + 1) as AutosPublishStep;
+        const nextStep = (
+            isCatalogPublishType(form.listingType) && step === 2
+                ? 4
+                : (step + 1)
+        ) as AutosPublishStep;
         const saved = await saveDraft(false, nextStep);
         if (!saved) return;
         setFieldErrors({});
@@ -820,6 +866,72 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                     scrollToFirstPublishError({ delayMs: 80 });
                     return;
                 }
+            }
+
+            if (isCatalogPublishType(form.listingType)) {
+                let imageUrl: string | undefined;
+                const cover = form.photos.find((p) => p.isCover) ?? form.photos[0];
+                if (cover?.file) {
+                    const uploadResult = await uploadMediaFile(cover.file, { fileType: 'image' });
+                    if (!uploadResult.ok || !uploadResult.result) {
+                        setPublishError(uploadResult.error || 'No se pudo subir la foto.');
+                        return;
+                    }
+                    imageUrl = uploadResult.result.publicUrl || uploadResult.result.url;
+                } else if (cover?.preview && !cover.preview.startsWith('blob:')) {
+                    imageUrl = cover.preview;
+                }
+
+                const name = form.title.trim();
+                const description = form.description.trim() || null;
+                const priceDigits = parseDigits(form.price);
+
+                if (form.listingType === 'service') {
+                    const result = await createOperatorService('autos', {
+                        name,
+                        description,
+                        imageUrl: imageUrl ?? null,
+                        category: form.catalogCategory || 'other',
+                        pricingMode: form.servicePricingMode,
+                        price: form.servicePricingMode === 'quote' ? null : (priceDigits || null),
+                        currency: 'CLP',
+                        isActive: true,
+                    });
+                    if (!result.ok || !result.item) {
+                        setPublishError(result.error || 'No se pudo publicar el servicio.');
+                        return;
+                    }
+                    const publication = operatorServiceToPublication(result.item, { verticalId: 'autos' });
+                    setPublished({
+                        id: publication.id,
+                        title: publication.title,
+                        href: publication.href,
+                        hasVideo: false,
+                    });
+                } else {
+                    const result = await createOperatorProduct('autos', {
+                        name,
+                        description,
+                        imageUrl: imageUrl ?? null,
+                        category: form.catalogCategory || 'other',
+                        price: priceDigits,
+                        currency: 'CLP',
+                        isActive: true,
+                    });
+                    if (!result.ok || !result.item) {
+                        setPublishError(result.error || 'No se pudo publicar el producto.');
+                        return;
+                    }
+                    const publication = operatorProductToPublication(result.item, { verticalId: 'autos' });
+                    setPublished({
+                        id: publication.id,
+                        title: publication.title,
+                        href: publication.href,
+                        hasVideo: false,
+                    });
+                }
+                setStep('success');
+                return;
             }
 
             // PASO 1: Subir fotos primero
@@ -1257,30 +1369,34 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                         {step === 2 && (
                             <div className="space-y-5">
                                 <Step1PhotosAndIdentity form={form} updateForm={updateForm} catalog={catalog} section="identity" operatorContext={operatorContext as AutosOperatorPublishContext} fieldErrors={fieldErrors} />
-                                <StepAutosLocation
-                                    location={form.location}
-                                    onLocationChange={(next) => updateForm('location', next)}
-                                    addressBook={addressBook}
-                                    addressBookLoading={addressBookLoading}
-                                    onAddressBookChange={setAddressBook}
-                                    communes={locationCommunes}
-                                    geocoding={geocoding}
-                                    onGeocodeLocation={() => void handleGeocodeLocation()}
-                                    googleMapsApiKey={googleMapsApiKey}
-                                    fieldErrors={fieldErrors}
-                                />
-                                <StepAutosPrice
-                                    form={form}
-                                    updateForm={updateForm}
-                                    estimate={estimate}
-                                    estimating={estimating}
-                                    valuationRequest={valuationRequest}
-                                    onRunValuation={runValuation}
-                                    fieldErrors={fieldErrors}
-                                />
+                                {!isCatalogPublishType(form.listingType) ? (
+                                    <>
+                                        <StepAutosLocation
+                                            location={form.location}
+                                            onLocationChange={(next) => updateForm('location', next)}
+                                            addressBook={addressBook}
+                                            addressBookLoading={addressBookLoading}
+                                            onAddressBookChange={setAddressBook}
+                                            communes={locationCommunes}
+                                            geocoding={geocoding}
+                                            onGeocodeLocation={() => void handleGeocodeLocation()}
+                                            googleMapsApiKey={googleMapsApiKey}
+                                            fieldErrors={fieldErrors}
+                                        />
+                                        <StepAutosPrice
+                                            form={form}
+                                            updateForm={updateForm}
+                                            estimate={estimate}
+                                            estimating={estimating}
+                                            valuationRequest={valuationRequest}
+                                            onRunValuation={runValuation}
+                                            fieldErrors={fieldErrors}
+                                        />
+                                    </>
+                                ) : null}
                             </div>
                         )}
-                        {step === 3 && (
+                        {step === 3 && !isCatalogPublishType(form.listingType) && (
                             <StepAutosDetails
                                 form={form}
                                 updateForm={updateForm}
@@ -1288,11 +1404,21 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                             />
                         )}
                         {step === 4 && (
+                            isCatalogPublishType(form.listingType) ? (
+                                <SimplePublishSection title="Revisión">
+                                    <div className="space-y-2 text-sm text-(--fg)">
+                                        <p><span className="text-(--fg-muted)">Tipo:</span> {form.listingType === 'service' ? 'Servicio' : 'Producto'}</p>
+                                        <p><span className="text-(--fg-muted)">Nombre:</span> {form.title || '—'}</p>
+                                        <p><span className="text-(--fg-muted)">Precio:</span> {form.listingType === 'service' && form.servicePricingMode === 'quote' ? 'A cotizar' : (form.price ? `$${form.price}` : '—')}</p>
+                                    </div>
+                                </SimplePublishSection>
+                            ) : (
                             <StepAutosPublish
                                 form={form}
                                 updateForm={updateForm}
                                 catalog={catalog}
                             />
+                            )
                         )}
                         <SimplePublishCtaCard
                             label={step === 4
@@ -1731,26 +1857,98 @@ function Step1PhotosAndIdentity({
             {showIdentity ? (
             <>
             
-            <SimplePublishSection title="Operación">
-                <div className="grid grid-cols-3 gap-2">
-                    {LISTING_TYPES.map(({ value, label, Icon }) => (
+            <SimplePublishSection title={PUBLISH_SELECTOR_TITLE}>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {AUTOS_PUBLISH_TYPE_OPTIONS.map((option) => {
+                        const Icon = PUBLISH_TYPE_ICONS[option.type];
+                        return (
                         <PanelChoiceCard
-                            key={value}
-                            onClick={() => updateForm('listingType', value as ListingType)}
-                            selected={form.listingType === value}
+                            key={option.type}
+                            onClick={() => updateForm('listingType', option.type)}
+                            selected={form.listingType === option.type}
                             className="h-16 px-2 text-center"
                         >
                             <div className="flex h-full flex-col items-center justify-center gap-1.5">
                                 <span className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0 panel-publish-icon">
                                     <Icon size={15} />
                                 </span>
-                                <span className="text-xs font-medium leading-none">{label}</span>
+                                <span className="text-xs font-medium leading-none">{option.label}</span>
                             </div>
                         </PanelChoiceCard>
-                    ))}
+                        );
+                    })}
                 </div>
             </SimplePublishSection>
 
+            {isCatalogPublishType(form.listingType) ? (
+                <SimplePublishSection title={form.listingType === 'service' ? 'Datos del servicio' : 'Datos del producto'}>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="mb-1.5 block text-sm font-medium text-(--fg)">Nombre<SimplePublishRequiredMark /></label>
+                            <input
+                                type="text"
+                                value={form.title}
+                                onChange={(e) => updateForm('title', e.target.value)}
+                                placeholder={form.listingType === 'service' ? 'Ej. Lavado premium' : 'Ej. Cubre asientos'}
+                                className={`form-input${autosInvalidClass(fieldErrors, 'title')}`}
+                            />
+                        </div>
+                        {form.listingType === 'service' ? (
+                            <div className="grid grid-cols-2 gap-2">
+                                <PanelChoiceCard
+                                    selected={form.servicePricingMode === 'fixed'}
+                                    onClick={() => updateForm('servicePricingMode', 'fixed')}
+                                    className="h-12 px-3 text-sm"
+                                >
+                                    Precio fijo
+                                </PanelChoiceCard>
+                                <PanelChoiceCard
+                                    selected={form.servicePricingMode === 'quote'}
+                                    onClick={() => updateForm('servicePricingMode', 'quote')}
+                                    className="h-12 px-3 text-sm"
+                                >
+                                    A cotizar
+                                </PanelChoiceCard>
+                            </div>
+                        ) : null}
+                        {form.listingType === 'product' || form.servicePricingMode === 'fixed' ? (
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-(--fg)">Precio<SimplePublishRequiredMark /></label>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={form.price}
+                                    onChange={(e) => updateForm('price', formatClPriceInput(e.target.value))}
+                                    placeholder="0"
+                                    className={`form-input${autosInvalidClass(fieldErrors, 'price')}`}
+                                />
+                            </div>
+                        ) : null}
+                        <div>
+                            <label className="mb-1.5 block text-sm font-medium text-(--fg)">Categoría</label>
+                            <ModernSelect
+                                value={form.catalogCategory}
+                                onChange={(v) => updateForm('catalogCategory', v)}
+                                options={(form.listingType === 'service'
+                                    ? getOperatorServiceCategories('autos')
+                                    : getOperatorProductCategories('autos')
+                                ).map((item) => ({ value: item.id, label: item.label }))}
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1.5 block text-sm font-medium text-(--fg)">Descripción</label>
+                            <textarea
+                                rows={3}
+                                value={form.description}
+                                onChange={(e) => updateForm('description', e.target.value.slice(0, 1000))}
+                                placeholder="Opcional"
+                                className="form-input resize-y min-h-[88px]"
+                            />
+                        </div>
+                    </div>
+                </SimplePublishSection>
+            ) : (
+            <>
             <SimplePublishSection title="Tipo de vehículo">
                 <VehicleTypePicker
                     value={form.vehicleType}
@@ -1842,6 +2040,8 @@ function Step1PhotosAndIdentity({
                     <AutosFuelAndTransmissionFields form={form} updateForm={updateForm} />
                 </div>
             </SimplePublishSection>
+            </>
+            )}
             </>
             ) : null}
         </div>

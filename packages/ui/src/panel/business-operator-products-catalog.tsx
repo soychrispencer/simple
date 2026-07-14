@@ -29,11 +29,13 @@ export function BusinessOperatorProductsCatalog({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {products.map((item) => {
                 const provider = showProvider ? item.provider : null;
+                const detailHref = showProvider ? `/productos/${encodeURIComponent(item.id)}` : undefined;
                 return (
                     <BusinessProductPublicCard
                         key={item.id}
                         vertical={vertical}
                         showConsult={showConsult}
+                        href={detailHref}
                         item={{
                             id: item.id,
                             name: item.name,

@@ -14,7 +14,7 @@ export type PublishFormData = {
     photos: PublishFormPhoto[];
     reelVideo: { id: string; preview: string; name: string; mimeType: string; sizeBytes: number } | null;
     videoExternalUrl: string;
-    listingType: 'sale' | 'rent' | 'auction';
+    listingType: 'sale' | 'rent' | 'auction' | 'service' | 'product';
     vehicleType: VehicleCatalogType;
     brandId: string;
     customBrand: string;
@@ -24,6 +24,8 @@ export type PublishFormData = {
     price: string;
     offerPrice: string;
     discountPercent: string;
+    catalogCategory: string;
+    servicePricingMode: 'fixed' | 'quote';
     mileage: string;
     color: string;
     interiorColor: string;
@@ -173,6 +175,8 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
         price: priceDigits,
         offerPrice: offerDigits,
         discountPercent: '',
+        catalogCategory: 'other',
+        servicePricingMode: 'fixed',
         mileage: basic.mileage != null ? String(basic.mileage) : '',
         color: asString(basic.color) || asString(basic.exteriorColor),
         interiorColor: asString(basic.interiorColor),

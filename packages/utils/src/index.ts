@@ -78,3 +78,4 @@ export * from './marketplace-assist.js';
 export * from './listing-card-specs.js';
 export * from './publish/index.js';
 export * from './simple-publish/index.js';
+export * from './platform/index.js';

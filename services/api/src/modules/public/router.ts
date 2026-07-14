@@ -45,6 +45,14 @@ export interface PublicRouterDeps {
         commune?: string;
         limit?: number;
     }) => Promise<unknown[]>;
+    getPublicOperatorServiceById?: (input: {
+        vertical: 'autos' | 'propiedades';
+        id: string;
+    }) => Promise<unknown | null>;
+    getPublicOperatorProductById?: (input: {
+        vertical: 'autos' | 'propiedades';
+        id: string;
+    }) => Promise<unknown | null>;
     geocodeLocationRequestSchema: any;
     normalizeListingLocation: (location: any) => any;
     geocodeLocationRemotely: (location: any) => Promise<any>;
@@ -83,6 +91,8 @@ export function createPublicRouter(deps: PublicRouterDeps) {
         buildPublicProfileResponse,
         searchPublicOperatorCatalog,
         searchPublicOperatorProducts,
+        getPublicOperatorServiceById,
+        getPublicOperatorProductById,
         geocodeLocationRequestSchema,
         normalizeListingLocation,
         geocodeLocationRemotely,
@@ -204,6 +214,20 @@ export function createPublicRouter(deps: PublicRouterDeps) {
         });
     });
 
+    app.get('/services/:id', async (c) => {
+        const vertical = parseVertical(c.req.query('vertical'));
+        if (vertical !== 'autos' && vertical !== 'propiedades') {
+            return c.json({ ok: false, error: 'Vertical inválida' }, 400);
+        }
+        const id = c.req.param('id') ?? '';
+        if (!id || !getPublicOperatorServiceById) {
+            return c.json({ ok: false, error: 'Servicio no encontrado' }, 404);
+        }
+        const item = await getPublicOperatorServiceById({ vertical, id });
+        if (!item) return c.json({ ok: false, error: 'Servicio no encontrado' }, 404);
+        return c.json({ ok: true, item });
+    });
+
     app.get('/products', async (c) => {
         const vertical = parseVertical(c.req.query('vertical'));
         if (vertical !== 'autos' && vertical !== 'propiedades') {
@@ -221,6 +245,20 @@ export function createPublicRouter(deps: PublicRouterDeps) {
             limit: parseNumberFromString(c.req.query('limit')) ?? 48,
         });
         return c.json({ ok: true, products, items: products });
+    });
+
+    app.get('/products/:id', async (c) => {
+        const vertical = parseVertical(c.req.query('vertical'));
+        if (vertical !== 'autos' && vertical !== 'propiedades') {
+            return c.json({ ok: false, error: 'Vertical inválida' }, 400);
+        }
+        const id = c.req.param('id') ?? '';
+        if (!id || !getPublicOperatorProductById) {
+            return c.json({ ok: false, error: 'Producto no encontrado' }, 404);
+        }
+        const item = await getPublicOperatorProductById({ vertical, id });
+        if (!item) return c.json({ ok: false, error: 'Producto no encontrado' }, 404);
+        return c.json({ ok: true, item });
     });
 
     app.post('/locations/geocode', async (c) => {

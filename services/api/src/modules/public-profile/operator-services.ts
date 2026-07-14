@@ -134,6 +134,24 @@ async function resolveProfileId(deps: OperatorServicesDeps, user: { id: string; 
     return profile?.id ?? null;
 }
 
+/** Lead al minuto: si el perfil draft aún no es público, publicarlo al crear el primer ítem de catálogo. */
+async function ensureProfilePublishedForCatalog(
+    deps: OperatorServicesDeps,
+    profileId: string,
+) {
+    const { db, dbHelpers: { eq }, tables } = deps;
+    const [profile] = await db.select().from(tables.publicProfiles)
+        .where(eq(tables.publicProfiles.id, profileId))
+        .limit(1);
+    if (!profile || profile.isPublished) return;
+    const displayName = typeof profile.displayName === 'string' && profile.displayName.trim()
+        ? profile.displayName.trim()
+        : 'Mi tienda';
+    await db.update(tables.publicProfiles)
+        .set({ isPublished: true, displayName, updatedAt: new Date() })
+        .where(eq(tables.publicProfiles.id, profileId));
+}
+
 export async function fetchPublishedOperatorCatalog(
     deps: Pick<OperatorServicesDeps, 'db' | 'dbHelpers' | 'tables'>,
     profileId: string,
@@ -284,6 +302,33 @@ export async function searchPublicOperatorServices(
     }));
 }
 
+export async function getPublicOperatorServiceById(
+    deps: Pick<OperatorServicesDeps, 'db' | 'dbHelpers' | 'tables'>,
+    input: { vertical: Vertical; id: string },
+) {
+    const { db, dbHelpers: { eq, and }, tables } = deps;
+    const [row] = await db
+        .select({
+            service: tables.marketplaceOperatorServices,
+            profile: tables.publicProfiles,
+        })
+        .from(tables.marketplaceOperatorServices)
+        .innerJoin(tables.publicProfiles, eq(tables.marketplaceOperatorServices.publicProfileId, tables.publicProfiles.id))
+        .where(and(
+            eq(tables.marketplaceOperatorServices.id, input.id),
+            eq(tables.marketplaceOperatorServices.vertical, input.vertical),
+            eq(tables.marketplaceOperatorServices.isActive, true),
+            eq(tables.publicProfiles.isPublished, true),
+            eq(tables.publicProfiles.vertical, input.vertical),
+        ))
+        .limit(1);
+    if (!row) return null;
+    return {
+        ...mapServiceRow(row.service),
+        provider: mapProvider(row.profile),
+    };
+}
+
 export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDeps) {
     const {
         authUser,
@@ -345,6 +390,9 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
             isActive: body.isActive !== false,
             position: asNumber(body.position) ?? 0,
         }).returning();
+        if (body.isActive !== false) {
+            await ensureProfilePublishedForCatalog(deps, ctx.profileId);
+        }
         return c.json({ ok: true, item: mapServiceRow(row) });
     });
 

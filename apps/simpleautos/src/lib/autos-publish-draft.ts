@@ -128,7 +128,12 @@ export function mergeAutosPublishDraft(raw: unknown): { form: PublishFormData; s
             }
             : null,
         videoExternalUrl: data.videoExternalUrl ?? '',
-        listingType: data.listingType ?? 'sale',
+        listingType: data.listingType === 'rent'
+            || data.listingType === 'auction'
+            || data.listingType === 'service'
+            || data.listingType === 'product'
+            ? data.listingType
+            : 'sale',
         vehicleType: data.vehicleType ?? 'car',
         brandId: data.brandId ?? '',
         customBrand: data.customBrand ?? '',
@@ -138,6 +143,8 @@ export function mergeAutosPublishDraft(raw: unknown): { form: PublishFormData; s
         price: data.price ?? '',
         offerPrice: data.offerPrice ?? '',
         discountPercent: data.discountPercent ?? '',
+        catalogCategory: typeof data.catalogCategory === 'string' ? data.catalogCategory : 'other',
+        servicePricingMode: data.servicePricingMode === 'quote' ? 'quote' : 'fixed',
         mileage: data.mileage ?? '',
         color: data.color ?? '',
         interiorColor: typeof data.interiorColor === 'string' ? data.interiorColor : '',

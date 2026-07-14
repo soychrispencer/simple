@@ -68,3 +68,11 @@ export async function fetchPublicOperatorProducts(
         error: data?.ok ? undefined : (data?.error ?? 'No se pudieron cargar los productos.'),
     };
 }
+
+export async function fetchPublicOperatorProductById(vertical: PublicProfileVertical, id: string) {
+    const params = new URLSearchParams({ vertical });
+    const { data } = await apiFetch<{ ok: boolean; item?: PublicOperatorProductItem; error?: string }>(
+        `/api/public/products/${encodeURIComponent(id)}?${params.toString()}`,
+    );
+    return { ok: Boolean(data?.ok), item: data?.item, error: data?.error };
+}

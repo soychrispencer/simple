@@ -154,3 +154,11 @@ export async function fetchPublicOperatorServices(
     const { catalog } = await fetchPublicOperatorCatalog(vertical, filters);
     return catalog.services;
 }
+
+export async function fetchPublicOperatorServiceById(vertical: PublicProfileVertical, id: string) {
+    const params = new URLSearchParams({ vertical });
+    const { data } = await apiFetch<{ ok: boolean; item?: PublicOperatorServiceItem; error?: string }>(
+        `/api/public/services/${encodeURIComponent(id)}?${params.toString()}`,
+    );
+    return { ok: Boolean(data?.ok), item: data?.item, error: data?.error };
+}

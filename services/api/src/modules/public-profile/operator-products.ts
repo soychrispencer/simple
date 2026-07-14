@@ -77,6 +77,23 @@ async function resolveProfileId(deps: OperatorProductsDeps, user: { id: string; 
     return profile?.id ?? null;
 }
 
+async function ensureProfilePublishedForCatalog(
+    deps: OperatorProductsDeps,
+    profileId: string,
+) {
+    const { db, dbHelpers: { eq }, tables } = deps;
+    const [profile] = await db.select().from(tables.publicProfiles)
+        .where(eq(tables.publicProfiles.id, profileId))
+        .limit(1);
+    if (!profile || profile.isPublished) return;
+    const displayName = typeof profile.displayName === 'string' && profile.displayName.trim()
+        ? profile.displayName.trim()
+        : 'Mi tienda';
+    await db.update(tables.publicProfiles)
+        .set({ isPublished: true, displayName, updatedAt: new Date() })
+        .where(eq(tables.publicProfiles.id, profileId));
+}
+
 export async function fetchPublishedOperatorProducts(
     deps: Pick<OperatorProductsDeps, 'db' | 'dbHelpers' | 'tables'>,
     profileId: string,
@@ -137,6 +154,33 @@ export async function searchPublicOperatorProducts(
     }));
 }
 
+export async function getPublicOperatorProductById(
+    deps: Pick<OperatorProductsDeps, 'db' | 'dbHelpers' | 'tables'>,
+    input: { vertical: Vertical; id: string },
+) {
+    const { db, dbHelpers: { eq, and }, tables } = deps;
+    const [row] = await db
+        .select({
+            product: tables.marketplaceOperatorProducts,
+            profile: tables.publicProfiles,
+        })
+        .from(tables.marketplaceOperatorProducts)
+        .innerJoin(tables.publicProfiles, eq(tables.marketplaceOperatorProducts.publicProfileId, tables.publicProfiles.id))
+        .where(and(
+            eq(tables.marketplaceOperatorProducts.id, input.id),
+            eq(tables.marketplaceOperatorProducts.vertical, input.vertical),
+            eq(tables.marketplaceOperatorProducts.isActive, true),
+            eq(tables.publicProfiles.isPublished, true),
+            eq(tables.publicProfiles.vertical, input.vertical),
+        ))
+        .limit(1);
+    if (!row) return null;
+    return {
+        ...mapProductRow(row.product),
+        provider: mapProvider(row.profile),
+    };
+}
+
 export function mountOperatorProductsRoutes(app: Hono, deps: OperatorProductsDeps) {
     const {
         authUser,
@@ -194,6 +238,9 @@ export function mountOperatorProductsRoutes(app: Hono, deps: OperatorProductsDep
             isActive: body.isActive !== false,
             position: asNumber(body.position) ?? 0,
         }).returning();
+        if (body.isActive !== false) {
+            await ensureProfilePublishedForCatalog(deps, ctx.profileId);
+        }
         return c.json({ ok: true, item: mapProductRow(row) });
     });
 

@@ -17,7 +17,7 @@ const PRIMARY_HREF = '/panel/publicar';
 
 const items = [
     { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
-    { href: '/panel/publicaciones', label: 'Publicaciones', icon: IconFileText },
+    { href: '/panel/publicaciones', label: 'Mis publicaciones', icon: IconFileText },
     { href: PRIMARY_HREF, label: 'Publicar', icon: IconPlus },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
     createPanelAccountNavItem(IconUser),

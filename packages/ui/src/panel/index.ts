@@ -516,6 +516,10 @@ export {
     type BusinessProductPublicCardData,
 } from './business-product-public-card.js';
 export { MarketplacePublicServicesPage } from './marketplace-public-services-page.js';
+export { CatalogServiceDetailPage } from './catalog-service-detail-page.js';
+export { CatalogProductDetailPage } from './catalog-product-detail-page.js';
+export { MarketplaceMyCatalogPublications } from './marketplace-my-catalog-publications.js';
+export type { CatalogPublicationKind } from './marketplace-my-catalog-publications.js';
 export { MarketplacePublicProductsPage } from './marketplace-public-products-page.js';
 export { MarketplaceCatalogLocationFilters, type MarketplaceCatalogLocationFiltersProps } from './marketplace-catalog-location-filters.js';
 export { createMarketplaceMiNegocioProductosPage } from './marketplace-mi-negocio-productos-page.js';

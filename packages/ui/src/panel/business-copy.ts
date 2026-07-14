@@ -193,12 +193,12 @@ export const MARKETPLACE_BUSINESS_HORARIOS_PAGE = {
 
 export const MARKETPLACE_BUSINESS_SERVICIOS_PAGE = {
     title: 'Servicios',
-    description: 'Catálogo de servicios, packs y promociones de tu negocio.',
+    description: 'Administra y edita tu catálogo. Para crear uno nuevo, usa Publicar.',
 } as const;
 
 export const MARKETPLACE_BUSINESS_PRODUCTOS_PAGE = {
     title: 'Productos',
-    description: 'Accesorios, repuestos y artículos que vendes — visibles en tu perfil y en el directorio.',
+    description: 'Administra y edita tu catálogo. Para crear uno nuevo, usa Publicar.',
 } as const;
 
 export const MARKETPLACE_PUBLIC_SERVICES_PAGE_COPY = {

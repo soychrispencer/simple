@@ -36,11 +36,14 @@ import {
     IconVideo,
     IconX,
     IconGripVertical,
+    IconTool,
+    IconBox,
+    IconTag,
 } from '@tabler/icons-react';
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
-import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishPhotoProcessNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPhotoProcessProgress, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
+import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishPhotoProcessNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, formatClPriceInput, parseDigits, type SimplePublishPhotoProcessProgress, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
-import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress, PROPERTY_CONDITION_OPTIONS, showsPropertyCondition, normalizePropertyCondition, buildPropertyCardSummaryTags } from '@simple/utils';
+import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress, PROPERTY_CONDITION_OPTIONS, showsPropertyCondition, normalizePropertyCondition, buildPropertyCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, type PublishType } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { abbreviateListingSpecLabel, propertySpecIconForLabel } from '@simple/ui/listings';
@@ -76,7 +79,7 @@ const PublishLocationMap = dynamic(() => import('@/components/map/publish-locati
 
 type StepId = 'media' | 'basics' | 'attributes' | 'publish';
 type PublishedListing = { id: string; href: string; title: string; hasVideo?: boolean };
-type PropertyOperation = 'sale' | 'rent' | 'project';
+type PropertyOperation = PublishType;
 type Currency = 'UF' | 'CLP' | 'USD';
 type ProjectUnitModel = {
     id: string;
@@ -95,6 +98,8 @@ type WizardData = {
     setup: {
         operationType: PropertyOperation;
         propertyType: string;
+        catalogCategory: string;
+        servicePricingMode: 'fixed' | 'quote';
     };
     basic: {
         title: string;
@@ -311,11 +316,21 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
     };
 }
 
-const OPERATION_CARDS: Array<{ value: PropertyOperation; label: string; icon: React.ReactNode }> = [
-    { value: 'sale', label: 'Venta', icon: <IconHome2 size={15} /> },
-    { value: 'rent', label: 'Arriendo', icon: <IconKey size={15} /> },
-    { value: 'project', label: 'Proyecto', icon: <IconBuildingCommunity size={15} /> },
-];
+const PUBLISH_TYPE_ICONS: Record<PublishType, React.ReactNode> = {
+    sale: <IconHome2 size={15} />,
+    rent: <IconKey size={15} />,
+    auction: <IconTag size={15} />,
+    project: <IconBuildingCommunity size={15} />,
+    service: <IconTool size={15} />,
+    product: <IconBox size={15} />,
+};
+
+const OPERATION_CARDS: Array<{ value: PropertyOperation; label: string; icon: React.ReactNode }> =
+    getPublishTypeDefinitions(getVerticalConfig('propiedades').publishTypes).map((def) => ({
+        value: def.type,
+        label: def.label,
+        icon: PUBLISH_TYPE_ICONS[def.type],
+    }));
 
 const PROPERTY_TYPE_CARDS: Array<{ value: string; label: string; icon: React.ReactNode }> = [
     { value: 'Departamento', label: 'Departamento', icon: <IconBuildingSkyscraper size={15} /> },
@@ -592,11 +607,14 @@ function initialAttributeSections(data: WizardData) {
 function getOperationLabel(operationType: PropertyOperation) {
     if (operationType === 'rent') return 'Arriendo';
     if (operationType === 'project') return 'Proyecto';
+    if (operationType === 'service') return 'Servicio';
+    if (operationType === 'product') return 'Producto';
     return 'Venta';
 }
 
 function getDefaultCurrencyForOperation(operationType: PropertyOperation): Currency {
-    return operationType === 'rent' ? 'CLP' : 'UF';
+    if (operationType === 'rent' || isCatalogPublishType(operationType)) return 'CLP';
+    return 'UF';
 }
 
 function createProjectUnitModel(id = 'unit-model-1'): ProjectUnitModel {
@@ -619,6 +637,8 @@ function createDefaultData(): WizardData {
         setup: {
             operationType: 'sale',
             propertyType: 'Departamento',
+            catalogCategory: 'other',
+            servicePricingMode: 'fixed',
         },
         basic: {
             title: '',
@@ -1024,8 +1044,22 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
     const errors: Record<string, string> = {};
 
     if (step === 'basics') {
-        if (!data.setup.propertyType) errors['setup.propertyType'] = '';
         if (!data.setup.operationType) errors['setup.operationType'] = '';
+        if (isCatalogPublishType(data.setup.operationType)) {
+            if (!data.basic.title.trim()) errors['basic.title'] = '';
+            if (data.setup.operationType === 'product' && parseNumber(data.commercial.price) == null) {
+                errors['commercial.price'] = '';
+            }
+            if (
+                data.setup.operationType === 'service'
+                && data.setup.servicePricingMode === 'fixed'
+                && parseNumber(data.commercial.price) == null
+            ) {
+                errors['commercial.price'] = '';
+            }
+            return errors;
+        }
+        if (!data.setup.propertyType) errors['setup.propertyType'] = '';
         if (data.setup.operationType === 'project') {
             if (!data.project.projectName.trim()) errors['project.projectName'] = '';
             if (!data.project.developerName.trim()) errors['project.developerName'] = '';
@@ -1375,20 +1409,27 @@ function StepSetup(props: {
     return (
         <section className="space-y-5">
             <MarketplaceOperatorPublishHint message={operatorHint ?? null} />
-            <SimplePublishSection title="Operación">
-                <div className={`grid grid-cols-3 gap-2 rounded-xl${Object.prototype.hasOwnProperty.call(errors, 'setup.operationType') ? ' ring-2 ring-(--color-error)' : ''}`}>
+            <SimplePublishSection title={PUBLISH_SELECTOR_TITLE}>
+                <div className={`grid grid-cols-2 gap-2 sm:grid-cols-3 rounded-xl${Object.prototype.hasOwnProperty.call(errors, 'setup.operationType') ? ' ring-2 ring-(--color-error)' : ''}`}>
                     {OPERATION_CARDS.map((card) => (
                         <PanelChoiceCard
                             key={card.value}
                             onClick={() => setData((current) => ({
                                 ...current,
-                                setup: { ...current.setup, operationType: card.value },
+                                setup: {
+                                    ...current.setup,
+                                    operationType: card.value,
+                                    catalogCategory: current.setup.catalogCategory || 'other',
+                                    servicePricingMode: current.setup.servicePricingMode || 'fixed',
+                                },
                                 basic: {
                                     ...current.basic,
-                                    condition: normalizePropertyCondition(current.basic.condition, {
-                                        operationType: card.value,
-                                        propertyType: current.setup.propertyType,
-                                    }),
+                                    condition: isCatalogPublishType(card.value)
+                                        ? current.basic.condition
+                                        : normalizePropertyCondition(current.basic.condition, {
+                                            operationType: card.value,
+                                            propertyType: current.setup.propertyType,
+                                        }),
                                 },
                                 commercial: { ...current.commercial, currency: getDefaultCurrencyForOperation(card.value) },
                             }))}
@@ -1408,6 +1449,78 @@ function StepSetup(props: {
                     ))}
                 </div>
             </SimplePublishSection>
+            {isCatalogPublishType(data.setup.operationType) ? (
+                <SimplePublishSection title={data.setup.operationType === 'service' ? 'Datos del servicio' : 'Datos del producto'}>
+                    <div className="space-y-3">
+                        <SimplePublishField label="Nombre" required error={errors['basic.title']}>
+                            <input
+                                className="form-input"
+                                value={data.basic.title}
+                                onChange={(e) => setData((current) => ({
+                                    ...current,
+                                    basic: { ...current.basic, title: e.target.value },
+                                }))}
+                                placeholder={data.setup.operationType === 'service' ? 'Ej. Diseño de interiores' : 'Ej. Cortinas blackout'}
+                            />
+                        </SimplePublishField>
+                        {data.setup.operationType === 'service' ? (
+                            <div className="grid grid-cols-2 gap-2">
+                                <PanelChoiceCard
+                                    selected={data.setup.servicePricingMode === 'fixed'}
+                                    onClick={() => setData((c) => ({ ...c, setup: { ...c.setup, servicePricingMode: 'fixed' } }))}
+                                    className="h-12 px-3 text-sm"
+                                >
+                                    Precio fijo
+                                </PanelChoiceCard>
+                                <PanelChoiceCard
+                                    selected={data.setup.servicePricingMode === 'quote'}
+                                    onClick={() => setData((c) => ({ ...c, setup: { ...c.setup, servicePricingMode: 'quote' } }))}
+                                    className="h-12 px-3 text-sm"
+                                >
+                                    A cotizar
+                                </PanelChoiceCard>
+                            </div>
+                        ) : null}
+                        {data.setup.operationType === 'product' || data.setup.servicePricingMode === 'fixed' ? (
+                            <SimplePublishField label="Precio" required error={errors['commercial.price']}>
+                                <input
+                                    className="form-input"
+                                    inputMode="numeric"
+                                    value={data.commercial.price}
+                                    onChange={(e) => setData((c) => ({
+                                        ...c,
+                                        commercial: { ...c.commercial, price: formatClPriceInput(e.target.value) },
+                                    }))}
+                                    placeholder="0"
+                                />
+                            </SimplePublishField>
+                        ) : null}
+                        <SimplePublishField label="Categoría">
+                            <ModernSelect
+                                value={data.setup.catalogCategory}
+                                onChange={(v) => setData((c) => ({ ...c, setup: { ...c.setup, catalogCategory: v } }))}
+                                options={(data.setup.operationType === 'service'
+                                    ? getOperatorServiceCategories('propiedades')
+                                    : getOperatorProductCategories('propiedades')
+                                ).map((item) => ({ value: item.id, label: item.label }))}
+                            />
+                        </SimplePublishField>
+                        <SimplePublishField label="Descripción">
+                            <textarea
+                                className="form-input resize-y min-h-[88px]"
+                                rows={3}
+                                value={data.basic.description}
+                                onChange={(e) => setData((c) => ({
+                                    ...c,
+                                    basic: { ...c.basic, description: e.target.value.slice(0, 1000) },
+                                }))}
+                                placeholder="Opcional"
+                            />
+                        </SimplePublishField>
+                    </div>
+                </SimplePublishSection>
+            ) : (
+            <>
             <SimplePublishSection title="Tipo de propiedad">
                 <PropertyTypePicker
                     value={data.setup.propertyType}
@@ -1425,6 +1538,8 @@ function StepSetup(props: {
                     invalid={Object.prototype.hasOwnProperty.call(errors, 'setup.propertyType')}
                 />
             </SimplePublishSection>
+            </>
+            )}
         </section>
     );
 }
@@ -2893,6 +3008,8 @@ function StepBasics(props: {
     return (
         <div className="space-y-5">
             <StepSetup data={data} setData={setData} errors={errors} operatorHint={operatorHint} operatorContext={operatorContext} />
+            {!isCatalogPublishType(data.setup.operationType) ? (
+                <>
             <StepBasic
                 data={data}
                 setData={setData}
@@ -2931,6 +3048,8 @@ function StepBasics(props: {
                 compact
                 {...commercialProps}
             />
+                </>
+            ) : null}
         </div>
     );
 }
@@ -3253,6 +3372,24 @@ export default function PublishWizardPage() {
     const [step, setStep] = useState<StepId>('media');
     const [data, setData] = useState<WizardData>(() => createDefaultData());
     const [operatorDefaultsApplied, setOperatorDefaultsApplied] = useState(false);
+
+    useEffect(() => {
+        const op = searchParams.get('op');
+        if (op !== 'service' && op !== 'product') return;
+        setData((current) => ({
+            ...current,
+            setup: {
+                ...current.setup,
+                operationType: op,
+                catalogCategory: current.setup.catalogCategory || 'other',
+                servicePricingMode: current.setup.servicePricingMode || 'fixed',
+            },
+            commercial: {
+                ...current.commercial,
+                currency: 'CLP',
+            },
+        }));
+    }, [searchParams]);
     const [draftLoaded, setDraftLoaded] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [photoProcessProgress, setPhotoProcessProgress] = useState<SimplePublishPhotoProcessProgress | null>(null);
@@ -3598,6 +3735,10 @@ export default function PublishWizardPage() {
             const saved = await saveDraft(false);
             if (!saved) return;
             setErrors({});
+            if (isCatalogPublishType(data.setup.operationType) && step === 'basics') {
+                setStep('publish');
+                return;
+            }
             setStep(STEPS[stepIndex + 1].id);
         }
     };
@@ -3697,6 +3838,64 @@ export default function PublishWizardPage() {
         setData((current) => ({ ...current, review: { ...current.review, acceptTerms: true } }));
 
         try {
+        if (isCatalogPublishType(data.setup.operationType)) {
+            let imageUrl: string | undefined;
+            const cover = data.media.photos.find((p) => p.isCover) ?? data.media.photos[0];
+            if (cover?.dataUrl) {
+                if (cover.dataUrl.startsWith('data:')) {
+                    const blob = await fetch(cover.dataUrl).then((r) => r.blob());
+                    const file = new File([blob], cover.name, { type: cover.mimeType });
+                    const uploadResult = await uploadMediaFile(file, { fileType: 'image' });
+                    if (!uploadResult.ok || !uploadResult.result) {
+                        setMessage(uploadResult.error || 'No se pudo subir la foto.');
+                        return;
+                    }
+                    imageUrl = uploadResult.result.publicUrl || uploadResult.result.url;
+                } else {
+                    imageUrl = cover.dataUrl;
+                }
+            }
+            const name = data.basic.title.trim();
+            const description = data.basic.description.trim() || null;
+            const priceDigits = parseDigits(data.commercial.price);
+            if (data.setup.operationType === 'service') {
+                const result = await createOperatorService('propiedades', {
+                    name,
+                    description,
+                    imageUrl: imageUrl ?? null,
+                    category: data.setup.catalogCategory || 'other',
+                    pricingMode: data.setup.servicePricingMode,
+                    price: data.setup.servicePricingMode === 'quote' ? null : (priceDigits || null),
+                    currency: 'CLP',
+                    isActive: true,
+                });
+                if (!result.ok || !result.item) {
+                    setMessage(result.error || 'No se pudo publicar el servicio.');
+                    return;
+                }
+                const publication = operatorServiceToPublication(result.item, { verticalId: 'propiedades' });
+                setPublished({ id: publication.id, href: publication.href, title: publication.title, hasVideo: false });
+            } else {
+                const result = await createOperatorProduct('propiedades', {
+                    name,
+                    description,
+                    imageUrl: imageUrl ?? null,
+                    category: data.setup.catalogCategory || 'other',
+                    price: priceDigits,
+                    currency: 'CLP',
+                    isActive: true,
+                });
+                if (!result.ok || !result.item) {
+                    setMessage(result.error || 'No se pudo publicar el producto.');
+                    return;
+                }
+                const publication = operatorProductToPublication(result.item, { verticalId: 'propiedades' });
+                setPublished({ id: publication.id, href: publication.href, title: publication.title, hasVideo: false });
+            }
+            void deletePanelListingDraft('propiedades');
+            return;
+        }
+
         // Subir media a Cloudflare R2 si aún está en base64
         const uploadedPhotos: PanelMediaAsset[] = [];
         for (const photo of data.media.photos) {
@@ -3972,7 +4171,7 @@ export default function PublishWizardPage() {
                         googleMapsApiKey={googleMapsApiKey}
                     />
                 )}
-                {step === 'attributes' && (
+                {step === 'attributes' && !isCatalogPublishType(data.setup.operationType) && (
                     <StepAttributes
                         data={data}
                         setData={setData}

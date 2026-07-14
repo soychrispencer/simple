@@ -74,7 +74,7 @@ export function BusinessOperatorServiceCatalog({
             <BusinessServicePublicCard
                 key={item.id}
                 vertical={vertical}
-                href={showProvider ? item.provider.profileHref : undefined}
+                href={showProvider ? `/servicios/${encodeURIComponent(item.id)}` : undefined}
                 item={{
                     id: item.id,
                     name: item.name,

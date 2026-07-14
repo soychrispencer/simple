@@ -51,13 +51,15 @@ import {
 import { InstagramTemplatePreview } from '@simple/ui/integrations';
 import { PanelIconButton } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
-import { PanelButton, PanelNotice, PanelPillNav, PanelSegmentedToggle, PanelStatusBadge, PanelScrollModal, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
+import { PanelButton, PanelNotice, PanelPillNav, PanelSegmentedToggle, PanelStatusBadge, PanelScrollModal, MarketplaceMyCatalogPublications, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
+import type { CatalogPublicationKind } from '@simple/ui/panel';
 import { OwnerListingCard, LISTING_SOCIAL_VERTICAL_ASPECT, orderVehicleCardTags } from '@simple/ui/listings';
 import type { OwnerListingAction, OwnerListingStatus, ListingVariant } from '@simple/ui/listings';
 
 const PORTAL_ORDER: PortalKey[] = ['yapo', 'chileautos', 'mercadolibre', 'facebook'];
 
 type FilterKey = 'all' | 'active' | 'review_required' | 'paused' | 'sold' | 'draft';
+type KindTab = 'listings' | 'services' | 'products';
 type ManagedStatus = Extract<ListingStatus, 'draft' | 'active' | 'paused' | 'sold'>;
 
 const STATUS_LABELS: Record<Exclude<ListingStatus, 'sold'>, string> = {
@@ -174,6 +176,7 @@ export default function PublicacionesPage() {
         }
     }, [viewMode]);
     const [filter, setFilter] = useState<FilterKey>('all');
+    const [kindTab, setKindTab] = useState<KindTab>('listings');
     const [instagramPublications, setInstagramPublications] = useState<InstagramPublicationView[]>([]);
     const [actionMenuOpenId, setActionMenuOpenId] = useState<string | null>(null);
     const [shareMenuOpenId, setShareMenuOpenId] = useState<string | null>(null);
@@ -937,10 +940,16 @@ export default function PublicacionesPage() {
         <div className="container-app panel-page py-4 lg:py-8">
             <PanelSectionHeader
                 title="Mis publicaciones"
-                description={`${listings.length} publicaciones en total`}
+                description={kindTab === 'listings'
+                    ? `${listings.length} avisos en total`
+                    : 'Administra lo creado desde Publicar'}
                 actions={
                     <Link
-                        href="/panel/publicar"
+                        href={kindTab === 'services'
+                            ? '/panel/publicar?op=service'
+                            : kindTab === 'products'
+                                ? '/panel/publicar?op=product'
+                                : '/panel/publicar'}
                         className={getPanelButtonClassName({ size: 'sm', className: 'h-9 px-4 text-sm' })}
                         style={getPanelButtonStyle('primary')}
                     >
@@ -948,6 +957,30 @@ export default function PublicacionesPage() {
                     </Link>
                 }
             />
+
+            <div className="mb-4">
+                <PanelPillNav
+                    items={[
+                        { key: 'listings', label: 'Avisos' },
+                        { key: 'services', label: 'Servicios' },
+                        { key: 'products', label: 'Productos' },
+                    ]}
+                    activeKey={kindTab}
+                    onChange={(key) => setKindTab(key as KindTab)}
+                    ariaLabel="Tipo de publicación"
+                    breakpoint="sm"
+                    showMobileDropdown={false}
+                    size="sm"
+                />
+            </div>
+
+            {kindTab === 'services' || kindTab === 'products' ? (
+                <MarketplaceMyCatalogPublications
+                    vertical="autos"
+                    kind={kindTab as CatalogPublicationKind}
+                />
+            ) : (
+            <>
 
             {notice ? <PanelNotice className="mb-4">{notice}</PanelNotice> : null}
 
@@ -1024,6 +1057,9 @@ export default function PublicacionesPage() {
                     ))}
                 </div>
             ) : null}
+
+            </>
+            )}
 
             {/* Instagram Preview Modal */}
             {instagramPreviewOpen && previewListing && (
