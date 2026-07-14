@@ -212,8 +212,8 @@ export function simular(input: SimuladorInput): ResultadoSimulacion {
       : capacidadMensualDisponible * plazoMeses;
 
   // Pie mínimo sugerido según tipo y antigüedad del vehículo.
-  let pieMinimoSugeridoPct = LIMITES.pieMinNuevoPct;
-  let plazoMaxSugerido = LIMITES.plazoMaxMeses;
+  let pieMinimoSugeridoPct: number = LIMITES.pieMinNuevoPct;
+  let plazoMaxSugerido: number = LIMITES.plazoMaxMeses;
   if (input.tipoVehiculo === 'usado') {
     if (antiguedad > LIMITES.antiguedadVehiculoAltaAnios) {
       pieMinimoSugeridoPct = LIMITES.pieMinUsadoAntiguoPct;

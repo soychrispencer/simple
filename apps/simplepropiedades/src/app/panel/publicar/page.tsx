@@ -1023,16 +1023,17 @@ function buildEditPayload(listing: PanelListing): { data: WizardData; valuationE
 }
 
 function buildValuationRequest(data: WizardData): PropertyValuationRequest | null {
-    if (data.setup.operationType === 'project') return null;
+    if (data.setup.operationType !== 'sale' && data.setup.operationType !== 'rent') return null;
     const areaM2 = parseNumber(data.basic.totalArea);
     if (!data.setup.propertyType || !data.location.regionId || !data.location.communeId || !data.location.addressLine1 || areaM2 == null) return null;
 
     const age = parseNumber(data.basic.propertyAge);
     const currentYear = new Date().getFullYear();
     const inferredYearBuilt = age != null ? Math.max(1900, currentYear - age) : null;
+    const operationType = data.setup.operationType;
 
     return {
-        operationType: data.setup.operationType,
+        operationType,
         propertyType: data.setup.propertyType,
         regionId: data.location.regionId,
         communeId: data.location.communeId,
@@ -3168,8 +3169,11 @@ function StepTour360Field(props: { data: WizardData; setData: WizardSetter; erro
 }
 
 function buildPropertyCopyInput(data: WizardData, communes: Array<{ id: string; name: string }>) {
+    const operationType = data.setup.operationType === 'sale' || data.setup.operationType === 'rent' || data.setup.operationType === 'project'
+        ? data.setup.operationType
+        : 'sale';
     return {
-        operationType: data.setup.operationType,
+        operationType,
         propertyType: data.setup.propertyType,
         rooms: data.basic.rooms,
         bathrooms: data.basic.bathrooms,
@@ -3666,21 +3670,7 @@ export default function PublishWizardPage() {
     useEffect(() => {
         if (step !== 'publish') return;
         if (data.basic.title.trim() && data.basic.description.trim()) return;
-        const copyInput = {
-            operationType: data.setup.operationType,
-            propertyType: data.setup.propertyType,
-            rooms: data.basic.rooms,
-            bathrooms: data.basic.bathrooms,
-            totalArea: data.basic.totalArea,
-            usableArea: data.basic.usableArea,
-            communeName: data.location.communeName,
-            regionName: data.location.regionName,
-            priceLabel: buildPriceLabel(data),
-            condition: data.basic.condition,
-            projectName: data.project.projectName,
-            developerName: data.project.developerName,
-            platformName: 'SimplePropiedades',
-        };
+        const copyInput = buildPropertyCopyInput(data, []);
         setData((current) => ({
             ...current,
             basic: {
@@ -3782,8 +3772,16 @@ export default function PublishWizardPage() {
                 location: normalizedLocation,
             };
 
+            const listingType = (
+                finalData.setup.operationType === 'sale'
+                || finalData.setup.operationType === 'rent'
+                || finalData.setup.operationType === 'auction'
+                || finalData.setup.operationType === 'project'
+                    ? finalData.setup.operationType
+                    : 'sale'
+            ) as import('@/lib/panel-listings').ListingSection;
             const payload = {
-                listingType: finalData.setup.operationType,
+                listingType,
                 title: finalData.basic.title.trim() || 'Sin título',
                 description: finalData.basic.description.trim(),
                 priceLabel: buildPriceLabel(finalData),
@@ -4088,8 +4086,16 @@ export default function PublishWizardPage() {
             },
         };
 
+        const listingType = (
+            data.setup.operationType === 'sale'
+            || data.setup.operationType === 'rent'
+            || data.setup.operationType === 'auction'
+            || data.setup.operationType === 'project'
+                ? data.setup.operationType
+                : 'sale'
+        ) as import('@/lib/panel-listings').ListingSection;
         const payload = {
-            listingType: data.setup.operationType,
+            listingType,
             title: data.basic.title.trim(),
             description: data.basic.description.trim(),
             priceLabel: buildPriceLabel(data),

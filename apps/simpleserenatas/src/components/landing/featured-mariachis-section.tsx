@@ -211,7 +211,7 @@ export function FeaturedMariachisSection({
                             <PublicProviderGroupCard
                                 key={group.id}
                                 group={group}
-                                href={profileHrefWithDate(group.slug, date)}
+                                href={profileHrefWithDate(group.slug ?? group.id, date ?? '')}
                                 onOpen={onOpen}
                                 boosted={group.boosted}
                             />

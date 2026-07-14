@@ -26,6 +26,12 @@ export type PublishFormData = {
     discountPercent: string;
     catalogCategory: string;
     servicePricingMode: 'fixed' | 'quote';
+    catalogPromoPrice: string;
+    serviceDurationMinutes: string;
+    serviceIsOnline: boolean;
+    serviceIsPresential: boolean;
+    productStock: string;
+    productSku: string;
     mileage: string;
     color: string;
     interiorColor: string;
@@ -165,7 +171,12 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
         photos,
         reelVideo,
         videoExternalUrl,
-        listingType: listingType === 'rent' || listingType === 'auction' ? listingType : 'sale',
+        listingType: listingType === 'rent'
+            || listingType === 'auction'
+            || listingType === 'service'
+            || listingType === 'product'
+            ? listingType
+            : 'sale',
         vehicleType: (setup.vehicleType as VehicleCatalogType) ?? 'car',
         brandId: asString(basic.brandId),
         customBrand: asString(basic.customBrand),
@@ -177,6 +188,12 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
         discountPercent: '',
         catalogCategory: 'other',
         servicePricingMode: 'fixed',
+        catalogPromoPrice: '',
+        serviceDurationMinutes: '',
+        serviceIsOnline: false,
+        serviceIsPresential: true,
+        productStock: '',
+        productSku: '',
         mileage: basic.mileage != null ? String(basic.mileage) : '',
         color: asString(basic.color) || asString(basic.exteriorColor),
         interiorColor: asString(basic.interiorColor),

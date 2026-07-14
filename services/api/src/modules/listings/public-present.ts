@@ -61,6 +61,15 @@ function parseNumberFromString(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** Coerce JSON payload fields for card summary helpers (string | number | null). */
+function asCardScalar(value: unknown): string | number | null {
+    if (value == null) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') return value;
+    const text = asString(value).trim();
+    return text || null;
+}
+
 export function extractListingSlugCandidate(value: string): string | null {
     const trimmed = value.trim();
     if (!trimmed) return null;
@@ -174,7 +183,7 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
             vehicleType: asString(setup.vehicleType) || asString(basic.vehicleType),
             bodyType: asString(basic.bodyType),
             year: extractAutosYear(record),
-            mileage: basic.mileage,
+            mileage: asCardScalar(basic.mileage),
             fuelType: asString(basic.fuelType),
             transmission: asString(basic.transmission),
         });
@@ -190,17 +199,17 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
             propertyType: asString(basic.propertyType) || asString(setup.propertyType),
             operationType: asString(setup.operationType),
             section: record.section,
-            rooms: basic.rooms,
-            bathrooms: basic.bathrooms,
-            parkingSpaces: basic.parkingSpaces,
-            storageUnits: basic.storageUnits,
-            totalArea: basic.totalArea ?? basic.surface,
-            usableArea: basic.usableArea,
+            rooms: asCardScalar(basic.rooms),
+            bathrooms: asCardScalar(basic.bathrooms),
+            parkingSpaces: asCardScalar(basic.parkingSpaces),
+            storageUnits: asCardScalar(basic.storageUnits),
+            totalArea: asCardScalar(basic.totalArea ?? basic.surface),
+            usableArea: asCardScalar(basic.usableArea),
             commercialUse: asString(basic.commercialUse),
             condition: asString(basic.condition),
-            availableUnits: project.availableUnits,
-            usableAreaFrom: project.usableAreaFrom,
-            usableAreaTo: project.usableAreaTo,
+            availableUnits: asCardScalar(project.availableUnits),
+            usableAreaFrom: asCardScalar(project.usableAreaFrom),
+            usableAreaTo: asCardScalar(project.usableAreaTo),
             deliveryStatus: asString(project.deliveryStatus),
             salesStage: asString(project.salesStage),
         });

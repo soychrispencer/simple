@@ -52,7 +52,7 @@ const PublishLocationMap = dynamic(() => import('@/components/map/publish-locati
 // =============================================================================
 
 type Step = 1 | 2 | 3 | 4 | 'success';
-type ListingType = PublishType;
+type ListingType = 'sale' | 'rent' | 'auction' | 'service' | 'product';
 
 interface FormData {
     // Paso 1: Identidad
@@ -592,7 +592,12 @@ export default function PublicarPage() {
 
     const [step, setStep] = useState<Step>(1);
     const [form, setForm] = useState<FormData>(EMPTY_FORM);
-    const { hint: operatorHint, defaults: operatorDefaults, context: operatorContext, ready: operatorDefaultsReady } = useMarketplaceOperatorPublishDefaults('autos', { enabled: true, autosListingType: form.listingType });
+    const { hint: operatorHint, defaults: operatorDefaults, context: operatorContext, ready: operatorDefaultsReady } = useMarketplaceOperatorPublishDefaults('autos', {
+        enabled: true,
+        autosListingType: form.listingType === 'sale' || form.listingType === 'rent' || form.listingType === 'auction'
+            ? form.listingType
+            : 'sale',
+    });
     const [operatorDefaultsApplied, setOperatorDefaultsApplied] = useState(false);
     const [catalog, setCatalog] = useState<PublishWizardCatalog | null>(null);
     const [loading, setLoading] = useState(false);
@@ -1221,7 +1226,7 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
             // PASO 6: Crear payload
             const payload: CreatePanelListingInput = {
                 vertical: 'autos',
-                listingType: form.listingType,
+                listingType: form.listingType as CreatePanelListingInput['listingType'],
                 title: form.title || `${brandName} ${modelName} ${form.year}`.trim(),
                 description: form.description || '',
                 priceLabel,
@@ -1285,7 +1290,9 @@ const googleMapsApiKey = useGoogleMapsBrowserKey();
                 noAccidents: current.noAccidents,
                 warranty: current.warranty,
                 equipmentLabels: getVehicleEquipmentLabels(current.featureCodes),
-                listingType: current.listingType,
+                listingType: current.listingType === 'sale' || current.listingType === 'rent' || current.listingType === 'auction'
+                    ? current.listingType
+                    : undefined,
                 platformName: 'SimpleAutos',
             }).slice(0, 1000),
         }));
@@ -1897,7 +1904,10 @@ function Step1PhotosAndIdentity({
                         return (
                         <PanelChoiceCard
                             key={option.type}
-                            onClick={() => updateForm('listingType', option.type)}
+                            onClick={() => {
+                                if (option.type === 'project') return;
+                                updateForm('listingType', option.type);
+                            }}
                             selected={form.listingType === option.type}
                             className="h-16 px-2 text-center"
                         >
@@ -2880,7 +2890,9 @@ function StepAutosPublish({
                             noAccidents: form.noAccidents,
                             warranty: form.warranty,
                             equipmentLabels: getVehicleEquipmentLabels(form.featureCodes),
-                            listingType: form.listingType,
+                            listingType: form.listingType === 'sale' || form.listingType === 'rent' || form.listingType === 'auction'
+                                ? form.listingType
+                                : undefined,
                             platformName: 'SimpleAutos',
                         }).slice(0, 1000));
                     }}

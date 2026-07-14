@@ -69,11 +69,11 @@ function AgendaInboxAlertsSettings() {
                 icon={IconBell}
                 title="Sonido de nuevas reservas"
                 description="Aviso sonoro cuando llega una reserva pendiente en tu agenda."
-                right={
+                action={
                     <PanelSwitch
                         checked={!alerts.soundMuted}
-                        onCheckedChange={() => alerts.toggleSoundMuted()}
-                        aria-label="Sonido de nuevas reservas"
+                        onChange={() => alerts.toggleSoundMuted()}
+                        ariaLabel="Sonido de nuevas reservas"
                     />
                 }
             />
@@ -87,7 +87,7 @@ function AgendaInboxAlertsSettings() {
                             ? 'Bloqueadas en este navegador. Actívalas desde la configuración del sitio.'
                             : 'Opcional. Útiles si dejas el panel abierto en segundo plano.'
                 }
-                right={
+                action={
                     alerts.notificationPermission === 'granted' ? (
                         <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Activas</span>
                     ) : alerts.notificationPermission === 'denied' ? (
@@ -159,12 +159,12 @@ export function AgendaOperationalAlertsSettings({
                         icon={icon}
                         title={title}
                         description={description}
-                        right={
+                        action={
                             <PanelSwitch
                                 checked={prefs[key]}
                                 disabled={disabled}
-                                onCheckedChange={(checked) => onPrefsChange({ ...prefs, [key]: checked })}
-                                aria-label={title}
+                                onChange={(checked) => onPrefsChange({ ...prefs, [key]: checked })}
+                                ariaLabel={title}
                             />
                         }
                     />
