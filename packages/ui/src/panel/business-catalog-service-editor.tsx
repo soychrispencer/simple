@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconLoader2 } from '@tabler/icons-react';
+import { IconLoader2, IconPlus } from '@tabler/icons-react';
 import { BusinessCatalogEditorToolbar } from './business-catalog-editor-toolbar.js';
 import { BusinessCatalogInlineFormCard } from './business-catalog-inline-form-card.js';
 import { BusinessCatalogServiceFormFields, type BusinessCatalogServiceFormValues } from './business-catalog-service-form-fields.js';
@@ -207,14 +207,24 @@ export function BusinessCatalogServiceEditor<
         </>
     );
 
+    const isEmpty = items.length === 0 && !formOpen;
+    // Mis publicaciones (createHref): crear solo con el + Publicar del header de la app.
+    const manageOnly = Boolean(createHref);
+    const emptyAction = manageOnly ? undefined : (
+        <PanelButton type="button" onClick={openCreate}>
+            <IconPlus size={16} />
+            {copy.actionLabel}
+        </PanelButton>
+    );
+
     return (
         <div className={className}>
             <BusinessCatalogEditorToolbar
                 summary={summary}
                 actionLabel={copy.actionLabel}
-                onAction={createHref ? undefined : openCreate}
-                actionHref={createHref}
-                hideAction={formOpen}
+                onAction={manageOnly ? undefined : openCreate}
+                actionHref={undefined}
+                hideAction={formOpen || manageOnly}
             />
             {listNotice ? <PanelNotice tone="warning">{listNotice}</PanelNotice> : null}
 
@@ -250,8 +260,12 @@ export function BusinessCatalogServiceEditor<
                 </BusinessCatalogServiceModal>
             ) : null}
 
-            {items.length === 0 && !formOpen ? (
-                <PanelEmptyState title={copy.emptyTitle} description={copy.emptyDescription} />
+            {isEmpty ? (
+                <PanelEmptyState
+                    title={copy.emptyTitle}
+                    description={copy.emptyDescription}
+                    action={emptyAction}
+                />
             ) : (
                 <div className="flex flex-col gap-3">
                     {items.map((item) => {

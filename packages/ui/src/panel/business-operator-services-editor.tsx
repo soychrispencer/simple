@@ -401,11 +401,11 @@ function BusinessOperatorServicesEditorContent({
                         onModalityChange: (key, value) => setForm((prev) => ({ ...prev, [key]: value })),
                     })}
                     copy={{
-                        actionLabel: createHref ? 'Publicar servicio' : 'Nuevo servicio',
+                        actionLabel: 'Nuevo servicio',
                         ...(createHref
                             ? {
                                 emptyDescription:
-                                    'Crea el primero desde Publicar. Aquí podrás editarlo, packs y promociones.',
+                                    'Usa Publicar arriba para crear el primero. Después lo editas aquí, con packs y promociones.',
                             }
                             : null),
                         archiveMessage: (name) => `"${name}" se pausará y dejará de mostrarse en tu perfil. Podrás reactivarlo con el interruptor.`,

@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react';
 import {
     createOperatorProduct,
@@ -168,14 +167,10 @@ function BusinessOperatorProductsEditorContent({
     }
 
     const activeCount = items.filter((item) => item.isActive).length;
-    const createButton = createHref ? (
-        <Link href={createHref} className="inline-flex">
-            <PanelButton type="button">
-                <IconPlus size={16} />
-                Publicar producto
-            </PanelButton>
-        </Link>
-    ) : (
+    const isEmpty = !loading && items.length === 0 && !formOpen;
+    // Mis publicaciones: crear solo con el + Publicar del header de la app.
+    const manageOnly = Boolean(createHref);
+    const createButton = manageOnly ? null : (
         <PanelButton type="button" onClick={openCreate}>
             <IconPlus size={16} />
             Agregar producto
@@ -186,21 +181,23 @@ function BusinessOperatorProductsEditorContent({
         <div className="space-y-6">
             <PanelBlockHeader
                 title={BUSINESS_CATALOG_EDITOR_PRODUCTS_SECTION.title}
-                description={BUSINESS_CATALOG_EDITOR_PRODUCTS_SECTION.description}
-                actions={createButton}
+                description={manageOnly
+                    ? 'Edita stock, precios y visibilidad. Para crear uno nuevo usa Publicar.'
+                    : BUSINESS_CATALOG_EDITOR_PRODUCTS_SECTION.description}
+                actions={createButton ?? undefined}
             />
 
             {error ? <PanelNotice tone="warning">{error}</PanelNotice> : null}
 
             {loading ? (
                 <p className="flex items-center gap-2 text-sm text-fg-muted"><IconLoader2 size={16} className="animate-spin" /> Cargando productos…</p>
-            ) : items.length === 0 && !formOpen ? (
+            ) : isEmpty ? (
                 <PanelEmptyState
                     title="Sin productos todavía"
-                    description={createHref
-                        ? 'Crea el primero desde Publicar. Aquí podrás editar stock, precios y visibilidad.'
+                    description={manageOnly
+                        ? 'Usa Publicar arriba para crear el primero. Después lo administras aquí.'
                         : 'Agrega accesorios, repuestos o artículos que vendas junto a tu negocio.'}
-                    action={createButton}
+                    action={createButton ?? undefined}
                 />
             ) : (
                 <PanelList>

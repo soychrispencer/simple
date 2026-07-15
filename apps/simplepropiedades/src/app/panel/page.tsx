@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { IconChevronRight, IconHome, IconShoppingBag } from '@tabler/icons-react';
 import { fetchMyPanelListings, type PanelListing } from '@/lib/panel-listings';
+import { getListingCoverUrl } from '@/lib/listing-media';
 import { PanelIntentSelector } from '@/components/panel/panel-intent-selector';
 import {
     PanelBlockHeader, PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelPageHeader, PanelStatCard,
@@ -92,10 +93,16 @@ export default function PanelHomePage() {
                             </div>
                         ) : (
                             <PanelList className="border-0 rounded-2xl">
-                                {activeItems.slice(0, 5).map((item, index) => (
+                                {activeItems.slice(0, 5).map((item, index) => {
+                                    const coverUrl = getListingCoverUrl(item);
+                                    return (
                                     <PanelListRow key={item.id} divider={index > 0} className="flex items-center gap-3 px-4 py-3">
-                                        <div className="w-12 h-9 rounded-md shrink-0 flex items-center justify-center" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
-                                            <IconHome size={14} />
+                                        <div className="w-12 h-9 rounded-md shrink-0 overflow-hidden flex items-center justify-center" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
+                                            {coverUrl ? (
+                                                <img src={coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                                            ) : (
+                                                <IconHome size={14} />
+                                            )}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="type-listing-title line-clamp-1" style={{ color: 'var(--fg)' }}>{item.title}</p>
@@ -105,7 +112,8 @@ export default function PanelHomePage() {
                                         </div>
                                         <IconChevronRight size={13} style={{ color: 'var(--fg-faint)' }} />
                                     </PanelListRow>
-                                ))}
+                                    );
+                                })}
                             </PanelList>
                         )}
                     </PanelCard>

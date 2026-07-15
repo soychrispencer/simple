@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
     IconBed,
     IconBuilding,
@@ -10,6 +11,8 @@ import {
 } from '@tabler/icons-react';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
+import { buildSimuladorHipotecarioHrefFromListing } from '@/lib/hipotecario/listing-href';
+import { VALOR_UF_REFERENCIAL } from '@/lib/hipotecario/tasas-referenciales';
 import { type PublicListing } from '@/lib/public-listings';
 import { buildPropertyJsonLd, JsonLd } from '@/lib/schema';
 import {
@@ -61,6 +64,7 @@ function findSummaryValue(summary: string[], patterns: RegExp[]) {
 
 interface PropertyDetailClientProps {
     item: PublicListing;
+    valorUF?: number;
 }
 
 function CollapsibleSection({
@@ -97,7 +101,21 @@ function CollapsibleSection({
     );
 }
 
-export default function PropertyDetailClient({ item }: PropertyDetailClientProps) {
+export default function PropertyDetailClient({
+    item,
+    valorUF = VALOR_UF_REFERENCIAL,
+}: PropertyDetailClientProps) {
+    const financingLink =
+        item.section === 'sale' || item.section === 'project' ? (
+            <Link
+                href={buildSimuladorHipotecarioHrefFromListing(item, valorUF)}
+                className="mt-5 flex w-full items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition-colors hover:bg-[var(--bg-subtle)]"
+                style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+            >
+                Simular crédito hipotecario
+            </Link>
+        ) : null;
+
     const sellerBlock = (
         <>
             <PublicListingDetailSellerCard
@@ -117,6 +135,7 @@ export default function PropertyDetailClient({ item }: PropertyDetailClientProps
                     whatsapp: item.seller.whatsapp,
                 } : null}
             />
+            {financingLink}
         </>
     );
 

@@ -54,6 +54,7 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
         publicProfiles,
         passwordResetTokens,
         emailVerificationTokens,
+        userPlatformAccess,
         accounts,
         accountUsers,
         agendaClients,
@@ -222,6 +223,9 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
             }
             await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
             await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
+            if (userPlatformAccess) {
+                await tx.delete(userPlatformAccess).where(eq(userPlatformAccess.userId, userId));
+            }
 
             await tx.delete(addressBook).where(eq(addressBook.userId, userId));
             await tx.delete(paymentOrders).where(eq(paymentOrders.userId, userId));

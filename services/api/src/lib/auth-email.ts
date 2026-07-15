@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import nodemailer from 'nodemailer';
+import { and, eq, isNull } from 'drizzle-orm';
 import { isProduction, env } from '../env.js';
 import { db } from '../db/index.js';
 import { emailVerificationTokens } from '../db/schema.js';
@@ -425,17 +426,30 @@ async function issueEmailVerification(userId: string, email: string, origin: str
     const rawToken = randomBytes(32).toString('hex');
     const now = new Date();
     const expiresAt = new Date(now.getTime() + EMAIL_VERIFICATION_TOKEN_TTL_MS);
+    // Un solo enlace vigente: evita tokens huérfanos si el correo falló o se reenvía.
+    await db.delete(emailVerificationTokens).where(and(
+        eq(emailVerificationTokens.userId, userId),
+        isNull(emailVerificationTokens.usedAt),
+    ));
     await db.insert(emailVerificationTokens).values({
         userId,
         tokenHash: hashOpaqueToken(rawToken),
         expiresAt,
     });
-    await sendEmailVerificationEmail(
-        email,
-        buildEmailVerificationUrl(origin, rawToken),
-        origin,
-        userId,
-    );
+    try {
+        await sendEmailVerificationEmail(
+            email,
+            buildEmailVerificationUrl(origin, rawToken),
+            origin,
+            userId,
+        );
+    } catch (error) {
+        await db.delete(emailVerificationTokens).where(and(
+            eq(emailVerificationTokens.userId, userId),
+            isNull(emailVerificationTokens.usedAt),
+        ));
+        throw error;
+    }
 }
 export {
     buildPasswordResetUrl,

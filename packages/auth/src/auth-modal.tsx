@@ -2,12 +2,13 @@
 
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { IconX, IconBrandGoogle, IconMail, IconLock, IconUser, IconMailCheck, IconPhone, IconShieldCheck } from '@tabler/icons-react';
+import { IconX, IconBrandGoogle, IconMail, IconUser, IconMailCheck, IconPhone, IconShieldCheck } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelNotice } from '@simple/ui/panel';
 import GoogleLoginButton from './google-login-button';
 import { useAuth } from './auth-context';
+import { PasswordInput } from './password-input';
 
 type Mode = 'login' | 'register' | 'recovery' | 'verify-email';
 
@@ -364,10 +365,14 @@ export function AuthModal({
             });
             const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
             if (!response.ok || !data?.ok) {
+                if (response.status === 429) {
+                    setError('Demasiados reenvíos. Espera unos minutos e inténtalo de nuevo. Mientras, revisa Spam o Promociones.');
+                    return;
+                }
                 setError(data?.error || 'No pudimos reenviar el email. Inténtalo más tarde.');
                 return;
             }
-            setSuccess('Te hemos reenviado el email de confirmación. Revisa tu bandeja de entrada.');
+            setSuccess('Te hemos reenviado el email de confirmación. Revisa bandeja de entrada, Spam y Promociones.');
         } catch {
             setError('No pudimos reenviar el email. Inténtalo más tarde.');
         } finally {
@@ -458,20 +463,14 @@ export function AuthModal({
                                     style={INPUT_STYLE}
                                 />
                             </div>
-                            <div className="relative w-full">
-                                <IconLock size={16} className="pointer-events-none absolute" style={ICON_STYLE} />
-                                <input
-                                    id="auth-login-password"
-                                    type="password"
-                                    autoComplete="current-password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className={INPUT_CLASS}
-                                    placeholder="Contraseña"
-                                    required
-                                    style={INPUT_STYLE}
-                                />
-                            </div>
+                            <PasswordInput
+                                id="auth-login-password"
+                                value={password}
+                                onChange={setPassword}
+                                autoComplete="current-password"
+                                placeholder="Contraseña"
+                                required
+                            />
                             <div className="flex items-center justify-between gap-3 pt-0.5">
                                 <label className="inline-flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--fg-muted)' }}>
                                     <input
@@ -552,18 +551,38 @@ export function AuthModal({
                                 <input id="auth-register-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT_CLASS} placeholder="tucorreo@ejemplo.com" required style={INPUT_STYLE} />
                             </Field>
                             <div className="grid gap-1.5">
-                                <Field label="Contraseña" htmlFor="auth-register-password" icon={<IconLock size={16} />}>
-                                    <input id="auth-register-password" type="password" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={INPUT_CLASS} placeholder="Mínimo 8 caracteres" required style={INPUT_STYLE} />
-                                </Field>
+                                <label htmlFor="auth-register-password" className={LABEL_CLASS} style={LABEL_STYLE}>
+                                    Contraseña
+                                </label>
+                                <PasswordInput
+                                    id="auth-register-password"
+                                    value={password}
+                                    onChange={setPassword}
+                                    autoComplete="new-password"
+                                    minLength={8}
+                                    placeholder="Mínimo 8 caracteres"
+                                    required
+                                />
                                 {password ? (
                                     <p className="text-xs" style={{ color: passwordStrength === 'Débil' ? '#dc2626' : 'var(--fg-muted)' }}>
                                         Fortaleza: {passwordStrength}
                                     </p>
                                 ) : null}
                             </div>
-                            <Field label="Confirmar contraseña" htmlFor="auth-register-confirm" icon={<IconLock size={16} />}>
-                                <input id="auth-register-confirm" type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={INPUT_CLASS} placeholder="Repite tu contraseña" required style={INPUT_STYLE} />
-                            </Field>
+                            <div className="grid gap-1.5">
+                                <label htmlFor="auth-register-confirm" className={LABEL_CLASS} style={LABEL_STYLE}>
+                                    Confirmar contraseña
+                                </label>
+                                <PasswordInput
+                                    id="auth-register-confirm"
+                                    value={confirmPassword}
+                                    onChange={setConfirmPassword}
+                                    autoComplete="new-password"
+                                    minLength={8}
+                                    placeholder="Repite tu contraseña"
+                                    required
+                                />
+                            </div>
                             <label className="mt-2 flex items-start gap-2.5 text-xs leading-relaxed cursor-pointer" style={{ color: 'var(--fg-muted)' }}>
                                 <input
                                     type="checkbox"
@@ -650,9 +669,9 @@ export function AuthModal({
                         <div className="p-4 rounded-xl mb-5" style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.15)' }}>
                             <p className="text-sm leading-relaxed" style={{ color: 'var(--fg)' }}>
                                 <strong>¿Qué hacer ahora?</strong><br />
-                                1. Abre el email que recibiste<br />
-                                2. Haz clic en el botón «Confirmar correo»<br />
-                                3. ¡Listo! Tu cuenta estará verificada
+                                1. Revisa tu bandeja de entrada (y Spam / Promociones)<br />
+                                2. Abre el correo de Simple y pulsa «Confirmar correo»<br />
+                                3. ¡Listo! Tu cuenta quedará verificada
                             </p>
                         </div>
 

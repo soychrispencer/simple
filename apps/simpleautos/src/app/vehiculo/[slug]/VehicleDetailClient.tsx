@@ -122,13 +122,18 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
     );
 
     const financingLink = item.section === 'sale' ? (
-        <Link
-            href={buildSimuladorCreditoHrefFromListing(item)}
-            className="mt-5 flex w-full items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition-colors hover:bg-[var(--bg-subtle)]"
-            style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
-        >
-            Simular crédito automotriz
-        </Link>
+        <div className="mt-5 space-y-2">
+            <Link
+                href={buildSimuladorCreditoHrefFromListing(item)}
+                className="flex w-full items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition-colors hover:bg-[var(--bg-subtle)]"
+                style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+            >
+                Simular crédito automotriz
+            </Link>
+            <p className="text-center text-xs text-[var(--fg-muted)]">
+                Referencial · pie habitual desde ~20% · sujeto a evaluación comercial
+            </p>
+        </div>
     ) : null;
 
     return (

@@ -1,13 +1,18 @@
+import { cuotaFrancesa, formatCLP, formatPct, type NivelRiesgoCarga } from '@simple/simulador-ui';
 import {
   AJUSTES,
   COSTOS_ASOCIADOS,
+  FACTOR_DESGRAVAMEN_EDAD,
   LIMITES,
   TASAS,
 } from './tasas-referenciales';
 
+export { formatCLP, formatPct };
+
 export type TipoVehiculo = 'nuevo' | 'usado';
 export type TipoTrabajador = 'dependiente' | 'independiente';
 export type NivelEscenario = 'preferencial' | 'promedioMercado' | 'conservadora';
+export type NivelAccesoPie = 'favorable' | 'estandar' | 'exigente' | 'muy_exigente';
 
 export interface SimuladorInput {
   precioVehiculo: number;
@@ -18,6 +23,8 @@ export interface SimuladorInput {
   rentaLiquida: number;
   tipoTrabajador: TipoTrabajador;
   otrasDeudasMensuales: number;
+  edad: number;
+  tieneDicom: boolean;
 }
 
 export interface EscenarioResultado {
@@ -25,71 +32,161 @@ export interface EscenarioResultado {
   etiqueta: string;
   tasaMensual: number;
   tasaAnualAprox: number;
-  cuotaCredito: number; // solo capital + interés (francés)
+  cuotaCredito: number;
   seguroDesgravamenMensual: number;
-  cuotaTotalMensual: number; // cuota + seguro
+  seguroCesantiaMensual: number;
+  cuotaTotalMensual: number;
   gastosOperacionales: number;
   impuestoTimbres: number;
-  costoTotalCredito: number; // suma de todas las cuotas totales + costos iniciales
-  caeReferencial: number; // aproximación, no reemplaza el CAE legal
+  costoTotalCredito: number;
+  caeReferencial: number;
 }
 
-export type NivelRiesgoCarga = 'comoda' | 'ajustada' | 'alta';
+export interface PerfilPiePlazo {
+  pieMinimoSugeridoPct: number;
+  plazoMaxSugerido: number;
+  nivelAcceso: NivelAccesoPie;
+  resumenPerfil: string;
+  antiguedadVehiculo: number;
+}
 
 export interface ResultadoSimulacion {
   montoAFinanciar: number;
   pieEfectivoPct: number;
   antiguedadVehiculo: number;
+  rentaReconocida: number;
   escenarios: EscenarioResultado[];
   cargaFinanciera: {
     nivel: NivelRiesgoCarga;
-    porcentajeSobreRenta: number; // usando el escenario "promedioMercado"
+    porcentajeSobreRenta: number;
   };
   montoMaximoReferencial: number;
   pieMinimoSugeridoPct: number;
   plazoMaxSugerido: number;
+  nivelAcceso: NivelAccesoPie;
+  resumenPerfil: string;
   advertencias: string[];
 }
 
-function cuotaFrancesa(monto: number, tasaMensual: number, n: number): number {
-  if (n <= 0) return 0;
-  if (tasaMensual <= 0) return monto / n;
-  const factor = Math.pow(1 + tasaMensual, -n);
-  return (monto * tasaMensual) / (1 - factor);
+function factorDesgravamen(edad: number): number {
+  for (const fila of FACTOR_DESGRAVAMEN_EDAD) {
+    if (edad <= fila.hasta) return fila.factor;
+  }
+  return FACTOR_DESGRAVAMEN_EDAD[FACTOR_DESGRAVAMEN_EDAD.length - 1].factor;
+}
+
+function rentaReconocidaDe(input: SimuladorInput): number {
+  if (input.tipoTrabajador === 'independiente') {
+    return input.rentaLiquida * LIMITES.rentaReconocidaIndependiente;
+  }
+  return input.rentaLiquida;
+}
+
+function clampPie(pct: number): number {
+  return Math.min(Math.max(pct, 0), LIMITES.pieTopeSugeridoPct);
+}
+
+/**
+ * Pie y plazo habituales referenciales según tipo, antigüedad y perfil.
+ * No declara “financiable / no financiable”: solo orienta la simulación.
+ */
+export function estimarPieYPlazoSugeridos(input: {
+  tipoVehiculo: TipoVehiculo;
+  anioVehiculo: number;
+  tipoTrabajador?: TipoTrabajador;
+  tieneDicom?: boolean;
+  edad?: number;
+}): PerfilPiePlazo {
+  const anioActual = new Date().getFullYear();
+  const antiguedadVehiculo =
+    input.tipoVehiculo === 'usado' && input.anioVehiculo > 0
+      ? Math.max(anioActual - input.anioVehiculo, 0)
+      : 0;
+
+  let pieMinimoSugeridoPct: number = LIMITES.pieMinNuevoPct;
+  let plazoMaxSugerido: number = LIMITES.plazoMaxMeses;
+  let nivelAcceso: NivelAccesoPie = 'estandar';
+  let resumenPerfil = 'Pie habitual de mercado (~20%).';
+
+  if (input.tipoVehiculo === 'nuevo') {
+    pieMinimoSugeridoPct = LIMITES.pieMinNuevoPct;
+    nivelAcceso = 'favorable';
+    resumenPerfil = 'Nuevo: pie habitual ~20% (algunas captivas ofrecen menos).';
+  } else if (antiguedadVehiculo > LIMITES.antiguedadVehiculoMuyAltaAnios) {
+    pieMinimoSugeridoPct = LIMITES.pieMinUsadoMuyAntiguoPct;
+    plazoMaxSugerido = LIMITES.plazoMaxUsadoMuyAntiguo;
+    nivelAcceso = 'muy_exigente';
+    resumenPerfil = 'Usado muy antiguo: suele pedirse ~50% de pie y plazos cortos.';
+  } else if (antiguedadVehiculo > LIMITES.antiguedadVehiculoAltaAnios) {
+    pieMinimoSugeridoPct = LIMITES.pieMinUsadoAntiguoPct;
+    plazoMaxSugerido = LIMITES.plazoMaxUsadoAntiguo;
+    nivelAcceso = 'exigente';
+    resumenPerfil = 'Usado con más de 6 años: pie habitual ~40% y plazo acotado.';
+  } else {
+    pieMinimoSugeridoPct = LIMITES.pieMinUsadoRecientePct;
+    nivelAcceso = 'estandar';
+    resumenPerfil = 'Usado reciente: pie habitual ~20%.';
+  }
+
+  if (input.tipoTrabajador === 'independiente') {
+    pieMinimoSugeridoPct = clampPie(pieMinimoSugeridoPct + 0.1);
+    if (nivelAcceso === 'favorable' || nivelAcceso === 'estandar') {
+      nivelAcceso = 'exigente';
+    }
+    resumenPerfil += ' Independiente: bancos suelen reconocer ~60% de la renta.';
+  }
+
+  if (input.tieneDicom) {
+    pieMinimoSugeridoPct = clampPie(Math.max(pieMinimoSugeridoPct, 0.35) + 0.05);
+    nivelAcceso = 'muy_exigente';
+    resumenPerfil +=
+      ' Antecedentes comerciales: evaluación caso a caso (más pie, aval o rechazo posible).';
+  }
+
+  const edad = input.edad ?? 35;
+  const mesesPorEdad = Math.max((LIMITES.edadMaxAlTermino - edad) * 12, 0);
+  plazoMaxSugerido = Math.min(
+    plazoMaxSugerido,
+    mesesPorEdad || LIMITES.plazoMinMeses,
+  );
+
+  return {
+    pieMinimoSugeridoPct,
+    plazoMaxSugerido,
+    nivelAcceso,
+    resumenPerfil,
+    antiguedadVehiculo,
+  };
 }
 
 function calcularTasasAjustadas(input: SimuladorInput, antiguedad: number) {
   const piePct = input.precioVehiculo > 0 ? input.pieMonto / input.precioVehiculo : 0;
-
   let ajuste = 0;
   if (input.tipoVehiculo === 'usado') {
-    if (antiguedad > LIMITES.antiguedadVehiculoAltaAnios) {
+    if (antiguedad > LIMITES.antiguedadVehiculoMuyAltaAnios) {
       ajuste += AJUSTES.vehiculoUsadoMasDe8Anios;
+    } else if (antiguedad > LIMITES.antiguedadVehiculoAltaAnios) {
+      ajuste += AJUSTES.vehiculoUsadoEntre4y8Anios + 0.0008;
     } else if (antiguedad >= 4) {
       ajuste += AJUSTES.vehiculoUsadoEntre4y8Anios;
     }
   }
-  if (piePct < 0.1) {
-    ajuste += AJUSTES.pieMenorA10Porciento;
-  } else if (piePct >= 0.3) {
-    ajuste += AJUSTES.pieMayorOIgualA30Porciento;
-  }
-  if (input.plazoMeses > 48) {
-    ajuste += AJUSTES.plazoMayorA48Meses;
-  }
-  if (input.tipoTrabajador === 'independiente') {
-    ajuste += AJUSTES.trabajadorIndependiente;
-  }
+  if (piePct < 0.1) ajuste += AJUSTES.pieMenorA10Porciento;
+  else if (piePct < 0.2) ajuste += AJUSTES.pieMenorA20Porciento;
+  else if (piePct >= 0.3) ajuste += AJUSTES.pieMayorOIgualA30Porciento;
+  if (input.plazoMeses > 48) ajuste += AJUSTES.plazoMayorA48Meses;
+  if (input.tipoTrabajador === 'independiente') ajuste += AJUSTES.trabajadorIndependiente;
+  if (input.tieneDicom) ajuste += AJUSTES.antecedentesComerciales;
 
   return {
     preferencial: TASAS.mensual.preferencial,
     promedioMercado: Math.max(
       TASAS.mensual.preferencial,
-      TASAS.mensual.promedioMercado + ajuste
+      TASAS.mensual.promedioMercado + ajuste,
     ),
     conservadora: Math.max(
       TASAS.mensual.promedioMercado,
-      TASAS.mensual.conservadora + ajuste
+      TASAS.mensual.conservadora + ajuste,
     ),
   };
 }
@@ -99,33 +196,29 @@ function construirEscenario(
   etiqueta: string,
   tasaMensual: number,
   monto: number,
-  plazoMeses: number
+  plazoMeses: number,
+  edad: number,
 ): EscenarioResultado {
   const cuotaCredito = cuotaFrancesa(monto, tasaMensual, plazoMeses);
   const seguroDesgravamenMensual =
-    monto * COSTOS_ASOCIADOS.seguroDesgravamenMensualPct;
-  const cuotaTotalMensual = cuotaCredito + seguroDesgravamenMensual;
+    monto * COSTOS_ASOCIADOS.seguroDesgravamenMensualPct * factorDesgravamen(edad);
+  const seguroCesantiaMensual = monto * COSTOS_ASOCIADOS.seguroCesantiaMensualPct;
+  const cuotaTotalMensual = cuotaCredito + seguroDesgravamenMensual + seguroCesantiaMensual;
   const gastosOperacionales = COSTOS_ASOCIADOS.gastosOperacionalesCLP;
   const impuestoTimbres = Math.min(
     monto * COSTOS_ASOCIADOS.impuestoTimbresPctMensual * plazoMeses,
-    monto * COSTOS_ASOCIADOS.impuestoTimbresTope
+    monto * COSTOS_ASOCIADOS.impuestoTimbresTope,
   );
-
   const costoTotalCredito =
     cuotaTotalMensual * plazoMeses + gastosOperacionales + impuestoTimbres;
-
   const tasaAnualAprox = Math.pow(1 + tasaMensual, 12) - 1;
-  // CAE referencial simplificado: interés compuesto anualizado + costo anualizado
-  // de seguros/gastos/impuesto como proporción del capital. No es el CAE legal
-  // (que exige la metodología exacta de la entidad financiera).
   const plazoAnios = plazoMeses / 12;
   const costoAnualizadoExtra =
     monto > 0
-      ? (seguroDesgravamenMensual * 12 +
+      ? ((seguroDesgravamenMensual + seguroCesantiaMensual) * 12 +
           (gastosOperacionales + impuestoTimbres) / Math.max(plazoAnios, 1)) /
         monto
       : 0;
-  const caeReferencial = tasaAnualAprox + costoAnualizadoExtra;
 
   return {
     nivel,
@@ -134,145 +227,130 @@ function construirEscenario(
     tasaAnualAprox,
     cuotaCredito,
     seguroDesgravamenMensual,
+    seguroCesantiaMensual,
     cuotaTotalMensual,
     gastosOperacionales,
     impuestoTimbres,
     costoTotalCredito,
-    caeReferencial,
+    caeReferencial: tasaAnualAprox + costoAnualizadoExtra,
   };
 }
 
 export function simular(input: SimuladorInput): ResultadoSimulacion {
-  const anioActual = new Date().getFullYear();
-  const antiguedad =
-    input.tipoVehiculo === 'usado'
-      ? Math.max(anioActual - input.anioVehiculo, 0)
-      : 0;
+  const edad = Math.min(Math.max(input.edad || 35, 18), 90);
+  const perfil = estimarPieYPlazoSugeridos({
+    tipoVehiculo: input.tipoVehiculo,
+    anioVehiculo: input.anioVehiculo,
+    tipoTrabajador: input.tipoTrabajador,
+    tieneDicom: input.tieneDicom,
+    edad,
+  });
 
   const pieMonto = Math.min(Math.max(input.pieMonto, 0), input.precioVehiculo);
   const montoAFinanciar = Math.max(input.precioVehiculo - pieMonto, 0);
   const pieEfectivoPct =
     input.precioVehiculo > 0 ? pieMonto / input.precioVehiculo : 0;
+  const rentaReconocida = rentaReconocidaDe(input);
 
-  const tasas = calcularTasasAjustadas(input, antiguedad);
-  const plazoMeses = Math.min(
+  const tasas = calcularTasasAjustadas(input, perfil.antiguedadVehiculo);
+  let plazoMeses = Math.min(
     Math.max(input.plazoMeses, LIMITES.plazoMinMeses),
-    LIMITES.plazoMaxMeses
+    LIMITES.plazoMaxMeses,
   );
+  plazoMeses = Math.min(plazoMeses, Math.max(perfil.plazoMaxSugerido, LIMITES.plazoMinMeses));
 
   const escenarios: EscenarioResultado[] = [
     construirEscenario(
       'preferencial',
-      'Tasa preferencial (mejor perfil)',
+      'Preferencial',
       tasas.preferencial,
       montoAFinanciar,
-      plazoMeses
+      plazoMeses,
+      edad,
     ),
     construirEscenario(
       'promedioMercado',
-      'Promedio de mercado',
+      'Mercado',
       tasas.promedioMercado,
       montoAFinanciar,
-      plazoMeses
+      plazoMeses,
+      edad,
     ),
     construirEscenario(
       'conservadora',
-      'Escenario conservador',
+      'Conservador',
       tasas.conservadora,
       montoAFinanciar,
-      plazoMeses
+      plazoMeses,
+      edad,
     ),
   ];
 
-  // Carga financiera evaluada con el escenario de mercado (el más representativo).
+  const tieneMonto = input.precioVehiculo > 0;
   const cuotaReferencia = escenarios[1].cuotaTotalMensual;
   const totalCompromisoMensual = cuotaReferencia + input.otrasDeudasMensuales;
   const porcentajeSobreRenta =
-    input.rentaLiquida > 0 ? totalCompromisoMensual / input.rentaLiquida : 1;
+    rentaReconocida > 0 ? totalCompromisoMensual / rentaReconocida : 0;
 
   let nivelCarga: NivelRiesgoCarga = 'comoda';
-  if (porcentajeSobreRenta > LIMITES.cargaFinancieraAjustada) {
+  if (rentaReconocida > 0 && porcentajeSobreRenta > LIMITES.cargaFinancieraAjustada) {
     nivelCarga = 'alta';
-  } else if (porcentajeSobreRenta > LIMITES.cargaFinancieraComoda) {
+  } else if (rentaReconocida > 0 && porcentajeSobreRenta > LIMITES.cargaFinancieraComoda) {
     nivelCarga = 'ajustada';
   }
 
-  // Monto máximo referencial: cuánto podría financiar según el 30% de su renta,
-  // usando la tasa promedio de mercado como referencia.
   const capacidadMensualDisponible = Math.max(
-    input.rentaLiquida * LIMITES.capacidadMaximaFinanciamiento -
-      input.otrasDeudasMensuales,
-    0
+    rentaReconocida * LIMITES.capacidadMaximaFinanciamiento - input.otrasDeudasMensuales,
+    0,
   );
   const tasaRef = tasas.promedioMercado;
   const montoMaximoReferencial =
     tasaRef > 0
-      ? (capacidadMensualDisponible * (1 - Math.pow(1 + tasaRef, -plazoMeses))) /
-        tasaRef
+      ? (capacidadMensualDisponible * (1 - Math.pow(1 + tasaRef, -plazoMeses))) / tasaRef
       : capacidadMensualDisponible * plazoMeses;
 
-  // Pie mínimo sugerido según tipo y antigüedad del vehículo.
-  let pieMinimoSugeridoPct: number = LIMITES.pieMinNuevoPct;
-  let plazoMaxSugerido: number = LIMITES.plazoMaxMeses;
-  if (input.tipoVehiculo === 'usado') {
-    if (antiguedad > LIMITES.antiguedadVehiculoAltaAnios) {
-      pieMinimoSugeridoPct = LIMITES.pieMinUsadoAntiguoPct;
-      plazoMaxSugerido = LIMITES.plazoMaxUsadoAntiguo;
-    } else {
-      pieMinimoSugeridoPct = LIMITES.pieMinUsadoRecientePct;
-    }
-  }
-
   const advertencias: string[] = [];
-  if (pieEfectivoPct < pieMinimoSugeridoPct) {
+  if (tieneMonto && pieEfectivoPct + 0.001 < perfil.pieMinimoSugeridoPct) {
     advertencias.push(
-      `El pie ingresado (${(pieEfectivoPct * 100).toFixed(
-        0
-      )}%) está bajo el mínimo habitual para este tipo de vehículo (~${(
-        pieMinimoSugeridoPct * 100
-      ).toFixed(0)}%). Esto puede subir la tasa o exigir un aval.`
+      `Pie bajo el habitual para este perfil (~${(perfil.pieMinimoSugeridoPct * 100).toFixed(0)}%).`,
     );
   }
-  if (plazoMeses > plazoMaxSugerido) {
+  if (tieneMonto && input.plazoMeses > perfil.plazoMaxSugerido) {
     advertencias.push(
-      `Para un vehículo con esta antigüedad, la mayoría de las entidades limita el plazo a ${plazoMaxSugerido} meses.`
+      `Plazo habitual máx. ${perfil.plazoMaxSugerido} meses para este perfil.`,
     );
   }
-  if (nivelCarga === 'alta') {
+  if (tieneMonto && rentaReconocida > 0 && nivelCarga === 'alta') {
+    advertencias.push('Cuota sobre 30% de la renta reconocida.');
+  }
+  if (tieneMonto && input.tieneDicom) {
     advertencias.push(
-      'La cuota estimada supera el 30% de la renta líquida declarada. Es el principal motivo de rechazo en evaluaciones de crédito automotriz.'
+      'Antecedentes comerciales: sujeto a evaluación (más pie, aval o rechazo posible).',
     );
   }
-  if (input.rentaLiquida > 0 && input.rentaLiquida < 350000) {
-    advertencias.push(
-      'La renta líquida ingresada está bajo el mínimo habitual exigido por la mayoría de las entidades (~$350.000).'
-    );
+  if (input.edad > 0 && input.edad < LIMITES.edadMinima) {
+    advertencias.push(`Edad mínima habitual: ${LIMITES.edadMinima} años.`);
+  }
+  if (
+    tieneMonto &&
+    input.tipoVehiculo === 'usado' &&
+    perfil.antiguedadVehiculo > LIMITES.antiguedadVehiculoMuyAltaAnios
+  ) {
+    advertencias.push('Vehículo muy antiguo: pocas financieras lo toman; conviene validar.');
   }
 
   return {
     montoAFinanciar,
     pieEfectivoPct,
-    antiguedadVehiculo: antiguedad,
+    antiguedadVehiculo: perfil.antiguedadVehiculo,
+    rentaReconocida,
     escenarios,
-    cargaFinanciera: {
-      nivel: nivelCarga,
-      porcentajeSobreRenta,
-    },
+    cargaFinanciera: { nivel: nivelCarga, porcentajeSobreRenta },
     montoMaximoReferencial,
-    pieMinimoSugeridoPct,
-    plazoMaxSugerido,
-    advertencias,
+    pieMinimoSugeridoPct: perfil.pieMinimoSugeridoPct,
+    plazoMaxSugerido: perfil.plazoMaxSugerido,
+    nivelAcceso: perfil.nivelAcceso,
+    resumenPerfil: perfil.resumenPerfil,
+    advertencias: advertencias.slice(0, 3),
   };
-}
-
-export function formatCLP(valor: number): string {
-  return valor.toLocaleString('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  });
-}
-
-export function formatPct(valor: number, decimales = 1): string {
-  return `${(valor * 100).toFixed(decimales)}%`;
 }

@@ -1319,6 +1319,7 @@ const permanentlyDeleteUser = createPermanentlyDeleteUser({
         publicProfiles,
         passwordResetTokens,
         emailVerificationTokens,
+        userPlatformAccess,
         accounts,
         accountUsers,
         agendaClients,
@@ -1924,7 +1925,9 @@ app.route('/api/admin', createAdminRouter({
         users,
         agendaProfessionalProfiles,
         subscriptions,
+        timelineEvents,
     },
+    inArray,
 }));
 
 app.route('/api/accounts', createAccountsRouter({

@@ -36,7 +36,7 @@ export function MarketplaceSubscriptionLaunchNotice({ appLabel }: Props) {
             </PanelCard>
 
             <PanelNotice tone="neutral">
-                Podés usar todas las herramientas del panel sin límites por ahora.
+                Puedes usar todas las herramientas del panel sin límites por ahora.
                 Te avisaremos antes de activar los planes pagos.
             </PanelNotice>
         </div>

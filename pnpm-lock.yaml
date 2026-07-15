@@ -178,6 +178,9 @@ importers:
       '@simple/marketplace-header':
         specifier: workspace:*
         version: link:../../packages/marketplace-header
+      '@simple/simulador-ui':
+        specifier: workspace:*
+        version: link:../../packages/simulador-ui
       '@simple/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -190,6 +193,9 @@ importers:
       '@tabler/icons-react':
         specifier: ^3.44.0
         version: 3.44.0(react@19.2.7)
+      jspdf:
+        specifier: ^4.2.1
+        version: 4.2.1
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
@@ -300,6 +306,9 @@ importers:
       '@simple/marketplace-header':
         specifier: workspace:*
         version: link:../../packages/marketplace-header
+      '@simple/simulador-ui':
+        specifier: workspace:*
+        version: link:../../packages/simulador-ui
       '@simple/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -514,6 +523,28 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.2.7
+        version: 19.2.7(react@19.2.7)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/simulador-ui:
+    dependencies:
+      jspdf:
+        specifier: ^4.2.1
+        version: 4.2.1
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
       react:
         specifier: ^19.2.7
         version: 19.2.7

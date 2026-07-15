@@ -24,8 +24,8 @@ const publicLinks: MarketplacePublicLink[] = [
         items: [
             {
                 href: '/simulador-hipotecario',
-                label: 'Simulador hipotecario',
-                description: 'Calcula dividendo, pie y plazo estimados',
+                label: 'Simulador de crédito hipotecario',
+                description: 'Estima dividendo, CAE referencial y capacidad de pago',
             },
             {
                 href: '/servicios/venta-asistida',

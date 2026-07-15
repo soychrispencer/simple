@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE } from '@simple/config';
+import { PasswordInput } from '@simple/auth';
 import { PanelButton } from '@simple/ui/panel';
 
 export default function ResetPasswordPage() {
@@ -73,22 +74,24 @@ export default function ResetPasswordPage() {
                 {error ? <p className="text-sm mb-3" style={{ color: 'var(--fg)' }}>{error}</p> : null}
                 {success ? <p className="text-sm mb-3" style={{ color: 'var(--fg)' }}>{success}</p> : null}
                 <form onSubmit={handleSubmit} className="space-y-3">
-                    <input
-                        type="password"
+                    <PasswordInput
+                        id="reset-password"
+                        plain
                         value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        className="form-input"
+                        onChange={setPassword}
                         placeholder="Nueva contraseña"
                         autoComplete="new-password"
+                        minLength={8}
                         required
                     />
-                    <input
-                        type="password"
+                    <PasswordInput
+                        id="reset-password-confirm"
+                        plain
                         value={confirmPassword}
-                        onChange={(event) => setConfirmPassword(event.target.value)}
-                        className="form-input"
+                        onChange={setConfirmPassword}
                         placeholder="Repite la contraseña"
                         autoComplete="new-password"
+                        minLength={8}
                         required
                     />
                     <PanelButton type="submit" variant="accent" className="w-full justify-center" disabled={submitting}>

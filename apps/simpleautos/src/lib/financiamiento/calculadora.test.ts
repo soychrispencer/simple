@@ -1,78 +1,78 @@
 import { describe, expect, it } from 'vitest';
-import { formatCLP, formatPct, simular } from './calculadora';
+import { estimarPieYPlazoSugeridos, formatCLP, formatPct, simular } from './calculadora';
+
+const base = {
+    precioVehiculo: 12_500_000,
+    tipoVehiculo: 'usado' as const,
+    anioVehiculo: new Date().getFullYear() - 4,
+    pieMonto: 2_500_000,
+    plazoMeses: 48,
+    rentaLiquida: 900_000,
+    tipoTrabajador: 'dependiente' as const,
+    otrasDeudasMensuales: 0,
+    edad: 35,
+    tieneDicom: false,
+};
 
 describe('simular crédito automotriz', () => {
-    it('calcula cuota francesa y monto a financiar', () => {
-        const resultado = simular({
-            precioVehiculo: 12_500_000,
-            tipoVehiculo: 'usado',
-            anioVehiculo: new Date().getFullYear() - 4,
-            pieMonto: 2_500_000,
-            plazoMeses: 48,
-            rentaLiquida: 900_000,
-            tipoTrabajador: 'dependiente',
-            otrasDeudasMensuales: 0,
-        });
-
+    it('calcula cuota con seguros desglosados', () => {
+        const resultado = simular(base);
         expect(resultado.montoAFinanciar).toBe(10_000_000);
-        expect(resultado.pieEfectivoPct).toBeCloseTo(0.2, 5);
-        expect(resultado.escenarios).toHaveLength(3);
-        expect(resultado.escenarios[0].cuotaTotalMensual).toBeGreaterThan(0);
+        expect(resultado.escenarios[1].seguroDesgravamenMensual).toBeGreaterThan(0);
+        expect(resultado.escenarios[1].seguroCesantiaMensual).toBeGreaterThan(0);
         expect(resultado.escenarios[1].cuotaTotalMensual).toBeGreaterThan(
-            resultado.escenarios[0].cuotaTotalMensual,
-        );
-        expect(resultado.escenarios[2].cuotaTotalMensual).toBeGreaterThan(
-            resultado.escenarios[1].cuotaTotalMensual,
+            resultado.escenarios[1].cuotaCredito,
         );
     });
 
-    it('marca pie bajo el mínimo sugerido en usados recientes', () => {
-        const resultado = simular({
-            precioVehiculo: 10_000_000,
+    it('reduce renta reconocida para independientes', () => {
+        const dep = simular(base);
+        const indep = simular({ ...base, tipoTrabajador: 'independiente' });
+        expect(indep.rentaReconocida).toBeLessThan(dep.rentaReconocida);
+        expect(indep.montoMaximoReferencial).toBeLessThan(dep.montoMaximoReferencial);
+    });
+
+    it('sugiere ~20% en usado reciente y ~40% en usado antiguo', () => {
+        const reciente = estimarPieYPlazoSugeridos({
             tipoVehiculo: 'usado',
             anioVehiculo: new Date().getFullYear() - 3,
-            pieMonto: 500_000,
-            plazoMeses: 36,
-            rentaLiquida: 800_000,
-            tipoTrabajador: 'dependiente',
-            otrasDeudasMensuales: 0,
         });
-
-        expect(resultado.pieMinimoSugeridoPct).toBe(0.2);
-        expect(resultado.advertencias.some((a) => a.includes('pie'))).toBe(true);
-    });
-
-    it('marca carga financiera alta sobre 30% de la renta', () => {
-        const resultado = simular({
-            precioVehiculo: 20_000_000,
-            tipoVehiculo: 'nuevo',
-            anioVehiculo: new Date().getFullYear(),
-            pieMonto: 2_000_000,
-            plazoMeses: 60,
-            rentaLiquida: 350_000,
-            tipoTrabajador: 'dependiente',
-            otrasDeudasMensuales: 100_000,
-        });
-
-        expect(resultado.cargaFinanciera.nivel).toBe('alta');
-        expect(resultado.cargaFinanciera.porcentajeSobreRenta).toBeGreaterThan(0.3);
-    });
-
-    it('limita plazo sugerido en usados antiguos', () => {
-        const resultado = simular({
-            precioVehiculo: 8_000_000,
+        const antiguo = estimarPieYPlazoSugeridos({
             tipoVehiculo: 'usado',
-            anioVehiculo: new Date().getFullYear() - 10,
-            pieMonto: 2_400_000,
-            plazoMeses: 48,
-            rentaLiquida: 900_000,
-            tipoTrabajador: 'dependiente',
-            otrasDeudasMensuales: 0,
+            anioVehiculo: new Date().getFullYear() - 8,
         });
+        expect(reciente.pieMinimoSugeridoPct).toBeCloseTo(0.2, 2);
+        expect(antiguo.pieMinimoSugeridoPct).toBeCloseTo(0.4, 2);
+        expect(antiguo.plazoMaxSugerido).toBeLessThanOrEqual(36);
+    });
 
-        expect(resultado.plazoMaxSugerido).toBe(36);
-        expect(resultado.pieMinimoSugeridoPct).toBe(0.3);
-        expect(resultado.advertencias.some((a) => a.includes('plazo'))).toBe(true);
+    it('eleva pie ante antecedentes comerciales sin marcar rechazo absoluto', () => {
+        const sin = estimarPieYPlazoSugeridos({
+            tipoVehiculo: 'usado',
+            anioVehiculo: new Date().getFullYear() - 3,
+            tieneDicom: false,
+        });
+        const con = estimarPieYPlazoSugeridos({
+            tipoVehiculo: 'usado',
+            anioVehiculo: new Date().getFullYear() - 3,
+            tieneDicom: true,
+        });
+        expect(con.pieMinimoSugeridoPct).toBeGreaterThan(sin.pieMinimoSugeridoPct);
+        expect(con.nivelAcceso).toBe('muy_exigente');
+        expect(con.resumenPerfil.toLowerCase()).toMatch(/caso a caso|evaluación/);
+    });
+
+    it('limita advertencias a 3', () => {
+        const resultado = simular({
+            ...base,
+            pieMonto: 100_000,
+            rentaLiquida: 300_000,
+            tieneDicom: true,
+            edad: 70,
+            plazoMeses: 60,
+            anioVehiculo: new Date().getFullYear() - 12,
+        });
+        expect(resultado.advertencias.length).toBeLessThanOrEqual(3);
     });
 
     it('formatea CLP y porcentajes', () => {

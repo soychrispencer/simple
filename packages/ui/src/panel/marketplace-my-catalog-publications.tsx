@@ -8,7 +8,7 @@ export type CatalogPublicationKind = 'service' | 'product';
 
 /**
  * Administración de catálogo en Mis publicaciones.
- * Crear = Publicar; editar / packs / promos = aquí.
+ * Crear solo desde el + Publicar del header; aquí solo se edita.
  */
 export function MarketplaceMyCatalogPublications({
     vertical,

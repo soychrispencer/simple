@@ -2,6 +2,7 @@
 @source "../../../../packages/ui/src";
 @source "../../../../packages/auth/src";
 @source "../../../../packages/marketplace-header/src";
+@source "../../../../packages/simulador-ui/src";
 @import "../../../../packages/ui/src/theme-base.css";
 @import "leaflet/dist/leaflet.css";
 

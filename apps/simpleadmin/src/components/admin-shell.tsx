@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
     IconArrowLeft,
+    IconMessageCircle,
     IconUsers,
 } from '@tabler/icons-react';
 import { MarketplaceHeader } from '@simple/marketplace-header';
@@ -13,6 +14,7 @@ import { logoutAdmin, type AdminSessionUser } from '@/lib/api';
 
 const ADMIN_NAV = [
     { href: '/', label: 'Usuarios', icon: IconUsers },
+    { href: '/conversaciones', label: 'Conversaciones', icon: IconMessageCircle },
 ];
 
 const HEADER_VERTICALS = [

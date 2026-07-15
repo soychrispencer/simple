@@ -7,6 +7,11 @@ import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
 import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from '../../lib/email-template.js';
 import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
 import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
+import {
+    captureWhatsappManual,
+    listAdminConversations,
+    updateConversationStatus,
+} from './conversations.js';
 
 export type AdminRouterDeps = {
     db: any;
@@ -41,7 +46,9 @@ export type AdminRouterDeps = {
         users: any;
         agendaProfessionalProfiles: any;
         subscriptions?: any;
+        timelineEvents?: any;
     };
+    inArray?: any;
 };
 
 type AdminEmailBrandInput = EmailBrandVertical | 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | null | undefined;
@@ -909,6 +916,108 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         }).where(deps.eq(deps.tables.agendaProfessionalProfiles.id, body.profileId));
 
         return c.json({ ok: true });
+    });
+
+    // ── Conversaciones (ops inbox / Relationship Engine) ─────────────────────
+
+    app.get('/conversations', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents || !deps.inArray) {
+            return c.json({ ok: false, error: 'Conversaciones no disponibles en este entorno.' }, 503);
+        }
+
+        const statusRaw = c.req.query('status') ?? 'pending';
+        const status = statusRaw === 'all' || statusRaw === 'done' || statusRaw === 'pending'
+            ? statusRaw
+            : 'pending';
+
+        try {
+            const result = await listAdminConversations({
+                db: deps.db,
+                eq: deps.eq,
+                and: deps.and,
+                inArray: deps.inArray,
+                desc: deps.desc,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                status,
+            });
+            return c.json({ ok: true, ...result });
+        } catch (error) {
+            console.error('[admin] list conversations failed', error);
+            return c.json({ ok: false, error: 'No se pudieron cargar las conversaciones.' }, 500);
+        }
+    });
+
+    app.post('/conversations/whatsapp-manual', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents) {
+            return c.json({ ok: false, error: 'Conversaciones no disponibles en este entorno.' }, 503);
+        }
+
+        const body = await c.req.json().catch(() => ({})) as {
+            phone?: string;
+            name?: string;
+            message?: string;
+            sourceVertical?: string;
+        };
+        if (!body.phone?.trim()) {
+            return c.json({ ok: false, error: 'Indica el WhatsApp o teléfono del contacto.' }, 400);
+        }
+
+        try {
+            const result = await captureWhatsappManual({
+                db: deps.db,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                adminUserId: admin.id,
+                phone: body.phone,
+                name: body.name,
+                message: body.message,
+                sourceVertical: body.sourceVertical,
+            });
+            return c.json({ ok: true, ...result }, 201);
+        } catch (error) {
+            if (error instanceof Error && error.message === 'INVALID_PHONE') {
+                return c.json({ ok: false, error: 'Teléfono o WhatsApp inválido.' }, 400);
+            }
+            console.error('[admin] capture whatsapp manual failed', error);
+            return c.json({ ok: false, error: 'No se pudo registrar el contacto.' }, 500);
+        }
+    });
+
+    app.patch('/conversations/:threadId/status', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents) {
+            return c.json({ ok: false, error: 'Conversaciones no disponibles en este entorno.' }, 503);
+        }
+
+        const threadId = decodeURIComponent(c.req.param('threadId') || '').trim();
+        if (!threadId) return c.json({ ok: false, error: 'Hilo inválido.' }, 400);
+
+        const body = await c.req.json().catch(() => ({})) as { status?: string; note?: string };
+        if (body.status !== 'pending' && body.status !== 'done') {
+            return c.json({ ok: false, error: 'Estado debe ser pending o done.' }, 400);
+        }
+
+        try {
+            await updateConversationStatus({
+                db: deps.db,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                adminUserId: admin.id,
+                threadId,
+                status: body.status,
+                note: body.note,
+            });
+            return c.json({ ok: true });
+        } catch (error) {
+            console.error('[admin] update conversation status failed', error);
+            return c.json({ ok: false, error: 'No se pudo actualizar el estado.' }, 500);
+        }
     });
 
     return app;

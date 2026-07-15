@@ -187,7 +187,7 @@ export function ModernSelect({
                         setFocusedIndex(idx >= 0 ? idx : 0);
                     }
                 }}
-                className={`form-input flex items-center text-left ${leadingIcon ? 'pl-9' : ''} ${triggerClassName ?? ''}`}
+                className={`form-input box-border flex h-[42px] items-center text-left leading-none ${leadingIcon ? 'pl-9' : ''} ${triggerClassName ?? ''}`}
                 style={{
                     color: selectedOption ? 'var(--fg)' : 'var(--fg-muted)',
                     paddingLeft: leadingIcon ? '2.2rem' : undefined,

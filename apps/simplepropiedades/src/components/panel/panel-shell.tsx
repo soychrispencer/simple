@@ -4,7 +4,12 @@ import { useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
-import { PanelShell as SharedPanelShell, applyMarketplaceMiNegocioNavBadge, useMarketplacePanelBilling } from '@simple/ui/panel';
+import {
+    PanelShell as SharedPanelShell,
+    applyMarketplaceMiNegocioNavBadge,
+    useMarketplacePanelBilling,
+    useMarketplaceBusinessBrand,
+} from '@simple/ui/panel';
 import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
 import { getPanelNavItems, isPanelNavActive, panelRoleLabel, type PanelRole } from '@/components/panel/panel-nav-config';
 import { fetchSubscriptionCatalog } from '@/lib/payments';
@@ -18,6 +23,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
     const pathname = usePathname() ?? '';
     const hidePanelBottomNav = pathname.startsWith('/panel/publicar');
     const { billing } = useMarketplacePanelBilling(SUBSCRIPTION_HREF, fetchSubscriptionCatalog);
+    const { logoUrl, displayName } = useMarketplaceBusinessBrand('propiedades');
 
     const navItems = useMemo(
         () => applyMarketplaceMiNegocioNavBadge(
@@ -33,13 +39,13 @@ export function PanelShell({ children }: { children: ReactNode }) {
         [navItems, pathname],
     );
 
-    const userName = user?.name?.trim() || 'Usuario';
+    const userName = displayName || user?.name?.trim() || 'Usuario';
     const roleLabel = panelRoleLabel(role);
 
     return (
         <SharedPanelShell
             navItems={navItems}
-            user={{ name: userName, role: roleLabel, avatar: user?.avatar }}
+            user={{ name: userName, role: roleLabel, avatar: logoUrl ?? user?.avatar }}
             roleLabel={roleLabel}
             collapsedStorageKey={STORAGE_COLLAPSED}
             footerHref="/ventas"

@@ -82,8 +82,8 @@ export {
     useMarketplaceOperatorPublishDefaults,
     type MarketplaceOperatorPublishDefaults,
 } from './use-marketplace-operator-publish-defaults';
+export { useMarketplaceBusinessBrand } from './use-marketplace-business-brand';
 export { resolveMarketplacePlanBannerState, type MarketplacePlanBannerState } from './marketplace-plan-banner-state';
-export { MarketplaceMiNegocioPlanBanner, type MarketplaceMiNegocioPlanBannerProps } from './marketplace-mi-negocio-plan-banner';
 export { MarketplaceSubscriptionLaunchNotice } from './marketplace-subscription-launch-notice.js';
 export { MarketplaceMiNegocioProGate, type MarketplaceMiNegocioProGateProps } from './marketplace-mi-negocio-pro-gate';
 export {

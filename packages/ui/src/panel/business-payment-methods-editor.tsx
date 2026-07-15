@@ -91,7 +91,7 @@ export function BusinessPaymentMethodsEditor({
     saveError = null,
     mercadoPago = { mode: 'toggle' },
     copy,
-    showSubscriptionNotice = true,
+    showSubscriptionNotice = false,
     hideSaveButton = false,
 }: BusinessPaymentMethodsEditorProps) {
     const labels = {

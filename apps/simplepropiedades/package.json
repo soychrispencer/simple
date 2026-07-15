@@ -17,6 +17,7 @@
     "@simple/config": "workspace:*",
     "@simple/marketplace-header": "workspace:*",
     "@simple/types": "workspace:*",
+    "@simple/simulador-ui": "workspace:*",
     "@simple/ui": "workspace:*",
     "@simple/utils": "workspace:*",
     "@tabler/icons-react": "^3.44.0",

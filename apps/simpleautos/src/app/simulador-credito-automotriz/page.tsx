@@ -5,7 +5,7 @@ import type { TipoVehiculo } from '@/lib/financiamiento/calculadora';
 export const metadata: Metadata = {
     title: 'Simulador de crédito automotriz | SimpleAutos',
     description:
-        'Simula tu crédito automotriz en Chile: cuota mensual, costo total y capacidad de financiamiento. Herramienta orientativa, no es aprobación de crédito.',
+        'Simula tu crédito automotriz en Chile: cuota, pie habitual (~20%) y capacidad referencial. Orientativo y sujeto a evaluación comercial; no es aprobación de crédito.',
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

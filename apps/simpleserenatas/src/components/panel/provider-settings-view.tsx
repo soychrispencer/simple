@@ -13,7 +13,6 @@ import {
     PanelButton,
     PanelNotice,
     PanelSectionSaveFooter,
-    PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE,
 } from '@simple/ui/panel';
 import {
     businessPaymentMethodsFromRecord,
@@ -218,9 +217,7 @@ export function ProviderSettingsView({ refresh }: { refresh: () => Promise<void>
     }
 
     return (
-        <BusinessMiNegocioConfiguracionesLayout
-            notice={<PanelNotice tone="info">{PUBLIC_PROFILE_SUBSCRIPTION_TOOL_NOTICE}</PanelNotice>}
-        >
+        <BusinessMiNegocioConfiguracionesLayout>
         <div className="flex w-full min-w-0 flex-col gap-6">
             <div className="space-y-4">
                 <PanelBlockHeader

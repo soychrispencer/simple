@@ -253,7 +253,7 @@ export const PUBLIC_PROFILE_PRODUCTS_EMPTY_MESSAGE =
 
 export const BUSINESS_CATALOG_EDITOR_PRODUCTS_SECTION = {
     title: 'Productos',
-    description: 'Publica nuevos desde Publicar. Aquí editas stock, precios y visibilidad.',
+    description: 'Stock, precios y visibilidad de tu catálogo.',
 } as const;
 
 /** Mensaje cuando un perfil público no tiene catálogo de servicios activo. */
@@ -263,7 +263,7 @@ export const PUBLIC_PROFILE_CATALOG_EMPTY_MESSAGE =
 /** Encabezado interno opcional cuando el shell no lleva acciones propias del catálogo. */
 export const BUSINESS_CATALOG_EDITOR_SECTION = {
     title: 'Servicios',
-    description: 'Publica nuevos desde Publicar. Aquí editas, packs y promociones.',
+    description: 'Edita el catálogo, packs y promociones.',
 } as const;
 
 export const BUSINESS_SCHEDULE_EMPTY = {

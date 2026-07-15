@@ -42,6 +42,10 @@ export function EmailVerificationGate({ appLabel, email, logout, refreshSession 
                 alreadyVerified?: boolean;
             } | null;
             if (!response.ok || !data?.ok) {
+                if (response.status === 429) {
+                    setError('Demasiados reenvíos. Espera unos minutos y revisa Spam o Promociones.');
+                    return;
+                }
                 setError(data?.error ?? 'No pudimos enviar el correo de verificación.');
                 return;
             }
@@ -97,8 +101,8 @@ export function EmailVerificationGate({ appLabel, email, logout, refreshSession 
                     Cerrar sesión
                 </PanelButton>
             </div>
-            <p className="mt-6 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                ¿No recibiste el correo? Revisa spam o solicita un nuevo enlace.
+            <p className="mt-6 max-w-sm text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                ¿No llegó? Revisa Spam, Promociones o Correo no deseado. El enlace vence en 3 días; puedes pedir uno nuevo con el botón de arriba.
             </p>
         </div>
     );

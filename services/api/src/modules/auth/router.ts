@@ -503,10 +503,55 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
         const origin = deps.resolveBrowserOrigin(c);
         if (!origin) return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
+        const signupSource = resolveSignupSource(origin);
 
         const normalizedEmail = parsed.data.email.trim().toLowerCase();
         const existing = await deps.getUserByEmail(normalizedEmail);
         if (existing) {
+            // Cuenta local sin verificar: si la contraseña coincide, reenvía el correo y abre sesión.
+            if (
+                existing.status === 'active'
+                && (existing.provider === 'local' || !existing.provider)
+                && typeof existing.passwordHash === 'string'
+            ) {
+                const passwordMatches = await deps.bcrypt.compare(parsed.data.password, existing.passwordHash);
+                if (passwordMatches) {
+                    try {
+                        await deps.issueEmailVerification(existing.id, normalizedEmail, origin);
+                    } catch (error) {
+                        console.error('Email verification resend on register error:', error);
+                        return c.json({
+                            ok: false,
+                            error: 'Tu cuenta ya existe, pero no pudimos reenviar el correo de verificación. Inténtalo en unos minutos desde «Iniciar sesión».',
+                        }, 502);
+                    }
+                    await deps.touchUserLastLoginAt(existing.id);
+                    const personalAccount = await deps.ensurePrimaryAccountForUser(existing);
+                    await upsertPlatformAccess({
+                        userId: existing.id,
+                        app: userFacingApps.includes(signupSource.app as SimpleUserApp) ? signupSource.app as SimpleUserApp : null,
+                        origin,
+                        markLogin: true,
+                        activate: true,
+                    });
+                    deps.clearRateLimit(`auth:register:ip:${clientId}`);
+                    deps.setSession(c, existing.id);
+                    return c.json({
+                        ok: true,
+                        resentVerification: true,
+                        user: await sanitizeUserWithPlatformAccess({
+                            ...existing,
+                            lastLoginAt: new Date(),
+                            primaryAccountId: personalAccount.id,
+                        }, c),
+                    }, 200);
+                }
+                return c.json({
+                    ok: false,
+                    error: 'Este correo ya tiene una cuenta pendiente de verificación. Inicia sesión con tu contraseña y reenvía el correo, o recupera la contraseña si no la recuerdas.',
+                    code: 'EMAIL_PENDING_VERIFICATION',
+                }, 409);
+            }
             return c.json({
                 ok: false,
                 error: 'Este correo ya tiene una Cuenta Simple. Inicia sesión para activar esta plataforma con la misma cuenta, o usa otro correo si prefieres separar tus cuentas.',
@@ -525,7 +570,6 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         }
 
         const hashedPassword = await deps.bcrypt.hash(parsed.data.password, 10);
-        const signupSource = resolveSignupSource(origin);
 
 
         let insertedUser: any;
@@ -583,8 +627,17 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 await deps.issueEmailVerification(newUser.id, normalizedEmail, origin);
             } catch (error) {
                 console.error('Email verification delivery error:', error);
-                await deps.db.delete(deps.tables.emailVerificationTokens).where(deps.eq(deps.tables.emailVerificationTokens.userId, newUser.id));
-                await deps.db.delete(deps.tables.users).where(deps.eq(deps.tables.users.id, newUser.id));
+                try {
+                    if (deps.permanentlyDeleteUser) {
+                        await deps.permanentlyDeleteUser(newUser.id);
+                    } else {
+                        await deps.db.delete(deps.tables.emailVerificationTokens).where(deps.eq(deps.tables.emailVerificationTokens.userId, newUser.id));
+                        await deps.db.delete(deps.tables.userPlatformAccess).where(deps.eq(deps.tables.userPlatformAccess.userId, newUser.id));
+                        await deps.db.delete(deps.tables.users).where(deps.eq(deps.tables.users.id, newUser.id));
+                    }
+                } catch (rollbackError) {
+                    console.error('Email verification rollback failed:', rollbackError);
+                }
                 return c.json({ ok: false, error: 'No pudimos enviar el correo de verificación. Inténtalo nuevamente en unos minutos.' }, 502);
             }
         } else {
@@ -1041,9 +1094,17 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const origin = deps.resolveBrowserOrigin(c);
         if (!origin) return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
 
+        const clientId = deps.getClientIdentifier(c);
         const sessionUser = await deps.authUser(c);
         const normalizedEmail = parsed.data.email?.trim().toLowerCase() ?? sessionUser?.email ?? null;
         if (!normalizedEmail) return c.json({ ok: false, error: 'Debes indicar un correo válido.' }, 400);
+
+        const rateKey = `auth:email-verification:ip:${clientId}:${normalizedEmail}`;
+        const rateLimit = deps.consumeRateLimit(rateKey, 5, deps.AUTH_RATE_LIMIT_WINDOW_MS);
+        if (!rateLimit.ok) {
+            c.header('Retry-After', String(rateLimit.retryAfterSeconds));
+            return c.json({ ok: false, error: 'Demasiados reenvíos. Espera unos minutos e inténtalo de nuevo.' }, 429);
+        }
 
         const user = await deps.getUserByEmail(normalizedEmail);
         if (!user || !deps.canAuthenticateUser(user)) return c.json({ ok: true });

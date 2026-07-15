@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelNotice } from '@simple/ui/panel';
+import { PasswordInput } from '@simple/auth';
 import { API_BASE } from '@simple/config';
 
 export default function ResetPasswordPage() {
@@ -78,22 +79,24 @@ export default function ResetPasswordPage() {
                 {error ? <PanelNotice tone="error" className="mb-3">{error}</PanelNotice> : null}
                 {success ? <PanelNotice tone="success" className="mb-3">{success}</PanelNotice> : null}
                 <form onSubmit={handleSubmit} className="space-y-3" aria-label="Formulario de restablecer contraseña">
-                    <input
-                        type="password"
+                    <PasswordInput
+                        id="reset-password"
+                        plain
                         value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        className="form-input"
+                        onChange={setPassword}
                         placeholder="Nueva contraseña"
                         autoComplete="new-password"
+                        minLength={8}
                         required
                     />
-                    <input
-                        type="password"
+                    <PasswordInput
+                        id="reset-password-confirm"
+                        plain
                         value={confirmPassword}
-                        onChange={(event) => setConfirmPassword(event.target.value)}
-                        className="form-input"
+                        onChange={setConfirmPassword}
                         placeholder="Repite la contraseña"
                         autoComplete="new-password"
+                        minLength={8}
                         required
                     />
                     <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting}>

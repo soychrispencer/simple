@@ -9,7 +9,7 @@ import {
     IconRocket,
     IconUser,
     IconMessageCircle,
-    IconBriefcase,
+    IconBuildingStore,
     IconAddressBook,
 } from '@tabler/icons-react';
 import { isMarketplaceLaunchMode } from '@simple/utils';
@@ -34,7 +34,7 @@ const PANEL_NAV_ITEMS: PanelNavItem[] = [
     { href: '/panel/publicidad', label: 'Publicidad', icon: IconRocket },
     { href: '/panel/finanzas', label: 'Finanzas', icon: IconCash, visibility: 'admin_plus' },
     { href: '/panel/estadisticas', label: 'Estadísticas', icon: IconChartBar, visibility: 'admin_plus' },
-    { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBriefcase },
+    { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBuildingStore },
     { href: '/panel/mi-cuenta', label: 'Mi cuenta', icon: IconUser },
 ];
 

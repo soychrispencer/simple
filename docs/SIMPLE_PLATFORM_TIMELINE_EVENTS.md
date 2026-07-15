@@ -205,7 +205,10 @@ Cron reminders (`cron.ts`): Tier 3 — no Fase A.
 - [x] `engagement.saved` / `engagement.followed` + contactos desde guardados/follows
 - [x] Notas internas (`relationship_notes` + `/api/platform/relationship-notes`)
 - [x] Portal v0 Serenatas (modo cliente / Identity `serenata_clients`)
+- [x] SimpleAdmin Conversaciones: `whatsapp.manual` + `conversation.status_changed` (bandeja ops, sin Cloud API)
 
 Migración: `0139_timeline_events`, `0140_relationship_notes` (post-journal).
+
+Business UUID ops: `PLATFORM_OPS_BUSINESS_ID` en `@simple/utils` timeline-event.
 
 Siguiente producto: Portal autenticado Agenda (Mis citas) o “Lo mío” en Autos/Propiedades.

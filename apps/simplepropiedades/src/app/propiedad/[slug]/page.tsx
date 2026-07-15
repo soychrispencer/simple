@@ -1,5 +1,6 @@
 import { type Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { fetchValorUF } from '@/lib/hipotecario/fetch-uf';
 import { fetchPublicListing } from '@/lib/public-listings';
 import PropertyDetailClient from './PropertyDetailClient';
 
@@ -55,11 +56,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PropertyDetailPage({ params }: Props) {
     const resolvedParams = await params;
     const slug = resolvedParams.slug;
-    const item = await fetchPublicListing(slug);
+    const [item, uf] = await Promise.all([
+        fetchPublicListing(slug),
+        fetchValorUF(),
+    ]);
 
     if (!item) {
         notFound();
     }
 
-    return <PropertyDetailClient item={item} />;
+    return <PropertyDetailClient item={item} valorUF={uf.valor} />;
 }

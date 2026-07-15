@@ -12,7 +12,8 @@ export type TimelineActor =
     | 'buyer'
     | 'system'
     | 'owner'
-    | 'musician';
+    | 'musician'
+    | 'admin';
 
 export type TimelineVertical = 'agenda' | 'serenatas' | 'autos' | 'propiedades' | 'platform';
 
@@ -64,6 +65,9 @@ export type TimelineEventType =
     // Conversations / engagement
     | 'conversation.started'
     | 'conversation.message_sent'
+    | 'conversation.status_changed'
+    | 'channel.inbound'
+    | 'whatsapp.manual'
     | 'engagement.saved'
     | 'engagement.followed'
     | 'lead.opened'
@@ -91,10 +95,19 @@ export type TimelineSubjectKind =
     | 'serenata'
     | 'serenata_offer'
     | 'message_thread'
+    | 'channel_thread'
     | 'listing'
     | 'public_profile'
     | 'provider_group'
     | 'relationship_note';
+
+/**
+ * Stable business UUID for SimpleAdmin ops inbox (Relationship Engine).
+ * Shared across admins so Conversaciones is a single team queue.
+ */
+export const PLATFORM_OPS_BUSINESS_ID = '00000000-0000-4000-8000-0000000000a1';
+
+export type ConversationThreadStatus = 'pending' | 'done';
 
 export type TimelineBusinessRef = {
     vertical: TimelineVertical;

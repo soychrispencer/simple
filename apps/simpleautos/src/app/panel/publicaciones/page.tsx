@@ -949,20 +949,18 @@ export default function PublicacionesPage() {
                 title="Mis publicaciones"
                 description={kindTab === 'listings'
                     ? `${listings.length} avisos en total`
-                    : 'Administra lo creado desde Publicar'}
-                actions={
+                    : kindTab === 'services'
+                        ? 'Edita servicios, packs y promociones de tu catálogo'
+                        : 'Edita stock, precios y visibilidad de tus productos'}
+                actions={kindTab === 'listings' ? (
                     <Link
-                        href={kindTab === 'services'
-                            ? '/panel/publicar?op=service'
-                            : kindTab === 'products'
-                                ? '/panel/publicar?op=product'
-                                : '/panel/publicar'}
+                        href="/panel/publicar"
                         className={getPanelButtonClassName({ size: 'sm', className: 'h-9 px-4 text-sm' })}
                         style={getPanelButtonStyle('primary')}
                     >
                         <IconPlus size={13} /> Nueva publicación
                     </Link>
-                }
+                ) : undefined}
             />
 
             <div className="mb-4">

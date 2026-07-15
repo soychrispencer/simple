@@ -1,3 +1,5 @@
+import { resolveAppMediaUrl } from '@simple/utils';
+
 type ListingMediaSource = {
     rawData?: unknown;
 };
@@ -15,7 +17,8 @@ function asString(value: unknown, fallback = ''): string {
 function readMediaUrl(value: unknown): string {
     if (typeof value === 'string') return value.trim();
     const obj = asRecord(value);
-    return asString(obj.dataUrl) || asString(obj.previewUrl) || asString(obj.url);
+    // Prefer durable URL over local previews / ephemeral data URLs.
+    return asString(obj.url) || asString(obj.previewUrl) || asString(obj.dataUrl);
 }
 
 export function getListingVideoUrl(listing: ListingMediaSource): string | null {
@@ -35,6 +38,24 @@ export function getListingPhotoUrls(listing: ListingMediaSource): string[] {
     const media = asRecord(asRecord(listing.rawData).media);
     const photos = Array.isArray(media.photos) ? media.photos : [];
     return photos
-        .map((photo) => readMediaUrl(photo))
+        .map((photo) => {
+            const raw = readMediaUrl(photo);
+            return raw ? (resolveAppMediaUrl(raw) ?? raw) : '';
+        })
         .filter((url) => Boolean(url));
+}
+
+/** Cover photo for panel thumbnails; falls back to first available photo. */
+export function getListingCoverUrl(listing: ListingMediaSource): string | null {
+    const media = asRecord(asRecord(listing.rawData).media);
+    const photos = Array.isArray(media.photos) ? media.photos : [];
+    if (photos.length === 0) return null;
+
+    const cover = photos.find((photo) => asRecord(photo).isCover === true) ?? photos[0];
+    const raw = readMediaUrl(cover);
+    if (!raw) {
+        const urls = getListingPhotoUrls(listing);
+        return urls[0] ?? null;
+    }
+    return resolveAppMediaUrl(raw) ?? raw;
 }

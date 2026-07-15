@@ -167,3 +167,63 @@ export async function logoutAdmin(): Promise<void> {
         // Best effort.
     }
 }
+
+export type AdminConversationItem = {
+    threadId: string;
+    channel: string;
+    status: 'pending' | 'done';
+    phone: string | null;
+    name: string | null;
+    lastMessage: string | null;
+    sourceVertical: string | null;
+    capturedByUserId: string | null;
+    occurredAt: string;
+    pendingSince: string;
+    hoursPending: number;
+    overdue24h: boolean;
+    eventCount: number;
+};
+
+export type AdminConversationsSummary = {
+    pendingCount: number;
+    overdueCount: number;
+    doneCount: number;
+};
+
+export async function fetchAdminConversations(status: 'pending' | 'done' | 'all' = 'pending'): Promise<{
+    items: AdminConversationItem[];
+    summary: AdminConversationsSummary;
+}> {
+    const data = await expectOk<{
+        items?: AdminConversationItem[];
+        summary?: AdminConversationsSummary;
+    }>(`/api/admin/conversations?status=${encodeURIComponent(status)}`);
+    return {
+        items: data.items ?? [],
+        summary: data.summary ?? { pendingCount: 0, overdueCount: 0, doneCount: 0 },
+    };
+}
+
+export async function captureAdminWhatsappConversation(input: {
+    phone: string;
+    name?: string;
+    message?: string;
+    sourceVertical?: string;
+}): Promise<{ threadId: string }> {
+    const data = await expectOk<{ threadId?: string }>('/api/admin/conversations/whatsapp-manual', {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
+    if (!data.threadId) throw new Error('No se recibió el hilo creado');
+    return { threadId: data.threadId };
+}
+
+export async function updateAdminConversationStatus(
+    threadId: string,
+    input: { status: 'pending' | 'done'; note?: string },
+): Promise<void> {
+    await expectOk(`/api/admin/conversations/${encodeURIComponent(threadId)}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+    });
+}

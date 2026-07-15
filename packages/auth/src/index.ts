@@ -1,6 +1,7 @@
 export { AuthProvider, useAuth } from './auth-context';
 export { usePanelFormatters, useUserTimezone } from './use-panel-format';
 export { AuthModal } from './auth-modal';
+export { PasswordInput } from './password-input';
 export { default as GoogleLoginButton } from './google-login-button';
 export { startGoogleOAuthLogin, completeGoogleOAuthCallback } from './google-oauth';
 export type { GoogleOAuthCallbackResult } from './google-oauth';

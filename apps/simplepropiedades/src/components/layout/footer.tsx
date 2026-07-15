@@ -12,7 +12,7 @@ const sections = [
             { label: 'Proyectos nuevos', href: '/proyectos' },
             { label: 'Publicar', href: '/panel/publicar' },
             { label: 'Gestión inmobiliaria', href: '/servicios/venta-asistida' },
-            { label: 'Simulador hipotecario', href: '/simulador-hipotecario' },
+            { label: 'Simulador de crédito hipotecario', href: '/simulador-hipotecario' },
         ],
     },
     {

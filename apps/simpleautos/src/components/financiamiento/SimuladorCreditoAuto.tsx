@@ -1,36 +1,112 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-    IconAlertTriangle,
     IconBrandWhatsapp,
     IconCalculator,
-    IconCheck,
-    IconInfoCircle,
-    IconShieldCheck,
+    IconDownload,
+    IconRefresh,
 } from '@tabler/icons-react';
+import { ModernSelect } from '@simple/ui/forms';
 import {
-    PanelBlockHeader,
-    PanelButton,
-    PanelCard,
-    PanelNotice,
-    PanelSegmentedToggle,
-} from '@simple/ui/panel';
+    formatClPriceInput,
+    parseDigits,
+    SimplePublishPriceBlock,
+} from '@simple/ui/simple-publish';
 import {
+    AlertasCompactas,
+    BotonCTA,
+    BotonSecundario,
+    CampoMoneda,
+    CampoNumero,
+    CampoSlider,
+    DatoCompacto,
+    DisclaimerLegal,
+    cargaMensaje,
+    descargarSimulacionPdf,
     formatCLP,
     formatPct,
+    guardarEstadoSimulador,
+    leerEstadoSimulador,
+    limpiarEstadoSimulador,
+    PanelPrincipal,
+    ShellSimulador,
+    TarjetaEscenario,
+    TarjetaFormulario,
+} from '@simple/simulador-ui';
+import {
+    estimarPieYPlazoSugeridos,
     simular,
     type ResultadoSimulacion,
     type TipoTrabajador,
     type TipoVehiculo,
 } from '@/lib/financiamiento/calculadora';
-import { REQUISITOS_GENERALES } from '@/lib/financiamiento/tasas-referenciales';
+import {
+    getBrandsForVehicleType,
+    getModelsForBrand,
+    loadPublishWizardCatalog,
+    type PublishWizardCatalog,
+    type VehicleCatalogType,
+} from '@/lib/publish-wizard-catalog';
+import {
+    labelForVehicleType,
+    SimuladorVehicleTypePicker,
+} from '@/components/financiamiento/simulador-vehicle-type-picker';
 
 const ANIO_ACTUAL = new Date().getFullYear();
-const DEFAULT_PRECIO = 12_500_000;
+const STORAGE_KEY = 'simple.simulador.automotriz.v3';
+const YEAR_OPTIONS = Array.from({ length: ANIO_ACTUAL - 1990 + 1 }, (_, index) => {
+    const year = String(ANIO_ACTUAL - index);
+    return { value: year, label: year };
+});
 
-function pieInicialPct(tipo: TipoVehiculo): number {
-    return tipo === 'nuevo' ? 0.1 : 0.2;
+type EstadoPersistido = {
+    vehicleType: VehicleCatalogType;
+    brandId: string;
+    modelId: string;
+    customBrand: string;
+    customModel: string;
+    precioTexto: string;
+    tipoVehiculo: TipoVehiculo;
+    anioVehiculo: number;
+    pieMonto: number;
+    plazoMeses: number;
+    rentaLiquida: number;
+    tipoTrabajador: TipoTrabajador;
+    otrasDeudasMensuales: number;
+    edad: number;
+    tieneDicom: 'no' | 'si';
+};
+
+function parseMonto(texto: string): number {
+    const digits = parseDigits(texto);
+    return digits ? Number.parseInt(digits, 10) : 0;
+}
+
+function formatMontoTexto(valor: number): string {
+    if (!(valor > 0)) return '';
+    return formatClPriceInput(String(valor));
+}
+
+function estadoVacio(overrides?: Partial<EstadoPersistido>): EstadoPersistido {
+    return {
+        vehicleType: 'car',
+        brandId: '',
+        modelId: '',
+        customBrand: '',
+        customModel: '',
+        precioTexto: '',
+        tipoVehiculo: 'usado',
+        anioVehiculo: 0,
+        pieMonto: 0,
+        plazoMeses: 48,
+        rentaLiquida: 0,
+        tipoTrabajador: 'dependiente',
+        otrasDeudasMensuales: 0,
+        edad: 0,
+        tieneDicom: 'no',
+        ...overrides,
+    };
 }
 
 interface SimuladorCreditoAutoProps {
@@ -48,70 +124,6 @@ interface SimuladorCreditoAutoProps {
     listingId?: string;
 }
 
-function parseNumero(valor: string): number {
-    const limpio = valor.replace(/[^\d]/g, '');
-    return limpio ? parseInt(limpio, 10) : 0;
-}
-
-function formatCLPInput(valor: number): string {
-    if (!valor) return '';
-    return valor.toLocaleString('es-CL');
-}
-
-function CampoMoneda({
-    label,
-    valor,
-    onChange,
-    placeholder,
-    ayuda,
-}: {
-    label: string;
-    valor: number;
-    onChange: (v: number) => void;
-    placeholder?: string;
-    ayuda?: string;
-}) {
-    return (
-        <div>
-            {label ? (
-                <label className="mb-1 block text-xs font-medium text-[var(--fg-muted)]">{label}</label>
-            ) : null}
-            <input
-                type="text"
-                inputMode="numeric"
-                className="form-input w-full"
-                value={formatCLPInput(valor)}
-                placeholder={placeholder}
-                onChange={(e) => onChange(parseNumero(e.target.value))}
-            />
-            {ayuda ? <p className="mt-1 text-[10px] text-[var(--fg-muted)]">{ayuda}</p> : null}
-        </div>
-    );
-}
-
-function cargaStyle(nivel: ResultadoSimulacion['cargaFinanciera']['nivel']) {
-    switch (nivel) {
-        case 'comoda':
-            return {
-                badge: 'marketplace-flow-badge-success',
-                icon: IconCheck,
-                mensaje: 'Carga financiera cómoda',
-            };
-        case 'ajustada':
-            return {
-                badge: 'marketplace-flow-badge-warning',
-                icon: IconAlertTriangle,
-                mensaje: 'Carga financiera ajustada',
-            };
-        case 'alta':
-            return {
-                badge: 'marketplace-flow-badge-error',
-                icon: IconAlertTriangle,
-                mensaje: 'Carga financiera alta: riesgo de rechazo',
-            };
-    }
-}
-
 export default function SimuladorCreditoAuto({
     onSolicitar,
     whatsappNumero = '56978623828',
@@ -121,37 +133,178 @@ export default function SimuladorCreditoAuto({
     listingTitle,
     listingId,
 }: SimuladorCreditoAutoProps) {
-    const precioInicial =
-        initialPrecio && initialPrecio > 0 ? initialPrecio : DEFAULT_PRECIO;
+    const tienePrefillListing = Boolean(initialPrecio && initialPrecio > 0);
+    const tipoInicial = initialTipoVehiculo ?? 'usado';
     const anioInicial =
         initialAnio && initialAnio >= 1990 && initialAnio <= ANIO_ACTUAL
             ? initialAnio
-            : ANIO_ACTUAL - 4;
+            : 0;
+    const precioInicial = tienePrefillListing ? initialPrecio! : 0;
 
-    const [precioVehiculo, setPrecioVehiculo] = useState(precioInicial);
-    const [tipoVehiculo, setTipoVehiculo] = useState<TipoVehiculo>(
-        initialTipoVehiculo ?? 'usado',
+    const [estado, setEstado] = useState<EstadoPersistido>(() =>
+        estadoVacio({
+            precioTexto: formatMontoTexto(precioInicial),
+            tipoVehiculo: tipoInicial,
+            anioVehiculo: anioInicial,
+            pieMonto:
+                precioInicial > 0
+                    ? Math.round(precioInicial * pieInicialPct(tipoInicial))
+                    : 0,
+        }),
     );
-    const [anioVehiculo, setAnioVehiculo] = useState(anioInicial);
-    const [pieMonto, setPieMonto] = useState(
-        Math.round(precioInicial * pieInicialPct(initialTipoVehiculo ?? 'usado')),
-    );
-    const [plazoMeses, setPlazoMeses] = useState(48);
-    const [rentaLiquida, setRentaLiquida] = useState(900_000);
-    const [tipoTrabajador, setTipoTrabajador] = useState<TipoTrabajador>('dependiente');
-    const [otrasDeudasMensuales, setOtrasDeudasMensuales] = useState(0);
+    const [catalog, setCatalog] = useState<PublishWizardCatalog | null>(null);
+    const [listoPersistencia, setListoPersistencia] = useState(false);
+    const [descargandoPdf, setDescargandoPdf] = useState(false);
+
+    const {
+        vehicleType,
+        brandId,
+        modelId,
+        customBrand,
+        customModel,
+        precioTexto,
+        tipoVehiculo,
+        anioVehiculo,
+        pieMonto,
+        plazoMeses,
+        rentaLiquida,
+        tipoTrabajador,
+        otrasDeudasMensuales,
+        edad,
+        tieneDicom,
+    } = estado;
+
+    useEffect(() => {
+        let cancelled = false;
+        void loadPublishWizardCatalog().then((next) => {
+            if (!cancelled) setCatalog(next);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!tienePrefillListing) {
+            const guardado = leerEstadoSimulador<EstadoPersistido>(STORAGE_KEY);
+            if (guardado) {
+                setEstado(
+                    estadoVacio({
+                        ...guardado,
+                        precioTexto: String(guardado.precioTexto ?? ''),
+                        brandId: String(guardado.brandId ?? ''),
+                        modelId: String(guardado.modelId ?? ''),
+                        customBrand: String(guardado.customBrand ?? ''),
+                        customModel: String(guardado.customModel ?? ''),
+                        anioVehiculo: Number(guardado.anioVehiculo) || 0,
+                        pieMonto: Number(guardado.pieMonto) || 0,
+                        plazoMeses: Number(guardado.plazoMeses) || 48,
+                        rentaLiquida: Number(guardado.rentaLiquida) || 0,
+                        otrasDeudasMensuales: Number(guardado.otrasDeudasMensuales) || 0,
+                        edad: Number(guardado.edad) || 0,
+                        vehicleType: (guardado.vehicleType as VehicleCatalogType) || 'car',
+                    }),
+                );
+            }
+        }
+        setListoPersistencia(true);
+    }, [tienePrefillListing]);
+
+    useEffect(() => {
+        if (!listoPersistencia || tienePrefillListing) return;
+        guardarEstadoSimulador(STORAGE_KEY, estado);
+    }, [estado, listoPersistencia, tienePrefillListing]);
+
+    const precioVehiculo = parseMonto(precioTexto);
+    const tieneDatos = precioVehiculo > 0;
+    const pieEfectivoPct = precioVehiculo > 0 ? pieMonto / precioVehiculo : 0;
+
+    const brands = catalog ? getBrandsForVehicleType(catalog, vehicleType) : [];
+    const models =
+        catalog && brandId && brandId !== '__custom__'
+            ? getModelsForBrand(catalog, brandId, vehicleType)
+            : [];
+
+    const brandLabel =
+        brandId === '__custom__'
+            ? customBrand.trim() || 'Marca personalizada'
+            : brands.find((b) => b.id === brandId)?.name || '';
+    const modelLabel =
+        modelId === '__custom__'
+            ? customModel.trim() || 'Modelo personalizado'
+            : models.find((m) => m.id === modelId)?.name ||
+              catalog?.models.find((m) => m.id === modelId)?.name ||
+              '';
+
+    function patch(parcial: Partial<EstadoPersistido>) {
+        setEstado((prev) => ({ ...prev, ...parcial }));
+    }
+
+    function syncPrecioYPie(next: {
+        precioTexto?: string;
+        tipo?: TipoVehiculo;
+        anio?: number;
+        tipoTrabajador?: TipoTrabajador;
+        tieneDicom?: 'no' | 'si';
+        edad?: number;
+        resetPiePct?: boolean;
+    }) {
+        setEstado((prev) => {
+            const precio = parseMonto(next.precioTexto ?? prev.precioTexto);
+            const tipo = next.tipo ?? prev.tipoVehiculo;
+            const anio = next.anio ?? prev.anioVehiculo;
+            const trabajador = next.tipoTrabajador ?? prev.tipoTrabajador;
+            const dicom = next.tieneDicom ?? prev.tieneDicom;
+            const edadNext = next.edad ?? prev.edad;
+            const perfil = estimarPieYPlazoSugeridos({
+                tipoVehiculo: tipo,
+                anioVehiculo: anio || ANIO_ACTUAL - 4,
+                tipoTrabajador: trabajador,
+                tieneDicom: dicom === 'si',
+                edad: edadNext || 35,
+            });
+
+            const precioPrev = parseMonto(prev.precioTexto);
+            let piePct = perfil.pieMinimoSugeridoPct;
+            if (!next.resetPiePct && precioPrev > 0) {
+                const actualPct = prev.pieMonto / precioPrev;
+                // Solo sube el pie si queda bajo el habitual del nuevo perfil.
+                piePct =
+                    actualPct + 0.001 < perfil.pieMinimoSugeridoPct
+                        ? perfil.pieMinimoSugeridoPct
+                        : actualPct;
+            }
+
+            return {
+                ...prev,
+                precioTexto: next.precioTexto ?? prev.precioTexto,
+                tipoVehiculo: tipo,
+                anioVehiculo: anio,
+                tipoTrabajador: trabajador,
+                tieneDicom: dicom,
+                edad: edadNext,
+                pieMonto: Math.round(precio * piePct),
+                plazoMeses: Math.min(
+                    Math.max(prev.plazoMeses, 12),
+                    perfil.plazoMaxSugerido,
+                ),
+            };
+        });
+    }
 
     const resultado = useMemo(
         () =>
             simular({
                 precioVehiculo,
                 tipoVehiculo,
-                anioVehiculo,
+                anioVehiculo: anioVehiculo || ANIO_ACTUAL - 4,
                 pieMonto,
                 plazoMeses,
                 rentaLiquida,
                 tipoTrabajador,
                 otrasDeudasMensuales,
+                edad,
+                tieneDicom: tieneDicom === 'si',
             }),
         [
             precioVehiculo,
@@ -162,328 +315,547 @@ export default function SimuladorCreditoAuto({
             rentaLiquida,
             tipoTrabajador,
             otrasDeudasMensuales,
+            edad,
+            tieneDicom,
         ],
     );
 
-    const pieEfectivoPct = precioVehiculo > 0 ? pieMonto / precioVehiculo : 0;
-    const escenarioMercado = resultado.escenarios[1];
-    const carga = cargaStyle(resultado.cargaFinanciera.nivel);
-    const CargaIcon = carga.icon;
+    const mercado = resultado.escenarios[1];
+    const pieBajoSugerido =
+        tieneDatos && pieEfectivoPct + 0.001 < resultado.pieMinimoSugeridoPct;
+
+    function aplicarPieSugerido() {
+        if (!(precioVehiculo > 0)) return;
+        patch({
+            pieMonto: Math.round(precioVehiculo * resultado.pieMinimoSugeridoPct),
+            plazoMeses: Math.min(plazoMeses, resultado.plazoMaxSugerido),
+        });
+    }
+
+    function handleReiniciar() {
+        limpiarEstadoSimulador(STORAGE_KEY);
+        setEstado(
+            estadoVacio({
+                tipoVehiculo: initialTipoVehiculo ?? 'usado',
+            }),
+        );
+    }
 
     function handleSolicitar() {
+        if (!tieneDatos) return;
         if (onSolicitar) {
             onSolicitar({ precioVehiculo, pieMonto, plazoMeses, resultado });
             return;
         }
+        const vehiculoLine = [
+            labelForVehicleType(vehicleType),
+            brandLabel,
+            modelLabel,
+            tipoVehiculo === 'nuevo' ? 'Nuevo' : anioVehiculo ? `Usado ${anioVehiculo}` : 'Usado',
+        ]
+            .filter(Boolean)
+            .join(' · ');
         const mensaje = encodeURIComponent(
-            `Hola SimpleAutos, quiero simular un crédito automotriz.\n` +
+            `Hola SimpleAutos, quiero una evaluación comercial de crédito automotriz.\n` +
                 (listingTitle ? `Publicación: ${listingTitle}\n` : '') +
                 (listingId ? `ID: ${listingId}\n` : '') +
-                `Vehículo: ${formatCLP(precioVehiculo)} (${tipoVehiculo})\n` +
-                `Pie: ${formatCLP(pieMonto)} (${formatPct(pieEfectivoPct, 0)})\n` +
-                `Plazo: ${plazoMeses} meses\n` +
-                `Cuota estimada (mercado): ${formatCLP(escenarioMercado.cuotaTotalMensual)}/mes`,
+                `Vehículo: ${vehiculoLine}\n` +
+                `Precio: ${formatCLP(precioVehiculo)}\n` +
+                `Pie simulado: ${formatCLP(pieMonto)} (${formatPct(pieEfectivoPct, 0)}; habitual ~${formatPct(resultado.pieMinimoSugeridoPct, 0)})\n` +
+                `Plazo: ${plazoMeses} meses · Cuota est.: ${formatCLP(mercado.cuotaTotalMensual)}/mes\n` +
+                `Nota: simulación referencial, sujeta a evaluación.`,
         );
         window.open(`https://wa.me/${whatsappNumero}?text=${mensaje}`, '_blank', 'noopener,noreferrer');
     }
 
+    async function handleDescargarPdf() {
+        if (!tieneDatos) return;
+        setDescargandoPdf(true);
+        try {
+            await descargarSimulacionPdf({
+                marca: 'SimpleAutos',
+                titulo: 'Simulación crédito automotriz',
+                referencia: listingTitle
+                    ? `${listingTitle}${listingId ? ` (${listingId})` : ''}`
+                    : undefined,
+                resumen: {
+                    etiqueta: 'Cuota estimada · mercado',
+                    valor: formatCLP(Math.round(mercado.cuotaTotalMensual)),
+                    detalle: `${cargaMensaje(resultado.cargaFinanciera.nivel)} (${formatPct(resultado.cargaFinanciera.porcentajeSobreRenta, 0)})`,
+                },
+                secciones: [
+                    {
+                        titulo: 'Vehículo y crédito',
+                        filas: [
+                            { label: 'Tipo', valor: labelForVehicleType(vehicleType) },
+                            { label: 'Marca', valor: brandLabel || '—' },
+                            { label: 'Modelo', valor: modelLabel || '—' },
+                            {
+                                label: 'Condición',
+                                valor:
+                                    tipoVehiculo === 'nuevo'
+                                        ? 'Nuevo'
+                                        : `Usado${anioVehiculo ? ` · ${anioVehiculo}` : ''}`,
+                            },
+                            { label: 'Precio', valor: formatCLP(precioVehiculo) },
+                            {
+                                label: 'Pie',
+                                valor: `${formatCLP(pieMonto)} (${formatPct(pieEfectivoPct, 0)})`,
+                            },
+                            {
+                                label: 'Monto a financiar',
+                                valor: formatCLP(resultado.montoAFinanciar),
+                            },
+                            { label: 'Plazo', valor: `${plazoMeses} meses` },
+                        ],
+                    },
+                    {
+                        titulo: 'Perfil',
+                        filas: [
+                            { label: 'Renta líquida', valor: formatCLP(rentaLiquida) },
+                            {
+                                label: 'Trabajo',
+                                valor:
+                                    tipoTrabajador === 'dependiente'
+                                        ? 'Dependiente'
+                                        : 'Independiente',
+                            },
+                            { label: 'Edad', valor: edad > 0 ? `${edad} años` : '—' },
+                            {
+                                label: 'Antecedentes comerciales',
+                                valor: tieneDicom === 'si' ? 'Sí (evaluación caso a caso)' : 'No',
+                            },
+                            {
+                                label: 'Otras deudas / mes',
+                                valor: formatCLP(otrasDeudasMensuales),
+                            },
+                            {
+                                label: 'Pie habitual sugerido',
+                                valor: formatPct(resultado.pieMinimoSugeridoPct, 0),
+                            },
+                            {
+                                label: 'Monto máx. referencial',
+                                valor: formatCLP(Math.round(resultado.montoMaximoReferencial)),
+                            },
+                        ],
+                    },
+                    {
+                        titulo: 'Escenarios (cuota total / mes)',
+                        filas: resultado.escenarios.map((esc) => ({
+                            label: `${esc.etiqueta} · ${formatPct(esc.tasaMensual, 2)} m.`,
+                            valor: formatCLP(Math.round(esc.cuotaTotalMensual)),
+                        })),
+                    },
+                ],
+                advertencias: resultado.advertencias,
+                disclaimer:
+                    'Estimación orientativa. No constituye oferta ni aprobación de crédito. Tasas, pie y plazos varían por financiera y evaluación comercial (incluye antecedentes CMF/DICOM). SimpleAutos no es entidad financiera.',
+                nombreArchivo: `simulacion-automotriz-${new Date().toISOString().slice(0, 10)}.pdf`,
+            });
+        } finally {
+            setDescargandoPdf(false);
+        }
+    }
+
     return (
-        <div className="marketplace-flow-page">
-            <div className="marketplace-flow-header">
-                <div className="container-app marketplace-flow-header-inner">
-                    <div>
-                        <p className="marketplace-flow-eyebrow">Simulador gratuito</p>
-                        <h1 className="marketplace-flow-title">Simulador de crédito automotriz</h1>
-                        <p className="marketplace-flow-subtitle">
-                            Gratis · sin registro · no es aprobación crediticia
-                        </p>
+        <ShellSimulador
+            eyebrow="Simulador"
+            titulo="Crédito automotriz"
+            subtitle="Estimación orientativa · no es aprobación"
+            meta={
+                tieneDatos ? (
+                    <div className="flex items-center gap-1.5">
+                        <IconCalculator size={14} className="text-[var(--accent)]" />
+                        <span>{formatCLP(Math.round(mercado.cuotaTotalMensual))}/mes</span>
                     </div>
-                    <div className="marketplace-flow-meta">
-                        <div className="flex items-center gap-1.5">
-                            <IconShieldCheck size={14} className="text-[var(--color-success)]" />
-                            <span>3 escenarios de tasa</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <IconInfoCircle size={14} className="text-[var(--fg-muted)]" />
-                            <span>Datos de mercado chileno</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <IconCalculator size={14} className="text-[var(--accent)]" />
-                            <span>Cuota {formatCLP(Math.round(escenarioMercado.cuotaTotalMensual))}</span>
-                        </div>
+                ) : undefined
+            }
+        >
+            {listingTitle ? (
+                <p className="mb-4 text-sm text-[var(--fg-muted)]">
+                    Referencia: <span className="font-medium text-[var(--fg)]">{listingTitle}</span>
+                </p>
+            ) : null}
+
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
+                <TarjetaFormulario>
+                    <div className="flex items-center justify-between gap-2 pb-1">
+                        <p className="text-sm font-medium text-[var(--fg-muted)]">Tus datos</p>
+                        <button
+                            type="button"
+                            onClick={handleReiniciar}
+                            className="inline-flex items-center gap-1 text-sm font-medium text-[var(--fg-muted)] transition-colors hover:text-[var(--fg)]"
+                        >
+                            <IconRefresh size={15} />
+                            Reiniciar
+                        </button>
                     </div>
-                </div>
-            </div>
 
-            <div className="container-app panel-page marketplace-flow-body mx-auto max-w-6xl">
-                {listingTitle ? (
-                    <PanelNotice tone="neutral" className="mb-4">
-                        Vehículo de referencia: <strong>{listingTitle}</strong>
-                    </PanelNotice>
-                ) : null}
-
-                <PanelCard size="lg" className="mb-6 flex items-center gap-5">
-                    <div
-                        className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-lg font-semibold ${carga.badge}`}
-                    >
-                        <CargaIcon size={32} />
+                    <div className="min-w-0 space-y-1.5">
+                        <label className="block text-sm font-medium leading-5 text-[var(--fg)]">
+                            Tipo de vehículo
+                        </label>
+                        <SimuladorVehicleTypePicker
+                            value={vehicleType}
+                            onChange={(value) =>
+                                patch({
+                                    vehicleType: value,
+                                    brandId: '',
+                                    modelId: '',
+                                    customBrand: '',
+                                    customModel: '',
+                                })
+                            }
+                        />
                     </div>
-                    <div className="flex-1">
-                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
-                            Carga financiera
-                        </p>
-                        <p className="text-xl font-semibold text-[var(--fg)]">{carga.mensaje}</p>
-                        <p className="mt-1 text-sm text-[var(--fg-muted)]">
-                            {formatPct(resultado.cargaFinanciera.porcentajeSobreRenta, 0)} de tu renta líquida · cuota
-                            referencial de mercado {formatCLP(Math.round(escenarioMercado.cuotaTotalMensual))}/mes
-                        </p>
-                    </div>
-                </PanelCard>
 
-                <div className="grid gap-6 lg:grid-cols-5">
-                    <div className="space-y-6 lg:col-span-2">
-                        <PanelCard size="lg" className="space-y-4">
-                            <PanelBlockHeader title="1. Vehículo y pie" className="mb-0" />
-
-                            <CampoMoneda
-                                label="Precio del vehículo"
-                                valor={precioVehiculo}
-                                onChange={setPrecioVehiculo}
-                                placeholder="12.500.000"
+                    <div className="grid grid-cols-1 gap-5">
+                        <div className="min-w-0 space-y-1.5">
+                            <label className="block text-sm font-medium leading-5 text-[var(--fg)]">
+                                Marca
+                            </label>
+                            <ModernSelect
+                                value={brandId}
+                                onChange={(v) =>
+                                    patch({
+                                        brandId: v,
+                                        modelId: '',
+                                        customModel: '',
+                                        customBrand: v === '__custom__' ? customBrand : '',
+                                    })
+                                }
+                                options={[
+                                    { value: '', label: 'Seleccionar' },
+                                    ...brands.map((b) => ({ value: b.id, label: b.name })),
+                                    { value: '__custom__', label: 'Otra marca' },
+                                ]}
                             />
-
-                            <div>
-                                <label className="mb-1 block text-xs font-medium text-[var(--fg-muted)]">
-                                    Tipo de vehículo
-                                </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {(
-                                        [
-                                            { value: 'usado', label: 'Usado' },
-                                            { value: 'nuevo', label: 'Nuevo (0 km)' },
-                                        ] as const
-                                    ).map((op) => (
-                                        <button
-                                            key={op.value}
-                                            type="button"
-                                            onClick={() => setTipoVehiculo(op.value)}
-                                            className={`marketplace-flow-option transition-colors ${
-                                                tipoVehiculo === op.value ? 'marketplace-flow-option--active' : ''
-                                            }`}
-                                        >
-                                            <p className="text-sm font-medium text-[var(--fg)]">{op.label}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {tipoVehiculo === 'usado' ? (
-                                <div>
-                                    <label className="mb-1 block text-xs font-medium text-[var(--fg-muted)]">
-                                        Año del vehículo
-                                    </label>
-                                    <input
-                                        type="number"
-                                        className="form-input w-full"
-                                        value={anioVehiculo}
-                                        min={1990}
-                                        max={ANIO_ACTUAL}
-                                        onChange={(e) =>
-                                            setAnioVehiculo(parseInt(e.target.value, 10) || ANIO_ACTUAL)
-                                        }
-                                    />
-                                </div>
+                            {brandId === '__custom__' ? (
+                                <input
+                                    type="text"
+                                    placeholder="Nombre marca"
+                                    value={customBrand}
+                                    onChange={(e) => patch({ customBrand: e.target.value })}
+                                    className="form-input mt-2"
+                                />
                             ) : null}
-
-                            <div>
-                                <label className="mb-1 block text-xs font-medium text-[var(--fg-muted)]">Pie</label>
-                                <div className="marketplace-flow-range-label">
-                                    <span className="font-semibold">{formatCLP(pieMonto)}</span>
-                                    <span className="text-[var(--fg-muted)]">{formatPct(pieEfectivoPct, 0)}</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min={0}
-                                    max={Math.max(precioVehiculo, 0)}
-                                    step={50_000}
-                                    value={Math.min(pieMonto, precioVehiculo)}
-                                    onChange={(e) => setPieMonto(parseInt(e.target.value, 10))}
-                                    className="marketplace-flow-range mt-2"
-                                />
-                                <div className="mt-2">
-                                    <CampoMoneda label="" valor={pieMonto} onChange={setPieMonto} />
-                                </div>
-                                <p className="mt-1 text-[10px] text-[var(--fg-muted)]">
-                                    Pie mínimo sugerido para este perfil: ~
-                                    {formatPct(resultado.pieMinimoSugeridoPct, 0)}
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="mb-1 block text-xs font-medium text-[var(--fg-muted)]">Plazo</label>
-                                <div className="marketplace-flow-range-label">
-                                    <span className="font-semibold">{plazoMeses} meses</span>
-                                    <span className="text-[var(--fg-muted)]">máx. sugerido {resultado.plazoMaxSugerido}</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min={12}
-                                    max={60}
-                                    step={6}
-                                    value={plazoMeses}
-                                    onChange={(e) => setPlazoMeses(parseInt(e.target.value, 10))}
-                                    className="marketplace-flow-range mt-2"
-                                />
-                                <div className="mt-1 flex justify-between text-[10px] text-[var(--fg-muted)]">
-                                    <span>12 meses</span>
-                                    <span>60 meses</span>
-                                </div>
-                            </div>
-                        </PanelCard>
-
-                        <PanelCard size="lg" className="space-y-4">
-                            <PanelBlockHeader title="2. Perfil financiero" className="mb-0" />
-
-                            <CampoMoneda
-                                label="Renta líquida mensual"
-                                valor={rentaLiquida}
-                                onChange={setRentaLiquida}
-                                placeholder="900.000"
-                                ayuda="La mayoría de las entidades pide un mínimo entre $350.000 y $600.000."
+                        </div>
+                        <div className="min-w-0 space-y-1.5">
+                            <label className="block text-sm font-medium leading-5 text-[var(--fg)]">
+                                Modelo
+                            </label>
+                            <ModernSelect
+                                value={modelId}
+                                onChange={(v) =>
+                                    patch({
+                                        modelId: v,
+                                        customModel: v === '__custom__' ? customModel : '',
+                                    })
+                                }
+                                disabled={!brandId}
+                                options={[
+                                    {
+                                        value: '',
+                                        label: brandId ? 'Seleccionar' : 'Primero marca',
+                                    },
+                                    ...models.map((m) => ({ value: m.id, label: m.name })),
+                                    { value: '__custom__', label: 'Otro modelo' },
+                                ]}
                             />
+                            {modelId === '__custom__' ? (
+                                <input
+                                    type="text"
+                                    placeholder="Nombre modelo"
+                                    value={customModel}
+                                    onChange={(e) => patch({ customModel: e.target.value })}
+                                    className="form-input mt-2"
+                                />
+                            ) : null}
+                        </div>
+                    </div>
 
-                            <div>
-                                <label className="mb-2 block text-xs font-medium text-[var(--fg-muted)]">
-                                    Situación laboral
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:items-end">
+                        <div className="min-w-0 space-y-1.5">
+                            <label className="block text-sm font-medium leading-5 text-[var(--fg)]">
+                                Condición
+                            </label>
+                            <ModernSelect
+                                value={tipoVehiculo}
+                                onChange={(v) => {
+                                    const tipo = v === 'nuevo' ? 'nuevo' : 'usado';
+                                    syncPrecioYPie({
+                                        tipo,
+                                        anio: tipo === 'nuevo' ? ANIO_ACTUAL : anioVehiculo,
+                                        resetPiePct: true,
+                                    });
+                                }}
+                                options={[
+                                    { value: 'usado', label: 'Usado' },
+                                    { value: 'nuevo', label: 'Nuevo' },
+                                ]}
+                            />
+                        </div>
+                        {tipoVehiculo === 'usado' ? (
+                            <div className="min-w-0 space-y-1.5">
+                                <label className="block text-sm font-medium leading-5 text-[var(--fg)]">
+                                    Año
                                 </label>
-                                <PanelSegmentedToggle
-                                    size="md"
-                                    className="w-full [&>button]:flex-1"
-                                    activeKey={tipoTrabajador}
-                                    onChange={(key) => setTipoTrabajador(key as TipoTrabajador)}
-                                    items={[
-                                        { key: 'dependiente', label: 'Dependiente' },
-                                        { key: 'independiente', label: 'Independiente' },
+                                <ModernSelect
+                                    value={anioVehiculo ? String(anioVehiculo) : ''}
+                                    onChange={(value) =>
+                                        syncPrecioYPie({
+                                            anio: Number.parseInt(value, 10) || 0,
+                                            resetPiePct: true,
+                                        })
+                                    }
+                                    options={[
+                                        { value: '', label: 'Seleccionar' },
+                                        ...YEAR_OPTIONS,
                                     ]}
                                 />
                             </div>
+                        ) : null}
+                    </div>
 
-                            <CampoMoneda
-                                label="Otras deudas mensuales (opcional)"
-                                valor={otrasDeudasMensuales}
-                                onChange={setOtrasDeudasMensuales}
-                                placeholder="0"
-                                ayuda="Tarjetas, otros créditos de consumo, etc."
+                    <SimplePublishPriceBlock
+                        mainPrice={precioTexto}
+                        onMainPriceChange={(value) => syncPrecioYPie({ precioTexto: value })}
+                        mainPriceLabel="Precio del vehículo"
+                        mainPricePlaceholder="12500000"
+                        formatThousands
+                        showOffer={false}
+                    />
+
+                    {tieneDatos ? (
+                        <div className="space-y-2">
+                            <CampoSlider
+                                label="Pie"
+                                valorTexto={formatPct(pieEfectivoPct, 0)}
+                                min={0}
+                                max={precioVehiculo}
+                                step={50_000}
+                                valor={Math.min(pieMonto, precioVehiculo)}
+                                onChange={(v) => patch({ pieMonto: v })}
+                                pie={
+                                    <span className="text-[var(--fg-muted)]">
+                                        {formatCLP(pieMonto)}
+                                    </span>
+                                }
                             />
-                        </PanelCard>
-                    </div>
-
-                    <div className="space-y-6 lg:col-span-3">
-                        <PanelCard size="lg" className="text-center marketplace-flow-highlight">
-                            <p className="mb-1 text-[11px] font-semibold uppercase text-[var(--color-success)]">
-                                Cuota mensual estimada · mercado
-                            </p>
-                            <p className="text-4xl font-semibold tracking-tight text-[var(--fg)] sm:text-5xl">
-                                {formatCLP(Math.round(escenarioMercado.cuotaTotalMensual))}
-                            </p>
-                            <p className="mt-2 text-xs text-[var(--fg-muted)]">
-                                Incluye cuota de crédito + seguro de desgravamen estimado. Tasa referencial:{' '}
-                                {formatPct(escenarioMercado.tasaMensual, 2)} mensual.
-                            </p>
-                        </PanelCard>
-
-                        <div className="grid gap-3 sm:grid-cols-3">
-                            {resultado.escenarios.map((esc) => {
-                                const destacado = esc.nivel === 'promedioMercado';
-                                return (
-                                    <PanelCard
-                                        key={esc.nivel}
-                                        size="sm"
-                                        className={destacado ? 'marketplace-flow-highlight' : ''}
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--fg-muted)]">
+                                <span>
+                                    Habitual para este perfil:{' '}
+                                    <span className="font-medium text-[var(--fg)]">
+                                        ~{formatPct(resultado.pieMinimoSugeridoPct, 0)}
+                                    </span>
+                                </span>
+                                {pieBajoSugerido ? (
+                                    <button
+                                        type="button"
+                                        onClick={aplicarPieSugerido}
+                                        className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
                                     >
-                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
-                                            {esc.etiqueta}
-                                        </p>
-                                        <p className="mt-1 text-lg font-semibold tabular-nums text-[var(--fg)]">
-                                            {formatCLP(Math.round(esc.cuotaTotalMensual))}
-                                        </p>
-                                        <p className="text-[10px] text-[var(--fg-muted)]">al mes</p>
-                                        <div className="mt-3 space-y-1 text-xs text-[var(--fg-muted)]">
-                                            <div className="flex justify-between gap-2">
-                                                <span>Tasa mensual</span>
-                                                <span className="tabular-nums text-[var(--fg)]">
-                                                    {formatPct(esc.tasaMensual, 2)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between gap-2">
-                                                <span>CAE referencial*</span>
-                                                <span className="tabular-nums text-[var(--fg)]">
-                                                    {formatPct(esc.caeReferencial, 1)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between gap-2">
-                                                <span>Costo total</span>
-                                                <span className="tabular-nums text-[var(--fg)]">
-                                                    {formatCLP(Math.round(esc.costoTotalCredito))}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </PanelCard>
-                                );
-                            })}
+                                        Usar pie sugerido
+                                    </button>
+                                ) : null}
+                            </div>
                         </div>
-                        <p className="text-[10px] text-[var(--fg-muted)]">
-                            *CAE referencial simplificado con fines comparativos. No reemplaza la Carga Anual
-                            Equivalente legal que cada entidad debe informar en su oferta formal.
-                        </p>
+                    ) : null}
 
-                        <PanelCard size="lg" className="space-y-3">
-                            <PanelBlockHeader title="Monto máximo referencial" className="mb-0" />
-                            <p className="text-2xl font-semibold tabular-nums text-[var(--fg)]">
-                                {formatCLP(Math.round(resultado.montoMaximoReferencial))}
+                    <CampoSlider
+                        label="Plazo"
+                        valorTexto={`${plazoMeses} meses`}
+                        min={12}
+                        max={resultado.plazoMaxSugerido}
+                        step={6}
+                        valor={Math.min(plazoMeses, resultado.plazoMaxSugerido)}
+                        onChange={(v) => patch({ plazoMeses: v })}
+                    />
+
+                    <div className="space-y-2">
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:items-end">
+                            <CampoMoneda
+                                label="Renta líquida"
+                                valor={rentaLiquida}
+                                onChange={(v) => patch({ rentaLiquida: v })}
+                                placeholder="Ej: 900.000"
+                            />
+                            <CampoNumero
+                                label="Edad"
+                                valor={edad}
+                                min={18}
+                                max={80}
+                                placeholder="35"
+                                onChange={(v) => patch({ edad: v })}
+                            />
+                        </div>
+                        {tipoTrabajador === 'independiente' ? (
+                            <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
+                                Independiente: se usa ~60% de tu renta (habitual en bancos).
                             </p>
-                            <p className="text-xs text-[var(--fg-muted)]">
-                                Estimado usando el 30% de tu renta líquida menos otras deudas, a la tasa de mercado.
-                                Cada entidad usa su propio modelo; este número es solo una referencia de techo
-                                razonable.
-                            </p>
-                            {resultado.advertencias.map((adv) => (
-                                <PanelNotice key={adv} tone="warning">
-                                    {adv}
-                                </PanelNotice>
-                            ))}
-                        </PanelCard>
-
-                        <PanelCard size="lg" className="space-y-3">
-                            <PanelBlockHeader title="Requisitos generales del mercado" className="mb-0" />
-                            <ul className="space-y-2 text-sm text-[var(--fg-muted)]">
-                                {REQUISITOS_GENERALES.map((req) => (
-                                    <li key={req} className="flex items-start gap-2">
-                                        <IconCheck size={14} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                                        <span>{req}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </PanelCard>
-
-                        <PanelButton
-                            type="button"
-                            variant="accent"
-                            className="w-full justify-center"
-                            onClick={handleSolicitar}
-                        >
-                            <IconBrandWhatsapp size={18} />
-                            Quiero que me contacten con una evaluación real
-                        </PanelButton>
-
-                        <PanelNotice tone="neutral">
-                            SimpleAutos es un marketplace de publicación y contacto. No es una entidad financiera ni
-                            concesionaria: esta simulación es orientativa y no constituye una oferta, aprobación ni
-                            compromiso de crédito.
-                        </PanelNotice>
+                        ) : null}
                     </div>
+
+                    <div className="space-y-2">
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:items-end">
+                            <div className="min-w-0 space-y-1.5">
+                                <label className="block text-sm font-medium leading-5 text-[var(--fg)]">
+                                    Trabajo
+                                </label>
+                                <ModernSelect
+                                    value={tipoTrabajador}
+                                    onChange={(v) =>
+                                        syncPrecioYPie({
+                                            tipoTrabajador:
+                                                v === 'independiente'
+                                                    ? 'independiente'
+                                                    : 'dependiente',
+                                        })
+                                    }
+                                    options={[
+                                        { value: 'dependiente', label: 'Dependiente' },
+                                        { value: 'independiente', label: 'Independiente' },
+                                    ]}
+                                />
+                            </div>
+                            <div className="min-w-0 space-y-1.5">
+                                <label className="block text-sm font-medium leading-5 text-[var(--fg)]">
+                                    DICOM / protestos
+                                </label>
+                                <ModernSelect
+                                    value={tieneDicom}
+                                    onChange={(v) =>
+                                        syncPrecioYPie({
+                                            tieneDicom: v === 'si' ? 'si' : 'no',
+                                        })
+                                    }
+                                    options={[
+                                        { value: 'no', label: 'No' },
+                                        { value: 'si', label: 'Sí' },
+                                    ]}
+                                />
+                            </div>
+                        </div>
+                        <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
+                            Antecedentes comerciales: no es un rechazo automático; se evalúa caso a
+                            caso.
+                        </p>
+                    </div>
+
+                    <CampoMoneda
+                        label="Otras deudas / mes"
+                        valor={otrasDeudasMensuales}
+                        onChange={(v) => patch({ otrasDeudasMensuales: v })}
+                        placeholder="0"
+                    />
+                </TarjetaFormulario>
+
+                <div className="space-y-4 lg:col-span-3">
+                    {tieneDatos ? (
+                        <>
+                            {(brandLabel || modelLabel) && (
+                                <p className="text-sm text-[var(--fg-muted)]">
+                                    Simulando:{' '}
+                                    <span className="font-medium text-[var(--fg)]">
+                                        {[labelForVehicleType(vehicleType), brandLabel, modelLabel]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </span>
+                                </p>
+                            )}
+
+                            <PanelPrincipal
+                                etiqueta="Cuota estimada · mercado"
+                                valorPrincipal={formatCLP(Math.round(mercado.cuotaTotalMensual))}
+                                nivelCarga={resultado.cargaFinanciera.nivel}
+                                porcentajeSobreRenta={formatPct(
+                                    resultado.cargaFinanciera.porcentajeSobreRenta,
+                                    0,
+                                )}
+                                desglose={[
+                                    {
+                                        label: 'Crédito',
+                                        valor: formatCLP(Math.round(mercado.cuotaCredito)),
+                                    },
+                                    {
+                                        label: 'Desgravamen',
+                                        valor: formatCLP(
+                                            Math.round(mercado.seguroDesgravamenMensual),
+                                        ),
+                                    },
+                                    {
+                                        label: 'Cesantía',
+                                        valor: formatCLP(Math.round(mercado.seguroCesantiaMensual)),
+                                    },
+                                ]}
+                            />
+
+                            <div className="grid grid-cols-3 gap-3">
+                                {resultado.escenarios.map((esc) => (
+                                    <TarjetaEscenario
+                                        key={esc.nivel}
+                                        etiqueta={esc.etiqueta}
+                                        destacada={esc.nivel === 'promedioMercado'}
+                                        valorPrincipal={formatCLP(
+                                            Math.round(esc.cuotaTotalMensual),
+                                        )}
+                                        detalle={`${formatPct(esc.tasaMensual, 2)} · CAE ${formatPct(esc.caeReferencial, 1)}`}
+                                    />
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <DatoCompacto
+                                    label="Pie habitual sugerido"
+                                    valor={formatPct(resultado.pieMinimoSugeridoPct, 0)}
+                                    hint={`Plazo hab. hasta ${resultado.plazoMaxSugerido} meses`}
+                                />
+                                <DatoCompacto
+                                    label="Monto máx. referencial"
+                                    valor={formatCLP(Math.round(resultado.montoMaximoReferencial))}
+                                    hint={
+                                        tipoTrabajador === 'independiente'
+                                            ? 'Con ~60% de renta reconocida'
+                                            : 'Cuota ≤ 30% de renta líquida'
+                                    }
+                                />
+                            </div>
+
+                            <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
+                                {resultado.resumenPerfil}
+                            </p>
+
+                            <AlertasCompactas items={resultado.advertencias} />
+
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <BotonSecundario
+                                    onClick={handleDescargarPdf}
+                                    disabled={descargandoPdf}
+                                >
+                                    <IconDownload size={18} />
+                                    {descargandoPdf ? 'Generando…' : 'Descargar PDF'}
+                                </BotonSecundario>
+                                <BotonCTA onClick={handleSolicitar}>
+                                    <IconBrandWhatsapp size={18} />
+                                    Pedir evaluación
+                                </BotonCTA>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="marketplace-flow-section flex min-h-[220px] flex-col items-center justify-center gap-2 p-8 text-center">
+                            <IconCalculator size={22} className="text-[var(--accent)]" />
+                            <p className="text-sm font-medium text-[var(--fg)]">
+                                Ingresa el precio del vehículo
+                            </p>
+                            <p className="max-w-sm text-xs text-[var(--fg-muted)]">
+                                Elige tipo, marca y modelo para una simulación más realista.
+                            </p>
+                        </div>
+                    )}
+
+                    <DisclaimerLegal texto="Estimación orientativa. Tasas, pie y plazos varían por financiera y evaluación comercial (incluye CMF/DICOM). SimpleAutos no es entidad financiera ni aprueba créditos." />
                 </div>
             </div>
-        </div>
+        </ShellSimulador>
     );
 }
