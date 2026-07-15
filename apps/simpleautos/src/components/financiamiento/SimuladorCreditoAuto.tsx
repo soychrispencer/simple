@@ -148,7 +148,13 @@ export default function SimuladorCreditoAuto({
             anioVehiculo: anioInicial,
             pieMonto:
                 precioInicial > 0
-                    ? Math.round(precioInicial * pieInicialPct(tipoInicial))
+                    ? Math.round(
+                        precioInicial *
+                            estimarPieYPlazoSugeridos({
+                                tipoVehiculo: tipoInicial,
+                                anioVehiculo: anioInicial,
+                            }).pieMinimoSugeridoPct,
+                    )
                     : 0,
         }),
     );
