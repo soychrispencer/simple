@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { API_BASE, getSimpleAppBrand, type SimpleAppId } from '@simple/config';
@@ -22,6 +22,8 @@ export function ConfirmEmailPage({ appId, defaultReturnTo = '/panel' }: ConfirmE
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [message, setMessage] = useState('Estamos confirmando tu correo.');
     const [returnTo, setReturnTo] = useState(defaultReturnTo);
+    // Reuse the single-use token request across effect replays (React Strict Mode).
+    const confirmation = useRef<Promise<{ ok: boolean; error?: string }> | null>(null);
 
     useEffect(() => {
         const search = new URLSearchParams(window.location.search);
@@ -36,8 +38,10 @@ export function ConfirmEmailPage({ appId, defaultReturnTo = '/panel' }: ConfirmE
             return;
         }
 
-        void (async () => {
-            try {
+        let active = true;
+        let redirectTimer: ReturnType<typeof setTimeout> | undefined;
+        if (!confirmation.current) {
+            confirmation.current = (async () => {
                 const response = await fetch(`${API_BASE}/api/auth/email-verification/confirm`, {
                     method: 'POST',
                     credentials: 'include',
@@ -50,25 +54,38 @@ export function ConfirmEmailPage({ appId, defaultReturnTo = '/panel' }: ConfirmE
                     user?: { status?: string };
                 } | null;
 
-                if (!response.ok || !data?.ok) {
+                return { ok: response.ok && Boolean(data?.ok), error: data?.error };
+            })();
+        }
+        void (async () => {
+            try {
+                const data = await confirmation.current!;
+                if (!active) return;
+                if (!data.ok) {
                     setStatus('error');
                     setMessage(data?.error || 'No pudimos confirmar tu correo.');
                     return;
                 }
 
                 await refreshSession();
+                if (!active) return;
 
                 setStatus('success');
                 setMessage(`Tu correo quedó confirmado. Redirigiendo a ${brand.name}…`);
-                window.setTimeout(() => {
+                redirectTimer = setTimeout(() => {
                     sessionStorage.removeItem('auth.returnTo');
                     window.location.replace(nextReturnTo);
                 }, 1200);
             } catch {
+                if (!active) return;
                 setStatus('error');
                 setMessage('No pudimos confirmar tu correo.');
             }
         })();
+        return () => {
+            active = false;
+            if (redirectTimer) clearTimeout(redirectTimer);
+        };
     }, [defaultReturnTo, brand.name, refreshSession]);
 
     return (
@@ -135,6 +152,10 @@ export function ConfirmEmailPage({ appId, defaultReturnTo = '/panel' }: ConfirmE
                         <PanelNotice tone="error" className="mt-4 text-left">
                             {message}
                         </PanelNotice>
+                        <p className="mt-3 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                            Si ya confirmaste este enlace, inicia sesión para revisar tu cuenta.
+                            Si solicitaste otro correo, abre el enlace del mensaje más reciente.
+                        </p>
                         <PanelButton
                             type="button"
                             onClick={() => router.push(returnTo)}

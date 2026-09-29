@@ -446,6 +446,7 @@ async function issueEmailVerification(userId: string, email: string, origin: str
     } catch (error) {
         await db.delete(emailVerificationTokens).where(and(
             eq(emailVerificationTokens.userId, userId),
+            eq(emailVerificationTokens.tokenHash, hashOpaqueToken(rawToken)),
             isNull(emailVerificationTokens.usedAt),
         ));
         throw error;

@@ -286,18 +286,25 @@ export function PanelAccountPersonalDataSection({
 
         setSaving(true);
         setNotice(null);
-        const result = await onSave({ name: normalizedName, phone: normalizedPhone, avatarUrl: avatarUrl || null });
-        if (!result.ok) {
+        try {
+            const result = await onSave({ name: normalizedName, phone: normalizedPhone, avatarUrl: avatarUrl || null });
+            if (!result.ok) {
+                if (result.unauthorized) onUnauthorized?.();
+                setNotice({ tone: 'error', text: result.error || 'No se pudo completar la acción.' });
+                return;
+            }
+            setPhone(normalizedPhone);
+            try {
+                await onSaved?.();
+                setNotice({ tone: 'success', text: 'Datos personales actualizados.' });
+            } catch {
+                setNotice({ tone: 'warning', text: 'Tus datos se guardaron, pero no pudimos refrescar la cuenta. Recarga la página para verlos.' });
+            }
+        } catch {
+            setNotice({ tone: 'error', text: 'No pudimos completar el guardado. Revisa tu conexión e inténtalo nuevamente.' });
+        } finally {
             setSaving(false);
-            if (result.unauthorized) onUnauthorized?.();
-            setNotice({ tone: 'error', text: result.error || 'No se pudo completar la acción.' });
-            return;
         }
-
-        setSaving(false);
-        await onSaved?.();
-        setNotice({ tone: 'success', text: 'Datos personales actualizados.' });
-        setPhone(normalizedPhone);
     };
 
     const submitEmailChange = async () => {
@@ -525,8 +532,13 @@ export function PanelAccountPersonalDataSection({
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <PanelButton variant="accent" onClick={() => void saveProfile()} disabled={saving || !canSavePersonal}>
-                        {saving ? 'Guardando...' : 'Guardar datos personales'}
+                        {saving ? 'Guardando...' : canSavePersonal ? 'Guardar datos personales' : 'Datos guardados'}
                     </PanelButton>
+                    {!canSavePersonal && !notice ? (
+                        <p className="text-sm text-(--fg-muted)" role="status">
+                            Tus datos están guardados. Edita un campo para actualizarlos.
+                        </p>
+                    ) : null}
                     {notice ? (
                         <PanelNotice tone={notice.tone} className="sm:max-w-md">
                             {notice.text}
