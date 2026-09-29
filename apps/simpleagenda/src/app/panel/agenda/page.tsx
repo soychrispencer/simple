@@ -53,6 +53,16 @@ import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { ContextMessagesLink } from '@simple/ui/panel';
 import { resolveBookingModality } from '@simple/utils';
+import { WhatsAppClickButton } from '@/components/whatsapp-click-button';
+import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
+import {
+    buildAppointmentCancellationWaMessage,
+    buildAppointmentConfirmationWaMessage,
+    buildAppointmentReminderWaMessage,
+    buildNpsSurveyWaMessage,
+    formatAppointmentWhenLabel,
+    resolveClientWhatsAppPhone,
+} from '@/lib/whatsapp-click';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -725,6 +735,8 @@ export default function AgendaPage() {
                 </div>
             </div>
 
+            <AgendaSetupTip className="mb-4" />
+
             {/* Search & filters bar */}
             {searchOpen && (
                 <div
@@ -913,7 +925,9 @@ export default function AgendaPage() {
                         <div
                             className="text-center py-6 text-xs border-t agenda-panel-btn-muted"
                         >
-                            Sin citas este día. Toca un horario para crear una.
+                            {services.every((s) => s.isActive === false) || services.length === 0
+                                ? 'Todavía no pueden reservarte online. Crea un servicio y publica tu link.'
+                                : 'Sin citas este día. Toca un horario para crear una.'}
                         </div>
                     )}
                 </div>
@@ -1139,6 +1153,85 @@ export default function AgendaPage() {
                             className="self-start"
                         />
 
+                        {/* WhatsApp click-to-chat (costo cero — sin API de Meta) */}
+                        {(() => {
+                            const phone = resolveClientWhatsAppPhone(
+                                selectedAppt.client?.whatsapp,
+                                selectedAppt.clientPhone ?? selectedAppt.client?.phone,
+                            );
+                            const tz = profile?.timezone ?? 'America/Santiago';
+                            const whenLabel = formatAppointmentWhenLabel(selectedAppt.startsAt, tz);
+                            const clientFirstName = (
+                                selectedAppt.client?.firstName
+                                ?? selectedAppt.clientName?.split(/\s+/)[0]
+                                ?? 'hola'
+                            );
+                            const professionalName = profile?.displayName ?? 'tu profesional';
+                            const appOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://simpleagenda.app';
+                            const cancelUrl = profile?.slug
+                                ? `${appOrigin}/cancelar?appt=${encodeURIComponent(selectedAppt.id)}&slug=${encodeURIComponent(profile.slug)}`
+                                : null;
+                            const rebookUrl = profile?.slug ? `${appOrigin}/${profile.slug}` : null;
+                            const baseMsg = {
+                                clientFirstName,
+                                professionalName,
+                                whenLabel,
+                                modality: selectedAppt.modality,
+                                meetingUrl: selectedAppt.meetingUrl,
+                                location: selectedAppt.location,
+                                cancelUrl,
+                            };
+                            const isActive = selectedAppt.status !== 'cancelled' && selectedAppt.status !== 'completed';
+                            return (
+                                <div className="agenda-panel-border border-t pt-4 flex flex-col gap-2">
+                                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                                        <IconBrandWhatsapp size={13} className="text-[#25D366]" />
+                                        Avisar por WhatsApp
+                                    </p>
+                                    <p className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                        Abre WhatsApp con el mensaje listo. Tú envías; no usa la API de pago de Meta.
+                                    </p>
+                                    {!phone ? (
+                                        <p className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                            Agrega teléfono o WhatsApp en la ficha del {vocab.client} para enviar directo.
+                                        </p>
+                                    ) : null}
+                                    <div className="flex flex-wrap gap-2">
+                                        {isActive ? (
+                                            <>
+                                                <WhatsAppClickButton
+                                                    phone={phone}
+                                                    message={buildAppointmentConfirmationWaMessage(baseMsg)}
+                                                    label="Confirmar"
+                                                    className="px-3 py-2"
+                                                />
+                                                <WhatsAppClickButton
+                                                    phone={phone}
+                                                    message={buildAppointmentReminderWaMessage(baseMsg)}
+                                                    label="Recordar"
+                                                    className="px-3 py-2"
+                                                />
+                                            </>
+                                        ) : null}
+                                        {selectedAppt.status !== 'cancelled' ? (
+                                            <WhatsAppClickButton
+                                                phone={phone}
+                                                message={buildAppointmentCancellationWaMessage({
+                                                    clientFirstName,
+                                                    professionalName,
+                                                    whenLabel,
+                                                    reason: selectedAppt.cancellationReason,
+                                                    rebookUrl,
+                                                })}
+                                                label="Avisar cancelación"
+                                                className="px-3 py-2"
+                                            />
+                                        ) : null}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* Session notes */}
                         <div className="agenda-panel-border border-t pt-4">
                             <div className="flex items-center justify-between mb-2">
@@ -1324,18 +1417,21 @@ export default function AgendaPage() {
                                                 {npsCopied ? <IconCheck size={13} /> : <IconCopy size={13} />}
                                                 {npsCopied ? 'Copiado' : 'Copiar enlace'}
                                             </button>
-                                            {selectedAppt.clientPhone ? (
-                                                <a
-                                                    href={`https://wa.me/${selectedAppt.clientPhone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Hola, ¿nos ayudas con una breve encuesta sobre tu última cita? ${npsShareUrl}`)}`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium"
-                                                    style={{ background: '#25D366', color: '#fff' }}
-                                                    aria-label="Enviar por WhatsApp"
-                                                >
-                                                    <IconBrandWhatsapp size={14} />
-                                                </a>
-                                            ) : null}
+                                            {(() => {
+                                                const npsPhone = resolveClientWhatsAppPhone(
+                                                    selectedAppt.client?.whatsapp,
+                                                    selectedAppt.clientPhone ?? selectedAppt.client?.phone,
+                                                );
+                                                return npsPhone ? (
+                                                    <WhatsAppClickButton
+                                                        phone={npsPhone}
+                                                        message={buildNpsSurveyWaMessage({ surveyUrl: npsShareUrl })}
+                                                        iconOnly
+                                                        className="w-10 h-10"
+                                                        aria-label="Enviar encuesta por WhatsApp"
+                                                    />
+                                                ) : null;
+                                            })()}
                                         </div>
                                     </div>
                                 )}

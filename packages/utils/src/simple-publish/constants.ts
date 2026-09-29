@@ -10,6 +10,12 @@ export const SIMPLE_PUBLISH_AUTOS_STEPS = [
     { key: '3', label: 'Publicar', helper: 'Ubicación y revisión' },
 ] as const;
 
+export const SIMPLE_PUBLISH_TICKETS_STEPS = [
+    { key: '1', label: 'Multimedia', helper: 'Portada y galería' },
+    { key: '2', label: 'Detalles', helper: 'Evento y entradas' },
+    { key: '3', label: 'Publicar', helper: 'Lugar y revisión' },
+] as const;
+
 export const SIMPLE_PUBLISH_MIN_DESCRIPTION_LENGTH = 40;
 
 export const SIMPLE_PUBLISH_INTEGRATIONS_CONNECT_HREF = '/panel/mi-cuenta/integraciones';

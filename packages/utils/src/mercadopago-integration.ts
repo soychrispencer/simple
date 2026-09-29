@@ -1,7 +1,7 @@
 import { API_BASE } from '@simple/config';
 import { apiFetch } from './api-client.js';
 
-export type MercadoPagoIntegrationVertical = 'agenda' | 'autos' | 'propiedades' | 'serenatas';
+export type MercadoPagoIntegrationVertical = 'agenda' | 'autos' | 'propiedades' | 'serenatas' | 'tickets' | 'resto';
 
 export type MercadoPagoIntegrationStatus = {
     ok?: boolean;

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { resolveSerenatasBillingAccess } from './billing-access';
 import type { SerenataMePlan } from '@/lib/serenatas-api';
 
@@ -29,6 +29,11 @@ function basePlan(overrides: Partial<SerenataMePlan> = {}): SerenataMePlan {
 }
 
 describe('resolveSerenatasBillingAccess', () => {
+    beforeEach(() => {
+        vi.stubEnv('NEXT_PUBLIC_MARKETPLACE_LAUNCH_MODE', 'false');
+        vi.stubEnv('MARKETPLACE_LAUNCH_MODE', 'false');
+    });
+    afterEach(() => vi.unstubAllEnvs());
     it('marca Pro cuando el plan es pro', () => {
         const billing = resolveSerenatasBillingAccess(basePlan({ plan: 'pro', trialActive: false }));
         expect(billing.status).toBe('pro');

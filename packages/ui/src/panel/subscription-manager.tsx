@@ -91,6 +91,8 @@ export type SubscriptionManagerPayments = {
         planId: SubscriptionPlanId;
         returnUrl: string;
     }) => Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string; alreadyActive?: boolean; message?: string }>;
+    /** Cancela Pro (preapproval MP + downgrade). Opcional: si falta, no se muestra el botón. */
+    cancelSubscription?: () => Promise<{ ok: boolean; error?: string; message?: string }>;
 };
 
 export type SubscriptionManagerProps = SubscriptionManagerPayments & {
@@ -109,6 +111,7 @@ export function SubscriptionManager({
     fetchSubscriptionCatalog,
     confirmCheckout,
     startSubscriptionCheckout,
+    cancelSubscription,
     subscriptionsPath = '/panel/mi-cuenta/suscripcion',
     marketplaceMode = false,
     marketplaceVertical,
@@ -118,6 +121,7 @@ export function SubscriptionManager({
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+    const [cancelling, setCancelling] = useState(false);
     const [currentPlanId, setCurrentPlanId] = useState<string>('free');
     const [currentPlanName, setCurrentPlanName] = useState('Gratuito');
     const [orders, setOrders] = useState<PaymentOrderView[]>([]);
@@ -272,6 +276,31 @@ export function SubscriptionManager({
         window.location.assign(result.checkoutUrl);
     };
 
+    const handleCancelSubscription = async () => {
+        if (!cancelSubscription || currentPlanId !== 'pro' || cancelling) return;
+        const confirmed = window.confirm(
+            '¿Cancelar tu plan Pro? Dejarás de renovar el cobro en Mercado Pago y el panel quedará restringido hasta que reactives Pro. Tu configuración se mantiene guardada.',
+        );
+        if (!confirmed) return;
+
+        setCancelling(true);
+        setError('');
+        setMessage('');
+        try {
+            const result = await cancelSubscription();
+            if (!result.ok) {
+                setError(result.error ?? 'No pudimos cancelar la suscripción.');
+                return;
+            }
+            setMessage(result.message ?? 'Suscripción cancelada.');
+            await load();
+        } catch {
+            setError('No pudimos comprobar la cancelación. Actualiza la página para revisar el estado de tu plan.');
+        } finally {
+            setCancelling(false);
+        }
+    };
+
     const freeListingLimit = catalog?.freePlan?.maxListings ?? 3;
 
     const effectiveLaunchVertical: PlatformLaunchVertical | null =
@@ -392,7 +421,7 @@ export function SubscriptionManager({
                                 ))}
                             </div>
 
-                            <div className="mt-6 pt-2">
+                            <div className="mt-6 space-y-2 pt-2">
                                 <PanelButton
                                     className="w-full"
                                     variant={currentPlanId === 'pro' ? 'secondary' : 'primary'}
@@ -400,6 +429,7 @@ export function SubscriptionManager({
                                         currentPlanId === 'pro'
                                         || busyPlanId === proPlan.id
                                         || !checkoutEnabled
+                                        || cancelling
                                     }
                                     onClick={() => void startCheckout('pro')}
                                 >
@@ -412,6 +442,17 @@ export function SubscriptionManager({
                                         ? 'Plan Pro activo'
                                         : `Activar Pro con ${paymentProviderLabel()}`}
                                 </PanelButton>
+                                {currentPlanId === 'pro' && cancelSubscription ? (
+                                    <PanelButton
+                                        className="w-full"
+                                        variant="danger"
+                                        disabled={cancelling || busyPlanId !== null}
+                                        loading={cancelling}
+                                        onClick={() => void handleCancelSubscription()}
+                                    >
+                                        Cancelar Pro
+                                    </PanelButton>
+                                ) : null}
                             </div>
                         </article>
 
@@ -447,7 +488,9 @@ export function SubscriptionManager({
                                     <div>
                                         <p className="text-sm font-medium text-(--fg)">Sin permanencia</p>
                                         <p className="text-xs leading-relaxed text-(--fg-muted)">
-                                            Cancela cuando quieras desde {paymentProviderLabel()}. Tus datos permanecen en tu cuenta.
+                                            {cancelSubscription
+                                                ? 'Cancela cuando quieras desde este panel. Tus datos permanecen en tu cuenta.'
+                                                : `Cancela cuando quieras desde ${paymentProviderLabel()}. Tus datos permanecen en tu cuenta.`}
                                         </p>
                                     </div>
                                 </div>

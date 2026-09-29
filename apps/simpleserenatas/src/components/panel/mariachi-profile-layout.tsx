@@ -92,7 +92,7 @@ export function MariachiProfileHero({ group }: { group: ProviderGroup }) {
                     aria-hidden
                 />
                 {showNewBadge ? (
-                    <span className="absolute left-3 top-3 z-10 rounded-full bg-white px-3 py-1 text-xs font-semibold text-neutral-900 shadow-sm sm:left-6 sm:top-6">
+                    <span className="absolute left-3 top-3 z-10 rounded-full bg-white px-3 py-1 text-xs font-semibold text-(--fg) shadow-sm sm:left-6 sm:top-6">
                         Nuevo
                     </span>
                 ) : null}

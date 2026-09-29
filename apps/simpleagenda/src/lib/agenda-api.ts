@@ -123,9 +123,6 @@ export type AgendaProfile = {
     advancePaymentInstructions: string | null;
     googleCalendarId: string | null;
     googleAccessToken: string | null;
-    waNotificationsEnabled: boolean;
-    waNotifyProfessional: boolean;
-    waProfessionalPhone: string | null;
     mpAccessToken: string | null;
     mpPublicKey: string | null;
     mpUserId: string | null;
@@ -699,10 +696,6 @@ export function getGoogleCalendarAuthUrl(): string {
 
 export async function disconnectGoogleCalendar(): Promise<{ ok: boolean }> {
     return apiFetch('/api/agenda/google-calendar/disconnect', { method: 'DELETE' });
-}
-
-export async function sendWhatsAppTest(): Promise<{ ok: boolean; error?: string }> {
-    return apiFetch('/api/agenda/whatsapp/test', { method: 'POST' });
 }
 
 export type NotificationEvent = {

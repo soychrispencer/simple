@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { SubscriptionManager } from '@simple/ui/panel';
 import {
+    cancelSubscription,
     confirmCheckout,
     fetchSubscriptionCatalog,
     startSubscriptionCheckout,
@@ -21,6 +22,7 @@ export default function AppSubscriptionManager() {
         <SubscriptionManager
             fetchSubscriptionCatalog={fetchSubscriptionCatalog}
             confirmCheckout={confirmCheckout}
+            cancelSubscription={cancelSubscription}
             startSubscriptionCheckout={(input) =>
                 startSubscriptionCheckout({
                     returnUrl: input.returnUrl,

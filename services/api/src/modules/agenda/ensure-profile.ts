@@ -5,6 +5,7 @@ import type { AppUser } from '../../lib/domain-types.js';
 import { db } from '../../db/index.js';
 import { agendaProfessionalProfiles } from '../../db/schema.js';
 import { getAgendaProfile, ensureAgendaProfileTrial } from './plan-limits.js';
+import { defaultTrialEndsAt } from '../billing/trial-config.js';
 import { isValidAgendaSlug } from './runtime-support.js';
 
 type EnsurePrimaryAccount = (user: AppUser) => Promise<{ id: string }>;
@@ -45,12 +46,6 @@ async function pickUniqueSlug(user: Pick<AppUser, 'name' | 'email'>): Promise<st
     return `agenda-${randomBytes(4).toString('hex')}`;
 }
 
-function defaultAgendaTrialEndsAt(from = new Date()): Date {
-    const trialEndsAt = new Date(from);
-    trialEndsAt.setDate(trialEndsAt.getDate() + 30);
-    return trialEndsAt;
-}
-
 export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: EnsurePrimaryAccount }) {
     const { ensurePrimaryAccountForUser } = deps;
 
@@ -74,7 +69,7 @@ export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: E
                 countryCode: residenceCountry,
                 timezone: normalizeTimezone(user.timezone),
                 plan: 'free',
-                planExpiresAt: defaultAgendaTrialEndsAt(),
+                planExpiresAt: defaultTrialEndsAt(),
             })
             .returning();
 

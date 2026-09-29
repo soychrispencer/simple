@@ -139,6 +139,8 @@ export function buildBookingEmailPackage(
     });
 }
 
+export type AppointmentReminderKind = '24h' | '30min';
+
 export function buildAppointmentReminderEmailPackage(data: {
     clientName: string;
     professionalName: string;
@@ -148,8 +150,11 @@ export function buildAppointmentReminderEmailPackage(data: {
     location?: string | null;
     cancelUrl: string;
     appUrl: string;
+    kind?: AppointmentReminderKind;
 }): ActionEmailPackage {
     const brand = getAgendaEmailBrand();
+    const kind = data.kind ?? '24h';
+    const isSoon = kind === '30min';
     const locationLine = data.modality === 'online'
         ? (data.meetingUrl ? `Enlace: ${data.meetingUrl}` : 'Modalidad: Online')
         : (data.location ? `Lugar: ${data.location}` : 'Modalidad: Presencial');
@@ -159,16 +164,20 @@ export function buildAppointmentReminderEmailPackage(data: {
         { label: 'Cuándo', value: data.dateLabel },
         { label: 'Detalle', value: locationLine },
     ]);
-    extraHtml += `<p style="margin:16px 0 0;font-size:13px;color:#64748b;"><a href="${escapeHtml(data.cancelUrl)}" style="color:${brand.accent};font-weight:600;">Cancelar cita</a></p>`;
+    if (data.cancelUrl) {
+        extraHtml += `<p style="margin:16px 0 0;font-size:13px;color:#64748b;"><a href="${escapeHtml(data.cancelUrl)}" style="color:${brand.accent};font-weight:600;">Cancelar cita</a></p>`;
+    }
 
     return buildActionEmailPackage({
         brand,
-        preheader: `Recordatorio: cita mañana con ${data.professionalName}`,
+        preheader: isSoon
+            ? `Recordatorio: cita en ~30 min con ${data.professionalName}`
+            : `Recordatorio: cita mañana con ${data.professionalName}`,
         eyebrow: 'Recordatorio',
-        headline: 'Tu cita es mañana',
+        headline: isSoon ? 'Tu cita es en 30 minutos' : 'Tu cita es mañana',
         bodyHtml: `<p style="margin:0;">Hola ${escapeHtml(data.clientName)}, te recordamos que tienes una cita programada.</p>`,
         buttonLabel: 'Ver detalle',
-        actionUrl: data.appUrl,
+        actionUrl: data.cancelUrl || data.appUrl,
         footnote: 'Si ya no puedes asistir, cancela con anticipación.',
         extraHtml,
     });

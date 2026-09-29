@@ -404,6 +404,7 @@ export function SerenataForm({
                     showGoogleMapsLink
                     addressRequired
                     addressHintMode="minimal"
+                    publishVertical="serenatas"
                     googleMapsApiKey={googleMapsApiKey}
                 />
             </PanelField>

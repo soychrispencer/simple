@@ -386,6 +386,7 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
     location?: string | null;
     cancelUrl: string;
     appUrl?: string;
+    kind?: '24h' | '30min';
 }): Promise<void> {
     if (await skipAgendaEmail(clientEmail, 'appointment-reminder')) return;
     const transporter = getAuthMailerTransporter();
@@ -395,7 +396,13 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
         return;
     }
     const appUrl = data.appUrl ?? 'https://simpleagenda.app';
-    const subject = `Recordatorio: tu cita con ${data.professionalName} es mañana`;
+    const kind = data.kind ?? '24h';
+    const subject = kind === '30min'
+        ? `Recordatorio: tu cita con ${data.professionalName} es en 30 minutos`
+        : `Recordatorio: tu cita con ${data.professionalName} es mañana`;
+    const whenLine = kind === '30min'
+        ? `Te recordamos que tienes una cita en 30 minutos: ${data.dateLabel}.`
+        : `Te recordamos que tienes una cita mañana: ${data.dateLabel}.`;
     const locationLine = data.modality === 'online'
         ? (data.meetingUrl ? `Enlace: ${data.meetingUrl}` : 'Modalidad: Online')
         : (data.location ? `Lugar: ${data.location}` : 'Modalidad: Presencial');
@@ -403,15 +410,15 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
         subject,
         '',
         `Hola ${data.clientName},`,
-        `Te recordamos que tienes una cita mañana: ${data.dateLabel}.`,
+        whenLine,
         locationLine,
         '',
-        `Para cancelar: ${data.cancelUrl}`,
+        data.cancelUrl ? `Para cancelar: ${data.cancelUrl}` : '',
         '',
         'SimpleAgenda',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
     await ensureEmailLogoCache();
-    const mail = buildAppointmentReminderEmailPackage({ ...data, appUrl });
+    const mail = buildAppointmentReminderEmailPackage({ ...data, appUrl, kind });
     await transporter.sendMail({
         from: formatEmailFromAddress('SimpleAgenda'),
         to: clientEmail,

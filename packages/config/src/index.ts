@@ -6,7 +6,9 @@ export type SimpleAppId =
     | 'simpleadmin'
     | 'simpleplataforma'
     | 'simpleagenda'
-    | 'simpleserenatas';
+    | 'simpleserenatas'
+    | 'simpletickets'
+    | 'simpleresto';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Storage Provider (abstraction layer for file uploads)
@@ -109,13 +111,13 @@ export type PublicationLifecycleView = {
 
 const SHARED_THEME = {
     locale: 'es_CL',
-    backgroundColorLight: '#F7F7F5',
+    backgroundColorLight: '#fafafa',
     backgroundColorDark: '#0E0E10',
     surfaceLight: '#ffffff',
     surfaceDark: '#161618',
-    foregroundLight: '#0C0C0E',
+    foregroundLight: '#111111',
     foregroundDark: '#F4F4F5',
-    themeColor: '#0C0C0E',
+    themeColor: '#111111',
     generator: 'Simple',
 } as const;
 
@@ -153,7 +155,7 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         category: 'business',
         siteUrl: 'http://localhost:3000',
         keywords: ['SimpleAdmin', 'admin', 'panel', 'moderación', 'ecosistema', 'Simple'],
-        accentLight: '#0C0C0E',
+        accentLight: '#111111',
         accentDark: '#F4F4F5',
     },
     simpleplataforma: {
@@ -165,7 +167,7 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         category: 'business',
         siteUrl: 'http://localhost:3001',
         keywords: ['SimplePlataforma', 'ecosistema', 'marketplaces', 'Chile', 'autos', 'propiedades', 'tiendas'],
-        accentLight: '#0C0C0E',
+        accentLight: '#111111',
         accentDark: '#F4F4F5',
     },
     simpleagenda: {
@@ -203,6 +205,30 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         keywords: ['SimpleSerenatas', 'mariachis', 'serenatas', 'músicos', 'agenda', 'rutas', 'Chile'],
         accentLight: '#E11D48',
         accentDark: '#E11D48',
+    },
+    simpletickets: {
+        id: 'simpletickets',
+        name: 'SimpleTickets',
+        shortName: 'Tickets',
+        title: 'SimpleTickets | Entradas sin comisión de plataforma',
+        description: 'SimpleTickets permite crear, vender y validar entradas sin comisión Simple. El pago llega a la cuenta Mercado Pago del organizador.',
+        category: 'events',
+        siteUrl: 'http://localhost:3006',
+        keywords: ['SimpleTickets', 'entradas', 'eventos', 'ticketera', 'QR', 'Chile', 'Mercado Pago'],
+        accentLight: '#0E7490',
+        accentDark: '#22D3EE',
+    },
+    simpleresto: {
+        id: 'simpleresto',
+        name: 'SimpleResto',
+        shortName: 'Resto',
+        title: 'SimpleResto | POS y carta digital para restaurantes',
+        description: 'SimpleResto simplifica la operación de restaurantes: carta, pedidos, caja y mesas en una sola app.',
+        category: 'food_service',
+        siteUrl: 'http://localhost:3007',
+        keywords: ['SimpleResto', 'restaurante', 'POS', 'carta digital', 'pedidos', 'Chile'],
+        accentLight: '#F4B400',
+        accentDark: '#F4B400',
     },
 };
 

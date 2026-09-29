@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { fetchAgendaClients, createAgendaClient, updateAgendaClient, deleteAgendaClient, fetchClientTags, type AgendaClient, type AgendaClientTag } from '@/lib/agenda-api';
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
+import { buildWhatsAppClickUrl, resolveClientWhatsAppPhone } from '@/lib/whatsapp-click';
 
 type ClientForm = {
     firstName: string;
@@ -559,7 +560,10 @@ function ContactMenu({ client }: { client: AgendaClient }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
-    const waNumber = (client.whatsapp ?? client.phone ?? '').replace(/[^0-9]/g, '');
+    const waNumber = resolveClientWhatsAppPhone(client.whatsapp, client.phone);
+    const waHref = waNumber
+        ? buildWhatsAppClickUrl(waNumber, `Hola ${client.firstName}, te escribo desde mi agenda.`)
+        : null;
 
     // Close on outside click
     useEffect(() => {
@@ -570,7 +574,7 @@ function ContactMenu({ client }: { client: AgendaClient }) {
         return () => document.removeEventListener('mousedown', handler);
     }, [open]);
 
-    if (!client.phone && !client.email) return null;
+    if (!client.phone && !client.email && !client.whatsapp) return null;
 
     return (
         <div ref={ref} className="relative">
@@ -611,9 +615,9 @@ function ContactMenu({ client }: { client: AgendaClient }) {
                             Correo
                         </a>
                     )}
-                    {waNumber && (
+                    {waHref && (
                         <a
-                            href={`https://wa.me/${waNumber}`}
+                            href={waHref}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={() => setOpen(false)}

@@ -8,6 +8,10 @@ import {
     APP_COMMISSION_FREE_BPS,
     APP_COMMISSION_PRO_BPS,
 } from '../serenatas/plan-config.js';
+import {
+    downgradeAgendaProfileAccess,
+    expiredAgendaPlanEndsAt,
+} from '../agenda/plan-limits.js';
 
 export type DbSubscriptionRow = {
     id: string;
@@ -172,8 +176,12 @@ export async function persistUserSubscription(input: {
             })
             .where(eq(subscriptions.id, existing[0].id));
 
-        await syncSerenataOwnerCommissionForPlan(input.userId, input.planSlug, input.status);
-        await syncAgendaProfilePlanForUser(input.userId, input.planSlug, input.status, input.expiresAt);
+        if (input.vertical === 'serenatas') {
+            await syncSerenataOwnerCommissionForPlan(input.userId, input.planSlug, input.status);
+        }
+        if (input.vertical === 'agenda') {
+            await syncAgendaProfilePlanForUser(input.userId, input.planSlug, input.status, input.expiresAt);
+        }
         return { subscriptionDbId: existing[0].id, planSlug: input.planSlug };
     }
 
@@ -194,8 +202,12 @@ export async function persistUserSubscription(input: {
         })
         .returning({ id: subscriptions.id });
 
-    await syncSerenataOwnerCommissionForPlan(input.userId, input.planSlug, input.status);
-    await syncAgendaProfilePlanForUser(input.userId, input.planSlug, input.status, input.expiresAt);
+    if (input.vertical === 'serenatas') {
+        await syncSerenataOwnerCommissionForPlan(input.userId, input.planSlug, input.status);
+    }
+    if (input.vertical === 'agenda') {
+        await syncAgendaProfilePlanForUser(input.userId, input.planSlug, input.status, input.expiresAt);
+    }
     return { subscriptionDbId: inserted.id, planSlug: input.planSlug };
 }
 
@@ -236,7 +248,15 @@ export async function persistManualAdminSubscription(input: {
                 .where(eq(subscriptions.id, existing[0].id));
         }
 
-        await syncSerenataOwnerCommissionForPlan(input.userId, 'free', resolvedStatus);
+        if (input.vertical === 'serenatas') {
+            await syncSerenataOwnerCommissionForPlan(input.userId, 'free', resolvedStatus);
+        }
+        if (input.vertical === 'agenda') {
+            await downgradeAgendaProfileAccess(
+                input.userId,
+                expiresAt && expiresAt.getTime() < Date.now() ? expiresAt : expiredAgendaPlanEndsAt(),
+            );
+        }
         return {
             planSlug: 'free',
             status: resolvedStatus,
@@ -270,18 +290,25 @@ async function syncAgendaProfilePlanForUser(
     status: string,
     expiresAt?: Date | null,
 ): Promise<void> {
-    if (status !== 'active' || (planSlug !== 'pro' && planSlug !== 'enterprise')) {
+    if (status === 'active' && (planSlug === 'pro' || planSlug === 'enterprise')) {
+        await db
+            .update(agendaProfessionalProfiles)
+            .set({
+                plan: 'pro',
+                planExpiresAt: expiresAt ?? null,
+                updatedAt: new Date(),
+            })
+            .where(eq(agendaProfessionalProfiles.userId, userId));
         return;
     }
 
-    await db
-        .update(agendaProfessionalProfiles)
-        .set({
-            plan: 'pro',
-            planExpiresAt: expiresAt ?? null,
-            updatedAt: new Date(),
-        })
-        .where(eq(agendaProfessionalProfiles.userId, userId));
+    if (status === 'cancelled' || status === 'expired' || planSlug === 'free') {
+        const endsAt =
+            expiresAt && expiresAt.getTime() <= Date.now()
+                ? expiresAt
+                : expiredAgendaPlanEndsAt();
+        await downgradeAgendaProfileAccess(userId, endsAt);
+    }
 }
 
 async function syncSerenataOwnerCommissionForPlan(

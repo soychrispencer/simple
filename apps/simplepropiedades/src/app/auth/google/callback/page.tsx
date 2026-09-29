@@ -49,10 +49,10 @@ export default function GoogleCallback() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="w-full max-w-md mx-4 rounded-xl p-8 animate-scale-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div className="w-full max-w-md mx-4 rounded-[14px] p-8 animate-scale-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
         {status === 'loading' && (
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" style={{ borderColor: 'var(--primary)' }}></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
             <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
               Conectando con Google...
             </h2>
@@ -64,7 +64,7 @@ export default function GoogleCallback() {
 
         {status === 'success' && (
           <div className="text-center">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'color-mix(in srgb, var(--primary) 15%, transparent)', color: 'var(--primary)' }}>
+            <div className="w-12 h-12 rounded-[10px] flex items-center justify-center mx-auto mb-4" style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)' }}>
               <IconCheck size={22} />
             </div>
             <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
@@ -78,7 +78,7 @@ export default function GoogleCallback() {
 
         {status === 'error' && (
           <div className="text-center">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)' }}>
+            <div className="w-12 h-12 rounded-[10px] flex items-center justify-center mx-auto mb-4" style={{ background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)' }}>
               <IconX size={22} />
             </div>
             <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>

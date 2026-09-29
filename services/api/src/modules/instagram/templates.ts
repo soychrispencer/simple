@@ -96,13 +96,13 @@ function getPlatformBrand(vertical: string) {
 const COLOR_PALETTES = {
     // Essential: Puro blanco y negro, sin color
     essential: {
-        primary: '#0C0C0E',
-        secondary: '#F0F0ED',
-        accent: '#0C0C0E',
+        primary: '#111111',
+        secondary: '#f5f5f5',
+        accent: '#111111',
         background: '#ffffff',
-        surface: '#F7F7F5',
-        textPrimary: '#0C0C0E',
-        textSecondary: '#5C5C66',
+        surface: '#fafafa',
+        textPrimary: '#111111',
+        textSecondary: '#737373',
         textInverse: '#ffffff',
     },
     // Professional: Blanco, negro con gris medio
@@ -113,7 +113,7 @@ const COLOR_PALETTES = {
         background: '#ffffff',
         surface: '#f5f5f5',
         textPrimary: '#1a1a1a',
-        textSecondary: '#777777',
+        textSecondary: '#737373',
         textInverse: '#ffffff',
     },
     // Signature: Negro profundo, blanco, gris oscuro
@@ -124,8 +124,8 @@ const COLOR_PALETTES = {
         background: '#0a0a0a',
         surface: '#1a1a1a',
         textPrimary: '#ffffff',
-        textSecondary: '#999999',
-        textInverse: '#0a0a0a',
+        textSecondary: '#a3a3a3',
+        textInverse: '#111111',
     },
 };
 

@@ -1242,9 +1242,9 @@ export default function PublicacionesPage() {
                                                                     <span>{templatesLoadingMessage || 'Cargando...'}</span>
                                                                 </div>
                                                                 {templatesLoadingProgress > 0 && (
-                                                                    <div className="w-full bg-gray-200 rounded-full h-1">
+                                                                    <div className="w-full rounded-[10px] h-1 bg-[var(--bg-muted)]">
                                                                         <div 
-                                                                            className="bg-blue-500 h-1 rounded-full transition-all duration-300" 
+                                                                            className="h-1 rounded-[10px] transition-all duration-300 bg-[var(--accent)]"
                                                                             style={{ width: `${templatesLoadingProgress}%` }}
                                                                         ></div>
                                                                     </div>
@@ -1266,7 +1266,7 @@ export default function PublicacionesPage() {
                                                             style={{
                                                                 borderColor: isSelected ? 'var(--fg)' : 'var(--border)',
                                                                 background: isSelected ? 'var(--fg)' : 'var(--surface)',
-                                                                color: isSelected ? '#fff' : 'var(--fg)',
+                                                                color: isSelected ? 'var(--accent-contrast)' : 'var(--fg)',
                                                             }}
                                                         >
                                                             {template.name}

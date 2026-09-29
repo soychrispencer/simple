@@ -1,8 +1,6 @@
 /**
  * Utilidades de formato de fecha y moneda compartidas entre todas las apps.
- * Unifica las funciones que estaban duplicadas en:
- *   - apps/simpleagenda/src/lib/format.ts
- *   - services/api/src/whatsapp.ts
+ * Unifica funciones que estaban duplicadas entre apps y el API.
  */
 
 /** Formatea un monto en CLP: $1.5M / $120K / $45.000 */

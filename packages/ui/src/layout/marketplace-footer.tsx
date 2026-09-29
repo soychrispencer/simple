@@ -17,6 +17,7 @@ export type MarketplaceFooterProps = {
     copyrightName: string;
     sections?: MarketplaceFooterSection[];
     platformLinks?: MarketplaceFooterLink[];
+    currentPlatformHref?: string;
     legalLinks?: MarketplaceFooterLink[];
     socialLinks?: MarketplaceFooterLink[];
     /** Aviso legal opcional (financiero, marketplace, etc.). */
@@ -91,7 +92,8 @@ export function MarketplaceFooter({
     description,
     copyrightName,
     sections = [],
-    platformLinks = ECOSYSTEM_LINKS,
+    currentPlatformHref,
+    platformLinks = ECOSYSTEM_LINKS.filter((link) => link.href !== currentPlatformHref),
     legalLinks = defaultLegal,
     socialLinks = [],
     legalNotice = DEFAULT_LEGAL_NOTICE,

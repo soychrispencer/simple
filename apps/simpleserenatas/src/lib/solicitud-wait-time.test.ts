@@ -55,7 +55,9 @@ describe('solicitud-wait-time', () => {
         const now = Date.parse('2026-05-26T13:00:00.000Z');
         const state = getSolicitudWaitState(pendingItem(), now);
         expect(state?.urgency).toBe('danger');
-        expect(state?.remainingMs).toBe(0);
+        // Mantiene el retraso para ordenar primero las solicitudes más vencidas.
+        expect(state?.remainingMs).toBe(-3_600_000);
+        expect(state?.remainingLabel).toBe('0:00');
     });
 
     it('ordena por urgencia (plazo vencido primero)', () => {

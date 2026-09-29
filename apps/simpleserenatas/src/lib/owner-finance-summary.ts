@@ -1,5 +1,5 @@
 import type { MusicianPayout, Serenata, SerenataMePlan } from '@/lib/serenatas-api';
-import { computeSerenataAppDeduction } from '@/components/panel/shared';
+import { computeSerenataAppDeduction } from './serenata-deduction';
 import { formatSerenataCollectionMethod } from '@/lib/owner-collection-method';
 
 export type FinancePeriodRange = { from: string; to: string };

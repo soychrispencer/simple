@@ -107,6 +107,21 @@ conversation.message_sent
 
 ---
 
+## Catálogo SimpleResto
+
+```
+order.created
+order.status_changed          # payload: { from, to, publicId, locationId }
+payment.paid                  # cobro POS / MP (mismo tipo Core)
+delivery.status_changed       # Uber Direct / aggregators
+stock.adjusted                # inventario liviano (opcional)
+```
+
+Subject kinds: `resto_order`, `resto_location`, `resto_delivery`.  
+Vertical timeline: `resto`.
+
+---
+
 ## Serenatas (Fase B — después de Agenda Tier 1)
 
 | type | Cuándo | Dónde |

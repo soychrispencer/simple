@@ -13,6 +13,7 @@ const mockSelectChain = {
     from: vi.fn(),
     where: vi.fn(),
     orderBy: vi.fn(),
+    then: (resolve: (rows: unknown[]) => unknown) => Promise.resolve([]).then(resolve),
 };
 
 vi.mock('../../db/index.js', () => ({

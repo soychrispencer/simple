@@ -10,6 +10,7 @@ import { usePanelFormatters } from '@simple/auth';
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { PanelPageHeader } from '@simple/ui/panel';
 import { PanelStatCard } from '@simple/ui/panel';
+import { AgendaOnboardingRail } from '@/components/panel/agenda-onboarding-rail';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -173,6 +174,8 @@ export default function PanelHomePage() {
     return (
         <div className="panel-page container-app min-w-0 max-w-full py-4 pb-6 lg:py-8 lg:pb-8">
             <PanelPageHeader title="Mi panel" description={panelDescription} className="min-w-0" />
+
+            <AgendaOnboardingRail className="mb-4" />
 
             <div className="grid gap-4 pb-2">
                 <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-4">

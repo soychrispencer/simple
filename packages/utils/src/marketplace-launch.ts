@@ -5,8 +5,11 @@ export type PlatformLaunchVertical = 'autos' | 'propiedades' | 'agenda' | 'seren
 export type MarketplaceLaunchVertical = 'autos' | 'propiedades';
 
 /**
- * Modo lanzamiento: funciones sin límites de plan ni checkout de suscripción.
+ * Modo lanzamiento global (autos / propiedades / serenatas).
  * Desactivar con `MARKETPLACE_LAUNCH_MODE=false` (o `NEXT_PUBLIC_MARKETPLACE_LAUNCH_MODE=false`).
+ *
+ * Agenda **no** usa este flag por defecto: monetiza con trial 30d → Pro.
+ * Solo vuelve a gratis de lanzamiento con `AGENDA_LAUNCH_MODE=true`.
  */
 export function isPlatformLaunchMode(): boolean {
     if (typeof process !== 'undefined') {
@@ -26,8 +29,21 @@ export function isPlatformLaunchVertical(vertical: string): vertical is Platform
         || vertical === 'serenatas';
 }
 
+/**
+ * ¿La vertical está en lanzamiento sin cobro?
+ * - agenda: cobro activo por defecto; opt-in con AGENDA_LAUNCH_MODE=true
+ * - resto: MARKETPLACE_LAUNCH_MODE (default true)
+ */
 export function isPlatformLaunchActive(vertical: string): boolean {
-    return isPlatformLaunchMode() && isPlatformLaunchVertical(vertical);
+    if (!isPlatformLaunchVertical(vertical)) return false;
+
+    if (vertical === 'agenda') {
+        if (typeof process === 'undefined') return false;
+        const raw = process.env.AGENDA_LAUNCH_MODE ?? process.env.NEXT_PUBLIC_AGENDA_LAUNCH_MODE;
+        return raw === 'true' || raw === '1';
+    }
+
+    return isPlatformLaunchMode();
 }
 
 export function isMarketplaceLaunchVertical(vertical: string): vertical is MarketplaceLaunchVertical {

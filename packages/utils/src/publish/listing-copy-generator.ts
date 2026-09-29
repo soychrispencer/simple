@@ -42,6 +42,25 @@ export type PropertyCopyInput = {
     platformName?: string;
 };
 
+export type TicketEventCopyInput = {
+    title: string;
+    modality: 'in_person' | 'online' | 'hybrid';
+    startsAt?: string;
+    endsAt?: string;
+    venueName?: string;
+    venueAddress?: string;
+    venueCommune?: string;
+    capacity?: number;
+    onlineAccessMode?: 'after_purchase' | 'url';
+    ticketTypes?: Array<{
+        name: string;
+        kind?: string;
+        price: number;
+        quantity: number;
+    }>;
+    platformName?: string;
+};
+
 function parseDigits(value: string | undefined): string {
     return (value ?? '').replace(/\D/g, '');
 }
@@ -191,6 +210,41 @@ export function generatePropertyListingDescription(input: PropertyCopyInput): st
         input.priceLabel ? `\n💰 ${input.priceLabel}` : '',
         '',
         `📲 Escríbenos en ${platform} para coordinar visita o más información.`,
+    ].filter(Boolean).join('\n').trim();
+}
+
+export function generateTicketEventDescription(input: TicketEventCopyInput): string {
+    const platform = input.platformName ?? 'SimpleTickets';
+    const title = input.title.trim() || 'Evento';
+    const place =
+        input.modality === 'online'
+            ? 'Evento online'
+            : [input.venueName, input.venueCommune].filter(Boolean).join(', ') || input.venueAddress || 'Ubicación por confirmar';
+    const when = input.startsAt
+        ? new Intl.DateTimeFormat('es-CL', {
+            dateStyle: 'full',
+            timeStyle: 'short',
+        }).format(new Date(input.startsAt))
+        : null;
+    const types = (input.ticketTypes ?? [])
+        .filter((type) => type.name.trim())
+        .map((type) => {
+            const price = type.price > 0
+                ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(type.price)
+                : 'Gratis';
+            return `• ${type.name.trim()}: ${price}`;
+        })
+        .join('\n');
+
+    return [
+        `🎟️ ${title}`,
+        '',
+        when ? `📅 ${when}` : null,
+        `📍 ${place}`,
+        input.capacity != null ? `👥 Cupos: ${input.capacity}` : null,
+        types ? `\nEntradas:\n${types}` : null,
+        '',
+        `Compra directa en ${platform}, sin comisión de plataforma.`,
     ].filter(Boolean).join('\n').trim();
 }
 

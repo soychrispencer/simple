@@ -38,7 +38,8 @@ export default function PrivacidadPage() {
                 <li>
                     Las verticales vinculadas: <strong>SimpleAutos</strong> (simpleautos.app),{' '}
                     <strong>SimplePropiedades</strong> (simplepropiedades.app), <strong>SimpleAgenda</strong>{' '}
-                    (simpleagenda.app), <strong>SimpleSerenatas</strong> (simpleserenatas.app) y herramientas de
+                    (simpleagenda.app), <strong>SimpleSerenatas</strong> (simpleserenatas.app),{' '}
+                    <strong>SimpleTickets</strong> (simpletickets.app) y herramientas de
                     administración asociadas.
                 </li>
                 <li>

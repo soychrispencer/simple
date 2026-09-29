@@ -15,7 +15,7 @@ export type GeneratePoliciesInput = {
 const FALLBACK_POLICIES = `POLÍTICAS Y CONDICIONES
 
 1. Reserva y confirmación
-Las reservas quedan agendadas al completar el formulario. Recibirás una confirmación por correo o WhatsApp con los datos de la sesión.
+Las reservas quedan agendadas al completar el formulario. Recibirás una confirmación por correo con los datos de la sesión.
 
 2. Puntualidad
 Te pedimos llegar (o conectarte) cinco minutos antes. Si llegas tarde, la sesión terminará a la hora pactada para no afectar a otros pacientes.
@@ -62,7 +62,7 @@ REGLAS:
 ${input.existingText ? `TEXTO ACTUAL DEL PROFESIONAL (úsalo como referencia del tono si existe):\n${input.existingText}\n\n` : ''}Genera las políticas ahora:`;
 
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         const result = await model.generateContent(prompt);
         const text = result.response.text().trim();
         if (!text) return { ok: true, text: FALLBACK_POLICIES };

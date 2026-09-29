@@ -62,7 +62,7 @@ export function useAddressBookPage(options: UseAddressBookPageOptions = {}) {
         items: AddressBookEntry[],
         linkPrimaryAddress: boolean,
     ) => {
-        if (scope !== 'business' || !vertical || vertical === 'serenatas') return;
+        if (scope !== 'business' || !vertical || vertical === 'serenatas' || vertical === 'tickets' || vertical === 'resto') return;
         const defaultEntry = items.find((item) => item.isDefault);
         if (!defaultEntry) return;
         await syncMarketplaceProfileWithDefaultAddress(vertical, defaultEntry, { linkPrimaryAddress });

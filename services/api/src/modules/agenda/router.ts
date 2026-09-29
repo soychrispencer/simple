@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import type { SQL } from 'drizzle-orm';
 import { cleanupReplacedMediaUrl } from '../media/stored-object.js';
 import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
-import { ensureAgendaProfileTrial, hasAgendaFullAccess, syncAgendaProfilePublishAccess } from './plan-limits.js';
+import { ensureAgendaProfileTrial, hasAgendaFullAccess, syncAgendaProfilePublishAccess, AGENDA_PUBLIC_INACTIVE_MESSAGE } from './plan-limits.js';
 import { resolveAgendaProfessionalTimezone, syncAgendaProfileTimezoneFromOperatingLocation } from '../../lib/sync-user-timezone.js';
 import { agendaOperatingPatchFromBody, operatingLocationFromAgendaProfile } from '../../lib/structured-location.js';
 import {
@@ -2169,12 +2169,11 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
     app.post('/subscription/cancel', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        const profile = await getAgendaProfile(user.id);
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-        if (profile.plan === 'free') return c.json({ ok: false, error: 'No tienes un plan activo que cancelar' }, 400);
-        await db.update(agendaProfessionalProfiles).set({ plan: 'free', planExpiresAt: null, updatedAt: new Date() }).where(eq(agendaProfessionalProfiles.id, profile.id));
-        console.info(`[agenda] User self-cancelled plan: userId=${user.id} profileId=${profile.id}`);
-        return c.json({ ok: true });
+        const { cancelAgendaProSubscription } = await import('./cancel-subscription.js');
+        const result = await cancelAgendaProSubscription(user.id);
+        if (!result.ok) return c.json({ ok: false, error: result.error }, result.status as 400 | 404 | 502);
+        console.info(`[agenda] User self-cancelled plan: userId=${user.id}`);
+        return c.json({ ok: true, message: result.message });
     });
 
     return app;
@@ -2196,6 +2195,42 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         agendaLocations, agendaClients, agendaAppointments, agendaPromotions, agendaPacks, agendaNpsResponses, users,
         pushSubscriptions, timelineEvents,
     } = tables;
+
+    async function requirePublicBookingProfile(slug: string) {
+        let profile = await db.query.agendaProfessionalProfiles.findFirst({
+            where: eq(agendaProfessionalProfiles.slug, slug),
+        });
+        if (!profile) {
+            return { ok: false as const, status: 404 as const, body: { ok: false, error: 'Perfil no encontrado' } };
+        }
+        profile = await ensureAgendaProfileTrial(profile);
+        if (!profile.isPublished) {
+            return {
+                ok: false as const,
+                status: 403 as const,
+                body: {
+                    ok: false,
+                    error: 'Este perfil aún no está publicado.',
+                    reason: 'not_published',
+                    displayName: profile.displayName,
+                },
+            };
+        }
+        if (!hasAgendaFullAccess(profile)) {
+            await syncAgendaProfilePublishAccess(profile);
+            return {
+                ok: false as const,
+                status: 403 as const,
+                body: {
+                    ok: false,
+                    error: AGENDA_PUBLIC_INACTIVE_MESSAGE,
+                    reason: 'subscription_inactive',
+                    displayName: profile.displayName,
+                },
+            };
+        }
+        return { ok: true as const, profile };
+    }
 
     const publicReadLimit = rateLimit({ name: 'agenda-read', limit: 60, windowMs: 60_000 });
     const publicSlotsLimit = rateLimit({ name: 'agenda-slots', limit: 30, windowMs: 60_000 });
@@ -2292,8 +2327,9 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
 
     app.post('/:slug/validate-promo', publicReadLimit, async (c) => {
         const slug = c.req.param('slug') ?? '';
-        const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)) });
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const access = await requirePublicBookingProfile(slug);
+        if (!access.ok) return c.json(access.body, access.status);
+        const profile = access.profile;
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const code = normalizePromoCode(body.code);
         if (!code) return c.json({ ok: false, error: 'Ingresa un código.' }, 400);
@@ -2309,16 +2345,12 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
 
     app.get('/:slug', publicReadLimit, async (c) => {
         const slug = c.req.param('slug') ?? '';
-        const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: eq(agendaProfessionalProfiles.slug, slug) });
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-        if (!profile.isPublished) {
-            return c.json({
-                ok: false,
-                error: 'Este perfil aún no está publicado.',
-                reason: 'not_published',
-                displayName: profile.displayName,
-            }, 403);
+        const access = await requirePublicBookingProfile(slug);
+        if (!access.ok) {
+            if (access.status === 404) return c.json(access.body, 404);
+            return c.json(access.body, access.status);
         }
+        const profile = access.profile;
         const [services, locations, rules, packRows, promotionRows, operationalTz] = await Promise.all([
             db.select().from(agendaServices).where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true), eq(agendaServices.kind, 'appointment'))).orderBy(asc(agendaServices.position)),
             db.select().from(agendaLocations).where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true))).orderBy(asc(agendaLocations.position)),
@@ -2347,8 +2379,9 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const slug = c.req.param('slug') ?? '';
         const dateStr = c.req.query('date'); const serviceId = c.req.query('serviceId');
         if (!dateStr) return c.json({ ok: false, error: 'Fecha requerida' }, 400);
-        const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)) });
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const access = await requirePublicBookingProfile(slug);
+        if (!access.ok) return c.json(access.body, access.status);
+        const profile = access.profile;
         const tz = profile.timezone ?? 'America/Santiago';
         const dayOfWeek = new Date(new Date(`${dateStr}T12:00:00`).toLocaleString('en-US', { timeZone: tz })).getDay();
         const localMidnight = new Date(`${dateStr}T00:00:00`);
@@ -2417,8 +2450,9 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
 
     app.post('/:slug/book', publicBookLimit, async (c) => {
         const slug = c.req.param('slug') ?? '';
-        const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)) });
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const access = await requirePublicBookingProfile(slug);
+        if (!access.ok) return c.json(access.body, access.status);
+        const profile = access.profile;
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         if (!body.startsAt || !body.clientName) return c.json({ ok: false, error: 'Datos requeridos: startsAt, clientName' }, 400);
         let durationMinutes = 60; let serviceId: string|null = null; let price: string|null = null; let serviceName: string|null = null;

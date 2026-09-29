@@ -1,13 +1,16 @@
 @import "tailwindcss";
+
+/* SimplePlataforma — Spencer System · accent ink + brand dots */
+
 @source "../../../../packages/ui/src";
 @source "../../../../packages/auth/src";
 @import "../../../../packages/ui/src/theme-base.css";
 
 :root {
-    --accent: #0C0C0E;
-    --accent-subtle: rgba(12, 12, 14, 0.08);
-    --accent-soft: rgba(12, 12, 14, 0.06);
-    --accent-border: rgba(12, 12, 14, 0.14);
+    --accent: #111111;
+    --accent-subtle: rgba(17, 17, 17, 0.08);
+    --accent-soft: rgba(17, 17, 17, 0.06);
+    --accent-border: rgba(17, 17, 17, 0.14);
     --accent-contrast: #ffffff;
 
     /* Ecosystem brand palette */
@@ -23,7 +26,7 @@
     --accent-subtle: rgba(244, 244, 245, 0.12);
     --accent-soft: rgba(244, 244, 245, 0.06);
     --accent-border: rgba(244, 244, 245, 0.24);
-    --accent-contrast: #0C0C0E;
+    --accent-contrast: #111111;
 
     --brand-autos: #F06A42;
     --brand-propiedades: #6366F1;

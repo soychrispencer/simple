@@ -1,6 +1,7 @@
 export {
     SIMPLE_PUBLISH_STEPS,
     SIMPLE_PUBLISH_AUTOS_STEPS,
+    SIMPLE_PUBLISH_TICKETS_STEPS,
     SIMPLE_PUBLISH_MIN_DESCRIPTION_LENGTH,
     SIMPLE_PUBLISH_INTEGRATIONS_CONNECT_HREF,
 } from './constants.js';
@@ -26,6 +27,8 @@ export {
     generateAutosListingDescription,
     generatePropertyListingTitle,
     generatePropertyListingDescription,
+    generateTicketEventDescription,
     type AutosCopyInput,
     type PropertyCopyInput,
+    type TicketEventCopyInput,
 } from '../publish/listing-copy-generator.js';

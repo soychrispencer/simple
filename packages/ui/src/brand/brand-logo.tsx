@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentType, CSSProperties } from 'react';
-import { IconCalendar, IconConfetti, IconDoor, IconLayoutDashboard, IconSteeringWheel } from '@tabler/icons-react';
+import { IconCalendar, IconConfetti, IconDoor, IconLayoutDashboard, IconSteeringWheel, IconTicket, IconToolsKitchen2 } from '@tabler/icons-react';
 import clsx from 'clsx';
 import { getSimpleAppBrand, type SimpleAppId } from '@simple/config';
 
@@ -24,6 +24,8 @@ const BRAND_ICON_BY_APP: Record<SimpleAppId, ComponentType<{ size?: number; styl
     simpleplataforma: IconLayoutDashboard,
     simpleagenda: IconCalendar,
     simpleserenatas: IconConfetti,
+    simpletickets: IconTicket,
+    simpleresto: IconToolsKitchen2,
 };
 
 function brandLogoIconWrapStyle(variant: BrandLogoVariant): CSSProperties {

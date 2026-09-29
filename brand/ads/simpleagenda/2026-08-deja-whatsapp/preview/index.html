@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SimpleAgenda · Spencer ads v4 — Dejá WhatsApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #111111;
+      --ink-soft: #1a1a1a;
+      --paper: #fafafa;
+      --surface: #ffffff;
+      --mute: #737373;
+      --mute-2: #a3a3a3;
+      --line: #e5e5e5;
+      --field: #f5f5f5;
+      --accent: #0F766E;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --font: "Inter", system-ui, sans-serif;
+      --serif: "Instrument Serif", Georgia, serif;
+      --kicker: 13px;
+      --title-post: 56px;
+      --title-story: 68px;
+      --title-post-hero: 72px;
+      --title-story-hero: 84px;
+      --sub-post: 22px;
+      --sub-story: 26px;
+      --cta-h-post: 58px;
+      --cta-h-story: 62px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0c0c0c;
+      color: var(--ink);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.45;
+    }
+
+    .studio {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      height: 100vh;
+      overflow: hidden;
+    }
+    @media (max-width: 960px) {
+      .studio { grid-template-columns: 1fr; height: auto; overflow: auto; }
+    }
+
+    .panel {
+      background: #161616;
+      border-right: 1px solid #2a2a2a;
+      padding: 24px 18px 40px;
+      overflow-y: auto;
+      max-height: 100vh;
+      color: #e5e5e5;
+    }
+    .panel .tag {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #737373;
+      margin-bottom: 10px;
+    }
+    .panel .campaign {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      margin-bottom: 6px;
+      color: #fafafa;
+    }
+    .panel .meta {
+      font-size: 12px;
+      color: #a3a3a3;
+      margin-bottom: 22px;
+      line-height: 1.45;
+    }
+    .panel .meta strong { color: #fafafa; font-weight: 600; }
+
+    .group { margin-bottom: 18px; }
+    .group > label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #737373;
+      margin-bottom: 8px;
+    }
+
+    .tabs { display: flex; flex-direction: column; gap: 3px; }
+    .tabs button {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #d4d4d4;
+      text-align: left;
+      padding: 9px 10px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .tabs button:hover { background: #222; }
+    .tabs button.active { background: #fafafa; color: #111; }
+    .tabs button span {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      color: #737373;
+      margin-top: 2px;
+    }
+    .tabs button.active span { color: #525252; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid #2a2a2a;
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 600;
+      color: #d4d4d4;
+    }
+    .toggle-row input { accent-color: #fafafa; }
+
+    .hint {
+      font-size: 11px;
+      color: #737373;
+      line-height: 1.45;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #2a2a2a;
+    }
+
+    /* Studio: dark so the ad reads as the final piece */
+    .stage-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px 16px;
+      min-height: 0;
+      height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 40%, #1a1a1a, #0c0c0c);
+    }
+    @media (max-width: 960px) {
+      .stage-wrap { height: auto; min-height: 70vh; overflow: auto; }
+    }
+    .stage-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #737373;
+      margin-bottom: 4px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .stage-label em {
+      font-style: normal;
+      color: #fafafa;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+      font-size: 13px;
+      text-transform: none;
+    }
+    .stage-meta {
+      font-size: 11px;
+      color: #525252;
+      margin-bottom: 12px;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    /* IG feed frame — context, not part of export */
+    .feed-frame {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      background: #000;
+      border-radius: 28px;
+      padding: 10px 10px 14px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+      max-height: calc(100vh - 72px);
+      flex-shrink: 1;
+    }
+    .feed-frame .ig-chrome {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 12px;
+      color: #fafafa;
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .feed-frame .ig-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: grid;
+      place-items: center;
+    }
+    .feed-frame .ig-avatar img {
+      width: 16px;
+      height: 16px;
+    }
+    .feed-frame .ig-chrome small {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #a3a3a3;
+    }
+    .feed-frame .ig-slot {
+      position: relative;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #111;
+      /* sized by JS to match scaled ad */
+    }
+    .feed-frame .ig-caption {
+      padding: 10px 10px 2px;
+      color: #a3a3a3;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    .feed-frame .ig-caption b { color: #fafafa; }
+
+    .stage {
+      position: relative;
+      overflow: hidden;
+      background: #111;
+    }
+
+    /* —— Ad canvas (export surface) —— */
+    .ad {
+      position: relative;
+      width: 1080px;
+      height: 1350px;
+      overflow: hidden;
+      font-family: var(--font);
+      color: var(--ink);
+      background: var(--paper);
+    }
+    .ad.story { width: 1080px; height: 1920px; }
+    .ad.highlight { width: 1080px; height: 1080px; }
+    .ad.theme-ink { background: var(--ink); color: #fafafa; }
+
+    .stack {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      z-index: 2;
+      padding: 72px 80px 72px;
+      justify-content: flex-start;
+    }
+    .ad.post .stack { padding: 64px 72px 64px; }
+    .ad.story .stack { padding: 290px 80px 400px; }
+
+    .stack.layout-center { align-items: center; text-align: center; }
+    .stack.layout-asymm { align-items: stretch; text-align: left; }
+    .stack.layout-asymm .brand,
+    .stack.layout-asymm .footer { align-self: center; text-align: center; }
+    .stack.layout-asymm .band-top { align-items: flex-start; text-align: left; }
+    .stack.layout-asymm .title,
+    .stack.layout-asymm .subtitle { margin-left: 0; margin-right: 0; }
+    .stack.layout-asymm .band-mid {
+      align-items: flex-end;
+      justify-content: center;
+      padding-left: 48px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 36px;
+      flex-shrink: 0;
+    }
+    .ad.story .brand { margin-bottom: 44px; }
+    .brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: block;
+    }
+    .ad.story .brand img { width: 52px; height: 52px; border-radius: 13px; }
+    /* Tipográficas: logo más chico — no compite con headline */
+    .ad.no-visual .brand { margin-bottom: 48px; }
+    .ad.no-visual .brand img { width: 40px; height: 40px; border-radius: 10px; }
+    .ad.no-visual .brand .wm { font-size: 24px; }
+    .ad.story.no-visual .brand img { width: 44px; height: 44px; }
+    .ad.story.no-visual .brand .wm { font-size: 26px; }
+
+    .brand .wm {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .ad.story .brand .wm { font-size: 28px; }
+    .brand .wm .s { color: inherit; }
+    .brand .wm .p { color: var(--accent); }
+    .ad.theme-ink .brand .wm .s { color: #fafafa; }
+
+    .kicker {
+      font-size: var(--kicker);
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--mute);
+      margin-bottom: 16px;
+      flex-shrink: 0;
+    }
+    .ad.theme-ink .kicker { color: rgba(250,250,250,0.42); }
+
+    .title {
+      font-size: var(--title-post);
+      font-weight: 800;
+      letter-spacing: -0.045em;
+      line-height: 1.02;
+      max-width: 12ch;
+      margin: 0 auto 18px;
+      flex-shrink: 0;
+      text-wrap: balance;
+    }
+    .ad.story .title {
+      font-size: var(--title-story);
+      max-width: 11ch;
+      margin-bottom: 20px;
+    }
+    .ad.no-visual .title {
+      font-size: var(--title-post-hero);
+      max-width: 10ch;
+      margin-bottom: 22px;
+    }
+    .ad.story.no-visual .title {
+      font-size: var(--title-story-hero);
+      max-width: 9ch;
+    }
+    .title em {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+    }
+    .ad.theme-paper .title em { color: var(--accent); }
+    .ad.theme-ink .title em { color: #5eead4; }
+
+    .subtitle {
+      font-size: var(--sub-post);
+      font-weight: 400;
+      line-height: 1.35;
+      color: var(--mute);
+      max-width: 28ch;
+      margin: 0 auto;
+      flex-shrink: 0;
+      text-wrap: balance;
+    }
+    .ad.story .subtitle { font-size: var(--sub-story); }
+    .ad.theme-ink .subtitle { color: rgba(250,250,250,0.55); }
+    .ad.no-visual .subtitle {
+      max-width: 22ch;
+      font-size: 23px;
+    }
+    .ad.story.no-visual .subtitle { font-size: 26px; }
+
+    .benefits {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--mute);
+      letter-spacing: -0.01em;
+      margin-top: 28px;
+      max-width: 34ch;
+      flex-shrink: 0;
+      line-height: 1.4;
+    }
+    .ad.story .benefits { font-size: 18px; margin-top: 32px; }
+    .ad.theme-ink .benefits { color: rgba(250,250,250,0.45); }
+    .benefits i {
+      font-style: normal;
+      margin: 0 10px;
+      color: var(--mute-2);
+    }
+    .ad.theme-ink .benefits i { color: rgba(250,250,250,0.22); }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      width: 100%;
+      max-width: 880px;
+      margin: 0 auto;
+      flex-shrink: 0;
+      text-align: left;
+    }
+    .step {
+      padding: 18px 16px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      min-height: 128px;
+    }
+    .ad.theme-ink .step {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.12);
+    }
+    .step .num {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--mute);
+      margin-bottom: 10px;
+    }
+    .ad.theme-paper .step .num { color: var(--accent); }
+    .step p {
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+    .ad.post .step { min-height: 112px; padding: 14px 12px; }
+    .ad.post .step p { font-size: 16px; }
+
+    /* Proof 2×2 — peso real, no línea perdida */
+    .proof-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      width: min(720px, 100%);
+      text-align: left;
+    }
+    .proof-cell {
+      padding: 22px 20px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .ad.theme-ink .proof-cell {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.12);
+    }
+    .proof-cell b {
+      display: block;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+    }
+    .ad.post .proof-cell { padding: 18px 16px; }
+    .ad.post .proof-cell b { font-size: 20px; }
+    .proof-cell span {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--mute);
+    }
+    .ad.theme-ink .proof-cell span { color: rgba(250,250,250,0.45); }
+
+    .band-top {
+      flex-shrink: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: inherit;
+    }
+    .stack.layout-center .band-top { align-items: center; }
+
+    .band-mid {
+      flex: 1 1 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+      padding: 28px 0;
+      gap: 0;
+    }
+
+    .band-mid .rule {
+      width: 72px;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 2px;
+      margin-bottom: 32px;
+      flex-shrink: 0;
+    }
+    .ad.theme-ink .band-mid .rule {
+      background: #5eead4;
+      width: 80px;
+      height: 4px;
+    }
+
+    .visual {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ad.no-visual .visual { display: none; }
+
+    .mock {
+      position: relative;
+      width: min(880px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 20px 48px rgba(17,17,17,0.10);
+      padding: 24px;
+      text-align: left;
+      color: var(--ink);
+    }
+    .ad.theme-ink .mock { box-shadow: 0 28px 64px rgba(0,0,0,0.4); }
+    .ad.story .mock { width: min(920px, 100%); padding: 28px; }
+    .stack.layout-asymm .mock { width: min(700px, 94%); }
+
+    .mock-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+    .mock-top .who { display: flex; align-items: center; gap: 10px; }
+    .mock-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--ink);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+    }
+    .mock-top b { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; display: block; }
+    .mock-top small { font-size: 12px; color: var(--mute); }
+    .mock-pill {
+      font-size: 11px;
+      font-weight: 650;
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      background: var(--field);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    .mock-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .mock-day {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      background: var(--field);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      font-size: 11px;
+      color: var(--mute);
+      font-weight: 500;
+    }
+    .mock-day strong { font-size: 15px; color: var(--ink); font-weight: 700; }
+    .mock-day.on { background: var(--ink); color: rgba(250,250,250,0.55); }
+    .mock-day.on strong { color: #fff; }
+    .mock-day.accent { background: var(--accent); color: rgba(255,255,255,0.75); }
+    .mock-day.accent strong { color: #fff; }
+
+    .mock-slots {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .mock-slot {
+      height: 40px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      background: #fff;
+    }
+    .mock-slot.on {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .mock-slot.off { opacity: 0.35; }
+
+    .mock-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .mock-stat {
+      padding: 14px 12px;
+      border-radius: 12px;
+      background: var(--field);
+      border: 1px solid var(--line);
+    }
+    .mock-stat span {
+      display: block;
+      font-size: 11px;
+      color: var(--mute);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .mock-stat b {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .mock-rows { display: grid; gap: 8px; margin-top: 12px; }
+    .mock-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .mock-row span { color: var(--mute); font-weight: 500; font-size: 13px; }
+
+    .footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+      width: 100%;
+      z-index: 4;
+    }
+
+    /* CTA: radius 10 explícito — nunca pill */
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: var(--cta-h-post);
+      min-width: 380px;
+      padding: 0 40px;
+      border-radius: 10px;
+      font-size: 19px;
+      font-weight: 650;
+      letter-spacing: -0.015em;
+    }
+    .ad.story .cta {
+      height: var(--cta-h-story);
+      min-width: 420px;
+      font-size: 20px;
+      border-radius: 10px;
+    }
+    .ad.theme-ink .cta { background: #fafafa; color: var(--ink); }
+    .ad.theme-paper .cta { background: var(--ink); color: #fff; }
+
+    .url {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--mute);
+    }
+    .ad.theme-ink .url { color: rgba(250,250,250,0.38); }
+    .url b { color: var(--accent); }
+    .ad.theme-ink .url b { color: #5eead4; }
+
+    .hl-canvas {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 36px;
+      background: var(--paper);
+      padding-bottom: 24px;
+    }
+    .hl-icon {
+      width: 440px;
+      height: 440px;
+      border-radius: 50%;
+      background: var(--ink);
+      display: grid;
+      place-items: center;
+    }
+    .hl-icon svg {
+      width: 168px;
+      height: 168px;
+      stroke: #fafafa;
+      fill: none;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .hl-label {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .safe-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 50;
+      display: none;
+    }
+    .safe-overlay.on { display: block; }
+    .safe-overlay .band {
+      position: absolute;
+      left: 0; right: 0;
+      background: rgba(220, 38, 38, 0.14);
+    }
+    .safe-overlay .side {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 6%;
+      background: rgba(220, 38, 38, 0.07);
+    }
+    .safe-overlay .side.l { left: 0; }
+    .safe-overlay .side.r { right: 0; }
+    .safe-overlay.story .top { top: 0; height: 14%; }
+    .safe-overlay.story .bot { bottom: 0; height: 20%; }
+    .safe-overlay.post .bot { bottom: 0; height: 5%; }
+    .safe-overlay.post .side { width: 5%; }
+    .safe-overlay.highlight .ring {
+      position: absolute;
+      inset: 8%;
+      border: 3px solid rgba(220, 38, 38, 0.32);
+      border-radius: 50%;
+      box-shadow: 0 0 0 9999px rgba(220, 38, 38, 0.06);
+    }
+  </style>
+</head>
+<body>
+  <div class="studio">
+    <aside class="panel">
+      <div class="tag">Spencer · ads v4</div>
+      <div class="campaign">Dejá WhatsApp</div>
+      <p class="meta">
+        04 ink · proof 2×2 · CTA radius 10 · marco feed.<br />
+        CTA <strong>30 días gratis</strong>
+      </p>
+
+      <div class="group">
+        <label>Pieza</label>
+        <div class="tabs" id="piece-tabs"></div>
+      </div>
+
+      <div class="group">
+        <label>Vista</label>
+        <div class="toggle-row">
+          <span>Zonas seguras</span>
+          <input type="checkbox" id="safe-toggle" />
+        </div>
+        <div class="toggle-row" style="margin-top:8px">
+          <span>Marco feed IG</span>
+          <input type="checkbox" id="frame-toggle" checked />
+        </div>
+      </div>
+
+      <p class="hint">El marco IG es solo preview. El export es el canvas 1080×1350 / 1920 puro.</p>
+    </aside>
+
+    <main class="stage-wrap">
+      <div class="stage-label" id="stage-label">Cargando…</div>
+      <div class="stage-meta" id="stage-meta"></div>
+      <div class="feed-frame" id="feed-frame">
+        <div class="ig-chrome">
+          <div class="ig-avatar"><img src="assets/logo.svg" alt="" /></div>
+          <div>simpleagenda<small>Patrocinado</small></div>
+        </div>
+        <div class="ig-slot" id="stage"></div>
+        <div class="ig-caption"><b>simpleagenda</b> · Probar 30 días gratis</div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const ICONS = {
+      calendar: '<path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M4 11h16"/><path d="M11 15h1"/><path d="M12 15v3"/>',
+      link: '<path d="M10 14a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-.5.5"/><path d="M14 10a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l.5-.5"/>',
+      users: '<path d="M9 7a3 3 0 1 0 6 0a3 3 0 1 0-6 0"/><path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/>',
+      wallet: '<path d="M17 8V5a1 1 0 0 0-1-1H6a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V7"/><path d="M20 12v4h-4a2 2 0 0 1 0-4h4"/>',
+      spark: '<path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/>',
+    };
+
+    const PROOF_META = {
+      'Sin tarjeta': 'Empezá sin compromiso',
+      'Sin comisión': 'Por cada cita',
+      'Recordatorios': 'Menos inasistencias',
+      '30 días gratis': 'Cancela cuando quieras',
+      'Listo en 5 min': 'Setup rápido',
+    };
+
+    const MOCKS = {
+      agenda: `
+        <div class="mock">
+          <div class="mock-top">
+            <div class="who">
+              <div class="mock-avatar">SA</div>
+              <div><b>Agenda del día</b><small>Martes 7 · 8 citas</small></div>
+            </div>
+            <div class="mock-pill">Hoy</div>
+          </div>
+          <div class="mock-grid">
+            ${['L','M','M','J','V','S','D'].map((d,i) => {
+              const n = i + 3;
+              const cls = i === 1 ? 'accent' : i === 3 ? 'on' : '';
+              return `<div class="mock-day ${cls}"><span>${d}</span><strong>${n}</strong></div>`;
+            }).join('')}
+          </div>
+          <div class="mock-rows">
+            <div class="mock-row"><b>Consulta · Ana R.</b><span>10:00</span></div>
+            <div class="mock-row"><b>Seguimiento · Luis M.</b><span>11:30</span></div>
+            <div class="mock-row"><b>Primera cita · Sofía</b><span>15:00</span></div>
+          </div>
+        </div>`,
+      booking: `
+        <div class="mock">
+          <div class="mock-top">
+            <div class="who">
+              <div class="mock-avatar">DA</div>
+              <div><b>Reservar hora</b><small>Consulta individual · 60 min</small></div>
+            </div>
+            <div class="mock-pill">Disponible</div>
+          </div>
+          <div class="mock-grid" style="grid-template-columns:repeat(5,1fr)">
+            ${[['Lun','6'],['Mar','7'],['Mié','8'],['Jue','9'],['Vie','10']].map((d,i) =>
+              `<div class="mock-day ${i===2?'accent':''}"><span>${d[0]}</span><strong>${d[1]}</strong></div>`
+            ).join('')}
+          </div>
+          <div class="mock-slots">
+            <div class="mock-slot off">09:00</div>
+            <div class="mock-slot">10:00</div>
+            <div class="mock-slot on">11:30</div>
+            <div class="mock-slot">16:00</div>
+          </div>
+        </div>`,
+      dashboard: `
+        <div class="mock">
+          <div class="mock-top">
+            <div class="who">
+              <div class="mock-avatar">$</div>
+              <div><b>Tu consulta</b><small>Resumen semanal</small></div>
+            </div>
+            <div class="mock-pill">Al día</div>
+          </div>
+          <div class="mock-stats">
+            <div class="mock-stat"><span>Citas</span><b>24</b></div>
+            <div class="mock-stat"><span>Pagos</span><b>$420k</b></div>
+            <div class="mock-stat"><span>Clientes</span><b>18</b></div>
+          </div>
+          <div class="mock-rows">
+            <div class="mock-row"><b>Sesiones pagadas</b><span>16</span></div>
+            <div class="mock-row"><b>Recordatorios enviados</b><span>22</span></div>
+          </div>
+        </div>`,
+    };
+
+    /* Ritmo: ink → paper → paper → ink (prueba) → ink (cierre) */
+    const PIECES = [
+      {
+        id: 'post-01', group: 'Post', label: 'Post feed', size: '1080×1350',
+        format: 'post', theme: 'ink', layout: 'center',
+        kicker: 'Agenda online',
+        titleHtml: 'Dejá de coordinar citas por <em>WhatsApp</em>',
+        subtitle: 'Citas, clientes y pagos en un solo lugar.',
+        mock: 'agenda',
+        cta: 'Probar 30 días gratis', url: 'simpleagenda.app',
+      },
+      {
+        id: 'carousel-01', group: 'Carrusel', label: '01 · Hook', size: '1080×1350',
+        format: 'post', theme: 'ink', layout: 'center',
+        kicker: 'El problema',
+        titleHtml: 'Tu agenda no debería vivir en <em>chats</em>',
+        subtitle: 'Capturas, mensajes perdidos e ida y vuelta.',
+        mock: null,
+        cta: 'Probar 30 días gratis', url: 'simpleagenda.app',
+      },
+      {
+        id: 'carousel-02', group: 'Carrusel', label: '02 · Reservas', size: '1080×1350',
+        format: 'post', theme: 'paper', layout: 'asymm',
+        kicker: 'Reservas 24/7',
+        titleHtml: 'Tus clientes reservan <em>solos</em>',
+        subtitle: 'Compartí tu link. Ellos eligen según tu disponibilidad real.',
+        benefits: ['Link con tu marca', 'Disponibilidad real', 'Confirmación al instante'],
+        mock: 'booking',
+        cta: 'Probar 30 días gratis', url: 'simpleagenda.app',
+      },
+      {
+        id: 'carousel-03', group: 'Carrusel', label: '03 · Producto', size: '1080×1350',
+        format: 'post', theme: 'paper', layout: 'asymm',
+        kicker: 'Todo en uno',
+        titleHtml: 'Citas, clientes y pagos. En un <em>solo</em> lugar.',
+        subtitle: 'Sin saltar de app en app.',
+        mock: 'dashboard',
+        cta: 'Probar 30 días gratis', url: 'simpleagenda.app',
+      },
+      {
+        id: 'carousel-04', group: 'Carrusel', label: '04 · Prueba', size: '1080×1350',
+        format: 'post', theme: 'ink', layout: 'center',
+        kicker: 'Sin letra chica',
+        titleHtml: 'Listo en minutos. Sin <em>comisión</em>.',
+        subtitle: 'Configurá tu perfil y recibí reservas.',
+        proof: ['Sin tarjeta', 'Sin comisión', 'Recordatorios', '30 días gratis'],
+        mock: null,
+        cta: 'Probar 30 días gratis', url: 'simpleagenda.app',
+      },
+      {
+        id: 'carousel-05', group: 'Carrusel', label: '05 · Cierre', size: '1080×1350',
+        format: 'post', theme: 'ink', layout: 'center',
+        kicker: 'Empieza hoy',
+        titleHtml: 'Organizá tu consulta de forma <em>clara</em>',
+        subtitle: 'Registrate gratis. Probá todo 30 días.',
+        mock: null,
+        cta: 'Probar 30 días gratis', url: 'simpleagenda.app',
+      },
+      {
+        id: 'story-01', group: 'Stories', label: '01 · Hook', size: '1080×1920',
+        format: 'story', theme: 'ink', layout: 'center',
+        kicker: 'Agenda online',
+        titleHtml: 'Dejá de coordinar citas por <em>WhatsApp</em>',
+        subtitle: 'Citas, clientes y pagos en un solo lugar.',
+        mock: 'agenda',
+        cta: 'Probar 30 días gratis', url: 'simpleagenda.app',
+      },
+      {
+        id: 'story-02', group: 'Stories', label: '02 · Cómo funciona', size: '1080×1920',
+        format: 'story', theme: 'paper', layout: 'center',
+        kicker: 'En 3 pasos',
+        titleHtml: 'De perfil a reservas en <em>minutos</em>',
+        subtitle: 'Sin ida y vuelta por chat.',
+        steps: ['Creá tu perfil profesional', 'Compartí tu link de reservas', 'Recibí citas según tu agenda'],
+        mock: 'booking',
+        cta: 'Probar 30 días gratis', url: 'simpleagenda.app',
+      },
+      {
+        id: 'story-03', group: 'Stories', label: '03 · CTA', size: '1080×1920',
+        format: 'story', theme: 'ink', layout: 'center',
+        kicker: '30 días gratis',
+        titleHtml: 'Probá SimpleAgenda sin <em>compromiso</em>',
+        subtitle: 'Sin tarjeta. Cancela cuando quieras.',
+        proof: ['Sin tarjeta', 'Sin comisión', 'Listo en 5 min', '30 días gratis'],
+        mock: null,
+        cta: 'Probar 30 días gratis', url: 'simpleagenda.app',
+      },
+      { id: 'hl-agenda', group: 'Highlights', label: 'Agenda', size: '1080×1080', format: 'highlight', kind: 'highlight', hlKey: 'calendar', hlLabel: 'Agenda' },
+      { id: 'hl-reservas', group: 'Highlights', label: 'Reservas', size: '1080×1080', format: 'highlight', kind: 'highlight', hlKey: 'link', hlLabel: 'Reservas' },
+      { id: 'hl-clientes', group: 'Highlights', label: 'Clientes', size: '1080×1080', format: 'highlight', kind: 'highlight', hlKey: 'users', hlLabel: 'Clientes' },
+      { id: 'hl-pagos', group: 'Highlights', label: 'Pagos', size: '1080×1080', format: 'highlight', kind: 'highlight', hlKey: 'wallet', hlLabel: 'Pagos' },
+      { id: 'hl-gratis', group: 'Highlights', label: '30 días', size: '1080×1080', format: 'highlight', kind: 'highlight', hlKey: 'spark', hlLabel: '30 días' },
+    ];
+
+    const svgIcon = (name) =>
+      `<svg viewBox="0 0 24 24">${ICONS[name] || ICONS.calendar}</svg>`;
+
+    function benefitsHtml(items) {
+      if (!items?.length) return '';
+      return `<p class="benefits">${items
+        .map((t, i) => `${i ? '<i>·</i>' : ''}${t}`)
+        .join('')}</p>`;
+    }
+
+    function stepsHtml(steps) {
+      if (!steps?.length) return '';
+      return `<div class="steps">${steps
+        .map((s, i) => `<div class="step"><div class="num">0${i + 1}</div><p>${s}</p></div>`)
+        .join('')}</div>`;
+    }
+
+    function proofGridHtml(proof) {
+      if (!proof?.length) return '';
+      const cells = proof.slice(0, 4).map((p) => {
+        const sub = PROOF_META[p] || '';
+        return `<div class="proof-cell"><b>${p}</b><span>${sub}</span></div>`;
+      });
+      return `<div class="proof-grid">${cells.join('')}</div>`;
+    }
+
+    function midBandHtml(piece) {
+      if (piece.mock && MOCKS[piece.mock]) {
+        return `<div class="band-mid"><div class="visual">${MOCKS[piece.mock]}</div></div>`;
+      }
+      let content = '';
+      if (piece.steps?.length) {
+        content = stepsHtml(piece.steps);
+      } else if (piece.proof?.length) {
+        content = `<div class="rule" aria-hidden="true"></div>${proofGridHtml(piece.proof)}`;
+      } else if (piece.benefits?.length) {
+        content = `<div class="rule" aria-hidden="true"></div>${benefitsHtml(piece.benefits)}`;
+      } else {
+        content = `<div class="rule" aria-hidden="true"></div>`;
+      }
+      return `<div class="band-mid">${content}</div>`;
+    }
+
+    function safeOverlay(format) {
+      if (format === 'highlight') {
+        return `<div class="safe-overlay highlight" id="safe"><div class="ring"></div></div>`;
+      }
+      if (format === 'story') {
+        return `<div class="safe-overlay story" id="safe">
+          <div class="band top"></div><div class="band bot"></div>
+          <div class="side l"></div><div class="side r"></div>
+        </div>`;
+      }
+      return `<div class="safe-overlay post" id="safe">
+        <div class="band bot"></div>
+        <div class="side l"></div><div class="side r"></div>
+      </div>`;
+    }
+
+    function renderPiece(piece) {
+      const stage = document.getElementById('stage');
+      const label = document.getElementById('stage-label');
+      const meta = document.getElementById('stage-meta');
+      label.innerHTML = `<em>${piece.group}</em> · ${piece.label}`;
+
+      if (piece.kind === 'highlight') {
+        meta.textContent = '1080 × 1080 · highlight 1:1';
+        stage.innerHTML = `
+          <div class="ad highlight" id="ad">
+            ${safeOverlay('highlight')}
+            <div class="hl-canvas">
+              <div class="hl-icon">${svgIcon(piece.hlKey)}</div>
+              <div class="hl-label">${piece.hlLabel}</div>
+            </div>
+          </div>`;
+        applyScale(1080, 1080);
+        syncSafe();
+        syncFrame();
+        return;
+      }
+
+      const w = 1080;
+      const h = piece.format === 'story' ? 1920 : 1350;
+      const layout = piece.layout || 'center';
+      meta.textContent = `${w} × ${h} · ${piece.format === 'story' ? '9:16' : '4:5'} · ${piece.theme} · ${layout}`;
+      const themeClass = piece.theme === 'ink' ? 'theme-ink' : 'theme-paper';
+      const noVisual = !piece.mock ? 'no-visual' : '';
+      const topExtra =
+        piece.mock && piece.benefits?.length ? benefitsHtml(piece.benefits) : '';
+
+      stage.innerHTML = `
+        <div class="ad ${piece.format} ${themeClass} ${noVisual}" id="ad">
+          ${safeOverlay(piece.format)}
+          <div class="stack layout-${layout}">
+            <div class="band-top">
+              <div class="brand">
+                <img src="assets/logo.svg" alt="" width="48" height="48" />
+                <div class="wm"><span class="s">Simple</span><span class="p">Agenda</span></div>
+              </div>
+              <div class="kicker">${piece.kicker}</div>
+              <h1 class="title">${piece.titleHtml}</h1>
+              <p class="subtitle">${piece.subtitle}</p>
+              ${topExtra}
+            </div>
+            ${midBandHtml(piece)}
+            <div class="footer">
+              <div class="cta">${piece.cta}</div>
+              <div class="url"><b>${piece.url}</b></div>
+            </div>
+          </div>
+        </div>`;
+      applyScale(w, h);
+      syncSafe();
+      syncFrame();
+    }
+
+    function applyScale(w, h) {
+      const stage = document.getElementById('stage');
+      const wrap = document.querySelector('.stage-wrap');
+      const frameOn = document.getElementById('frame-toggle').checked;
+      const chromeH = frameOn ? 78 : 0;
+      const labelH = 48;
+      const pad = frameOn ? 48 : 28;
+      const availW = Math.max(260, wrap.clientWidth - pad - (frameOn ? 20 : 0));
+      const availH = Math.max(320, wrap.clientHeight - labelH - pad - chromeH);
+      const scale = Math.min(availW / w, availH / h);
+      stage.style.width = `${Math.round(w * scale)}px`;
+      stage.style.height = `${Math.round(h * scale)}px`;
+      const ad = document.getElementById('ad');
+      ad.style.transform = `scale(${scale})`;
+      ad.style.transformOrigin = 'top left';
+    }
+
+    function syncSafe() {
+      const on = document.getElementById('safe-toggle').checked;
+      const el = document.getElementById('safe');
+      if (el) el.classList.toggle('on', on);
+    }
+
+    function syncFrame() {
+      const on = document.getElementById('frame-toggle').checked;
+      const frame = document.getElementById('feed-frame');
+      frame.style.background = on ? '#000' : 'transparent';
+      frame.style.padding = on ? '10px 10px 14px' : '0';
+      frame.style.borderRadius = on ? '28px' : '0';
+      frame.style.boxShadow = on ? '0 24px 64px rgba(0,0,0,0.55)' : 'none';
+      frame.querySelector('.ig-chrome').style.display = on ? 'flex' : 'none';
+      frame.querySelector('.ig-caption').style.display = on ? 'block' : 'none';
+    }
+
+    function buildTabs() {
+      const root = document.getElementById('piece-tabs');
+      PIECES.forEach((p, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.id = p.id;
+        const note = p.kind === 'highlight' ? '' : ` · ${p.layout || 'center'}`;
+        btn.innerHTML = `${p.group} — ${p.label}<span>${p.size}${p.theme ? ' · ' + p.theme : ''}${note}</span>`;
+        if (i === 0) btn.classList.add('active');
+        btn.addEventListener('click', () => {
+          root.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderPiece(p);
+        });
+        root.appendChild(btn);
+      });
+    }
+
+    document.getElementById('safe-toggle').addEventListener('change', syncSafe);
+    document.getElementById('frame-toggle').addEventListener('change', () => {
+      const active = document.querySelector('#piece-tabs button.active');
+      const piece = PIECES.find((p) => p.id === active?.dataset.id) || PIECES[0];
+      renderPiece(piece);
+    });
+    window.addEventListener('resize', () => {
+      const active = document.querySelector('#piece-tabs button.active');
+      const piece = PIECES.find((p) => p.id === active?.dataset.id) || PIECES[0];
+      renderPiece(piece);
+    });
+
+    buildTabs();
+    renderPiece(PIECES[0]);
+  </script>
+</body>
+</html>

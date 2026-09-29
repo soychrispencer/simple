@@ -6,6 +6,8 @@
 @import "../../../../packages/ui/src/theme-base.css";
 @import "leaflet/dist/leaflet.css";
 
+/* SimpleAutos — Spencer base + accent vertical #E84A1F */
+
 :root {
     --accent: #E84A1F;
     --accent-subtle: rgba(232, 74, 31, 0.12);
@@ -25,7 +27,7 @@
 
 /* Utilidades Autos — reducir inline styles con tokens */
 .autos-stat-tile {
-    border-radius: 0.75rem;
+    border-radius: var(--radius-card);
     border: 1px solid var(--border);
     padding: 0.75rem;
 }

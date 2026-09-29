@@ -1,4 +1,7 @@
 @import "tailwindcss";
+
+/* SimpleSerenatas — Spencer base + accent vertical #E11D48 */
+
 @source "../../../../packages/ui/src";
 @source "../../../../packages/auth/src";
 @source "../../../../packages/marketplace-header/src";
@@ -22,7 +25,7 @@
     --accent-contrast: #ffffff;
 }
 
-/* Textura hero — glow rose sutil */
+/* Textura hero â€” glow rose sutil */
 .vertical-hero-texture::before {
     background: radial-gradient(ellipse 70% 55% at 50% 0%, color-mix(in oklab, var(--accent) 5%, transparent), transparent);
 }
@@ -165,7 +168,7 @@
     text-wrap: balance;
 }
 
-/* Panel — utilidades de texto (bordes/superficies en @simple/ui theme-base.css) */
+/* Panel â€” utilidades de texto (bordes/superficies en @simple/ui theme-base.css) */
 
 .panel-text-muted {
     color: var(--fg-muted);
@@ -193,7 +196,7 @@
     opacity: 0.5;
 }
 
-/* Auth — overlays y superficies tokenizados (sin rgba hardcoded) */
+/* Auth â€” overlays y superficies tokenizados (sin rgba hardcoded) */
 .auth-overlay {
     background: color-mix(in srgb, var(--bg) 72%, transparent);
     backdrop-filter: blur(4px);
@@ -249,7 +252,7 @@
     color: var(--success);
 }
 
-/* Panel sheet — bottom sheet móvil / modal desktop */
+/* Panel sheet â€” bottom sheet mÃ³vil / modal desktop */
 .panel-sheet-scrim {
     background: color-mix(in srgb, var(--bg) 55%, transparent);
     backdrop-filter: blur(4px);
@@ -264,7 +267,7 @@
     background: var(--surface);
 }
 
-/* Panel — evitar scroll horizontal en móvil */
+/* Panel â€” evitar scroll horizontal en mÃ³vil */
 @media (max-width: 1023px) {
     .panel-content-frame {
         min-width: 0;

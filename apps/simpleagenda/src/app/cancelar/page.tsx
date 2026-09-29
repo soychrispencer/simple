@@ -45,7 +45,7 @@ function CancelPage() {
                 <div className="text-center max-w-sm">
                     <IconAlertCircle size={48} className="mx-auto mb-4 text-red-400" />
                     <h1 className="text-xl font-bold mb-2">Enlace inválido</h1>
-                    <p className="text-sm text-gray-500">El enlace de cancelación no es válido. Por favor contacta al profesional.</p>
+                    <p className="text-sm text-[var(--fg-muted)]">El enlace de cancelación no es válido. Por favor contacta al profesional.</p>
                 </div>
             </div>
         );
@@ -59,7 +59,7 @@ function CancelPage() {
                         <IconCheck size={32} className="text-green-600" />
                     </div>
                     <h1 className="text-xl font-bold mb-2">Cita cancelada</h1>
-                    <p className="text-sm text-gray-500">Tu cita ha sido cancelada correctamente. Recibirás una confirmación por WhatsApp.</p>
+                    <p className="text-sm text-[var(--fg-muted)]">Tu cita ha sido cancelada correctamente. Si tenías un correo de confirmación, ya no aplica esa reserva.</p>
                     {slug && (
                         <a
                             href={`/${slug}`}
@@ -148,7 +148,7 @@ export default function CancelPageWrapper() {
     return (
         <Suspense fallback={
             <div className="min-h-screen flex items-center justify-center">
-                <IconLoader2 size={32} className="animate-spin text-gray-400" />
+                <IconLoader2 size={32} className="animate-spin text-[var(--fg-faint)]" />
             </div>
         }>
             <CancelPage />

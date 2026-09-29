@@ -337,19 +337,7 @@ export function googleMapsDirectionsUrl(items: Serenata[]) {
 }
 
 /** @deprecated Cálculo legacy. SimpleSerenatas no cobra comisión por serenata. */
-export function computeSerenataAppDeduction(
-    grossClp: number,
-    commissionAppBps: number,
-    commissionVatBps: number,
-) {
-    const commissionClp = Math.round((grossClp * commissionAppBps) / 10_000);
-    const vatOnCommissionClp = Math.round((commissionClp * commissionVatBps) / 10_000);
-    const totalDeductionClp = commissionClp + vatOnCommissionClp;
-    return {
-        commissionClp: totalDeductionClp,
-        netClp: grossClp - totalDeductionClp,
-    };
-}
+export { computeSerenataAppDeduction } from '@/lib/serenata-deduction';
 
 export function commissionPercentFromBps(bps: number): number {
     return bps / 100;

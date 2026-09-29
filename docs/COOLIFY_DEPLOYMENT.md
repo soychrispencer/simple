@@ -48,7 +48,7 @@ API_BASE_URL=https://api.simpleplataforma.app
 
 DATABASE_URL=                        # ver .env local → DATABASE_URL
 
-CORS_ORIGINS=https://simpleautos.app,https://www.simpleautos.app,https://simplepropiedades.app,https://www.simplepropiedades.app,https://simpleplataforma.app,https://www.simpleplataforma.app,https://simpleagenda.app,https://www.simpleagenda.app,https://simpleserenatas.app,https://www.simpleserenatas.app,https://admin.simpleplataforma.app
+CORS_ORIGINS=https://simpleautos.app,https://www.simpleautos.app,https://simplepropiedades.app,https://www.simplepropiedades.app,https://simpleplataforma.app,https://www.simpleplataforma.app,https://simpleagenda.app,https://www.simpleagenda.app,https://simpleserenatas.app,https://www.simpleserenatas.app,https://simpletickets.app,https://www.simpletickets.app,https://simpleresto.app,https://www.simpleresto.app,https://admin.simpleplataforma.app
 
 SESSION_SECRET=                      # ver .env local → SESSION_SECRET
 AUTH_COOKIE_SAMESITE=none
@@ -61,6 +61,8 @@ GOOGLE_CLIENT_SECRET=                # ver .env local → GOOGLE_CLIENT_SECRET
 #   https://simplepropiedades.app/auth/google/callback
 #   https://simpleserenatas.app/auth/google/callback
 #   https://simpleagenda.app/auth/google/callback
+#   https://simpletickets.app/auth/google/callback
+#   https://simpleresto.app/auth/google/callback
 #   https://admin.simpleplataforma.app/auth/google/callback
 #   https://simpleplataforma.app/auth/google/callback
 
@@ -88,6 +90,10 @@ MERCADO_PAGO_WEBHOOK_SECRET=         # ⚠️ OBLIGATORIO en prod — Mercado Pa
 MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS=https://simpleautos.app
 MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES=https://simplepropiedades.app
 MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS=https://simpleserenatas.app
+MERCADO_PAGO_PUBLIC_ORIGIN_AGENDA=https://simpleagenda.app
+# Simple Agenda: cobro activo (trial 30d → Pro). Solo poner true para gratis de lanzamiento.
+# AGENDA_LAUNCH_MODE=false
+# En apps/simpleagenda (build): NEXT_PUBLIC_AGENDA_LAUNCH_MODE no hace falta si no hay launch.
 SERENATAS_APP_URL=https://simpleserenatas.app
 # Google Calendar OAuth redirect (registrar en GCP → OAuth client):
 # https://simpleserenatas.app/api/serenatas/google-calendar/callback
@@ -141,8 +147,11 @@ GOOGLE_AI_API_KEY=                   # ver .env local de simpleautos → GOOGLE_
 #   https://www.simpleautos.app/*
 #   https://simplepropiedades.app/*
 #   https://www.simplepropiedades.app/*
+#   https://simpleresto.app/*
+#   https://www.simpleresto.app/*
 #   http://localhost:3002/*
 #   http://localhost:3003/*
+#   http://localhost:3007/*
 # APIs: Maps JavaScript API + Places API (New). Redeploy si usás NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY.
 ```
 
@@ -241,6 +250,91 @@ Desarrollo local: `http://localhost:3005` (incluido en `CORS_ORIGINS` de `servic
 
 ---
 
+## 8. SimpleTickets (`simpletickets.app`)
+
+### Setup del servicio
+
+- **Build Pack**: `Dockerfile`
+- **Dockerfile Location**: `apps/simpletickets/Dockerfile`
+- **Port / Exposed Port**: `3000`
+- **Healthcheck recomendado**: `/`
+- **Importante**: redeploy completo si cambias `NEXT_PUBLIC_*`
+
+```env
+NEXT_PUBLIC_API_URL=
+API_INTERNAL_URL=https://api.simpleplataforma.app
+NEXT_PUBLIC_APP_URL=https://simpletickets.app
+```
+
+En `simple-api`:
+
+```env
+TICKETS_APP_URL=https://simpletickets.app
+MERCADO_PAGO_PUBLIC_ORIGIN_TICKETS=https://simpletickets.app
+MP_OPERATOR_APP_ID=                 # app OAuth de Mercado Pago
+MP_OPERATOR_APP_SECRET=
+TICKETS_QR_SECRET=                  # secreto aleatorio estable y respaldado
+```
+
+El callback OAuth de Mercado Pago es
+`https://api.simpleplataforma.app/api/integrations/mercadopago/callback`.
+
+Desarrollo local: `http://localhost:3006`.
+
+### Validación pagada
+
+Antes del primer evento real, seguir el checklist en
+[`docs/SIMPLETICKETS_PAID_VALIDATION.md`](./SIMPLETICKETS_PAID_VALIDATION.md).
+
+Resumen mínimo en `simple-api`:
+
+1. Generar y respaldar `TICKETS_QR_SECRET` (≥ 32 caracteres). No rotarlo a la ligera: invalida QR ya emitidos.
+2. Confirmar OAuth operator (`MP_OPERATOR_APP_ID` / `MP_OPERATOR_APP_SECRET`) y el callback
+   `https://api.simpleplataforma.app/api/integrations/mercadopago/callback`.
+3. En el panel de SimpleTickets, verificar que no aparezcan blockers de runtime y que Mercado Pago figure conectado.
+4. Ejecutar compra sandbox → webhook → emisión → escaneo → reembolso/cancelación.
+
+---
+
+## 9. SimpleResto (`simpleresto.app`)
+
+### Setup del servicio
+
+- **Build Pack**: `Dockerfile`
+- **Dockerfile Location**: `apps/simpleresto/Dockerfile`
+- **Port / Exposed Port**: `3000`
+- **Healthcheck recomendado**: `/`
+- **Importante**: redeploy completo si cambias `NEXT_PUBLIC_*`
+
+```env
+NEXT_PUBLIC_API_URL=
+API_INTERNAL_URL=https://api.simpleplataforma.app
+NEXT_PUBLIC_APP_URL=https://simpleresto.app
+```
+
+En `simple-api`:
+
+```env
+RESTO_APP_URL=https://simpleresto.app
+# GOOGLE_AI_API_KEY ya compartido si otras apps lo usan (sugerencias Carta T10)
+```
+
+Google OAuth redirect a registrar:
+
+`https://simpleresto.app/auth/google/callback`
+
+Desarrollo local: `http://localhost:3007`.
+
+### Smoke mínimo
+
+1. `https://simpleresto.app/` responde 200.
+2. `https://api.simpleplataforma.app/api/resto/v1/health` responde 200 (`phase` T0–T12).
+3. Login Google → panel → Location bootstrap.
+4. Publicar producto en Carta → abrir `/m/{slug}` sin sesión.
+5. QR en Ajustes apunta a `https://simpleresto.app/m/{slug}` (no localhost).
+
+---
+
 ## Diferencias clave local vs producción
 
 | Variable | Local | Producción |
@@ -249,8 +343,14 @@ Desarrollo local: `http://localhost:3005` (incluido en `CORS_ORIGINS` de `servic
 | `AUTH_COOKIE_SAMESITE` | `lax` | `none` |
 | `MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS` | `http://localhost:3002` | `https://simpleautos.app` |
 | `MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES` | `http://localhost:3003` | `https://simplepropiedades.app` |
+| `MERCADO_PAGO_PUBLIC_ORIGIN_AGENDA` | `http://localhost:3004` | `https://simpleagenda.app` |
 | `AGENDA_APP_URL` | `http://localhost:3004` | `https://simpleagenda.app` |
+| `AGENDA_LAUNCH_MODE` | (omitir / false) | omitir — Agenda cobra trial→Pro; solo `true` para gratis lanzamiento |
 | `MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS` | `http://localhost:3005` | `https://simpleserenatas.app` |
+| `TICKETS_APP_URL` | `http://localhost:3006` | `https://simpletickets.app` |
+| `MERCADO_PAGO_PUBLIC_ORIGIN_TICKETS` | `http://localhost:3006` | `https://simpletickets.app` |
+| `TICKETS_QR_SECRET` | opcional (cae a `SESSION_SECRET`) | obligatorio si `TICKETS_APP_URL` está seteado |
+| `RESTO_APP_URL` | `http://localhost:3007` | `https://simpleresto.app` |
 | `ENABLE_ADMIN_BOOTSTRAP` | `true` | `false` |
 
 ---
@@ -332,6 +432,13 @@ Acciones manuales en Coolify → **Settings → Environment Variables** de cada 
 | **simpleserenatas** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
 | **simpleagenda** | `NEXT_PUBLIC_API_URL` | Vacío (`""`) |
 | **simpleagenda** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
+| **simpletickets** | `NEXT_PUBLIC_API_URL` | Vacío (`""`) |
+| **simpletickets** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
+| **simpleresto** | `NEXT_PUBLIC_API_URL` | Vacío (`""`) |
+| **simpleresto** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
+| **simpleresto** | `NEXT_PUBLIC_APP_URL` | `https://simpleresto.app` |
+| **simple-api** | `RESTO_APP_URL` | `https://simpleresto.app` |
+| **simple-api** | `TICKETS_APP_URL` | `https://simpletickets.app` |
 | **simpleadmin** | `NEXT_PUBLIC_API_URL` | Vacío (`""`) |
 | **simpleadmin** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
 | **simpleplataforma** | `NEXT_PUBLIC_API_URL` | Vacío (`""`) |
@@ -370,6 +477,10 @@ Tras cambiar `NEXT_PUBLIC_*` o `API_INTERNAL_URL` en cualquier frontend: **Redep
 - [ ] Verificar `https://simpleautos.app/` responde 200
 - [ ] Verificar `https://simplepropiedades.app/` responde 200
 - [ ] Verificar `https://simpleserenatas.app/` responde 200
+- [ ] Verificar `https://simpletickets.app/` responde 200
+- [ ] Verificar `https://simpleresto.app/` responde 200
+- [ ] `simple-api`: `RESTO_APP_URL=https://simpleresto.app`
+- [ ] Verificar `https://api.simpleplataforma.app/api/resto/v1/health` responde 200
 - [ ] Confirmar que `simpleserenatas` usa Dockerfile multi-stage y puerto interno `3000`
 - [ ] Verificar login con Google en cada app
 - [ ] Verificar subida de imágenes (según [STORAGE_SETUP.md](./STORAGE_SETUP.md))

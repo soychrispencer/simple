@@ -1,13 +1,16 @@
 @import "tailwindcss";
+
+/* SimpleAgenda — Spencer base + accent vertical #0F766E */
+
 @source "../../../../packages/ui/src";
 @source "../../../../packages/auth/src";
 @source "../../../../packages/marketplace-header/src";
 @import "../../../../packages/ui/src/theme-base.css";
 
 /*
- * .field-input — alias de .form-input (theme-base) para panel y reservas públicas.
+ * .field-input â€” alias de .form-input (theme-base) para panel y reservas pÃºblicas.
  * Mismos tokens: --border, --field-focus-border, --bg-subtle, --surface.
- * En flujo público preferir .booking-input (misma base).
+ * En flujo pÃºblico preferir .booking-input (misma base).
  */
 
 .field-input {
@@ -35,7 +38,7 @@
     background-color: var(--surface);
 }
 
-/* Reserva pública — mismos tokens que .field-input / .form-input (sin @apply) */
+/* Reserva pÃºblica â€” mismos tokens que .field-input / .form-input (sin @apply) */
 .booking-input {
     width: 100%;
     min-height: 42px;

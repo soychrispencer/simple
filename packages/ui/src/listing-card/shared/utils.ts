@@ -1,16 +1,16 @@
 import type { ListingAccent, ListingBadgeTone, ListingPrice, ListingVariant, OwnerListingStatus } from '../types';
 
 const AUTOS_GRADIENTS: Array<[string, string]> = [
-    ['#0f172a', '#1d4ed8'],
-    ['#111827', '#334155'],
+    ['#111111', '#1a1a1a'],
+    ['#1a1a1a', '#525252'],
     ['#292524', '#44403c'],
-    ['#1f2937', '#374151'],
+    ['#171717', '#404040'],
 ];
 
 const PROPIEDADES_GRADIENTS: Array<[string, string]> = [
-    ['#172554', '#1e3a8a'],
-    ['#111827', '#1f2937'],
-    ['#0f172a', '#334155'],
+    ['#111111', '#312e81'],
+    ['#1a1a1a', '#4338ca'],
+    ['#171717', '#4f46e5'],
     ['#312e81', '#4338ca'],
 ];
 

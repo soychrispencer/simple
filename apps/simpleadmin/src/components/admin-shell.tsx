@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
     IconArrowLeft,
     IconMessageCircle,
@@ -16,14 +16,6 @@ const ADMIN_NAV = [
     { href: '/', label: 'Usuarios', icon: IconUsers },
     { href: '/conversaciones', label: 'Conversaciones', icon: IconMessageCircle },
 ];
-
-const HEADER_VERTICALS = [
-    { value: 'all', label: 'General' },
-    { value: 'agenda', label: 'SimpleAgenda' },
-    { value: 'autos', label: 'SimpleAutos' },
-    { value: 'propiedades', label: 'SimplePropiedades' },
-    { value: 'serenatas', label: 'SimpleSerenatas' },
-] as const;
 
 function adminRoleLabel(role: AdminSessionUser['role']) {
     return role === 'superadmin' ? 'Superadmin' : 'Admin';
@@ -48,36 +40,6 @@ function getPlatformUrl() {
     }
 
     return 'https://simpleplataforma.app';
-}
-
-function AdminHeaderVerticalTabs() {
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const active = searchParams.get('vertical') ?? 'all';
-
-    if (pathname !== '/') return null;
-
-    return (
-        <nav className="hidden items-center gap-1 overflow-x-auto md:flex" aria-label="Verticales de SimpleAdmin">
-            {HEADER_VERTICALS.map((item) => {
-                const href = item.value === 'all' ? '/' : `/?vertical=${item.value}`;
-                const selected = active === item.value || (item.value === 'all' && !searchParams.get('vertical'));
-                return (
-                    <Link
-                        key={item.value}
-                        href={href}
-                        className="rounded-full px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                        style={{
-                            background: selected ? 'var(--fg)' : 'transparent',
-                            color: selected ? 'var(--bg)' : 'var(--fg-secondary)',
-                        }}
-                    >
-                        {item.label}
-                    </Link>
-                );
-            })}
-        </nav>
-    );
 }
 
 export function AdminShell({ children, user }: { children: ReactNode; user: AdminSessionUser }) {
@@ -109,7 +71,6 @@ export function AdminShell({ children, user }: { children: ReactNode; user: Admi
                 homeHref="/"
                 showPrimaryAction={false}
                 onLogout={handleLogout}
-                centerSlot={<AdminHeaderVerticalTabs />}
             />
 
             <PanelShell

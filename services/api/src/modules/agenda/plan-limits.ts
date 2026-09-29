@@ -1,6 +1,6 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { agendaAppointments, agendaClients, agendaProfessionalProfiles } from '../../db/schema.js';
+import { agendaProfessionalProfiles } from '../../db/schema.js';
 import { defaultTrialEndsAt } from '../billing/trial-config.js';
 
 import { isPlatformLaunchActive } from '@simple/utils';
@@ -15,12 +15,23 @@ export function normalizeAgendaBillingPlan(plan: string): 'free' | 'pro' {
     return plan === 'pro' ? 'pro' : 'free';
 }
 
-/** Perfiles free sin fecha de expiración: asigna prueba de 30 días desde hoy. */
+/**
+ * Marca el plan como free expirado (sin regenerar trial).
+ * `planExpiresAt` queda en el pasado — nunca null — para que ensureAgendaProfileTrial no reabra 30 días.
+ */
+export function expiredAgendaPlanEndsAt(from = new Date()): Date {
+    return new Date(from.getTime() - 60_000);
+}
+
+/**
+ * Perfiles free sin fecha: solo perfiles legacy que nunca tuvieron trial.
+ * No re-otorga prueba si ya expiró o se canceló (fecha en el pasado).
+ */
 export async function ensureAgendaProfileTrial(
     profile: typeof agendaProfessionalProfiles.$inferSelect,
 ) {
     const billingPlan = normalizeAgendaBillingPlan(profile.plan);
-    const needsTrialDate = billingPlan === 'free' && !profile.planExpiresAt;
+    const needsTrialDate = billingPlan === 'free' && profile.planExpiresAt == null;
     const needsPlanNormalize = profile.plan !== billingPlan;
 
     if (!needsTrialDate && !needsPlanNormalize) return profile;
@@ -61,6 +72,22 @@ export function hasAgendaFullAccess(
     return isAgendaTrialActive(profile) || isAgendaProActive(profile);
 }
 
+/** Baja a free expirado y despublica. Usar en cancel/webhook/admin. */
+export async function downgradeAgendaProfileAccess(
+    userId: string,
+    endsAt: Date = expiredAgendaPlanEndsAt(),
+): Promise<void> {
+    await db
+        .update(agendaProfessionalProfiles)
+        .set({
+            plan: 'free',
+            planExpiresAt: endsAt,
+            isPublished: false,
+            updatedAt: new Date(),
+        })
+        .where(eq(agendaProfessionalProfiles.userId, userId));
+}
+
 /** Si expiró trial/Pro, baja isPublished para que el perfil no quede público sin acceso. */
 export async function syncAgendaProfilePublishAccess(
     profile: typeof agendaProfessionalProfiles.$inferSelect,
@@ -78,10 +105,31 @@ export async function syncAgendaProfilePublishAccess(
     return updated ?? { ...profile, isPublished: false };
 }
 
+/** Unpublish masivo de perfiles sin acceso (cron). */
+export async function unpublishAgendaProfilesWithoutAccess(): Promise<number> {
+    if (isPlatformLaunchActive('agenda')) return 0;
+
+    const result = await db.execute(sql`
+        UPDATE agenda_professional_profiles
+        SET is_published = false, updated_at = now()
+        WHERE is_published = true
+          AND NOT (plan = 'free' AND plan_expires_at IS NULL)
+          AND NOT (
+            (plan = 'pro' AND (plan_expires_at IS NULL OR plan_expires_at > now()))
+            OR (plan = 'free' AND plan_expires_at IS NOT NULL AND plan_expires_at > now())
+          )
+    `);
+
+    return Number((result as { rowCount?: number }).rowCount ?? 0);
+}
+
 /** Sin trial ni Pro activo: bloquea funciones de pago y aplica límites legacy. */
 export function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }, userRole?: string): boolean {
     return !hasAgendaFullAccess(profile, userRole);
 }
+
+export const AGENDA_PUBLIC_INACTIVE_MESSAGE =
+    'Este profesional no está recibiendo reservas por ahora.';
 
 /** @deprecated El modelo actual es prueba completa + Pro; no hay límites parciales en plan free. */
 export async function checkClientLimit(_profileId: string, _additionalClients = 1): Promise<string | null> {

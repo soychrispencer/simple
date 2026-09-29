@@ -487,7 +487,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                         <>
                             <div
                                 className="absolute inset-x-0 top-0 flex items-center justify-between px-4"
-                                style={{ height: '9.3%', background: '#0C0C0E' }}
+                                style={{ height: '9.3%', background: '#111111' }}
                             >
                                 <div
                                     className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]"
@@ -499,7 +499,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             </div>
                             <div
                                 className="absolute inset-x-0 bottom-0 p-4"
-                                style={{ background: '#0C0C0E', color: '#fff', paddingTop: '0.5rem' }}
+                                style={{ background: '#111111', color: '#fff', paddingTop: '0.5rem' }}
                             >
                                 <div
                                     className="mb-1 h-[3px] w-full"
@@ -534,7 +534,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             </div>
                             <div
                                 className="absolute inset-x-0 bottom-0 p-4"
-                                style={{ background: '#0C0C0E', color: '#fff' }}
+                                style={{ background: '#111111', color: '#fff' }}
                             >
                                 <div className="mb-2 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
                                     {template.highlights.slice(0, 3).map((item) => (

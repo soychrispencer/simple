@@ -37,6 +37,7 @@ import {
     businessProfileSaveSuccessMessage,
 } from '@simple/ui/panel';
 import { AgendaMiNegocioShell, AgendaMiNegocioLoading } from '@/components/panel/agenda-mi-negocio-shell';
+import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
 import { AgendaPublicProfileLocationContact, resolveDefaultAgendaLocation, type AgendaPublicContactForm } from '@/components/panel/agenda-public-profile-location-contact';
 import { IconNotebook, IconUser } from '@tabler/icons-react';
 import type { StructuredLocation } from '@simple/types';
@@ -259,6 +260,7 @@ export default function PerfilConfigPage() {
             description={AGENDA_BUSINESS_PERFIL_PAGE.description}
         >
             <div className="grid min-w-0 gap-5">
+                <AgendaSetupTip focusStepId={['perfil', 'publicar']} />
                 <PanelCard size="lg" className="space-y-5">
                     <PanelBlockHeader
                         title={BUSINESS_PUBLIC_INFO_SECTION.title}

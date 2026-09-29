@@ -5,7 +5,15 @@ import { API_BASE } from '@simple/config';
 
 import type { VerticalType } from '@simple/types';
 
-type SimplePlatformApp = 'simpleagenda' | 'simpleautos' | 'simpleplataforma' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin';
+type SimplePlatformApp =
+    | 'simpleagenda'
+    | 'simpleautos'
+    | 'simpleplataforma'
+    | 'simplepropiedades'
+    | 'simpleserenatas'
+    | 'simpleadmin'
+    | 'simpletickets'
+    | 'simpleresto';
 
 type PlatformAccess = {
     app: SimplePlatformApp;
@@ -109,6 +117,8 @@ function resolveAppFromBrowser(): SimplePlatformApp | null {
     if (hostname.includes('simpleautos') || port === '3002') return 'simpleautos';
     if (hostname.includes('simplepropiedades') || port === '3003') return 'simplepropiedades';
     if (hostname.includes('simpleserenatas') || port === '3005') return 'simpleserenatas';
+    if (hostname.includes('simpletickets') || port === '3006') return 'simpletickets';
+    if (hostname.includes('simpleresto') || port === '3007') return 'simpleresto';
     if (hostname.includes('simpleadmin') || port === '3000') return 'simpleadmin';
     return null;
 }

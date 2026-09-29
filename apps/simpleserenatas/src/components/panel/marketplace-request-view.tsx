@@ -440,6 +440,7 @@ export function MarketplaceRequestView({
                     showGoogleMapsLink
                     addressRequired
                     addressHintMode="minimal"
+                    publishVertical="serenatas"
                     onSaveToAddressBook={() => void saveCurrentAddress()}
                     googleMapsApiKey={googleMapsApiKey}
                 />

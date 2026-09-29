@@ -34,6 +34,11 @@ import {
 import { fmtCLP, fmtDateMedium as fmtDate } from '@/lib/format';
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AGENDA_FINANCE_PAGE } from '@simple/ui/panel';
+import {
+    buildPaymentReminderWaMessage,
+    buildWhatsAppClickUrl,
+    resolveClientWhatsAppPhone,
+} from '@/lib/whatsapp-click';
 
 const METHOD_LABELS: Record<string, string> = {
     transfer: 'Transferencia',
@@ -90,11 +95,6 @@ const csvEscape = (val: string | number | null | undefined) => {
     const s = val == null ? '' : String(val);
     if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
     return s;
-};
-
-const sanitizePhone = (phone: string | null | undefined) => {
-    if (!phone) return '';
-    return phone.replace(/[^\d+]/g, '').replace(/^\+/, '');
 };
 
 export default function PagosPage() {
@@ -311,12 +311,15 @@ export default function PagosPage() {
         if (!payment.clientId) return null;
         const client = clients.find((c) => c.id === payment.clientId);
         if (!client) return null;
-        const phone = sanitizePhone(client.whatsapp ?? client.phone);
+        const phone = resolveClientWhatsAppPhone(client.whatsapp, client.phone);
         if (!phone) return null;
-        const greeting = `Hola ${client.firstName}`;
-        const body = `te recuerdo el cobro pendiente de ${fmtCLP(payment.amount)}. Si ya lo realizaste, av├¡same para registrarlo. ┬íGracias!`;
-        const text = encodeURIComponent(`${greeting}, ${body}`);
-        return `https://wa.me/${phone}?text=${text}`;
+        return buildWhatsAppClickUrl(
+            phone,
+            buildPaymentReminderWaMessage({
+                clientFirstName: client.firstName,
+                amountLabel: fmtCLP(payment.amount),
+            }),
+        );
     };
 
     const handleExportCsv = () => {

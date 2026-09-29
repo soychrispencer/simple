@@ -6,7 +6,7 @@ export const SIMULADOR_CREDITO_PATH = '/simulador-credito-automotriz';
 export function resolveTipoVehiculoFromCondition(condition?: string | null): TipoVehiculo {
     const value = (condition || '').trim().toLowerCase();
     if (!value) return 'usado';
-    if (value.includes('nuevo') || value.includes('0 km') || value.includes('0km')) {
+    if (/^(nuevo|0\s*km)$/.test(value)) {
         return 'nuevo';
     }
     return 'usado';

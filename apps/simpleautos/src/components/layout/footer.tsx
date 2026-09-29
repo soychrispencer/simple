@@ -40,6 +40,7 @@ export function Footer() {
             description="SimpleAutos simplifica la compra y venta de vehículos en Chile."
             copyrightName="SimpleAutos"
             sections={sections}
+            currentPlatformHref="https://simpleautos.app"
             legalLinks={legalLinks}
             socialLinks={socialLinks}
             legalNotice="SimpleAutos es un marketplace de publicación y contacto. No es concesionaria ni entidad financiera; el simulador de crédito es orientativo y no constituye aprobación."

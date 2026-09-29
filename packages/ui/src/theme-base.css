@@ -1,14 +1,15 @@
 /* ============================================================================
    SIMPLE STUDIO — Design System
-   Editorial neutrals · Display type · Subtle elevation · Accent per vertical
+   Spencer System (punto medio) · Neutrales ink/paper · Accent por vertical
+   Núcleo alineado con Artestudio: ink #111 · paper #fafafa · mute #737373
    ============================================================================ */
 
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
     --font-display: 'Instrument Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-    --radius-button: 0.75rem;
-    --radius-card: 1rem;
+    --radius-button: 0.625rem;
+    --radius-card: 0.875rem;
     /* Tokens semánticos → utilidades Tailwind (border-border, bg-surface, text-fg-muted, …) */
     --color-border: var(--border);
     --color-border-strong: var(--border-strong);
@@ -28,43 +29,55 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
-/* ── Light ────────────────────────────────────────────────────────────────── */
+/* ── Light (Spencer System) ───────────────────────────────────────────────── */
 :root {
-    --bg: #F7F7F5;
-    --bg-subtle: #F0F0ED;
-    --bg-muted: #E8E8E4;
-    --bg-elevated: #ffffff;
-    --surface: #ffffff;
-    --border: rgba(12, 12, 14, 0.08);
-    --border-strong: #0C0C0E;
-    --fg: #0C0C0E;
-    --fg-secondary: #5C5C66;
-    --fg-muted: #8E8E98;
-    --fg-faint: #C8C8D0;
-    --accent: #0C0C0E;
-    --accent-subtle: rgba(12, 12, 14, 0.08);
-    --accent-soft: rgba(12, 12, 14, 0.06);
-    --accent-border: rgba(12, 12, 14, 0.14);
-    --accent-contrast: #ffffff;
+    /* Spencer — nombres canónicos (compartidos con Artestudio) */
+    --ink: #111111;
+    --ink-soft: #1a1a1a;
+    --paper: #fafafa;
+    --white: #ffffff;
+    --mute: #737373;
+    --mute-light: #525252;
+    --line: #e5e5e5;
+    --line-strong: #d4d4d4;
+    --field: #f5f5f5;
+
+    /* Semantic Simple (derivados del núcleo Spencer) */
+    --bg: var(--paper);
+    --bg-subtle: var(--field);
+    --bg-muted: #eeeeee;
+    --bg-elevated: var(--white);
+    --surface: var(--white);
+    --border: var(--line);
+    --border-strong: var(--ink);
+    --fg: var(--ink);
+    --fg-secondary: var(--mute-light);
+    --fg-muted: var(--mute);
+    --fg-faint: var(--line-strong);
+    --accent: var(--ink);
+    --accent-subtle: rgba(17, 17, 17, 0.08);
+    --accent-soft: rgba(17, 17, 17, 0.06);
+    --accent-border: rgba(17, 17, 17, 0.14);
+    --accent-contrast: var(--white);
     /* Vertical accent: cada app define --accent* en su globals.css (valores de getSimpleAppBrand en @simple/config).
        Ejemplo SimpleSerenatas: --accent: #E11D48 en apps/simpleserenatas/src/app/globals.css.
        No usamos applyVerticalTheme() en runtime: Next inyecta tokens por app en build; evita flash y mantiene SSR estático. */
     /* Modales/dialogs del panel: preferir rounded-card (--radius-card) salvo overlays fullscreen documentados en la app. */
     --button-primary-bg: var(--accent);
-    --button-primary-color: #ffffff;
+    --button-primary-color: var(--white);
     --button-primary-border: var(--accent);
     --button-primary-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 12%, transparent);
     --button-primary-hover-bg: color-mix(in oklab, var(--accent) 88%, #000000 12%);
-    --button-primary-hover-color: #ffffff;
+    --button-primary-hover-color: var(--white);
     --button-primary-hover-border: color-mix(in oklab, var(--accent) 88%, #000000 12%);
     --button-primary-hover-shadow: 0 10px 24px color-mix(in oklab, var(--accent) 16%, transparent);
     --field-focus-border: var(--accent);
     --field-focus-ring: color-mix(in oklab, var(--accent) 12%, transparent);
-    --shadow-xs: 0 1px 2px rgba(12, 12, 14, 0.04);
-    --shadow-sm: 0 1px 3px rgba(12, 12, 14, 0.05), 0 1px 2px rgba(12, 12, 14, 0.03);
-    --shadow-md: 0 8px 24px rgba(12, 12, 14, 0.06);
-    --shadow-lg: 0 16px 48px rgba(12, 12, 14, 0.08);
-    --shadow-xl: 0 24px 64px rgba(12, 12, 14, 0.10);
+    --shadow-xs: 0 1px 2px rgba(17, 17, 17, 0.04);
+    --shadow-sm: 0 1px 3px rgba(17, 17, 17, 0.05), 0 1px 2px rgba(17, 17, 17, 0.03);
+    --shadow-md: 0 8px 24px rgba(17, 17, 17, 0.06);
+    --shadow-lg: 0 16px 48px rgba(17, 17, 17, 0.08);
+    --shadow-xl: 0 24px 64px rgba(17, 17, 17, 0.10);
     --color-error: #dc2626;
     --color-error-subtle: rgba(220, 38, 38, 0.08);
     --color-success: #059669;
@@ -89,10 +102,10 @@
     --success: var(--color-success);
     --warning: var(--color-warning);
     --radius: 10px;
-    --radius-lg: 16px;
+    --radius-lg: 14px;
     --radius-xl: 20px;
-    --radius-button: 12px;
-    --radius-card: 16px;
+    --radius-button: 10px;
+    --radius-card: 14px;
     --text-2xs: 0.6875rem;
     --text-xs: 0.75rem;
     --text-sm: 0.875rem;
@@ -2450,7 +2463,7 @@ button:disabled,
     gap: 0.5rem;
     background:
         radial-gradient(circle at 50% 20%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 45%),
-        linear-gradient(160deg, #111827, #0a0a0a);
+        linear-gradient(160deg, #111111, #0a0a0a);
     color: rgb(255 255 255 / 0.5);
     font-size: 0.75rem;
     font-weight: 500;

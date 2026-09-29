@@ -105,7 +105,7 @@ function isPublicLinkActive(pathname: string, link: MarketplacePublicLink): bool
 }
 
 export type MarketplaceHeaderProps = {
-  brandAppId: 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin' | 'simpleagenda';
+  brandAppId: 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin' | 'simpleagenda' | 'simpletickets' | 'simpleresto';
   publicLinks: MarketplacePublicLink[];
   getPanelNavItems: (role: MarketplacePanelRole) => MarketplacePanelNavItem[];
   isPanelNavActive: (pathname: string, href: string) => boolean;

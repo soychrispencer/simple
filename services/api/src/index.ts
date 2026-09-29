@@ -2493,7 +2493,7 @@ app.route('/api/serenatas', createSerenatasRouter({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — WhatsApp reminder cron jobs
+// SimpleAgenda — recordatorios por email (cron)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Cron jobs moved to modules/agenda/cron.ts

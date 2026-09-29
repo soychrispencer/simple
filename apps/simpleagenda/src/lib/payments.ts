@@ -59,9 +59,8 @@ export { confirmCheckout };
 
 export async function cancelSubscription(): Promise<{ ok: boolean; error?: string; message?: string }> {
     const { apiFetch } = await import('@simple/utils');
-    const { data } = await apiFetch<{ ok: boolean; error?: string; message?: string }>('/api/payments/cancel', {
+    const { data } = await apiFetch<{ ok: boolean; error?: string; message?: string }>('/api/agenda/subscription/cancel', {
         method: 'POST',
-        body: JSON.stringify({ vertical: VERTICAL }),
     });
     return data ?? { ok: false, error: 'No pudimos cancelar la suscripción.' };
 }

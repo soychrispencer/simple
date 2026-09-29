@@ -78,6 +78,8 @@ const EXPECTED = {
       { key: 'PROPIEDADES_APP_URL', expected: 'https://simplepropiedades.app' },
       { key: 'AGENDA_APP_URL', expected: 'https://simpleagenda.app' },
       { key: 'SERENATAS_APP_URL', expected: 'https://simpleserenatas.app' },
+      { key: 'TICKETS_APP_URL', expected: 'https://simpletickets.app' },
+      { key: 'RESTO_APP_URL', expected: 'https://simpleresto.app' },
       { key: 'INSTAGRAM_REDIRECT_URI', expected: INSTAGRAM_CALLBACK },
       { key: 'GOOGLE_REDIRECT_URI', expected: null, forbidden: true },
       { key: 'MERCADO_PAGO_WEBHOOK_SECRET', expected: '__SET__' },
@@ -87,6 +89,8 @@ const EXPECTED = {
       'PROPIEDADES_APP_URL',
       'AGENDA_APP_URL',
       'SERENATAS_APP_URL',
+      'TICKETS_APP_URL',
+      'RESTO_APP_URL',
       'INSTAGRAM_REDIRECT_URI',
       'API_BASE_URL',
     ],
@@ -117,6 +121,20 @@ const EXPECTED = {
       { key: 'NEXT_PUBLIC_API_URL', expected: '' },
       { key: 'API_INTERNAL_URL', expected: API_INTERNAL },
       { key: 'NEXT_PUBLIC_APP_URL', expected: 'https://simpleagenda.app' },
+    ],
+  },
+  simpletickets: {
+    checks: [
+      { key: 'NEXT_PUBLIC_API_URL', expected: '' },
+      { key: 'API_INTERNAL_URL', expected: API_INTERNAL },
+      { key: 'NEXT_PUBLIC_APP_URL', expected: 'https://simpletickets.app' },
+    ],
+  },
+  simpleresto: {
+    checks: [
+      { key: 'NEXT_PUBLIC_API_URL', expected: '' },
+      { key: 'API_INTERNAL_URL', expected: API_INTERNAL },
+      { key: 'NEXT_PUBLIC_APP_URL', expected: 'https://simpleresto.app' },
     ],
   },
   simpleadmin: {

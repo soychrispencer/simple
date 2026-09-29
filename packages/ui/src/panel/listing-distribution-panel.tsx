@@ -38,13 +38,13 @@ function channelIcon(key: string) {
 
 function statusMeta(status: ListingDistributionChannel['status']): { label: string; className: string } {
     if (status === 'published') {
-        return { label: 'Publicado', className: 'bg-green-100 text-green-800' };
+        return { label: 'Publicado', className: 'bg-[var(--color-success-subtle)] text-[var(--color-success)]' };
     }
     if (status === 'ready') {
-        return { label: 'Disponible', className: 'bg-blue-50 text-blue-700' };
+        return { label: 'Disponible', className: 'bg-[var(--color-info-subtle)] text-[var(--color-info)]' };
     }
     if (status === 'failed') {
-        return { label: 'Revisar', className: 'bg-amber-100 text-amber-800' };
+        return { label: 'Revisar', className: 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]' };
     }
     return { label: 'Pendiente', className: 'bg-[var(--bg-subtle)] text-[var(--fg-muted)]' };
 }

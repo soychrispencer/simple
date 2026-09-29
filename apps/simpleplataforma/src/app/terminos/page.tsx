@@ -36,6 +36,9 @@ export default function TerminosPage() {
                 <li>
                     <strong>SimpleSerenatas</strong> — gestión de serenatas y servicios musicales (simpleserenatas.app).
                 </li>
+                <li>
+                    <strong>SimpleTickets</strong> — creación, venta y validación de entradas (simpletickets.app).
+                </li>
             </ul>
             <p>
                 La API central (<strong>api.simpleplataforma.app</strong>) provee autenticación, almacenamiento, pagos e

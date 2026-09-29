@@ -94,15 +94,15 @@ export function buildActionEmailHtml(input: ActionEmailInput): string {
   <meta name="color-scheme" content="light" />
   <title>${appName}</title>
 </head>
-<body style="margin:0;padding:0;background:#f6f7f9;-webkit-text-size-adjust:100%;">
+<body style="margin:0;padding:0;background:#fafafa;-webkit-text-size-adjust:100%;">
   <div style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;">${preheader}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f7f9;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;">
     <tr>
       <td align="center" style="padding:40px 18px 44px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
           ${brandHeader}
           <tr>
-            <td style="background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 18px 46px rgba(15,23,42,0.07);">
+            <td style="background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e5e5;box-shadow:0 18px 46px rgba(17,17,17,0.07);">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="height:5px;background:${brand.accent};font-size:0;line-height:0;">&nbsp;</td>
@@ -113,8 +113,8 @@ export function buildActionEmailHtml(input: ActionEmailInput): string {
                       <tr>
                         <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
                           <span style="display:inline-block;padding:7px 12px;border-radius:999px;background:${brand.accentSoft};color:${brand.accent};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${eyebrow}</span>
-                          <p style="margin:18px 0 0;font-size:26px;line-height:1.22;font-weight:760;color:#111827;letter-spacing:-0.025em;">${headline}</p>
-                          <p style="margin:10px 0 0;font-size:14px;line-height:1.55;color:#6b7280;">${tagline}</p>
+                          <p style="margin:18px 0 0;font-size:26px;line-height:1.22;font-weight:760;color:#111111;letter-spacing:-0.025em;">${headline}</p>
+                          <p style="margin:10px 0 0;font-size:14px;line-height:1.55;color:#737373;">${tagline}</p>
                         </td>
                       </tr>
                     </table>
@@ -122,17 +122,17 @@ export function buildActionEmailHtml(input: ActionEmailInput): string {
                 </tr>
                 <tr>
                   <td style="padding:8px 36px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-                    <div style="font-size:15px;line-height:1.75;color:#374151;">${input.bodyHtml}</div>
+                    <div style="font-size:15px;line-height:1.75;color:#525252;">${input.bodyHtml}</div>
                     <table role="presentation" cellspacing="0" cellpadding="0" style="margin:30px 0 10px;">
                       <tr>
-                        <td align="center" style="border-radius:14px;background:${brand.accent};box-shadow:0 12px 28px rgba(15,23,42,0.12);">
-                          <a href="${actionUrl}" target="_blank" style="display:inline-block;padding:15px 26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">${buttonLabel}</a>
+                        <td align="center" style="border-radius:10px;background:${brand.accent};box-shadow:0 12px 28px rgba(17,17,17,0.12);">
+                          <a href="${actionUrl}" target="_blank" style="display:inline-block;padding:15px 26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">${buttonLabel}</a>
                         </td>
                       </tr>
                     </table>
                     ${input.extraHtml ?? ''}
-                    <p style="margin:24px 0 0;padding:16px 18px;border-radius:14px;background:#f9fafb;font-size:13px;line-height:1.65;color:#6b7280;">${footnote}</p>
-                    <p style="margin:18px 0 0;padding-top:18px;border-top:1px solid #eef0f3;font-size:12px;line-height:1.65;color:#9ca3af;">
+                    <p style="margin:24px 0 0;padding:16px 18px;border-radius:14px;background:#f5f5f5;font-size:13px;line-height:1.65;color:#737373;">${footnote}</p>
+                    <p style="margin:18px 0 0;padding-top:18px;border-top:1px solid #e5e5e5;font-size:12px;line-height:1.65;color:#737373;">
                       Si el botón no funciona, copia este enlace en tu navegador:<br />
                       <a href="${actionUrl}" style="color:${brand.accent};word-break:break-all;text-decoration:underline;">${actionUrl}</a>
                     </p>

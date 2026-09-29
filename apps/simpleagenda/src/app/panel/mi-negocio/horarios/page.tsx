@@ -18,6 +18,7 @@ import {
     type CommonWeeklyBreak,
 } from '@simple/utils';
 import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
+import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAgendaAvailability,
@@ -310,6 +311,8 @@ export default function HorariosConfigPage() {
                     {defaultError}
                 </div>
             ) : null}
+
+            <AgendaSetupTip focusStepId="horarios" className="mb-4" />
 
             <BusinessSchedulePanel
                 hideTitle

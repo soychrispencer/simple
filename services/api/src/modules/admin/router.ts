@@ -890,11 +890,15 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profileId)).limit(1);
         if (!profiles[0]) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
 
-        const expiry = plan === 'pro' && expiresAt ? new Date(expiresAt) : null;
+        const expiry =
+            plan === 'pro'
+                ? (expiresAt ? new Date(expiresAt) : null)
+                : (expiresAt ? new Date(expiresAt) : new Date(Date.now() - 60_000));
 
         await deps.db.update(deps.tables.agendaProfessionalProfiles).set({
             plan,
             planExpiresAt: expiry,
+            ...(plan === 'free' ? { isPublished: false } : {}),
             updatedAt: new Date(),
         }).where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profileId));
 
@@ -911,7 +915,8 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         await deps.db.update(deps.tables.agendaProfessionalProfiles).set({
             plan: 'free',
-            planExpiresAt: null,
+            planExpiresAt: new Date(Date.now() - 60_000),
+            isPublished: false,
             updatedAt: new Date(),
         }).where(deps.eq(deps.tables.agendaProfessionalProfiles.id, body.profileId));
 

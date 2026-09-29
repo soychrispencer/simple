@@ -1,6 +1,14 @@
 import { API_BASE } from '@simple/config';
 
-type SimplePlatformApp = 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin';
+type SimplePlatformApp =
+    | 'simpleagenda'
+    | 'simpleautos'
+    | 'simplepropiedades'
+    | 'simpleserenatas'
+    | 'simpleadmin'
+    | 'simpletickets'
+    | 'simpleresto'
+    | 'simpleplataforma';
 
 function resolveAppFromBrowser(): SimplePlatformApp | null {
     if (typeof window === 'undefined') return null;
@@ -10,6 +18,8 @@ function resolveAppFromBrowser(): SimplePlatformApp | null {
     if (hostname.includes('simpleautos') || port === '3002') return 'simpleautos';
     if (hostname.includes('simplepropiedades') || port === '3003') return 'simplepropiedades';
     if (hostname.includes('simpleserenatas') || port === '3005') return 'simpleserenatas';
+    if (hostname.includes('simpletickets') || port === '3006') return 'simpletickets';
+    if (hostname.includes('simpleresto') || port === '3007') return 'simpleresto';
     if (hostname.includes('simpleadmin') || port === '3000') return 'simpleadmin';
     return null;
 }

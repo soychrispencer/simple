@@ -41,7 +41,6 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   encuadre: text('encuadre'), // Policy text shown to client at booking (e.g. no-show = no refund)
   requiresAdvancePayment: boolean('requires_advance_payment').notNull().default(false),
   advancePaymentInstructions: text('advance_payment_instructions'), // Bank transfer info, etc.
-  // WhatsApp notification preferences
   // Google Calendar integration
   googleCalendarId: varchar('google_calendar_id', { length: 255 }),
   googleAccessToken: text('google_access_token'),

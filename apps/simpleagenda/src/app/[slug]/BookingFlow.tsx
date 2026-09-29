@@ -16,10 +16,16 @@ import {
     IconPhone,
     IconCalendarEvent,
     IconVideo,
+    IconBrandWhatsapp,
 } from '@tabler/icons-react';
 import { fetchPublicSlots, bookAppointment, validatePublicPromo, type TimeSlot, type PaymentMethods, type RecurrenceFrequency } from '@/lib/agenda-api';
 import { PanelScrollModal } from '@simple/ui/panel';
 import { detectBrowserTimezone, timezoneShortLabel, resolveBookingModality, bookingTermsFromRecord } from '@simple/utils';
+import {
+    buildBookingShareWaMessage,
+    buildWhatsAppClickUrl,
+    formatAppointmentWhenLabel,
+} from '@/lib/whatsapp-click';
 
 type PreconsultField = { id: string; label: string; type: 'text' | 'textarea' | 'select' | 'checkbox' | 'number'; required: boolean; placeholder?: string; options?: string[] };
 
@@ -147,7 +153,14 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     // Submission
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
-    const [confirmedAppt, setConfirmedAppt] = useState<{ id: string; status: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null } | null>(null);
+    const [confirmedAppt, setConfirmedAppt] = useState<{
+        id: string;
+        status: string;
+        paymentStatus: string;
+        modality?: string | null;
+        meetingUrl?: string | null;
+        location?: string | null;
+    } | null>(null);
     const [confirmedSeries, setConfirmedSeries] = useState<Array<{ id: string; startsAt: string }> | null>(null);
     const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
@@ -1041,13 +1054,13 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                             {confirmedAppt.meetingUrl}
                                         </a>
                                         <p className="text-[11px] mt-1.5 booking-muted">
-                                            Guarda este enlace. Te lo reenviaremos por correo y WhatsApp.
+                                            Guarda este enlace. También te lo enviamos por correo con la confirmación.
                                         </p>
                                     </div>
                                 )}
                                 {confirmedAppt?.modality === 'online' && !confirmedAppt?.meetingUrl && (
                                     <div className="rounded-xl border p-3 mb-3 text-left text-xs booking-muted-box">
-                                        El profesional te compartirá el enlace de la videollamada por correo o WhatsApp.
+                                        El profesional te compartirá el enlace de la videollamada por correo.
                                     </div>
                                 )}
                                 {confirmedAppt?.paymentStatus === 'pending' && checkoutUrl && (
@@ -1063,6 +1076,28 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         Recuerda realizar el pago anticipado según las instrucciones recibidas para asegurar tu cita.
                                     </div>
                                 )}
+                                {confirmedAppt && selectedSlot ? (
+                                    <a
+                                        href={buildWhatsAppClickUrl(
+                                            null,
+                                            buildBookingShareWaMessage({
+                                                professionalName: profile.displayName,
+                                                whenLabel: formatAppointmentWhenLabel(selectedSlot.startsAt, clientTz),
+                                                serviceName: selectedService?.name,
+                                                meetingUrl: confirmedAppt.meetingUrl,
+                                                location: confirmedAppt.location,
+                                                cancelUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/cancelar?appt=${encodeURIComponent(confirmedAppt.id)}&slug=${encodeURIComponent(profile.slug)}`,
+                                            }),
+                                        )}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="mb-3 inline-flex w-full items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
+                                        style={{ background: '#25D366', color: '#fff' }}
+                                    >
+                                        <IconBrandWhatsapp size={16} />
+                                        Guardar o compartir por WhatsApp
+                                    </a>
+                                ) : null}
                                 <button
                                     onClick={close}
                                     className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-(--bg-subtle) booking-btn-secondary"

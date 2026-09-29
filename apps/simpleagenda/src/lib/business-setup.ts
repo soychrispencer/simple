@@ -12,22 +12,23 @@ import { buildAgendaVocabFromSubtype } from '@/lib/vocabulary';
 export type AgendaBusinessSetupStatus = {
     steps: BusinessSetupStep[];
     billing: PanelBillingAccess;
+    /** Perfil ya público: se puede mostrar el banner “listo para recibir reservas”. */
+    isPublished: boolean;
+    publicUrl: string | null;
+    displayName: string | null;
 };
 
-function hasAgendaPaymentsConfigured(profile: {
-    acceptsMp: boolean;
-    acceptsTransfer: boolean;
-    acceptsPaymentLink: boolean;
-} | null): boolean {
-    if (!profile) return false;
-    return profile.acceptsMp || profile.acceptsTransfer || profile.acceptsPaymentLink;
-}
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://simpleagenda.app').replace(/\/$/, '');
 
+/**
+ * Camino mínimo para vender valor: perfil → servicio → horario → publicar.
+ * Medios de pago quedan fuera del onboarding crítico (se configuran después).
+ */
 export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSetupStatus> {
     const [profile, services, availability] = await Promise.all([
         fetchAgendaProfile(),
-        fetchAgendaServices().catch(() => []),
-        fetchAgendaAvailability().catch(() => ({ rules: [], blockedSlots: [] })),
+        fetchAgendaServices(),
+        fetchAgendaAvailability(),
     ]);
 
     const operator = resolveAgendaOperatorFields({
@@ -36,63 +37,62 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
         profession: profile?.profession,
     });
     const vocab = buildAgendaVocabFromSubtype(operator.operatorSubtype);
-    const billing: PanelBillingAccess = profile && hasAgendaFullAccess(profile)
-        ? {
-            status: profile.plan === 'pro' || profile.plan === 'enterprise' ? 'pro' : 'trial',
-            daysRemaining: null,
-            subscriptionHref: '/panel/mi-cuenta/suscripcion',
-        }
-        : resolvePanelBillingAccess({
-            planId: profile?.plan ?? 'free',
-            planExpiresAt: profile?.planExpiresAt ?? null,
-            subscriptionHref: '/panel/mi-cuenta/suscripcion',
-        });
+    const billing = resolvePanelBillingAccess({
+        planId: profile?.plan ?? 'free',
+        planExpiresAt: profile?.planExpiresAt ?? null,
+        subscriptionHref: '/panel/mi-cuenta/suscripcion',
+    });
+    // Con acceso completo (trial/pro), no mostrar expired en el carril de setup.
+    const billingForSetup: PanelBillingAccess =
+        profile && hasAgendaFullAccess(profile) && billing.status === 'expired'
+            ? { ...billing, status: profile.plan === 'pro' ? 'pro' : 'trial' }
+            : billing;
 
     const hasProfile = Boolean(profile?.displayName?.trim() && profile?.profession?.trim());
-    const hasServices = services.length > 0;
-    const hasAvailability = availability.rules.some(
+    const hasServices = services.some((service) => service.isActive !== false);
+    const hasAvailability = Boolean(availability.alwaysOpen) || availability.rules.some(
         (rule) => rule.isActive && Boolean(rule.startTime) && Boolean(rule.endTime),
     );
-    const hasPayments = hasAgendaPaymentsConfigured(profile);
     const isPublished = Boolean(profile?.isPublished);
+    const slug = profile?.slug?.trim() || null;
+    const publicUrl = slug ? `${APP_URL}/${slug}` : null;
 
     const steps: BusinessSetupStep[] = [
         {
             id: 'perfil',
             label: 'Perfil público',
-            description: `Nombre, profesión y contacto visible para tus ${vocab.clients}.`,
+            description: `Nombre y profesión visibles para tus ${vocab.clients}.`,
             href: '/panel/mi-negocio',
             complete: hasProfile,
         },
         {
             id: 'servicios',
-            label: 'Servicios y sesiones',
-            description: 'Define qué ofreces y a qué precio.',
+            label: 'Primer servicio',
+            description: 'Qué ofreces, duración y precio.',
             href: '/panel/mis-servicios',
             complete: hasServices,
         },
         {
             id: 'horarios',
-            label: 'Horario',
-            description: 'Horarios en los que pueden reservar contigo.',
+            label: 'Horario de atención',
+            description: 'Cuándo pueden reservar contigo.',
             href: '/panel/mi-negocio/horarios',
             complete: hasAvailability,
         },
         {
-            id: 'cobros',
-            label: 'Medios de pago',
-            description: `Indica cómo te pagan tus ${vocab.clients}.`,
-            href: '/panel/mi-negocio/configuraciones',
-            complete: hasPayments,
-        },
-        {
             id: 'publicar',
-            label: 'Publicar perfil',
-            description: 'Haz visible tu página y el directorio de profesionales.',
-            href: '/panel/mi-negocio/configuraciones',
+            label: 'Publicar y compartir',
+            description: 'Activa tu link público para recibir reservas.',
+            href: '/panel/mi-negocio',
             complete: isPublished,
         },
     ];
 
-    return { steps, billing };
+    return {
+        steps,
+        billing: billingForSetup,
+        isPublished,
+        publicUrl,
+        displayName: profile?.displayName?.trim() || null,
+    };
 }

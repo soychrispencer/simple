@@ -35,11 +35,21 @@ export type AdminPlatformAccess = {
     lastLoginAt: number | null;
 };
 
+export type AdminSubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'free';
+
+export type AdminUserSubscriptions = {
+    agenda?: { plan: 'free' | 'pro'; status: AdminSubscriptionStatus; expiresAt: string | null };
+    autos?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
+    propiedades?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
+    serenatas?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
+};
+
 export type AdminUserSnapshot = {
     id: string;
     name: string;
     email: string;
     phone?: string | null;
+    rut?: string | null;
     role: AdminUserRole;
     status: AdminUserStatus;
     primaryVertical: 'autos' | 'propiedades' | 'agenda' | null;
@@ -63,7 +73,7 @@ export type AdminUserSnapshot = {
         score: number;
         reasons: string[];
     };
-    subscriptions?: Record<string, unknown>;
+    subscriptions?: AdminUserSubscriptions;
     serenatas?: {
         client: boolean;
         musician: boolean;
@@ -98,16 +108,59 @@ async function expectOk<T>(path: string, init?: RequestInit): Promise<ApiEnvelop
     return data;
 }
 
-export async function fetchAdminUsers(): Promise<AdminUserSnapshot[]> {
-    const data = await expectOk<{ items?: AdminUserSnapshot[] }>('/api/admin/users');
-    return (data.items ?? []).map((user) => ({
+export type AdminUsersSummary = {
+    total: number;
+    withPlatform: number;
+    withActiveSubscription: number;
+    suspended: number;
+};
+
+export type AdminUsersPage = {
+    items: AdminUserSnapshot[];
+    summary: AdminUsersSummary;
+    page: number;
+    pageSize: number;
+    total: number;
+    pageCount: number;
+};
+
+export async function fetchAdminUsers(input: {
+    query?: string;
+    status?: 'all' | AdminUserStatus;
+    vertical?: 'all' | AdminVertical;
+    page?: number;
+    pageSize?: number;
+} = {}): Promise<AdminUsersPage> {
+    const params = new URLSearchParams();
+    if (input.query?.trim()) params.set('q', input.query.trim());
+    if (input.status && input.status !== 'all') params.set('status', input.status);
+    if (input.vertical && input.vertical !== 'all') params.set('vertical', input.vertical);
+    params.set('page', String(input.page ?? 1));
+    params.set('pageSize', String(input.pageSize ?? 25));
+    const data = await expectOk<Partial<AdminUsersPage>>(`/api/admin/users?${params.toString()}`);
+    const items = (data.items ?? []).map((user) => ({
         ...user,
         platformAccesses: user.platformAccesses ?? [],
         primaryPlatform: user.primaryPlatform ?? null,
     }));
+    return {
+        items,
+        summary: data.summary ?? { total: items.length, withPlatform: 0, withActiveSubscription: 0, suspended: 0 },
+        page: data.page ?? 1,
+        pageSize: data.pageSize ?? 25,
+        total: data.total ?? items.length,
+        pageCount: data.pageCount ?? 1,
+    };
 }
 
-export async function updateAdminUser(userId: string, input: { name?: string; phone?: string | null; primaryVertical?: 'autos' | 'propiedades' | 'agenda' | null }): Promise<void> {
+export async function updateAdminUser(userId: string, input: {
+    name?: string;
+    phone?: string | null;
+    rut?: string | null;
+    primaryVertical?: 'autos' | 'propiedades' | 'agenda' | null;
+    role?: AdminUserRole;
+    status?: AdminUserStatus;
+}): Promise<void> {
     await expectOk(`/api/admin/users/${encodeURIComponent(userId)}`, {
         method: 'PUT',
         body: JSON.stringify(input),
@@ -166,6 +219,20 @@ export async function logoutAdmin(): Promise<void> {
     } catch {
         // Best effort.
     }
+}
+
+export async function completeAdminGoogleCallback(input: { code: string; state: string | null }): Promise<void> {
+    await expectOk('/api/auth/google/callback', {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
+}
+
+export async function confirmAdminPasswordReset(input: { token: string; password: string }): Promise<void> {
+    await expectOk('/api/auth/password-reset/confirm', {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
 }
 
 export type AdminConversationItem = {

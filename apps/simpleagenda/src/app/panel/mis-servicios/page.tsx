@@ -24,6 +24,7 @@ import {
     type AgendaPreconsultField,
 } from '@simple/utils';
 import { AgendaMisServiciosShell } from '@/components/panel/agenda-mis-servicios-shell';
+import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
 import {
     fetchAgendaServices,
     createAgendaService,
@@ -215,6 +216,7 @@ function ServiciosConfigPageContent() {
         >
             <div className="space-y-6">
                 <BusinessCatalogTabs active="services" variant="links" hrefs={AGENDA_BUSINESS_CATALOG_HREFS} />
+                <AgendaSetupTip focusStepId="servicios" />
 
                 <BusinessCatalogServiceEditor
                     adapter={adapter}
@@ -241,8 +243,8 @@ function ServiciosConfigPageContent() {
                     })}
                     copy={{
                         modalDescription: 'Citas individuales o sesiones grupales con cupo limitado.',
-                        emptyTitle: 'Sin servicios aún',
-                        emptyDescription: 'Agrega citas individuales o sesiones grupales.',
+                        emptyTitle: 'Todavía no pueden reservarte',
+                        emptyDescription: 'Crea tu primer servicio (nombre, duración y precio). Luego defines horario y publicas tu link.',
                         archiveMessage: (name) => `"${name}" dejará de estar disponible. Podrás reactivarlo con el interruptor.`,
                     }}
                 />

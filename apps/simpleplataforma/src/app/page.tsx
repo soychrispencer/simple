@@ -462,7 +462,9 @@ export default function LandingPage() {
                             <button
                                 type="button"
                                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                                aria-label="Menú"
+                                aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+                                aria-expanded={mobileMenuOpen}
+                                aria-controls={mobileMenuOpen ? 'simpleplataforma-mobile-menu' : undefined}
                                 className="header-icon-chip"
                             >
                                 {mobileMenuOpen ? <IconX size={18} /> : <IconMenu2 size={18} />}
@@ -473,7 +475,7 @@ export default function LandingPage() {
 
                 {/* Mobile Menu Dropdown */}
                 {mobileMenuOpen && (
-                    <div className="md:hidden absolute top-full left-0 right-0 border-b p-4 animate-slide-down plt-mobile-menu">
+                    <div id="simpleplataforma-mobile-menu" className="md:hidden absolute top-full left-0 right-0 border-b p-4 animate-slide-down plt-mobile-menu">
                         <div className="flex flex-col gap-2">
                             <Link
                                 href="#verticales"

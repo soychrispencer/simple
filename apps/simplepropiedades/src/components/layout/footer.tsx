@@ -41,6 +41,7 @@ export function Footer() {
             description="SimplePropiedades simplifica la búsqueda y publicación de propiedades en Chile."
             copyrightName="SimplePropiedades"
             sections={sections}
+            currentPlatformHref="https://simplepropiedades.app"
             legalLinks={legalLinks}
             socialLinks={socialLinks}
             legalNotice="SimplePropiedades es un marketplace inmobiliario de publicación. No es corredora de propiedades ni entidad financiera; el simulador hipotecario es referencial."

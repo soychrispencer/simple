@@ -284,7 +284,7 @@ export function OperatorDirectoryHeroBadge({
     }
 
     return (
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-neutral-900 shadow-sm">
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-(--fg) shadow-sm">
             {children}
         </span>
     );

@@ -35,7 +35,7 @@ export type AddressBookKind = ListingLocationKind;
 export const addressBookScopeSchema = z.enum(['personal', 'business']);
 export type AddressBookScope = z.infer<typeof addressBookScopeSchema>;
 
-export const addressBookBusinessVerticalSchema = z.enum(['autos', 'propiedades', 'serenatas']);
+export const addressBookBusinessVerticalSchema = z.enum(['autos', 'propiedades', 'serenatas', 'tickets', 'resto']);
 export type AddressBookBusinessVertical = z.infer<typeof addressBookBusinessVerticalSchema>;
 
 export const listingLocationSourceModeSchema = z.enum(['saved_address', 'custom', 'area_only']);
@@ -399,3 +399,4 @@ export function buildAddressBookSummary(address: Partial<AddressBookEntry> | nul
 }
 
 export * from './structured-location.js';
+export * from './tickets.js';

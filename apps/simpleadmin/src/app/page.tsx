@@ -6,8 +6,8 @@ import { AdminUsersDashboard } from '@/components/admin-users-dashboard';
 export default function AdminDashboardPage() {
     return (
         <AdminProtectedPage>
-            {() => (
-                <AdminUsersDashboard />
+            {(user) => (
+                <AdminUsersDashboard currentUser={user} />
             )}
         </AdminProtectedPage>
     );

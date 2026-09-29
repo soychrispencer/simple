@@ -79,7 +79,11 @@ export type NotificationEventType =
     | 'cancellation'
     | 'test'
     | 'professional_new_booking'
-    | 'reschedule';
+    | 'reschedule'
+    | 'trial_d7'
+    | 'trial_d3'
+    | 'trial_d1'
+    | 'trial_expired';
 
 type NotificationInput = {
     professionalId: string | null;

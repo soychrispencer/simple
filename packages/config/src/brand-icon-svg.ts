@@ -4,7 +4,9 @@ type SimpleAppId =
     | 'simpleadmin'
     | 'simpleplataforma'
     | 'simpleagenda'
-    | 'simpleserenatas';
+    | 'simpleserenatas'
+    | 'simpletickets'
+    | 'simpleresto';
 
 type IconTokens = {
     accent: string;
@@ -83,6 +85,23 @@ function dashboardSvg(t: IconTokens): string {
     ]);
 }
 
+/** Tabler IconTicket */
+function ticketsSvg(t: IconTokens): string {
+    return tablerBrandSvg(t, [
+        'M15 5l0 2',
+        'M15 11l0 2',
+        'M15 17l0 2',
+        'M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2',
+    ]);
+}
+
+/** Tabler IconToolsKitchen2 */
+function restoSvg(t: IconTokens): string {
+    return tablerBrandSvg(t, [
+        'M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-2v-6m-10 -10v17m-3 -17v3a3 3 0 1 0 6 0v-3',
+    ]);
+}
+
 export function buildSimpleBrandIconSvg(appId: SimpleAppId, tokens: IconTokens): string {
     switch (appId) {
         case 'simpleserenatas':
@@ -93,6 +112,10 @@ export function buildSimpleBrandIconSvg(appId: SimpleAppId, tokens: IconTokens):
             return autosSvg(tokens);
         case 'simplepropiedades':
             return propiedadesSvg(tokens);
+        case 'simpletickets':
+            return ticketsSvg(tokens);
+        case 'simpleresto':
+            return restoSvg(tokens);
         case 'simpleadmin':
         case 'simpleplataforma':
             return dashboardSvg(tokens);

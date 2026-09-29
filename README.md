@@ -20,6 +20,8 @@ Monorepo de aplicaciones verticales de marketplace con frontend en Next.js, back
 | `@simple/propiedades` | 3003 | Marketplace de propiedades |
 | `@simple/agenda` | 3004 | Agenda y reservas para profesionales |
 | `@simple/serenatas` | 3005 | Marketplace de serenatas y eventos musicales |
+| `@simple/tickets` | 3006 | Entradas y eventos |
+| `@simple/resto` | 3007 | Vertical gastronómica (POS / carta / cocina) |
 | `@simple/api` | 4000 | Backend API |
 
 ## Paquetes compartidos
@@ -58,6 +60,8 @@ pnpm run dev:autos            # Solo SimpleAutos (Turbopack)
 pnpm run dev:propiedades      # Solo SimplePropiedades
 pnpm run dev:agenda           # Solo SimpleAgenda
 pnpm run dev:serenatas        # Solo SimpleSerenatas
+pnpm run dev:tickets          # Solo SimpleTickets
+pnpm run dev:resto            # Solo SimpleResto (:3007)
 pnpm run dev:ui:watch         # Recompila @simple/ui al editar el paquete compartido
 
 # Build
