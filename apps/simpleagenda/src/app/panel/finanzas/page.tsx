@@ -65,8 +65,8 @@ type Period = 'month' | '30d' | '90d' | 'all';
 
 const PERIOD_LABELS: Record<Period, string> = {
     month: 'Este mes',
-    '30d': '30 d├¡as',
-    '90d': '90 d├¡as',
+    '30d': '30 días',
+    '90d': '90 días',
     all: 'Todo',
 };
 
@@ -185,7 +185,7 @@ export default function PagosPage() {
         [paidInPeriod, totalInPeriod],
     );
 
-    // Mini gr├ífico: ├║ltimos 6 meses (incluye actual)
+    // Mini gráfico: últimos 6 meses (incluye el actual)
     const monthlySeries = useMemo(() => {
         const now = new Date();
         const buckets: { label: string; total: number }[] = [];
@@ -205,7 +205,7 @@ export default function PagosPage() {
         return { buckets, max };
     }, [payments]);
 
-    // Breakdown por m├®todo dentro del per├¡odo
+    // Desglose por método dentro del período
     const methodBreakdown = useMemo(() => {
         const totals: Record<string, number> = {};
         paidInPeriod.forEach((p) => {
@@ -277,7 +277,7 @@ export default function PagosPage() {
     const handleCreate = async () => {
         setCreateError('');
         if (!form.amount || Number(form.amount) <= 0) {
-            setCreateError('Ingresa un monto v├ílido.');
+            setCreateError('Ingresa un monto válido.');
             return;
         }
         setCreating(true);
@@ -301,7 +301,7 @@ export default function PagosPage() {
             setForm({ clientId: '', appointmentId: '', amount: '', method: 'transfer', notes: '', status: 'pending' });
             await load();
         } catch {
-            setCreateError('Error de conexi├│n. Intenta nuevamente.');
+            setCreateError('Error de conexión. Intenta nuevamente.');
         } finally {
             setCreating(false);
         }
@@ -329,7 +329,7 @@ export default function PagosPage() {
     };
 
     const handleExportCsv = () => {
-        const header = ['Fecha', 'Cliente', 'Monto', 'Moneda', 'M├®todo', 'Estado', 'Notas'];
+        const header = ['Fecha', 'Cliente', 'Monto', 'Moneda', 'Método', 'Estado', 'Notas'];
         const rows = payments.map((p) => [
             (p.paidAt ?? p.createdAt).slice(0, 10),
             clientName(p.clientId) ?? '',
@@ -367,7 +367,7 @@ export default function PagosPage() {
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
                         <IconLock size={22} />
                     </div>
-                    <h2 className="text-xl font-bold agenda-pagos-title mb-2">Cobros es una funci├│n Pro</h2>
+                    <h2 className="text-xl font-bold agenda-pagos-title mb-2">Cobros es una función Pro</h2>
                     <p className="text-sm agenda-pagos-muted max-w-xl mb-5">
                         Activa el plan Profesional para registrar pagos, controlar pendientes, exportar cobros y conectar medios de pago.
                     </p>
@@ -392,9 +392,9 @@ export default function PagosPage() {
                     {payments.length > 0 && (
                         <button
                             onClick={handleExportCsv}
-                            aria-label="Descargar hist├│rico en CSV"
+                            aria-label="Descargar histórico en CSV"
                             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle) agenda-pagos-btn-outline"
-                            title="Descargar hist├│rico en CSV"
+                            title="Descargar histórico en CSV"
                         >
                             <IconDownload size={14} />
                             <span className="hidden sm:inline">CSV</span>
@@ -419,7 +419,7 @@ export default function PagosPage() {
             )}
 
             {/* Period filter */}
-            <div className="flex items-center gap-1.5 mb-4 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0" role="tablist" aria-label="Per├¡odo del dashboard">
+            <div className="flex items-center gap-1.5 mb-4 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0" role="tablist" aria-label="Período del panel">
                 {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => {
                     const active = period === p;
                     return (
@@ -442,7 +442,7 @@ export default function PagosPage() {
                     <>
                         <div className="p-4 rounded-2xl border agenda-pagos-surface">
                             <p className="text-xl sm:text-2xl font-bold tracking-tight agenda-pagos-stat-accent">{fmtCLP(totalInPeriod)}</p>
-                            <p className="text-xs mt-0.5 agenda-pagos-muted">Cobrado ┬À {PERIOD_LABELS[period].toLowerCase()}</p>
+                            <p className="text-xs mt-0.5 agenda-pagos-muted">Cobrado · {PERIOD_LABELS[period].toLowerCase()}</p>
                         </div>
                         <div className="p-4 rounded-2xl border agenda-pagos-surface">
                             <p className="text-xl sm:text-2xl font-bold tracking-tight agenda-pagos-stat-warning">{fmtCLP(totalPendingAmount)}</p>
@@ -475,7 +475,7 @@ export default function PagosPage() {
                         <div className="flex items-center gap-2 mb-3">
                             <IconChartBar size={14} className="agenda-pagos-muted" />
                             <p className="text-xs font-semibold uppercase tracking-wider agenda-pagos-muted">
-                                ├Ültimos 6 meses
+                                Últimos 6 meses
                             </p>
                         </div>
                         <div className="flex items-end gap-2 h-28">
@@ -507,10 +507,10 @@ export default function PagosPage() {
                     {/* Method breakdown */}
                     <div className="p-4 rounded-2xl border agenda-pagos-surface">
                         <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--fg-muted)' }}>
-                            Por m├®todo
+                            Por método
                         </p>
                         {methodBreakdown.length === 0 ? (
-                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sin cobros en este per├¡odo.</p>
+                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sin cobros en este período.</p>
                         ) : (
                             <div className="flex flex-col gap-2.5">
                                 {methodBreakdown.map((m) => (
@@ -544,7 +544,7 @@ export default function PagosPage() {
                     </div>
                     <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--fg)' }}>Sin cobros registrados</h2>
                     <p className="text-sm max-w-sm" style={{ color: 'var(--fg-muted)' }}>
-                        Una vez que tengas citas confirmadas, podr├ís registrar y controlar los cobros aqu├¡.
+                        Cuando tengas citas confirmadas, podrás registrar y controlar tus cobros aquí.
                     </p>
                 </div>
             ) : (
@@ -593,9 +593,9 @@ export default function PagosPage() {
                                     )}
                                 </div>
                                 <p className="text-xs mt-0.5 agenda-pagos-muted">
-                                    {clientName(payment.clientId) ?? 'ÔÇö'}
-                                    {payment.notes ? ` ┬À ${payment.notes}` : ''}
-                                    {' ┬À '}
+                                    {clientName(payment.clientId) ?? '—'}
+                                    {payment.notes ? ` · ${payment.notes}` : ''}
+                                    {' · '}
                                     {payment.paidAt ? `Pagado ${fmtDate(payment.paidAt)}` : `Creado ${fmtDate(payment.createdAt)}`}
                                 </p>
                             </div>
@@ -714,7 +714,7 @@ export default function PagosPage() {
                                         onChange={(e) => setForm((p) => ({ ...p, clientId: e.target.value, appointmentId: '' }))}
                                         className="field-input"
                                     >
-                                        <option value="">ÔÇö Seleccionar ÔÇö</option>
+                                        <option value="">— Seleccionar —</option>
                                         {clients.map((c) => (
                                             <option key={c.id} value={c.id}>{c.firstName} {c.lastName ?? ''}</option>
                                         ))}
@@ -739,13 +739,13 @@ export default function PagosPage() {
                                         }}
                                         className="field-input"
                                     >
-                                        <option value="">ÔÇö Sin cita asociada ÔÇö</option>
+                                        <option value="">— Sin cita asociada —</option>
                                         {appointments
                                             .filter((a) => !form.clientId || a.clientId === form.clientId)
                                             .map((a) => (
                                                 <option key={a.id} value={a.id}>
                                                     {new Date(a.startsAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
-                                                    {' ÔÇö '}
+                                                    {' — '}
                                                     {a.clientName ?? clientName(a.clientId ?? null) ?? vocab.Client}
                                                     {a.price ? ` ($${Number(a.price).toLocaleString('es-CL')})` : ''}
                                                 </option>
@@ -769,7 +769,7 @@ export default function PagosPage() {
 
                             {/* Method */}
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>M├®todo de pago</label>
+                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Método de pago</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {(['transfer', 'cash', 'card', 'mercadopago'] as const).map((m) => (
                                         <button
@@ -814,7 +814,7 @@ export default function PagosPage() {
                                 <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Nota interna (opcional)</label>
                                 <input
                                     type="text"
-                                    placeholder="Ej: sesi├│n 3, abono"
+                                    placeholder="Ej.: sesión 3, abono"
                                     value={form.notes}
                                     onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                                     className="field-input"
@@ -868,7 +868,7 @@ export default function PagosPage() {
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>M├®todo</label>
+                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Método</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {(['transfer', 'cash', 'card', 'mercadopago'] as const).map((m) => (
                                         <button
@@ -892,7 +892,7 @@ export default function PagosPage() {
                                     type="text"
                                     value={editNotes}
                                     onChange={(e) => setEditNotes(e.target.value)}
-                                    placeholder="Ej: sesi├│n 3, abono"
+                                    placeholder="Ej.: sesión 3, abono"
                                     className="field-input"
                                 />
                             </div>
