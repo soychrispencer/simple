@@ -48,6 +48,7 @@ export default function ClientesPage() {
     const [clients, setClients] = useState<AgendaClient[]>([]);
     const [filtered, setFiltered] = useState<AgendaClient[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [query, setQuery] = useState('');
     const [tags, setTags] = useState<AgendaClientTag[]>([]);
     const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
@@ -111,10 +112,16 @@ export default function ClientesPage() {
 
     const load = async () => {
         setLoading(true);
-        const [data, tagData] = await Promise.all([fetchAgendaClients(), fetchClientTags()]);
-        setClients(data);
-        setTags(tagData);
-        setLoading(false);
+        setLoadError('');
+        try {
+            const [data, tagData] = await Promise.all([fetchAgendaClients(), fetchClientTags()]);
+            setClients(data);
+            setTags(tagData);
+        } catch {
+            setLoadError('Revisa tu conexión e inténtalo de nuevo.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const set = (key: keyof ClientForm, value: string) => {
@@ -245,7 +252,7 @@ export default function ClientesPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Buscar por nombre, correo o teléfono..."
-                    className="field-input pl-9"
+                    className="field-input field-input-with-leading-icon"
                 />
             </div>
 
@@ -379,7 +386,12 @@ export default function ClientesPage() {
             )}
 
             {/* List */}
-            {loading ? null : filtered.length === 0 ? (
+            {loadError ? (
+                <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:text-red-100">
+                    <p>No se pudieron cargar los clientes: {loadError}</p>
+                    <button type="button" className="mt-2 font-semibold underline" onClick={() => void load()}>Reintentar</button>
+                </div>
+            ) : loading ? null : filtered.length === 0 ? (
                 <div className="rounded-2xl border flex flex-col items-center justify-center py-20 text-center agenda-panel-surface">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 agenda-panel-accent-soft">
                         <IconUsers size={20} />

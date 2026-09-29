@@ -27,6 +27,16 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+/* Input padding utilities are inside Tailwind's layer; keep icon offsets in the
+   component stylesheet so they can override this unlayered base declaration. */
+.field-input-with-leading-icon {
+    padding-left: 2.5rem;
+}
+
+.field-input-with-trailing-icon {
+    padding-right: 2.5rem;
+}
+
 .field-input::placeholder {
     color: var(--fg-muted);
 }

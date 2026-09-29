@@ -103,6 +103,7 @@ export default function PagosPage() {
     const [clients, setClients] = useState<AgendaClient[]>([]);
     const [appointments, setAppointments] = useState<AgendaAppointment[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [isPro, setIsPro] = useState(false);
     const [showCreate, setShowCreate] = useState(false);
     const [markingPaid, setMarkingPaid] = useState<string | null>(null);
@@ -129,27 +130,32 @@ export default function PagosPage() {
 
     const load = useCallback(async () => {
         setLoading(true);
-        const profile = await fetchAgendaProfile();
-        const canUsePayments = profile ? hasAgendaFullAccess(profile) : false;
-        setIsPro(canUsePayments);
-        if (!canUsePayments) {
-            setPayments([]);
-            setClients([]);
-            setAppointments([]);
+        setLoadError('');
+        try {
+            const profile = await fetchAgendaProfile();
+            const canUsePayments = profile ? hasAgendaFullAccess(profile) : false;
+            setIsPro(canUsePayments);
+            if (!canUsePayments) {
+                setPayments([]);
+                setClients([]);
+                setAppointments([]);
+                return;
+            }
+            const [p, c, a] = await Promise.all([
+                fetchAgendaPayments(),
+                fetchAgendaClients(),
+                fetchAgendaAppointments(),
+            ]);
+            setPayments(p);
+            setClients(c);
+            // Only show appointments with a price that don't already have a payment
+            const paidApptIds = new Set(p.map((pay) => pay.appointmentId).filter(Boolean));
+            setAppointments(a.filter((appt) => appt.price && !paidApptIds.has(appt.id)));
+        } catch {
+            setLoadError('Revisa tu conexión e inténtalo de nuevo.');
+        } finally {
             setLoading(false);
-            return;
         }
-        const [p, c, a] = await Promise.all([
-            fetchAgendaPayments(),
-            fetchAgendaClients(),
-            fetchAgendaAppointments(),
-        ]);
-        setPayments(p);
-        setClients(c);
-        // Only show appointments with a price that don't already have a payment
-        const paidApptIds = new Set(p.map((pay) => pay.appointmentId).filter(Boolean));
-        setAppointments(a.filter((appt) => appt.price && !paidApptIds.has(appt.id)));
-        setLoading(false);
     }, []);
 
     useEffect(() => { void load(); }, [load]);
@@ -404,6 +410,13 @@ export default function PagosPage() {
                     </button>
                 </div>
             </div>
+
+            {loadError && (
+                <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:text-red-100">
+                    <span>No se pudieron cargar los datos financieros: {loadError}</span>
+                    <button type="button" className="font-semibold underline" onClick={() => void load()}>Reintentar</button>
+                </div>
+            )}
 
             {/* Period filter */}
             <div className="flex items-center gap-1.5 mb-4 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0" role="tablist" aria-label="Per├¡odo del dashboard">

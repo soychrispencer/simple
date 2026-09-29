@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useEffect, useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { IconX } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes.js';
 
@@ -43,6 +43,8 @@ const HEIGHT_CLASS: Record<PanelScrollModalHeight, string> = {
     tall: 'max-h-[min(92dvh,52rem)] sm:max-h-[min(90vh,52rem)]',
 };
 
+const panelModalStack: HTMLElement[] = [];
+
 function PanelScrollFrame({
     open = true,
     onClose,
@@ -61,6 +63,13 @@ function PanelScrollFrame({
     header,
     constrainContent = false,
 }: PanelScrollFrameProps) {
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const onCloseRef = useRef(onClose);
+
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
     useEffect(() => {
         if (!open || !lockBodyScroll) return;
         const previousOverflow = document.body.style.overflow;
@@ -73,11 +82,54 @@ function PanelScrollFrame({
     useEffect(() => {
         if (!open) return;
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') onClose();
+            if (panelModalStack[panelModalStack.length - 1] !== dialogRef.current) return;
+            if (event.key === 'Escape') onCloseRef.current();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose, open]);
+    }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        const previouslyFocused = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        panelModalStack.push(dialog);
+        const selector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        const getFocusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(selector))
+            .filter((element) => element.getAttribute('aria-hidden') !== 'true' && element.offsetParent !== null);
+        const focusables = getFocusable();
+        (focusables[0] ?? dialog).focus();
+
+        const trapFocus = (event: KeyboardEvent) => {
+            if (event.key !== 'Tab' || panelModalStack[panelModalStack.length - 1] !== dialog) return;
+            const current = getFocusable();
+            if (current.length === 0) {
+                event.preventDefault();
+                dialog.focus();
+                return;
+            }
+            const first = current[0];
+            const last = current[current.length - 1];
+            if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener('keydown', trapFocus);
+        return () => {
+            document.removeEventListener('keydown', trapFocus);
+            const stackIndex = panelModalStack.lastIndexOf(dialog);
+            if (stackIndex >= 0) panelModalStack.splice(stackIndex, 1);
+            if (previouslyFocused?.isConnected) previouslyFocused.focus();
+        };
+    }, [open]);
 
     if (!open) return null;
 
@@ -94,6 +146,8 @@ function PanelScrollFrame({
                 aria-modal="true"
                 aria-labelledby={labelledBy}
                 aria-label={ariaLabel}
+                ref={dialogRef}
+                tabIndex={-1}
                 className={joinClasses(
                     'relative z-[1] flex w-full flex-col overflow-hidden rounded-t-[1.35rem] border border-(--border) bg-(--surface) shadow-2xl sm:rounded-[1.35rem]',
                     SIZE_CLASS[size],

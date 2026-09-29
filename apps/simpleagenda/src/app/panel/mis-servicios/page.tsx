@@ -217,6 +217,9 @@ function ServiciosConfigPageContent() {
             <div className="space-y-6">
                 <BusinessCatalogTabs active="services" variant="links" hrefs={AGENDA_BUSINESS_CATALOG_HREFS} />
                 <AgendaSetupTip focusStepId="servicios" />
+                <p className="text-xs text-fg-muted">
+                    Los servicios activos solo se pueden reservar mientras tu perfil público esté publicado.
+                </p>
 
                 <BusinessCatalogServiceEditor
                     adapter={adapter}

@@ -63,22 +63,26 @@ function ProfesionalesPageInner() {
     const load = useCallback(async (next: AgendaDirectoryFilters) => {
         setLoading(true);
         setError(null);
-        const params = agendaDirectoryFiltersToParams(next);
-        const [response, featured] = await Promise.all([
-            fetch(`${API_BASE}/api/public/agenda/marketplace/professionals?${params.toString()}`),
-            fetchFeaturedBoosted('marketplace', 12),
-        ]);
-        const data = await response.json().catch(() => null) as { ok?: boolean; items?: MarketplaceProfessional[]; error?: string };
-        if (!response.ok || !data?.ok) {
+        try {
+            const params = agendaDirectoryFiltersToParams(next);
+            const response = await fetch(`${API_BASE}/api/public/agenda/marketplace/professionals?${params.toString()}`);
+            const data = await response.json().catch(() => null) as { ok?: boolean; items?: MarketplaceProfessional[]; error?: string };
+            if (!response.ok || !data?.ok) {
+                setItems([]);
+                setBoostedOrder([]);
+                setError(data?.error ?? 'No pudimos cargar profesionales.');
+                return;
+            }
+            const featured = await fetchFeaturedBoosted('marketplace', 12).catch(() => []);
+            setBoostedOrder(boostSlugsFromFeatured(featured));
+            setItems(sortProfessionals(data.items ?? [], next.sort));
+        } catch {
             setItems([]);
             setBoostedOrder([]);
-            setError(data?.error ?? 'No pudimos cargar profesionales.');
+            setError('No pudimos cargar profesionales. Revisa tu conexión e inténtalo de nuevo.');
+        } finally {
             setLoading(false);
-            return;
         }
-        setBoostedOrder(boostSlugsFromFeatured(featured));
-        setItems(sortProfessionals(data.items ?? [], next.sort));
-        setLoading(false);
     }, []);
 
     useEffect(() => {
@@ -168,8 +172,9 @@ function ProfesionalesPageInner() {
             )}
         >
             {loading ? null : error ? (
-                <div className="rounded-card border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-100">
-                    {error}
+                <div role="alert" className="rounded-card border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-100">
+                    <p>{error}</p>
+                    <button type="button" className="mt-2 font-semibold underline" onClick={() => void load(filters)}>Reintentar</button>
                 </div>
             ) : items.length > 0 ? (
                 <>

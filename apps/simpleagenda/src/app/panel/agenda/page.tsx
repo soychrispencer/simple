@@ -178,6 +178,7 @@ export default function AgendaPage() {
     const [appointments, setAppointments] = useState<AgendaAppointment[]>([]);
     const [onlySeries, setOnlySeries] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [services, setServices] = useState<AgendaService[]>([]);
     const bookableServices = useMemo(
         () => services.filter((service) => service.kind !== 'group_event' && service.isActive),
@@ -274,23 +275,29 @@ export default function AgendaPage() {
 
     const load = useCallback(async () => {
         setLoading(true);
-        const wEnd = addDays(weekStart, 6); wEnd.setHours(23, 59, 59, 999);
-        const dayEnd = new Date(dayDate); dayEnd.setHours(23, 59, 59, 999);
-        const from =
-            view === 'month' ? getMonthStart(monthDate).toISOString() :
-            view === 'day'   ? dayDate.toISOString() :
-            weekStart.toISOString();
-        const to =
-            view === 'month' ? getMonthEnd(monthDate).toISOString() :
-            view === 'day'   ? dayEnd.toISOString() :
-            wEnd.toISOString();
-        const [appts, svcs] = await Promise.all([
-            fetchAgendaAppointments(from, to),
-            fetchAgendaServices(),
-        ]);
-        setAppointments(appts);
-        setServices(svcs);
-        setLoading(false);
+        setLoadError('');
+        try {
+            const wEnd = addDays(weekStart, 6); wEnd.setHours(23, 59, 59, 999);
+            const dayEnd = new Date(dayDate); dayEnd.setHours(23, 59, 59, 999);
+            const from =
+                view === 'month' ? getMonthStart(monthDate).toISOString() :
+                view === 'day'   ? dayDate.toISOString() :
+                weekStart.toISOString();
+            const to =
+                view === 'month' ? getMonthEnd(monthDate).toISOString() :
+                view === 'day'   ? dayEnd.toISOString() :
+                wEnd.toISOString();
+            const [appts, svcs] = await Promise.all([
+                fetchAgendaAppointments(from, to),
+                fetchAgendaServices(),
+            ]);
+            setAppointments(appts);
+            setServices(svcs);
+        } catch {
+            setLoadError('Revisa tu conexión e inténtalo de nuevo.');
+        } finally {
+            setLoading(false);
+        }
     }, [view, weekStart, monthDate, dayDate]);  
 
     useEffect(() => { void load(); }, [load]);
@@ -735,6 +742,13 @@ export default function AgendaPage() {
                 </div>
             </div>
 
+            {loadError && (
+                <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:text-red-100">
+                    <span>No se pudo cargar la agenda: {loadError}</span>
+                    <button type="button" className="font-semibold underline" onClick={() => void load()}>Reintentar</button>
+                </div>
+            )}
+
             <AgendaSetupTip className="mb-4" />
 
             {/* Search & filters bar */}
@@ -752,7 +766,7 @@ export default function AgendaPage() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder={`Buscar por ${vocab.client}, email, teléfono o servicio...`}
-                            className="field-input pl-9 pr-9"
+                            className="field-input field-input-with-leading-icon field-input-with-trailing-icon"
                             autoFocus
                         />
                         {searchQuery && (
@@ -1539,7 +1553,7 @@ export default function AgendaPage() {
                                                 onChange={(e) => { setClientSearch(e.target.value); setClientDropOpen(true); }}
                                                 onFocus={() => setClientDropOpen(true)}
                                                 placeholder={`Buscar ${vocab.client} existente...`}
-                                                className="field-input pl-8"
+                                                className="field-input field-input-with-leading-icon"
                                             />
                                         </div>
                                     )}

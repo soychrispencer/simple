@@ -2255,6 +2255,8 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const rows = await db
             .select({
                 slug: agendaProfessionalProfiles.slug,
+                plan: agendaProfessionalProfiles.plan,
+                planExpiresAt: agendaProfessionalProfiles.planExpiresAt,
                 displayName: agendaProfessionalProfiles.displayName,
                 profession: agendaProfessionalProfiles.profession,
                 headline: agendaProfessionalProfiles.headline,
@@ -2274,7 +2276,10 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             .where(eq(agendaProfessionalProfiles.isPublished, true))
             .orderBy(asc(agendaProfessionalProfiles.displayName));
 
-        const filtered = filterAgendaMarketplaceProfiles(rows, {
+        // A published flag can become stale between billing changes and the
+        // profile sync. Never advertise a profile that cannot accept bookings.
+        const bookableRows = rows.filter((row: { plan: string; planExpiresAt: Date | null }) => hasAgendaFullAccess(row));
+        const filtered = filterAgendaMarketplaceProfiles(bookableRows, {
             country,
             region,
             regionId,

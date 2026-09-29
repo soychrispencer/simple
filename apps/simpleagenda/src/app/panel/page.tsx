@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     IconCalendar, IconUsers, IconCreditCard, IconClockHour4, IconTrendingUp, IconTrendingDown, IconMinus, IconChevronRight, } from '@tabler/icons-react';
 import Link from 'next/link';
@@ -118,17 +118,26 @@ export default function PanelHomePage() {
     const [stats, setStats] = useState<AgendaStats | null>(null);
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const fmt = usePanelFormatters();
 
-    useEffect(() => {
-        const load = async () => {
+    const load = useCallback(async () => {
+        setLoading(true);
+        setLoadError('');
+        try {
             const [s, p] = await Promise.all([fetchAgendaStats(), fetchAgendaProfile()]);
             setStats(s);
             setProfile(p);
+        } catch {
+            setLoadError('Revisa tu conexión e inténtalo de nuevo.');
+        } finally {
             setLoading(false);
-        };
-        void load();
+        }
     }, []);
+
+    useEffect(() => {
+        void load();
+    }, [load]);
 
     const greeting = profile?.displayName ? `Hola, ${profile.displayName.split(' ')[0]}` : null;
     const dateLabel = fmtTodayLabel(fmt.timezone);
@@ -176,6 +185,13 @@ export default function PanelHomePage() {
             <PanelPageHeader title="Mi panel" description={panelDescription} className="min-w-0" />
 
             <AgendaOnboardingRail className="mb-4" />
+
+            {loadError && (
+                <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:text-red-100">
+                    <span>No se pudo cargar el resumen: {loadError}</span>
+                    <button type="button" className="font-semibold underline" onClick={() => void load()}>Reintentar</button>
+                </div>
+            )}
 
             <div className="grid gap-4 pb-2">
                 <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-4">
