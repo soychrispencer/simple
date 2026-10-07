@@ -43,6 +43,10 @@ export type SubscriptionPlan = {
     apiAccess: boolean;
     recommended?: boolean;
     isComingSoon?: boolean;
+    promotion?: {
+        priceMonthly: number;
+        durationMonths: number;
+    };
     features: string[];
 };
 

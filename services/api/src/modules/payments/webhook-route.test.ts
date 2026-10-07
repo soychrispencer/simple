@@ -7,11 +7,13 @@ vi.mock('../mercadopago/service.js', () => ({
         status: 'approved',
         external_reference: 'order-webhook-1',
     }),
+    getPreapprovalById: vi.fn(),
+    updatePreapprovalRecurringAmount: vi.fn(),
 }));
 
 import { createPaymentsRouter } from './router.js';
 import type { PaymentsRouterDeps } from './router.js';
-import { getPaymentById } from '../mercadopago/service.js';
+import { getPaymentById, getPreapprovalById, updatePreapprovalRecurringAmount } from '../mercadopago/service.js';
 
 function makeDeps(overrides: Partial<PaymentsRouterDeps> = {}): PaymentsRouterDeps {
     const order = {
@@ -113,5 +115,33 @@ describe('POST /payments/mercadopago/webhook', () => {
         const json = await response.json();
         expect(json).toMatchObject({ ok: true });
         expect(getPaymentById).toHaveBeenCalledWith('mp-pay-99');
+    });
+
+    it('restaura el precio regular de SimpleAgenda después de seis cobros promocionales', async () => {
+        vi.mocked(getPaymentById).mockResolvedValueOnce({
+            status: 'approved',
+            external_reference: 'order-not-found',
+            preapproval_id: 'agenda-sub-1',
+        });
+        vi.mocked(getPreapprovalById).mockResolvedValueOnce({
+            reason: 'Suscripción Pro · SimpleAgenda',
+            auto_recurring: { transaction_amount: 11888 },
+            summarized: { charged_quantity: 6 },
+        });
+
+        const app = new Hono();
+        app.route('/api', createPaymentsRouter(makeDeps()));
+        const response = await app.request('/api/payments/mercadopago/webhook?topic=payment&id=mp-pay-promo', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ type: 'payment', data: { id: 'mp-pay-promo' } }),
+        });
+
+        expect(response.status).toBe(200);
+        expect(updatePreapprovalRecurringAmount).toHaveBeenCalledWith({
+            preapprovalId: 'agenda-sub-1',
+            amount: 23788,
+            currencyId: 'CLP',
+        });
     });
 });

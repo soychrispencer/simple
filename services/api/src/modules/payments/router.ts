@@ -6,7 +6,7 @@ import {
     mercadoPagoDevCheckoutFallbackEnabled,
     resolveMercadoPagoPreferenceCheckoutUrl,
 } from '../mercadopago/checkout-helpers.js';
-import { getPaymentById, getPreapprovalById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
+import { getPaymentById, getPreapprovalById, updatePreapprovalRecurringAmount, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
 import { serenataPlanMonthlyChargeClp, defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import {
     catalogPaidPlans,
@@ -28,6 +28,7 @@ import {
     localizePaidPlansForBilling,
 } from '../billing/subscription-billing.js';
 import { isPlatformLaunchActive } from '@simple/utils';
+import { shouldUpgradeAgendaPromotion, AGENDA_INTRO_PROMOTION } from './promotion.js';
 
 export type PaymentsRouterDeps = {
     authUser: (c: any) => Promise<any | null>;
@@ -849,6 +850,13 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     planId: plan.id,
                     planName: plan.name,
                     chargeAmountClp: subscriptionCurrency === 'CLP' ? subscriptionChargeAmount : undefined,
+                    promotion: vertical === 'agenda' && plan.promotion ? {
+                        promoPriceMonthly: plan.promotion.priceMonthly,
+                        regularPriceMonthly: plan.priceMonthly,
+                        durationMonths: plan.promotion.durationMonths,
+                        currency: 'CLP',
+                        taxInclusive: false,
+                    } : undefined,
                     provider: paymentProvider,
                 },
             });
@@ -1097,6 +1105,29 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             const providerStatus = String(providerPayload.status ?? '');
             if (providerStatus !== 'approved') {
                 return c.json({ ok: true });
+            }
+
+            const preapprovalId = String(providerPayload.preapproval_id ?? '');
+            if (preapprovalId) {
+                try {
+                    const preapproval = await getPreapprovalById(preapprovalId);
+                    const recurring = (preapproval.auto_recurring ?? {}) as Record<string, unknown>;
+                    const summary = (preapproval.summarized ?? {}) as Record<string, unknown>;
+                    if (shouldUpgradeAgendaPromotion({
+                        reason: preapproval.reason,
+                        chargedQuantity: summary.charged_quantity,
+                        currentAmount: recurring.transaction_amount,
+                    })) {
+                        await updatePreapprovalRecurringAmount({
+                            preapprovalId,
+                            amount: Math.round(AGENDA_INTRO_PROMOTION.regularNetMonthly * 1.19),
+                            currencyId: AGENDA_INTRO_PROMOTION.currency,
+                        });
+                    }
+                } catch (promotionError) {
+                    // The recurring payment is already approved; keep the webhook healthy and retry on the next event.
+                    console.error('[payments] No se pudo actualizar el precio promocional de SimpleAgenda:', promotionError);
+                }
             }
 
             const orderId = String(providerPayload.external_reference ?? '');

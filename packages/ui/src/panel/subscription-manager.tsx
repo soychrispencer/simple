@@ -232,6 +232,7 @@ export function SubscriptionManager({
 
     const trial = useMemo(() => trialMeta(catalog, currentPlanId), [catalog, currentPlanId]);
     const proPlan = paidPlans[0] ?? null;
+    const subscriptionPromotion = currentPlanId === 'pro' ? null : proPlan?.promotion ?? null;
 
     const startCheckout = async (planId: Exclude<SubscriptionPlanId, 'free'>) => {
         setBusyPlanId(planId);
@@ -396,12 +397,18 @@ export function SubscriptionManager({
                             <div className="mt-6 rounded-xl border border-(--border) bg-(--bg-subtle) p-4">
                                 <p className="text-3xl font-bold tracking-tight text-(--fg)">
                                     {proPlan.currency === 'USD' ? 'US$' : '$'}
-                                    {formatMoney(proPlan.priceMonthly, proPlan.currency)}
+                                    {formatMoney(subscriptionPromotion?.priceMonthly ?? proPlan.priceMonthly, proPlan.currency)}
                                     <span className="ml-1 text-base font-medium text-(--fg-muted)">
                                         {proPlan.currency === 'USD' ? '/ mes' : '+ IVA / mes'}
                                     </span>
                                 </p>
-                                {proPlan.currency === 'CLP' ? (
+                                {proPlan.currency === 'CLP' && subscriptionPromotion ? (
+                                    <p className="mt-1 text-sm leading-relaxed text-(--fg-secondary)">
+                                        Precio promocional por {subscriptionPromotion.durationMonths} meses. Luego, ${formatMoney(proPlan.priceMonthly, 'CLP')} + IVA / mes.
+                                        <br />
+                                        Total estimado: ${formatMoney(monthlyTotalWithVat(subscriptionPromotion.priceMonthly), 'CLP')} / mes durante la promoción; después, ${formatMoney(monthlyTotalWithVat(proPlan.priceMonthly), 'CLP')} / mes.
+                                    </p>
+                                ) : proPlan.currency === 'CLP' ? (
                                     <p className="mt-1 text-sm text-(--fg-secondary)">
                                         Total estimado: ${formatMoney(monthlyTotalWithVat(proPlan.priceMonthly), 'CLP')} / mes
                                     </p>
@@ -502,8 +509,12 @@ export function SubscriptionManager({
                                     <div>
                                         <p className="text-sm font-medium text-(--fg)">Cobro transparente</p>
                                         <p className="text-xs leading-relaxed text-(--fg-muted)">
-                                            Neto ${formatMoney(proPlan.priceMonthly)} + IVA 19% (${formatMoney(monthlyTotalWithVat(proPlan.priceMonthly) - proPlan.priceMonthly)}).
-                                            El checkout de Mercado Pago muestra el monto final.
+                                            {subscriptionPromotion ? (
+                                                <>Neto ${formatMoney(subscriptionPromotion.priceMonthly)} + IVA 19% por {subscriptionPromotion.durationMonths} meses; luego ${formatMoney(proPlan.priceMonthly)} + IVA al mes.</>
+                                            ) : (
+                                                <>Neto ${formatMoney(proPlan.priceMonthly)} + IVA 19% (${formatMoney(monthlyTotalWithVat(proPlan.priceMonthly) - proPlan.priceMonthly)}).</>
+                                            )}
+                                            {' '}El checkout de Mercado Pago muestra el monto final.
                                         </p>
                                     </div>
                                 </div>

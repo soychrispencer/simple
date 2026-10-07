@@ -225,6 +225,22 @@ export async function getPreapprovalById(preapprovalId: string): Promise<Mercado
     });
 }
 
+export async function updatePreapprovalRecurringAmount(input: {
+    preapprovalId: string;
+    amount: number;
+    currencyId: string;
+}): Promise<void> {
+    await requestMercadoPago(`/preapproval/${encodeURIComponent(input.preapprovalId)}`, {
+        method: 'PUT',
+        body: {
+            auto_recurring: {
+                transaction_amount: input.amount,
+                currency_id: input.currencyId,
+            },
+        },
+    });
+}
+
 export async function cancelPreapproval(preapprovalId: string): Promise<void> {
     await requestMercadoPago(`/preapproval/${encodeURIComponent(preapprovalId)}`, {
         method: 'PUT',

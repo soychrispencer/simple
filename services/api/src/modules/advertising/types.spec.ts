@@ -18,5 +18,9 @@ describe('Agenda subscription catalog', () => {
     it('exposes trial and pro plans only', () => {
         const plans = SUBSCRIPTION_PLANS_BY_VERTICAL.agenda;
         expect(plans.map((plan) => plan.id)).toEqual(['free', 'pro']);
+        expect(plans.find((plan) => plan.id === 'pro')).toMatchObject({
+            priceMonthly: 19990,
+            promotion: { priceMonthly: 9990, durationMonths: 6 },
+        });
     });
 });

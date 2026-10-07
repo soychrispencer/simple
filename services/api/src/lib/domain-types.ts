@@ -338,6 +338,10 @@ export type SubscriptionPlanRecord = {
     apiAccess: boolean;
     recommended?: boolean;
     isComingSoon?: boolean;
+    promotion?: {
+        priceMonthly: number;
+        durationMonths: number;
+    };
     maxFreeBoostsPerMonth: number;
     features: string[];
 };

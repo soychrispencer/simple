@@ -18,7 +18,10 @@ export function getMercadoPagoSubscriptionChargeClp(
 ): number {
     const withVat = (vertical === 'agenda' || vertical === 'serenatas') && plan.id === 'pro';
     if (withVat) {
-        return Math.round(plan.priceMonthly * (1 + 1900 / 10_000));
+        const netPrice = vertical === 'agenda' && plan.promotion
+            ? plan.promotion.priceMonthly
+            : plan.priceMonthly;
+        return Math.round(netPrice * (1 + 1900 / 10_000));
     }
     return plan.priceMonthly;
 }

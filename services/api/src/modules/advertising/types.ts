@@ -1,5 +1,6 @@
 // Advertising types and constants
 import { MARKETPLACE_AD_PRICING } from '@simple/utils';
+import { AGENDA_INTRO_PROMOTION } from '../billing/agenda-promotion.js';
 export type AdFormat = 'hero' | 'card' | 'inline';
 export type AdDurationDays = 7 | 15 | 30;
 export type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'proyectos' | 'subastas' | 'mariachis' | 'professionals';
@@ -56,6 +57,10 @@ export type SubscriptionPlanRecord = {
     apiAccess: boolean;
     maxFreeBoostsPerMonth: number;
     recommended?: boolean;
+    promotion?: {
+        priceMonthly: number;
+        durationMonths: number;
+    };
     features: string[];
 };
 
@@ -203,7 +208,11 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
             id: 'pro',
             name: 'Pro',
             description: 'Para profesionales y equipos con operación diaria.',
-            priceMonthly: 19990,
+            priceMonthly: AGENDA_INTRO_PROMOTION.regularNetMonthly,
+            promotion: {
+                priceMonthly: AGENDA_INTRO_PROMOTION.promoNetMonthly,
+                durationMonths: AGENDA_INTRO_PROMOTION.months,
+            },
             currency: 'CLP',
             maxListings: 0,
             maxFeaturedListings: 0,
