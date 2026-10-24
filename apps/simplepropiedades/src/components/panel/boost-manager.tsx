@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { MarketplaceBoostManager } from '@simple/ui/panel';
+import { isMarketplacePaidPromotionEnabled } from '@simple/utils';
 import { confirmCheckout, startBoostCheckout } from '@/lib/payments';
 
 export default function BoostManager() {
@@ -11,6 +12,7 @@ export default function BoostManager() {
     return (
         <MarketplaceBoostManager
             vertical="propiedades"
+            paidBoostsEnabled={isMarketplacePaidPromotionEnabled('propiedades')}
             initialListingId={initialListingId}
             startBoostCheckout={startBoostCheckout}
             confirmCheckout={confirmCheckout}

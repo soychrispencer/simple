@@ -15,7 +15,7 @@ import {
 } from '@/lib/advertising';
 import { confirmCheckout, startAdvertisingCheckout } from '@/lib/payments';
 import { MarketplaceCampaignBuilder, MarketplacePublicidadShell } from '@simple/ui/panel';
-import { getVerticalAdvertisingConfig } from '@simple/utils';
+import { getVerticalAdvertisingConfig, isMarketplacePaidPromotionEnabled } from '@simple/utils';
 
 const VERTICAL = 'propiedades' as const;
 const config = getVerticalAdvertisingConfig(VERTICAL);
@@ -44,6 +44,7 @@ export default function PublicidadPage() {
       campaignsContent={
         <MarketplaceCampaignBuilder
           vertical={VERTICAL}
+          paidPromotionsEnabled={isMarketplacePaidPromotionEnabled(VERTICAL)}
           fetchListingOptions={fetchListingOptions}
           startAdvertisingCheckout={startAdvertisingCheckout}
           confirmCheckout={confirmCheckout}

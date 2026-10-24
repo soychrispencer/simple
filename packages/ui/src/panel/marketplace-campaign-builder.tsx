@@ -81,6 +81,7 @@ export type MarketplaceAdvertisingClient = {
 
 export type MarketplaceCampaignBuilderProps = {
     vertical: AdvertisingVertical;
+    paidPromotionsEnabled?: boolean;
     fetchListingOptions: () => Promise<Array<{ label: string; href: string }>>;
     fetchProfileSlug?: () => Promise<string | null>;
     startAdvertisingCheckout: (input: {
@@ -292,6 +293,7 @@ function getListingDestinationCopy(vertical: AdvertisingVertical) {
 
 export function MarketplaceCampaignBuilder({
     vertical,
+    paidPromotionsEnabled = true,
     fetchListingOptions,
     fetchProfileSlug,
     startAdvertisingCheckout,
@@ -602,6 +604,10 @@ export function MarketplaceCampaignBuilder({
     };
 
     const createCampaign = async () => {
+        if (!paidPromotionsEnabled && !isEditing) {
+            setError('La publicidad pagada está pausada temporalmente en SimplePropiedades.');
+            return;
+        }
         const step0Issue = validateStep(0);
         if (step0Issue) return setError(step0Issue);
         const step1Issue = validateStep(1);
@@ -696,6 +702,10 @@ export function MarketplaceCampaignBuilder({
     };
 
     const startCampaignCheckout = async (campaignId: string) => {
+        if (!paidPromotionsEnabled) {
+            setError('La publicidad pagada está pausada temporalmente en SimplePropiedades.');
+            return;
+        }
         setError('');
         setMessage('');
         const checkout = await startAdvertisingCheckout({
@@ -814,7 +824,7 @@ export function MarketplaceCampaignBuilder({
 
     return (
         <>
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
+            <div className={`grid grid-cols-2 ${paidPromotionsEnabled ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-3 mb-6`}>
                 <div className={`${theme}-stat-tile`}>
                     <p className="type-caption text-[var(--fg-muted)]">Vigentes</p>
                     <p className="text-xl font-semibold">
@@ -831,10 +841,12 @@ export function MarketplaceCampaignBuilder({
                     <p className="type-caption text-[var(--fg-muted)]">Programadas</p>
                     <p className="text-xl font-semibold">{counters.scheduled}</p>
                 </div>
-                <div className={`${theme}-stat-tile`}>
-                    <p className="type-caption text-[var(--fg-muted)]">Costo referencial</p>
-                    <p className="text-xl font-semibold">${selected.price[duration].toLocaleString('es-CL')}</p>
-                </div>
+                {paidPromotionsEnabled ? (
+                    <div className={`${theme}-stat-tile`}>
+                        <p className="type-caption text-[var(--fg-muted)]">Costo referencial</p>
+                        <p className="text-xl font-semibold">${selected.price[duration].toLocaleString('es-CL')}</p>
+                    </div>
+                ) : null}
             </div>
 
             {error ? (
@@ -845,6 +857,11 @@ export function MarketplaceCampaignBuilder({
             {message ? (
                 <PanelNotice tone="success" className="mb-3">
                     {message}
+                </PanelNotice>
+            ) : null}
+            {!paidPromotionsEnabled ? (
+                <PanelNotice tone="neutral" className="mb-6">
+                    La publicidad pagada está pausada mientras ampliamos las publicaciones y visitas de SimplePropiedades. Publicar sigue siendo gratis.
                 </PanelNotice>
             ) : null}
             {isEditing && editingCampaign ? (
@@ -858,7 +875,8 @@ export function MarketplaceCampaignBuilder({
                 </div>
             ) : null}
 
-            <div className="mb-6">
+            {paidPromotionsEnabled || isEditing ? (
+                <div className="mb-6">
                 <PanelStepNav
                     items={['Formato', 'Creatividad', 'Activar'].map((label, index) => ({
                         key: String(index),
@@ -871,9 +889,11 @@ export function MarketplaceCampaignBuilder({
                     ariaLabel="Pasos de publicidad"
                     labelBreakpoint="always"
                 />
-            </div>
+                </div>
+            ) : null}
 
-            <PanelCard className="mb-8" size="md">
+            {paidPromotionsEnabled || isEditing ? (
+                <PanelCard className="mb-8" size="md">
                 {step === 0 ? (
                     <div className="space-y-5">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1277,12 +1297,13 @@ export function MarketplaceCampaignBuilder({
                         ) : null
                     }
                 />
-            </PanelCard>
+                </PanelCard>
+            ) : null}
 
             <PanelCard size="md">
                 <PanelBlockHeader
                     title="Campañas creadas"
-                    description="Pausa, reanuda o elimina campañas desde aquí."
+                    description={paidPromotionsEnabled ? 'Pausa, reanuda o elimina campañas desde aquí.' : 'Gestiona aquí tus campañas existentes.'}
                 />
 
                 {campaigns.length === 0 ? (
@@ -1345,7 +1366,7 @@ export function MarketplaceCampaignBuilder({
                                             ) : null}
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
-                                            {campaign.paymentStatus !== 'paid' && campaign.status !== 'ended' ? (
+                                            {paidPromotionsEnabled && campaign.paymentStatus !== 'paid' && campaign.status !== 'ended' ? (
                                                 <PanelButton
                                                     onClick={() => void startCampaignCheckout(campaign.id)}
                                                     variant="primary"
@@ -1363,13 +1384,15 @@ export function MarketplaceCampaignBuilder({
                                                     <IconPencil size={14} /> Editar
                                                 </PanelButton>
                                             ) : null}
-                                            <PanelButton
-                                                onClick={() => duplicateCampaign(campaign.id)}
-                                                variant="secondary"
-                                                size="sm"
-                                            >
-                                                <IconCopy size={14} /> Duplicar
-                                            </PanelButton>
+                                            {paidPromotionsEnabled ? (
+                                                <PanelButton
+                                                    onClick={() => duplicateCampaign(campaign.id)}
+                                                    variant="secondary"
+                                                    size="sm"
+                                                >
+                                                    <IconCopy size={14} /> Duplicar
+                                                </PanelButton>
+                                            ) : null}
                                             {campaign.status !== 'ended' ? (
                                                 <PanelButton
                                                     onClick={() => togglePause(campaign.id)}

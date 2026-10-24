@@ -33,6 +33,7 @@ import { PanelBlockHeader, PanelChoiceCard, PanelNotice, PanelStatusBadge } from
 
 export type MarketplaceBoostManagerProps = {
     vertical: AdvertisingVertical;
+    paidBoostsEnabled?: boolean;
     /** URL de retorno tras Mercado Pago. Si se omite, usa la ruta actual con `?tab=boost`. */
     returnUrl?: string;
     initialListingId?: string | null;
@@ -101,6 +102,7 @@ function getThemePrefix(vertical: AdvertisingVertical): 'autos' | 'prop' {
 
 export function MarketplaceBoostManager({
     vertical,
+    paidBoostsEnabled = true,
     returnUrl,
     initialListingId,
     startBoostCheckout,
@@ -310,7 +312,7 @@ export function MarketplaceBoostManager({
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+            <div className={`grid grid-cols-2 ${paidBoostsEnabled ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-3`}>
                 <div className={`${theme}-stat-tile`}>
                     <p className="type-caption text-[var(--fg-muted)]">Boosts activos</p>
                     <p className="text-xl font-semibold">{orders.filter((item) => item.status === 'active').length}</p>
@@ -328,14 +330,21 @@ export function MarketplaceBoostManager({
                         {sectionSlots ? `${sectionSlots.used}/${sectionSlots.max}` : '—'}
                     </p>
                 </div>
-                <div className={`${theme}-stat-tile`}>
-                    <p className="type-caption text-[var(--fg-muted)]">Boost de pago</p>
-                    <p className="text-xl font-semibold">{selectedPlan ? formatClCurrency(selectedPlan.price) : '—'}</p>
-                </div>
+                {paidBoostsEnabled ? (
+                    <div className={`${theme}-stat-tile`}>
+                        <p className="type-caption text-[var(--fg-muted)]">Boost de pago</p>
+                        <p className="text-xl font-semibold">{selectedPlan ? formatClCurrency(selectedPlan.price) : '—'}</p>
+                    </div>
+                ) : null}
             </div>
 
             {error ? <PanelNotice tone="error">{error}</PanelNotice> : null}
             {message ? <PanelNotice tone="success">{message}</PanelNotice> : null}
+            {!paidBoostsEnabled ? (
+                <PanelNotice tone="neutral">
+                    Los impulsos pagados están pausados mientras ampliamos las publicaciones y visitas de SimplePropiedades. Publicar sigue siendo gratis.
+                </PanelNotice>
+            ) : null}
 
             <PanelCard size="md">
                 <PanelBlockHeader
@@ -350,6 +359,10 @@ export function MarketplaceBoostManager({
                             Ir a configurar
                         </Link>
                         .
+                    </PanelNotice>
+                ) : !paidBoostsEnabled && !hasFreeBoostAvailable(freeBoostQuota) ? (
+                    <PanelNotice tone="neutral">
+                        Tu plan {freeBoostQuota.planName ?? 'Gratuito'} no incluye impulsos sin costo. Los impulsos pagados están pausados durante la etapa inicial; puedes seguir publicando gratis.
                     </PanelNotice>
                 ) : (
                     <div className="space-y-5">
@@ -415,13 +428,15 @@ export function MarketplaceBoostManager({
                                             <p className="text-sm font-semibold">{plan.name}</p>
                                         </div>
                                         <p className="type-caption text-[var(--fg-muted)]">{plan.days} días · hasta {plan.visibilityLift} visibilidad</p>
-                                        <p className="text-base font-semibold mt-2">{formatClCurrency(plan.price)}</p>
+                                        {paidBoostsEnabled ? (
+                                            <p className="text-base font-semibold mt-2">{formatClCurrency(plan.price)}</p>
+                                        ) : null}
                                     </PanelChoiceCard>
                                 ))}
                             </div>
                         </div>
 
-                        {freeBoostQuota.max === 0 && !freeBoostQuota.unlimited ? (
+                        {freeBoostQuota.max === 0 && !freeBoostQuota.unlimited && paidBoostsEnabled ? (
                             <PanelNotice tone="neutral">
                                 Tu plan {freeBoostQuota.planName ?? 'Gratuito'} no incluye boosts gratis este mes.
                                 Puedes activar un boost de pago o mejorar a Profesional (3 gratis/mes).
@@ -439,14 +454,16 @@ export function MarketplaceBoostManager({
                                     {freeBoostButtonLabel(freeBoostQuota)}
                                 </PanelButton>
                             ) : null}
-                            <PanelButton
-                                onClick={() => void startPaidCheckout()}
-                                variant="primary"
-                                disabled={submitting || !selectedListing || !selectedPlan || (sectionSlots?.used ?? 0) >= (sectionSlots?.max ?? 10)}
-                                className="sm:flex-1"
-                            >
-                                Pagar con Mercado Pago <IconArrowRight size={14} />
-                            </PanelButton>
+                            {paidBoostsEnabled ? (
+                                <PanelButton
+                                    onClick={() => void startPaidCheckout()}
+                                    variant="primary"
+                                    disabled={submitting || !selectedListing || !selectedPlan || (sectionSlots?.used ?? 0) >= (sectionSlots?.max ?? 10)}
+                                    className="sm:flex-1"
+                                >
+                                    Pagar con Mercado Pago <IconArrowRight size={14} />
+                                </PanelButton>
+                            ) : null}
                         </div>
                     </div>
                 )}

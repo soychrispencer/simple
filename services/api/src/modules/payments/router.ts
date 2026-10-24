@@ -27,7 +27,7 @@ import {
     getSubscriptionBillingCharge,
     localizePaidPlansForBilling,
 } from '../billing/subscription-billing.js';
-import { isPlatformLaunchActive } from '@simple/utils';
+import { isMarketplacePaidPromotionEnabled, isPlatformLaunchActive } from '@simple/utils';
 import { shouldUpgradeAgendaPromotion, AGENDA_INTRO_PROMOTION } from './promotion.js';
 
 export type PaymentsRouterDeps = {
@@ -519,6 +519,16 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             return c.json({
                 ok: false,
                 error: 'Los planes de suscripción estarán disponibles próximamente.',
+            }, 403);
+        }
+
+        if (
+            (checkoutData.kind === 'boost' || checkoutData.kind === 'advertising')
+            && !isMarketplacePaidPromotionEnabled(checkoutData.vertical)
+        ) {
+            return c.json({
+                ok: false,
+                error: 'Los impulsos y la publicidad pagada de SimplePropiedades están pausados durante la etapa inicial.',
             }, 403);
         }
 

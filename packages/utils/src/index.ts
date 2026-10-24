@@ -31,6 +31,7 @@ export * from './operator-publish-context.js';
 export * from './operator-publish-defaults.js';
 export * from './marketplace-listings.js';
 export * from './marketplace-launch.js';
+export * from './marketplace-promotions.js';
 export * from './platform-launch-landing.js';
 export * from './agenda-profession-config.js';
 export * from './saved-listings.js';
