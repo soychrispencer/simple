@@ -49,11 +49,13 @@ export function useAgendaBusinessSetup(enabled = true) {
         window.addEventListener('focus', onRefresh);
         window.addEventListener('simple:agenda-profile-changed', onRefresh);
         window.addEventListener('simple:agenda-publish-changed', onRefresh);
+        window.addEventListener('simple:agenda-setup-changed', onRefresh);
 
         return () => {
             window.removeEventListener('focus', onRefresh);
             window.removeEventListener('simple:agenda-profile-changed', onRefresh);
             window.removeEventListener('simple:agenda-publish-changed', onRefresh);
+            window.removeEventListener('simple:agenda-setup-changed', onRefresh);
         };
     }, [enabled, reload]);
 

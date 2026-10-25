@@ -30,6 +30,7 @@ import {
     createAgendaService,
     updateAgendaService,
     deleteAgendaService,
+    notifyAgendaSetupChanged,
     type AgendaService,
 } from '@/lib/agenda-api';
 
@@ -158,16 +159,19 @@ function ServiciosConfigPageContent() {
             const result = id
                 ? await updateAgendaService(id, buildAgendaServicePayload(form))
                 : await createAgendaService(buildAgendaServicePayload(form));
+            if (result.ok) notifyAgendaSetupChanged();
             return result.ok
                 ? { ok: true }
                 : { ok: false, error: result.error ?? 'Error al guardar.' };
         },
         toggle: async (service) => {
             const result = await updateAgendaService(service.id, { isActive: !service.isActive });
+            if (result.ok) notifyAgendaSetupChanged();
             return { ok: result.ok, error: result.error };
         },
         remove: async (service) => {
             const result = await deleteAgendaService(service.id);
+            if (result.ok) notifyAgendaSetupChanged();
             return result.ok ? { ok: true } : { ok: false, error: 'No se pudo archivar el servicio.' };
         },
         toForm: serviceToForm,
@@ -221,11 +225,14 @@ function ServiciosConfigPageContent() {
                     Los servicios activos solo se pueden reservar mientras tu perfil público esté publicado.
                 </p>
 
+                <div id="agenda-first-service" className="scroll-mt-24">
                 <BusinessCatalogServiceEditor
                     adapter={adapter}
                     emptyForm={AGENDA_EMPTY_SERVICE}
                     formLayout="modal"
                     resolveFormFieldsProps={({ form, setForm }) => ({
+                        imageOptional: true,
+                        priceOptional: true,
                         showPromoPrice: false,
                         extraFields: (
                             <BusinessCatalogAgendaServiceFields
@@ -245,12 +252,13 @@ function ServiciosConfigPageContent() {
                         ),
                     })}
                     copy={{
-                        modalDescription: 'Citas individuales o sesiones grupales con cupo limitado.',
+                        modalDescription: 'Empieza con un nombre y una duración. El precio, la imagen y las preguntas previas son opcionales.',
                         emptyTitle: 'Todavía no pueden reservarte',
-                        emptyDescription: 'Crea tu primer servicio (nombre, duración y precio). Luego defines horario y publicas tu link.',
+                        emptyDescription: 'Crea tu primer servicio con nombre y duración. El precio puede agregarse después; luego defines horario y publicas tu link.',
                         archiveMessage: (name) => `"${name}" dejará de estar disponible. Podrás reactivarlo con el interruptor.`,
                     }}
                 />
+                </div>
             </div>
         </AgendaMisServiciosShell>
     );

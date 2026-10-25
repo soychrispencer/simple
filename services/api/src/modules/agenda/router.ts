@@ -12,8 +12,6 @@ import {
 } from './marketplace.js';
 import {
     normalizeOperatorSubtype,
-    operatorBrandMediaMissing,
-    operatorBrandMediaPublishError,
     isOperatorSubtypeOther,
     requiresOperatorSubtypeCustom,
     resolveOperatorDisplayLabel,
@@ -363,26 +361,51 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             );
         }
         if ('isPublished' in body && body.isPublished === true) {
-            const nextAvatarUrl = 'avatarUrl' in body
-                ? (body.avatarUrl === null
-                    ? null
-                    : typeof body.avatarUrl === 'string'
-                      ? body.avatarUrl.trim() || null
-                      : profile.avatarUrl ?? null)
-                : profile.avatarUrl ?? null;
-            const nextCoverUrl = 'coverUrl' in body
-                ? (body.coverUrl === null
-                    ? null
-                    : typeof body.coverUrl === 'string'
-                      ? body.coverUrl.trim() || null
-                      : profile.coverUrl ?? null)
-                : profile.coverUrl ?? null;
-            const mediaMissing = operatorBrandMediaMissing({
-                logoUrl: nextAvatarUrl,
-                coverUrl: nextCoverUrl,
-            });
-            if (mediaMissing.length > 0) {
-                return c.json({ ok: false, error: operatorBrandMediaPublishError(mediaMissing) }, 400);
+            const missing: string[] = [];
+            const displayName = typeof body.displayName === 'string'
+                ? body.displayName.trim()
+                : profile.displayName?.trim();
+            const profession = typeof body.profession === 'string'
+                ? body.profession.trim()
+                : profile.profession?.trim();
+            const slug = typeof body.slug === 'string'
+                ? body.slug.trim()
+                : profile.slug?.trim();
+
+            if (!displayName) missing.push('nombre público');
+            if (!profession) missing.push('actividad');
+            if (!slug) missing.push('enlace público');
+
+            const [activeService] = await db
+                .select({ id: agendaServices.id })
+                .from(agendaServices)
+                .where(and(
+                    eq(agendaServices.professionalId, profile.id),
+                    eq(agendaServices.isActive, true),
+                ))
+                .limit(1);
+            if (!activeService) missing.push('un servicio');
+
+            const activeAvailability = await db
+                .select({
+                    startTime: agendaAvailabilityRules.startTime,
+                    endTime: agendaAvailabilityRules.endTime,
+                })
+                .from(agendaAvailabilityRules)
+                .where(and(
+                    eq(agendaAvailabilityRules.professionalId, profile.id),
+                    eq(agendaAvailabilityRules.isActive, true),
+                ));
+            const hasAvailability = activeAvailability.some((rule: { startTime: string; endTime: string }) => (
+                Boolean(rule.startTime && rule.endTime)
+            ));
+            if (!profile.alwaysOpen && !hasAvailability) missing.push('un horario');
+
+            if (missing.length > 0) {
+                return c.json({
+                    ok: false,
+                    error: `Para publicar tu agenda, completa: ${missing.join(', ')}.`,
+                }, 400);
             }
         }
         const patch: Record<string, unknown> = { updatedAt: new Date() };

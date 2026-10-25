@@ -25,6 +25,7 @@ import {
     replaceAgendaAvailability,
     createBlockedSlot,
     deleteBlockedSlot,
+    notifyAgendaSetupChanged,
     type AvailabilityRule,
     type BlockedSlot,
 } from '@/lib/agenda-api';
@@ -162,6 +163,7 @@ export default function HorariosConfigPage() {
         setWeeklyBreak(breakConfig);
         setSavedSnapshot(buildSnapshot(alwaysOpen, scheduleNote, breakConfig, rules));
         setWeeklyStatus('Guardado');
+        notifyAgendaSetupChanged();
     };
 
     const handleLoadDefaults = async () => {
@@ -177,6 +179,7 @@ export default function HorariosConfigPage() {
             return;
         }
         await load();
+        notifyAgendaSetupChanged();
         setLoadingDefault(false);
     };
 
@@ -314,6 +317,7 @@ export default function HorariosConfigPage() {
 
             <AgendaSetupTip focusStepId="horarios" className="mb-4" />
 
+            <div id="agenda-availability" className="scroll-mt-24">
             <BusinessSchedulePanel
                 hideTitle
                 days={scheduleDays}
@@ -372,6 +376,7 @@ export default function HorariosConfigPage() {
                     onSave: () => void handleSaveWeeklyRules(),
                 }}
             />
+            </div>
         </AgendaMiNegocioShell>
     );
 }

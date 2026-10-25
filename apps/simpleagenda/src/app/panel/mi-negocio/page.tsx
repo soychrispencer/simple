@@ -79,6 +79,7 @@ export default function PerfilConfigPage() {
     );
     const [businessLocations, setBusinessLocations] = useState<AgendaLocation[]>([]);
     const [showPrimaryAddress, setShowPrimaryAddress] = useState(false);
+    const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
     const formRef = useRef(form);
     formRef.current = form;
 
@@ -104,6 +105,22 @@ export default function PerfilConfigPage() {
                 setSocialLinks(loadSocialLinksFromProfile(profile as unknown as Record<string, unknown>));
                 setTimezone(profile.timezone ?? 'America/Santiago');
                 setBusinessLocation(agendaBusinessLocationFromProfile(profile));
+                setOptionalDetailsOpen(Boolean(
+                    profile.publicEmail?.trim()
+                    || profile.publicPhone?.trim()
+                    || profile.publicWhatsapp?.trim()
+                    || profile.websiteUrl?.trim()
+                    || profile.address?.trim()
+                    || profile.city?.trim()
+                    || profile.region?.trim()
+                    || profile.instagramUrl?.trim()
+                    || profile.facebookUrl?.trim()
+                    || profile.linkedinUrl?.trim()
+                    || profile.tiktokUrl?.trim()
+                    || profile.youtubeUrl?.trim()
+                    || profile.twitterUrl?.trim()
+                    || loadedLocations.length > 0
+                ));
             }
             setBusinessLocations(loadedLocations);
             const defaultLocation = loadedLocations.find((item) => item.isDefault) ?? null;
@@ -261,6 +278,7 @@ export default function PerfilConfigPage() {
         >
             <div className="grid min-w-0 gap-5">
                 <AgendaSetupTip focusStepId={['perfil', 'publicar']} />
+                <div id="agenda-public-profile" className="scroll-mt-24">
                 <PanelCard size="lg" className="space-y-5">
                     <PanelBlockHeader
                         title={BUSINESS_PUBLIC_INFO_SECTION.title}
@@ -303,7 +321,7 @@ export default function PerfilConfigPage() {
                                 }}
                             />
                         </div>
-                        <PanelField label={BUSINESS_DESCRIPTION_FIELD.label} hint={BUSINESS_DESCRIPTION_FIELD.hint} icon={<IconNotebook size={14} />} className="sm:col-span-2">
+                        <PanelField label={`${BUSINESS_DESCRIPTION_FIELD.label} (opcional)`} hint={BUSINESS_DESCRIPTION_FIELD.hint} icon={<IconNotebook size={14} />} className="sm:col-span-2">
                             <textarea
                                 value={form.bio}
                                 onChange={(e) => set('bio', e.target.value)}
@@ -314,24 +332,40 @@ export default function PerfilConfigPage() {
                         </PanelField>
                     </div>
                 </PanelCard>
+                </div>
 
-                <AgendaPublicProfileLocationContact
-                    form={contactForm}
-                    onFormChange={setContact}
-                    socialLinks={socialLinks}
-                    onSocialLinksChange={(links) => {
-                        setSaved(false);
-                        setSocialLinks(links);
-                    }}
-                    businessLocation={businessLocation}
-                    onBusinessLocationChange={setBusinessLocationField}
-                    defaultAddress={defaultAddress}
-                    showPrimaryAddress={showPrimaryAddress}
-                    onShowPrimaryAddressChange={setShowPrimaryAddressField}
-                    timezone={timezone}
-                    saving={saving}
-                    contactResetKey={slug}
-                />
+                <details
+                    open={optionalDetailsOpen}
+                    onToggle={(event) => setOptionalDetailsOpen(event.currentTarget.open)}
+                    className="scroll-mt-24 rounded-2xl border"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-(--fg) sm:px-5">
+                        Ubicación, contacto y redes (opcional)
+                        <span className="mt-1 block text-xs font-normal text-fg-muted">
+                            Agrégalos después, o completa una ubicación si atiendes presencialmente.
+                        </span>
+                    </summary>
+                    <div className="grid min-w-0 gap-5 px-4 pb-5 sm:px-5">
+                        <AgendaPublicProfileLocationContact
+                            form={contactForm}
+                            onFormChange={setContact}
+                            socialLinks={socialLinks}
+                            onSocialLinksChange={(links) => {
+                                setSaved(false);
+                                setSocialLinks(links);
+                            }}
+                            businessLocation={businessLocation}
+                            onBusinessLocationChange={setBusinessLocationField}
+                            defaultAddress={defaultAddress}
+                            showPrimaryAddress={showPrimaryAddress}
+                            onShowPrimaryAddressChange={setShowPrimaryAddressField}
+                            timezone={timezone}
+                            saving={saving}
+                            contactResetKey={slug}
+                        />
+                    </div>
+                </details>
 
                 <PanelSectionSaveFooter
                     saving={saving}

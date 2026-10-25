@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { OperatorServicePricingMode } from '@simple/utils';
 import { BusinessCatalogCalendarColorField } from './business-catalog-calendar-color-field.js';
 import { BusinessCatalogImageField } from './business-catalog-image-field.js';
@@ -41,6 +41,10 @@ export type BusinessCatalogServiceFormFieldsProps = {
     onModalityChange?: (key: 'isOnline' | 'isPresential', value: boolean) => void;
     /** Agenda y otras verticales sin precio oferta */
     showPromoPrice?: boolean;
+    /** En el primer servicio de Agenda la imagen no debe bloquear el alta ni ocupar el primer lugar. */
+    imageOptional?: boolean;
+    /** Aclara cuando una vertical permite guardar el servicio sin precio. */
+    priceOptional?: boolean;
 };
 
 /**
@@ -61,6 +65,8 @@ export function BusinessCatalogServiceFormFields({
     extraFields,
     extraFieldsClassName = 'md:col-span-2 space-y-4',
     showPromoPrice = true,
+    imageOptional = false,
+    priceOptional = false,
     showModality = false,
     isOnline = true,
     isPresential = false,
@@ -68,14 +74,23 @@ export function BusinessCatalogServiceFormFields({
 }: BusinessCatalogServiceFormFieldsProps) {
     const showPriceFields = !onPricingModeChange || pricingMode === 'fixed';
     const showPromo = showPromoPrice && showPriceFields;
+    const [imageDetailsOpen, setImageDetailsOpen] = useState(Boolean(values.imageUrl));
+
+    useEffect(() => {
+        if (values.imageUrl) setImageDetailsOpen(true);
+    }, [values.imageUrl]);
+
+    const imageField = (
+        <BusinessCatalogImageField
+            imageUrl={values.imageUrl}
+            onChange={(url) => onChange('imageUrl', url ?? '')}
+            onError={onImageError}
+        />
+    );
 
     return (
         <>
-            <BusinessCatalogImageField
-                imageUrl={values.imageUrl}
-                onChange={(url) => onChange('imageUrl', url ?? '')}
-                onError={onImageError}
-            />
+            {!imageOptional ? imageField : null}
 
             <PanelField label="Nombre" required className="md:col-span-2">
                 <input
@@ -118,7 +133,7 @@ export function BusinessCatalogServiceFormFields({
                     </PanelSelect>
                 </PanelField>
             ) : (
-                <PanelField label="Precio (CLP)">
+                <PanelField label={`Precio (CLP)${priceOptional ? ' (opcional)' : ''}`}>
                     <input
                         className={PANEL_INPUT_CLASS}
                         type="number"
@@ -168,6 +183,21 @@ export function BusinessCatalogServiceFormFields({
                         placeholder="Opcional"
                     />
                 </PanelField>
+            ) : null}
+
+            {imageOptional ? (
+                <details
+                    open={imageDetailsOpen}
+                    onToggle={(event) => setImageDetailsOpen(event.currentTarget.open)}
+                    className="md:col-span-2 rounded-xl border px-3 py-2"
+                    style={{ borderColor: 'var(--border)' }}
+                >
+                    <summary className="cursor-pointer text-sm font-medium text-(--fg)">
+                        Imagen del servicio (opcional)
+                        <span className="ml-2 text-xs font-normal text-fg-muted">Puedes agregarla después.</span>
+                    </summary>
+                    <div className="mt-3">{imageField}</div>
+                </details>
             ) : null}
 
             {categories && onCategoryChange ? (

@@ -43,6 +43,11 @@ async function agendaMutation<T extends { ok: boolean }>(
     }
 }
 
+export function notifyAgendaSetupChanged(): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new Event('simple:agenda-setup-changed'));
+}
+
 export type AgendaPlanId = 'free' | 'pro';
 
 import { isPlatformLaunchActive } from '@simple/utils';
