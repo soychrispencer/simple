@@ -25,7 +25,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
                 ) : (
                     <main className="min-h-screen flex-1">{children}</main>
                 )}
-                <MobileNav />
+                {pathname !== '/alianzas-inmobiliarias' ? <MobileNav /> : null}
                 <AuthModal />
                 <ScrollTopButton />
             </NavigationProvider>

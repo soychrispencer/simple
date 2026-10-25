@@ -429,6 +429,8 @@ import {
 } from './modules/media/generate-listing-reel.js';
 import { createSystemRouter } from './modules/system/index.js';
 import { createPublicRouter } from './modules/public/index.js';
+import { createPartnershipInquiryRouter } from './modules/public/partnership-inquiries.js';
+import { createPartnershipInquiryDelivery } from './modules/public/partnership-inquiry-delivery.js';
 import { attachSerenataPaymentOrder, createSerenatasRouter, getSerenataPaymentTarget, markSerenataPaymentFailed, publishPaidSerenataToOwners } from './modules/serenatas/index.js';
 import type {
     AccountRecord,
@@ -2416,6 +2418,11 @@ app.route('/api/public', createPublicRouter({
     estimateVehicleValuation,
     db,
     tables: { mortgageRates },
+}));
+
+app.route('/api/public/partnership-inquiries', createPartnershipInquiryRouter({
+    ...createPartnershipInquiryDelivery({ db, timelineEvents, eq }),
+    allowLocalOrigins: process.env.NODE_ENV !== 'production',
 }));
 
 app.use('/api/platform/*', requireVerifiedSession);

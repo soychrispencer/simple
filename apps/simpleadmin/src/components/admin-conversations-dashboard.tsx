@@ -70,9 +70,9 @@ export function AdminConversationsDashboard() {
                     <PanelListRow className="p-5"><PanelEmptyState title="Sin conversaciones" description="No hay contactos para este filtro." /></PanelListRow>
                 ) : items.map((item) => (
                     <PanelListRow key={item.threadId} className="grid gap-3 p-4 md:grid-cols-[minmax(160px,1fr)_minmax(200px,1.4fr)_90px_140px] md:items-center">
-                        <div>
-                            <p className="text-sm font-medium text-[var(--fg)]">{item.name || item.phone || item.threadId}</p>
-                            <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{item.phone || 'Sin teléfono'}{item.sourceVertical ? ` · ${item.sourceVertical}` : ''}</p>
+                        <div className="min-w-0">
+                            <p className="break-words text-sm font-medium text-[var(--fg)]">{item.name || item.email || item.phone || item.threadId}{item.company ? ` · ${item.company}` : ''}</p>
+                            <p className="mt-0.5 break-words text-xs text-[var(--fg-muted)]">{item.email ? <a className="break-all underline underline-offset-2" href={`mailto:${encodeURIComponent(item.email)}`}>{item.email}</a> : item.phone || 'Sin teléfono'}{item.sourceVertical ? ` · ${item.sourceVertical}` : ''}{item.channel === 'web_form' ? ' · Formulario web' : ''}</p>
                         </div>
                         <p className="line-clamp-2 text-sm text-[var(--fg-secondary)]">{item.lastMessage || 'Sin mensaje'}</p>
                         <p className="text-sm text-[var(--fg-muted)]">{item.status === 'pending' ? formatHours(item.hoursPending) : 'Hecho'}</p>

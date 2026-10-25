@@ -241,6 +241,8 @@ export type AdminConversationItem = {
     status: 'pending' | 'done';
     phone: string | null;
     name: string | null;
+    email: string | null;
+    company: string | null;
     lastMessage: string | null;
     sourceVertical: string | null;
     capturedByUserId: string | null;
