@@ -14,16 +14,14 @@ import { PanelButton, PanelCard, PanelNotice, PanelSegmentedToggle } from '@simp
 
 type ServiceKind = 'arriendo' | 'compraventa';
 
-const COMMISSION: Record<ServiceKind, { label: string; rate: string; summary: string }> = {
+const SERVICE_TERMS: Record<ServiceKind, { label: string; summary: string }> = {
     arriendo: {
         label: 'Arriendo',
-        rate: '25% + IVA',
-        summary: 'Sobre el primer mes de arriendo al concretar la operación.',
+        summary: 'El alcance puede incluir publicación, atención de interesados y coordinación hasta la firma. Los honorarios se acuerdan por escrito antes de iniciar.',
     },
     compraventa: {
         label: 'Compraventa',
-        rate: '2% + IVA',
-        summary: 'Sobre el valor de venta al cerrar la transacción.',
+        summary: 'La propuesta considera la propiedad, las tareas y el nivel de apoyo acordado. Los honorarios se informan por escrito antes de iniciar.',
     },
 };
 
@@ -41,16 +39,16 @@ export default function GestionInmobiliariaPage() {
         acceptedTerms: true,
     });
     const [message, setMessage] = useState<string | null>(null);
-    const commission = COMMISSION[serviceKind];
+    const serviceTerms = SERVICE_TERMS[serviceKind];
 
     function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setMessage(null);
 
-        const subject = encodeURIComponent(`Gestión inmobiliaria · ${commission.label}`);
+        const subject = encodeURIComponent(`Gestión inmobiliaria · ${serviceTerms.label}`);
         const body = encodeURIComponent([
-            `Operación: ${commission.label}`,
-            `Comisión referencial: ${commission.rate}`,
+            `Operación: ${serviceTerms.label}`,
+            'Honorarios: se definirán según la propiedad y el alcance solicitado.',
             '',
             `Nombre: ${form.contactName}`,
             `Correo: ${form.contactEmail}`,
@@ -72,16 +70,16 @@ export default function GestionInmobiliariaPage() {
                 <div className="container-app py-10 sm:py-12">
                     <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]">
                         <div className="max-w-xl">
-                            <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg-muted)' }}>Vender · Gestión inmobiliaria</p>
+                            <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg-muted)' }}>Servicio para propietarios</p>
                             <h1 className="mb-3 text-3xl font-semibold tracking-tight sm:text-4xl text-(--fg)">
                                 Delega tu {serviceKind === 'arriendo' ? 'arriendo' : 'venta'}
                             </h1>
                             <p className="text-sm sm:text-base" style={{ color: 'var(--fg-secondary)' }}>
-                                Publicamos, filtramos interesados y te acompañamos al cierre. Comisión {commission.rate}.
+                                Publicamos, atendemos interesados y acompañamos la operación hasta la compraventa o la firma del arriendo, según el alcance acordado. Los honorarios se cotizan antes de comenzar.
                             </p>
                             <div className="panel-accent-pill mt-6">
                                 {serviceKind === 'arriendo' ? <IconKey size={16} /> : <IconHome2 size={16} />}
-                                {commission.rate}
+                                Honorarios acordados previamente
                             </div>
                         </div>
                         <div
@@ -115,11 +113,11 @@ export default function GestionInmobiliariaPage() {
                                     onChange={(value) => setServiceKind(value as ServiceKind)}
                                 />
                                 <div className="panel-inset-box mt-5">
-                                    <p className="text-sm font-semibold text-(--fg)">Comisión: {commission.rate}</p>
-                                    <p className="mt-1 text-sm text-(--fg-muted)">{commission.summary}</p>
+                                    <p className="text-sm font-semibold text-(--fg)">Condiciones de servicio</p>
+                                    <p className="mt-1 text-sm text-(--fg-muted)">{serviceTerms.summary}</p>
                                 </div>
                                 <ul className="mt-5 space-y-2">
-                                    {['Evaluación de la propiedad', 'Publicación y difusión', 'Gestión de interesados', 'Acompañamiento al cierre'].map((item) => (
+                                    {['Evaluación de la propiedad', 'Publicación y difusión', 'Atención y filtro de interesados', 'Coordinación de visitas y acompañamiento al cierre'].map((item) => (
                                         <li key={item} className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                                             <IconCheck size={14} style={{ color: 'var(--fg-muted)' }} />
                                             {item}
@@ -134,7 +132,7 @@ export default function GestionInmobiliariaPage() {
                                     {[
                                         { title: '1. Solicitud', desc: 'Nos cuentas de la propiedad.' },
                                         { title: '2. Publicación', desc: 'Activamos la gestión.' },
-                                        { title: '3. Cierre', desc: 'Negociamos y concretamos.' },
+                                        { title: serviceKind === 'arriendo' ? '3. Firma' : '3. Cierre', desc: serviceKind === 'arriendo' ? 'Acompañamos hasta la firma del contrato. La administración posterior del arriendo no está incluida.' : 'Acompañamos la negociación y el cierre.' },
                                     ].map((step) => (
                                         <div key={step.title} className="panel-benefit-cell">
                                             <p className="text-sm font-semibold text-(--fg)">{step.title}</p>
@@ -193,14 +191,14 @@ export default function GestionInmobiliariaPage() {
                                     <IconArrowRight size={14} />
                                 </PanelButton>
                                 <p className="text-center text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                    Sin operación concretada, sin cobro.
+                                    Las condiciones comerciales se informan y aceptan antes de iniciar la gestión.
                                 </p>
                             </form>
                         </PanelCard>
                     </div>
 
                     <p className="mt-8 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
-                        <Link href="/servicios" className="underline underline-offset-2">Volver a servicios</Link>
+                        ¿Representas una inmobiliaria? <Link href="/alianzas-inmobiliarias" className="underline underline-offset-2">Conoce nuestras modalidades de alianza</Link> · <Link href="/servicios" className="underline underline-offset-2">Volver a servicios</Link>
                     </p>
                 </div>
             </section>

@@ -11,7 +11,8 @@ const sections = [
             { label: 'Arrendar', href: '/arriendos' },
             { label: 'Proyectos nuevos', href: '/proyectos' },
             { label: 'Publicar', href: '/panel/publicar' },
-            { label: 'Gestión inmobiliaria', href: '/servicios/venta-asistida' },
+            { label: 'Gestión para propietarios', href: '/servicios/venta-asistida' },
+            { label: 'Alianzas inmobiliarias', href: '/alianzas-inmobiliarias' },
             { label: 'Simulador de crédito hipotecario', href: '/simulador-hipotecario' },
         ],
     },
@@ -44,7 +45,7 @@ export function Footer() {
             currentPlatformHref="https://simplepropiedades.app"
             legalLinks={legalLinks}
             socialLinks={socialLinks}
-            legalNotice="SimplePropiedades es un marketplace inmobiliario de publicación. No es corredora de propiedades ni entidad financiera; el simulador hipotecario es referencial."
+            legalNotice="SimplePropiedades ofrece publicación y apoyo de comercialización según el alcance acordado con cada propietario o aliado. Los contratos se celebran entre las partes correspondientes; no somos una entidad financiera y el simulador hipotecario es referencial."
         />
     );
 }
