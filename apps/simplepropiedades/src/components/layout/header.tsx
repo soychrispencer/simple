@@ -14,6 +14,7 @@ const publicLinks: MarketplacePublicLink[] = [
             { href: '/ventas', label: 'Comprar', description: 'Casas, deptos y terrenos en venta' },
             { href: '/arriendos', label: 'Arrendar', description: 'Arriendos disponibles' },
             { href: '/proyectos', label: 'Proyectos', description: 'Inversión desde plano' },
+            { href: '/alianzas-inmobiliarias', label: 'Para inmobiliarias', description: 'Publicación y comercialización en alianza' },
         ],
     },
     { href: '/servicios', label: 'Servicios' },
@@ -29,8 +30,8 @@ const publicLinks: MarketplacePublicLink[] = [
             },
             {
                 href: '/servicios/venta-asistida',
-                label: 'Venta asistida',
-                description: 'Gestión inmobiliaria — publicamos y vendemos por ti',
+                label: 'Gestión para propietarios',
+                description: 'Publicación, atención de interesados y apoyo al cierre',
             },
         ],
     },

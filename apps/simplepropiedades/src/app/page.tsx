@@ -441,6 +441,19 @@ export default function HomePage() {
 
             <PropertyHubSection />
 
+            <section className="container-app py-10 sm:py-12">
+                <div className="grid items-center gap-5 rounded-2xl border p-6 sm:p-8 md:grid-cols-[minmax(0,1fr)_auto]" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                    <div className="max-w-2xl">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: 'var(--fg-muted)' }}>Alianzas inmobiliarias</p>
+                        <h2 className="text-2xl font-semibold" style={{ color: 'var(--fg)' }}>Un canal digital, con el nivel de apoyo que tu equipo necesita.</h2>
+                        <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>Publicación de inventario autorizado o comercialización asistida para venta y arriendo.</p>
+                    </div>
+                    <Link href="/alianzas-inmobiliarias" className={getPanelButtonClassName({ className: 'h-11 px-5 text-sm' })} style={getPanelButtonStyle('secondary')}>
+                        Conocer alianzas <IconArrowRight size={15} />
+                    </Link>
+                </div>
+            </section>
+
             <section className="container-app section-marketing">
                 <h2 className="text-2xl md:text-3xl font-semibold text-center mb-4" style={{ color: 'var(--fg)' }}>¿Por qué Simple?</h2>
                 <p className="text-center text-base mb-12" style={{ color: 'var(--fg-muted)' }}>La plataforma que simplifica todo.</p>
@@ -463,10 +476,10 @@ export default function HomePage() {
             <section style={{ borderTop: '1px solid var(--border)' }}>
                 <div className="container-app section-marketing text-center">
                     <h2 className="text-3xl md:text-4xl font-semibold mb-4" style={{ color: 'var(--fg)' }}>¿Listo para empezar?</h2>
-                    <p className="text-base mb-8" style={{ color: 'var(--fg-muted)' }}>Publica gratis o deja que gestionemos por ti.</p>
-                    <div className="flex items-center justify-center gap-3">
+                    <p className="text-base mb-8" style={{ color: 'var(--fg-muted)' }}>Publica una propiedad o solicita apoyo para comercializarla.</p>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
                         <Link href="/panel/publicar" className={getPanelButtonClassName({ className: 'h-12 px-8 text-sm' })} style={getPanelButtonStyle('primary')}>Publicar gratis</Link>
-                        <Link href="/servicios/venta-asistida" className={getPanelButtonClassName({ className: 'h-12 px-8 text-sm' })} style={getPanelButtonStyle('secondary')}>Gestión inmobiliaria</Link>
+                        <Link href="/servicios/venta-asistida" className={getPanelButtonClassName({ className: 'h-12 px-8 text-sm' })} style={getPanelButtonStyle('secondary')}>Gestión para propietarios</Link>
                     </div>
                 </div>
             </section>

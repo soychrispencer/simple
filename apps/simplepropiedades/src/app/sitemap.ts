@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         { url: `${BASE_URL}/ventas`, lastModified: new Date(), changeFrequency: 'hourly', priority: 0.9 },
         { url: `${BASE_URL}/arriendos`, lastModified: new Date(), changeFrequency: 'hourly', priority: 0.9 },
         { url: `${BASE_URL}/proyectos`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+        { url: `${BASE_URL}/alianzas-inmobiliarias`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
         { url: `${BASE_URL}/descubre`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
         { url: `${BASE_URL}/feed`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.6 },
         { url: `${BASE_URL}/blog`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
