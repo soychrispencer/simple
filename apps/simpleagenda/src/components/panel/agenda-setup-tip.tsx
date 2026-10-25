@@ -18,15 +18,25 @@ type Props = {
 function tipCopy(stepId: string): string {
     switch (stepId) {
         case 'perfil':
-            return 'Completa tu nombre y profesión para que tu perfil público tenga cara.';
+            return 'Completa tu nombre y actividad. La descripción, ubicación y contacto pueden esperar.';
         case 'servicios':
-            return 'Todavía no pueden reservarte online. Crea tu primer servicio (nombre, duración y precio).';
+            return 'Crea un servicio con nombre y duración. El precio, la imagen y las preguntas previas son opcionales.';
         case 'horarios':
-            return 'Define cuándo pueden reservarte. Sin horario activo no hay cupos en tu link público.';
+            return 'Define los días y horas en que atiendes. Puedes partir con un horario típico.';
         case 'publicar':
-            return 'Ya casi: publica tu perfil y comparte el link para recibir reservas.';
+            return 'Tu servicio y horario ya están listos. Revisa los requisitos y activa tu perfil público.';
         default:
             return 'Completa este paso para que puedan reservarte.';
+    }
+}
+
+function actionLabel(stepId: string): string {
+    switch (stepId) {
+        case 'perfil': return 'Completar perfil';
+        case 'servicios': return 'Crear servicio';
+        case 'horarios': return 'Definir horario';
+        case 'publicar': return 'Revisar publicación';
+        default: return 'Continuar';
     }
 }
 
@@ -51,8 +61,6 @@ export function AgendaSetupTip({ focusStepId, className = '' }: Props) {
         }
     }
 
-    const onThisPage = Boolean(focusStepId);
-
     return (
         <PanelNotice tone="info" className={className}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -61,7 +69,7 @@ export function AgendaSetupTip({ focusStepId, className = '' }: Props) {
                     href={next.href}
                     className="shrink-0 text-sm font-semibold underline-offset-2 hover:underline"
                 >
-                    {onThisPage ? 'Continuar aquí ↓' : 'Ir ahora'}
+                    {actionLabel(next.id)}
                 </Link>
             </div>
         </PanelNotice>

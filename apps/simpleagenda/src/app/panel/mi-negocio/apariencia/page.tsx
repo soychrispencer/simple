@@ -207,7 +207,9 @@ export default function AparienciaPage() {
                         />
                     </PanelCard>
 
-                    <AgendaPublicLinkPanel />
+                    <div id="agenda-public-link" className="scroll-mt-24">
+                        <AgendaPublicLinkPanel />
+                    </div>
 
                     <OperatorSiteAppearanceEditor
                         value={value}

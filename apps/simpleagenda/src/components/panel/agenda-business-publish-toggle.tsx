@@ -1,8 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchAgendaProfile, hasAgendaFullAccess, saveAgendaProfile, type AgendaProfile } from '@/lib/agenda-api';
-import { hasOperatorBrandMedia } from '@simple/utils';
+import {
+    fetchAgendaAvailability,
+    fetchAgendaProfile,
+    fetchAgendaServices,
+    hasAgendaFullAccess,
+    saveAgendaProfile,
+    type AgendaProfile,
+} from '@/lib/agenda-api';
 import {
     PanelBusinessPublishToggle,
     type PanelBusinessPublishStatus,
@@ -12,15 +18,24 @@ import {
 function canPublishAgendaProfile(
     profile: AgendaProfile | null,
     featureEnabled: boolean,
+    hasService: boolean,
+    hasAvailability: boolean,
 ): boolean {
     if (!featureEnabled || !profile) return false;
-    if (!hasOperatorBrandMedia({ logoUrl: profile.avatarUrl, coverUrl: profile.coverUrl })) return false;
-    return Boolean(profile.displayName?.trim() && profile.slug?.trim());
+    return Boolean(
+        profile.displayName?.trim()
+        && profile.profession?.trim()
+        && profile.slug?.trim()
+        && hasService
+        && hasAvailability,
+    );
 }
 
 function getAgendaPublishRequirements(
     profile: AgendaProfile | null,
     featureEnabled: boolean,
+    hasService: boolean,
+    hasAvailability: boolean,
 ): PanelBusinessPublishRequirement[] {
     return [
         {
@@ -33,25 +48,31 @@ function getAgendaPublishRequirements(
             id: 'name',
             label: 'Nombre público',
             met: Boolean(profile?.displayName?.trim()),
-            href: '/panel/mi-negocio',
+            href: '/panel/mi-negocio#agenda-public-profile',
+        },
+        {
+            id: 'profession',
+            label: 'Tu actividad',
+            met: Boolean(profile?.profession?.trim()),
+            href: '/panel/mi-negocio#agenda-public-profile',
         },
         {
             id: 'slug',
             label: 'Enlace público',
             met: Boolean(profile?.slug?.trim()),
-            href: '/panel/mi-negocio',
+            href: '/panel/mi-negocio/apariencia#agenda-public-link',
         },
         {
-            id: 'logo',
-            label: 'Logo',
-            met: Boolean(profile?.avatarUrl?.trim()),
-            href: '/panel/mi-negocio',
+            id: 'service',
+            label: 'Crea un servicio',
+            met: hasService,
+            href: '/panel/mis-servicios#agenda-first-service',
         },
         {
-            id: 'cover',
-            label: 'Portada',
-            met: Boolean(profile?.coverUrl?.trim()),
-            href: '/panel/mi-negocio',
+            id: 'availability',
+            label: 'Define tu horario',
+            met: hasAvailability,
+            href: '/panel/mi-negocio/horarios#agenda-availability',
         },
     ];
 }
@@ -60,13 +81,33 @@ export function AgendaBusinessPublishToggle() {
     const [loading, setLoading] = useState(true);
     const [publishing, setPublishing] = useState(false);
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
+    const [hasService, setHasService] = useState(false);
+    const [hasAvailability, setHasAvailability] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
-        const loaded = await fetchAgendaProfile();
-        setProfile(loaded);
-        setLoading(false);
+        setLoadError(null);
+        try {
+            const [loaded, services, availability] = await Promise.all([
+                fetchAgendaProfile(),
+                fetchAgendaServices(),
+                fetchAgendaAvailability(),
+            ]);
+            setProfile(loaded);
+            setHasService(services.some((service) => service.isActive !== false));
+            setHasAvailability(Boolean(availability.alwaysOpen) || availability.rules.some(
+                (rule) => rule.isActive && Boolean(rule.startTime) && Boolean(rule.endTime),
+            ));
+        } catch {
+            setProfile(null);
+            setHasService(false);
+            setHasAvailability(false);
+            setLoadError('No pudimos revisar los requisitos. Intenta nuevamente.');
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
     useEffect(() => {
@@ -78,18 +119,22 @@ export function AgendaBusinessPublishToggle() {
             void load();
         };
         window.addEventListener('simple:agenda-profile-changed', handler);
-        return () => window.removeEventListener('simple:agenda-profile-changed', handler);
+        window.addEventListener('simple:agenda-setup-changed', handler);
+        return () => {
+            window.removeEventListener('simple:agenda-profile-changed', handler);
+            window.removeEventListener('simple:agenda-setup-changed', handler);
+        };
     }, [load]);
 
     const featureEnabled = profile ? hasAgendaFullAccess(profile) : false;
     const isPublished = Boolean(profile?.isPublished);
     const canPublish = useMemo(
-        () => canPublishAgendaProfile(profile, featureEnabled),
-        [profile, featureEnabled],
+        () => canPublishAgendaProfile(profile, featureEnabled, hasService, hasAvailability),
+        [profile, featureEnabled, hasService, hasAvailability],
     );
     const requirements = useMemo(
-        () => getAgendaPublishRequirements(profile, featureEnabled),
-        [profile, featureEnabled],
+        () => getAgendaPublishRequirements(profile, featureEnabled, hasService, hasAvailability),
+        [profile, featureEnabled, hasService, hasAvailability],
     );
 
     const status: PanelBusinessPublishStatus = !featureEnabled
@@ -128,23 +173,27 @@ export function AgendaBusinessPublishToggle() {
     }
 
     return (
-        <PanelBusinessPublishToggle
-            checked={isPublished}
-            disabled={!profile || !featureEnabled || (!isPublished && !canPublish)}
-            loading={loading || publishing}
-            status={status}
-            onChange={(next) => void handleToggle(next)}
-            error={error}
-            requirements={!isPublished ? requirements : undefined}
-            switchAriaLabel={
-                !profile
-                    ? 'Completa tu perfil público para publicar'
-                    : !featureEnabled
-                      ? 'Activa Pro o mantén tu prueba para publicar'
-                      : isPublished
-                        ? 'Pausar perfil público'
-                        : 'Mostrar perfil público'
-            }
-        />
+        <div id="agenda-publish-control" className="scroll-mt-24">
+            <PanelBusinessPublishToggle
+                checked={isPublished}
+                disabled={!profile || !featureEnabled || (!isPublished && !canPublish)}
+                loading={loading || publishing}
+                status={status}
+                onChange={(next) => void handleToggle(next)}
+                error={error ?? loadError}
+                requirements={!isPublished ? requirements : undefined}
+                switchAriaLabel={
+                    !profile
+                        ? 'Completa tu perfil público para publicar'
+                        : !featureEnabled
+                          ? 'Activa Pro o mantén tu prueba para publicar'
+                          : !canPublish && !isPublished
+                            ? 'Completa el perfil, un servicio y tu horario para publicar'
+                            : isPublished
+                              ? 'Pausar perfil público'
+                              : 'Mostrar perfil público'
+                }
+            />
+        </div>
     );
 }
