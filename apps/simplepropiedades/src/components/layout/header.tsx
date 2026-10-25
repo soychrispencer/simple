@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { MarketplaceHeader, type MarketplacePublicLink } from '@simple/marketplace-header';
 import { getPanelNavItems, isPanelNavActive, type PanelRole } from '@/components/panel/panel-nav-config';
 import { fetchPanelNotifications } from '@/lib/panel-notifications';
@@ -39,6 +40,7 @@ const publicLinks: MarketplacePublicLink[] = [
 ];
 
 export function Header() {
+    const pathname = usePathname();
     const savedListings = useMemo(
         () => ({ clearCache: clearSavedListingsCache, syncFromApi: syncSavedListingsFromApi }),
         []
@@ -48,6 +50,7 @@ export function Header() {
         <MarketplaceHeader
             brandAppId="simplepropiedades"
             publicLinks={publicLinks}
+            desktopNavigationAt={pathname === '/alianzas-inmobiliarias' ? 'xl' : 'md'}
             getPanelNavItems={getPanelNavItems}
             isPanelNavActive={isPanelNavActive}
             fetchPanelNotifications={fetchPanelNotifications}

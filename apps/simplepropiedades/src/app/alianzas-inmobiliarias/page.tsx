@@ -1,187 +1,125 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import type { CSSProperties } from 'react';
+import Image from 'next/image';
 import {
-    IconArrowRight,
-    IconBuildingCommunity,
-    IconDeviceMobile,
-    IconHome,
-    IconKey,
-    IconUsers,
+    IconArrowRight, IconBrandWhatsapp, IconCheck,
+    IconDeviceMobile, IconInfoCircle, IconShieldCheck, IconTrendingUp, IconUsers,
 } from '@tabler/icons-react';
-import { PanelBlockHeader, PanelCard } from '@simple/ui/panel';
-
-const linkButtonClassName = 'panel-button inline-flex h-12 items-center justify-center gap-2 border px-6 text-sm font-medium transition-[background,color,border-color,box-shadow,transform] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10';
-const primaryLinkStyle = {
-    '--panel-btn-bg': 'var(--button-primary-bg)',
-    '--panel-btn-color': 'var(--button-primary-color)',
-    '--panel-btn-border': 'var(--button-primary-border)',
-    '--panel-btn-shadow': 'var(--button-primary-shadow)',
-    '--panel-btn-hover-bg': 'var(--button-primary-hover-bg)',
-    '--panel-btn-hover-color': 'var(--button-primary-hover-color)',
-    '--panel-btn-hover-border': 'var(--button-primary-hover-border)',
-    '--panel-btn-hover-shadow': 'var(--button-primary-hover-shadow)',
-} as CSSProperties;
-const secondaryLinkStyle = {
-    '--panel-btn-bg': 'var(--surface)',
-    '--panel-btn-color': 'var(--fg)',
-    '--panel-btn-border': 'var(--border)',
-    '--panel-btn-hover-bg': 'var(--bg-subtle)',
-    '--panel-btn-hover-color': 'var(--fg)',
-    '--panel-btn-hover-border': 'var(--border-strong)',
-    '--panel-btn-hover-shadow': 'var(--shadow-xs)',
-} as CSSProperties;
+import { PartnershipForm } from './partnership-form';
+import styles from './page.module.css';
 
 export const metadata: Metadata = {
     title: 'Alianzas inmobiliarias | SimplePropiedades',
-    description: 'Publica inventario inmobiliario autorizado en SimplePropiedades o suma apoyo de comercialización para venta y arriendo.',
+    description: 'Un canal digital y apoyo comercial para su cartera de venta y arriendo. Evaluemos una alianza directa con inventario autorizado y condiciones acordadas.',
+    alternates: { canonical: 'https://simplepropiedades.app/alianzas-inmobiliarias' },
+    openGraph: {
+        title: 'Alianzas inmobiliarias | SimplePropiedades',
+        description: 'Un canal digital y apoyo comercial para venta y arriendo. Evaluemos una alianza directa para su cartera.',
+        url: 'https://simplepropiedades.app/alianzas-inmobiliarias',
+        images: [{ url: 'https://simplepropiedades.app/hero/projects.jpg', width: 1536, height: 1024, alt: 'Alianzas inmobiliarias con SimplePropiedades' }],
+    },
 };
 
-const message = encodeURIComponent(
-    'Hola, represento a una inmobiliaria y quiero conversar sobre una alianza con SimplePropiedades para venta o arriendo.'
-);
-
-const whatsappHref = `https://wa.me/56978623828?text=${message}`;
+const whatsappHref = `https://wa.me/56978623828?text=${encodeURIComponent('Hola, represento a una inmobiliaria y quiero evaluar una alianza con SimplePropiedades para una cartera de venta o arriendo.')}`;
+const comparison = [
+    { task: 'Publicación autorizada', digital: 'Simple', assisted: 'Simple', included: true },
+    { task: 'Atención de consultas', digital: 'Su equipo', assisted: 'Simple, según acuerdo' },
+    { task: 'Seguimiento de interesados', digital: 'Su equipo', assisted: 'Simple, según acuerdo' },
+    { task: 'Coordinación de visitas', digital: 'Su equipo', assisted: 'Coordinación conjunta' },
+    { task: 'Aprobación y contratos', digital: 'Su equipo', assisted: 'Su equipo' },
+];
 
 export default function AlianzasInmobiliariasPage() {
     return (
-        <main>
-            <section style={{ background: 'var(--bg)' }}>
-                <div className="container-app py-12 sm:py-16">
-                    <div className="mx-auto max-w-4xl text-center">
-                        <p className="mb-3 text-sm font-semibold uppercase tracking-[0.14em]" style={{ color: 'var(--fg-muted)' }}>
-                            Alianzas para inmobiliarias
-                        </p>
-                        <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl" style={{ color: 'var(--fg)' }}>
-                            Un canal comercial que se adapta a su equipo.
-                        </h1>
-                        <p className="mx-auto mt-5 max-w-3xl text-base leading-relaxed sm:text-lg" style={{ color: 'var(--fg-secondary)' }}>
-                            Sume inventario autorizado a SimplePropiedades y elija el nivel de apoyo que necesita. Puede comenzar con un piloto acotado en venta, arriendo o ambos, con funciones y condiciones acordadas directamente.
-                        </p>
-                        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                            <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className={linkButtonClassName} style={primaryLinkStyle}>
-                                Conversar por WhatsApp <IconArrowRight size={15} />
-                            </a>
-                            <a href="mailto:hola@simpleplataforma.app?subject=Alianza%20inmobiliaria%20con%20SimplePropiedades" className={linkButtonClassName} style={secondaryLinkStyle}>
-                                Escribir por correo
-                            </a>
-                        </div>
+        <div className={styles.landing}>
+            <section className={styles.hero} aria-labelledby="partnership-title">
+                <Image src="/hero/projects.jpg" alt="" fill priority sizes="100vw" className={styles.heroImage} />
+                <div className={`${styles.container} ${styles.heroGrid}`}>
+                    <div className={styles.heroCopy}>
+                        <p className={styles.eyebrow}>Alianzas para inmobiliarias</p>
+                        <h1 id="partnership-title">Su cartera, conectada con nuevas oportunidades.</h1>
+                        <p className={styles.heroDescription}>Publicación y apoyo comercial para venta y arriendo, con roles y condiciones acordados directamente.</p>
+                        <ul className={styles.heroTrust} aria-label="Bases de la alianza">
+                            <li>Inventario autorizado</li><li>Modalidad a elección</li><li>Acuerdo directo</li>
+                        </ul>
                     </div>
+                    <PartnershipForm />
                 </div>
             </section>
 
-            <section id="modalidades" className="marketplace-section-bg">
-                <div className="container-app py-12 sm:py-16">
-                    <PanelBlockHeader
-                        title="Dos modalidades, responsabilidades claras"
-                        description="Puede elegir una modalidad distinta para cada cartera u operación. Los detalles comerciales se definen en conjunto antes de publicar."
-                        className="mb-7"
-                    />
-                    <div className="grid gap-5 lg:grid-cols-2">
-                        <PanelCard size="lg" className="h-full">
-                            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
-                                <IconDeviceMobile size={22} />
-                            </div>
-                            <h2 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>1. Canal digital</h2>
-                            <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>
-                                Simple publica y difunde las propiedades que la inmobiliaria autoriza. Las consultas se derivan a su equipo y acordamos previamente cómo registrar su origen.
-                            </p>
-                            <ul className="mt-5 list-disc space-y-3 pl-5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                <li>Inventario, precios, disponibilidad e imágenes aprobados por la inmobiliaria.</li>
-                                <li>Derivación de consultas y mecanismo de atribución acordados con el aliado.</li>
-                                <li>La inmobiliaria responde, coordina visitas, negocia y formaliza.</li>
-                                <li>Permite probar el canal con una selección de unidades autorizadas.</li>
-                            </ul>
-                        </PanelCard>
-
-                        <PanelCard size="lg" className="h-full">
-                            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
-                                <IconUsers size={22} />
-                            </div>
-                            <h2 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>2. Comercialización asistida</h2>
-                            <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>
-                                Además de difundir el inventario, Simple puede apoyar la atención inicial, calificación de interesados, seguimiento y coordinación de visitas, dentro del alcance que se acuerde.
-                            </p>
-                            <ul className="mt-5 list-disc space-y-3 pl-5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                <li>Atención y seguimiento inicial para reducir consultas sin respuesta.</li>
-                                <li>Calificación y coordinación de visitas con criterios definidos por la inmobiliaria.</li>
-                                <li>Apoyo comercial hasta la oferta y cierre en venta, o hasta la firma del arriendo.</li>
-                                <li>La inmobiliaria mantiene la decisión final y formaliza los contratos; la administración posterior del arriendo no está incluida.</li>
-                            </ul>
-                        </PanelCard>
-                    </div>
-                </div>
-            </section>
-
-            <section className="container-app py-12 sm:py-16">
-                <PanelBlockHeader
-                    title="Venta y arriendo, con el alcance correspondiente"
-                    description="El canal puede ser digital o asistido en ambas líneas. El equipo y las tareas se definen por operación."
-                    className="mb-7"
-                />
-                <div className="grid gap-5 lg:grid-cols-2">
-                    <PanelCard size="md" className="h-full">
-                        <div className="mb-3 flex items-center gap-2" style={{ color: 'var(--fg)' }}>
-                            <IconHome size={20} />
-                            <h3 className="text-lg font-semibold">Venta</h3>
-                        </div>
-                        <p className="text-sm leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>
-                            En canal digital, Simple deriva las consultas y la inmobiliaria se encarga de visitas, negociación y cierre. En modalidad asistida, podemos sumar atención y seguimiento de prospectos, coordinación comercial y apoyo durante el proceso hasta el cierre, según el acuerdo.
-                        </p>
-                    </PanelCard>
-                    <PanelCard size="md" className="h-full">
-                        <div className="mb-3 flex items-center gap-2" style={{ color: 'var(--fg)' }}>
-                            <IconKey size={20} />
-                            <h3 className="text-lg font-semibold">Arriendo</h3>
-                        </div>
-                        <p className="text-sm leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>
-                            En canal digital, la inmobiliaria recibe y gestiona las consultas. En modalidad asistida, podemos apoyar la captación y calificación conforme a sus criterios, las visitas y el seguimiento hasta la firma. La administración del inmueble después de firmado el contrato no está incluida, salvo acuerdo independiente.
-                        </p>
-                    </PanelCard>
-                </div>
-            </section>
-
-            <section className="marketplace-section-bg">
-                <div className="container-app py-12 sm:py-16">
-                    <PanelBlockHeader
-                        title="Un piloto simple y medible"
-                        description="Partimos por un conjunto de propiedades autorizado y revisamos los resultados antes de ampliar la colaboración."
-                        className="mb-7"
-                    />
-                    <div className="grid gap-4 md:grid-cols-3">
+            <section className={styles.benefits} aria-labelledby="partnership-value">
+                <div className={styles.container}>
+                    <p className={styles.eyebrow}>Un aliado para su operación</p>
+                    <h2 id="partnership-value">Más valor para su operación.</h2>
+                    <div className={styles.benefitGrid}>
                         {[
-                            { number: '01', title: 'Definimos el alcance', description: 'Elegimos cartera, comunas, modalidad, responsables, atribución y condiciones comerciales.' },
-                            { number: '02', title: 'Activamos el piloto', description: 'Validamos contenido, disponibilidad y contacto para publicar y derivar consultas correctamente.' },
-                            { number: '03', title: 'Revisamos y ajustamos', description: 'Evaluamos consultas, seguimiento y aprendizajes para decidir juntos los próximos pasos.' },
-                        ].map((step) => (
-                            <PanelCard key={step.number} size="md" className="h-full">
-                                <p className="text-sm font-semibold" style={{ color: 'var(--fg-muted)' }}>{step.number}</p>
-                                <h3 className="mt-2 text-base font-semibold" style={{ color: 'var(--fg)' }}>{step.title}</h3>
-                                <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>{step.description}</p>
-                            </PanelCard>
+                            { Icon: IconTrendingUp, title: 'Más presencia', text: 'Sume un canal digital para publicar las unidades que autorice y recibir nuevas consultas.' },
+                            { Icon: IconUsers, title: 'Apoyo para su equipo', text: 'Elija entre derivar las consultas a su equipo o sumar atención y seguimiento comercial.' },
+                            { Icon: IconShieldCheck, title: 'Control de la operación', text: 'Usted define el inventario, las condiciones y la aprobación final de cada operación.' },
+                        ].map(({ Icon, title, text }) => (
+                            <div key={title} className={styles.benefit}>
+                                <span className={styles.iconCircle}><Icon size={26} stroke={1.7} /></span>
+                                <div><h3>{title}</h3><p>{text}</p></div>
+                            </div>
                         ))}
                     </div>
-                    <div className="mt-6 rounded-xl border p-5 sm:p-6" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                        <div className="flex items-start gap-3">
-                            <IconBuildingCommunity size={20} style={{ color: 'var(--fg-muted)', flex: 'none', marginTop: 2 }} />
-                            <div>
-                                <h3 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Inventario y atribución transparentes</h3>
-                                <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>
-                                    Publicamos solo unidades autorizadas y acordamos previamente el uso de material, actualización de disponibilidad, derivación de prospectos, seguimiento y cualquier comisión o tarifa aplicable. No se asumen exclusividad ni condiciones comerciales sin un acuerdo expreso.
-                                </p>
-                            </div>
+                </div>
+            </section>
+
+            <section id="modalidades" className={styles.modalities} aria-labelledby="partnership-modalities">
+                <div className={styles.container}>
+                    <div className={styles.comparisonGrid}>
+                        <div className={styles.comparisonIntro}>
+                            <p className={styles.eyebrow}>Dos formas de trabajar juntos</p>
+                            <h2 id="partnership-modalities">Elija cómo trabajamos juntos.</h2>
+                            <p>Puede publicar sus unidades y gestionar directamente las consultas, o sumar a Simple en la atención y el seguimiento comercial.</p>
+                            <p>Ambas modalidades aplican a <strong>venta y arriendo</strong>. El alcance y los honorarios se acuerdan con su equipo antes de comenzar.</p>
+                        </div>
+                        <div className={styles.tableWrap}>
+                            <table className={styles.comparisonTable}>
+                                <caption className={styles.srOnly}>Responsabilidades por modalidad de alianza, para venta y arriendo</caption>
+                                <colgroup><col className={styles.taskColumn} /><col /><col /></colgroup>
+                                <thead><tr>
+                                    <td aria-hidden="true" />
+                                    <th scope="col"><IconDeviceMobile size={27} stroke={1.6} /><span>Canal digital</span><small>Publicación y derivación de consultas.</small></th>
+                                    <th scope="col"><IconUsers size={27} stroke={1.6} /><span className={styles.fullModeLabel}>Comercialización asistida</span><span className={styles.shortModeLabel} aria-hidden="true">Asistida</span><small>Publicación y apoyo comercial, según acuerdo.</small></th>
+                                </tr></thead>
+                                <tbody>{comparison.map((row) => (
+                                    <tr key={row.task}>
+                                        <th scope="row">{row.task}</th>
+                                        <td>{row.included ? <><IconCheck size={17} className={styles.included} aria-hidden="true" /><span className={styles.srOnly}>A cargo de Simple</span></> : row.digital}</td>
+                                        <td>{row.included ? <><IconCheck size={17} className={styles.included} aria-hidden="true" /><span className={styles.srOnly}>A cargo de Simple</span></> : row.assisted}</td>
+                                    </tr>
+                                ))}</tbody>
+                            </table>
                         </div>
                     </div>
-                    <div className="mt-8 flex flex-wrap justify-center gap-3">
-                        <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className={linkButtonClassName} style={primaryLinkStyle}>
-                            Proponer una alianza <IconArrowRight size={15} />
-                        </a>
-                        <Link href="/ventas" className={linkButtonClassName} style={secondaryLinkStyle}>
-                            Ver SimplePropiedades
-                        </Link>
+                    <p className={styles.scopeNote}><IconInfoCircle size={22} stroke={1.7} /><span>La administración posterior del arriendo requiere un acuerdo independiente. Esta alianza se enfoca en la comercialización de las unidades.</span></p>
+                </div>
+            </section>
+
+            <section className={styles.pilot} aria-labelledby="partnership-pilot">
+                <div className={`${styles.container} ${styles.pilotGrid}`}>
+                    <div><p className={styles.eyebrow}>Un piloto simple y enfocado</p><h2 id="partnership-pilot">En tres pasos,<br />a su medida.</h2></div>
+                    <ol className={styles.steps}>
+                        {[
+                            { title: 'Definimos la cartera', text: 'Conversamos sobre sus objetivos y el tipo de unidades, en venta, arriendo o ambos.' },
+                            { title: 'Acordamos roles', text: 'Definimos la modalidad, la atribución de consultas y las condiciones del piloto.' },
+                            { title: 'Activamos el piloto', text: 'Publicamos las unidades autorizadas y revisamos juntos las consultas y el seguimiento.' },
+                        ].map((step, index) => <li key={step.title}><span className={styles.stepNumber}>{index + 1}</span><h3>{step.title}</h3><p>{step.text}</p></li>)}
+                    </ol>
+                </div>
+            </section>
+
+            <section className={styles.finalCta} aria-labelledby="partnership-next-step">
+                <div className={`${styles.container} ${styles.finalGrid}`}>
+                    <div><p className={styles.eyebrow}>Alianzas para inmobiliarias</p><h2 id="partnership-next-step">Partamos con un piloto<br />a su medida.</h2><p>Conversemos sobre sus objetivos y evaluemos una alianza para su cartera, en venta, arriendo o ambos.</p></div>
+                    <div className={styles.finalActions}>
+                        <a href="#evaluar-alianza" className={styles.whiteButton}>Evaluar una alianza <IconArrowRight size={18} /></a>
+                        <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className={styles.outlineButton}><IconBrandWhatsapp size={19} /> Hablar por WhatsApp</a>
+                        <a href="mailto:hola@simpleplataforma.app?subject=Alianza%20inmobiliaria" className={styles.emailLink}>O escríbanos por correo</a>
                     </div>
                 </div>
             </section>
-        </main>
+        </div>
     );
 }

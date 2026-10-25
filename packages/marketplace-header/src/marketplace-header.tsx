@@ -107,6 +107,8 @@ function isPublicLinkActive(pathname: string, link: MarketplacePublicLink): bool
 export type MarketplaceHeaderProps = {
   brandAppId: 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin' | 'simpleagenda' | 'simpletickets' | 'simpleresto';
   publicLinks: MarketplacePublicLink[];
+  /** Ancho mínimo de la navegación completa cuando la página necesita más espacio. */
+  desktopNavigationAt?: 'md' | 'lg' | 'xl';
   getPanelNavItems: (role: MarketplacePanelRole) => MarketplacePanelNavItem[];
   isPanelNavActive: (pathname: string, href: string) => boolean;
   fetchPanelNotifications: () => Promise<PanelNotification[]>;
@@ -145,6 +147,7 @@ export type MarketplaceHeaderProps = {
 export function MarketplaceHeader({
   brandAppId,
   publicLinks,
+  desktopNavigationAt = 'md',
   getPanelNavItems,
   isPanelNavActive,
   fetchPanelNotifications,
@@ -165,6 +168,8 @@ export function MarketplaceHeader({
     guestLoginLabel = 'Iniciar sesión',
     guestRegisterLabel = 'Registrarse',
 }: MarketplaceHeaderProps) {
+  const desktopNavigationClass = desktopNavigationAt === 'xl' ? 'hidden xl:flex' : desktopNavigationAt === 'lg' ? 'hidden lg:flex' : 'hidden md:flex';
+  const mobileNavigationClass = desktopNavigationAt === 'xl' ? 'relative xl:hidden' : desktopNavigationAt === 'lg' ? 'relative lg:hidden' : 'relative md:hidden';
   const pathname = usePathname() ?? '';
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
@@ -327,7 +332,7 @@ export function MarketplaceHeader({
             </div>
           </div>
         ) : (
-          <nav className="hidden md:flex flex-1 items-center justify-center gap-1.5 px-2 lg:gap-2 lg:px-4" ref={publicNavRef}>
+          <nav className={`${desktopNavigationClass} flex-1 items-center justify-center gap-1.5 px-2 lg:gap-2 lg:px-4`} ref={publicNavRef}>
             {publicLinks.map((l) => {
               const active = isPublicLinkActive(pathname, l);
               if (l.items?.length) {
@@ -631,7 +636,7 @@ export function MarketplaceHeader({
           )}
 
           {showPrimaryAction ? (
-          <div className="hidden md:flex">
+          <div className={desktopNavigationClass}>
             {isLoggedIn ? (
               <PanelButton onClick={handlePrimaryAction} variant="primary" size="sm" className="h-9 px-4 text-sm">
                 <PrimaryActionIcon size={13} /> {primaryActionLabel}
@@ -649,7 +654,7 @@ export function MarketplaceHeader({
           </div>
           ) : null}
 
-          <div className="relative md:hidden" ref={menuRef}>
+          <div className={mobileNavigationClass} ref={menuRef}>
             <button
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}

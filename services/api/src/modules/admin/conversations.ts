@@ -17,6 +17,8 @@ export type AdminConversationItem = {
     status: ConversationThreadStatus;
     phone: string | null;
     name: string | null;
+    email: string | null;
+    company: string | null;
     lastMessage: string | null;
     sourceVertical: string | null;
     capturedByUserId: string | null;
@@ -114,6 +116,8 @@ function buildConversationItems(rows: TimelineRow[]): AdminConversationItem[] {
             status,
             phone: asString(inboundPayload.phone),
             name: asString(inboundPayload.name),
+            email: asString(inboundPayload.email),
+            company: asString(inboundPayload.company),
             lastMessage: asString(latestPayload.message) || asString(inboundPayload.message) || asString(latestPayload.note),
             sourceVertical: asString(inboundPayload.sourceVertical),
             capturedByUserId: asString(inboundPayload.capturedByUserId),
