@@ -124,6 +124,36 @@ export type AdminUsersPage = {
     pageCount: number;
 };
 
+export type AdminAgendaActivationItem = {
+    userId: string;
+    name: string;
+    email: string;
+    status: string;
+    firstSeenAt: string | null;
+    activatedAt: string | null;
+    lastLoginAt: string | null;
+    hasProfile: boolean;
+    setupComplete: boolean;
+    isPublished: boolean;
+    firstBooking: boolean;
+    proActive: boolean;
+    activationStage: 'registered' | 'setup_pending' | 'ready_to_publish' | 'published' | 'first_booking';
+    missing: string[];
+};
+
+export type AdminAgendaActivationSnapshot = {
+    summary: { registered: number; profileStarted: number; setupComplete: number; published: number; firstBooking: number; proActive: number };
+    items: AdminAgendaActivationItem[];
+};
+
+export async function fetchAdminAgendaActivation(): Promise<AdminAgendaActivationSnapshot> {
+    const data = await expectOk<Partial<AdminAgendaActivationSnapshot>>('/api/admin/agenda-activation');
+    return {
+        summary: data.summary ?? { registered: 0, profileStarted: 0, setupComplete: 0, published: 0, firstBooking: 0, proActive: 0 },
+        items: data.items ?? [],
+    };
+}
+
 export async function fetchAdminUsers(input: {
     query?: string;
     status?: 'all' | AdminUserStatus;
@@ -245,8 +275,18 @@ export type AdminConversationItem = {
     company: string | null;
     lastMessage: string | null;
     sourceVertical: string | null;
+    relatedVerticals: string[];
     purpose: string | null;
     campaignName: string | null;
+    origin: string | null;
+    originDetail: string | null;
+    referredBy: string | null;
+    relationshipContext: string | null;
+    contactStage: AdminContactStage;
+    nextAction: string | null;
+    nextFollowUpDate: string | null;
+    notes: string | null;
+    followUpDue: boolean;
     activities: AdminConversationActivity[];
     capturedByUserId: string | null;
     occurredAt: string;
@@ -258,7 +298,8 @@ export type AdminConversationItem = {
 
 export type AdminConversationActivity = {
     id: string;
-    direction: 'inbound' | 'outbound' | 'status';
+    direction: 'inbound' | 'outbound' | 'status' | 'activity';
+    kind: string | null;
     channel: string | null;
     message: string | null;
     sourceVertical: string | null;
@@ -271,6 +312,43 @@ export type AdminConversationsSummary = {
     pendingCount: number;
     overdueCount: number;
     doneCount: number;
+    followUpDueCount: number;
+};
+
+export type AdminContactStage = 'new' | 'contacted' | 'registered' | 'setup_pending' | 'activated' | 'first_booking' | 'paid' | 'paused' | 'closed';
+export type AdminContactVertical = 'agenda' | 'propiedades' | 'autos' | 'serenatas' | 'platform' | 'general';
+export type AdminContactPurpose = 'alliance' | 'app_invitation' | 'client_prospecting' | 'follow_up' | 'support' | 'other';
+export type AdminContactChannel = 'whatsapp_personal' | 'whatsapp_business' | 'email';
+export type AdminContactOrigin = 'unknown' | 'instagram' | 'facebook' | 'whatsapp' | 'website' | 'referral' | 'personal_network' | 'organic_search' | 'direct' | 'other';
+
+export type AdminContactProfileInput = {
+    name?: string | null;
+    email?: string | null;
+    company?: string | null;
+    sourceVertical?: AdminContactVertical | null;
+    purpose?: AdminContactPurpose | null;
+    campaignName?: string | null;
+    origin?: AdminContactOrigin | null;
+    originDetail?: string | null;
+    referredBy?: string | null;
+    relationshipContext?: string | null;
+    contactStage?: AdminContactStage | null;
+    nextAction?: string | null;
+    nextFollowUpDate?: string | null;
+    notes?: string | null;
+};
+
+export type AdminContactCreateInput = AdminContactProfileInput & {
+    channel: AdminContactChannel;
+    phone?: string;
+};
+
+export type AdminContactActivityInput = {
+    activityType: 'message_inbound' | 'message_outbound' | 'call' | 'meeting' | 'support' | 'note' | 'other';
+    channel: 'whatsapp_personal' | 'whatsapp_business' | 'email' | 'instagram_dm' | 'phone' | 'meeting' | 'other';
+    summary: string;
+    nextAction?: string;
+    nextFollowUpDate?: string;
 };
 
 export async function fetchAdminConversations(
@@ -286,8 +364,31 @@ export async function fetchAdminConversations(
     }>(`/api/admin/conversations?status=${encodeURIComponent(status)}&vertical=${encodeURIComponent(vertical)}`);
     return {
         items: data.items ?? [],
-        summary: data.summary ?? { pendingCount: 0, overdueCount: 0, doneCount: 0 },
+        summary: data.summary ?? { pendingCount: 0, overdueCount: 0, doneCount: 0, followUpDueCount: 0 },
     };
+}
+
+export async function createAdminContact(input: AdminContactCreateInput): Promise<{ threadId: string; created: boolean }> {
+    const data = await expectOk<{ threadId?: string; created?: boolean }>('/api/admin/conversations/contacts', {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
+    if (!data.threadId) throw new Error('No se recibió el contacto guardado');
+    return { threadId: data.threadId, created: Boolean(data.created) };
+}
+
+export async function updateAdminContact(threadId: string, input: AdminContactProfileInput): Promise<void> {
+    await expectOk(`/api/admin/conversations/${encodeURIComponent(threadId)}/contact`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+    });
+}
+
+export async function recordAdminContactActivity(threadId: string, input: AdminContactActivityInput): Promise<void> {
+    await expectOk(`/api/admin/conversations/${encodeURIComponent(threadId)}/activities`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
 }
 
 export async function captureAdminConversationResponse(input: {
