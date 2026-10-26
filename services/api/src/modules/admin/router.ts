@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import type { SubscriptionPlanId, AppUser, VerticalType } from '../../lib/domain-types.js';
 import { publicProfiles, serenataClients, serenataMusicians, serenataOwners } from '../../db/schema.js';
 import { formatAuthFromAddress, getAuthMailerTransporter } from '../../lib/auth-email.js';
@@ -8,8 +9,9 @@ import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from '../..
 import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
 import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import {
-    captureWhatsappManual,
+    captureManualResponse,
     listAdminConversations,
+    recordAdminOutboundMessage,
     updateConversationStatus,
 } from './conversations.js';
 
@@ -52,6 +54,27 @@ export type AdminRouterDeps = {
 };
 
 type AdminEmailBrandInput = EmailBrandVertical | 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | null | undefined;
+
+const adminOutboundMessageSchema = z.object({
+    channel: z.enum(['whatsapp_personal', 'whatsapp_business', 'email']),
+    phone: z.string().trim().max(40).optional().default(''),
+    email: z.string().trim().max(254).optional().default(''),
+    name: z.string().trim().max(160).optional().default(''),
+    company: z.string().trim().max(180).optional().default(''),
+    message: z.string().trim().min(2).max(6000),
+    sourceVertical: z.enum(['agenda', 'propiedades', 'autos', 'serenatas', 'platform', 'general']),
+    purpose: z.enum(['alliance', 'app_invitation', 'client_prospecting', 'follow_up', 'support', 'other']),
+    campaignName: z.string().trim().max(160).optional().default(''),
+}).strict().superRefine((input, ctx) => {
+    if (input.channel === 'email' && !input.email) {
+        ctx.addIssue({ code: 'custom', path: ['email'], message: 'Indica el correo del destinatario.' });
+    } else if (input.email && !z.string().email().safeParse(input.email).success) {
+        ctx.addIssue({ code: 'custom', path: ['email'], message: 'Indica un correo válido.' });
+    }
+    if (input.channel !== 'email' && !input.phone) {
+        ctx.addIssue({ code: 'custom', path: ['phone'], message: 'Indica el WhatsApp del destinatario.' });
+    }
+});
 
 function normalizeAdminEmailBrandVertical(input: AdminEmailBrandInput): EmailBrandVertical | null {
     if (input === 'agenda' || input === 'simpleagenda') return 'agenda';
@@ -937,6 +960,10 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const status = statusRaw === 'all' || statusRaw === 'done' || statusRaw === 'pending'
             ? statusRaw
             : 'pending';
+        const verticalRaw = c.req.query('vertical') ?? 'all';
+        const vertical = ['all', 'agenda', 'propiedades', 'autos', 'serenatas', 'platform', 'general', 'unclassified'].includes(verticalRaw)
+            ? verticalRaw
+            : 'all';
 
         try {
             const result = await listAdminConversations({
@@ -947,6 +974,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 desc: deps.desc,
                 tables: { timelineEvents: deps.tables.timelineEvents },
                 status,
+                vertical,
             });
             return c.json({ ok: true, ...result });
         } catch (error) {
@@ -955,7 +983,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         }
     });
 
-    app.post('/conversations/whatsapp-manual', async (c) => {
+    app.post('/conversations/inbound-manual', async (c) => {
         const admin = await deps.authUser(c);
         if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
         if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
@@ -964,32 +992,92 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         }
 
         const body = await c.req.json().catch(() => ({})) as {
+            channel?: string;
             phone?: string;
+            email?: string;
             name?: string;
             message?: string;
             sourceVertical?: string;
+            purpose?: string;
+            campaignName?: string;
         };
-        if (!body.phone?.trim()) {
-            return c.json({ ok: false, error: 'Indica el WhatsApp o teléfono del contacto.' }, 400);
+        const channel = body.channel ?? 'whatsapp_personal';
+        if (channel !== 'email' && channel !== 'whatsapp_personal' && channel !== 'whatsapp_business') {
+            return c.json({ ok: false, error: 'Selecciona WhatsApp personal, WhatsApp Business o correo electrónico.' }, 400);
+        }
+        if (!['agenda', 'propiedades', 'autos', 'serenatas', 'platform', 'general'].includes(body.sourceVertical ?? '')) {
+            return c.json({ ok: false, error: 'Selecciona el servicio relacionado con esta respuesta.' }, 400);
+        }
+        if (!['alliance', 'app_invitation', 'client_prospecting', 'follow_up', 'support', 'other'].includes(body.purpose ?? '')) {
+            return c.json({ ok: false, error: 'Selecciona el motivo de esta conversación.' }, 400);
+        }
+        if (!body.message?.trim()) {
+            return c.json({ ok: false, error: 'Copia el texto de la respuesta recibida.' }, 400);
+        }
+        if (channel === 'email' ? !body.email?.trim() : !body.phone?.trim()) {
+            return c.json({ ok: false, error: channel === 'email' ? 'Indica el correo del contacto.' : 'Indica el WhatsApp o teléfono del contacto.' }, 400);
         }
 
         try {
-            const result = await captureWhatsappManual({
+            const result = await captureManualResponse({
                 db: deps.db,
                 tables: { timelineEvents: deps.tables.timelineEvents },
                 adminUserId: admin.id,
+                channel: channel as 'whatsapp_personal' | 'whatsapp_business' | 'email',
                 phone: body.phone,
+                email: body.email,
                 name: body.name,
                 message: body.message,
-                sourceVertical: body.sourceVertical,
+                sourceVertical: body.sourceVertical as 'agenda' | 'propiedades' | 'autos' | 'serenatas' | 'platform' | 'general',
+                purpose: body.purpose as 'alliance' | 'app_invitation' | 'client_prospecting' | 'follow_up' | 'support' | 'other',
+                campaignName: body.campaignName,
             });
             return c.json({ ok: true, ...result }, 201);
         } catch (error) {
             if (error instanceof Error && error.message === 'INVALID_PHONE') {
                 return c.json({ ok: false, error: 'Teléfono o WhatsApp inválido.' }, 400);
             }
-            console.error('[admin] capture whatsapp manual failed', error);
+            if (error instanceof Error && error.message === 'INVALID_EMAIL') {
+                return c.json({ ok: false, error: 'Correo inválido.' }, 400);
+            }
+            if (error instanceof Error && error.message === 'INVALID_MESSAGE') {
+                return c.json({ ok: false, error: 'La respuesta debe tener hasta 6000 caracteres.' }, 400);
+            }
+            console.error('[admin] capture inbound manual failed', error);
             return c.json({ ok: false, error: 'No se pudo registrar el contacto.' }, 500);
+        }
+    });
+
+    app.post('/conversations/outbound-manual', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents) {
+            return c.json({ ok: false, error: 'Conversaciones no disponibles en este entorno.' }, 503);
+        }
+
+        const raw = await c.req.json().catch(() => null);
+        const parsed = adminOutboundMessageSchema.safeParse(raw);
+        if (!parsed.success) {
+            return c.json({ ok: false, error: parsed.error.issues[0]?.message || 'Revisa los datos del registro.' }, 400);
+        }
+
+        try {
+            const result = await recordAdminOutboundMessage({
+                db: deps.db,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                input: { ...parsed.data, adminUserId: admin.id },
+            });
+            return c.json({ ok: true, ...result }, 201);
+        } catch (error) {
+            if (error instanceof Error) {
+                if (error.message === 'INVALID_PHONE') return c.json({ ok: false, error: 'WhatsApp o teléfono inválido.' }, 400);
+                if (error.message === 'INVALID_EMAIL') return c.json({ ok: false, error: 'Correo inválido.' }, 400);
+                if (error.message === 'PHONE_REQUIRED') return c.json({ ok: false, error: 'Indica el WhatsApp del destinatario.' }, 400);
+                if (error.message === 'EMAIL_REQUIRED') return c.json({ ok: false, error: 'Indica el correo del destinatario.' }, 400);
+            }
+            console.error('[admin] record outbound message failed', error);
+            return c.json({ ok: false, error: 'No se pudo guardar el mensaje enviado.' }, 500);
         }
     });
 

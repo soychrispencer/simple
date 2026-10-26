@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-    captureAdminWhatsappConversation,
+    captureAdminConversationResponse,
     fetchAdminConversations,
+    recordAdminOutboundMessage,
     updateAdminConversationStatus,
     type AdminConversationItem,
     type AdminConversationsSummary,
@@ -11,7 +12,7 @@ import {
 
 export type ConversationStatusFilter = 'pending' | 'done' | 'all';
 
-export function useAdminConversations(status: ConversationStatusFilter) {
+export function useAdminConversations(status: ConversationStatusFilter, vertical: string) {
     const [items, setItems] = useState<AdminConversationItem[]>([]);
     const [summary, setSummary] = useState<AdminConversationsSummary>({ pendingCount: 0, overdueCount: 0, doneCount: 0 });
     const [loading, setLoading] = useState(true);
@@ -22,7 +23,7 @@ export function useAdminConversations(status: ConversationStatusFilter) {
         setLoading(true);
         setError('');
         try {
-            const data = await fetchAdminConversations(status);
+            const data = await fetchAdminConversations(status, vertical);
             setItems(data.items);
             setSummary(data.summary);
         } catch (err) {
@@ -30,7 +31,7 @@ export function useAdminConversations(status: ConversationStatusFilter) {
         } finally {
             setLoading(false);
         }
-    }, [status]);
+    }, [status, vertical]);
 
     useEffect(() => { void load(); }, [load]);
 
@@ -47,10 +48,15 @@ export function useAdminConversations(status: ConversationStatusFilter) {
         }
     };
 
-    const capture = async (input: { phone: string; name?: string; message?: string; sourceVertical?: string }) => {
-        await captureAdminWhatsappConversation(input);
+    const capture = async (input: Parameters<typeof captureAdminConversationResponse>[0]) => {
+        await captureAdminConversationResponse(input);
         await load();
     };
 
-    return { items, summary, loading, error, busyThreadId, load, markDone, capture };
+    const recordOutbound = async (input: Parameters<typeof recordAdminOutboundMessage>[0]) => {
+        await recordAdminOutboundMessage(input);
+        await load();
+    };
+
+    return { items, summary, loading, error, busyThreadId, load, markDone, capture, recordOutbound };
 }

@@ -245,6 +245,9 @@ export type AdminConversationItem = {
     company: string | null;
     lastMessage: string | null;
     sourceVertical: string | null;
+    purpose: string | null;
+    campaignName: string | null;
+    activities: AdminConversationActivity[];
     capturedByUserId: string | null;
     occurredAt: string;
     pendingSince: string;
@@ -253,33 +256,70 @@ export type AdminConversationItem = {
     eventCount: number;
 };
 
+export type AdminConversationActivity = {
+    id: string;
+    direction: 'inbound' | 'outbound' | 'status';
+    channel: string | null;
+    message: string | null;
+    sourceVertical: string | null;
+    purpose: string | null;
+    campaignName: string | null;
+    occurredAt: string;
+};
+
 export type AdminConversationsSummary = {
     pendingCount: number;
     overdueCount: number;
     doneCount: number;
 };
 
-export async function fetchAdminConversations(status: 'pending' | 'done' | 'all' = 'pending'): Promise<{
+export async function fetchAdminConversations(
+    status: 'pending' | 'done' | 'all' = 'pending',
+    vertical = 'all',
+): Promise<{
     items: AdminConversationItem[];
     summary: AdminConversationsSummary;
 }> {
     const data = await expectOk<{
         items?: AdminConversationItem[];
         summary?: AdminConversationsSummary;
-    }>(`/api/admin/conversations?status=${encodeURIComponent(status)}`);
+    }>(`/api/admin/conversations?status=${encodeURIComponent(status)}&vertical=${encodeURIComponent(vertical)}`);
     return {
         items: data.items ?? [],
         summary: data.summary ?? { pendingCount: 0, overdueCount: 0, doneCount: 0 },
     };
 }
 
-export async function captureAdminWhatsappConversation(input: {
-    phone: string;
+export async function captureAdminConversationResponse(input: {
+    channel: 'whatsapp_personal' | 'whatsapp_business' | 'email';
+    phone?: string;
+    email?: string;
     name?: string;
-    message?: string;
-    sourceVertical?: string;
+    message: string;
+    sourceVertical: 'agenda' | 'propiedades' | 'autos' | 'serenatas' | 'platform' | 'general';
+    purpose: 'alliance' | 'app_invitation' | 'client_prospecting' | 'follow_up' | 'support' | 'other';
+    campaignName?: string;
 }): Promise<{ threadId: string }> {
-    const data = await expectOk<{ threadId?: string }>('/api/admin/conversations/whatsapp-manual', {
+    const data = await expectOk<{ threadId?: string }>('/api/admin/conversations/inbound-manual', {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
+    if (!data.threadId) throw new Error('No se recibió el hilo creado');
+    return { threadId: data.threadId };
+}
+
+export async function recordAdminOutboundMessage(input: {
+    channel: 'whatsapp_personal' | 'whatsapp_business' | 'email';
+    phone?: string;
+    email?: string;
+    name?: string;
+    company?: string;
+    message: string;
+    sourceVertical: 'agenda' | 'propiedades' | 'autos' | 'serenatas' | 'platform' | 'general';
+    purpose: 'alliance' | 'app_invitation' | 'client_prospecting' | 'follow_up' | 'support' | 'other';
+    campaignName?: string;
+}): Promise<{ threadId: string }> {
+    const data = await expectOk<{ threadId?: string }>('/api/admin/conversations/outbound-manual', {
         method: 'POST',
         body: JSON.stringify(input),
     });
