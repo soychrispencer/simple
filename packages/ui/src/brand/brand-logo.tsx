@@ -1,9 +1,8 @@
 'use client';
 
-import type { ComponentType, CSSProperties } from 'react';
-import { IconCalendar, IconConfetti, IconDoor, IconLayoutDashboard, IconSteeringWheel, IconTicket, IconToolsKitchen2 } from '@tabler/icons-react';
+import type { CSSProperties } from 'react';
 import clsx from 'clsx';
-import { getSimpleAppBrand, type SimpleAppId } from '@simple/config';
+import { getSimpleAppBrand, getSimpleBrandArtwork, type SimpleAppId } from '@simple/config';
 
 export type BrandLogoVariant = 'default' | 'ghost' | 'onAccent' | 'watermark';
 
@@ -17,16 +16,6 @@ export type BrandLogoProps = {
     variant?: BrandLogoVariant;
 };
 
-const BRAND_ICON_BY_APP: Record<SimpleAppId, ComponentType<{ size?: number; style?: CSSProperties }>> = {
-    simpleautos: IconSteeringWheel,
-    simplepropiedades: IconDoor,
-    simpleadmin: IconLayoutDashboard,
-    simpleplataforma: IconLayoutDashboard,
-    simpleagenda: IconCalendar,
-    simpleserenatas: IconConfetti,
-    simpletickets: IconTicket,
-    simpleresto: IconToolsKitchen2,
-};
 
 function brandLogoIconWrapStyle(variant: BrandLogoVariant): CSSProperties {
     switch (variant) {
@@ -70,37 +59,16 @@ export function BrandLogo({
     variant = 'default',
 }: BrandLogoProps) {
     const brand = getSimpleAppBrand(appId);
-    const Icon = BRAND_ICON_BY_APP[appId];
-    const secondary = brand.shortName.replace(/^Simple/, '') || brand.shortName;
+    const artwork = getSimpleBrandArtwork(appId);
     const wordmarkPrimary =
         variant === 'watermark'
             ? 'rgba(255,255,255,0.9)'
             : variant === 'onAccent'
                 ? 'var(--accent-contrast)'
                 : 'var(--fg)';
-    const wordmarkSecondary =
-        variant === 'watermark'
-            ? 'rgba(255,255,255,0.68)'
-            : variant === 'onAccent'
-                ? 'color-mix(in oklab, var(--accent-contrast) 88%, transparent)'
-                : 'var(--accent)';
+    const wordmarkSecondary = wordmarkPrimary;
 
-    const iconSize =
-        variant === 'watermark'
-            ? 16
-            : size === 'sm'
-                ? 16
-                : size === 'lg'
-                    ? 26
-                    : 18;
-    const wordmarkClass =
-        variant === 'watermark'
-            ? 'text-sm'
-            : size === 'sm'
-                ? 'text-sm'
-                : size === 'lg'
-                    ? 'text-lg'
-                    : 'text-base';
+    const wordmarkHeight = variant === 'watermark' || size === 'sm' ? 18 : size === 'lg' ? 28 : 21;
 
     const iconBox = clsx(
         'flex items-center justify-center border transition-[box-shadow,border-color,background-color,transform,filter] duration-[var(--serenatas-motion-duration,180ms)] ease-[var(--serenatas-motion-ease,cubic-bezier(0.16,1,0.3,1))]',
@@ -119,27 +87,29 @@ export function BrandLogo({
 
     return (
         <span
-            className={clsx('flex items-center group shrink-0', showIcon ? 'gap-2.5' : 'gap-0', className)}
+            role="img"
+            aria-label={brand.shortName}
+            className={clsx('inline-flex items-center group shrink-0', showIcon ? 'gap-2.5' : 'gap-0', className)}
             style={variant === 'watermark' ? { filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.32))' } : undefined}
         >
             {showIcon ? (
                 <span className={iconBox} style={brandLogoIconWrapStyle(variant)}>
-                    <Icon size={iconSize} />
+                    <svg aria-hidden="true" viewBox="0 0 80 80" width="100%" height="100%" fill="none">
+                        <g transform="translate(8 8)" dangerouslySetInnerHTML={{ __html: size === 'sm' || variant === 'watermark' ? artwork.micro : artwork.full }} />
+                    </svg>
                 </span>
             ) : null}
             {showWordmark ? (
-                <span
-                    className={clsx(
-                        'inline-flex items-baseline gap-[0.08rem] tracking-tight leading-none',
-                        wordmarkClass
-                    )}
-                    style={{ color: wordmarkPrimary }}
+                <svg
+                    aria-hidden="true"
+                    viewBox={`0 0 ${artwork.wordmarkWidth} ${artwork.wordmarkHeight}`}
+                    height={wordmarkHeight}
+                    width={wordmarkHeight * artwork.wordmarkWidth / artwork.wordmarkHeight}
+                    className="shrink-0 overflow-visible"
                 >
-                    <span className="font-semibold leading-none">Simple</span>
-                    <span className="font-normal leading-none" style={{ color: wordmarkSecondary }}>
-                        {secondary}
-                    </span>
-                </span>
+                    <g style={{ color: wordmarkPrimary }} dangerouslySetInnerHTML={{ __html: artwork.wordmarkPrimary }} />
+                    <g style={{ color: wordmarkSecondary }} dangerouslySetInnerHTML={{ __html: artwork.wordmarkSecondary }} />
+                </svg>
             ) : null}
         </span>
     );

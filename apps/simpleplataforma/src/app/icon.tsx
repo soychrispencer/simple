@@ -4,7 +4,7 @@ export const size = { width: 512, height: 512 };
 export const contentType = 'image/svg+xml';
 
 export default function Icon() {
-    return new Response(getSimpleBrandIconSvg('simpleplataforma'), {
+    return new Response(getSimpleBrandIconSvg('simpleplataforma', true), {
         headers: {
             'Content-Type': 'image/svg+xml',
         },

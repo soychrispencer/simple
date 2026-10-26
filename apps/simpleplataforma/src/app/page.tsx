@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { BrandLogo } from '@simple/ui/brand';
+import { getSimpleBrandArtwork, type SimpleAppId } from '@simple/config';
 import { PanelButton, PanelButtonLink } from '@simple/ui/panel';
 import { ThemeToggleButton } from '@simple/ui/theme';
 import { useAuth } from '@simple/auth';
@@ -51,35 +52,42 @@ import {
 // ============================================================================
 // BRAND CONFIG - Colores reales de cada vertical según el repo
 // ============================================================================
+function brandSymbol(appId: SimpleAppId) {
+    return function BrandSymbol({ size = 24, style, className }: { size?: number; stroke?: number; style?: React.CSSProperties; className?: string }) {
+        return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 64 64" style={style} className={className}
+            dangerouslySetInnerHTML={{ __html: getSimpleBrandArtwork(appId).full }} />;
+    };
+}
+
 const BRAND = {
     autos: {
         name: 'SimpleAutos',
         color: 'var(--brand-autos)',
-        icon: IconSteeringWheel,
+        icon: brandSymbol('simpleautos'),
         url: 'https://simpleautos.app',
     },
     propiedades: {
         name: 'SimplePropiedades',
         color: 'var(--brand-propiedades)',
-        icon: IconDoor,
+        icon: brandSymbol('simplepropiedades'),
         url: 'https://simplepropiedades.app',
     },
     agenda: {
         name: 'SimpleAgenda',
         color: 'var(--brand-agenda)',
-        icon: IconCalendar,
+        icon: brandSymbol('simpleagenda'),
         url: 'https://simpleagenda.app',
     },
     serenatas: {
         name: 'SimpleSerenatas',
         color: 'var(--brand-serenatas)',
-        icon: IconHeart,
+        icon: brandSymbol('simpleserenatas'),
         url: 'https://simpleserenatas.app',
     },
     admin: {
         name: 'SimpleAdmin',
         color: 'var(--fg)',
-        icon: IconLayoutDashboard,
+        icon: brandSymbol('simpleadmin'),
         url: 'https://admin.simpleplataforma.app',
     },
 } as const;
@@ -121,25 +129,9 @@ function Logo({ brand }: { brand?: keyof typeof BRAND }) {
             </Link>
         );
     }
-    const b = BRAND[brand];
-    const Icon = b.icon;
     return (
-        <Link href="/" className="flex items-center gap-1.5 group shrink-0">
-            <div
-                className="w-9 h-9 rounded-button border flex items-center justify-center transition-all duration-200 group-hover:border-[var(--accent)]"
-                style={{
-                    borderColor: 'var(--border)',
-                    background: 'var(--bg-subtle)',
-                }}
-            >
-                <Icon size={18} stroke={1.5} style={{ color: b.color }} />
-            </div>
-            <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight plt-fg">
-                <span className="font-semibold leading-none">Simple</span>
-                <span className="translate-y-[0.02em] font-normal leading-none plt-muted">
-                    {b.name.replace('Simple', '')}
-                </span>
-            </span>
+        <Link href="/" className="flex shrink-0">
+            <BrandLogo appId={`simple${brand}` as SimpleAppId} />
         </Link>
     );
 }
