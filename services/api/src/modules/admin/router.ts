@@ -10,10 +10,14 @@ import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
 import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import {
     captureManualResponse,
+    createAdminContact,
     listAdminConversations,
+    recordAdminContactActivity,
     recordAdminOutboundMessage,
+    updateAdminContact,
     updateConversationStatus,
 } from './conversations.js';
+import type { AdminContactCreateInput, AdminContactProfileInput } from './conversations.js';
 
 export type AdminRouterDeps = {
     db: any;
@@ -1078,6 +1082,146 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             }
             console.error('[admin] record outbound message failed', error);
             return c.json({ ok: false, error: 'No se pudo guardar el mensaje enviado.' }, 500);
+        }
+    });
+
+    app.post('/conversations/contacts', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents || !deps.eq || !deps.and) {
+            return c.json({ ok: false, error: 'Contactos no disponibles en este entorno.' }, 503);
+        }
+
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const channel = body.channel ?? 'whatsapp_personal';
+        if (channel !== 'whatsapp_personal' && channel !== 'whatsapp_business' && channel !== 'email') {
+            return c.json({ ok: false, error: 'Selecciona WhatsApp personal, WhatsApp Business o correo electrónico.' }, 400);
+        }
+        const verticals = ['agenda', 'propiedades', 'autos', 'serenatas', 'platform', 'general'];
+        const purposes = ['alliance', 'app_invitation', 'client_prospecting', 'follow_up', 'support', 'other'];
+        const stages = ['new', 'contacted', 'registered', 'setup_pending', 'activated', 'first_booking', 'paid', 'paused', 'closed'];
+        if (body.sourceVertical && !verticals.includes(String(body.sourceVertical))) {
+            return c.json({ ok: false, error: 'Selecciona un servicio válido.' }, 400);
+        }
+        if (body.purpose && !purposes.includes(String(body.purpose))) {
+            return c.json({ ok: false, error: 'Selecciona un motivo válido.' }, 400);
+        }
+        if (body.contactStage && !stages.includes(String(body.contactStage))) {
+            return c.json({ ok: false, error: 'Selecciona una etapa válida.' }, 400);
+        }
+        if (!String(body.name ?? '').trim() && !String(body.phone ?? '').trim() && !String(body.email ?? '').trim()) {
+            return c.json({ ok: false, error: 'Indica un nombre, teléfono o correo para identificar el contacto.' }, 400);
+        }
+        if (channel === 'email' ? !String(body.email ?? '').trim() : !String(body.phone ?? '').trim()) {
+            return c.json({ ok: false, error: channel === 'email' ? 'Indica el correo del contacto.' : 'Indica el WhatsApp del contacto.' }, 400);
+        }
+
+        try {
+            const result = await createAdminContact({
+                db: deps.db,
+                eq: deps.eq,
+                and: deps.and,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                adminUserId: admin.id,
+                input: body as AdminContactCreateInput,
+            });
+            return c.json({ ok: true, ...result }, result.created ? 201 : 200);
+        } catch (error) {
+            if (error instanceof Error) {
+                if (error.message === 'INVALID_PHONE') return c.json({ ok: false, error: 'WhatsApp o teléfono inválido.' }, 400);
+                if (error.message === 'INVALID_EMAIL') return c.json({ ok: false, error: 'Correo inválido.' }, 400);
+                if (error.message === 'PHONE_REQUIRED') return c.json({ ok: false, error: 'Indica el WhatsApp del contacto.' }, 400);
+                if (error.message === 'EMAIL_REQUIRED') return c.json({ ok: false, error: 'Indica el correo del contacto.' }, 400);
+                if (error.message === 'INVALID_CONTACT_STAGE') return c.json({ ok: false, error: 'Selecciona una etapa válida.' }, 400);
+                if (error.message === 'CONTACT_FIELD_TOO_LONG') return c.json({ ok: false, error: 'Uno de los campos de la ficha supera el largo permitido.' }, 400);
+                if (error.message === 'INVALID_FOLLOW_UP_DATE') return c.json({ ok: false, error: 'La fecha de seguimiento no es válida.' }, 400);
+            }
+            console.error('[admin] create contact failed', error);
+            return c.json({ ok: false, error: 'No se pudo guardar el contacto.' }, 500);
+        }
+    });
+
+    app.patch('/conversations/:threadId/contact', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents) {
+            return c.json({ ok: false, error: 'Contactos no disponibles en este entorno.' }, 503);
+        }
+
+        const threadId = decodeURIComponent(c.req.param('threadId') || '').trim();
+        if (!threadId) return c.json({ ok: false, error: 'Contacto inválido.' }, 400);
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const verticals = ['agenda', 'propiedades', 'autos', 'serenatas', 'platform', 'general'];
+        const purposes = ['alliance', 'app_invitation', 'client_prospecting', 'follow_up', 'support', 'other'];
+        const stages = ['new', 'contacted', 'registered', 'setup_pending', 'activated', 'first_booking', 'paid', 'paused', 'closed'];
+        if (body.sourceVertical && !verticals.includes(String(body.sourceVertical))) return c.json({ ok: false, error: 'Selecciona un servicio válido.' }, 400);
+        if (body.purpose && !purposes.includes(String(body.purpose))) return c.json({ ok: false, error: 'Selecciona un motivo válido.' }, 400);
+        if (body.contactStage && !stages.includes(String(body.contactStage))) return c.json({ ok: false, error: 'Selecciona una etapa válida.' }, 400);
+
+        try {
+            await updateAdminContact({
+                db: deps.db,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                adminUserId: admin.id,
+                threadId,
+                input: body as AdminContactProfileInput,
+            });
+            return c.json({ ok: true });
+        } catch (error) {
+            if (error instanceof Error) {
+                if (error.message === 'INVALID_EMAIL') return c.json({ ok: false, error: 'Correo inválido.' }, 400);
+                if (error.message === 'INVALID_FOLLOW_UP_DATE') return c.json({ ok: false, error: 'La fecha de seguimiento no es válida.' }, 400);
+                if (error.message === 'INVALID_CONTACT_STAGE') return c.json({ ok: false, error: 'Selecciona una etapa válida.' }, 400);
+                if (error.message === 'CONTACT_FIELD_TOO_LONG') return c.json({ ok: false, error: 'Uno de los campos supera el largo permitido.' }, 400);
+                if (error.message === 'EMPTY_CONTACT_UPDATE') return c.json({ ok: false, error: 'No hay cambios para guardar.' }, 400);
+            }
+            console.error('[admin] update contact failed', error);
+            return c.json({ ok: false, error: 'No se pudo actualizar la ficha.' }, 500);
+        }
+    });
+
+    app.post('/conversations/:threadId/activities', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents) {
+            return c.json({ ok: false, error: 'Actividad no disponible en este entorno.' }, 503);
+        }
+
+        const threadId = decodeURIComponent(c.req.param('threadId') || '').trim();
+        if (!threadId) return c.json({ ok: false, error: 'Contacto inválido.' }, 400);
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const activityTypes = ['message_inbound', 'message_outbound', 'call', 'meeting', 'support', 'note', 'other'];
+        const channels = ['whatsapp_personal', 'whatsapp_business', 'email', 'instagram_dm', 'phone', 'meeting', 'other'];
+        if (!activityTypes.includes(String(body.activityType ?? ''))) return c.json({ ok: false, error: 'Selecciona un tipo de actividad.' }, 400);
+        if (!channels.includes(String(body.channel ?? ''))) return c.json({ ok: false, error: 'Selecciona un canal válido.' }, 400);
+        if (!String(body.summary ?? '').trim()) return c.json({ ok: false, error: 'Escribe un resumen de la actividad.' }, 400);
+
+        try {
+            await recordAdminContactActivity({
+                db: deps.db,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                adminUserId: admin.id,
+                threadId,
+                input: {
+                    activityType: body.activityType as 'message_inbound' | 'message_outbound' | 'call' | 'meeting' | 'support' | 'note' | 'other',
+                    channel: body.channel as 'whatsapp_personal' | 'whatsapp_business' | 'email' | 'instagram_dm' | 'phone' | 'meeting' | 'other',
+                    summary: String(body.summary),
+                    nextAction: typeof body.nextAction === 'string' ? body.nextAction : undefined,
+                    nextFollowUpDate: typeof body.nextFollowUpDate === 'string' ? body.nextFollowUpDate : undefined,
+                },
+            });
+            return c.json({ ok: true }, 201);
+        } catch (error) {
+            if (error instanceof Error) {
+                if (error.message === 'INVALID_ACTIVITY_SUMMARY') return c.json({ ok: false, error: 'El resumen debe tener hasta 6000 caracteres.' }, 400);
+                if (error.message === 'INVALID_FOLLOW_UP_DATE') return c.json({ ok: false, error: 'La fecha de seguimiento no es válida.' }, 400);
+                if (error.message === 'CONTACT_FIELD_TOO_LONG') return c.json({ ok: false, error: 'El próximo paso supera el largo permitido.' }, 400);
+            }
+            console.error('[admin] log contact activity failed', error);
+            return c.json({ ok: false, error: 'No se pudo registrar la actividad.' }, 500);
         }
     });
 
