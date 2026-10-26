@@ -40,8 +40,10 @@ export type AdminConversationItem = {
     campaignName: string | null;
     activities: AdminConversationActivity[];
     sourceVertical: string | null;
+    relatedVerticals: string[];
     capturedByUserId: string | null;
     origin: string | null;
+    originDetail: string | null;
     referredBy: string | null;
     relationshipContext: string | null;
     contactStage: string;
@@ -105,8 +107,10 @@ export function normalizeConversationPhone(raw: string): string | null {
     return null;
 }
 
-export function conversationThreadId(channel: string, recipient: string, sourceVertical?: string | null): string {
-    return `${channel}:${recipient}${sourceVertical ? `:${sourceVertical}` : ''}`;
+export function conversationThreadId(channel: string, recipient: string): string {
+    if (channel === 'email') return `contact:email:${recipient.trim().toLowerCase()}`;
+    const phone = normalizeConversationPhone(recipient) ?? recipient.trim();
+    return `contact:phone:${phone}`;
 }
 
 type TimelineRow = {
@@ -118,20 +122,114 @@ type TimelineRow = {
     payload: Record<string, unknown> | null;
 };
 
-function buildConversationItems(rows: TimelineRow[]): AdminConversationItem[] {
-    const byThread = new Map<string, TimelineRow[]>();
+const LEGACY_THREAD_VERTICALS = new Set(['agenda', 'propiedades', 'autos', 'serenatas', 'platform', 'general']);
+
+function normalizedEmail(value: unknown): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : null;
+}
+
+function identityTokensFromPayload(payload: Record<string, unknown>): string[] {
+    const tokens = new Set<string>();
+    const phone = typeof payload.phone === 'string' ? normalizeConversationPhone(payload.phone) : null;
+    const email = normalizedEmail(payload.email);
+    if (phone) tokens.add(`phone:${phone}`);
+    if (email) tokens.add(`email:${email}`);
+    return [...tokens];
+}
+
+function identityTokensForThread(threadId: string, rows: TimelineRow[]): string[] {
+    const tokens = new Set<string>();
+    const addPhone = (value: unknown) => {
+        if (typeof value !== 'string') return;
+        const phone = normalizeConversationPhone(value);
+        if (phone) tokens.add(`phone:${phone}`);
+    };
+    const addEmail = (value: unknown) => {
+        const email = normalizedEmail(value);
+        if (email) tokens.add(`email:${email}`);
+    };
+
     for (const row of rows) {
-        const threadId = row.subjectId || row.personId;
-        if (!threadId) continue;
-        const list = byThread.get(threadId) ?? [];
-        list.push(row);
-        byThread.set(threadId, list);
+        identityTokensFromPayload(asRecord(row.payload)).forEach((token) => tokens.add(token));
     }
 
+    const canonical = /^contact:(phone|email):(.+)$/.exec(threadId);
+    if (canonical?.[1] === 'phone') addPhone(canonical[2]);
+    if (canonical?.[1] === 'email') addEmail(canonical[2]);
+    if (threadId.startsWith('whatsapp:')) addPhone(threadId.split(':')[1]);
+    if (threadId.startsWith('email:')) {
+        const parts = threadId.split(':');
+        const last = parts.at(-1) ?? '';
+        const valueParts = LEGACY_THREAD_VERTICALS.has(last) ? parts.slice(1, -1) : parts.slice(1);
+        addEmail(valueParts.join(':'));
+    }
+    return [...tokens];
+}
+
+function groupTimelineRowsByContact(rows: TimelineRow[]): Array<{ threadId: string; events: TimelineRow[] }> {
+    const bySubject = new Map<string, TimelineRow[]>();
+    for (const row of rows) {
+        const subjectId = row.subjectId || row.personId;
+        if (!subjectId) continue;
+        const events = bySubject.get(subjectId) ?? [];
+        events.push(row);
+        bySubject.set(subjectId, events);
+    }
+
+    const parent = new Map<string, string>();
+    const find = (token: string): string => {
+        const current = parent.get(token);
+        if (!current) { parent.set(token, token); return token; }
+        if (current === token) return token;
+        const root = find(current);
+        parent.set(token, root);
+        return root;
+    };
+    const union = (a: string, b: string) => {
+        const rootA = find(a);
+        const rootB = find(b);
+        if (rootA !== rootB) parent.set(rootB, rootA);
+    };
+
+    const tokensBySubject = new Map<string, string[]>();
+    for (const [subjectId, events] of bySubject) {
+        const tokens = identityTokensForThread(subjectId, events);
+        tokensBySubject.set(subjectId, tokens);
+        if (tokens.length > 0) {
+            find(tokens[0]!);
+            for (const token of tokens.slice(1)) union(tokens[0]!, token);
+        }
+    }
+
+    const eventsByRoot = new Map<string, TimelineRow[]>();
+    const tokensByRoot = new Map<string, Set<string>>();
+    const fallbackSubjectByRoot = new Map<string, string>();
+    for (const [subjectId, events] of bySubject) {
+        const tokens = tokensBySubject.get(subjectId) ?? [];
+        const root = tokens.length ? find(tokens[0]!) : `subject:${subjectId}`;
+        const group = eventsByRoot.get(root) ?? [];
+        group.push(...events);
+        eventsByRoot.set(root, group);
+        if (!fallbackSubjectByRoot.has(root)) fallbackSubjectByRoot.set(root, subjectId);
+        const rootTokens = tokensByRoot.get(root) ?? new Set<string>();
+        tokens.forEach((token) => rootTokens.add(token));
+        tokensByRoot.set(root, rootTokens);
+    }
+
+    return [...eventsByRoot].map(([root, events]) => {
+        const tokens = [...(tokensByRoot.get(root) ?? [])];
+        const phone = tokens.filter((token) => token.startsWith('phone:')).map((token) => token.slice(6)).sort()[0];
+        const email = tokens.filter((token) => token.startsWith('email:')).map((token) => token.slice(6)).sort()[0];
+        const threadId = phone ? `contact:phone:${phone}` : email ? `contact:email:${email}` : fallbackSubjectByRoot.get(root)!;
+        return { threadId, events };
+    });
+}
+
+function buildConversationItems(rows: TimelineRow[]): AdminConversationItem[] {
     const now = Date.now();
     const items: AdminConversationItem[] = [];
 
-    for (const [threadId, events] of byThread) {
+    for (const { threadId, events } of groupTimelineRowsByContact(rows)) {
         events.sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
         const latest = events[events.length - 1]!;
         const latestPayload = asRecord(latest.payload);
@@ -172,6 +270,7 @@ function buildConversationItems(rows: TimelineRow[]): AdminConversationItem[] {
             purpose: null,
             campaignName: null,
             origin: null,
+            originDetail: null,
             referredBy: null,
             relationshipContext: null,
             contactStage: 'new',
@@ -207,6 +306,9 @@ function buildConversationItems(rows: TimelineRow[]): AdminConversationItem[] {
         const lastInteractionPayload = asRecord(lastInteraction.payload);
         const nextAction = asString(contactFields.nextAction);
         const nextFollowUpDate = asString(contactFields.nextFollowUpDate);
+        const relatedVerticals = [...new Set(events
+            .map((event) => asString(asRecord(event.payload).sourceVertical))
+            .filter((vertical): vertical is string => Boolean(vertical)))];
 
         items.push({
             threadId,
@@ -224,6 +326,7 @@ function buildConversationItems(rows: TimelineRow[]): AdminConversationItem[] {
             sourceVertical: contactProfileKeys.has('sourceVertical')
                 ? asString(contactFields.sourceVertical)
                 : asString(verticalPayload.sourceVertical),
+            relatedVerticals,
             purpose: contactProfileKeys.has('purpose') ? asString(contactFields.purpose) : asString(purposePayload.purpose),
             campaignName: contactProfileKeys.has('campaignName')
                 ? asString(contactFields.campaignName)
@@ -259,13 +362,14 @@ function buildConversationItems(rows: TimelineRow[]): AdminConversationItem[] {
             }),
             capturedByUserId: asString(inboundPayload.capturedByUserId),
             origin: asString(contactFields.origin),
+            originDetail: asString(contactFields.originDetail),
             referredBy: asString(contactFields.referredBy),
             relationshipContext: asString(contactFields.relationshipContext),
             contactStage: asString(contactFields.contactStage) || 'new',
             nextAction,
             nextFollowUpDate,
             notes: asString(contactFields.notes),
-            followUpDue: Boolean(nextAction && nextFollowUpDate && nextFollowUpDate <= chileDateString()),
+            followUpDue: Boolean(nextFollowUpDate && nextFollowUpDate <= chileDateString()),
             occurredAt: latest.occurredAt.toISOString(),
             pendingSince: openSince.toISOString(),
             hoursPending: Math.round(hoursPending * 10) / 10,
@@ -323,8 +427,8 @@ export async function listAdminConversations(deps: {
     const byVertical = vertical === 'all'
         ? all
         : vertical === 'unclassified'
-            ? all.filter((item) => !item.sourceVertical)
-            : all.filter((item) => item.sourceVertical === vertical);
+            ? all.filter((item) => item.relatedVerticals.length === 0)
+            : all.filter((item) => item.relatedVerticals.includes(vertical) || item.sourceVertical === vertical);
     const summary = summarizeConversations(byVertical);
     const status = deps.status ?? 'pending';
     const items = status === 'all' ? byVertical : byVertical.filter((item) => item.status === status);
@@ -353,8 +457,8 @@ export async function captureManualResponse(deps: {
     const message = deps.message.trim();
     if (message.length < 1 || message.length > 6000) throw new Error('INVALID_MESSAGE');
     const threadId = deps.channel === 'email'
-        ? conversationThreadId('email', email!, deps.sourceVertical)
-        : conversationThreadId('whatsapp', phone!, deps.sourceVertical);
+        ? conversationThreadId('email', email!)
+        : conversationThreadId('whatsapp', phone!);
     await recordTimelineEvent(deps.db, deps.tables.timelineEvents, {
         type: 'channel.inbound',
         business: { vertical: 'platform', id: PLATFORM_OPS_BUSINESS_ID },
@@ -407,8 +511,8 @@ export async function recordAdminOutboundMessage(deps: {
     if (input.channel !== 'email' && !phone) throw new Error('PHONE_REQUIRED');
 
     const threadId = input.channel === 'email'
-        ? conversationThreadId('email', email!, input.sourceVertical)
-        : conversationThreadId('whatsapp', phone!, input.sourceVertical);
+        ? conversationThreadId('email', email!)
+        : conversationThreadId('whatsapp', phone!);
     await recordTimelineEvent(deps.db, deps.tables.timelineEvents, {
         type: 'conversation.message_sent',
         business: { vertical: 'platform', id: PLATFORM_OPS_BUSINESS_ID },
@@ -443,6 +547,7 @@ export type AdminContactProfileInput = {
     purpose?: 'alliance' | 'app_invitation' | 'client_prospecting' | 'follow_up' | 'support' | 'other' | null;
     campaignName?: string | null;
     origin?: string | null;
+    originDetail?: string | null;
     referredBy?: string | null;
     relationshipContext?: string | null;
     contactStage?: 'new' | 'contacted' | 'registered' | 'setup_pending' | 'activated' | 'first_booking' | 'paid' | 'paused' | 'closed' | null;
@@ -460,11 +565,15 @@ export type AdminContactCreateInput = AdminContactProfileInput & {
 const CONTACT_STAGE_VALUES = new Set([
     'new', 'contacted', 'registered', 'setup_pending', 'activated', 'first_booking', 'paid', 'paused', 'closed',
 ]);
+const CONTACT_ORIGIN_VALUES = new Set([
+    'unknown', 'instagram', 'facebook', 'whatsapp', 'website', 'referral', 'personal_network', 'organic_search', 'direct', 'other',
+]);
 
 const CONTACT_TEXT_LIMITS: Record<string, number> = {
     name: 160,
     company: 160,
     origin: 120,
+    originDetail: 180,
     referredBy: 120,
     relationshipContext: 500,
     campaignName: 160,
@@ -493,6 +602,11 @@ function normalizeContactProfile(input: AdminContactProfileInput): Record<string
         if (Object.prototype.hasOwnProperty.call(input, key)) profile[key] = normalizeContactText((input as Record<string, unknown>)[key], maxLength);
     }
     if (Object.prototype.hasOwnProperty.call(input, 'email')) profile.email = normalizeContactEmail(input.email);
+    if (Object.prototype.hasOwnProperty.call(input, 'origin')) {
+        const origin = typeof input.origin === 'string' ? input.origin.trim() : '';
+        if (origin && !CONTACT_ORIGIN_VALUES.has(origin)) throw new Error('INVALID_CONTACT_ORIGIN');
+        profile.origin = origin || null;
+    }
     if (Object.prototype.hasOwnProperty.call(input, 'sourceVertical')) profile.sourceVertical = input.sourceVertical || null;
     if (Object.prototype.hasOwnProperty.call(input, 'purpose')) profile.purpose = input.purpose || null;
     if (Object.prototype.hasOwnProperty.call(input, 'contactStage')) {
@@ -521,6 +635,8 @@ export async function createAdminContact(deps: {
     db: any;
     eq: any;
     and: any;
+    inArray: any;
+    desc: any;
     tables: { timelineEvents: any };
     adminUserId: string;
     input: AdminContactCreateInput;
@@ -533,26 +649,51 @@ export async function createAdminContact(deps: {
     if (input.channel !== 'email' && !phone) throw new Error('PHONE_REQUIRED');
 
     const identity = input.channel === 'email' ? email! : phone!;
-    const threadId = input.channel === 'email'
-        ? conversationThreadId('email', identity, input.sourceVertical)
-        : conversationThreadId('whatsapp', identity, input.sourceVertical);
-    const existing = await deps.db
-        .select({ id: deps.tables.timelineEvents.id })
+    const requestedTokens = new Set(identityTokensFromPayload({ phone, email }));
+    const recentEvents = await deps.db
+        .select({ subjectId: deps.tables.timelineEvents.subjectId, payload: deps.tables.timelineEvents.payload })
         .from(deps.tables.timelineEvents)
         .where(deps.and(
             deps.eq(deps.tables.timelineEvents.vertical, 'platform'),
             deps.eq(deps.tables.timelineEvents.businessId, PLATFORM_OPS_BUSINESS_ID),
-            deps.eq(deps.tables.timelineEvents.subjectId, threadId),
+            deps.inArray(deps.tables.timelineEvents.type, [...CONVERSATION_EVENT_TYPES]),
         ))
-        .limit(1);
-
-    const profile = normalizeContactProfile({ ...input, email });
-    const isNew = !existing.length;
+        .orderBy(deps.desc(deps.tables.timelineEvents.occurredAt))
+        .limit(5000);
+    const existing = recentEvents.find((row: { subjectId: string; payload: Record<string, unknown> | null }) => {
+        const tokens = new Set([
+            ...identityTokensFromPayload(asRecord(row.payload)),
+            ...identityTokensForThread(row.subjectId, []),
+        ]);
+        return [...requestedTokens].some((token) => tokens.has(token));
+    });
+    const threadId = existing?.subjectId || (input.channel === 'email'
+        ? conversationThreadId('email', identity)
+        : conversationThreadId('whatsapp', identity));
+    const isNew = !existing;
+    const profileInput: AdminContactProfileInput = isNew ? { ...input } : {};
+    if (isNew && typeof input.email !== 'undefined') profileInput.email = email;
+    if (!isNew) {
+        const mergeableTextFields = ['name', 'company', 'originDetail', 'referredBy', 'relationshipContext', 'campaignName', 'nextAction', 'notes'] as const;
+        for (const key of mergeableTextFields) {
+            const value = input[key];
+            if (typeof value === 'string' && value.trim()) profileInput[key] = value;
+        }
+        if (input.sourceVertical) profileInput.sourceVertical = input.sourceVertical;
+        if (input.origin && input.origin !== 'unknown') profileInput.origin = input.origin;
+        if (input.contactStage && input.contactStage !== 'new') profileInput.contactStage = input.contactStage;
+        if (input.purpose && input.purpose !== 'follow_up') profileInput.purpose = input.purpose;
+        if (input.nextFollowUpDate) profileInput.nextFollowUpDate = input.nextFollowUpDate;
+    }
+    if (isNew && !profileInput.contactStage) profileInput.contactStage = 'new';
+    const profile = normalizeContactProfile(profileInput);
     await recordTimelineEvent(deps.db, deps.tables.timelineEvents, {
         type: isNew ? 'crm.contact_created' : 'crm.contact_updated',
         ...contactRef(threadId),
         payload: {
-            ...(isNew ? { status: 'done', channel: input.channel, phone, email } : {}),
+            ...(isNew ? { status: 'done', channel: input.channel } : {}),
+            ...(phone ? { phone } : {}),
+            ...(email ? { email } : {}),
             ...profile,
             capturedByUserId: deps.adminUserId,
         },
@@ -631,7 +772,11 @@ export async function updateConversationStatus(deps: {
     status: ConversationThreadStatus;
     note?: string | null;
 }): Promise<void> {
-    const channel = deps.threadId.includes(':') ? deps.threadId.split(':')[0]! : 'whatsapp';
+    const channel = deps.threadId.startsWith('contact:email:')
+        ? 'email'
+        : deps.threadId.startsWith('contact:phone:')
+            ? 'whatsapp'
+            : deps.threadId.includes(':') ? deps.threadId.split(':')[0]! : 'whatsapp';
     await recordTimelineEvent(deps.db, deps.tables.timelineEvents, {
         type: 'conversation.status_changed',
         business: { vertical: 'platform', id: PLATFORM_OPS_BUSINESS_ID },

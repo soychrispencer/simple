@@ -124,6 +124,36 @@ export type AdminUsersPage = {
     pageCount: number;
 };
 
+export type AdminAgendaActivationItem = {
+    userId: string;
+    name: string;
+    email: string;
+    status: string;
+    firstSeenAt: string | null;
+    activatedAt: string | null;
+    lastLoginAt: string | null;
+    hasProfile: boolean;
+    setupComplete: boolean;
+    isPublished: boolean;
+    firstBooking: boolean;
+    proActive: boolean;
+    activationStage: 'registered' | 'setup_pending' | 'ready_to_publish' | 'published' | 'first_booking';
+    missing: string[];
+};
+
+export type AdminAgendaActivationSnapshot = {
+    summary: { registered: number; profileStarted: number; setupComplete: number; published: number; firstBooking: number; proActive: number };
+    items: AdminAgendaActivationItem[];
+};
+
+export async function fetchAdminAgendaActivation(): Promise<AdminAgendaActivationSnapshot> {
+    const data = await expectOk<Partial<AdminAgendaActivationSnapshot>>('/api/admin/agenda-activation');
+    return {
+        summary: data.summary ?? { registered: 0, profileStarted: 0, setupComplete: 0, published: 0, firstBooking: 0, proActive: 0 },
+        items: data.items ?? [],
+    };
+}
+
 export async function fetchAdminUsers(input: {
     query?: string;
     status?: 'all' | AdminUserStatus;
@@ -245,9 +275,11 @@ export type AdminConversationItem = {
     company: string | null;
     lastMessage: string | null;
     sourceVertical: string | null;
+    relatedVerticals: string[];
     purpose: string | null;
     campaignName: string | null;
     origin: string | null;
+    originDetail: string | null;
     referredBy: string | null;
     relationshipContext: string | null;
     contactStage: AdminContactStage;
@@ -287,6 +319,7 @@ export type AdminContactStage = 'new' | 'contacted' | 'registered' | 'setup_pend
 export type AdminContactVertical = 'agenda' | 'propiedades' | 'autos' | 'serenatas' | 'platform' | 'general';
 export type AdminContactPurpose = 'alliance' | 'app_invitation' | 'client_prospecting' | 'follow_up' | 'support' | 'other';
 export type AdminContactChannel = 'whatsapp_personal' | 'whatsapp_business' | 'email';
+export type AdminContactOrigin = 'unknown' | 'instagram' | 'facebook' | 'whatsapp' | 'website' | 'referral' | 'personal_network' | 'organic_search' | 'direct' | 'other';
 
 export type AdminContactProfileInput = {
     name?: string | null;
@@ -295,7 +328,8 @@ export type AdminContactProfileInput = {
     sourceVertical?: AdminContactVertical | null;
     purpose?: AdminContactPurpose | null;
     campaignName?: string | null;
-    origin?: string | null;
+    origin?: AdminContactOrigin | null;
+    originDetail?: string | null;
     referredBy?: string | null;
     relationshipContext?: string | null;
     contactStage?: AdminContactStage | null;

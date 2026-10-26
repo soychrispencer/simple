@@ -35,6 +35,10 @@ const STAGE_FILTER_OPTIONS = [
     { value: 'activated', label: 'Activado' }, { value: 'first_booking', label: 'Primera reserva' },
     { value: 'paid', label: 'Pagó' }, { value: 'paused', label: 'En pausa' }, { value: 'closed', label: 'Cerrado' },
 ];
+const FOLLOW_UP_FILTER_OPTIONS = [
+    { value: 'all', label: 'Todos los seguimientos' }, { value: 'overdue', label: 'Vencidos' },
+    { value: 'today', label: 'Para hoy' }, { value: 'next7', label: 'Próximos 7 días' },
+];
 const VERTICAL_LABELS: Record<string, string> = {
     agenda: 'SimpleAgenda', propiedades: 'SimplePropiedades', autos: 'SimpleAutos', serenatas: 'SimpleSerenatas', platform: 'SimplePlataforma', general: 'Otro / general',
 };
@@ -50,6 +54,10 @@ const STAGE_LABELS: Record<string, string> = {
     new: 'Nuevo', contacted: 'Contactado', registered: 'Registrado', setup_pending: 'Configuración pendiente',
     activated: 'Activado', first_booking: 'Primera reserva', paid: 'Pagó', paused: 'En pausa', closed: 'Cerrado',
 };
+const ORIGIN_LABELS: Record<string, string> = {
+    unknown: 'Por identificar', instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp',
+    website: 'Sitio web', referral: 'Recomendación', personal_network: 'Red personal', organic_search: 'Búsqueda', direct: 'Contacto directo', other: 'Otro',
+};
 const ACTIVITY_LABELS: Record<string, string> = {
     message_inbound: 'Mensaje recibido', message_outbound: 'Mensaje enviado', call: 'Llamada', meeting: 'Reunión',
     support: 'Soporte', note: 'Nota', other: 'Otra actividad', 'crm.contact_created': 'Contacto registrado', 'crm.contact_updated': 'Ficha actualizada',
@@ -63,11 +71,21 @@ function formatHours(hours: number): string {
 function formatActivityDate(value: string): string {
     return new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
+function chileToday(): string {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+    const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+}
+function addDateDays(value: string, days: number): string {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(Date.UTC(year!, month! - 1, day! + days)).toISOString().slice(0, 10);
+}
 
 export function AdminConversationsDashboard() {
     const [status, setStatus] = useState<ConversationStatusFilter>('all');
     const [vertical, setVertical] = useState('all');
     const [stage, setStage] = useState('all');
+    const [followUpFilter, setFollowUpFilter] = useState('all');
     const [search, setSearch] = useState('');
     const [showCapture, setShowCapture] = useState(false);
     const [showOutbound, setShowOutbound] = useState(false);
@@ -77,13 +95,25 @@ export function AdminConversationsDashboard() {
 
     const visibleItems = useMemo(() => {
         const needle = search.trim().toLocaleLowerCase('es-CL');
+        const today = chileToday();
+        const nextWeek = addDateDays(today, 7);
         return items.filter((item) => {
             if (stage !== 'all' && item.contactStage !== stage) return false;
+            if (followUpFilter === 'overdue' && !item.followUpDue) return false;
+            if (followUpFilter === 'today' && item.nextFollowUpDate !== today) return false;
+            if (followUpFilter === 'next7' && (!item.nextFollowUpDate || item.nextFollowUpDate < today || item.nextFollowUpDate > nextWeek)) return false;
             if (!needle) return true;
-            return [item.name, item.phone, item.email, item.company, item.origin, item.referredBy, item.relationshipContext, item.lastMessage]
+            return [item.name, item.phone, item.email, item.company, item.origin, item.originDetail, item.referredBy, item.relationshipContext, item.lastMessage]
                 .some((value) => value?.toLocaleLowerCase('es-CL').includes(needle));
+        }).sort((a, b) => {
+            if (a.followUpDue !== b.followUpDue) return a.followUpDue ? -1 : 1;
+            const aDate = a.nextFollowUpDate || '9999-12-31';
+            const bDate = b.nextFollowUpDate || '9999-12-31';
+            if (aDate !== bDate) return aDate.localeCompare(bDate);
+            if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
+            return new Date(b.pendingSince).getTime() - new Date(a.pendingSince).getTime();
         });
-    }, [items, search, stage]);
+    }, [items, search, stage, followUpFilter]);
 
     return (
         <div className="container-app panel-page space-y-5 py-6">
@@ -100,7 +130,7 @@ export function AdminConversationsDashboard() {
                 )}
             />
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <PanelStatCard label="Contactos con respuesta pendiente" value={String(summary.pendingCount)} meta="Requieren seguimiento" icon={<IconMessageCircle size={18} />} />
                 <PanelStatCard label="Más de 24 horas" value={String(summary.overdueCount)} meta="Prioridad de respuesta" icon={<IconAlertTriangle size={18} />} />
                 <PanelStatCard label="Seguimientos vencidos" value={String(summary.followUpDueCount)} meta="Próxima acción atrasada" icon={<IconCalendarDue size={18} />} />
@@ -112,6 +142,7 @@ export function AdminConversationsDashboard() {
                 <ModernSelect value={vertical} onChange={setVertical} options={VERTICAL_FILTER_OPTIONS} ariaLabel="Filtrar por servicio" />
                 <ModernSelect value={status} onChange={(value) => setStatus(value as ConversationStatusFilter)} options={STATUS_OPTIONS} ariaLabel="Filtrar contactos por respuesta" />
                 <ModernSelect value={stage} onChange={setStage} options={STAGE_FILTER_OPTIONS} ariaLabel="Filtrar por etapa comercial" />
+                <ModernSelect value={followUpFilter} onChange={setFollowUpFilter} options={FOLLOW_UP_FILTER_OPTIONS} ariaLabel="Filtrar seguimientos por fecha" />
             </div>
 
             {error ? <PanelNotice tone="error">{error}</PanelNotice> : null}
@@ -130,8 +161,8 @@ export function AdminConversationsDashboard() {
                             <div className="min-w-0">
                                 <p className="break-words text-sm font-medium text-[var(--fg)]">{item.name || item.email || item.phone || item.threadId}{item.company ? ` · ${item.company}` : ''}</p>
                                 <p className="mt-0.5 break-words text-xs text-[var(--fg-muted)]">{item.email ? <a className="break-all underline underline-offset-2" href={`mailto:${encodeURIComponent(item.email)}`}>{item.email}</a> : item.phone || 'Sin teléfono'}</p>
-                                <p className="mt-1 text-xs font-medium text-[var(--accent)]">{VERTICAL_LABELS[item.sourceVertical || ''] || 'Sin clasificar'}{item.purpose ? ` · ${PURPOSE_LABELS[item.purpose] || item.purpose}` : ''}</p>
-                                <p className="mt-0.5 break-words text-xs text-[var(--fg-muted)]">{item.origin ? `Origen: ${item.origin}` : CHANNEL_LABELS[item.channel] || item.channel}{item.referredBy ? ` · Referido por ${item.referredBy}` : ''}</p>
+                                <p className="mt-1 break-words text-xs font-medium text-[var(--accent)]">{item.relatedVerticals.length ? item.relatedVerticals.map((service) => VERTICAL_LABELS[service] || service).join(' · ') : VERTICAL_LABELS[item.sourceVertical || ''] || 'Sin clasificar'}{item.purpose ? ` · ${PURPOSE_LABELS[item.purpose] || item.purpose}` : ''}</p>
+                                <p className="mt-0.5 break-words text-xs text-[var(--fg-muted)]">Origen: {ORIGIN_LABELS[item.origin || ''] || item.origin || CHANNEL_LABELS[item.channel] || item.channel}{item.originDetail ? ` · ${item.originDetail}` : ''}{item.referredBy ? ` · Referido por ${item.referredBy}` : ''}</p>
                             </div>
                             <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm text-[var(--fg-secondary)]">{item.lastMessage || 'Sin actividad registrada todavía'}</p>
                             <div className="space-y-1 text-xs">
