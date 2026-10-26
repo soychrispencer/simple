@@ -6,10 +6,22 @@ import {
 import { recordTimelineEvent } from '../platform/timeline-events.js';
 
 const CONVERSATION_EVENT_TYPES = [
+    'conversation.message_sent',
     'whatsapp.manual',
     'channel.inbound',
     'conversation.status_changed',
 ] as const satisfies readonly TimelineEventType[];
+
+export type AdminConversationActivity = {
+    id: string;
+    direction: 'inbound' | 'outbound' | 'status';
+    channel: string | null;
+    message: string | null;
+    sourceVertical: string | null;
+    purpose: string | null;
+    campaignName: string | null;
+    occurredAt: string;
+};
 
 export type AdminConversationItem = {
     threadId: string;
@@ -20,6 +32,9 @@ export type AdminConversationItem = {
     email: string | null;
     company: string | null;
     lastMessage: string | null;
+    purpose: string | null;
+    campaignName: string | null;
+    activities: AdminConversationActivity[];
     sourceVertical: string | null;
     capturedByUserId: string | null;
     occurredAt: string;
@@ -58,8 +73,8 @@ export function normalizeConversationPhone(raw: string): string | null {
     return null;
 }
 
-export function conversationThreadId(channel: string, phone: string): string {
-    return `${channel}:${phone}`;
+export function conversationThreadId(channel: string, recipient: string, sourceVertical?: string | null): string {
+    return `${channel}:${recipient}${sourceVertical ? `:${sourceVertical}` : ''}`;
 }
 
 type TimelineRow = {
@@ -109,17 +124,51 @@ function buildConversationItems(rows: TimelineRow[]): AdminConversationItem[] {
             event.type === 'whatsapp.manual' || event.type === 'channel.inbound'
         ) ?? latest;
         const inboundPayload = asRecord(inbound.payload);
+        const lastMessageEvent = [...events].reverse().find((event) =>
+            event.type === 'whatsapp.manual' || event.type === 'channel.inbound' || event.type === 'conversation.message_sent'
+        );
+        const lastMessagePayload = asRecord(lastMessageEvent?.payload);
+        const outbound = [...events].reverse().find((event) => event.type === 'conversation.message_sent');
+        const outboundPayload = asRecord(outbound?.payload);
+        const contactPayload = [...events].reverse()
+            .map((event) => asRecord(event.payload))
+            .find((payload) => asString(payload.phone) || asString(payload.email) || asString(payload.name)) ?? inboundPayload;
+        const payloadsNewestFirst = [...events].reverse().map((event) => asRecord(event.payload));
+        const verticalPayload = payloadsNewestFirst.find((payload) => asString(payload.sourceVertical)) ?? contactPayload;
+        const purposePayload = payloadsNewestFirst.find((payload) => asString(payload.purpose)) ?? contactPayload;
+        const campaignPayload = payloadsNewestFirst.find((payload) => asString(payload.campaignName)) ?? contactPayload;
 
         items.push({
             threadId,
-            channel: asString(inboundPayload.channel) || 'whatsapp',
+            channel: asString(lastMessagePayload.channel) || asString(latestPayload.channel) || asString(outboundPayload.channel) || 'whatsapp',
             status,
-            phone: asString(inboundPayload.phone),
-            name: asString(inboundPayload.name),
-            email: asString(inboundPayload.email),
-            company: asString(inboundPayload.company),
-            lastMessage: asString(latestPayload.message) || asString(inboundPayload.message) || asString(latestPayload.note),
-            sourceVertical: asString(inboundPayload.sourceVertical),
+            phone: asString(contactPayload.phone),
+            name: asString(contactPayload.name),
+            email: asString(contactPayload.email),
+            company: asString(contactPayload.company),
+            lastMessage: asString(lastMessagePayload.message) || asString(latestPayload.message) || asString(latestPayload.note),
+            sourceVertical: asString(verticalPayload.sourceVertical),
+            purpose: asString(purposePayload.purpose),
+            campaignName: asString(campaignPayload.campaignName),
+            activities: events.slice(-20).reverse().map((event) => {
+                const payload = asRecord(event.payload);
+                const direction: AdminConversationActivity['direction'] = event.type === 'conversation.message_sent'
+                    ? 'outbound'
+                    : event.type === 'conversation.status_changed' ? 'status' : 'inbound';
+                const statusMessage = event.type === 'conversation.status_changed'
+                    ? asString(payload.note) || (asString(payload.status) === 'done' ? 'Conversación marcada como respondida.' : 'Conversación reabierta.')
+                    : null;
+                return {
+                    id: event.id,
+                    direction,
+                    channel: asString(payload.channel),
+                    message: asString(payload.message) || statusMessage,
+                    sourceVertical: asString(payload.sourceVertical),
+                    purpose: asString(payload.purpose),
+                    campaignName: asString(payload.campaignName),
+                    occurredAt: event.occurredAt.toISOString(),
+                };
+            }),
             capturedByUserId: asString(inboundPayload.capturedByUserId),
             occurredAt: latest.occurredAt.toISOString(),
             pendingSince: openSince.toISOString(),
@@ -152,6 +201,7 @@ export async function listAdminConversations(deps: {
     desc: any;
     tables: { timelineEvents: any };
     status?: ConversationThreadStatus | 'all';
+    vertical?: string | null;
 }): Promise<{ items: AdminConversationItem[]; summary: AdminConversationsSummary }> {
     const rows = await deps.db
         .select({
@@ -172,38 +222,117 @@ export async function listAdminConversations(deps: {
         .limit(500);
 
     const all = buildConversationItems(rows as TimelineRow[]);
-    const summary = summarizeConversations(all);
+    const vertical = deps.vertical ?? 'all';
+    const byVertical = vertical === 'all'
+        ? all
+        : vertical === 'unclassified'
+            ? all.filter((item) => !item.sourceVertical)
+            : all.filter((item) => item.sourceVertical === vertical);
+    const summary = summarizeConversations(byVertical);
     const status = deps.status ?? 'pending';
-    const items = status === 'all' ? all : all.filter((item) => item.status === status);
+    const items = status === 'all' ? byVertical : byVertical.filter((item) => item.status === status);
     return { items, summary };
 }
 
-export async function captureWhatsappManual(deps: {
+export async function captureManualResponse(deps: {
     db: any;
     tables: { timelineEvents: any };
     adminUserId: string;
-    phone: string;
+    channel: 'whatsapp_personal' | 'whatsapp_business' | 'email';
+    phone?: string | null;
+    email?: string | null;
     name?: string | null;
-    message?: string | null;
-    sourceVertical?: string | null;
+    message: string;
+    sourceVertical: 'agenda' | 'propiedades' | 'autos' | 'serenatas' | 'platform' | 'general';
+    purpose: 'alliance' | 'app_invitation' | 'client_prospecting' | 'follow_up' | 'support' | 'other';
+    campaignName?: string | null;
 }): Promise<{ threadId: string }> {
-    const phone = normalizeConversationPhone(deps.phone);
-    if (!phone) throw new Error('INVALID_PHONE');
-    const threadId = conversationThreadId('whatsapp', phone);
+    const phone = deps.phone?.trim() ? normalizeConversationPhone(deps.phone) : null;
+    if (deps.phone?.trim() && !phone) throw new Error('INVALID_PHONE');
+    const email = deps.email?.trim().toLowerCase() || null;
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('INVALID_EMAIL');
+    if (deps.channel === 'email' && !email) throw new Error('EMAIL_REQUIRED');
+    if (deps.channel !== 'email' && !phone) throw new Error('PHONE_REQUIRED');
+    const message = deps.message.trim();
+    if (message.length < 1 || message.length > 6000) throw new Error('INVALID_MESSAGE');
+    const threadId = deps.channel === 'email'
+        ? conversationThreadId('email', email!, deps.sourceVertical)
+        : conversationThreadId('whatsapp', phone!, deps.sourceVertical);
     await recordTimelineEvent(deps.db, deps.tables.timelineEvents, {
-        type: 'whatsapp.manual',
+        type: 'channel.inbound',
         business: { vertical: 'platform', id: PLATFORM_OPS_BUSINESS_ID },
-        person: { kind: 'opaque', id: threadId },
+        person: deps.channel === 'email' ? { kind: 'email', id: email! } : { kind: 'opaque', id: phone! },
         subject: { kind: 'channel_thread', id: threadId },
         actor: 'admin',
         payload: {
             status: 'pending',
-            channel: 'whatsapp',
+            channel: deps.channel,
             phone,
+            email,
             name: deps.name?.trim() || null,
-            message: deps.message?.trim() || null,
-            sourceVertical: deps.sourceVertical?.trim() || null,
+            message,
+            sourceVertical: deps.sourceVertical,
+            purpose: deps.purpose,
+            campaignName: deps.campaignName?.trim() || null,
             capturedByUserId: deps.adminUserId,
+        },
+    });
+    return { threadId };
+}
+
+export type AdminOutboundMessageInput = {
+    adminUserId: string;
+    channel: 'whatsapp_personal' | 'whatsapp_business' | 'email';
+    phone?: string | null;
+    email?: string | null;
+    name?: string | null;
+    company?: string | null;
+    message: string;
+    sourceVertical: 'agenda' | 'propiedades' | 'autos' | 'serenatas' | 'platform' | 'general';
+    purpose: 'alliance' | 'app_invitation' | 'client_prospecting' | 'follow_up' | 'support' | 'other';
+    campaignName?: string | null;
+};
+
+export async function recordAdminOutboundMessage(deps: {
+    db: any;
+    tables: { timelineEvents: any };
+    input: AdminOutboundMessageInput;
+}): Promise<{ threadId: string }> {
+    const { input } = deps;
+    const message = input.message.trim();
+    if (message.length < 2 || message.length > 6000) throw new Error('INVALID_MESSAGE');
+
+    const phone = input.phone?.trim() ? normalizeConversationPhone(input.phone) : null;
+    if (input.phone?.trim() && !phone) throw new Error('INVALID_PHONE');
+    const email = input.email?.trim().toLowerCase() || null;
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('INVALID_EMAIL');
+    if (input.channel === 'email' && !email) throw new Error('EMAIL_REQUIRED');
+    if (input.channel !== 'email' && !phone) throw new Error('PHONE_REQUIRED');
+
+    const threadId = input.channel === 'email'
+        ? conversationThreadId('email', email!, input.sourceVertical)
+        : conversationThreadId('whatsapp', phone!, input.sourceVertical);
+    await recordTimelineEvent(deps.db, deps.tables.timelineEvents, {
+        type: 'conversation.message_sent',
+        business: { vertical: 'platform', id: PLATFORM_OPS_BUSINESS_ID },
+        person: input.channel === 'email'
+            ? { kind: 'email', id: email! }
+            : { kind: 'opaque', id: phone! },
+        subject: { kind: 'channel_thread', id: threadId },
+        actor: 'admin',
+        payload: {
+            direction: 'outbound',
+            status: 'pending',
+            channel: input.channel,
+            phone,
+            email,
+            name: input.name?.trim() || null,
+            company: input.company?.trim() || null,
+            message,
+            sourceVertical: input.sourceVertical,
+            purpose: input.purpose,
+            campaignName: input.campaignName?.trim() || null,
+            capturedByUserId: input.adminUserId,
         },
     });
     return { threadId };
