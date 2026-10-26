@@ -9,7 +9,7 @@ const legalLinks = [
 ];
 
 const socialLinks = [
-    { label: 'SimpleSerenatas en Instagram', href: 'https://www.instagram.com/simpleserenata' },
+    { label: 'SimpleSerenatas en Instagram', href: 'https://www.instagram.com/simpleserenatas/' },
 ];
 
 export function Footer() {

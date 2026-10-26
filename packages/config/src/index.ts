@@ -1,3 +1,4 @@
+import { SIMPLE_BRAND_ARTWORK } from './brand-vectors.js';
 import { buildSimpleBrandIconDataUri, buildSimpleBrandIconSvg } from './brand-icon-svg.js';
 
 export type SimpleAppId =
@@ -495,7 +496,7 @@ export function buildSimpleAppMetadata(appId: SimpleAppId) {
             description: brand.description,
             images: [
                 {
-                    url: `${brand.siteUrl}/icon`,
+                    url: `${brand.siteUrl}/logo.png`,
                     width: 512,
                     height: 512,
                     alt: `${brand.name} icon`,
@@ -506,7 +507,7 @@ export function buildSimpleAppMetadata(appId: SimpleAppId) {
             card: 'summary',
             title: brand.title,
             description: brand.description,
-            images: [`${brand.siteUrl}/icon`],
+            images: [`${brand.siteUrl}/logo.png`],
         },
         appleWebApp: {
             capable: true,
@@ -515,10 +516,10 @@ export function buildSimpleAppMetadata(appId: SimpleAppId) {
         },
         icons: {
             icon: [
-                { url: '/icon', type: 'image/png', sizes: '512x512' },
+                { url: '/icon', type: 'image/svg+xml', sizes: 'any' },
             ],
             apple: [
-                { url: '/apple-icon', type: 'image/png', sizes: '180x180' },
+                { url: '/apple-icon', type: 'image/svg+xml', sizes: 'any' },
             ],
             shortcut: ['/icon'],
         },
@@ -542,14 +543,14 @@ export function buildSimpleAppManifest(appId: SimpleAppId) {
         icons: [
             {
                 src: '/icon',
-                sizes: '512x512',
-                type: 'image/png',
+                sizes: 'any',
+                type: 'image/svg+xml',
                 purpose: 'any' as const,
             },
             {
                 src: '/apple-icon',
-                sizes: '180x180',
-                type: 'image/png',
+                sizes: 'any',
+                type: 'image/svg+xml',
             },
         ],
     };
@@ -561,16 +562,20 @@ export function getSimpleBrandIconTokens(appId: SimpleAppId) {
     return {
         canvas: SHARED_THEME.backgroundColorLight,
         tile: SHARED_THEME.foregroundLight,
-        glyph: SHARED_THEME.surfaceLight,
+        glyph: SIMPLE_BRAND_ARTWORK[appId].glyph,
         accent: brand.accentLight,
         ring: '#e7e5e4',
     };
 }
 
-/** Mismos iconos que app/icon.tsx y BrandLogo (@simple/ui, p. ej. confeti en Serenatas). */
-export function getSimpleBrandIconSvg(appId: SimpleAppId): string {
+/** Approved vector artwork shared by websites, email and profile exports. */
+export function getSimpleBrandArtwork(appId: SimpleAppId) {
+    return SIMPLE_BRAND_ARTWORK[appId];
+}
+
+export function getSimpleBrandIconSvg(appId: SimpleAppId, micro = false): string {
     const tokens = getSimpleBrandIconTokens(appId);
-    return buildSimpleBrandIconSvg(appId, tokens);
+    return buildSimpleBrandIconSvg(appId, tokens, micro);
 }
 
 /** Data URI para correos (no depende de localhost ni CDN). */

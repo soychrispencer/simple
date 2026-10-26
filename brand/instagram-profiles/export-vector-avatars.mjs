@@ -1,14 +1,14 @@
-import sharp from 'sharp';
 import { Resvg } from '@resvg/resvg-js';
 import { createRequire } from 'node:module';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { getSimpleBrandIconSvg } = require('../../packages/config/dist/index.js');
 
 const SIZE = 2048;
-const OUT = 'C:/Users/chris/Desktop/Simple/brand/instagram-profiles';
+const OUT = fileURLToPath(new URL('.', import.meta.url));
 /** Framed rounded tile as fraction of canvas (IG-safe). */
 const FRAME_TILE_RATIO = 0.70;
 
@@ -18,24 +18,15 @@ const APPS = [
     { id: 'simpleagenda', accent: '#0F766E', glyph: '#FFFFFF' },
     { id: 'simpleserenatas', accent: '#E11D48', glyph: '#FFFFFF' },
     { id: 'simpletickets', accent: '#0E7490', glyph: '#FFFFFF' },
-    { id: 'simpleresto', accent: '#F4B400', glyph: '#0C0C0E' },
+    { id: 'simpleresto', accent: '#F4B400', glyph: '#111111' },
+    { id: 'simpleplataforma', accent: '#111111', glyph: '#FFFFFF' },
+    { id: 'simpleadmin', accent: '#111111', glyph: '#FFFFFF' },
 ];
 
 const DARK = '#0C0C0E';
 
-function hexToRgb(hex) {
-    const h = hex.replace('#', '');
-    return {
-        r: parseInt(h.slice(0, 2), 16),
-        g: parseInt(h.slice(2, 4), 16),
-        b: parseInt(h.slice(4, 6), 16),
-    };
-}
-
 function brandSvg(app, { square = false } = {}) {
     let svg = getSimpleBrandIconSvg(app.id);
-    svg = svg.replace(/stroke="[^"]*"/g, `stroke="${app.glyph}"`);
-    svg = svg.replace(/fill="#[0-9A-Fa-f]{3,8}"/, `fill="${app.accent}"`);
     if (square) {
         // Full-bleed: no rounded corners so IG circle is solid accent edge-to-edge.
         svg = svg.replace(/rx="[^"]*"/, 'rx="0"');
@@ -57,28 +48,21 @@ async function makeFullBleed(app) {
     // Native brand icon proportions at full canvas (glyph ~66% of tile).
     const png = renderSvg(brandSvg(app, { square: true }), SIZE);
     const out = join(OUT, `ig-profile-${app.id}.png`);
-    await sharp(png).png({ compressionLevel: 9 }).toFile(out);
+    await writeFile(out, png);
     return out;
 }
 
 async function makeFramed(app) {
     const tile = Math.round(SIZE * FRAME_TILE_RATIO);
-    const tilePng = renderSvg(brandSvg(app, { square: false }), tile);
-    const meta = await sharp(tilePng).metadata();
-    const tw = meta.width ?? tile;
-    const th = meta.height ?? tile;
-    const left = Math.round((SIZE - tw) / 2);
-    const top = Math.round((SIZE - th) / 2);
+    const left = Math.round((SIZE - tile) / 2);
+    const top = left;
+    const nestedSvg = brandSvg(app).replace('<svg ', `<svg x="${left}" y="${top}" `)
+        .replace('width="512" height="512"', `width="${tile}" height="${tile}"`);
     const out = join(OUT, `ig-profile-framed-${app.id}.png`);
 
-    await sharp({
-        create: { width: SIZE, height: SIZE, channels: 3, background: hexToRgb(DARK) },
-    })
-        .composite([{ input: tilePng, left, top }])
-        .png({ compressionLevel: 9 })
-        .toFile(out);
+    await writeFile(out, renderSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}"><rect width="${SIZE}" height="${SIZE}" fill="${DARK}"/>${nestedSvg}</svg>`, SIZE));
 
-    return { out, tile: tw };
+    return { out, tile };
 }
 
 async function main() {
