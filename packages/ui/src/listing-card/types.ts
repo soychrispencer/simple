@@ -32,6 +32,7 @@ export type ListingBadge = {
 
 export type ListingPrice = {
     amount: number;
+    displayText?: string;
     original?: number;
     discountLabel?: string;
     secondary?: string;

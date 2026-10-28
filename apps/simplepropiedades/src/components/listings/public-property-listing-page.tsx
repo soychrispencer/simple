@@ -46,7 +46,10 @@ function toCardData(item: PublicListing): PropertyListingCardData {
         images: item.images,
         videoUrl: item.videoUrl ?? undefined,
         videoThumbnail: item.images[0],
-        projectStatus: item.section === 'project' ? item.summary[3] : undefined,
+        projectStatus: item.section === 'project'
+            ? item.summary.find((tag) => /entrega|lanzamiento|preventa|en verde|en blanco|últimas unidades/i.test(tag))
+            : undefined,
+        ctaLabel: item.section === 'project' ? 'Consultar disponibilidad' : undefined,
         listedSince: `Actualizado hace ${item.publishedAgo}`,
         engagement: {
             views24h: item.views,

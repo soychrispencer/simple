@@ -26,6 +26,8 @@ export type PublicListing = {
     images: string[];
     videoUrl?: string | null;
     summary: string[];
+    availabilityStatus?: 'confirmed' | 'to_confirm';
+    availabilityVerifiedAt?: string | null;
     seller: {
         id: string;
         name: string;

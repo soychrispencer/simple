@@ -70,6 +70,27 @@ function asCardScalar(value: unknown): string | number | null {
     return text || null;
 }
 
+const PROJECT_AVAILABILITY_MAX_AGE_DAYS = 14;
+
+function hasCurrentProjectAvailability(project: Record<string, unknown>, now = Date.now()): boolean {
+    if (project.availabilityStatus !== 'confirmed') return false;
+
+    const verifiedAt = asString(project.availabilityVerifiedAt).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(verifiedAt)) return false;
+    const verifiedAtTimestamp = Date.parse(`${verifiedAt}T00:00:00.000Z`);
+    if (!Number.isFinite(verifiedAtTimestamp)) return false;
+
+    const ageDays = (now - verifiedAtTimestamp) / (24 * 60 * 60 * 1000);
+    if (ageDays < 0 || ageDays > PROJECT_AVAILABILITY_MAX_AGE_DAYS) return false;
+
+    const availableUnits = asString(project.availableUnits).trim();
+    if (availableUnits) {
+        const parsedAvailableUnits = parseNumberFromString(availableUnits);
+        if (parsedAvailableUnits == null || parsedAvailableUnits <= 0) return false;
+    }
+    return true;
+}
+
 export function extractListingSlugCandidate(value: string): string | null {
     const trimmed = value.trim();
     if (!trimmed) return null;
@@ -150,6 +171,10 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         priceOriginal: string | null;
         discountPercent: number | null;
     } {
+        if (record.section === 'project') {
+            return { priceOriginal: null, discountPercent: null };
+        }
+
         const payload = asObject(record.rawData);
         const commercial = asObject(payload.commercial);
         const listDigits = asString(commercial.price).replace(/\D/g, '');
@@ -194,6 +219,7 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         const setup = asObject(payload.setup);
         const basic = asObject(payload.basic);
         const project = asObject(payload.project);
+        const availabilityConfirmed = hasCurrentProjectAvailability(project);
 
         return buildPropertyCardSummaryTags({
             propertyType: asString(basic.propertyType) || asString(setup.propertyType),
@@ -207,7 +233,8 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
             usableArea: asCardScalar(basic.usableArea),
             commercialUse: asString(basic.commercialUse),
             condition: asString(basic.condition),
-            availableUnits: asCardScalar(project.availableUnits),
+            availabilityStatus: availabilityConfirmed ? 'confirmed' : 'to_confirm',
+            availableUnits: availabilityConfirmed ? asCardScalar(project.availableUnits) : null,
             usableAreaFrom: asCardScalar(project.usableAreaFrom),
             usableAreaTo: asCardScalar(project.usableAreaTo),
             deliveryStatus: asString(project.deliveryStatus),
@@ -269,6 +296,16 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
             images: extractListingMediaUrls(record),
             videoUrl: extractListingVideoUrl(record),
             summary: extractListingSummary(record),
+            ...(record.vertical === 'propiedades' && record.section === 'project'
+                ? (() => {
+                    const project = asObject(asObject(record.rawData).project);
+                    const availabilityConfirmed = hasCurrentProjectAvailability(project);
+                    return {
+                        availabilityStatus: availabilityConfirmed ? 'confirmed' as const : 'to_confirm' as const,
+                        availabilityVerifiedAt: availabilityConfirmed ? asString(project.availabilityVerifiedAt).trim() : null,
+                    };
+                })()
+                : {}),
             ...(() => {
                 const offerPricing = extractPublicOfferPricing(record);
                 return {

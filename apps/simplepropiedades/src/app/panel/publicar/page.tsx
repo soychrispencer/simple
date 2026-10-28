@@ -145,6 +145,9 @@ type WizardData = {
         salesStage: string;
         deliveryStatus: string;
         deliveryDate: string;
+        priceStatus: 'published' | 'to_confirm';
+        availabilityStatus: 'confirmed' | 'to_confirm';
+        availabilityVerifiedAt: string;
         availableUnits: string;
         totalUnits: string;
         usableAreaFrom: string;
@@ -252,7 +255,9 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
             parseMainPrice: (value) => parseNumber(value),
         }),
     );
-    const price = data.commercial.price.trim() ? buildPriceLabel(data) : '$Consultar';
+    const price = data.setup.operationType === 'project' && data.project.priceStatus === 'to_confirm'
+        ? buildPriceLabel(data)
+        : data.commercial.price.trim() ? buildPriceLabel(data) : '$Consultar';
     const priceOriginal = hasOffer ? buildPriceLabel(data, { useListPrice: true }) : undefined;
     const offerValue = hasOffer
         ? resolveOfferPriceValue({
@@ -272,7 +277,8 @@ function buildPropertyPreviewCardProps(data: WizardData): SimplePublishPreviewCa
     const specs: SimplePublishPreviewCardProps['specs'] = data.setup.operationType === 'project'
         ? buildPropertyCardSummaryTags({
             operationType: 'project',
-            availableUnits: data.project.availableUnits,
+            availableUnits: data.project.availabilityStatus === 'confirmed' ? data.project.availableUnits : undefined,
+            availabilityStatus: data.project.availabilityStatus,
             usableAreaFrom: data.project.usableAreaFrom,
             usableAreaTo: data.project.usableAreaTo,
             deliveryStatus: data.project.deliveryStatus,
@@ -461,6 +467,19 @@ const COMMERCIAL_USE_OPTIONS = ['Retail', 'Oficinas', 'Restaurant/Cafetería', '
 const LAND_USE_OPTIONS = ['Habitacional', 'Agrícola', 'Forestal', 'Industrial', 'Comercial', 'Mixto', 'Otros'].map((value) => ({ value, label: value }));
 const PROJECT_SALES_STAGE_OPTIONS = ['Lanzamiento', 'Preventa', 'En verde', 'En blanco', 'Últimas unidades', 'Entrega inmediata'].map((value) => ({ value, label: value }));
 const PROJECT_DELIVERY_STATUS_OPTIONS = ['Entrega inmediata', 'Entrega este año', 'Entrega futura', 'Por confirmar'].map((value) => ({ value, label: value }));
+const PROJECT_AVAILABILITY_OPTIONS = [
+    { value: 'to_confirm', label: 'Por confirmar con la inmobiliaria' },
+    { value: 'confirmed', label: 'Confirmada recientemente' },
+];
+const PROJECT_AVAILABILITY_MAX_AGE_DAYS = 14;
+
+function isRecentProjectAvailabilityDate(value: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const verifiedAt = Date.parse(`${value}T00:00:00.000Z`);
+    if (!Number.isFinite(verifiedAt)) return false;
+    const ageDays = (Date.now() - verifiedAt) / (24 * 60 * 60 * 1000);
+    return ageDays >= 0 && ageDays <= PROJECT_AVAILABILITY_MAX_AGE_DAYS;
+}
 
 const AMENITY_OPTIONS = [
     { code: 'wheelchair_ramp', label: 'Rampa para silla de ruedas' },
@@ -690,6 +709,9 @@ function createDefaultData(): WizardData {
             salesStage: '',
             deliveryStatus: '',
             deliveryDate: '',
+            priceStatus: 'published',
+            availabilityStatus: 'to_confirm',
+            availabilityVerifiedAt: '',
             availableUnits: '',
             totalUnits: '',
             usableAreaFrom: '',
@@ -1076,6 +1098,15 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
         if (data.setup.operationType === 'project') {
             if (!data.project.projectName.trim()) errors['project.projectName'] = '';
             if (!data.project.developerName.trim()) errors['project.developerName'] = '';
+            if (data.project.availabilityStatus === 'confirmed') {
+                if (!isRecentProjectAvailabilityDate(data.project.availabilityVerifiedAt)) {
+                    errors['project.availabilityVerifiedAt'] = '';
+                }
+                const availableUnits = parseNumber(data.project.availableUnits);
+                if (data.project.availableUnits.trim() && (availableUnits == null || availableUnits <= 0)) {
+                    errors['project.availableUnits'] = '';
+                }
+            }
         } else {
             const pt = data.setup.propertyType;
             const needsProgram = pt === 'Casa' || pt === 'Departamento' || pt === 'Local comercial';
@@ -1104,7 +1135,12 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
                 errors['basic.storageUnits'] = '';
             }
         }
-        if (parseNumber(data.commercial.price) == null) errors['commercial.price'] = '';
+        if (
+            parseNumber(data.commercial.price) == null
+            && !(data.setup.operationType === 'project' && data.project.priceStatus === 'to_confirm')
+        ) {
+            errors['commercial.price'] = '';
+        }
         if (data.setup.operationType !== 'project') {
             const offerError = getOfferPriceValidationError({
                 mainPrice: data.commercial.price,
@@ -1160,7 +1196,8 @@ function qualityScore(data: WizardData, estimate: PropertyValuationEstimate | nu
         if (
             data.project.projectName.trim()
             && data.project.developerName.trim()
-            && parseNumber(data.project.availableUnits) != null
+            && data.project.availabilityStatus === 'confirmed'
+            && isRecentProjectAvailabilityDate(data.project.availabilityVerifiedAt)
             && parseNumber(data.project.usableAreaFrom) != null
             && data.project.models.some((model) => model.label.trim() && parseNumber(model.priceFrom) != null)
         ) {
@@ -1185,6 +1222,9 @@ function commercialCurrencyPrefix(currency: Currency): string {
 }
 
 function buildPriceLabel(data: WizardData, options?: { useListPrice?: boolean }): string {
+    if (data.setup.operationType === 'project' && data.project.priceStatus === 'to_confirm') {
+        return 'Consultar precio';
+    }
     const prefix = commercialCurrencyPrefix(data.commercial.currency);
     const offer = !options?.useListPrice && data.setup.operationType !== 'project'
         ? resolveOfferPriceValue({
@@ -1262,7 +1302,10 @@ function createPropertyBasicForPayload(data: WizardData) {
             salesStage: data.project.salesStage,
             deliveryStatus: data.project.deliveryStatus,
             deliveryDate: data.project.deliveryDate,
-            availableUnits: data.project.availableUnits,
+            priceStatus: data.project.priceStatus,
+            availabilityStatus: data.project.availabilityStatus,
+            availabilityVerifiedAt: data.project.availabilityVerifiedAt,
+            availableUnits: data.project.availabilityStatus === 'confirmed' ? data.project.availableUnits : '',
             totalUnits: data.project.totalUnits,
             usableAreaFrom: data.project.usableAreaFrom,
             usableAreaTo: data.project.usableAreaTo,
@@ -1339,6 +1382,78 @@ function Field(props: { label: string; required?: boolean; error?: string; hint?
         >
             {props.children}
         </SimplePublishField>
+    );
+}
+
+function ProjectAvailabilityFields(props: {
+    data: WizardData;
+    setData: WizardSetter;
+    errors: Record<string, string>;
+}) {
+    const { data, setData, errors } = props;
+    const isConfirmed = data.project.availabilityStatus === 'confirmed';
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <Field label="Disponibilidad de unidades">
+                <ModernSelect
+                    value={data.project.availabilityStatus}
+                    onChange={(value) => setData((current) => ({
+                        ...current,
+                        project: {
+                            ...current.project,
+                            availabilityStatus: value === 'confirmed' ? 'confirmed' : 'to_confirm',
+                            availabilityVerifiedAt: '',
+                            availableUnits: '',
+                        },
+                    }))}
+                    options={PROJECT_AVAILABILITY_OPTIONS}
+                    ariaLabel="Seleccionar estado de disponibilidad del proyecto"
+                />
+            </Field>
+            {isConfirmed ? (
+                <Field
+                    label="Disponibilidad confirmada el"
+                    required
+                    error={errors['project.availabilityVerifiedAt']}
+                    hint="La confirmación debe tener como máximo 14 días."
+                >
+                    <input
+                        className="form-input"
+                        type="date"
+                        max={new Date().toISOString().slice(0, 10)}
+                        value={data.project.availabilityVerifiedAt}
+                        onChange={(event) => setData((current) => ({
+                            ...current,
+                            project: { ...current.project, availabilityVerifiedAt: event.target.value },
+                        }))}
+                    />
+                </Field>
+            ) : (
+                <p className="md:col-span-2 rounded-xl border p-3 text-xs prop-field-hint prop-section-border">
+                    Se publicará como “Disponibilidad por confirmar”. No mostraremos una cantidad de unidades hasta tener el dato actualizado.
+                </p>
+            )}
+            {isConfirmed ? (
+                <Field
+                    label="Unidades disponibles (opcional)"
+                    error={errors['project.availableUnits']}
+                    hint="Déjalo vacío si solo confirmaste disponibilidad, pero no el número exacto."
+                >
+                    <input
+                        className="form-input"
+                        type="number"
+                        min={1}
+                        value={data.project.availableUnits}
+                        onChange={(event) => setData((current) => ({
+                            ...current,
+                            project: { ...current.project, availableUnits: event.target.value },
+                        }))}
+                        placeholder="24"
+                    />
+                </Field>
+            ) : null}
+        </div>
     );
 }
 
@@ -1931,13 +2046,11 @@ function PropertyProjectDetailFields(props: {
                 <Field label="Entrega estimada">
                     <input className="form-input" type="date" value={data.project.deliveryDate} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, deliveryDate: event.target.value } }))} />
                 </Field>
-                <Field label="Unidades disponibles">
-                    <input className="form-input" type="number" min={0} value={data.project.availableUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, availableUnits: event.target.value } }))} placeholder="24" />
-                </Field>
                 <Field label="Unidades totales">
                     <input className="form-input" type="number" min={0} value={data.project.totalUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, totalUnits: event.target.value } }))} placeholder="80" />
                 </Field>
             </div>
+            <ProjectAvailabilityFields data={data} setData={setData} errors={errors} />
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                 <Field label="Superficie útil desde (m²)"><input className="form-input" type="number" min={0} value={data.project.usableAreaFrom} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, usableAreaFrom: event.target.value } }))} placeholder="39" /></Field>
                 <Field label="Superficie útil hasta (m²)"><input className="form-input" type="number" min={0} value={data.project.usableAreaTo} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, usableAreaTo: event.target.value } }))} placeholder="112" /></Field>
@@ -2306,13 +2419,11 @@ function StepBasic(props: {
                             <Field label="Entrega estimada">
                                 <input className="form-input" type="date" value={data.project.deliveryDate} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, deliveryDate: event.target.value } }))} />
                             </Field>
-                            <Field label="Unidades disponibles">
-                                <input className="form-input" type="number" min={0} value={data.project.availableUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, availableUnits: event.target.value } }))} placeholder="24" />
-                            </Field>
                             <Field label="Unidades totales">
                                 <input className="form-input" type="number" min={0} value={data.project.totalUnits} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, totalUnits: event.target.value } }))} placeholder="80" />
                             </Field>
                         </div>
+                        <ProjectAvailabilityFields data={data} setData={setData} errors={errors} />
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                             <Field label="Superficie útil desde (m²)"><input className="form-input" type="number" min={0} value={data.project.usableAreaFrom} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, usableAreaFrom: event.target.value } }))} placeholder="39" /></Field>
                             <Field label="Superficie útil hasta (m²)"><input className="form-input" type="number" min={0} value={data.project.usableAreaTo} onChange={(event) => setData((current) => ({ ...current, project: { ...current.project, usableAreaTo: event.target.value } }))} placeholder="112" /></Field>
@@ -2896,26 +3007,59 @@ function StepCommercial(props: {
             },
         })),
     };
+    const projectPriceFields = (
+        <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <PanelChoiceCard
+                    selected={data.project.priceStatus === 'published'}
+                    onClick={() => setData((current) => ({
+                        ...current,
+                        project: { ...current.project, priceStatus: 'published' },
+                    }))}
+                    className="min-h-12 px-3 text-sm"
+                >
+                    Publicar precio
+                </PanelChoiceCard>
+                <PanelChoiceCard
+                    selected={data.project.priceStatus === 'to_confirm'}
+                    onClick={() => setData((current) => ({
+                        ...current,
+                        project: { ...current.project, priceStatus: 'to_confirm' },
+                    }))}
+                    className="min-h-12 px-3 text-sm"
+                >
+                    Consultar precio
+                </PanelChoiceCard>
+            </div>
+            {data.project.priceStatus === 'to_confirm' ? (
+                <p className="rounded-xl border p-3 text-xs prop-field-hint prop-section-border">
+                    La publicación mostrará “Consultar precio”. El monto que ingreses no se exhibirá mientras este modo esté seleccionado.
+                </p>
+            ) : (
+                <SimplePublishPriceBlock
+                    variant="range"
+                    mainPrice={data.commercial.price}
+                    onMainPriceChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: value } }))}
+                    mainPriceRequired
+                    mainPriceInvalid={Object.prototype.hasOwnProperty.call(errors, 'commercial.price')}
+                    mainPricePlaceholder="4200"
+                    mainPriceInputMode="number"
+                    currencySlot={currencySlot}
+                    priceTo={data.commercial.priceTo}
+                    onPriceToChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: value } }))}
+                    priceToPlaceholder="5600"
+                    showOffer={false}
+                />
+            )}
+        </div>
+    );
 
     if (compact) {
         return (
             <>
                 <SimplePublishSection title="Precio" className="space-y-4">
                     {isProject ? (
-                        <SimplePublishPriceBlock
-                            variant="range"
-                            mainPrice={data.commercial.price}
-                            onMainPriceChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: value } }))}
-                            mainPriceRequired
-                            mainPriceInvalid={Object.prototype.hasOwnProperty.call(errors, 'commercial.price')}
-                            mainPricePlaceholder="4200"
-                            mainPriceInputMode="number"
-                            currencySlot={currencySlot}
-                            priceTo={data.commercial.priceTo}
-                            onPriceToChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: value } }))}
-                            priceToPlaceholder="5600"
-                            showOffer={false}
-                        />
+                        projectPriceFields
                     ) : (
                         <SimplePublishPriceBlock
                             mainPrice={data.commercial.price}
@@ -2977,20 +3121,7 @@ function StepCommercial(props: {
                     {isProject ? (
                         <>
                             <div className="mb-3">
-                                <SimplePublishPriceBlock
-                                    variant="range"
-                                    mainPrice={data.commercial.price}
-                                    onMainPriceChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: value } }))}
-                                    mainPriceRequired
-                                    mainPriceInvalid={Object.prototype.hasOwnProperty.call(errors, 'commercial.price')}
-                                    mainPricePlaceholder="4200"
-                                    mainPriceInputMode="number"
-                                    currencySlot={currencySlot}
-                                    priceTo={data.commercial.priceTo}
-                                    onPriceToChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, priceTo: value } }))}
-                                    priceToPlaceholder="5600"
-                                    showOffer={false}
-                                />
+                                {projectPriceFields}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                                 <Field label="Disponible desde">

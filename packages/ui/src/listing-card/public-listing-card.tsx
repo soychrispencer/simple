@@ -44,10 +44,11 @@ export default function PublicListingCard(props: PublicListingCardProps) {
         })),
     ];
 
-    const priceLabel = price.caption && /^(UF|USD)$/i.test(price.caption.trim())
-        ? formatListingPrice(`${price.caption} ${price.amount}`)
-        : formatListingPrice(`$${price.amount}`);
-    const priceOriginal = price.original != null
+    const priceLabel = price.displayText
+        ?? (price.caption && /^(UF|USD)$/i.test(price.caption.trim())
+            ? formatListingPrice(`${price.caption} ${price.amount}`)
+            : formatListingPrice(`$${price.amount}`));
+    const priceOriginal = price.displayText ? undefined : price.original != null
         ? (price.caption && /^(UF|USD)$/i.test(price.caption.trim())
             ? formatListingPrice(`${price.caption} ${price.original}`)
             : formatListingPrice(`$${price.original}`))
