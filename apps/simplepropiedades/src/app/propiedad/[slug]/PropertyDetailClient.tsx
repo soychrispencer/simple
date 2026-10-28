@@ -62,6 +62,11 @@ function findSummaryValue(summary: string[], patterns: RegExp[]) {
     return match ? expandCompactPropertyTag(match) : 'Por definir';
 }
 
+function formatAvailabilityDate(value?: string | null) {
+    const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : null;
+}
+
 interface PropertyDetailClientProps {
     item: PublicListing;
     valorUF?: number;
@@ -246,6 +251,13 @@ export default function PropertyDetailClient({
                         discountPercent={item.discountPercent}
                         publishedAgo={item.publishedAgo}
                         views={item.views}
+                        children={item.section === 'project' ? (
+                            <p className="mt-4 rounded-xl border p-3 text-sm leading-relaxed prop-section-border" style={{ color: 'var(--fg-secondary)' }}>
+                                {item.availabilityStatus === 'confirmed'
+                                    ? `Disponibilidad confirmada${formatAvailabilityDate(item.availabilityVerifiedAt) ? ` el ${formatAvailabilityDate(item.availabilityVerifiedAt)}` : ''}. Consulta las unidades vigentes antes de avanzar.`
+                                    : 'Disponibilidad por confirmar con la inmobiliaria. Escríbenos y verificaremos las unidades vigentes.'}
+                            </p>
+                        ) : undefined}
                     />
                     {sellerBlock}
                 </aside>

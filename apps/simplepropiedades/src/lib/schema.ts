@@ -45,7 +45,9 @@ export function buildPropertyJsonLd(item: PublicListing): object {
             '@type': 'Offer',
             price: offer.price,
             priceCurrency: offer.currency,
-            availability: 'https://schema.org/InStock',
+            ...(item.section !== 'project' || item.availabilityStatus === 'confirmed'
+                ? { availability: 'https://schema.org/InStock' }
+                : {}),
             url: pageUrl,
             ...(item.seller ? {
                 seller: {

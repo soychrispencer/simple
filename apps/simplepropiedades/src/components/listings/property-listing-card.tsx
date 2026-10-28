@@ -137,7 +137,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
         return subscribeSavedListings(() => setSaved(isListingSaved(data.id)));
     }, [data.id]);
 
-    const ctaLabel = data.ctaLabel ?? (data.variant === 'rent' ? 'Ver disponibilidad' : data.variant === 'project' ? 'Ver proyecto' : 'Ver detalle');
+    const ctaLabel = data.ctaLabel ?? (data.variant === 'rent' ? 'Ver disponibilidad' : data.variant === 'project' ? 'Consultar disponibilidad' : 'Ver detalle');
 
     const handleSave = async () => {
         if (!requireAuth()) return { saved };

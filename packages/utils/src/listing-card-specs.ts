@@ -15,6 +15,7 @@ export type PropertyCardSpecInput = {
     commercialUse?: string | null;
     condition?: string | null;
     projectName?: string | null;
+    availabilityStatus?: 'confirmed' | 'to_confirm' | null;
     availableUnits?: number | string | null;
     usableAreaFrom?: number | string | null;
     usableAreaTo?: number | string | null;
@@ -120,6 +121,12 @@ export function buildPropertyCardSummaryTags(input: PropertyCardSpecInput): stri
     const summary: string[] = [];
 
     if (isPropertyProjectCard(input)) {
+        appendUnique(
+            summary,
+            input.availabilityStatus === 'confirmed'
+                ? 'Disponibilidad confirmada'
+                : 'Disponibilidad por confirmar',
+        );
         const units = asFiniteNumber(input.availableUnits);
         if (units != null) appendUnique(summary, `${formatCount(units)} unidades`);
 

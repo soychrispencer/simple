@@ -52,6 +52,7 @@ export function mapMarketplaceCardToPublicProps(
         title: data.title,
         price: {
             amount: parseListingPriceAmount(data.price),
+            displayText: /\d/.test(data.price) ? undefined : data.price.trim() || undefined,
             original: data.priceOriginal ? parseListingPriceAmount(data.priceOriginal) : undefined,
             discountLabel: data.discountLabel,
             caption: data.priceLabel,
