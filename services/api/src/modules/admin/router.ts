@@ -10,10 +10,14 @@ import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
 import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import {
     captureManualResponse,
+    createAdminContact,
     listAdminConversations,
+    recordAdminContactActivity,
     recordAdminOutboundMessage,
+    updateAdminContact,
     updateConversationStatus,
 } from './conversations.js';
+import type { AdminContactCreateInput, AdminContactProfileInput } from './conversations.js';
 
 export type AdminRouterDeps = {
     db: any;
@@ -46,7 +50,11 @@ export type AdminRouterDeps = {
     handleBootstrap: (c: any) => Promise<Response>;
     tables: {
         users: any;
+        userPlatformAccess?: any;
         agendaProfessionalProfiles: any;
+        agendaServices?: any;
+        agendaAvailabilityRules?: any;
+        agendaAppointments?: any;
         subscriptions?: any;
         timelineEvents?: any;
     };
@@ -205,6 +213,127 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const scopedVertical = adminUser.role === 'superadmin' ? null : (adminUser.primaryVertical ?? null);
         const items = await deps.listAdminUsersSnapshot(scopedVertical);
         return c.json({ ok: true, items });
+    });
+
+    app.get('/agenda-activation', async (c) => {
+        const adminUser = await deps.authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
+        const { userPlatformAccess, agendaServices, agendaAvailabilityRules, agendaAppointments } = deps.tables;
+        if (!userPlatformAccess || !agendaServices || !agendaAvailabilityRules || !agendaAppointments || !deps.inArray) {
+            return c.json({ ok: false, error: 'La medición de SimpleAgenda no está disponible en este entorno.' }, 503);
+        }
+
+        try {
+            const accessRows = await deps.db.select({
+                userId: userPlatformAccess.userId,
+                firstSeenAt: userPlatformAccess.firstSeenAt,
+                activatedAt: userPlatformAccess.activatedAt,
+                lastLoginAt: userPlatformAccess.lastLoginAt,
+            }).from(userPlatformAccess)
+                .where(deps.eq(userPlatformAccess.app, 'simpleagenda'))
+                .orderBy(deps.desc(userPlatformAccess.firstSeenAt))
+                .limit(1000);
+            const userIds = [...new Set(accessRows.map((row: { userId: string }) => row.userId))];
+            if (userIds.length === 0) {
+                return c.json({
+                    ok: true,
+                    summary: { registered: 0, profileStarted: 0, setupComplete: 0, published: 0, firstBooking: 0 },
+                    items: [],
+                });
+            }
+
+            const [userRows, profiles] = await Promise.all([
+                deps.db.select({ id: deps.tables.users.id, name: deps.tables.users.name, email: deps.tables.users.email, status: deps.tables.users.status })
+                    .from(deps.tables.users).where(deps.inArray(deps.tables.users.id, userIds)),
+                deps.db.select({
+                    id: deps.tables.agendaProfessionalProfiles.id,
+                    userId: deps.tables.agendaProfessionalProfiles.userId,
+                    displayName: deps.tables.agendaProfessionalProfiles.displayName,
+                    profession: deps.tables.agendaProfessionalProfiles.profession,
+                    slug: deps.tables.agendaProfessionalProfiles.slug,
+                    isPublished: deps.tables.agendaProfessionalProfiles.isPublished,
+                    alwaysOpen: deps.tables.agendaProfessionalProfiles.alwaysOpen,
+                    plan: deps.tables.agendaProfessionalProfiles.plan,
+                    planExpiresAt: deps.tables.agendaProfessionalProfiles.planExpiresAt,
+                }).from(deps.tables.agendaProfessionalProfiles)
+                    .where(deps.inArray(deps.tables.agendaProfessionalProfiles.userId, userIds)),
+            ]);
+            const profileIds = profiles.map((profile: { id: string }) => profile.id);
+            const [services, availability, appointments] = profileIds.length > 0 ? await Promise.all([
+                deps.db.select({ professionalId: agendaServices.professionalId }).from(agendaServices)
+                    .where(deps.and(deps.inArray(agendaServices.professionalId, profileIds), deps.eq(agendaServices.isActive, true))),
+                deps.db.select({ professionalId: agendaAvailabilityRules.professionalId }).from(agendaAvailabilityRules)
+                    .where(deps.and(deps.inArray(agendaAvailabilityRules.professionalId, profileIds), deps.eq(agendaAvailabilityRules.isActive, true))),
+                deps.db.select({ professionalId: agendaAppointments.professionalId }).from(agendaAppointments)
+                    .where(deps.and(deps.inArray(agendaAppointments.professionalId, profileIds), deps.sql`${agendaAppointments.status} <> 'cancelled'`)),
+            ]) : [[], [], []];
+
+            const userById = new Map(userRows.map((user: { id: string }) => [user.id, user]));
+            const profileByUser = new Map(profiles.map((profile: { userId: string }) => [profile.userId, profile]));
+            const servicesByProfile = new Set(services.map((row: { professionalId: string }) => row.professionalId));
+            const availabilityByProfile = new Set(availability.map((row: { professionalId: string }) => row.professionalId));
+            const bookingsByProfile = new Set(appointments.map((row: { professionalId: string }) => row.professionalId));
+            const items = accessRows.flatMap((access: { userId: string; firstSeenAt: Date; activatedAt: Date | null; lastLoginAt: Date | null }) => {
+                const user = userById.get(access.userId) as { id: string; name: string; email: string; status: string } | undefined;
+                if (!user) return [];
+                const profile = profileByUser.get(access.userId) as {
+                    id: string; displayName: string | null; profession: string | null; slug: string | null;
+                    isPublished: boolean; alwaysOpen: boolean; plan: string; planExpiresAt: Date | null;
+                } | undefined;
+                const hasService = Boolean(profile && servicesByProfile.has(profile.id));
+                const hasAvailability = Boolean(profile && (profile.alwaysOpen || availabilityByProfile.has(profile.id)));
+                const hasBasics = Boolean(profile?.displayName?.trim() && profile.profession?.trim() && profile.slug?.trim());
+                const setupComplete = Boolean(profile && hasBasics && hasService && hasAvailability);
+                const firstBooking = Boolean(profile && bookingsByProfile.has(profile.id));
+                const proActive = Boolean(profile?.plan === 'pro' && (!profile.planExpiresAt || profile.planExpiresAt > new Date()));
+                const missing: string[] = [];
+                if (!profile) missing.push('Crear perfil');
+                else {
+                    if (!hasBasics) missing.push('Completar datos del perfil');
+                    if (!hasService) missing.push('Crear un servicio');
+                    if (!hasAvailability) missing.push('Configurar disponibilidad');
+                    if (!profile.isPublished && setupComplete) missing.push('Publicar agenda');
+                    if (!firstBooking && profile.isPublished) missing.push('Conseguir primera reserva');
+                }
+                const activationStage = firstBooking ? 'first_booking'
+                    : profile?.isPublished ? 'published'
+                        : setupComplete ? 'ready_to_publish'
+                            : profile ? 'setup_pending' : 'registered';
+                return [{
+                    userId: user.id,
+                    name: user.name,
+                    email: user.email,
+                    status: user.status,
+                    firstSeenAt: access.firstSeenAt?.toISOString?.() ?? null,
+                    activatedAt: access.activatedAt?.toISOString?.() ?? null,
+                    lastLoginAt: access.lastLoginAt?.toISOString?.() ?? null,
+                    hasProfile: Boolean(profile),
+                    setupComplete,
+                    isPublished: Boolean(profile?.isPublished),
+                    firstBooking,
+                    proActive,
+                    activationStage,
+                    missing,
+                }];
+            });
+
+            return c.json({
+                ok: true,
+                summary: {
+                    registered: items.length,
+                    profileStarted: items.filter((item: { hasProfile: boolean }) => item.hasProfile).length,
+                    setupComplete: items.filter((item: { setupComplete: boolean }) => item.setupComplete).length,
+                    published: items.filter((item: { isPublished: boolean }) => item.isPublished).length,
+                    firstBooking: items.filter((item: { firstBooking: boolean }) => item.firstBooking).length,
+                    proActive: items.filter((item: { proActive: boolean }) => item.proActive).length,
+                },
+                items,
+            });
+        } catch (error) {
+            console.error('[admin] agenda activation snapshot failed', error);
+            return c.json({ ok: false, error: 'No se pudo cargar la activación de SimpleAgenda.' }, 500);
+        }
     });
 
     app.patch('/users/:id/role', async (c) => {
@@ -1078,6 +1207,156 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             }
             console.error('[admin] record outbound message failed', error);
             return c.json({ ok: false, error: 'No se pudo guardar el mensaje enviado.' }, 500);
+        }
+    });
+
+    app.post('/conversations/contacts', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents || !deps.eq || !deps.and || !deps.inArray) {
+            return c.json({ ok: false, error: 'Contactos no disponibles en este entorno.' }, 503);
+        }
+
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const channel = body.channel ?? 'whatsapp_personal';
+        if (channel !== 'whatsapp_personal' && channel !== 'whatsapp_business' && channel !== 'email') {
+            return c.json({ ok: false, error: 'Selecciona WhatsApp personal, WhatsApp Business o correo electrónico.' }, 400);
+        }
+        const verticals = ['agenda', 'propiedades', 'autos', 'serenatas', 'platform', 'general'];
+        const purposes = ['alliance', 'app_invitation', 'client_prospecting', 'follow_up', 'support', 'other'];
+        const stages = ['new', 'contacted', 'registered', 'setup_pending', 'activated', 'first_booking', 'paid', 'paused', 'closed'];
+        const origins = ['unknown', 'instagram', 'facebook', 'whatsapp', 'website', 'referral', 'personal_network', 'organic_search', 'direct', 'other'];
+        if (body.sourceVertical && !verticals.includes(String(body.sourceVertical))) {
+            return c.json({ ok: false, error: 'Selecciona un servicio válido.' }, 400);
+        }
+        if (body.purpose && !purposes.includes(String(body.purpose))) {
+            return c.json({ ok: false, error: 'Selecciona un motivo válido.' }, 400);
+        }
+        if (body.contactStage && !stages.includes(String(body.contactStage))) {
+            return c.json({ ok: false, error: 'Selecciona una etapa válida.' }, 400);
+        }
+        if (body.origin && !origins.includes(String(body.origin))) {
+            return c.json({ ok: false, error: 'Selecciona un origen válido.' }, 400);
+        }
+        if (!String(body.name ?? '').trim() && !String(body.phone ?? '').trim() && !String(body.email ?? '').trim()) {
+            return c.json({ ok: false, error: 'Indica un nombre, teléfono o correo para identificar el contacto.' }, 400);
+        }
+        if (channel === 'email' ? !String(body.email ?? '').trim() : !String(body.phone ?? '').trim()) {
+            return c.json({ ok: false, error: channel === 'email' ? 'Indica el correo del contacto.' : 'Indica el WhatsApp del contacto.' }, 400);
+        }
+
+        try {
+            const result = await createAdminContact({
+                db: deps.db,
+                eq: deps.eq,
+                and: deps.and,
+                inArray: deps.inArray,
+                desc: deps.desc,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                adminUserId: admin.id,
+                input: body as AdminContactCreateInput,
+            });
+            return c.json({ ok: true, ...result }, result.created ? 201 : 200);
+        } catch (error) {
+            if (error instanceof Error) {
+                if (error.message === 'INVALID_PHONE') return c.json({ ok: false, error: 'WhatsApp o teléfono inválido.' }, 400);
+                if (error.message === 'INVALID_EMAIL') return c.json({ ok: false, error: 'Correo inválido.' }, 400);
+                if (error.message === 'PHONE_REQUIRED') return c.json({ ok: false, error: 'Indica el WhatsApp del contacto.' }, 400);
+                if (error.message === 'EMAIL_REQUIRED') return c.json({ ok: false, error: 'Indica el correo del contacto.' }, 400);
+                if (error.message === 'INVALID_CONTACT_STAGE') return c.json({ ok: false, error: 'Selecciona una etapa válida.' }, 400);
+                if (error.message === 'INVALID_CONTACT_ORIGIN') return c.json({ ok: false, error: 'Selecciona un origen válido.' }, 400);
+                if (error.message === 'CONTACT_FIELD_TOO_LONG') return c.json({ ok: false, error: 'Uno de los campos de la ficha supera el largo permitido.' }, 400);
+                if (error.message === 'INVALID_FOLLOW_UP_DATE') return c.json({ ok: false, error: 'La fecha de seguimiento no es válida.' }, 400);
+            }
+            console.error('[admin] create contact failed', error);
+            return c.json({ ok: false, error: 'No se pudo guardar el contacto.' }, 500);
+        }
+    });
+
+    app.patch('/conversations/:threadId/contact', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents) {
+            return c.json({ ok: false, error: 'Contactos no disponibles en este entorno.' }, 503);
+        }
+
+        const threadId = decodeURIComponent(c.req.param('threadId') || '').trim();
+        if (!threadId) return c.json({ ok: false, error: 'Contacto inválido.' }, 400);
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const verticals = ['agenda', 'propiedades', 'autos', 'serenatas', 'platform', 'general'];
+        const purposes = ['alliance', 'app_invitation', 'client_prospecting', 'follow_up', 'support', 'other'];
+        const stages = ['new', 'contacted', 'registered', 'setup_pending', 'activated', 'first_booking', 'paid', 'paused', 'closed'];
+        const origins = ['unknown', 'instagram', 'facebook', 'whatsapp', 'website', 'referral', 'personal_network', 'organic_search', 'direct', 'other'];
+        if (body.sourceVertical && !verticals.includes(String(body.sourceVertical))) return c.json({ ok: false, error: 'Selecciona un servicio válido.' }, 400);
+        if (body.purpose && !purposes.includes(String(body.purpose))) return c.json({ ok: false, error: 'Selecciona un motivo válido.' }, 400);
+        if (body.contactStage && !stages.includes(String(body.contactStage))) return c.json({ ok: false, error: 'Selecciona una etapa válida.' }, 400);
+        if (body.origin && !origins.includes(String(body.origin))) return c.json({ ok: false, error: 'Selecciona un origen válido.' }, 400);
+
+        try {
+            await updateAdminContact({
+                db: deps.db,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                adminUserId: admin.id,
+                threadId,
+                input: body as AdminContactProfileInput,
+            });
+            return c.json({ ok: true });
+        } catch (error) {
+            if (error instanceof Error) {
+                if (error.message === 'INVALID_EMAIL') return c.json({ ok: false, error: 'Correo inválido.' }, 400);
+                if (error.message === 'INVALID_FOLLOW_UP_DATE') return c.json({ ok: false, error: 'La fecha de seguimiento no es válida.' }, 400);
+                if (error.message === 'INVALID_CONTACT_STAGE') return c.json({ ok: false, error: 'Selecciona una etapa válida.' }, 400);
+                if (error.message === 'INVALID_CONTACT_ORIGIN') return c.json({ ok: false, error: 'Selecciona un origen válido.' }, 400);
+                if (error.message === 'CONTACT_FIELD_TOO_LONG') return c.json({ ok: false, error: 'Uno de los campos supera el largo permitido.' }, 400);
+                if (error.message === 'EMPTY_CONTACT_UPDATE') return c.json({ ok: false, error: 'No hay cambios para guardar.' }, 400);
+            }
+            console.error('[admin] update contact failed', error);
+            return c.json({ ok: false, error: 'No se pudo actualizar la ficha.' }, 500);
+        }
+    });
+
+    app.post('/conversations/:threadId/activities', async (c) => {
+        const admin = await deps.authUser(c);
+        if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(admin.role)) return c.json({ ok: false, error: 'Sin permiso' }, 403);
+        if (!deps.tables.timelineEvents) {
+            return c.json({ ok: false, error: 'Actividad no disponible en este entorno.' }, 503);
+        }
+
+        const threadId = decodeURIComponent(c.req.param('threadId') || '').trim();
+        if (!threadId) return c.json({ ok: false, error: 'Contacto inválido.' }, 400);
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const activityTypes = ['message_inbound', 'message_outbound', 'call', 'meeting', 'support', 'note', 'other'];
+        const channels = ['whatsapp_personal', 'whatsapp_business', 'email', 'instagram_dm', 'phone', 'meeting', 'other'];
+        if (!activityTypes.includes(String(body.activityType ?? ''))) return c.json({ ok: false, error: 'Selecciona un tipo de actividad.' }, 400);
+        if (!channels.includes(String(body.channel ?? ''))) return c.json({ ok: false, error: 'Selecciona un canal válido.' }, 400);
+        if (!String(body.summary ?? '').trim()) return c.json({ ok: false, error: 'Escribe un resumen de la actividad.' }, 400);
+
+        try {
+            await recordAdminContactActivity({
+                db: deps.db,
+                tables: { timelineEvents: deps.tables.timelineEvents },
+                adminUserId: admin.id,
+                threadId,
+                input: {
+                    activityType: body.activityType as 'message_inbound' | 'message_outbound' | 'call' | 'meeting' | 'support' | 'note' | 'other',
+                    channel: body.channel as 'whatsapp_personal' | 'whatsapp_business' | 'email' | 'instagram_dm' | 'phone' | 'meeting' | 'other',
+                    summary: String(body.summary),
+                    nextAction: typeof body.nextAction === 'string' ? body.nextAction : undefined,
+                    nextFollowUpDate: typeof body.nextFollowUpDate === 'string' ? body.nextFollowUpDate : undefined,
+                },
+            });
+            return c.json({ ok: true }, 201);
+        } catch (error) {
+            if (error instanceof Error) {
+                if (error.message === 'INVALID_ACTIVITY_SUMMARY') return c.json({ ok: false, error: 'El resumen debe tener hasta 6000 caracteres.' }, 400);
+                if (error.message === 'INVALID_FOLLOW_UP_DATE') return c.json({ ok: false, error: 'La fecha de seguimiento no es válida.' }, 400);
+                if (error.message === 'CONTACT_FIELD_TOO_LONG') return c.json({ ok: false, error: 'El próximo paso supera el largo permitido.' }, 400);
+            }
+            console.error('[admin] log contact activity failed', error);
+            return c.json({ ok: false, error: 'No se pudo registrar la actividad.' }, 500);
         }
     });
 

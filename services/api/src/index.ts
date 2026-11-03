@@ -1925,7 +1925,11 @@ app.route('/api/admin', createAdminRouter({
     },
     tables: {
         users,
+        userPlatformAccess,
         agendaProfessionalProfiles,
+        agendaServices,
+        agendaAvailabilityRules,
+        agendaAppointments,
         subscriptions,
         timelineEvents,
     },

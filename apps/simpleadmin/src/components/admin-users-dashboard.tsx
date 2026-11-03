@@ -28,6 +28,7 @@ import {
 } from '@/lib/api';
 import { EditUserDialog, EmailUserDialog, SubscriptionsDialog } from './users/user-dialogs';
 import { UserAvatar, UserDetailSheet } from './users/user-detail-sheet';
+import { AgendaActivationSummary } from './users/agenda-activation-summary';
 import {
     activitySummary,
     capabilitiesFor,
@@ -155,6 +156,8 @@ export function AdminUsersDashboard({ currentUser }: { currentUser: AdminSession
                 <PanelStatCard label="Con plataforma" value={String(result.summary.withPlatform)} meta="Acceso activo" icon={<IconUserCheck size={17} />} />
                 <PanelStatCard label="Suscripción activa" value={String(result.summary.withActiveSubscription)} meta={result.summary.suspended ? `${result.summary.suspended} suspendidos` : 'Sin suspendidos'} />
             </div>
+
+            {vertical === 'agenda' ? <AgendaActivationSummary /> : null}
 
             {checkedIds.length > 0 ? (
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-y border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-3">
