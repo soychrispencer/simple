@@ -60,7 +60,7 @@ const DEMO_TIMES: Record<string, string[]> = {
     '12': ['10:30', '15:00', '17:30'],
 };
 
-export function InteractiveBookingDemo({ onStartFree }: { onStartFree: () => void }) {
+export function InteractiveBookingDemo({ onStartFree }: { onStartFree?: () => void }) {
     const [selectedService, setSelectedService] = useState<ServiceOption>(DEMO_SERVICES[0]!);
     const [selectedDay, setSelectedDay] = useState(DEMO_DAYS[0]!);
     const [selectedTime, setSelectedTime] = useState(DEMO_TIMES['07']![1]!);
@@ -84,7 +84,7 @@ export function InteractiveBookingDemo({ onStartFree }: { onStartFree: () => voi
     };
 
     return (
-        <section id="demo" className="scroll-mt-20 py-16 sm:py-24" style={{ background: 'var(--bg-subtle)' }}>
+        <section id="demo-interactiva" className="scroll-mt-20 py-16 sm:py-24" style={{ background: 'var(--bg-subtle)' }}>
             <div className="container-app">
                 <div className="mx-auto max-w-2xl text-center mb-10 sm:mb-14">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)]">
@@ -309,7 +309,7 @@ export function InteractiveBookingDemo({ onStartFree }: { onStartFree: () => voi
                                         type="button"
                                         variant="accent"
                                         className="w-full h-12 text-sm font-semibold shadow-md gap-2"
-                                        onClick={onStartFree}
+                                        onClick={() => onStartFree ? onStartFree() : (window.location.hash = '#planes')}
                                     >
                                         Crear mi cuenta gratis y tener mi link
                                         <IconArrowRight size={16} />

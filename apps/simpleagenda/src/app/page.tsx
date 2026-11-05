@@ -365,7 +365,7 @@ export default function HomePage() {
             <PainComparisonSection />
 
             {/* ═══════════════ INTERACTIVE BOOKING DEMO ═══════════════ */}
-            <InteractiveBookingDemo />
+            <InteractiveBookingDemo onStartFree={handleCTA} />
 
             {/* ═══════════════ FEATURED PROFESSIONALS DIRECTORY (NEVER EMPTY) ═══════════════ */}
             <FeaturedProfessionalsSection />
