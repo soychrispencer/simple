@@ -8,6 +8,10 @@ const legalLinks = [
     { label: 'Términos', href: '/terminos' },
 ];
 
+const socialLinks = [
+    { label: 'Instagram', href: 'https://www.instagram.com/simpleagenda.app/' },
+];
+
 export function Footer() {
     return (
         <MarketplaceFooter
@@ -15,6 +19,7 @@ export function Footer() {
             description="SimpleAgenda simplifica la gestión de citas y reservas."
             copyrightName="SimpleAgenda"
             legalLinks={legalLinks}
+            socialLinks={socialLinks}
         />
     );
 }

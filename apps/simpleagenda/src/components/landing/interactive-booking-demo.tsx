@@ -1,10 +1,11 @@
 'use client';
 
+import { BookingConfirmation } from './booking-confirmation';
+
 import { useState } from 'react';
 import {
     IconCalendar,
     IconClockHour4,
-    IconCheck,
     IconSparkles,
     IconArrowRight,
     IconRotateClockwise,
@@ -267,44 +268,25 @@ export function InteractiveBookingDemo({ onStartFree }: { onStartFree?: () => vo
                         ) : (
                             /* Instant confirmation screen */
                             <div className="mt-8 py-8 px-4 text-center max-w-lg mx-auto animate-scale-in">
-                                <div className="size-16 rounded-full bg-emerald-500/15 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-                                    <IconCheck size={32} stroke={3} />
+                                <div role="status">
+                                    <BookingConfirmation time={selectedTime} label={`${selectedDay.label} ${selectedDay.date} · ${selectedService.name}`} />
                                 </div>
-                                <h4 className="text-xl sm:text-2xl font-bold text-[var(--fg)]">
-                                    ¡Cita reservada y confirmada!
-                                </h4>
-                                <p className="text-xs sm:text-sm text-[var(--fg-muted)] mt-1.5">
-                                    El paciente recibió de inmediato su comprobante por email con el link de acceso y detalles de la consulta.
+                                <p className="mt-3 text-sm text-[var(--fg-muted)]">
+                                    En esta demo no se envían correos ni se realizan cobros.
                                 </p>
 
-                                {/* Ticket Details */}
-                                <div className="my-6 rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-subtle)] p-5 text-left text-xs space-y-2.5">
-                                    <div className="flex justify-between">
-                                        <span className="text-[var(--fg-muted)]">Servicio:</span>
-                                        <span className="font-semibold text-[var(--fg)]">{selectedService.name}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-[var(--fg-muted)]">Fecha y hora:</span>
-                                        <span className="font-semibold text-[var(--fg)]">{selectedDay.label} {selectedDay.date} a las {selectedTime} hrs</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-[var(--fg-muted)]">Modalidad:</span>
-                                        <span className="font-semibold text-[var(--fg)]">Consulta Online (Enlace Google Meet adjunto)</span>
-                                    </div>
-                                    <div className="flex justify-between border-t border-[var(--border)] pt-2.5">
-                                        <span className="text-[var(--fg-muted)]">Total abonado:</span>
-                                        <span className="font-bold text-emerald-600">{selectedService.price} CLP (Mercado Pago ✓)</span>
-                                    </div>
-                                </div>
 
-                                <div className="space-y-3">
+                                <div className="mt-6 space-y-3">
+                                    <p className="text-sm font-semibold text-[var(--fg)]">
+                                        Así reservarán tus pacientes. Crea tu agenda y comparte tu propio link.
+                                    </p>
                                     <PanelButton
                                         type="button"
                                         variant="accent"
                                         className="w-full h-12 text-sm font-semibold shadow-md gap-2"
                                         onClick={() => onStartFree ? onStartFree() : (window.location.hash = '#planes')}
                                     >
-                                        Crear mi cuenta gratis y tener mi link
+                                        Regístrate gratis
                                         <IconArrowRight size={16} />
                                     </PanelButton>
 
