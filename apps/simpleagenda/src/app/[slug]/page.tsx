@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AgendaPublicSite, type AgendaPublicProfile } from './agenda-public-site';
 import { NotPublishedPage } from './not-published-page';
+import { DEMO_PROFILES } from './demo-profiles';
 
 const API_BASE = process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app').replace(/\/$/, '');
@@ -13,6 +14,12 @@ type ProfileResult =
 
 async function getProfessionalProfile(slug: string): Promise<ProfileResult> {
     if (slug.includes('.')) return { status: 'not_found' };
+
+    // Si es un perfil demo modelo, proveemos datos garantizados y realistas
+    if (DEMO_PROFILES[slug]) {
+        return { status: 'found', profile: DEMO_PROFILES[slug] };
+    }
+
     try {
         const res = await fetch(`${API_BASE}/api/public/agenda/${slug}`, { cache: 'no-store' });
         if (res.status === 403) {

@@ -13,7 +13,7 @@ type FeaturedStatus = { loading: boolean; error: string | null };
 
 const FALLBACK_PROFESSIONALS: FeaturedProfessional[] = [
     {
-        slug: 'demo-plataforma-agenda',
+        slug: 'dra-valentina',
         displayName: 'Dra. Valentina Muñoz',
         profession: 'Psicóloga Clínica',
         headline: 'Atención psicológica individual y terapia de adultos en Providencia y online.',
@@ -27,7 +27,7 @@ const FALLBACK_PROFESSIONALS: FeaturedProfessional[] = [
         boosted: true,
     },
     {
-        slug: 'demo-plataforma-agenda',
+        slug: 'esteban-carrasco',
         displayName: 'Esteban Carrasco',
         profession: 'Barbero Profesional & Estilista',
         headline: 'Cortes clásicos, perfilado de barba y asesoría de imagen en Viña del Mar.',
@@ -41,7 +41,7 @@ const FALLBACK_PROFESSIONALS: FeaturedProfessional[] = [
         boosted: true,
     },
     {
-        slug: 'demo-plataforma-agenda',
+        slug: 'camila-silva',
         displayName: 'Camila Silva',
         profession: 'Nutricionista Deportiva',
         headline: 'Planes nutricionales personalizados, composición corporal y rendimiento.',

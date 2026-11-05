@@ -19,6 +19,7 @@ import {
     IconBuilding,
     IconBrandWhatsapp,
     IconLock,
+    IconCalendarEvent,
 } from '@tabler/icons-react';
 import {
     AGENDA_PLAN_CATALOG,
@@ -33,6 +34,7 @@ import { PlanComparisonTable } from '@/components/landing/plan-comparison-table'
 import { InteractiveBookingDemo } from '@/components/landing/interactive-booking-demo';
 import { PainComparisonSection } from '@/components/landing/pain-comparison-section';
 import { TestimonialsSection } from '@/components/landing/testimonials-section';
+import { RoiCalculator } from '@/components/landing/roi-calculator';
 
 /* ────────────────────────── Data ────────────────────────── */
 
@@ -50,7 +52,7 @@ const CORE_FEATURES = [
     {
         icon: IconCreditCard,
         title: 'Pagos en CLP con 0% comisión',
-        desc: 'Recibe pagos con Mercado Pago o transferencias directas a tu cuenta. No cobramos comisiones por cita.',
+        desc: 'Recibe pagos con Mercado Pago (Webpay / Tarjetas) o transferencias directas. No cobramos comisiones por cita.',
     },
     {
         icon: IconUsers,
@@ -63,9 +65,9 @@ const CORE_FEATURES = [
         desc: 'Acceso inmediato desde cualquier navegador web. Sin obligar a tus pacientes a descargar ninguna app.',
     },
     {
-        icon: IconShieldCheck,
-        title: 'Disponibilidad sincronizada',
-        desc: 'Bloquea pausas y almuerzos. Si agendas una cita tú mismo, el horario se bloquea de inmediato para evitar cruces.',
+        icon: IconCalendarEvent,
+        title: 'Google Calendar integrado',
+        desc: 'Conecta tu calendario personal en 2 clics. Tus compromisos personales bloquean automáticamente la agenda para evitar cualquier tope.',
     },
 ];
 
@@ -94,6 +96,33 @@ const PROFESSION_TAGS = [
     'Centros de Estética',
     'Nutrición y Bienestar',
     'Consultorías y Coaching',
+];
+
+const CHILEAN_FAQS = [
+    {
+        q: '¿Mis pacientes o clientes tienen que crearse una cuenta o bajar una app para reservar?',
+        a: 'No. Tus clientes acceden directamente desde el navegador de su celular o computador (Safari, Chrome, etc.) a través de tu link. Eligen servicio, fecha y hora en 30 segundos sin necesidad de registrarse, sin contraseñas y sin descargar ninguna aplicación.',
+    },
+    {
+        q: '¿Puedo cobrar por transferencia bancaria (Cuenta RUT u otros bancos) si no uso Mercado Pago?',
+        a: 'Sí, totalmente. Puedes configurar tus datos de transferencia (RUT, Banco, Tipo y Número de cuenta) para que el paciente los vea al momento de reservar. Una vez que recibas el comprobante, marcas la cita como pagada en un solo clic desde tu panel.',
+    },
+    {
+        q: '¿Cómo funciona la integración con Mercado Pago en Chile?',
+        a: 'Puedes conectar tu cuenta de Mercado Pago Chile para permitir cobro inmediato con tarjetas de débito (incluyendo Cuenta RUT), tarjetas de crédito y Webpay Plus. El dinero llega directo a tu cuenta bancaria o de Mercado Pago con 0% de comisión por parte de SimpleAgenda.',
+    },
+    {
+        q: '¿Se sincroniza con mi Google Calendar personal?',
+        a: 'Sí. Conectas tu cuenta de Google en dos clics. Si agregas un evento o compromiso en tu Google Calendar personal, ese horario se bloquea de inmediato en SimpleAgenda para evitar topes de horario, y cada nueva reserva se agrega automáticamente a tu calendario.',
+    },
+    {
+        q: '¿Qué pasa cuando terminan los 30 días de prueba del plan Pro?',
+        a: 'Tu cuenta pasa automáticamente al plan Gratis para siempre (con hasta 30 reservas mensuales incluidas). Como no solicitamos tarjeta de crédito al registrarte, nunca habrá ningún cobro sorpresa ni penalización.',
+    },
+    {
+        q: '¿Cobran comisión por cada cita o atención agendada?',
+        a: 'No. SimpleAgenda cobra 0% de comisión por cita. El 100% de lo que cobras a tus pacientes o clientes es tuyo.',
+    },
 ];
 
 /* ────────────────────────── Helpers ────────────────────────── */
@@ -431,11 +460,14 @@ export default function HomePage() {
                 </div>
             </section>
 
+            {/* ═══════════════ 3. CALCULADORA DE RETORNO / AHORRO ═══════════════ */}
+            <RoiCalculator onStartFree={handleCTA} />
+
             {/* ═══════════════ PLANS & PRICING ═══════════════ */}
             {showPlans ? (
                 <section id="planes" className="scroll-mt-20" style={{ background: 'var(--bg)' }}>
                     <div className="container-app section-marketing">
-                        <div className="mx-auto mb-10 max-w-2xl text-center">
+                        <div className="mx-auto mb-8 max-w-2xl text-center">
                             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--accent)]">
                                 Planes transparentes y sin letra chica
                             </p>
@@ -445,6 +477,25 @@ export default function HomePage() {
                             <p className="text-sm sm:text-base text-[var(--fg-muted)]">
                                 Al registrarte tienes acceso completo a Pro por 30 días sin tarjeta. Al terminar, sigues en el plan Gratis para siempre o activas Pro desde {formatAgendaProAnnualMonthlyPrice()}. No hay cobros automáticos.
                             </p>
+
+                            {/* Trust badges strip */}
+                            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] font-medium text-[var(--fg-secondary)] shadow-2xs">
+                                    <IconShieldCheck size={14} className="text-emerald-500" />
+                                    Mercado Pago Chile (Webpay / Tarjetas)
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] font-medium text-[var(--fg-secondary)] shadow-2xs">
+                                    <IconCreditCard size={14} className="text-blue-500" />
+                                    Transferencias (Cuenta RUT / Bancos)
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] font-medium text-[var(--fg-secondary)] shadow-2xs">
+                                    <IconCalendarEvent size={14} className="text-indigo-500" />
+                                    Google Calendar integrado
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)] font-bold shadow-2xs">
+                                    0% comisión por cita
+                                </span>
+                            </div>
 
                             {/* Billing Period Selector */}
                             <div className="mt-8 inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm">
@@ -700,7 +751,7 @@ export default function HomePage() {
                 </section>
             ) : null}
 
-            {/* ═══════════════ FAQ ═══════════════ */}
+            {/* ═══════════════ FAQ CHILENO ═══════════════ */}
             <section style={{ background: 'var(--bg-subtle)' }}>
                 <div className="container-app section-marketing">
                     <div className="max-w-2xl mx-auto">
@@ -712,7 +763,7 @@ export default function HomePage() {
                             className="rounded-2xl border overflow-hidden px-4 sm:px-6"
                             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                         >
-                            {copy.faqs.map((faq) => (
+                            {CHILEAN_FAQS.map((faq) => (
                                 <FAQItem key={faq.q} q={faq.q} a={faq.a} />
                             ))}
                         </div>

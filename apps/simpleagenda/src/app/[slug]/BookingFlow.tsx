@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -167,6 +167,16 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     const loadSlots = useCallback(async (date: string, service: Service) => {
         setLoadingSlots(true);
         setSlots([]);
+                if (profile.slug === 'dra-valentina' || profile.slug === 'esteban-carrasco' || profile.slug === 'camila-silva' || profile.slug === 'demo-plataforma-agenda') {
+            setSlots([
+                { startsAt: date + 'T10:00:00.000Z', endsAt: date + 'T10:50:00.000Z' },
+                { startsAt: date + 'T11:30:00.000Z', endsAt: date + 'T12:20:00.000Z' },
+                { startsAt: date + 'T15:00:00.000Z', endsAt: date + 'T15:50:00.000Z' },
+                { startsAt: date + 'T16:30:00.000Z', endsAt: date + 'T17:20:00.000Z' },
+            ]);
+            setLoadingSlots(false);
+            return;
+        }
         const data = await fetchPublicSlots(profile.slug, date, service.id);
         setSlots(data);
         setLoadingSlots(false);
@@ -352,7 +362,20 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     };
 
     const handleSubmit = async () => {
-        if (!selectedService || !selectedSlot || !clientName.trim() || !clientLastName.trim()) return;
+                if (!selectedService || !selectedSlot || !clientName.trim() || !clientLastName.trim()) return;
+        if (profile.slug === 'dra-valentina' || profile.slug === 'esteban-carrasco' || profile.slug === 'camila-silva' || profile.slug === 'demo-plataforma-agenda') {
+            setSubmitting(false);
+            setConfirmedAppt({
+                id: 'demo-confirmed-appt',
+                status: 'confirmed',
+                startsAt: selectedSlot.startsAt,
+                paymentStatus: 'pending',
+                modality: bookingModality,
+                meetingUrl: 'https://meet.google.com/demo-simpleagenda',
+            });
+            setStep('confirmed');
+            return;
+        }
         setSubmitting(true);
         setSubmitError('');
         const result = await bookAppointment(profile.slug, {
@@ -381,7 +404,20 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     };
 
     const handleSubmitAndRedirect = async (method: 'mp' | 'link') => {
-        if (!selectedService || !selectedSlot || !clientName.trim() || !clientLastName.trim()) return;
+                if (!selectedService || !selectedSlot || !clientName.trim() || !clientLastName.trim()) return;
+        if (profile.slug === 'dra-valentina' || profile.slug === 'esteban-carrasco' || profile.slug === 'camila-silva' || profile.slug === 'demo-plataforma-agenda') {
+            setSubmitting(false);
+            setConfirmedAppt({
+                id: 'demo-confirmed-appt',
+                status: 'confirmed',
+                startsAt: selectedSlot.startsAt,
+                paymentStatus: 'pending',
+                modality: bookingModality,
+                meetingUrl: 'https://meet.google.com/demo-simpleagenda',
+            });
+            setStep('confirmed');
+            return;
+        }
         setSubmitting(true);
         setSubmitError('');
         const result = await bookAppointment(profile.slug, {
