@@ -18,6 +18,7 @@ import {
     IconBuilding,
     IconBrandWhatsapp,
     IconCalendarEvent,
+    IconLock,
 } from '@tabler/icons-react';
 import {
     AGENDA_PLAN_CATALOG,
