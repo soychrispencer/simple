@@ -43,8 +43,12 @@ export function resolveProfessionalMediaUrl(value: string | null | undefined): s
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
         return trimmed;
     }
+    if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) {
+        const clean = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+        return `${API_BASE}${clean}`;
+    }
     if (trimmed.startsWith('/')) {
-        return `${API_BASE}${trimmed}`;
+        return trimmed;
     }
     return `${API_BASE}/${trimmed}`;
 }
