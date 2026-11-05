@@ -1,41 +1,32 @@
 .agenda-landing {
-    --bg: #fcfbf7;
-    --bg-subtle: #f4f2e9;
-    --surface: #fffefa;
-    --border: #dedfd5;
-    --border-strong: #b7c3bb;
-    --fg: #182f2a;
-    --fg-secondary: #41564e;
-    --fg-muted: #53675e;
-    --agenda-hero: #f5f2e8;
+    --bg: #fff;
+    --border-strong: #8a8a8a;
+    --fg-muted: #606060;
     --agenda-green: #0f766e;
     --agenda-green-hover: #0d645e;
-    --agenda-link: #0d6b63;
-    --agenda-tint: #e5f2ed;
-    --agenda-brand-border: #acd1c5;
+    --agenda-link: var(--agenda-green);
+    --agenda-tint: var(--bg-muted);
     --agenda-on-green: #fff;
+    --agenda-lime: #d5fa57;
+    --agenda-lime-hover: #c5e94b;
+    --agenda-lime-ink: #111113;
+    --agenda-dark-card: #161618;
     --agenda-radius-panel: 1rem;
     --agenda-radius-control: 0.625rem;
-    --agenda-shadow: 0 12px 32px rgb(24 47 42 / 8%);
+    --agenda-shadow: 0 12px 32px rgb(17 17 17 / 8%);
     --accent-subtle: var(--agenda-tint);
-    --accent-border: var(--agenda-brand-border);
+    --accent-border: var(--border-strong);
     background: var(--bg);
     color: var(--fg);
 }
 
 :is(.dark, [data-theme="dark"]) .agenda-landing {
-    --bg: #111b19;
-    --bg-subtle: #152320;
-    --surface: #1b2c27;
-    --border: #384d45;
-    --border-strong: #5c756a;
-    --fg: #f1f5ec;
-    --fg-secondary: #c3d5cb;
-    --fg-muted: #a7beb1;
-    --agenda-hero: #172622;
-    --agenda-link: #8adccb;
-    --agenda-tint: #213c34;
-    --agenda-brand-border: #528579;
+    /* Keep the panel's shared black background and charcoal surfaces. */
+    --bg: inherit;
+    --border-strong: inherit;
+    --fg-secondary: #babac2;
+    --fg-muted: #a0a0aa;
+    --agenda-link: #92d1c9;
     --agenda-shadow: 0 12px 32px rgb(0 0 0 / 22%);
 }
 
@@ -113,7 +104,7 @@
 }
 
 .agenda-button--secondary {
-    border-color: var(--agenda-brand-border);
+    border-color: var(--border-strong);
     background: transparent;
     color: var(--agenda-link);
 }
@@ -122,13 +113,30 @@
     background: var(--agenda-tint);
 }
 
-.agenda-button--inverse {
-    background: #fcfbf7;
-    color: #0d6b63;
+.agenda-button--spotlight {
+    background: var(--agenda-lime);
+    color: var(--agenda-lime-ink);
 }
 
-.agenda-button--inverse:hover {
-    background: #e5f2ed;
+.agenda-button--spotlight:hover {
+    background: var(--agenda-lime-hover);
+}
+
+.agenda-confirmation {
+    border: 1px solid var(--agenda-lime);
+    border-radius: var(--agenda-radius-control);
+    background: var(--agenda-lime);
+    color: var(--agenda-lime-ink);
+}
+
+.agenda-confirmation--record {
+    border-color: var(--border);
+    background: var(--bg-subtle);
+    color: var(--fg);
+}
+
+.agenda-confirmation--record svg {
+    color: var(--agenda-link);
 }
 
 .agenda-choice {
@@ -154,7 +162,7 @@
     outline-offset: 3px;
 }
 
-.agenda-landing .agenda-button--inverse:focus-visible {
+.agenda-landing .agenda-button--spotlight:focus-visible {
     outline-color: #fff;
 }
 

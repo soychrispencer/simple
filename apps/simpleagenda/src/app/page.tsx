@@ -25,13 +25,11 @@ export default function HomePage() {
 
     return (
         <div>
-            <section id="portada" className="border-b border-[var(--border)] bg-[var(--agenda-hero)]">
+            <section id="portada" className="border-b border-[var(--border)] bg-[var(--bg)]">
                 <div className="container-app grid items-center gap-7 py-8 sm:gap-10 sm:py-14 md:grid-cols-2 lg:gap-14 lg:py-20">
                     <div className="min-w-0">
                         <p className="agenda-eyebrow mb-3 sm:mb-4">Agenda online para profesionales</p>
-                        <h1 className="agenda-display">
-                            Mientras atiendes, tu agenda <span className="text-[var(--agenda-link)]">sigue atendiendo.</span>
-                        </h1>
+                        <h1 className="agenda-display">Mientras atiendes, tu agenda sigue atendiendo.</h1>
                         <p className="mt-4 max-w-md text-base leading-relaxed text-[var(--fg-secondary)] sm:mt-5 sm:text-lg">Comparte tu link. Tus pacientes reservan según tu disponibilidad, a cualquier hora.</p>
                         <div className="mt-5 sm:mt-6">
                             <button type="button" onClick={start} className="agenda-button w-full sm:w-auto">{cta}</button>
@@ -41,7 +39,7 @@ export default function HomePage() {
                     </div>
                     <figure className="relative min-w-0">
                         <Image src="/hero/consulta-campana.png" alt="Profesional conversando con una paciente durante una consulta" width={1536} height={1024} priority sizes="(min-width: 1328px) 576px, (min-width: 768px) 50vw, 100vw" className="aspect-[4/3] w-full rounded-[var(--agenda-radius-panel)] border border-[var(--border)] object-cover object-[62%_center] lg:aspect-[5/4]" />
-                        <figcaption className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4">
+                        <figcaption className="absolute bottom-3 left-3 rounded-[var(--agenda-radius-control)] shadow-[var(--agenda-shadow)] sm:bottom-4 sm:left-4">
                             <BookingConfirmation time="10:30" label="Martes · Consulta" compact />
                         </figcaption>
                     </figure>
@@ -66,7 +64,7 @@ export default function HomePage() {
                             <span className="inline-flex items-center gap-2"><IconCalendar size={18} aria-hidden="true" /> Agenda del martes</span>
                             <span className="text-xs text-[var(--fg-muted)]">Ejemplo de atención</span>
                         </figcaption>
-                        <BookingConfirmation time="10:30" label="Martes · Consulta" compact />
+                        <BookingConfirmation time="10:30" label="Martes · Consulta" compact variant="record" />
                         <dl className="mt-3 divide-y divide-[var(--border)] text-sm">
                             {[
                                 { icon: IconUser, label: 'Ficha de cliente', detail: 'Historial y notas de atención' },
@@ -90,8 +88,12 @@ export default function HomePage() {
                     <p className="mt-3 text-[var(--fg-secondary)]">Prueba Pro por {AGENDA_PRICING.trialDays} días. Después puedes seguir en Gratis.</p>
                     <div className="mt-6 grid gap-3 sm:grid-cols-2 sm:gap-4">
                         {[AGENDA_PLAN_CATALOG.free, AGENDA_PLAN_CATALOG.pro].map((plan) => (
-                            <article key={plan.id} className={`agenda-panel flex min-w-0 flex-col p-5 sm:p-7 ${plan.id === 'pro' ? '[--border:var(--agenda-brand-border)] [--surface:var(--agenda-tint)]' : ''}`}>
-                                <h3 className="text-xl font-bold">{plan.name}</h3>
+                            <article key={plan.id} className="agenda-panel flex min-w-0 flex-col p-5 sm:p-7">
+                                <h3 className="flex min-h-8 items-center text-xl font-bold">
+                                    {plan.id === 'pro'
+                                        ? <span className="rounded-md bg-[var(--agenda-lime)] px-2 py-0.5 text-[var(--agenda-lime-ink)]">{plan.name}</span>
+                                        : plan.name}
+                                </h3>
                                 <div className="mt-2 sm:min-h-16">
                                     <p className="flex flex-wrap items-baseline gap-x-2 leading-tight">
                                         <span className="type-detail-price text-4xl tabular-nums">${plan.priceMonthlyNetClp.toLocaleString('es-CL')}</span>
@@ -145,9 +147,11 @@ export default function HomePage() {
                 </div>
             </section>
 
-            <section id="empezar" className="bg-[var(--agenda-green)] px-4 py-10 text-center text-[var(--agenda-on-green)] sm:py-16">
-                <h2 className="agenda-heading">Recibe tu próxima reserva online</h2>
-                <button type="button" onClick={start} className="agenda-button agenda-button--inverse mt-5">{cta}</button>
+            <section id="empezar" className="container-app py-10 sm:py-16">
+                <div className="rounded-[var(--agenda-radius-panel)] border border-white/10 bg-[var(--agenda-dark-card)] px-5 py-9 text-center text-white sm:py-12">
+                    <h2 className="agenda-heading">Recibe tu próxima reserva online</h2>
+                    <button type="button" onClick={start} className="agenda-button agenda-button--spotlight mt-5">{cta}</button>
+                </div>
             </section>
             <MobileStickyCTA label={cta} onStartFree={start} />
         </div>
