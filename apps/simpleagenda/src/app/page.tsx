@@ -24,7 +24,7 @@ import {
     IconBriefcase,
     IconChevronDown,
     IconStar,
-    IconPlayerPlay,
+
 } from '@tabler/icons-react';
 import { AGENDA_PLAN_CATALOG, formatAgendaProMonthlyPrice, isPlatformLaunchActive, resolveOperatorLandingCopy } from '@simple/utils';
 import { PublicAdCardRow } from '@simple/ui/public-advertising';
@@ -160,12 +160,12 @@ export default function HomePage() {
                                     className="h-12 px-7"
                                     onClick={handleCTA}
                                 >
-                                    {copy.heroCta}
+                                    {isLoggedIn ? 'Ir a mi agenda' : copy.heroCta}
                                     <IconArrowRight size={16} />
                                 </PanelButton>
-                                <PanelButtonLink href="#como-funciona" variant="secondary" className="h-12 px-7">
-                                    <IconPlayerPlay size={14} />
-                                    Ver como funciona
+                                <PanelButtonLink href="#planes" variant="secondary" className="h-12 px-7">
+                                    <IconCreditCard size={14} />
+                                    Ver planes y precios
                                 </PanelButtonLink>
                             </div>
                             {/* Trust bar */}
@@ -476,7 +476,7 @@ export default function HomePage() {
                         className="h-12 px-8"
                         onClick={handleCTA}
                     >
-                        {copy.sectionCta}
+                        {isLoggedIn ? 'Ir a mi agenda' : copy.sectionCta}
                         <IconArrowRight size={16} />
                     </PanelButton>
                     <p className="mt-4 text-xs max-w-md mx-auto" style={{ color: 'var(--fg-muted)' }}>
@@ -491,10 +491,10 @@ export default function HomePage() {
                         <div className="mx-auto mb-10 max-w-2xl text-center">
                             <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>Planes simples</p>
                             <h2 className="mb-3 text-2xl font-bold sm:text-3xl lg:text-4xl" style={{ color: 'var(--fg)' }}>
-                                Prueba Pro 30 días. Después eliges.
+                                Empieza gratis, prueba Pro 30 días y después eliges.
                             </h2>
                             <p style={{ color: 'var(--fg-muted)' }}>
-                                Sin tarjeta y sin cobro automático al terminar la prueba. Tu cuenta continúa en Gratis.
+                                Al registrarte tienes Pro completo por 30 días, sin tarjeta. Al terminar, sigues en Gratis o activas Pro por {formatAgendaProMonthlyPrice()}. No hay cobro automático.
                             </p>
                         </div>
 
@@ -533,7 +533,7 @@ export default function HomePage() {
                                             </div>
                                             <p className="mt-4 text-3xl font-bold" style={{ color: 'var(--fg)' }}>{price}</p>
                                             <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                                {plan.priceMonthlyNetClp === null ? (plan.availability === 'contact' ? 'Plan adaptado al tamaño de tu organización' : 'Nuevas funciones avanzadas') : plan.priceMonthlyNetClp === 0 ? 'Siempre, después de la prueba Pro' : '+ IVA / mes · 30 días incluidos'}
+                                                {plan.priceMonthlyNetClp === null ? (plan.availability === 'contact' ? 'Plan adaptado al tamaño de tu organización' : 'Nuevas funciones avanzadas') : plan.priceMonthlyNetClp === 0 ? 'Gratis para siempre, también después de la prueba' : '+ IVA / mes · solo si lo activas'}
                                             </p>
                                             <p className="mt-3 text-xs leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>{plan.description}</p>
                                         </div>
@@ -549,7 +549,7 @@ export default function HomePage() {
 
                                         {isFree ? (
                                             <PanelButton type="button" variant="secondary" className="mt-auto h-11" onClick={handleCTA}>
-                                                Crear cuenta gratis
+                                                {isLoggedIn ? 'Ir a mi agenda' : 'Crear cuenta gratis'}
                                             </PanelButton>
                                         ) : isPro ? (
                                             <PanelButton
@@ -558,7 +558,7 @@ export default function HomePage() {
                                                 className="mt-auto h-11"
                                                 onClick={() => isLoggedIn ? router.push('/panel/mi-cuenta/suscripcion') : openAuth('register')}
                                             >
-                                                Probar Pro gratis
+                                                {isLoggedIn ? 'Ver plan Pro' : 'Crear cuenta gratis y probar Pro'}
                                                 <IconArrowRight size={16} />
                                             </PanelButton>
                                         ) : (
@@ -619,7 +619,7 @@ export default function HomePage() {
                             onClick={handleCTA}
                             className="h-12 px-8 text-sm font-semibold gap-2 bg-(--accent-contrast) text-(--accent) shadow-(--shadow-md)"
                         >
-                            {copy.finalCta}
+                            {isLoggedIn ? 'Ir a mi agenda' : copy.finalCta}
                             <IconArrowRight size={16} />
                         </PanelButton>
                     </div>

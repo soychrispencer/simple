@@ -18,6 +18,7 @@ export function Header() {
     );
     const publicLinks = [
         { href: '/profesionales', label: 'Profesionales' },
+        { href: '/#planes', label: 'Planes y precios' },
         {
             href: '/para-profesionales',
             label: 'Para profesionales',
