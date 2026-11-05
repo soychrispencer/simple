@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -368,7 +368,6 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             setConfirmedAppt({
                 id: 'demo-confirmed-appt',
                 status: 'confirmed',
-                startsAt: selectedSlot.startsAt,
                 paymentStatus: 'pending',
                 modality: bookingModality,
                 meetingUrl: 'https://meet.google.com/demo-simpleagenda',
@@ -410,7 +409,6 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             setConfirmedAppt({
                 id: 'demo-confirmed-appt',
                 status: 'confirmed',
-                startsAt: selectedSlot.startsAt,
                 paymentStatus: 'pending',
                 modality: bookingModality,
                 meetingUrl: 'https://meet.google.com/demo-simpleagenda',
