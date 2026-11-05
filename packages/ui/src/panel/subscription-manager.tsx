@@ -13,6 +13,8 @@ import type {
     SubscriptionPlanId,
 } from '@simple/utils';
 import {
+    AGENDA_PLAN_CATALOG,
+    AGENDA_PRICING,
     fetchAccountBusinessLegal,
     fetchAccountPublicProfile,
     isPlatformLaunchActive,
@@ -44,6 +46,7 @@ function monthlyTotalWithVat(netMonthly: number): number {
 
 function trialMeta(catalog: SubscriptionCatalogResponse | null, currentPlanId: string) {
     if (currentPlanId !== 'free' || !catalog?.currentSubscription?.planExpiresAt) return null;
+    if (catalog.currentSubscription.providerStatus === 'free') return null;
     const expiresAt = new Date(catalog.currentSubscription.planExpiresAt);
     const rawDays = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
     const daysRemaining = Math.min(rawDays, 30);
@@ -233,6 +236,7 @@ export function SubscriptionManager({
     const trial = useMemo(() => trialMeta(catalog, currentPlanId), [catalog, currentPlanId]);
     const proPlan = paidPlans[0] ?? null;
     const subscriptionPromotion = currentPlanId === 'pro' ? null : proPlan?.promotion ?? null;
+    const agendaBilling = launchVertical === 'agenda';
 
     const startCheckout = async (planId: Exclude<SubscriptionPlanId, 'free'>) => {
         setBusyPlanId(planId);
@@ -280,7 +284,9 @@ export function SubscriptionManager({
     const handleCancelSubscription = async () => {
         if (!cancelSubscription || currentPlanId !== 'pro' || cancelling) return;
         const confirmed = window.confirm(
-            '¿Cancelar tu plan Pro? Dejarás de renovar el cobro en Mercado Pago y el panel quedará restringido hasta que reactives Pro. Tu configuración se mantiene guardada.',
+            agendaBilling
+                ? `¿Cancelar tu plan Pro? Dejarás de renovar el cobro y tu cuenta pasará a Gratis. Mantendrás tus datos, tu perfil público y hasta ${AGENDA_PRICING.free.monthlyBookings} reservas al mes.`
+                : '¿Cancelar tu plan Pro? Dejarás de renovar el cobro en Mercado Pago y el acceso a funciones Pro terminará. Tu configuración se mantiene guardada.',
         );
         if (!confirmed) return;
 
@@ -344,8 +350,8 @@ export function SubscriptionManager({
                 >
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                         <PanelStatusBadge
-                            label={trial.isExpired ? 'Prueba expirada' : 'Prueba gratuita activa'}
-                            tone={trial.isExpired ? 'warning' : 'info'}
+                            label={trial.isExpired ? (agendaBilling ? 'Ahora estás en Gratis' : 'Prueba expirada') : 'Prueba gratuita activa'}
+                            tone={trial.isExpired ? (agendaBilling ? 'neutral' : 'warning') : 'info'}
                         />
                         {!trial.isExpired ? (
                             <span className="rounded-full border border-(--border) bg-(--surface) px-2.5 py-0.5 text-xs font-semibold text-(--fg-secondary)">
@@ -354,11 +360,15 @@ export function SubscriptionManager({
                         ) : null}
                     </div>
                     <h3 className="text-lg font-semibold text-(--fg)">
-                        {trial.isExpired ? 'Activa Pro para seguir usando el panel' : 'Tienes acceso completo durante tu prueba'}
+                        {trial.isExpired
+                            ? (agendaBilling ? 'Tu cuenta sigue disponible en Gratis' : 'Activa Pro para seguir usando el panel')
+                            : 'Tienes acceso completo durante tu prueba'}
                     </h3>
                     <p className="mt-1 text-sm text-(--fg-secondary)">
                         {trial.isExpired
-                            ? 'Tu configuración se mantiene guardada. Solo falta activar Pro para volver a operar.'
+                            ? (agendaBilling
+                                ? `Tu perfil público y tus datos se mantienen. Gratis incluye hasta ${AGENDA_PRICING.free.monthlyBookings} reservas al mes, ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación; no hay cobro automático.`
+                                : 'Tu configuración se mantiene guardada. Solo falta activar Pro para volver a operar.')
                             : 'Puedes activar Pro ahora o esperar al fin de la prueba. Sin permanencia.'}
                     </p>
                 </div>
@@ -370,7 +380,9 @@ export function SubscriptionManager({
                     description={
                         currentPlanId === 'pro'
                             ? `Suscripción mensual activa. El cobro se gestiona con ${paymentProviderLabel()}.`
-                            : 'Un solo plan con todo incluido. Facturación mensual y cancelación cuando quieras.'
+                            : agendaBilling
+                                ? 'Precio mensual claro, sin promociones temporales. Cancélalo cuando quieras.'
+                                : 'Un solo plan con todo incluido. Facturación mensual y cancelación cuando quieras.'
                     }
                 />
 
@@ -477,13 +489,17 @@ export function SubscriptionManager({
                                         <IconClockHour4 size={18} />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-(--fg)">Prueba de 30 días</p>
+                                        <p className="text-sm font-medium text-(--fg)">{agendaBilling ? `Prueba Pro de ${AGENDA_PRICING.trialDays} días` : 'Prueba de 30 días'}</p>
                                         <p className="text-xs leading-relaxed text-(--fg-muted)">
                                             {trial?.isExpired
-                                                ? 'Tu prueba terminó. Pro reactiva el acceso completo.'
+                                                ? (agendaBilling
+                                                    ? `Tu cuenta continúa en Gratis, con perfil público y ${AGENDA_PRICING.free.monthlyBookings} reservas mensuales.`
+                                                    : 'Tu prueba terminó. Pro reactiva el acceso completo.')
                                                 : trial
                                                     ? `Te quedan ${trial.daysRemaining} días con todo incluido.`
-                                                    : 'Al registrarte tuviste acceso completo para configurar tu cuenta.'}
+                                                    : agendaBilling && currentPlanId === 'free'
+                                                        ? 'Tu cuenta sigue en Gratis. No hay cobro automático.'
+                                                        : 'Al registrarte tuviste acceso completo para configurar tu cuenta.'}
                                         </p>
                                     </div>
                                 </div>
@@ -529,7 +545,9 @@ export function SubscriptionManager({
                                 ) : (
                                     <>
                                         Hoy estás en <strong className="text-(--fg)">{currentPlanName}</strong>.
-                                        {' '}Al activar Pro mantienes tu configuración y sigues operando sin límites.
+                                        {' '}{agendaBilling
+                                            ? 'Al activar Pro mantienes tu configuración y desbloqueas las funciones completas.'
+                                            : 'Al activar Pro mantienes tu configuración y sigues operando sin límites.'}
                                     </>
                                 )}
                             </div>
@@ -539,6 +557,40 @@ export function SubscriptionManager({
                     <PanelNotice tone="neutral">No hay planes de pago disponibles en este momento.</PanelNotice>
                 )}
             </PanelCard>
+
+            {agendaBilling ? (
+                <PanelCard size="lg">
+                    <PanelBlockHeader
+                        title="Planes en preparación"
+                        description="Las funciones se habilitarán junto con cada plan. No se pueden contratar todavía."
+                    />
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {[AGENDA_PLAN_CATALOG.proPlus, AGENDA_PLAN_CATALOG.business].map((plan) => (
+                            <article key={plan.id} className="rounded-card border border-(--border) bg-(--bg-subtle) p-5">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="text-lg font-semibold text-(--fg)">{plan.name}</h3>
+                                    <PanelStatusBadge
+                                        label={plan.availability === 'contact' ? 'A cotizar' : 'Próximamente'}
+                                        tone="neutral"
+                                    />
+                                </div>
+                                <p className="mt-1 text-sm text-(--fg-muted)">
+                                    {plan.availability === 'contact' ? 'Precio según profesionales y consultas' : 'Precio y consumo se informarán antes del lanzamiento'}
+                                </p>
+                                <p className="mt-3 text-sm leading-relaxed text-(--fg-secondary)">{plan.description}</p>
+                                <ul className="mt-4 grid gap-2">
+                                    {plan.features.map((feature) => (
+                                        <li key={feature} className="flex gap-2 text-sm text-(--fg-secondary)">
+                                            <IconCheck size={14} className="mt-0.5 shrink-0 text-(--fg-muted)" />
+                                            <span>{feature}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </article>
+                        ))}
+                    </div>
+                </PanelCard>
+            ) : null}
 
             <PanelCard size="lg">
                 <PanelBlockHeader

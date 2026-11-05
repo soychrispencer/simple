@@ -1,3 +1,4 @@
+import { AGENDA_PRICING, formatAgendaProMonthlyPrice } from './agenda-pricing.js';
 import { isPlatformLaunchActive } from './marketplace-launch.js';
 
 export type OperatorLandingBenefit = {
@@ -26,30 +27,31 @@ export type OperatorLandingCopy = {
 };
 
 const AGENDA_TRIAL: OperatorLandingCopy = {
-    heroSubtitle: 'Citas, clientes y pagos en un solo lugar. Regístrate gratis y prueba todo durante 30 días.',
+    heroSubtitle: `Citas, clientes y pagos en un solo lugar. Prueba Pro gratis por ${AGENDA_PRICING.trialDays} días; después sigues en Gratis con hasta ${AGENDA_PRICING.free.monthlyBookings} reservas al mes.`,
     heroCta: 'Probar 30 días gratis',
     trustPrimary: '30 días gratis',
     trustSecondary: 'Sin tarjeta',
-    trustTertiary: 'Cancela cuando quieras',
+    trustTertiary: 'Después sigues en Gratis',
     sectionEyebrow: 'Empieza hoy',
     sectionTitle: 'Regístrate gratis y pruébalo 30 días',
     sectionSubtitle:
-        'Configura tu agenda, comparte tu link y recibe reservas con acceso completo. Sin tarjeta para registrarte.',
+        `Configura tu agenda, comparte tu link y recibe reservas con acceso completo. Después sigues en Gratis; no hay cobro automático.`,
     benefits: [
-        { title: '30 días completos', desc: 'Acceso a agenda, clientes, pagos y recordatorios sin restricciones.' },
-        { title: 'Sin tarjeta', desc: 'Regístrate gratis. Solo pagas si decides continuar después de la prueba.' },
-        { title: 'Cancela cuando quieras', desc: 'Sin permanencia ni contratos. Tus datos se mantienen guardados.' },
+        { title: `${AGENDA_PRICING.trialDays} días Pro`, desc: 'Acceso completo a agenda, clientes, pagos y recordatorios.' },
+        { title: 'Sin tarjeta ni cobro automático', desc: 'Al terminar, tu cuenta continúa en Gratis. Tú eliges si activas Pro.' },
+        { title: 'Tus datos se mantienen', desc: `Gratis incluye ${AGENDA_PRICING.free.monthlyBookings} reservas al mes, ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación.` },
     ],
     sectionCta: 'Crear cuenta gratis',
-    sectionFootnote: 'Sin comisión por reserva. Planes, precios y cobros los ves en tu panel cuando quieras continuar.',
-    finalSubtitle: 'Regístrate gratis, prueba 30 días con todo incluido y cancela cuando quieras.',
+    sectionFootnote: `Pro cuesta ${formatAgendaProMonthlyPrice()}. Sin comisión por reserva y sin cobro automático al terminar la prueba.`,
+    finalSubtitle: `Prueba Pro ${AGENDA_PRICING.trialDays} días, sin tarjeta. Después puedes seguir en Gratis o activar Pro.`,
     finalCta: 'Probar 30 días gratis',
     headerCta: 'Probar gratis',
     navSectionLabel: 'Prueba gratis',
     audienceOwnerDescription: '',
     faqs: [
-        { q: '¿La prueba es gratis?', a: 'Sí. Al crear tu cuenta tienes 30 días para probar todas las funciones, sin tarjeta de crédito.' },
-        { q: '¿Necesito pagar para empezar?', a: 'No. El registro es gratuito y la prueba incluye acceso completo. Los planes y precios los ves en tu panel cuando quieras continuar.' },
+        { q: '¿Cómo funciona la prueba?', a: `Al crear tu cuenta tienes ${AGENDA_PRICING.trialDays} días de acceso Pro, sin tarjeta. Después tu cuenta sigue en Gratis y no se genera ningún cobro automático.` },
+        { q: '¿Qué incluye Gratis?', a: `Hasta ${AGENDA_PRICING.free.monthlyBookings} reservas nuevas al mes, ${AGENDA_PRICING.free.activeServices} servicios activos, ${AGENDA_PRICING.free.activeLocations} ubicación, perfil público y confirmaciones por email.` },
+        { q: '¿Cuánto cuesta Pro?', a: `${formatAgendaProMonthlyPrice()}. Se activa solo si decides contratarlo.` },
         { q: '¿Puedo cancelar cuando quiera?', a: 'Sí. Sin permanencia. Si activas un plan después, puedes cancelarlo en cualquier momento desde tu panel.' },
         { q: '¿Mis clientes necesitan crear una cuenta?', a: 'No. Tus clientes reservan directamente desde tu perfil público sin necesidad de registrarse.' },
         { q: '¿Qué métodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus clientes paguen por adelantado.' },

@@ -1,3 +1,4 @@
+import { AGENDA_PRICING, formatAgendaProMonthlyPrice } from '@simple/utils';
 import { isProduction } from '../env.js';
 import { getAgendaEmailBrand } from './email-brand.js';
 import { ensureEmailLogoCache } from './email-brand-logo.js';
@@ -26,26 +27,26 @@ const COPY: Record<AgendaTrialEmailKind, {
     trial_d7: {
         subject: 'Te quedan 7 días de prueba en Simple Agenda',
         headline: 'Quedan 7 días de tu prueba',
-        body: 'Sigue recibiendo reservas, recordatorios y cobros sin interrupciones. Activa Pro cuando quieras continuar después de la prueba.',
+        body: `Al terminar tu prueba, tu cuenta seguirá en Gratis sin cobro automático: tendrás ${AGENDA_PRICING.free.monthlyBookings} reservas al mes, ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación. Pro cuesta ${formatAgendaProMonthlyPrice()} y mantiene las funciones completas.`,
         button: 'Ver planes',
     },
     trial_d3: {
         subject: 'Quedan 3 días de tu prueba en Simple Agenda',
         headline: 'Tu prueba termina en 3 días',
-        body: 'Al terminar la prueba, el panel se restringe y tu link público deja de recibir reservas hasta que actives Pro.',
+        body: `Tu agenda seguirá activa en Gratis cuando termine la prueba. Tendrás hasta ${AGENDA_PRICING.free.monthlyBookings} reservas nuevas al mes y no se te cobrará automáticamente. Activa Pro por ${formatAgendaProMonthlyPrice()} si necesitas funciones completas.`,
         button: 'Activar Pro',
     },
     trial_d1: {
         subject: 'Mañana termina tu prueba en Simple Agenda',
         headline: 'Último día de prueba mañana',
-        body: 'Activa Pro ahora para no perder el acceso a tu agenda, clientes y perfil público.',
+        body: `Mañana tu cuenta pasará a Gratis. Tu perfil y tus datos se mantienen, y podrás recibir hasta ${AGENDA_PRICING.free.monthlyBookings} reservas al mes. No se hará ningún cobro automático.`,
         button: 'Activar Pro',
     },
     trial_expired: {
-        subject: 'Tu prueba en Simple Agenda terminó',
-        headline: 'La prueba de 30 días terminó',
-        body: 'Tu panel está restringido y tu perfil público ya no recibe reservas. Activa Pro para retomar todo donde lo dejaste.',
-        button: 'Activar Pro',
+        subject: 'Tu cuenta sigue en Gratis en Simple Agenda',
+        headline: 'Tu cuenta continúa en Gratis',
+        body: `Conservas tu perfil público y puedes recibir hasta ${AGENDA_PRICING.free.monthlyBookings} reservas al mes. Pro cuesta ${formatAgendaProMonthlyPrice()} y desbloquea las funciones completas. No se generará ningún cobro automático.`,
+        button: 'Ver plan Pro',
     },
 };
 

@@ -1,9 +1,9 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { agendaProfessionalProfiles } from '../../db/schema.js';
+import { agendaAppointments, agendaProfessionalProfiles } from '../../db/schema.js';
 import { defaultTrialEndsAt } from '../billing/trial-config.js';
 
-import { isPlatformLaunchActive } from '@simple/utils';
+import { AGENDA_PRICING, isPlatformLaunchActive } from '@simple/utils';
 
 export async function getAgendaProfile(userId: string) {
     return db.query.agendaProfessionalProfiles.findFirst({
@@ -72,7 +72,7 @@ export function hasAgendaFullAccess(
     return isAgendaTrialActive(profile) || isAgendaProActive(profile);
 }
 
-/** Baja a free expirado y despublica. Usar en cancel/webhook/admin. */
+/** Baja a Gratis sin despublicar el perfil ni borrar la configuración. */
 export async function downgradeAgendaProfileAccess(
     userId: string,
     endsAt: Date = expiredAgendaPlanEndsAt(),
@@ -82,42 +82,21 @@ export async function downgradeAgendaProfileAccess(
         .set({
             plan: 'free',
             planExpiresAt: endsAt,
-            isPublished: false,
             updatedAt: new Date(),
         })
         .where(eq(agendaProfessionalProfiles.userId, userId));
 }
 
-/** Si expiró trial/Pro, baja isPublished para que el perfil no quede público sin acceso. */
-export async function syncAgendaProfilePublishAccess(
-    profile: typeof agendaProfessionalProfiles.$inferSelect,
-    userRole?: string,
-): Promise<typeof agendaProfessionalProfiles.$inferSelect> {
-    if (!profile.isPublished) return profile;
-    if (hasAgendaFullAccess(profile, userRole)) return profile;
-
-    const [updated] = await db
-        .update(agendaProfessionalProfiles)
-        .set({ isPublished: false, updatedAt: new Date() })
-        .where(eq(agendaProfessionalProfiles.id, profile.id))
-        .returning();
-
-    return updated ?? { ...profile, isPublished: false };
-}
-
-/** Unpublish masivo de perfiles sin acceso (cron). */
-export async function unpublishAgendaProfilesWithoutAccess(): Promise<number> {
+/** Normaliza Pro vencidos a Gratis; los perfiles publicados siguen recibiendo reservas. */
+export async function downgradeExpiredAgendaProProfiles(): Promise<number> {
     if (isPlatformLaunchActive('agenda')) return 0;
 
     const result = await db.execute(sql`
         UPDATE agenda_professional_profiles
-        SET is_published = false, updated_at = now()
-        WHERE is_published = true
-          AND NOT (plan = 'free' AND plan_expires_at IS NULL)
-          AND NOT (
-            (plan = 'pro' AND (plan_expires_at IS NULL OR plan_expires_at > now()))
-            OR (plan = 'free' AND plan_expires_at IS NOT NULL AND plan_expires_at > now())
-          )
+        SET plan = 'free', updated_at = now()
+        WHERE plan = 'pro'
+          AND plan_expires_at IS NOT NULL
+          AND plan_expires_at <= now()
     `);
 
     return Number((result as { rowCount?: number }).rowCount ?? 0);
@@ -128,17 +107,35 @@ export function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }
     return !hasAgendaFullAccess(profile, userRole);
 }
 
-export const AGENDA_PUBLIC_INACTIVE_MESSAGE =
-    'Este profesional no está recibiendo reservas por ahora.';
-
-/** @deprecated El modelo actual es prueba completa + Pro; no hay límites parciales en plan free. */
+/** La cuenta Gratis no limita el número de fichas de clientes. */
 export async function checkClientLimit(_profileId: string, _additionalClients = 1): Promise<string | null> {
     return null;
 }
 
-/** @deprecated El modelo actual es prueba completa + Pro; no hay límites parciales en plan free. */
-export async function checkAppointmentLimit(_profileId: string, _additionalAppointments = 1): Promise<string | null> {
-    return null;
+/** Cuenta las reservas creadas durante el mes calendario de Chile, incluidas las canceladas. */
+export async function getAgendaMonthlyBookingCount(profileId: string): Promise<number> {
+    const rows = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(agendaAppointments)
+        .where(and(
+            eq(agendaAppointments.professionalId, profileId),
+            sql`${agendaAppointments.createdAt} >= GREATEST(
+                date_trunc('month', now() AT TIME ZONE 'America/Santiago') AT TIME ZONE 'America/Santiago',
+                COALESCE(
+                    (SELECT plan_expires_at FROM agenda_professional_profiles WHERE id = ${profileId}),
+                    date_trunc('month', now() AT TIME ZONE 'America/Santiago') AT TIME ZONE 'America/Santiago'
+                )
+            )`,
+        ));
+
+    return Number(rows[0]?.count ?? 0);
+}
+
+export async function checkAppointmentLimit(profileId: string, additionalAppointments = 1): Promise<string | null> {
+    const used = await getAgendaMonthlyBookingCount(profileId);
+    if (used + additionalAppointments <= AGENDA_PRICING.free.monthlyBookings) return null;
+
+    return `El plan Gratis incluye hasta ${AGENDA_PRICING.free.monthlyBookings} reservas al mes. Ya llevas ${used}; activa Pro por ${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes para seguir recibiendo reservas.`;
 }
 
 /** Genera slots para una fecha según reglas de disponibilidad y citas existentes. */

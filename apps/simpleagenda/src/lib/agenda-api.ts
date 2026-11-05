@@ -86,6 +86,8 @@ export type AgendaProfile = {
     isPublished: boolean;
     plan: string;
     planExpiresAt: string | null;
+    monthlyBookingsUsed?: number;
+    monthlyBookingsLimit?: number;
     acceptsTransfer: boolean;
     acceptsMp: boolean;
     acceptsPaymentLink: boolean;

@@ -26,7 +26,7 @@ import {
     IconStar,
     IconPlayerPlay,
 } from '@tabler/icons-react';
-import { resolveOperatorLandingCopy } from '@simple/utils';
+import { AGENDA_PLAN_CATALOG, formatAgendaProMonthlyPrice, isPlatformLaunchActive, resolveOperatorLandingCopy } from '@simple/utils';
 import { PublicAdCardRow } from '@simple/ui/public-advertising';
 import { AGENDA_CARD_AD_PLACEHOLDERS } from '@/lib/ad-placeholders';
 import { FeaturedProfessionalsSection } from '@/components/landing/featured-professionals-section';
@@ -116,6 +116,7 @@ export default function HomePage() {
     const { isLoggedIn, openAuth } = useAuth();
     const router = useRouter();
     const copy = resolveOperatorLandingCopy('agenda');
+    const showPlans = !isPlatformLaunchActive('agenda');
     const trialBenefits = copy.benefits.map((item, index) => ({
         ...item,
         icon: BENEFIT_ICONS[index] ?? IconHeartHandshake,
@@ -483,6 +484,98 @@ export default function HomePage() {
                     </p>
                 </div>
             </section>
+
+            {showPlans ? (
+                <section id="planes" className="scroll-mt-20" style={{ background: 'var(--bg-subtle)' }}>
+                    <div className="container-app section-marketing">
+                        <div className="mx-auto mb-10 max-w-2xl text-center">
+                            <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>Planes simples</p>
+                            <h2 className="mb-3 text-2xl font-bold sm:text-3xl lg:text-4xl" style={{ color: 'var(--fg)' }}>
+                                Prueba Pro 30 días. Después eliges.
+                            </h2>
+                            <p style={{ color: 'var(--fg-muted)' }}>
+                                Sin tarjeta y sin cobro automático al terminar la prueba. Tu cuenta continúa en Gratis.
+                            </p>
+                        </div>
+
+                        <div className="mx-auto grid max-w-7xl gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                            {Object.values(AGENDA_PLAN_CATALOG).map((plan) => {
+                                const isPro = plan.id === 'pro';
+                                const isFree = plan.id === 'free';
+                                const isUpcoming = plan.availability === 'coming_soon';
+                                const price = plan.priceMonthlyNetClp === null
+                                    ? (plan.availability === 'contact' ? 'A cotizar' : 'Próximamente')
+                                    : plan.priceMonthlyNetClp === 0
+                                        ? '$0'
+                                        : `$${plan.priceMonthlyNetClp.toLocaleString('es-CL')}`;
+
+                                return (
+                                    <article
+                                        key={plan.id}
+                                        className={`flex flex-col rounded-2xl border p-5 sm:p-6 ${isPro ? 'shadow-lg' : ''}`}
+                                        style={{
+                                            borderColor: isPro ? 'var(--accent)' : 'var(--border)',
+                                            background: 'var(--surface)',
+                                        }}
+                                    >
+                                        <div className="min-h-32">
+                                            <div className="flex min-h-6 items-center justify-between gap-2">
+                                                <p className="text-sm font-semibold" style={{ color: isPro ? 'var(--accent)' : 'var(--fg-muted)' }}>{plan.name}</p>
+                                                {isPro ? (
+                                                    <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ color: 'var(--accent)', background: 'var(--accent-subtle)' }}>Recomendado</span>
+                                                ) : null}
+                                                {isUpcoming ? (
+                                                    <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ color: 'var(--fg-secondary)', background: 'var(--bg-subtle)' }}>Próximamente</span>
+                                                ) : null}
+                                                {plan.availability === 'contact' ? (
+                                                    <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ color: 'var(--fg-secondary)', background: 'var(--bg-subtle)' }}>Para equipos</span>
+                                                ) : null}
+                                            </div>
+                                            <p className="mt-4 text-3xl font-bold" style={{ color: 'var(--fg)' }}>{price}</p>
+                                            <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                {plan.priceMonthlyNetClp === null ? (plan.availability === 'contact' ? 'Plan adaptado al tamaño de tu organización' : 'Nuevas funciones avanzadas') : plan.priceMonthlyNetClp === 0 ? 'Siempre, después de la prueba Pro' : '+ IVA / mes · 30 días incluidos'}
+                                            </p>
+                                            <p className="mt-3 text-xs leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>{plan.description}</p>
+                                        </div>
+
+                                        <ul className="my-6 grid gap-3 text-xs leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>
+                                            {plan.features.map((feature) => (
+                                                <li key={feature} className="flex gap-2">
+                                                    <IconCheck size={16} className="mt-0.5 shrink-0" style={{ color: isUpcoming || plan.availability === 'contact' ? 'var(--fg-muted)' : 'var(--accent)' }} />
+                                                    {feature}
+                                                </li>
+                                            ))}
+                                        </ul>
+
+                                        {isFree ? (
+                                            <PanelButton type="button" variant="secondary" className="mt-auto h-11" onClick={handleCTA}>
+                                                Crear cuenta gratis
+                                            </PanelButton>
+                                        ) : isPro ? (
+                                            <PanelButton
+                                                type="button"
+                                                variant="accent"
+                                                className="mt-auto h-11"
+                                                onClick={() => isLoggedIn ? router.push('/panel/mi-cuenta/suscripcion') : openAuth('register')}
+                                            >
+                                                Probar Pro gratis
+                                                <IconArrowRight size={16} />
+                                            </PanelButton>
+                                        ) : (
+                                            <p className="mt-auto rounded-xl border border-[var(--border)] px-3 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--fg-muted)' }}>
+                                                {plan.availability === 'contact' ? 'Próximamente · venta consultiva' : 'Próximamente'}
+                                            </p>
+                                        )}
+                                    </article>
+                                );
+                            })}
+                        </div>
+                        <p className="mt-6 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>
+                            Pro cuesta {formatAgendaProMonthlyPrice()}. Sin comisión por reserva ni permanencia. Pro+ y Empresa se habilitarán cuando estén listas sus funciones.
+                        </p>
+                    </div>
+                </section>
+            ) : null}
 
             {/* ═══════════════ FAQ ═══════════════ */}
             <section style={{ background: 'var(--bg-subtle)' }}>

@@ -48,6 +48,7 @@ export function createBoostRouter(deps: BoostRouterDeps) {
 
     app.get('/pricing', (c) => {
         const vertical = deps.parseVertical(c.req.query('vertical'));
+        if (vertical === 'agenda') return c.json({ ok: false, error: 'Los boosts de SimpleAgenda estarán disponibles más adelante.' }, 404);
         if (!deps.getMarketplaceBoostPricing) {
             return c.json({ ok: false, error: 'Pricing no disponible' }, 501);
         }
@@ -59,6 +60,7 @@ export function createBoostRouter(deps: BoostRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const vertical = deps.parseVertical(c.req.query('vertical'));
+        if (vertical === 'agenda') return c.json({ ok: false, error: 'Los boosts de SimpleAgenda estarán disponibles más adelante.' }, 404);
         const sections = deps.getSectionsForVertical(vertical);
         const listings = user.role === 'superadmin' && (vertical === 'autos' || vertical === 'propiedades')
             ? deps.boostListingsSeed.filter((item) => item.vertical === vertical)
@@ -98,6 +100,7 @@ export function createBoostRouter(deps: BoostRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const vertical = deps.parseVertical(c.req.query('vertical'));
+        if (vertical === 'agenda') return c.json({ ok: false, error: 'Los boosts de SimpleAgenda estarán disponibles más adelante.' }, 404);
         const orders = await Promise.all(
             deps.getBoostOrdersForUser(user.id, vertical).map(async (order) => {
                 const targetType = order.targetType ?? deps.inferBoostTargetType(order.vertical);
@@ -123,6 +126,7 @@ export function createBoostRouter(deps: BoostRouterDeps) {
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
 
         const vertical = parsed.data.vertical;
+        if (vertical === 'agenda') return c.json({ ok: false, error: 'Los boosts de SimpleAgenda estarán disponibles más adelante.' }, 404);
         const targetType = parsed.data.targetType ?? deps.inferBoostTargetType(vertical);
         const target = await deps.getBoostTargetById(vertical, targetType, parsed.data.listingId);
         if (!target) {
@@ -202,6 +206,7 @@ export function createBoostRouter(deps: BoostRouterDeps) {
         if (targetIndex < 0) return c.json({ ok: false, error: 'Boost no encontrado' }, 404);
 
         const target = deps.normalizeBoostOrder(current[targetIndex]);
+        if (target.vertical === 'agenda') return c.json({ ok: false, error: 'Los boosts de SimpleAgenda estarán disponibles más adelante.' }, 404);
         const nextStatus = parsed.data.status;
 
         if (target.status === 'ended') {

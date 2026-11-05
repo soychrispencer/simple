@@ -1,6 +1,7 @@
 export * from './account-residence.js';
 export * from './account-business-legal.js';
 export * from './account-notifications.js';
+export * from './agenda-pricing.js';
 export * from './account-profile.js';
 export * from './api-client.js';
 export * from './boost.js';

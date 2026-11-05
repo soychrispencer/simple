@@ -35,13 +35,27 @@ export type AdminPlatformAccess = {
     lastLoginAt: number | null;
 };
 
-export type AdminSubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'free';
+export type AdminSubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'free' | 'trial';
 
 export type AdminUserSubscriptions = {
     agenda?: { plan: 'free' | 'pro'; status: AdminSubscriptionStatus; expiresAt: string | null };
     autos?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
     propiedades?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
     serenatas?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
+};
+
+export type AdminAgendaSubscription = {
+    profileId: string;
+    userId: string;
+    userName: string;
+    userEmail: string;
+    displayName: string;
+    slug: string;
+    plan: 'free' | 'pro';
+    planExpiresAt: string | null;
+    isPublished: boolean;
+    status: 'active' | 'expired' | 'trial' | 'free';
+    createdAt: string;
 };
 
 export type AdminUserSnapshot = {
@@ -151,6 +165,11 @@ export async function fetchAdminUsers(input: {
         total: data.total ?? items.length,
         pageCount: data.pageCount ?? 1,
     };
+}
+
+export async function fetchAdminAgendaSubscriptions(): Promise<AdminAgendaSubscription[]> {
+    const data = await expectOk<{ subscriptions?: AdminAgendaSubscription[] }>('/api/admin/agenda/subscriptions');
+    return data.subscriptions ?? [];
 }
 
 export async function updateAdminUser(userId: string, input: {

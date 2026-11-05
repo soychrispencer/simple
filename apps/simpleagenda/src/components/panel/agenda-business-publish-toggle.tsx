@@ -5,7 +5,6 @@ import {
     fetchAgendaAvailability,
     fetchAgendaProfile,
     fetchAgendaServices,
-    hasAgendaFullAccess,
     saveAgendaProfile,
     type AgendaProfile,
 } from '@/lib/agenda-api';
@@ -40,7 +39,7 @@ function getAgendaPublishRequirements(
     return [
         {
             id: 'plan',
-            label: 'Prueba activa o plan Pro',
+            label: 'Cuenta Gratis o Pro',
             met: featureEnabled,
             href: '/panel/mi-cuenta/suscripcion',
         },
@@ -126,7 +125,7 @@ export function AgendaBusinessPublishToggle() {
         };
     }, [load]);
 
-    const featureEnabled = profile ? hasAgendaFullAccess(profile) : false;
+    const featureEnabled = Boolean(profile);
     const isPublished = Boolean(profile?.isPublished);
     const canPublish = useMemo(
         () => canPublishAgendaProfile(profile, featureEnabled, hasService, hasAvailability),
@@ -186,7 +185,7 @@ export function AgendaBusinessPublishToggle() {
                     !profile
                         ? 'Completa tu perfil público para publicar'
                         : !featureEnabled
-                          ? 'Activa Pro o mantén tu prueba para publicar'
+                          ? 'Completa tu cuenta para publicar'
                           : !canPublish && !isPublished
                             ? 'Completa el perfil, un servicio y tu horario para publicar'
                             : isPublished

@@ -6,7 +6,7 @@ const agendaPro = {
     id: 'pro',
     name: 'Pro',
     description: 'Agenda Pro',
-    priceMonthly: 19990,
+    priceMonthly: 9990,
     currency: 'CLP',
     maxListings: 0,
     maxFeaturedListings: 0,
@@ -15,21 +15,20 @@ const agendaPro = {
     prioritySupport: true,
     customBranding: true,
     apiAccess: true,
-    maxFreeBoostsPerMonth: 2,
+    maxFreeBoostsPerMonth: 0,
     features: [],
-    promotion: { priceMonthly: 9990, durationMonths: 6 },
 } satisfies PaidSubscriptionPlanRecord;
 
-describe('subscription billing promotion', () => {
-    it('charges the promotional net price plus VAT for the first six months', () => {
+describe('subscription billing', () => {
+    it('charges the Agenda Pro price plus VAT without a temporary promotion', () => {
         expect(getSubscriptionBillingCharge('mercadopago', 'agenda', agendaPro)).toEqual({
             amount: 11888,
             currency: 'CLP',
         });
     });
 
-    it('keeps the regular price for other verticals', () => {
-        expect(getSubscriptionBillingCharge('mercadopago', 'serenatas', agendaPro)).toEqual({
+    it('uses the selected plan price for other verticals', () => {
+        expect(getSubscriptionBillingCharge('mercadopago', 'serenatas', { ...agendaPro, priceMonthly: 19990 })).toEqual({
             amount: 23788,
             currency: 'CLP',
         });

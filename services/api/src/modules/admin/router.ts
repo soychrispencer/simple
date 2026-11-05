@@ -7,6 +7,8 @@ import { getEmailBrandProfileForVertical, type EmailBrandProfile, type EmailBran
 import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
 import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from '../../lib/email-template.js';
 import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
+import { cancelAgendaProSubscription } from '../agenda/cancel-subscription.js';
+import { downgradeAgendaProfileAccess } from '../agenda/plan-limits.js';
 import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import {
     captureManualResponse,
@@ -356,12 +358,37 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
                 const plan = agendaPayload.plan === 'pro' ? 'pro' : 'free';
                 const expiresAt = agendaPayload.expiresAt ? new Date(agendaPayload.expiresAt) : null;
+                if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+                    return c.json({ ok: false, error: 'La fecha de expiración de Agenda no es válida.' }, 400);
+                }
 
                 if (profile.length > 0) {
-                    await deps.db.update(deps.tables.agendaProfessionalProfiles)
-                        .set({ plan, planExpiresAt: expiresAt, updatedAt: new Date() })
-                        .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profile[0].id));
-                    results.agenda = { plan, expiresAt: expiresAt?.toISOString() ?? null };
+                    if (plan === 'free') {
+                        const cancelled = await cancelAgendaProSubscription(userId);
+                        if (cancelled.ok) {
+                            results.agenda = { plan, status: 'free', message: cancelled.message };
+                        } else if (cancelled.status === 400) {
+                            await downgradeAgendaProfileAccess(userId);
+                            results.agenda = { plan: 'free', expiresAt: null };
+                        } else {
+                            return c.json({ ok: false, error: cancelled.error }, cancelled.status as 400 | 404 | 502);
+                        }
+                    } else if (profile[0].plan === 'pro') {
+                        await deps.db.update(deps.tables.agendaProfessionalProfiles)
+                            .set({ plan: 'pro', planExpiresAt: expiresAt, updatedAt: new Date() })
+                            .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profile[0].id));
+                        results.agenda = { plan: 'pro', status: 'active', expiresAt: expiresAt?.toISOString() ?? null };
+                    } else {
+                        const result = await persistManualAdminSubscription({
+                            userId,
+                            accountId: targetAccount.id,
+                            vertical: 'agenda',
+                            planSlug: 'pro',
+                            status: 'active',
+                            expiresAt,
+                        });
+                        results.agenda = { ...result, expiresAt: expiresAt?.toISOString() ?? null };
+                    }
                 } else if (plan === 'pro') {
                     const slug = `${targetUser.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
                     await deps.db.insert(deps.tables.agendaProfessionalProfiles).values({
@@ -369,10 +396,18 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                         userId,
                         slug,
                         displayName: targetUser.name,
-                        plan,
-                        planExpiresAt: expiresAt,
+                        plan: 'free',
+                        planExpiresAt: new Date(Date.now() - 60_000),
                     }).returning();
-                    results.agenda = { plan, expiresAt: expiresAt?.toISOString() ?? null, created: true };
+                    const result = await persistManualAdminSubscription({
+                        userId,
+                        accountId: targetAccount.id,
+                        vertical: 'agenda',
+                        planSlug: plan,
+                        status: 'active',
+                        expiresAt,
+                    });
+                    results.agenda = { ...result, expiresAt: expiresAt?.toISOString() ?? null, created: true };
                 } else {
                     results.agenda = { plan, skipped: 'Sin perfil Agenda para asignar free' };
                 }
@@ -908,24 +943,51 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         if (!profileId || !plan) return c.json({ ok: false, error: 'Se requiere profileId y plan' }, 400);
         if (!['free', 'pro'].includes(plan)) return c.json({ ok: false, error: 'Plan debe ser free o pro' }, 400);
+        const agendaPlan: 'free' | 'pro' = plan === 'pro' ? 'pro' : 'free';
 
         const profiles = await deps.db.select().from(deps.tables.agendaProfessionalProfiles)
             .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profileId)).limit(1);
         if (!profiles[0]) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const targetUser = await deps.getUserById(profiles[0].userId);
+        if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
+        const account = await deps.ensurePrimaryAccountForUser(targetUser);
+        const expiry = agendaPlan === 'pro' && expiresAt ? new Date(expiresAt) : null;
+        if (expiry && Number.isNaN(expiry.getTime())) return c.json({ ok: false, error: 'La fecha de expiración no es válida.' }, 400);
+        let result: Record<string, unknown>;
+        if (agendaPlan === 'free') {
+            const cancelled = await cancelAgendaProSubscription(targetUser.id);
+            if (cancelled.ok) {
+                result = { plan: 'free', status: 'free', message: cancelled.message };
+            } else if (cancelled.status === 400) {
+                await downgradeAgendaProfileAccess(targetUser.id);
+                result = { plan: 'free', status: 'free' };
+            } else {
+                return c.json({ ok: false, error: cancelled.error }, cancelled.status as 400 | 404 | 502);
+            }
+        } else if (profiles[0].plan === 'pro') {
+            await deps.db.update(deps.tables.agendaProfessionalProfiles)
+                .set({ plan: 'pro', planExpiresAt: expiry, updatedAt: new Date() })
+                .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profileId));
+            result = { plan: 'pro', status: 'active' };
+        } else {
+            result = await persistManualAdminSubscription({
+                userId: targetUser.id,
+                accountId: account.id,
+                vertical: 'agenda',
+                planSlug: 'pro',
+                status: 'active',
+                expiresAt: expiry,
+            });
+        }
+        await createAdminAudit({
+            actorUserId: admin.id,
+            action: 'agenda.subscription.set_plan',
+            entityType: 'agenda_profile',
+            entityId: profileId,
+            payload: { userId: targetUser.id, plan: agendaPlan, expiresAt: expiry?.toISOString() ?? null, notes },
+        });
 
-        const expiry =
-            plan === 'pro'
-                ? (expiresAt ? new Date(expiresAt) : null)
-                : (expiresAt ? new Date(expiresAt) : new Date(Date.now() - 60_000));
-
-        await deps.db.update(deps.tables.agendaProfessionalProfiles).set({
-            plan,
-            planExpiresAt: expiry,
-            ...(plan === 'free' ? { isPublished: false } : {}),
-            updatedAt: new Date(),
-        }).where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profileId));
-
-        return c.json({ ok: true, plan, expiresAt: expiry?.toISOString() ?? null });
+        return c.json({ ok: true, ...result, plan: agendaPlan, expiresAt: expiry?.toISOString() ?? null });
     });
 
     app.delete('/agenda/cancel-plan', async (c) => {
@@ -935,13 +997,28 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         const body = await c.req.json().catch(() => ({})) as { profileId?: string };
         if (!body.profileId) return c.json({ ok: false, error: 'Se requiere profileId' }, 400);
-
-        await deps.db.update(deps.tables.agendaProfessionalProfiles).set({
-            plan: 'free',
-            planExpiresAt: new Date(Date.now() - 60_000),
-            isPublished: false,
-            updatedAt: new Date(),
-        }).where(deps.eq(deps.tables.agendaProfessionalProfiles.id, body.profileId));
+        const profile = await deps.db.select().from(deps.tables.agendaProfessionalProfiles)
+            .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, body.profileId)).limit(1);
+        if (!profile[0]) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const targetUser = await deps.getUserById(profile[0].userId);
+        if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
+        const cancelled = await cancelAgendaProSubscription(targetUser.id);
+        let result: Record<string, unknown>;
+        if (cancelled.ok) {
+            result = { plan: 'free', status: 'free', message: cancelled.message };
+        } else if (cancelled.status === 400) {
+            await downgradeAgendaProfileAccess(targetUser.id);
+            result = { plan: 'free', status: 'free' };
+        } else {
+            return c.json({ ok: false, error: cancelled.error }, cancelled.status as 400 | 404 | 502);
+        }
+        await createAdminAudit({
+            actorUserId: admin.id,
+            action: 'agenda.subscription.cancel_plan',
+            entityType: 'agenda_profile',
+            entityId: body.profileId,
+            payload: { userId: targetUser.id, result },
+        });
 
         return c.json({ ok: true });
     });

@@ -13,7 +13,7 @@ import { isProduction } from '../../env.js';
 import { sendAppointmentReminderEmail } from '../../lib/auth-email.js';
 import { sendAgendaTrialEmail, type AgendaTrialEmailKind } from '../../lib/agenda-trial-email.js';
 import { insertPlatformNotifications } from '../platform/notifications-service.js';
-import { unpublishAgendaProfilesWithoutAccess } from './plan-limits.js';
+import { downgradeExpiredAgendaProProfiles } from './plan-limits.js';
 
 const AGENDA_CRON_ADVISORY_LOCK_KEY = 839_201;
 
@@ -284,9 +284,9 @@ export function registerAgendaCronJobs() {
     cron.schedule('0 9 * * *', async () => {
         await runWithLock(async () => {
             try {
-                const unpublished = await unpublishAgendaProfilesWithoutAccess();
-                if (unpublished > 0) {
-                    console.info(`[agenda] unpublished ${unpublished} profiles without billing access`);
+                const downgraded = await downgradeExpiredAgendaProProfiles();
+                if (downgraded > 0) {
+                    console.info(`[agenda] downgraded ${downgraded} expired Pro profiles to Gratis`);
                 }
                 await runAgendaTrialEmails();
             } catch (e) {

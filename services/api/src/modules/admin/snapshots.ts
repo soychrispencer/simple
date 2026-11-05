@@ -78,7 +78,7 @@ export type AdminUserSnapshot = {
         reasons: string[];
     };
     subscriptions?: {
-        agenda?: { plan: 'free' | 'pro'; status: 'active' | 'expired' | 'free'; expiresAt: string | null };
+        agenda?: { plan: 'free' | 'pro'; status: 'active' | 'expired' | 'free' | 'trial'; expiresAt: string | null };
         autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         serenatas?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
@@ -507,11 +507,12 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                     if (!sub && !agendaProfile) return undefined;
                     const agendaPlan = agendaProfile?.plan === 'pro' ? 'pro' : 'free';
                     const agendaExpired = Boolean(agendaProfile?.planExpiresAt && agendaProfile.planExpiresAt < new Date());
+                    const agendaTrial = Boolean(agendaPlan === 'free' && agendaProfile?.planExpiresAt && agendaProfile.planExpiresAt >= new Date());
                     return {
                         agenda: agendaProfile
                             ? {
                                   plan: agendaPlan,
-                                  status: agendaPlan === 'free' ? 'free' : agendaExpired ? 'expired' : 'active',
+                                  status: agendaTrial ? 'trial' : agendaPlan === 'free' ? 'free' : agendaExpired ? 'expired' : 'active',
                                   expiresAt: agendaProfile.planExpiresAt?.toISOString() ?? null,
                               }
                             : undefined,

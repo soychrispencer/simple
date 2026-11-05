@@ -2,6 +2,7 @@ import { isDevMercadoPagoPreapprovalId } from '../mercadopago/checkout-helpers.j
 import { cancelPreapproval } from '../mercadopago/service.js';
 import { loadCurrentSubscriptionFromDb, persistUserSubscription } from '../subscriptions/persist-db.js';
 import { downgradeAgendaProfileAccess, getAgendaProfile, isAgendaProActive } from './plan-limits.js';
+import { AGENDA_PRICING } from '@simple/utils';
 
 /**
  * Cancela Pro de Agenda: preapproval MP (si aplica) + suscripción DB + perfil free expirado.
@@ -56,15 +57,13 @@ export async function cancelAgendaProSubscription(
             providerStatus: 'cancelled',
             status: 'cancelled',
         });
-    } else {
-        await downgradeAgendaProfileAccess(userId);
     }
+    await downgradeAgendaProfileAccess(userId);
 
     hooks?.clearInMemorySubscription?.(userId);
 
     return {
         ok: true,
-        message:
-            'Suscripción cancelada. Ya no se renovará el cobro. Tu panel queda restringido hasta que actives Pro de nuevo; tu configuración se mantiene guardada.',
+        message: `Suscripción cancelada. No se renovará el cobro. Tu cuenta pasa a Gratis y mantiene perfil público, datos y hasta ${AGENDA_PRICING.free.monthlyBookings} reservas mensuales.`,
     };
 }

@@ -7,7 +7,7 @@ This directory is the source of truth for database schema changes.
 1. **`migrate()`** (drizzle-orm): aplica migraciones registradas por el CLI según el journal.
 2. **`applyPendingJournalMigrations()`** (`src/db/apply-pending-migrations.ts`): aplica SQL del journal cuyo **hash** aún no está en `drizzle.__drizzle_migrations` (útil si el journal y la tabla divergieron).
 
-Al arrancar `simple-api`: `migrate()` (journal) y luego `applyPostJournalMigrations()` (0046–0086; si falla, warn y la API sigue). En deploy/CI usar `pnpm run db:setup` o `db:apply:post-journal` explícito. `applyPendingJournalMigrations()` sigue disponible vía CLI para journal por hash.
+Al arrancar `simple-api`: `migrate()` (journal) y luego `applyPostJournalMigrations()` (0046–0141; si falla, warn y la API sigue). En deploy/CI usar `pnpm run db:setup` o `db:apply:post-journal` explícito. `applyPendingJournalMigrations()` sigue disponible vía CLI para journal por hash.
 
 Notes:
 
@@ -15,9 +15,9 @@ Notes:
 - `0041_remove_discontinued_vertical.sql` removes the discontinued serenatas schema surface.
 - Runtime bootstrap code must not create or mutate schema. New DDL belongs in a numbered migration.
 
-## Migraciones post-journal (0046–0086)
+## Migraciones post-journal (0046–0141)
 
-El journal Drizzle termina en **`0045_serenata_booking_payments`**. Los archivos **`0046` … `0086`** existen en disco pero **no** están en `_journal.json` para no romper `drizzle-kit migrate` en bases que ya aplicaron DDL fuera del CLI. La lista exacta que aplica el runtime vive en `src/db/apply-post-journal-migrations.ts` (`POST_JOURNAL_TAGS`).
+El journal Drizzle termina en **`0045_serenata_booking_payments`**. Los archivos **`0046`** en adelante existen en disco pero **no** están en `_journal.json` para no romper `drizzle-kit migrate` en bases que ya aplicaron DDL fuera del CLI. La lista exacta que aplica el runtime vive en `src/db/apply-post-journal-migrations.ts` (`POST_JOURNAL_TAGS`). La migración `0141_agenda_existing_accounts_to_free` coloca los perfiles existentes de SimpleAgenda en Gratis, conserva sus perfiles públicos y marca canceladas las suscripciones internas que aún figuren activas.
 
 **Aplicar en staging/prod (idempotente):**
 

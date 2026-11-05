@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import {
     IconCalendar, IconUsers, IconCreditCard, IconClockHour4, IconTrendingUp, IconTrendingDown, IconMinus, IconChevronRight, } from '@tabler/icons-react';
 import Link from 'next/link';
-import { fetchAgendaStats, fetchAgendaProfile, type AgendaStats, type AgendaProfile, type AgendaWeekDay } from '@/lib/agenda-api';
-import { fmtCLP, fmtTodayLabel } from '@simple/utils';
+import { fetchAgendaStats, fetchAgendaProfile, hasAgendaFullAccess, type AgendaStats, type AgendaProfile, type AgendaWeekDay } from '@/lib/agenda-api';
+import { AGENDA_PRICING, fmtCLP, fmtTodayLabel } from '@simple/utils';
 import { usePanelFormatters } from '@simple/auth';
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { PanelPageHeader } from '@simple/ui/panel';
@@ -141,9 +141,12 @@ export default function PanelHomePage() {
 
     const greeting = profile?.displayName ? `Hola, ${profile.displayName.split(' ')[0]}` : null;
     const dateLabel = fmtTodayLabel(fmt.timezone);
+    const hasProAccess = profile ? hasAgendaFullAccess(profile) : false;
+    const monthlyBookingsUsed = profile?.monthlyBookingsUsed ?? 0;
+    const monthlyBookingsLimit = profile?.monthlyBookingsLimit ?? AGENDA_PRICING.free.monthlyBookings;
     const panelDescription = greeting
         ? `${greeting} · ${dateLabel}`
-        : `Resumen de citas, clientes y cobros · ${dateLabel}`;
+        : `Resumen de agenda y clientes · ${dateLabel}`;
 
     const statCards = [
         {
@@ -161,10 +164,10 @@ export default function PanelHomePage() {
             accent: false,
         },
         {
-            label: 'Pagos pendientes',
-            value: loading ? null : fmtCLP(stats?.pendingPayments ?? 0),
-            icon: IconCreditCard,
-            href: '/panel/finanzas',
+            label: hasProAccess ? 'Pagos pendientes' : 'Reservas este mes',
+            value: loading ? null : hasProAccess ? fmtCLP(stats?.pendingPayments ?? 0) : `${monthlyBookingsUsed}/${monthlyBookingsLimit}`,
+            icon: hasProAccess ? IconCreditCard : IconCalendar,
+            href: hasProAccess ? '/panel/finanzas' : '/panel/agenda',
             accent: false,
         },
         {
@@ -232,40 +235,44 @@ export default function PanelHomePage() {
                     </div>
                 </div>
 
-                <div
-                    className="lg:col-span-2 rounded-2xl border p-4 sm:p-5 flex flex-col justify-between agenda-home-surface min-w-0"
-                >
-                    <div>
-                        <p className="text-sm font-semibold mb-0.5 agenda-home-fg">Ingresos del mes</p>
-                        <p className="text-xs mb-3 sm:mb-4 agenda-home-muted">Cobros confirmados</p>
-                        <p className="text-2xl sm:text-3xl font-bold tracking-tight agenda-home-fg break-words">
-                            {loading ? '—' : fmtCLP(stats?.thisMonthRevenue ?? 0)}
-                        </p>
-                        <div className="mt-2">
-                            <RevenueTrend
-                                current={stats?.thisMonthRevenue ?? 0}
-                                prev={stats?.lastMonthRevenue ?? 0}
-                                loading={loading}
-                            />
-                        </div>
-                    </div>
-
-                    <div
-                        className="mt-5 pt-4 flex items-center justify-between agenda-home-border-top"
-                    >
-                        <div>
-                            <p className="text-xs agenda-home-muted">Citas este mes</p>
-                            <p className="text-lg font-bold agenda-home-fg">
-                                {loading ? '—' : (stats?.thisMonthAppointments ?? 0)}
+                <div className="lg:col-span-2 rounded-2xl border p-4 sm:p-5 flex flex-col justify-between agenda-home-surface min-w-0">
+                    {hasProAccess ? (
+                        <>
+                            <div>
+                                <p className="text-sm font-semibold mb-0.5 agenda-home-fg">Ingresos del mes</p>
+                                <p className="text-xs mb-3 sm:mb-4 agenda-home-muted">Cobros confirmados</p>
+                                <p className="text-2xl sm:text-3xl font-bold tracking-tight agenda-home-fg break-words">
+                                    {loading ? '—' : fmtCLP(stats?.thisMonthRevenue ?? 0)}
+                                </p>
+                                <div className="mt-2">
+                                    <RevenueTrend current={stats?.thisMonthRevenue ?? 0} prev={stats?.lastMonthRevenue ?? 0} loading={loading} />
+                                </div>
+                            </div>
+                            <div className="mt-5 pt-4 flex items-center justify-between agenda-home-border-top">
+                                <div>
+                                    <p className="text-xs agenda-home-muted">Citas este mes</p>
+                                    <p className="text-lg font-bold agenda-home-fg">{loading ? '—' : (stats?.thisMonthAppointments ?? 0)}</p>
+                                </div>
+                                <Link href="/panel/finanzas" className="shrink-0 text-xs font-medium inline-flex items-center gap-1 px-2 py-1.5 -my-1.5 rounded-lg transition-colors active:bg-(--bg-subtle) lg:hover:opacity-70 agenda-home-accent">
+                                    Ver cobros <IconChevronRight size={14} />
+                                </Link>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex h-full flex-col justify-center">
+                            <p className="text-sm font-semibold agenda-home-fg">Tu plan Gratis</p>
+                            <p className="mt-1 text-xs agenda-home-muted">Reservas creadas este mes</p>
+                            <p className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight agenda-home-fg">
+                                {loading ? '—' : `${monthlyBookingsUsed} / ${monthlyBookingsLimit}`}
                             </p>
+                            <div className="mt-3 h-2 overflow-hidden rounded-full bg-(--border)" aria-label={`${monthlyBookingsUsed} de ${monthlyBookingsLimit} reservas usadas`}>
+                                <div className="h-full rounded-full bg-(--accent)" style={{ width: `${Math.min(100, monthlyBookingsLimit ? monthlyBookingsUsed / monthlyBookingsLimit * 100 : 0)}%` }} />
+                            </div>
+                            <Link href="/panel/mi-cuenta/suscripcion" className="mt-5 inline-flex items-center gap-1 text-xs font-medium agenda-home-accent">
+                                Activar Pro <IconChevronRight size={14} />
+                            </Link>
                         </div>
-                        <Link
-                            href="/panel/finanzas"
-                            className="shrink-0 text-xs font-medium inline-flex items-center gap-1 px-2 py-1.5 -my-1.5 rounded-lg transition-colors active:bg-(--bg-subtle) lg:hover:opacity-70 agenda-home-accent"
-                        >
-                            Ver cobros <IconChevronRight size={14} />
-                        </Link>
-                    </div>
+                    )}
                 </div>
                 </div>
             </div>

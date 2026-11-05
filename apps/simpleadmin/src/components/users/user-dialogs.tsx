@@ -159,7 +159,11 @@ type SubscriptionForm = Record<AdminVertical, { plan: string; status: string; ex
 
 export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps & { user: AdminUserSnapshot }) {
     const [form, setForm] = useState<SubscriptionForm>(() => ({
-        agenda: { plan: user.subscriptions?.agenda?.plan ?? 'free', status: user.subscriptions?.agenda?.status ?? 'free', expiresAt: toDateInputValue(user.subscriptions?.agenda?.expiresAt) },
+        agenda: {
+            plan: user.subscriptions?.agenda?.plan ?? 'free',
+            status: 'cancelled',
+            expiresAt: toDateInputValue(user.subscriptions?.agenda?.expiresAt),
+        },
         autos: { plan: user.subscriptions?.autos?.planId ?? 'free', status: user.subscriptions?.autos?.status ?? 'cancelled', expiresAt: toDateInputValue(user.subscriptions?.autos?.expiresAt) },
         propiedades: { plan: user.subscriptions?.propiedades?.planId ?? 'free', status: user.subscriptions?.propiedades?.status ?? 'cancelled', expiresAt: toDateInputValue(user.subscriptions?.propiedades?.expiresAt) },
         serenatas: { plan: user.subscriptions?.serenatas?.planId ?? 'free', status: user.subscriptions?.serenatas?.status ?? 'cancelled', expiresAt: toDateInputValue(user.subscriptions?.serenatas?.expiresAt), trialEndsAt: toDateInputValue(user.serenatas?.trialEndsAt) },
@@ -167,10 +171,20 @@ export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps 
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
 
-    const setField = (vertical: AdminVertical, field: string, value: string) => setForm((current) => ({
-        ...current,
-        [vertical]: { ...current[vertical], [field]: value },
-    }));
+    const setField = (vertical: AdminVertical, field: string, value: string) => setForm((current) => {
+        const resetAgendaExpiration = vertical === 'agenda'
+            && field === 'plan'
+            && value === 'pro'
+            && current.agenda.plan !== 'pro';
+        return {
+            ...current,
+            [vertical]: {
+                ...current[vertical],
+                [field]: value,
+                ...(resetAgendaExpiration ? { expiresAt: '' } : {}),
+            },
+        };
+    });
 
     const save = async () => {
         setSaving(true);
@@ -213,9 +227,18 @@ export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps 
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3">
                             <Field label="Plan"><ModernSelect value={form[vertical].plan} onChange={(value) => setField(vertical, 'plan', value)} options={PLAN_OPTIONS[vertical]} /></Field>
-                            <Field label="Estado"><ModernSelect value={form[vertical].status} onChange={(value) => setField(vertical, 'status', value)} options={SUBSCRIPTION_STATUS_OPTIONS} disabled={form[vertical].plan === 'free'} /></Field>
-                            <Field label="Expiración"><input className="form-input" type="date" value={form[vertical].expiresAt} onChange={(event) => setField(vertical, 'expiresAt', event.target.value)} /></Field>
+                            {vertical !== 'agenda' ? <Field label="Estado"><ModernSelect value={form[vertical].status} onChange={(value) => setField(vertical, 'status', value)} options={SUBSCRIPTION_STATUS_OPTIONS} disabled={form[vertical].plan === 'free'} /></Field> : null}
+                            {vertical !== 'agenda' || form.agenda.plan === 'pro' ? (
+                                <Field label="Expiración"><input className="form-input" type="date" value={form[vertical].expiresAt} onChange={(event) => setField(vertical, 'expiresAt', event.target.value)} /></Field>
+                            ) : null}
                             {vertical === 'serenatas' ? <Field label="Fin prueba dueño" className="sm:col-start-3"><input className="form-input" type="date" value={form.serenatas.trialEndsAt} onChange={(event) => setField('serenatas', 'trialEndsAt', event.target.value)} /></Field> : null}
+                            {vertical === 'agenda' ? (
+                                <div className="sm:col-span-3">
+                                    <PanelNotice tone="info">
+                                        Las cuentas nuevas reciben 30 días de Pro y luego continúan en Gratis. En esta pantalla, Gratis no tiene vencimiento; Pro+ aparece próximamente y Empresa / Negocios se cotizará según el tamaño del equipo.
+                                    </PanelNotice>
+                                </div>
+                            ) : null}
                         </div>
                     </section>
                 ))}

@@ -1,4 +1,6 @@
-export const BILLING_TRIAL_DAYS = 30;
+import { AGENDA_PRICING } from '@simple/utils';
+
+export const BILLING_TRIAL_DAYS = AGENDA_PRICING.trialDays;
 
 export function defaultTrialEndsAt(from = new Date()): Date {
     const trialEndsAt = new Date(from);

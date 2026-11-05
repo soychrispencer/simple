@@ -67,7 +67,7 @@ export function AdminUsersDashboard({ currentUser }: { currentUser: AdminSession
     const [result, setResult] = useState<AdminUsersPage>(EMPTY_PAGE);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [query, setQuery] = useState('');
+    const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
     const deferredQuery = useDeferredValue(query);
     const [status, setStatus] = useState<StatusFilter>('all');
     const [page, setPage] = useState(1);

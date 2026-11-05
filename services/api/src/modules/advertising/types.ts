@@ -1,6 +1,5 @@
 // Advertising types and constants
-import { MARKETPLACE_AD_PRICING } from '@simple/utils';
-import { AGENDA_INTRO_PROMOTION } from '../billing/agenda-promotion.js';
+import { AGENDA_PLAN_CATALOG, AGENDA_PRICING, MARKETPLACE_AD_PRICING } from '@simple/utils';
 export type AdFormat = 'hero' | 'card' | 'inline';
 export type AdDurationDays = 7 | 15 | 30;
 export type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'proyectos' | 'subastas' | 'mariachis' | 'professionals';
@@ -190,8 +189,8 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
     agenda: [
         {
             id: 'free',
-            name: 'Prueba completa',
-            description: '30 días con todas las funciones para configurar tu agenda y validar el flujo.',
+            name: AGENDA_PLAN_CATALOG.free.name,
+            description: AGENDA_PLAN_CATALOG.free.description,
             priceMonthly: 0,
             currency: 'CLP',
             maxListings: 0,
@@ -202,17 +201,13 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
             customBranding: false,
             apiAccess: false,
             maxFreeBoostsPerMonth: 0,
-            features: ['30 días de acceso completo', 'Perfil, servicios y agenda', 'Reservas, clientes y pagos', 'Recordatorios y reportes', 'Sin comisión por reserva'],
+            features: [...AGENDA_PLAN_CATALOG.free.features],
         },
         {
             id: 'pro',
-            name: 'Pro',
-            description: 'Para profesionales y equipos con operación diaria.',
-            priceMonthly: AGENDA_INTRO_PROMOTION.regularNetMonthly,
-            promotion: {
-                priceMonthly: AGENDA_INTRO_PROMOTION.promoNetMonthly,
-                durationMonths: AGENDA_INTRO_PROMOTION.months,
-            },
+            name: AGENDA_PLAN_CATALOG.pro.name,
+            description: AGENDA_PLAN_CATALOG.pro.description,
+            priceMonthly: AGENDA_PRICING.proMonthlyNetClp,
             currency: 'CLP',
             maxListings: 0,
             maxFeaturedListings: 0,
@@ -221,9 +216,9 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
             prioritySupport: true,
             customBranding: true,
             apiAccess: true,
-            maxFreeBoostsPerMonth: 2,
+            maxFreeBoostsPerMonth: 0,
             recommended: true,
-            features: ['Perfil público activo', 'Marketplace y link de reservas', 'Agenda avanzada', 'Clientes, historial y notas', 'Pagos, packs y promociones', 'Recordatorios avanzados', 'Reportes, NPS y referidos', 'Automatización y múltiples ubicaciones', 'Sin comisión por reserva', '2 boosts gratis al mes'],
+            features: [...AGENDA_PLAN_CATALOG.pro.features],
         },
     ],
     serenatas: [

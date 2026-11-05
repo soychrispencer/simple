@@ -14,6 +14,7 @@
     "@simple/config": "workspace:*",
     "@simple/marketplace-header": "workspace:*",
     "@simple/ui": "workspace:*",
+    "@simple/utils": "workspace:*",
     "@tabler/icons-react": "^3.44.0",
     "next": "^16.2.9",
     "next-themes": "^0.4.6",

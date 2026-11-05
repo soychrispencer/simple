@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import type { SQL } from 'drizzle-orm';
 import { cleanupReplacedMediaUrl } from '../media/stored-object.js';
 import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
-import { ensureAgendaProfileTrial, hasAgendaFullAccess, syncAgendaProfilePublishAccess, AGENDA_PUBLIC_INACTIVE_MESSAGE } from './plan-limits.js';
+import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount } from './plan-limits.js';
 import { resolveAgendaProfessionalTimezone, syncAgendaProfileTimezoneFromOperatingLocation } from '../../lib/sync-user-timezone.js';
 import { agendaOperatingPatchFromBody, operatingLocationFromAgendaProfile } from '../../lib/structured-location.js';
 import {
@@ -26,6 +26,7 @@ import {
     OPERATOR_SITE_COLOR_MODES,
     isValidOperatorSiteAccentStorage,
     normalizeOperatorSiteAccentHex,
+    AGENDA_PRICING,
     type OperatorTier,
 } from '@simple/utils';
 import {
@@ -92,6 +93,8 @@ export interface AgendaRouterDeps {
 
 type PreconsultFieldType = 'text' | 'textarea' | 'select' | 'checkbox' | 'number';
 type PreconsultField = { id: string; label: string; type: PreconsultFieldType; required: boolean; placeholder?: string; options?: string[] };
+
+const AGENDA_PRO_REQUIRED_MESSAGE = `Esta función está incluida en Pro (${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes).`;
 
 function normalizePreconsultFields(raw: unknown, randomUUID: () => string): PreconsultField[] {
     if (!Array.isArray(raw)) return [];
@@ -319,6 +322,9 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         timelineEvents,
     } = tables;
 
+    const proGateError = (profile: any, role?: string) =>
+        isFreePlan(profile, role) ? AGENDA_PRO_REQUIRED_MESSAGE : null;
+
     function getGoogleOAuth2Client() {
         return new google.auth.OAuth2(
             process.env.GOOGLE_CLIENT_ID,
@@ -329,6 +335,31 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
 
     const app = new Hono();
 
+    const requireProFeature = async (c: Context, next: () => Promise<void>) => {
+        let blockedResponse: Response | undefined;
+        const sessionResponse = await requireVerifiedSession(c, async () => {
+            const user = await authUser(c);
+            if (!user) {
+                blockedResponse = c.json({ ok: false, error: 'No autenticado' }, 401);
+                return;
+            }
+            const profile = await getAgendaProfile(user.id);
+            const error = profile ? proGateError(profile, user.role) : null;
+            if (error) {
+                blockedResponse = c.json({ ok: false, error }, 403);
+                return;
+            }
+            await next();
+        });
+        return blockedResponse ?? sessionResponse;
+    };
+
+    for (const path of ['/analytics', '/nps', '/referrals', '/promotions']) {
+        app.use(path, requireProFeature);
+        app.use(`${path}/*`, requireProFeature);
+    }
+    app.use('/services/:id/attendees', requireProFeature);
+
     // ── Profile ───────────────────────────────────────────────────────────────
     app.get('/profile', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
@@ -336,12 +367,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         let profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
         profile = await ensureAgendaProfileTrial(profile);
-        profile = await syncAgendaProfilePublishAccess(profile, user.role);
         const operationalTz = await resolveAgendaProfessionalTimezone(user.id, profile as Record<string, unknown>);
+        const monthlyBookingsUsed = await getAgendaMonthlyBookingCount(profile.id);
         return c.json({
             ok: true,
             profile: {
                 ...profile,
+                monthlyBookingsUsed,
+                monthlyBookingsLimit: AGENDA_PRICING.free.monthlyBookings,
                 bookingTermsText: bookingTermsFromRecord(profile),
                 timezone: operationalTz,
                 operatingLocation: operatingLocationFromAgendaProfile(profile),
@@ -354,12 +387,6 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await ensureAgendaProfile(user);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-        if ('isPublished' in body && body.isPublished === true && !hasAgendaFullAccess(profile, user.role)) {
-            return c.json(
-                { ok: false, error: 'Activa Pro o mantén tu prueba activa para publicar tu perfil.' },
-                403,
-            );
-        }
         if ('isPublished' in body && body.isPublished === true) {
             const missing: string[] = [];
             const displayName = typeof body.displayName === 'string'
@@ -492,13 +519,8 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             patch.coverUrl = nextCoverUrl;
         }
         const [updated] = await db.update(agendaProfessionalProfiles).set(patch).where(eq(agendaProfessionalProfiles.id, profile.id)).returning();
-        const synced = updated
-            ? await syncAgendaProfilePublishAccess(updated, user.role)
-            : updated;
+        const synced = updated;
         if ('isPublished' in body && body.isPublished !== profile.isPublished) await logAudit({ professionalId: profile.id, userId: user.id, entityType: 'profile', entityId: profile.id, action: body.isPublished ? 'publish' : 'unpublish', ctx: c });
-        if (synced && !synced.isPublished && profile.isPublished && !('isPublished' in body)) {
-            await logAudit({ professionalId: profile.id, userId: user.id, entityType: 'profile', entityId: profile.id, action: 'unpublish', ctx: c });
-        }
         if ('slug' in body && patch.slug && patch.slug !== profile.slug) await logAudit({ professionalId: profile.id, userId: user.id, entityType: 'profile', entityId: profile.id, action: 'slug_change', metadata: { from: profile.slug, to: patch.slug }, ctx: c });
         await syncAgendaProfileTimezoneFromOperatingLocation(user.id, synced as Record<string, unknown>);
         const operationalTz = await resolveAgendaProfessionalTimezone(user.id, synced as Record<string, unknown>);
@@ -572,6 +594,16 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         if (!body.name) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
         const kind = typeof body.kind === 'string' && AGENDA_SERVICE_KINDS.has(body.kind) ? body.kind : 'appointment';
+        if (isFreePlan(profile, user.role)) {
+            if (kind === 'group_event') return c.json({ ok: false, error: AGENDA_PRO_REQUIRED_MESSAGE }, 403);
+            const [activeServices] = await db
+                .select({ count: sql<number>`count(*)::int` })
+                .from(agendaServices)
+                .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true)));
+            if (Number(activeServices?.count ?? 0) >= AGENDA_PRICING.free.activeServices) {
+                return c.json({ ok: false, error: `Gratis permite hasta ${AGENDA_PRICING.free.activeServices} servicios activos. Activa Pro para agregar más.` }, 403);
+            }
+        }
         const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
         if (durationMinutes < 15) return c.json({ ok: false, error: 'La duración mínima es 15 minutos.' }, 400);
         let startsAt: Date | null = null;
@@ -635,6 +667,20 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             }
         }
         if (typeof body.kind === 'string' && AGENDA_SERVICE_KINDS.has(body.kind)) patch.kind = body.kind;
+        const nextKind = typeof patch.kind === 'string' ? patch.kind : (existing.kind ?? 'appointment');
+        const nextIsActive = 'isActive' in patch ? patch.isActive === true : existing.isActive !== false;
+        if (isFreePlan(profile, user.role)) {
+            if (nextKind === 'group_event') return c.json({ ok: false, error: AGENDA_PRO_REQUIRED_MESSAGE }, 403);
+            if (nextIsActive && existing.isActive === false) {
+                const [activeServices] = await db
+                    .select({ count: sql<number>`count(*)::int` })
+                    .from(agendaServices)
+                    .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true)));
+                if (Number(activeServices?.count ?? 0) >= AGENDA_PRICING.free.activeServices) {
+                    return c.json({ ok: false, error: `Gratis permite hasta ${AGENDA_PRICING.free.activeServices} servicios activos. Activa Pro para reactivar este servicio.` }, 403);
+                }
+            }
+        }
         if ('startsAt' in body) {
             if (!body.startsAt) patch.startsAt = null;
             else {
@@ -654,7 +700,6 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const nextOnline = 'isOnline' in patch ? patch.isOnline === true : existing.isOnline !== false;
         const nextPresential = 'isPresential' in patch ? patch.isPresential === true : existing.isPresential === true;
         if (!nextOnline && !nextPresential) return c.json({ ok: false, error: 'Selecciona al menos una modalidad.' }, 400);
-        const nextKind = typeof patch.kind === 'string' ? patch.kind : (existing.kind ?? 'appointment');
         const nextLocation = 'location' in patch ? patch.location : existing.location;
         if (nextKind === 'group_event' && nextPresential && !nextLocation) {
             return c.json({ ok: false, error: 'Indica la dirección del evento.' }, 400);
@@ -831,6 +876,15 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const addressLine = typeof body.addressLine === 'string' ? body.addressLine.trim() : '';
         if (!name) return c.json({ ok: false, error: 'El nombre de la consulta es requerido.' }, 400);
         if (!addressLine) return c.json({ ok: false, error: 'La dirección es requerida.' }, 400);
+        if (isFreePlan(profile, user.role) && body.isActive !== false) {
+            const [activeLocations] = await db
+                .select({ count: sql<number>`count(*)::int` })
+                .from(agendaLocations)
+                .where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true)));
+            if (Number(activeLocations?.count ?? 0) >= AGENDA_PRICING.free.activeLocations) {
+                return c.json({ ok: false, error: `Gratis permite ${AGENDA_PRICING.free.activeLocations} ubicación. Activa Pro para agregar otra.` }, 403);
+            }
+        }
         const isDefault = body.isDefault === true;
         if (isDefault) await db.update(agendaLocations).set({ isDefault: false, updatedAt: new Date() }).where(eq(agendaLocations.professionalId, profile.id));
         const [location] = await db.insert(agendaLocations).values({ professionalId: profile.id, name, addressLine, city: typeof body.city === 'string' ? body.city : null, region: typeof body.region === 'string' ? body.region : null, notes: typeof body.notes === 'string' ? body.notes : null, googleMapsUrl: typeof body.googleMapsUrl === 'string' ? body.googleMapsUrl : null, isDefault, isActive: body.isActive !== false }).returning();
@@ -844,11 +898,24 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
         const id = c.req.param('id') ?? '';
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const [existing] = await db.select().from(agendaLocations)
+            .where(and(eq(agendaLocations.id, id), eq(agendaLocations.professionalId, profile.id)))
+            .limit(1);
+        if (!existing) return c.json({ ok: false, error: 'Consulta no encontrada.' }, 404);
         const patch: Record<string, unknown> = { updatedAt: new Date() };
         if (typeof body.name === 'string') { const n = body.name.trim(); if (!n) return c.json({ ok: false, error: 'El nombre de la consulta es requerido.' }, 400); patch.name = n; }
         if (typeof body.addressLine === 'string') { const a = body.addressLine.trim(); if (!a) return c.json({ ok: false, error: 'La dirección es requerida.' }, 400); patch.addressLine = a; }
         for (const key of ['city','region','notes','googleMapsUrl'] as const) { if (key in body) patch[key] = body[key] === '' ? null : body[key]; }
         if ('isActive' in body) patch.isActive = body.isActive !== false;
+        if (isFreePlan(profile, user.role) && patch.isActive === true && existing.isActive === false) {
+            const [activeLocations] = await db
+                .select({ count: sql<number>`count(*)::int` })
+                .from(agendaLocations)
+                .where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true)));
+            if (Number(activeLocations?.count ?? 0) >= AGENDA_PRICING.free.activeLocations) {
+                return c.json({ ok: false, error: `Gratis permite ${AGENDA_PRICING.free.activeLocations} ubicación. Activa Pro para reactivar esta ubicación.` }, 403);
+            }
+        }
         if (body.isDefault === true) { await db.update(agendaLocations).set({ isDefault: false, updatedAt: new Date() }).where(and(eq(agendaLocations.professionalId, profile.id), sql`id <> ${id}`)); patch.isDefault = true; } else if (body.isDefault === false) { patch.isDefault = false; }
         const [updated] = await db.update(agendaLocations).set(patch).where(and(eq(agendaLocations.id, id), eq(agendaLocations.professionalId, profile.id))).returning();
         if (!updated) return c.json({ ok: false, error: 'Consulta no encontrada.' }, 404);
@@ -1299,7 +1366,9 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         }
         if (status === 'cancelled') { void syncToGoogleCalendar(profile, updated, 'delete'); }
         else { void syncToGoogleCalendar(profile, updated, 'update'); }
-        if (status === 'completed') void ensureNpsForAppointment(profile.id, updated.id, updated.clientId).catch(() => {});
+        if (status === 'completed' && !isFreePlan(profile, user.role)) {
+            void ensureNpsForAppointment(profile.id, updated.id, updated.clientId).catch(() => {});
+        }
         emitTimelineEvent(db, timelineEvents, {
             type: 'booking.status_changed',
             business: agendaBusiness(profile.id),
@@ -1372,13 +1441,15 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const weeklyMap = new Map(weeklyAppts.map((r:any)=>[r.day,Number(r.count)]));
         const todayStr = todayStart.toISOString().slice(0,10);
         const weeklyData = Array.from({length:7},(_,i)=>{ const d=new Date(weekStart); d.setDate(weekStart.getDate()+i); const ds=d.toISOString().slice(0,10); return {label:DAY_LABELS[i],date:ds,count:weeklyMap.get(ds)??0,isToday:ds===todayStr}; });
-        return c.json({ ok:true, stats:{ todayCount:Number(todayAppts[0]?.count??0), activeClients:Number(activeClientsResult[0]?.count??0), pendingPayments:Number(pendingPaymentsResult[0]?.total??0), nextAppointment:nextAppt[0]??null, weeklyData, thisMonthRevenue:Number(thisMonthPaid[0]?.total??0), lastMonthRevenue:Number(lastMonthPaid[0]?.total??0), thisMonthAppointments:Number(thisMonthApptCount[0]?.count??0), hasServices:Number(servicesCount[0]?.count??0)>0, hasRules:Number(rulesCount[0]?.count??0)>0, hasLocations:Number(locationsCount[0]?.count??0)>0 } });
+        const hasProAccess = !isFreePlan(profile, user.role);
+        return c.json({ ok:true, stats:{ todayCount:Number(todayAppts[0]?.count??0), activeClients:Number(activeClientsResult[0]?.count??0), pendingPayments:hasProAccess?Number(pendingPaymentsResult[0]?.total??0):0, nextAppointment:nextAppt[0]??null, weeklyData, thisMonthRevenue:hasProAccess?Number(thisMonthPaid[0]?.total??0):0, lastMonthRevenue:hasProAccess?Number(lastMonthPaid[0]?.total??0):0, thisMonthAppointments:Number(thisMonthApptCount[0]?.count??0), hasServices:Number(servicesCount[0]?.count??0)>0, hasRules:Number(rulesCount[0]?.count??0)>0, hasLocations:Number(locationsCount[0]?.count??0)>0 } });
     });
 
     app.get('/analytics', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
+        if (profile && proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         if (!profile) return c.json({ ok: true, analytics: { monthly:[], byService:[], topClients:[], noShowRate:0, totalCompleted:0, totalCancelled:0, totalNoShow:0, nps:{avg:null,promoters:0,passives:0,detractors:0,count:0,score:null} } });
         const now = new Date(); const twelveMonthsAgo = new Date(now.getFullYear(),now.getMonth()-11,1);
         const [monthlyRows,serviceRows,topClientsRows,statusCountsRows,npsRows] = await Promise.all([
@@ -1405,6 +1476,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
+        if (profile && proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         if (!profile) return c.json({ ok: true, responses: [] });
         const rows = await db.select({ id:agendaNpsResponses.id, score:agendaNpsResponses.score, comment:agendaNpsResponses.comment, submittedAt:agendaNpsResponses.submittedAt, sentAt:agendaNpsResponses.sentAt, appointmentId:agendaNpsResponses.appointmentId, clientName:agendaAppointments.clientName }).from(agendaNpsResponses).leftJoin(agendaAppointments,eq(agendaNpsResponses.appointmentId,agendaAppointments.id)).where(and(eq(agendaNpsResponses.professionalId,profile.id),sql`${agendaNpsResponses.submittedAt} IS NOT NULL`)).orderBy(desc(agendaNpsResponses.submittedAt)).limit(100);
         return c.json({ ok: true, responses: rows });
@@ -1415,6 +1487,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const appointmentId = typeof body.appointmentId === 'string' ? body.appointmentId : '';
         if (!appointmentId) return c.json({ ok: false, error: 'appointmentId requerido' }, 400);
@@ -1430,6 +1503,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: true, referrals: [], stats: { total:0, converted:0, pending:0, rewarded:0 } });
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const rows = await db.select({ id:agendaReferrals.id, referrerClientId:agendaReferrals.referrerClientId, refereeClientId:agendaReferrals.refereeClientId, refereeName:agendaReferrals.refereeName, refereePhone:agendaReferrals.refereePhone, status:agendaReferrals.status, rewardNote:agendaReferrals.rewardNote, createdAt:agendaReferrals.createdAt, convertedAt:agendaReferrals.convertedAt, rewardedAt:agendaReferrals.rewardedAt, referrerFirstName:agendaClients.firstName, referrerLastName:agendaClients.lastName }).from(agendaReferrals).leftJoin(agendaClients,eq(agendaReferrals.referrerClientId,agendaClients.id)).where(eq(agendaReferrals.professionalId,profile.id)).orderBy(desc(agendaReferrals.createdAt)).limit(200);
         const stats={total:rows.length,converted:0,pending:0,rewarded:0};
         for (const r of rows) { if(r.status==='converted') stats.converted++; else if(r.status==='pending') stats.pending++; else if(r.status==='rewarded') stats.rewarded++; }
@@ -1441,6 +1515,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const referrerClientId = typeof body.referrerClientId === 'string' ? body.referrerClientId : '';
         if (!referrerClientId) return c.json({ ok: false, error: 'Selecciona quién refirió' }, 400);
@@ -1466,6 +1541,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const id = c.req.param('id') ?? '';
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const patch: Record<string, unknown> = {};
@@ -1493,6 +1569,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const id = c.req.param('id') ?? '';
         const [deleted] = await db.delete(agendaReferrals).where(and(eq(agendaReferrals.id,id),eq(agendaReferrals.professionalId,profile.id))).returning();
         if (!deleted) return c.json({ ok: false, error: 'Referido no encontrado' }, 404);
@@ -1591,6 +1668,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const name = typeof body.name === 'string' ? body.name.trim() : '';
         if (!name) return c.json({ ok: false, error: 'Falta el nombre del pack.' }, 400);
@@ -1612,6 +1690,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const id = c.req.param('id') ?? '';
         const existing = await db.query.agendaPacks.findFirst({ where: and(eq(agendaPacks.id, id), eq(agendaPacks.professionalId, profile.id)) });
         if (!existing) return c.json({ ok: false, error: 'Pack no encontrado' }, 404);
@@ -1637,6 +1716,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const id = c.req.param('id') ?? '';
         const [deleted] = await db.delete(agendaPacks).where(and(eq(agendaPacks.id, id), eq(agendaPacks.professionalId, profile.id))).returning();
         if (!deleted) return c.json({ ok: false, error: 'Pack no encontrado' }, 404);
@@ -1663,6 +1743,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const clientId = typeof body.clientId === 'string' ? body.clientId : '';
         if (!clientId) return c.json({ ok: false, error: 'Selecciona un cliente.' }, 400);
@@ -1706,6 +1787,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const id = c.req.param('id') ?? '';
         const existing = await db.query.agendaClientPacks.findFirst({ where: and(eq(agendaClientPacks.id, id), eq(agendaClientPacks.professionalId, profile.id)) });
         if (!existing) return c.json({ ok: false, error: 'Bono no encontrado' }, 404);
@@ -1730,6 +1812,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile, user.role)) return c.json({ ok: false, error: proGateError(profile, user.role) }, 403);
         const id = c.req.param('id') ?? '';
         await db.update(agendaAppointments).set({ clientPackId: null }).where(eq(agendaAppointments.clientPackId, id));
         const [deleted] = await db.delete(agendaClientPacks).where(and(eq(agendaClientPacks.id, id), eq(agendaClientPacks.professionalId, profile.id))).returning();
@@ -2175,7 +2258,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
         for (const appt of appts) {
             const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: eq(agendaProfessionalProfiles.id, appt.professionalId) });
-            if (!profile) continue;
+            if (!profile || isFreePlan(profile)) continue;
             const tz = profile.timezone ?? 'America/Santiago';
             const fmtT = (d: Date) => d.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:tz });
             const fmtD = (d: Date) => d.toLocaleDateString('es-CL', { weekday:'long', day:'numeric', month:'long', timeZone:tz });
@@ -2239,19 +2322,6 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 },
             };
         }
-        if (!hasAgendaFullAccess(profile)) {
-            await syncAgendaProfilePublishAccess(profile);
-            return {
-                ok: false as const,
-                status: 403 as const,
-                body: {
-                    ok: false,
-                    error: AGENDA_PUBLIC_INACTIVE_MESSAGE,
-                    reason: 'subscription_inactive',
-                    displayName: profile.displayName,
-                },
-            };
-        }
         return { ok: true as const, profile };
     }
 
@@ -2299,10 +2369,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             .where(eq(agendaProfessionalProfiles.isPublished, true))
             .orderBy(asc(agendaProfessionalProfiles.displayName));
 
-        // A published flag can become stale between billing changes and the
-        // profile sync. Never advertise a profile that cannot accept bookings.
-        const bookableRows = rows.filter((row: { plan: string; planExpiresAt: Date | null }) => hasAgendaFullAccess(row));
-        const filtered = filterAgendaMarketplaceProfiles(bookableRows, {
+        const filtered = filterAgendaMarketplaceProfiles(rows, {
             country,
             region,
             regionId,
@@ -2522,7 +2589,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         if (requestedFrequency && !profile.allowsRecurrentBooking) return c.json({ ok: false, error: 'Este profesional no permite reservar sesiones recurrentes.' }, 403);
         const recurrenceCountRaw = typeof body.recurrenceCount === 'number' ? body.recurrenceCount : 1;
         const publicTotalOccurrences = requestedFrequency ? Math.max(2, Math.min(recurrenceCountRaw, 26)) : 1;
-        if (isFreePlan(profile)) { const le = await checkAppointmentLimit(profile.id, publicTotalOccurrences); if (le) return c.json({ ok: false, error: 'Este profesional ha alcanzado el límite de citas de su plan actual. Intenta más adelante.' }, 403); }
+        if (isFreePlan(profile)) { const le = await checkAppointmentLimit(profile.id, publicTotalOccurrences); if (le) return c.json({ ok: false, error: 'Esta agenda alcanzó su límite mensual de reservas. Contacta directamente al profesional para consultar disponibilidad.' }, 403); }
         const publicSeriesId = publicTotalOccurrences > 1 ? randomUUID() : null;
         const bookingEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
         const bookingPhone = typeof body.clientPhone === 'string' && body.clientPhone ? body.clientPhone : null;

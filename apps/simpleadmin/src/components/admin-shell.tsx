@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     IconArrowLeft,
+    IconCreditCard,
     IconMessageCircle,
     IconUsers,
 } from '@tabler/icons-react';
@@ -12,7 +13,7 @@ import { MarketplaceHeader } from '@simple/marketplace-header';
 import { PanelBottomNav, PanelShell, type PanelBottomNavItem } from '@simple/ui/panel';
 import { logoutAdmin, type AdminSessionUser } from '@/lib/api';
 
-const ADMIN_NAV = [
+const ADMIN_NAV_BASE = [
     { href: '/', label: 'Usuarios', icon: IconUsers },
     { href: '/conversaciones', label: 'Conversaciones', icon: IconMessageCircle },
 ];
@@ -46,6 +47,9 @@ export function AdminShell({ children, user }: { children: ReactNode; user: Admi
     const router = useRouter();
     const roleLabel = adminRoleLabel(user.role);
     const platformUrl = getPlatformUrl();
+    const adminNav = user.role === 'superadmin'
+        ? [...ADMIN_NAV_BASE, { href: '/planes', label: 'Planes', icon: IconCreditCard }]
+        : ADMIN_NAV_BASE;
 
     const handleLogout = async () => {
         await logoutAdmin();
@@ -53,7 +57,7 @@ export function AdminShell({ children, user }: { children: ReactNode; user: Admi
         router.refresh();
     };
 
-    const bottomNavItems: PanelBottomNavItem[] = ADMIN_NAV.map((item) => ({
+    const bottomNavItems: PanelBottomNavItem[] = adminNav.map((item) => ({
         href: item.href,
         label: item.label,
         icon: item.icon,
@@ -65,7 +69,7 @@ export function AdminShell({ children, user }: { children: ReactNode; user: Admi
             <MarketplaceHeader
                 brandAppId="simpleadmin"
                 publicLinks={[]}
-                getPanelNavItems={() => ADMIN_NAV}
+                getPanelNavItems={() => adminNav}
                 isPanelNavActive={isPanelNavActive}
                 fetchPanelNotifications={async () => []}
                 homeHref="/"
@@ -74,7 +78,7 @@ export function AdminShell({ children, user }: { children: ReactNode; user: Admi
             />
 
             <PanelShell
-                navItems={ADMIN_NAV}
+                navItems={adminNav}
                 user={{
                     name: user.name || 'Administrador',
                     role: roleLabel,

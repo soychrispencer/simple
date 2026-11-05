@@ -6,7 +6,7 @@ import {
     mercadoPagoDevCheckoutFallbackEnabled,
     resolveMercadoPagoPreferenceCheckoutUrl,
 } from '../mercadopago/checkout-helpers.js';
-import { getPaymentById, getPreapprovalById, updatePreapprovalRecurringAmount, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
+import { getPaymentById, getPreapprovalById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
 import { serenataPlanMonthlyChargeClp, defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import {
     catalogPaidPlans,
@@ -28,7 +28,6 @@ import {
     localizePaidPlansForBilling,
 } from '../billing/subscription-billing.js';
 import { isMarketplacePaidPromotionEnabled, isPlatformLaunchActive } from '@simple/utils';
-import { shouldUpgradeAgendaPromotion, AGENDA_INTRO_PROMOTION } from './promotion.js';
 
 export type PaymentsRouterDeps = {
     authUser: (c: any) => Promise<any | null>;
@@ -212,42 +211,43 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         planExpiresAt: dbSub.expiresAt?.getTime() ?? null,
                     };
                 } else if (profile) {
-                    if (profile.plan === 'pro') {
-                        const isExpired = profile.planExpiresAt && profile.planExpiresAt < new Date();
-                        if (!isExpired) {
-                            const matchedPlan = plans.find((p: any) => p.id === 'pro');
-                            currentSubscription = {
-                                id: `agenda-${profile.id}`,
-                                accountId: profile.accountId ?? null,
-                                vertical: 'agenda' as const,
-                                planId: 'pro',
-                                planName: matchedPlan?.name ?? 'Pro',
-                                priceMonthly: matchedPlan?.priceMonthly ?? 0,
-                                currency: 'CLP',
-                                features: matchedPlan?.features ?? [],
-                                status: 'active' as const,
-                                providerStatus: 'manual',
-                                startedAt: profile.createdAt.getTime(),
-                                updatedAt: profile.updatedAt.getTime(),
-                                planExpiresAt: profile.planExpiresAt ? profile.planExpiresAt.getTime() : null,
-                            };
-                        }
-                    } else if (profile.plan !== 'pro' && profile.planExpiresAt) {
+                    const hasActivePro = profile.plan === 'pro'
+                        && (!profile.planExpiresAt || profile.planExpiresAt >= new Date());
+                    if (hasActivePro) {
+                        const matchedPlan = plans.find((p: any) => p.id === 'pro');
+                        currentSubscription = {
+                            id: `agenda-${profile.id}`,
+                            accountId: profile.accountId ?? null,
+                            vertical: 'agenda' as const,
+                            planId: 'pro',
+                            planName: matchedPlan?.name ?? 'Pro',
+                            priceMonthly: matchedPlan?.priceMonthly ?? 0,
+                            currency: 'CLP',
+                            features: matchedPlan?.features ?? [],
+                            status: 'active' as const,
+                            providerStatus: 'manual',
+                            startedAt: profile.createdAt.getTime(),
+                            updatedAt: profile.updatedAt.getTime(),
+                            planExpiresAt: profile.planExpiresAt ? profile.planExpiresAt.getTime() : null,
+                        };
+                    } else {
                         const matchedPlan = plans.find((p: any) => p.id === 'free');
+                        const isTrial = profile.plan !== 'pro'
+                            && Boolean(profile.planExpiresAt && profile.planExpiresAt >= new Date());
                         currentSubscription = {
                             id: `agenda-${profile.id}`,
                             accountId: profile.accountId ?? null,
                             vertical: 'agenda' as const,
                             planId: 'free',
-                            planName: matchedPlan?.name ?? 'Prueba completa',
+                            planName: isTrial ? 'Prueba Pro' : matchedPlan?.name ?? 'Gratis',
                             priceMonthly: 0,
                             currency: 'CLP',
                             features: matchedPlan?.features ?? [],
-                            status: profile.planExpiresAt < new Date() ? 'expired' as const : 'active' as const,
-                            providerStatus: 'trial',
+                            status: 'active' as const,
+                            providerStatus: isTrial ? 'trial' : 'free',
                             startedAt: profile.createdAt.getTime(),
                             updatedAt: profile.updatedAt.getTime(),
-                            planExpiresAt: profile.planExpiresAt.getTime(),
+                            planExpiresAt: profile.planExpiresAt?.getTime() ?? null,
                         };
                     }
                 }
@@ -611,6 +611,9 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
 
             if (checkoutData.kind === 'boost') {
                 const vertical = checkoutData.vertical;
+                if (vertical === 'agenda') {
+                    return c.json({ ok: false, error: 'Los boosts de SimpleAgenda estarán disponibles más adelante.' }, 404);
+                }
                 const boostInput = checkoutData.boost;
                 const returnUrl = deps.resolveMercadoPagoReturnUrl(vertical, checkoutData.returnUrl);
                 const targetType = boostInput.targetType ?? deps.inferBoostTargetType?.(vertical) ?? 'listing';
@@ -1115,29 +1118,6 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             const providerStatus = String(providerPayload.status ?? '');
             if (providerStatus !== 'approved') {
                 return c.json({ ok: true });
-            }
-
-            const preapprovalId = String(providerPayload.preapproval_id ?? '');
-            if (preapprovalId) {
-                try {
-                    const preapproval = await getPreapprovalById(preapprovalId);
-                    const recurring = (preapproval.auto_recurring ?? {}) as Record<string, unknown>;
-                    const summary = (preapproval.summarized ?? {}) as Record<string, unknown>;
-                    if (shouldUpgradeAgendaPromotion({
-                        reason: preapproval.reason,
-                        chargedQuantity: summary.charged_quantity,
-                        currentAmount: recurring.transaction_amount,
-                    })) {
-                        await updatePreapprovalRecurringAmount({
-                            preapprovalId,
-                            amount: Math.round(AGENDA_INTRO_PROMOTION.regularNetMonthly * 1.19),
-                            currencyId: AGENDA_INTRO_PROMOTION.currency,
-                        });
-                    }
-                } catch (promotionError) {
-                    // The recurring payment is already approved; keep the webhook healthy and retry on the next event.
-                    console.error('[payments] No se pudo actualizar el precio promocional de SimpleAgenda:', promotionError);
-                }
             }
 
             const orderId = String(providerPayload.external_reference ?? '');

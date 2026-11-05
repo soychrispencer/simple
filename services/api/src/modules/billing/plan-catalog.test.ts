@@ -27,7 +27,7 @@ describe('plan-catalog', () => {
 
         expect(normalized).toMatchObject({
             planId: 'free',
-            planName: freePlan?.name ?? 'Prueba completa',
+            planName: freePlan?.name ?? 'Gratis',
         });
     });
 
