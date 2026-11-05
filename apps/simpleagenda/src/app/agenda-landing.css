@@ -77,6 +77,14 @@
     text-transform: uppercase;
 }
 
+.agenda-numeral {
+    font-family: var(--font-display, var(--font-sans));
+}
+
+.agenda-landing:has(#plan-comparison[open]) .agenda-mobile-cta {
+    display: none;
+}
+
 .agenda-panel {
     border: 1px solid var(--border);
     border-radius: var(--agenda-radius-panel);

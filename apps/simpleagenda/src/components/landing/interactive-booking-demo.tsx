@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconArrowRight, IconLink, IconRotateClockwise } from '@tabler/icons-react';
 import { BookingConfirmation } from './booking-confirmation';
 
@@ -50,11 +50,24 @@ const DEMO_TIMES: Record<string, string[]> = {
     '12': ['10:30', '15:00', '17:30'],
 };
 
-export function InteractiveBookingDemo({ onStartFree }: { onStartFree?: () => void }) {
+export function InteractiveBookingDemo({ actionLabel, onStartFree }: { actionLabel: string; onStartFree: () => void }) {
     const [selectedService, setSelectedService] = useState<ServiceOption>(DEMO_SERVICES[0]!);
     const [selectedDay, setSelectedDay] = useState(DEMO_DAYS[0]!);
     const [selectedTime, setSelectedTime] = useState(DEMO_TIMES['07']![1]!);
     const [isConfirmed, setIsConfirmed] = useState(false);
+    const confirmationRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const confirmation = confirmationRef.current;
+        if (!isConfirmed || !confirmation) return;
+
+        confirmation.focus({ preventScroll: true });
+        const bounds = confirmation.getBoundingClientRect();
+        const headerBottom = document.querySelector('.marketplace-header')?.getBoundingClientRect().bottom ?? 0;
+        if (bounds.top < headerBottom || bounds.bottom > window.innerHeight) {
+            confirmation.scrollIntoView({ block: 'start' });
+        }
+    }, [isConfirmed]);
 
     const availableTimes = DEMO_TIMES[selectedDay.dayNum] ?? ['10:00', '15:00'];
 
@@ -168,14 +181,14 @@ export function InteractiveBookingDemo({ onStartFree }: { onStartFree?: () => vo
                             </div>
                         ) : (
                             <div className="mt-5 space-y-4">
-                                <div role="status">
+                                <div ref={confirmationRef} role="status" tabIndex={-1} className="scroll-mt-24">
                                     <BookingConfirmation time={selectedTime} label={`${selectedDay.label} ${selectedDay.date} · ${selectedService.name}`} />
                                     <p className="mt-2 text-xs text-[var(--fg-muted)]">En la demo no se envían correos ni se realizan cobros.</p>
                                 </div>
                                 <div>
                                     <p className="mb-3 text-sm font-semibold">Así reservarán tus pacientes. Crea tu agenda y comparte tu propio link.</p>
-                                    <button type="button" className="agenda-button w-full" onClick={() => onStartFree ? onStartFree() : (window.location.hash = '#planes')}>
-                                        Regístrate gratis
+                                    <button type="button" className="agenda-button w-full" onClick={onStartFree}>
+                                        {actionLabel}
                                         <IconArrowRight size={16} aria-hidden="true" />
                                     </button>
                                     <button type="button" onClick={handleReset} className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--agenda-link)] underline underline-offset-4">

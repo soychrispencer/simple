@@ -29,9 +29,9 @@ export function Header() {
                     description: 'Agenda, clientes, pagos y recordatorios.',
                 },
                 {
-                    href: '/#como-funciona',
-                    label: 'Cómo empezar',
-                    description: 'Configura tu perfil en 3 pasos.',
+                    href: '/#demo-interactiva',
+                    label: 'Ver cómo se reserva',
+                    description: 'Prueba cómo eligen una hora tus pacientes.',
                 },
             ],
         },

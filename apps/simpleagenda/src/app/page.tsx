@@ -49,7 +49,7 @@ export default function HomePage() {
             </section>
 
             <div id="como-funciona" className="scroll-mt-20">
-                <InteractiveBookingDemo onStartFree={start} />
+                <InteractiveBookingDemo actionLabel={cta} onStartFree={start} />
             </div>
 
             <section id="funciones" className="scroll-mt-20 border-y border-[var(--border)] bg-[var(--bg-subtle)]">
@@ -118,7 +118,7 @@ export default function HomePage() {
                         <p><strong>Pro+ · Próximamente.</strong> WhatsApp y automatizaciones avanzadas.</p>
                         <p><strong>Empresa · Próximamente.</strong> Agendas para equipos, consultas y sucursales.</p>
                     </div>
-                    <details className="agenda-panel group mt-4 min-w-0 p-3 sm:p-4">
+                    <details id="plan-comparison" className="agenda-panel group mt-4 min-w-0 p-3 sm:p-4">
                         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-1 font-semibold marker:content-none">
                             Comparar todas las funciones
                             <IconChevronDown size={18} className="shrink-0 text-[var(--agenda-link)] group-open:rotate-180" aria-hidden="true" />
