@@ -24,12 +24,21 @@ import {
     IconBriefcase,
     IconChevronDown,
     IconStar,
-
+    IconBuilding,
+    IconBrandWhatsapp,
 } from '@tabler/icons-react';
-import { AGENDA_PLAN_CATALOG, formatAgendaProMonthlyPrice, isPlatformLaunchActive, resolveOperatorLandingCopy } from '@simple/utils';
+import {
+    AGENDA_PLAN_CATALOG,
+    AGENDA_PRICING,
+    formatAgendaProMonthlyPrice,
+    formatAgendaProAnnualMonthlyPrice,
+    isPlatformLaunchActive,
+    resolveOperatorLandingCopy,
+} from '@simple/utils';
 import { PublicAdCardRow } from '@simple/ui/public-advertising';
 import { AGENDA_CARD_AD_PLACEHOLDERS } from '@/lib/ad-placeholders';
 import { FeaturedProfessionalsSection } from '@/components/landing/featured-professionals-section';
+import { PlanComparisonTable } from '@/components/landing/plan-comparison-table';
 
 const BENEFIT_ICONS = [IconClockHour4, IconShieldCheck, IconHeartHandshake] as const;
 
@@ -115,6 +124,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 export default function HomePage() {
     const { isLoggedIn, openAuth } = useAuth();
     const router = useRouter();
+    const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
     const copy = resolveOperatorLandingCopy('agenda');
     const showPlans = !isPlatformLaunchActive('agenda');
     const trialBenefits = copy.benefits.map((item, index) => ({
@@ -489,89 +499,264 @@ export default function HomePage() {
                 <section id="planes" className="scroll-mt-20" style={{ background: 'var(--bg-subtle)' }}>
                     <div className="container-app section-marketing">
                         <div className="mx-auto mb-10 max-w-2xl text-center">
-                            <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>Planes simples</p>
+                            <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>
+                                Planes transparentes y sin letra chica
+                            </p>
                             <h2 className="mb-3 text-2xl font-bold sm:text-3xl lg:text-4xl" style={{ color: 'var(--fg)' }}>
-                                Empieza gratis, prueba Pro 30 días y después eliges.
+                                Empieza gratis, prueba Pro 30 días y después decides.
                             </h2>
                             <p style={{ color: 'var(--fg-muted)' }}>
-                                Al registrarte tienes Pro completo por 30 días, sin tarjeta. Al terminar, sigues en Gratis o activas Pro por {formatAgendaProMonthlyPrice()}. No hay cobro automático.
+                                Al registrarte tienes acceso completo a Pro por 30 días sin tarjeta. Al terminar, sigues en Gratis o activas Pro desde {formatAgendaProAnnualMonthlyPrice()}. No hay cobro automático.
                             </p>
-                        </div>
 
-                        <div className="mx-auto grid max-w-7xl gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                            {Object.values(AGENDA_PLAN_CATALOG).map((plan) => {
-                                const isPro = plan.id === 'pro';
-                                const isFree = plan.id === 'free';
-                                const isUpcoming = plan.availability === 'coming_soon';
-                                const price = plan.priceMonthlyNetClp === null
-                                    ? (plan.availability === 'contact' ? 'A cotizar' : 'Próximamente')
-                                    : plan.priceMonthlyNetClp === 0
-                                        ? '$0'
-                                        : `$${plan.priceMonthlyNetClp.toLocaleString('es-CL')}`;
-
-                                return (
-                                    <article
-                                        key={plan.id}
-                                        className={`flex flex-col rounded-2xl border p-5 sm:p-6 ${isPro ? 'shadow-lg' : ''}`}
-                                        style={{
-                                            borderColor: isPro ? 'var(--accent)' : 'var(--border)',
-                                            background: 'var(--surface)',
-                                        }}
+                            {/* Selector Facturación Mensual / Anual */}
+                            <div className="mt-8 inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setBillingPeriod('monthly')}
+                                    className={`rounded-full px-5 py-2 text-xs font-semibold transition-all ${
+                                        billingPeriod === 'monthly'
+                                            ? 'bg-[var(--accent)] text-white shadow-sm'
+                                            : 'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
+                                    }`}
+                                >
+                                    Facturación mensual
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setBillingPeriod('annual')}
+                                    className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold transition-all ${
+                                        billingPeriod === 'annual'
+                                            ? 'bg-[var(--accent)] text-white shadow-sm'
+                                            : 'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
+                                    }`}
+                                >
+                                    <span>Facturación anual</span>
+                                    <span
+                                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                            billingPeriod === 'annual'
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-[var(--accent-subtle)] text-[var(--accent)]'
+                                        }`}
                                     >
-                                        <div className="min-h-32">
-                                            <div className="flex min-h-6 items-center justify-between gap-2">
-                                                <p className="text-sm font-semibold" style={{ color: isPro ? 'var(--accent)' : 'var(--fg-muted)' }}>{plan.name}</p>
-                                                {isPro ? (
-                                                    <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ color: 'var(--accent)', background: 'var(--accent-subtle)' }}>Recomendado</span>
-                                                ) : null}
-                                                {isUpcoming ? (
-                                                    <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ color: 'var(--fg-secondary)', background: 'var(--bg-subtle)' }}>Próximamente</span>
-                                                ) : null}
-                                                {plan.availability === 'contact' ? (
-                                                    <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ color: 'var(--fg-secondary)', background: 'var(--bg-subtle)' }}>Para equipos</span>
-                                                ) : null}
-                                            </div>
-                                            <p className="mt-4 text-3xl font-bold" style={{ color: 'var(--fg)' }}>{price}</p>
-                                            <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                                {plan.priceMonthlyNetClp === null ? (plan.availability === 'contact' ? 'Plan adaptado al tamaño de tu organización' : 'Nuevas funciones avanzadas') : plan.priceMonthlyNetClp === 0 ? 'Gratis para siempre, también después de la prueba' : '+ IVA / mes · solo si lo activas'}
-                                            </p>
-                                            <p className="mt-3 text-xs leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>{plan.description}</p>
-                                        </div>
-
-                                        <ul className="my-6 grid gap-3 text-xs leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>
-                                            {plan.features.map((feature) => (
-                                                <li key={feature} className="flex gap-2">
-                                                    <IconCheck size={16} className="mt-0.5 shrink-0" style={{ color: isUpcoming || plan.availability === 'contact' ? 'var(--fg-muted)' : 'var(--accent)' }} />
-                                                    {feature}
-                                                </li>
-                                            ))}
-                                        </ul>
-
-                                        {isFree ? (
-                                            <PanelButton type="button" variant="secondary" className="mt-auto h-11" onClick={handleCTA}>
-                                                {isLoggedIn ? 'Ir a mi agenda' : 'Crear cuenta gratis'}
-                                            </PanelButton>
-                                        ) : isPro ? (
-                                            <PanelButton
-                                                type="button"
-                                                variant="accent"
-                                                className="mt-auto h-11"
-                                                onClick={() => isLoggedIn ? router.push('/panel/mi-cuenta/suscripcion') : openAuth('register')}
-                                            >
-                                                {isLoggedIn ? 'Ver plan Pro' : 'Crear cuenta gratis y probar Pro'}
-                                                <IconArrowRight size={16} />
-                                            </PanelButton>
-                                        ) : (
-                                            <p className="mt-auto rounded-xl border border-[var(--border)] px-3 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--fg-muted)' }}>
-                                                {plan.availability === 'contact' ? 'Próximamente · venta consultiva' : 'Próximamente'}
-                                            </p>
-                                        )}
-                                    </article>
-                                );
-                            })}
+                                        2 meses gratis (-20%)
+                                    </span>
+                                </button>
+                            </div>
                         </div>
-                        <p className="mt-6 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>
-                            Pro cuesta {formatAgendaProMonthlyPrice()}. Sin comisión por reserva ni permanencia. Pro+ y Empresa se habilitarán cuando estén listas sus funciones.
+
+                        {/* Parrilla Principal de 2 Planes: Gratis vs Pro */}
+                        <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2 items-stretch">
+                            {/* Plan Gratis */}
+                            <article
+                                className="flex flex-col rounded-2xl border p-6 sm:p-8 transition-shadow"
+                                style={{
+                                    borderColor: 'var(--border)',
+                                    background: 'var(--surface)',
+                                }}
+                            >
+                                <div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-sm font-semibold text-[var(--fg-muted)]">Gratis</p>
+                                        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-[var(--bg-subtle)] text-[var(--fg-secondary)]">
+                                            Para empezar
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-4 flex items-baseline gap-1.5">
+                                        <span className="text-4xl font-extrabold text-[var(--fg)] tracking-tight">$0</span>
+                                        <span className="text-xs text-[var(--fg-muted)]">/ para siempre</span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                                        Sin tarjeta requerida · sin cobros automáticos
+                                    </p>
+                                    <p className="mt-4 text-xs leading-relaxed text-[var(--fg-secondary)]">
+                                        {AGENDA_PLAN_CATALOG.free.description}
+                                    </p>
+
+                                    {/* Capacidad resumida */}
+                                    <div className="my-5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]/60 p-3.5 text-xs">
+                                        <p className="font-semibold text-[var(--fg)]">Capacidad mensual incluida:</p>
+                                        <ul className="mt-1.5 space-y-1 text-[var(--fg-secondary)]">
+                                            <li>• <strong>Hasta {AGENDA_PRICING.free.monthlyBookings} reservas</strong> nuevas al mes</li>
+                                            <li>• <strong>Hasta {AGENDA_PRICING.free.activeServices} servicios</strong> activos en tu perfil</li>
+                                            <li>• <strong>{AGENDA_PRICING.free.activeLocations} ubicación</strong> o consultorio</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <ul className="mb-6 grid gap-2.5 text-xs leading-relaxed text-[var(--fg-secondary)]">
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Perfil público y link de reservas online personalizado
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Agenda interactiva y fichas de clientes
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Confirmación automática por email
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Cobros por Mercado Pago o transferencia bancaria
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Sin comisión por reserva (0%)
+                                    </li>
+                                </ul>
+
+                                <PanelButton
+                                    type="button"
+                                    variant="secondary"
+                                    className="mt-auto h-12 w-full text-sm font-semibold"
+                                    onClick={handleCTA}
+                                >
+                                    {isLoggedIn ? 'Ir a mi agenda' : 'Crear cuenta gratis'}
+                                </PanelButton>
+                            </article>
+
+                            {/* Plan Pro (Destacado) */}
+                            <article
+                                className="relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 shadow-xl"
+                                style={{
+                                    borderColor: 'var(--accent)',
+                                    background: 'var(--surface)',
+                                }}
+                            >
+                                <div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-sm font-bold text-[var(--accent)]">Pro</p>
+                                        <span
+                                            className="rounded-full px-3 py-1 text-[11px] font-bold"
+                                            style={{ color: 'var(--accent)', background: 'var(--accent-subtle)' }}
+                                        >
+                                            Más popular · Recomendado
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-4 flex items-baseline gap-1.5">
+                                        <span className="text-4xl font-extrabold text-[var(--fg)] tracking-tight">
+                                            {billingPeriod === 'annual'
+                                                ? `$${AGENDA_PRICING.proAnnualMonthlyEquivalentNetClp.toLocaleString('es-CL')}`
+                                                : `$${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')}`}
+                                        </span>
+                                        <span className="text-xs text-[var(--fg-muted)]">+ IVA / mes</span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                                        {billingPeriod === 'annual'
+                                            ? `Facturado anualmente ($${AGENDA_PRICING.proAnnualTotalNetClp.toLocaleString('es-CL')} + IVA / año) · Ahorras 2 meses`
+                                            : 'Facturado mes a mes · cancela cuando quieras sin penalización'}
+                                    </p>
+                                    <p className="mt-4 text-xs leading-relaxed text-[var(--fg-secondary)]">
+                                        {AGENDA_PLAN_CATALOG.pro.description}
+                                    </p>
+
+                                    {/* Capacidad resumida */}
+                                    <div className="my-5 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-subtle)]/40 p-3.5 text-xs">
+                                        <p className="font-semibold text-[var(--fg)]">Capacidad profesional completa:</p>
+                                        <ul className="mt-1.5 space-y-1 text-[var(--fg-secondary)]">
+                                            <li>• <strong>Reservas ilimitadas</strong> sin límite mensual</li>
+                                            <li>• <strong>Servicios y sucursales ilimitados</strong></li>
+                                            <li>• <strong>Prueba Pro completa de 30 días</strong> incluida</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <ul className="mb-6 grid gap-2.5 text-xs leading-relaxed text-[var(--fg-secondary)]">
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        <span><strong>Todo lo incluido en Gratis</strong> sin restricciones de volumen</span>
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Recordatorios automáticos por email para reducir inasistencias
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Módulo de finanzas y control detallado de cobros
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Packs de sesiones, promociones y descuentos automáticos
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Estadísticas de rendimiento, encuestas NPS y referidos
+                                    </li>
+                                </ul>
+
+                                <PanelButton
+                                    type="button"
+                                    variant="accent"
+                                    className="mt-auto h-12 w-full text-sm font-semibold gap-2 shadow-md"
+                                    onClick={() => isLoggedIn ? router.push('/panel/mi-cuenta/suscripcion') : openAuth('register')}
+                                >
+                                    {isLoggedIn ? 'Ver plan Pro' : 'Crear cuenta gratis y probar Pro'}
+                                    <IconArrowRight size={16} />
+                                </PanelButton>
+                            </article>
+                        </div>
+
+                        {/* Tabla Comparativa de Características */}
+                        <PlanComparisonTable />
+
+                        {/* Bloque Secundario: Empresa / Centros & Pro+ Preview */}
+                        <div className="mx-auto mt-10 max-w-4xl grid gap-4 sm:grid-cols-3">
+                            <div
+                                className="sm:col-span-2 flex flex-col justify-between rounded-2xl border p-5 sm:p-6"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                            >
+                                <div className="flex items-start gap-4">
+                                    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-subtle)] text-[var(--accent)]">
+                                        <IconBuilding size={22} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="text-sm font-bold text-[var(--fg)]">¿Múltiples profesionales o consultas?</h3>
+                                            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-[var(--bg-subtle)] text-[var(--fg-secondary)]">
+                                                Plan Empresa
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-[var(--fg-muted)] leading-relaxed">
+                                            Centraliza agendas, recepcionistas, múltiples sucursales y reportes consolidados para tu clínica, salón o centro.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="mt-4 flex sm:justify-end">
+                                    <a
+                                        href="mailto:contacto@simpleagenda.app?subject=Consulta%20Plan%20Empresa%20/%20Cl%C3%ADnicas"
+                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)] hover:underline"
+                                    >
+                                        Cotizar para equipos y consultorios
+                                        <IconArrowRight size={14} />
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div
+                                className="flex flex-col justify-between rounded-2xl border p-5 sm:p-6"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                            >
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <IconBrandWhatsapp size={18} className="text-[#25D366]" />
+                                        <h3 className="text-sm font-bold text-[var(--fg)]">Próximamente Pro+</h3>
+                                    </div>
+                                    <p className="mt-1.5 text-xs text-[var(--fg-muted)] leading-relaxed">
+                                        Confirmaciones, recordatorios y seguimiento de clientes automático por WhatsApp.
+                                    </p>
+                                </div>
+                                <span className="mt-4 inline-block text-[11px] font-semibold text-[var(--fg-secondary)]">
+                                    En desarrollo activo
+                                </span>
+                            </div>
+                        </div>
+
+                        <p className="mt-8 text-center text-xs text-[var(--fg-muted)]">
+                            Pro cuesta {formatAgendaProMonthlyPrice()} (o {formatAgendaProAnnualMonthlyPrice()} pagando anual). Sin permanencia mínima ni comisión por cita.
                         </p>
                     </div>
                 </section>

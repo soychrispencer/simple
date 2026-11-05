@@ -1,8 +1,11 @@
 export const AGENDA_PRICING = {
     trialDays: 30,
     proMonthlyNetClp: 9_990,
+    proAnnualMonthlyEquivalentNetClp: 7_990,
+    proAnnualTotalNetClp: 95_880,
+    proAnnualDiscountPct: 20,
     free: {
-        monthlyBookings: 20,
+        monthlyBookings: 30,
         activeServices: 3,
         activeLocations: 1,
     },
@@ -72,4 +75,12 @@ export const AGENDA_PLAN_CATALOG = {
 
 export function formatAgendaProMonthlyPrice(): string {
     return `$${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA / mes`;
+}
+
+export function formatAgendaProAnnualMonthlyPrice(): string {
+    return `$${AGENDA_PRICING.proAnnualMonthlyEquivalentNetClp.toLocaleString('es-CL')} + IVA / mes`;
+}
+
+export function formatAgendaProAnnualTotalPrice(): string {
+    return `$${AGENDA_PRICING.proAnnualTotalNetClp.toLocaleString('es-CL')} + IVA / año`;
 }
