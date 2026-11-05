@@ -182,29 +182,29 @@ export default function HomePage() {
                         <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
                             
                             {/* Chilean active badge */}
-                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold mb-6 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)] animate-fade-in shadow-xs">
+                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold mb-5 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)] animate-fade-in shadow-xs">
                                 <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent)]"></span>
                                 </span>
-                                <span>En vivo: Profesionales atendiendo hoy en Chile</span>
+                                <span>Agenda online para profesionales en Chile</span>
                             </div>
 
-                            {/* Main Headline tackling the WhatsApp chaos */}
+                            {/* Main Headline: Punchy, clean, 2 lines */}
                             <h1
-                                className="text-3xl sm:text-5xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.12] mb-6 animate-slide-up"
-                                style={{ color: 'var(--fg)', letterSpacing: '-0.03em' }}
+                                className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] mb-5 animate-slide-up"
+                                style={{ color: 'var(--fg)', letterSpacing: '-0.025em' }}
                             >
-                                Deja el caos de coordinar horas por WhatsApp.{' '}
-                                <span style={{ color: 'var(--accent)' }}>Tu agenda profesional online 24/7.</span>
+                                Tu agenda profesional,{' '}
+                                <span style={{ color: 'var(--accent)' }}>sin el caos de WhatsApp.</span>
                             </h1>
 
-                            {/* Subtitle */}
+                            {/* Subtitle: Crisp and readable */}
                             <p
-                                className="text-base sm:text-lg leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0 animate-slide-up"
+                                className="text-base sm:text-lg leading-relaxed mb-8 max-w-lg mx-auto lg:mx-0 animate-slide-up"
                                 style={{ color: 'var(--fg-secondary)', animationDelay: '80ms' }}
                             >
-                                Comparte tu propio link. Tus pacientes y clientes eligen servicio, fecha y hora según tu disponibilidad real, con confirmación inmediata, recordatorios automáticos y cobros integrados.
+                                Comparte tu link de reservas. Tus clientes eligen día y hora en 30 segundos según tu disponibilidad real, con confirmación y recordatorios automáticos.
                             </p>
 
                             {/* CTAs */}
@@ -335,23 +335,6 @@ export default function HomePage() {
                                         </div>
                                     </div>
 
-                                </div>
-                            </div>
-
-                            {/* Floating WhatsApp comparison card in corner */}
-                            <div
-                                className="hidden sm:flex absolute -bottom-6 -left-6 items-center gap-3 p-3.5 rounded-2xl border shadow-xl backdrop-blur-md"
-                                style={{
-                                    borderColor: 'var(--border)',
-                                    background: 'color-mix(in oklab, var(--surface) 95%, transparent)',
-                                }}
-                            >
-                                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0">
-                                    <IconBrandWhatsapp size={22} />
-                                </div>
-                                <div className="text-xs pr-2">
-                                    <p className="font-bold text-[var(--fg)]">Cero horas perdidas</p>
-                                    <p className="text-[var(--fg-muted)]">Tus clientes se agendan solos 24/7</p>
                                 </div>
                             </div>
 
