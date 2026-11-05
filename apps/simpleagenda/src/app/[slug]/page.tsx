@@ -44,33 +44,54 @@ export async function generateMetadata({
     const { slug } = await params;
     const result = await getProfessionalProfile(slug);
     if (result.status === 'not_published') {
-        return { title: 'Perfil en configuración' };
+        return { title: 'Perfil en configuración | SimpleAgenda' };
     }
     if (result.status === 'not_found') {
-        return { title: 'Perfil no encontrado' };
+        return { title: 'Perfil no encontrado | SimpleAgenda' };
     }
 
     const { profile } = result;
-    const title = profile.headline
-        ? `${profile.displayName} — ${profile.headline}`
-        : profile.profession
-            ? `${profile.displayName} — ${profile.profession}`
-            : profile.displayName;
+    const professionOrHeadline = profile.profession || profile.headline || 'Atención profesional';
+    const locationCity = profile.city ? ` en ${profile.city}` : '';
+    const ogTitle = `${profile.displayName} · Reserva tu hora online`;
+    const seoTitle = `${profile.displayName} — ${professionOrHeadline}${locationCity} | SimpleAgenda`;
 
     const description = profile.bio?.slice(0, 160)
-        ?? `Reserva cita con ${profile.displayName}. Agenda online con SimpleAgenda.`;
+        ?? `Reserva tu cita online con ${profile.displayName} (${professionOrHeadline}${locationCity}). Elige fecha y hora según disponibilidad en tiempo real.`;
+
+    const rawImage = profile.coverUrl || profile.avatarUrl;
+    const absoluteImage = rawImage
+        ? rawImage.startsWith('http://') || rawImage.startsWith('https://')
+            ? rawImage
+            : `${APP_URL}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`
+        : `${APP_URL}/hero/consultation-hero.webp`;
 
     return {
-        title,
+        title: seoTitle,
         description,
+        alternates: {
+            canonical: `${APP_URL}/${slug}`,
+        },
         openGraph: {
-            title,
+            title: ogTitle,
             description,
-            type: 'profile',
+            type: 'website',
+            siteName: 'SimpleAgenda',
             url: `${APP_URL}/${slug}`,
-            images: profile.coverUrl || profile.avatarUrl
-                ? [{ url: profile.coverUrl ?? profile.avatarUrl ?? '', width: 1200, height: 630, alt: profile.displayName }]
-                : undefined,
+            images: [
+                {
+                    url: absoluteImage,
+                    width: 1200,
+                    height: 630,
+                    alt: profile.displayName,
+                },
+            ],
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: ogTitle,
+            description,
+            images: [absoluteImage],
         },
     };
 }

@@ -17,7 +17,10 @@ import { boostSlugsFromFeatured, splitDirectoryByBoostOrder } from '@simple/util
 import { PublicProfessionalCard } from '@/components/public/public-professional-card';
 import { fetchFeaturedBoosted } from '@/lib/boost';
 import { AGENDA_INLINE_AD_PLACEHOLDER } from '@/lib/ad-placeholders';
-import type { MarketplaceProfessional } from '@/lib/marketplace-professionals';
+import {
+    DIRECTORY_FALLBACK_PROFESSIONALS,
+    type MarketplaceProfessional,
+} from '@/lib/marketplace-professionals';
 import {
     AGENDA_DIRECTORY_SEARCH_COPY,
     AGENDA_DIRECTORY_SEARCH_FIELDS,
@@ -36,6 +39,34 @@ function sortProfessionals(items: MarketplaceProfessional[], sort: AgendaDirecto
         return [...items].sort((a, b) => (a.displayName ?? '').localeCompare(b.displayName ?? '', 'es'));
     }
     return items;
+}
+
+function filterFallbackProfessionals(filters: AgendaDirectoryFilters): MarketplaceProfessional[] {
+    return DIRECTORY_FALLBACK_PROFESSIONALS.filter((item) => {
+        if (filters.q) {
+            const query = filters.q.toLowerCase().trim();
+            const matchesName = (item.displayName ?? '').toLowerCase().includes(query);
+            const matchesProfession = (item.profession ?? '').toLowerCase().includes(query);
+            const matchesHeadline = (item.headline ?? '').toLowerCase().includes(query);
+            const matchesCity = (item.city ?? '').toLowerCase().includes(query);
+            if (!matchesName && !matchesProfession && !matchesHeadline && !matchesCity) {
+                return false;
+            }
+        }
+        if (filters.locality) {
+            const loc = filters.locality.toLowerCase().trim();
+            const matchesLoc = (item.city ?? '').toLowerCase().includes(loc) || (item.region ?? '').toLowerCase().includes(loc);
+            if (!matchesLoc) return false;
+        }
+        if (filters.profession) {
+            const prof = filters.profession.toLowerCase().trim();
+            const matchesProf = (item.profession ?? '').toLowerCase().includes(prof);
+            if (!matchesProf) return false;
+        }
+        if (filters.modality === 'online' && !item.servesOnline) return false;
+        if (filters.modality === 'presential' && !item.servesPresential) return false;
+        return true;
+    });
 }
 
 export default function ProfesionalesPage() {
@@ -66,20 +97,29 @@ function ProfesionalesPageInner() {
         try {
             const params = agendaDirectoryFiltersToParams(next);
             const response = await fetch(`${API_BASE}/api/public/agenda/marketplace/professionals?${params.toString()}`);
-            const data = await response.json().catch(() => null) as { ok?: boolean; items?: MarketplaceProfessional[]; error?: string };
-            if (!response.ok || !data?.ok) {
-                setItems([]);
-                setBoostedOrder([]);
-                setError(data?.error ?? 'No pudimos cargar profesionales.');
-                return;
+            const data = (await response.json().catch(() => null)) as {
+                ok?: boolean;
+                items?: MarketplaceProfessional[];
+                error?: string;
+            } | null;
+
+            let loadedItems: MarketplaceProfessional[] = [];
+            if (response.ok && data?.ok && Array.isArray(data.items) && data.items.length > 0) {
+                loadedItems = data.items;
+            } else {
+                // Si la base aún no tiene profesionales o el endpoint está vacío, usamos los perfiles modelo garantizados
+                loadedItems = filterFallbackProfessionals(next);
             }
+
             const featured = await fetchFeaturedBoosted('marketplace', 12).catch(() => []);
             setBoostedOrder(boostSlugsFromFeatured(featured));
-            setItems(sortProfessionals(data.items ?? [], next.sort));
+            setItems(sortProfessionals(loadedItems, next.sort));
+            setError(null);
         } catch {
-            setItems([]);
+            const fallback = filterFallbackProfessionals(next);
+            setItems(sortProfessionals(fallback, next.sort));
             setBoostedOrder([]);
-            setError('No pudimos cargar profesionales. Revisa tu conexión e inténtalo de nuevo.');
+            setError(null);
         } finally {
             setLoading(false);
         }

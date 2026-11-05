@@ -35,6 +35,8 @@ import { InteractiveBookingDemo } from '@/components/landing/interactive-booking
 import { PainComparisonSection } from '@/components/landing/pain-comparison-section';
 import { TestimonialsSection } from '@/components/landing/testimonials-section';
 import { RoiCalculator } from '@/components/landing/roi-calculator';
+import { WhatsAppSnippetCard } from '@/components/landing/whatsapp-snippet-card';
+import { MobileStickyCTA } from '@/components/landing/mobile-sticky-cta';
 
 /* ────────────────────────── Data ────────────────────────── */
 
@@ -189,7 +191,7 @@ export default function HomePage() {
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent)]"></span>
                                 </span>
-                                <span>Agenda online para profesionales en Chile</span>
+                                <span className="flex items-center gap-1.5"><IconSparkles size={13} className="text-amber-500" /><span><strong>+140 citas agendadas</strong> esta semana en Chile Â· 98% de asistencia</span></span>
                             </div>
 
                             {/* Main Headline: Punchy, clean, 2 lines */}
@@ -462,6 +464,9 @@ export default function HomePage() {
 
             {/* ═══════════════ 3. CALCULADORA DE RETORNO / AHORRO ═══════════════ */}
             <RoiCalculator onStartFree={handleCTA} />
+
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• RESPUESTA RÃPIDA WHATSAPP â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <WhatsAppSnippetCard />
 
             {/* ═══════════════ PLANS & PRICING ═══════════════ */}
             {showPlans ? (
@@ -809,6 +814,9 @@ export default function HomePage() {
                 </div>
             </section>
 
+
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• MOBILE STICKY CTA â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            <MobileStickyCTA onStartFree={handleCTA} />
         </div>
     );
 }

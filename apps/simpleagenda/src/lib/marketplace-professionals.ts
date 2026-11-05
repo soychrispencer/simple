@@ -13,6 +13,45 @@ export type MarketplaceProfessional = {
     servesPresential: boolean;
 };
 
+export const DIRECTORY_FALLBACK_PROFESSIONALS: MarketplaceProfessional[] = [
+    {
+        slug: 'dra-valentina',
+        displayName: 'Dra. Valentina Muñoz',
+        profession: 'Psicóloga Clínica & Terapeuta',
+        headline: 'Atención psicológica individual y terapia de adultos en Providencia y teleconsulta online.',
+        avatarUrl: '/hero/doctor-profile.jpg',
+        city: 'Providencia',
+        region: 'RM',
+        countryCode: 'CL',
+        servesOnline: true,
+        servesPresential: true,
+    },
+    {
+        slug: 'esteban-carrasco',
+        displayName: 'Esteban Carrasco',
+        profession: 'Barbero Profesional & Estilista',
+        headline: 'Cortes clásicos, perfilado de barba y asesoría de imagen masculina en Viña del Mar.',
+        avatarUrl: '/hero/barber-profile.jpg',
+        city: 'Viña del Mar',
+        region: 'Valparaíso',
+        countryCode: 'CL',
+        servesOnline: false,
+        servesPresential: true,
+    },
+    {
+        slug: 'camila-silva',
+        displayName: 'Camila Silva',
+        profession: 'Nutricionista Deportiva & Clínica',
+        headline: 'Planes nutricionales personalizados, composición corporal y optimización de rendimiento.',
+        avatarUrl: '/hero/nutrition-profile.jpg',
+        city: 'Las Condes',
+        region: 'RM',
+        countryCode: 'CL',
+        servesOnline: true,
+        servesPresential: true,
+    },
+];
+
 type MarketplaceProfessionalsResponse = {
     ok?: boolean;
     items?: MarketplaceProfessional[];
