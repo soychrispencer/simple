@@ -6,6 +6,7 @@
 @source "../../../../packages/auth/src";
 @source "../../../../packages/marketplace-header/src";
 @import "../../../../packages/ui/src/theme-base.css";
+@import "./agenda-landing.css";
 
 /*
  * .field-input â€” alias de .form-input (theme-base) para panel y reservas pÃºblicas.

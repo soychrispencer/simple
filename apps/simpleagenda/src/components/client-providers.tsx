@@ -15,7 +15,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
     return (
         <AuthProvider appId="simpleagenda">
             {showSiteChrome ? (
-                <div className="flex flex-col min-h-screen">
+                <div className={`flex min-h-screen flex-col${pathname === '/' ? ' agenda-landing' : ''}`}>
                     <Header />
                     <main className="flex-1">{children}</main>
                     <Footer />

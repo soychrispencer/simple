@@ -1,18 +1,8 @@
 'use client';
 
-import { BookingConfirmation } from './booking-confirmation';
-
 import { useState } from 'react';
-import {
-    IconCalendar,
-    IconClockHour4,
-    IconSparkles,
-    IconArrowRight,
-    IconRotateClockwise,
-    IconShieldCheck,
-} from '@tabler/icons-react';
-import { PanelButton } from '@simple/ui/panel';
-import { SectionHeader } from './section-header';
+import { IconArrowRight, IconLink, IconRotateClockwise } from '@tabler/icons-react';
+import { BookingConfirmation } from './booking-confirmation';
 
 type ServiceOption = {
     id: string;
@@ -84,219 +74,113 @@ export function InteractiveBookingDemo({ onStartFree }: { onStartFree?: () => vo
     };
 
     return (
-        <section id="demo-interactiva" className="scroll-mt-20 py-14 sm:py-20 border-b border-[var(--border)]" style={{ background: 'var(--bg)' }}>
-            <div className="container-app">
-                <SectionHeader
-                    badgeIcon={<IconSparkles size={14} />}
-                    badgeLabel="Demostración interactiva"
-                    title="Pruébalo exactamente como lo verá tu paciente"
-                    subtitle="Tus clientes no tienen que descargar ninguna aplicación ni crearse una cuenta. Hacen clic en tu link, eligen su hora en 30 segundos y la cita queda confirmada."
-                />
+        <section id="demo-interactiva" className="scroll-mt-20 bg-[var(--bg)]">
+            <div className="container-app grid items-start gap-5 py-10 sm:gap-8 sm:py-16 lg:grid-cols-[minmax(15rem,0.72fr)_minmax(0,1.6fr)] lg:gap-10 lg:py-20">
+                <div className="max-w-md">
+                    <p className="agenda-eyebrow mb-3">Demo de reserva</p>
+                    <h2 className="agenda-heading">Así reservan tus pacientes</h2>
+                    <p className="mt-3 text-base leading-relaxed text-[var(--fg-secondary)]">
+                        Elige una hora y confirma. Tus pacientes reservan desde tu link sin crear una cuenta.
+                    </p>
+                </div>
 
-                <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-lg">
-                    {/* Fake Browser / Link Bar */}
-                    <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-3 sm:px-6">
-                        <div className="flex gap-1.5">
-                            <span className="size-3 rounded-full bg-red-400/80" />
-                            <span className="size-3 rounded-full bg-amber-400/80" />
-                            <span className="size-3 rounded-full bg-emerald-400/80" />
-                        </div>
-                        <div className="flex flex-1 items-center justify-center">
-                            <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--fg-muted)] shadow-xs">
-                                <IconShieldCheck size={14} className="text-emerald-500" />
-                                <span className="font-mono text-[11px] sm:text-xs">
-                                    simpleagenda.app/<strong className="text-[var(--accent)]">dra-valentina</strong>
-                                </span>
-                            </div>
-                        </div>
-                        <div className="hidden text-xs font-medium text-[var(--fg-muted)] sm:block">
-                            Simulación en vivo
-                        </div>
+                <div className="agenda-panel min-w-0 overflow-hidden shadow-[var(--agenda-shadow)]">
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-2.5 text-xs sm:px-6">
+                        <span className="inline-flex min-w-0 items-center gap-2 font-semibold text-[var(--agenda-link)]">
+                            <IconLink className="shrink-0" size={15} aria-hidden="true" />
+                            <span className="break-all">simpleagenda.app/dra-valentina</span>
+                        </span>
+                        <span className="font-medium text-[var(--fg-muted)]">Perfil de ejemplo</span>
                     </div>
 
-                    {/* Content inside the mock booking profile */}
-                    <div className="p-5 sm:p-8 lg:p-10">
-                        {/* Profile Header */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[var(--border)]">
-                            <div className="flex items-center gap-3.5">
-                                <div className="size-14 sm:size-16 rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,#047857_100%)] text-white font-bold flex items-center justify-center text-xl shadow-md shrink-0">
-                                    VM
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-base sm:text-lg font-bold text-[var(--fg)]">
-                                            Dra. Valentina Muñoz
-                                        </h3>
-                                        <span className="rounded-full bg-emerald-500/10 text-emerald-600 px-2 py-0.5 text-[10px] font-bold">
-                                            Verificada ✓
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-[var(--fg-muted)]">
-                                        Psicóloga Clínica · Providencia, Santiago · Atención Online y Presencial
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold bg-emerald-500/10 px-3 py-1.5 rounded-full self-start sm:self-auto">
-                                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                                Horas disponibles hoy
+                    <div className="p-4 sm:p-6">
+                        <div className="flex items-center gap-3 border-b border-[var(--border)] pb-4">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-[var(--agenda-radius-control)] bg-[var(--agenda-tint)] text-sm font-bold text-[var(--agenda-link)]" aria-hidden="true">VM</div>
+                            <div>
+                                <h3 className="text-lg font-bold">Dra. Valentina Muñoz</h3>
+                                <p className="text-xs text-[var(--fg-secondary)]">Psicología clínica · Online y presencial</p>
                             </div>
                         </div>
 
                         {!isConfirmed ? (
-                            <div className="mt-8 grid gap-8 lg:grid-cols-12">
-                                {/* Left column: Select Service */}
-                                <div className="lg:col-span-6 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-[var(--fg-secondary)]">
-                                            1. Selecciona un servicio
-                                        </p>
-                                        <span className="text-xs text-[var(--fg-muted)]">
-                                            {DEMO_SERVICES.length} opciones
-                                        </span>
-                                    </div>
-
-                                    <div className="space-y-2.5">
-                                        {DEMO_SERVICES.map((service) => {
-                                            const isSelected = selectedService.id === service.id;
-                                            return (
-                                                <button
-                                                    key={service.id}
-                                                    type="button"
-                                                    onClick={() => setSelectedService(service)}
-                                                    className={`w-full flex items-center justify-between p-3.5 sm:p-4 rounded-xl border text-left transition-all ${
-                                                        isSelected
-                                                            ? 'border-[var(--accent)] bg-[var(--accent-subtle)]/40 shadow-xs ring-1 ring-[var(--accent)]'
-                                                            : 'border-[var(--border)] hover:border-[var(--accent-border)] bg-[var(--surface)]'
-                                                    }`}
-                                                >
-                                                    <div className="min-w-0 pr-3">
-                                                        <p className="text-sm font-semibold text-[var(--fg)] truncate">
-                                                            {service.name}
-                                                        </p>
-                                                        <p className="text-xs text-[var(--fg-muted)] mt-0.5 flex items-center gap-2">
-                                                            <span>{service.duration}</span>
-                                                            <span>•</span>
-                                                            <span>{service.category}</span>
-                                                        </p>
-                                                    </div>
-                                                    <div className="text-right shrink-0">
-                                                        <span className="text-sm font-bold text-[var(--accent)]">
-                                                            {service.price}
-                                                        </span>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                            <div className="mt-5 space-y-4">
+                                <div>
+                                    <label htmlFor="demo-servicio" className="mb-2 block text-sm font-semibold">Servicio</label>
+                                    <select
+                                        id="demo-servicio"
+                                        value={selectedService.id}
+                                        onChange={(event) => {
+                                            const service = DEMO_SERVICES.find((option) => option.id === event.target.value);
+                                            if (service) setSelectedService(service);
+                                        }}
+                                        className="min-h-11 w-full rounded-[var(--agenda-radius-control)] border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)]"
+                                    >
+                                        {DEMO_SERVICES.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
+                                    </select>
+                                    <p className="mt-1.5 text-xs text-[var(--fg-secondary)]">
+                                        {selectedService.duration} · {selectedService.category} · {selectedService.price}
+                                    </p>
                                 </div>
 
-                                {/* Right column: Date and Time selection */}
-                                <div className="lg:col-span-6 space-y-6">
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-wider text-[var(--fg-secondary)] mb-3">
-                                            2. Selecciona día
-                                        </p>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {DEMO_DAYS.map((day) => {
-                                                const isSelected = selectedDay.dayNum === day.dayNum;
-                                                return (
-                                                    <button
-                                                        key={day.dayNum}
-                                                        type="button"
-                                                        onClick={() => handleSelectDay(day)}
-                                                        className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border text-center transition-all ${
-                                                            isSelected
-                                                                ? 'border-[var(--accent)] bg-[var(--accent)] text-white shadow-sm'
-                                                                : 'border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--fg)] hover:border-[var(--accent-border)]'
-                                                        }`}
-                                                    >
-                                                        <span className="text-[10px] uppercase font-semibold opacity-80">
-                                                            {day.label}
-                                                        </span>
-                                                        <span className="text-sm font-bold mt-0.5">
-                                                            {day.date}
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
+                                <fieldset className="min-w-0">
+                                    <legend className="mb-2 text-sm font-semibold">Elige un día</legend>
+                                    <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+                                        {DEMO_DAYS.map((day) => (
+                                            <button
+                                                key={day.dayNum}
+                                                type="button"
+                                                aria-label={`${day.label} ${day.date}`}
+                                                aria-pressed={selectedDay.dayNum === day.dayNum}
+                                                onClick={() => handleSelectDay(day)}
+                                                className="agenda-choice flex min-w-0 flex-col items-center justify-center px-1 py-1.5"
+                                            >
+                                                <span className="text-[0.625rem] font-semibold uppercase sm:text-[0.6875rem]">{day.label.slice(0, 3)}</span>
+                                                <span className="text-xs font-bold sm:text-sm">{day.date}</span>
+                                            </button>
+                                        ))}
                                     </div>
+                                </fieldset>
 
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-wider text-[var(--fg-secondary)] mb-3">
-                                            3. Selecciona horario disponible
-                                        </p>
-                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                            {availableTimes.map((time) => {
-                                                const isSelected = selectedTime === time;
-                                                return (
-                                                    <button
-                                                        key={time}
-                                                        type="button"
-                                                        onClick={() => setSelectedTime(time)}
-                                                        className={`flex items-center justify-center py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
-                                                            isSelected
-                                                                ? 'border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--accent)] ring-1 ring-[var(--accent)] font-bold'
-                                                                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--fg-secondary)] hover:border-[var(--accent-border)]'
-                                                        }`}
-                                                    >
-                                                        <IconClockHour4 size={13} className="mr-1.5 opacity-70" />
-                                                        {time}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
+                                <fieldset className="min-w-0">
+                                    <legend className="mb-2 text-sm font-semibold">Elige una hora</legend>
+                                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 sm:gap-2">
+                                        {availableTimes.map((time) => (
+                                            <button
+                                                key={time}
+                                                type="button"
+                                                aria-pressed={selectedTime === time}
+                                                onClick={() => setSelectedTime(time)}
+                                                className="agenda-choice px-2 text-sm font-semibold tabular-nums"
+                                            >
+                                                {time}
+                                            </button>
+                                        ))}
                                     </div>
+                                </fieldset>
 
-                                    {/* Action button */}
-                                    <div className="pt-2">
-                                        <PanelButton
-                                            type="button"
-                                            variant="accent"
-                                            className="w-full h-12 text-sm font-semibold shadow-md gap-2"
-                                            onClick={handleConfirm}
-                                        >
-                                            Confirmar cita de prueba ({selectedService.price})
-                                            <IconArrowRight size={16} />
-                                        </PanelButton>
-                                        <p className="text-[11px] text-center text-[var(--fg-muted)] mt-2">
-                                            * Esta es una simulación libre. No se realizará ningún cobro ni registro.
-                                        </p>
-                                    </div>
+                                <div>
+                                    <button type="button" className="agenda-button w-full" onClick={handleConfirm}>
+                                        Confirmar reserva de prueba
+                                        <IconArrowRight size={16} className="shrink-0" aria-hidden="true" />
+                                    </button>
+                                    <p className="mt-2 text-center text-xs text-[var(--fg-muted)]">Simulación sin cobro ni registro.</p>
                                 </div>
                             </div>
                         ) : (
-                            /* Instant confirmation screen */
-                            <div className="mt-8 py-8 px-4 text-center max-w-lg mx-auto animate-scale-in">
+                            <div className="mt-5 space-y-4">
                                 <div role="status">
                                     <BookingConfirmation time={selectedTime} label={`${selectedDay.label} ${selectedDay.date} · ${selectedService.name}`} />
+                                    <p className="mt-2 text-xs text-[var(--fg-muted)]">En la demo no se envían correos ni se realizan cobros.</p>
                                 </div>
-                                <p className="mt-3 text-sm text-[var(--fg-muted)]">
-                                    En esta demo no se envían correos ni se realizan cobros.
-                                </p>
-
-
-                                <div className="mt-6 space-y-3">
-                                    <p className="text-sm font-semibold text-[var(--fg)]">
-                                        Así reservarán tus pacientes. Crea tu agenda y comparte tu propio link.
-                                    </p>
-                                    <PanelButton
-                                        type="button"
-                                        variant="accent"
-                                        className="w-full h-12 text-sm font-semibold shadow-md gap-2"
-                                        onClick={() => onStartFree ? onStartFree() : (window.location.hash = '#planes')}
-                                    >
+                                <div>
+                                    <p className="mb-3 text-sm font-semibold">Así reservarán tus pacientes. Crea tu agenda y comparte tu propio link.</p>
+                                    <button type="button" className="agenda-button w-full" onClick={() => onStartFree ? onStartFree() : (window.location.hash = '#planes')}>
                                         Regístrate gratis
-                                        <IconArrowRight size={16} />
-                                    </PanelButton>
-
-                                    <button
-                                        type="button"
-                                        onClick={handleReset}
-                                        className="inline-flex items-center gap-1.5 text-xs text-[var(--fg-muted)] hover:text-[var(--fg)] underline"
-                                    >
-                                        <IconRotateClockwise size={13} />
-                                        Probar otra fecha o servicio
+                                        <IconArrowRight size={16} aria-hidden="true" />
+                                    </button>
+                                    <button type="button" onClick={handleReset} className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--agenda-link)] underline underline-offset-4">
+                                        <IconRotateClockwise size={16} aria-hidden="true" />
+                                        Probar otra hora
                                     </button>
                                 </div>
                             </div>

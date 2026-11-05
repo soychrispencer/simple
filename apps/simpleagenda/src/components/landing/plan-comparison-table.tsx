@@ -1,7 +1,4 @@
-'use client';
-
-import { useState } from 'react';
-import { IconCheck, IconMinus, IconChevronDown } from '@tabler/icons-react';
+import { IconCheck, IconMinus } from '@tabler/icons-react';
 import { AGENDA_PRICING } from '@simple/utils';
 
 type FeatureValue = boolean | string;
@@ -200,7 +197,7 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
 function RenderValue({ value }: { value: FeatureValue }) {
     if (typeof value === 'boolean') {
         return value ? (
-            <span className="inline-flex items-center justify-center size-6 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)]" aria-label="Incluido">
+            <span className="inline-flex items-center justify-center size-6 rounded-full bg-[var(--accent-subtle)] text-[var(--agenda-link)]" aria-label="Incluido">
                 <IconCheck size={16} stroke={2.5} />
             </span>
         ) : (
@@ -217,7 +214,7 @@ function RenderValue({ value }: { value: FeatureValue }) {
         <span
             className={`text-xs font-medium ${
                 isHighlight
-                    ? 'text-[var(--accent)] font-semibold'
+                    ? 'text-[var(--agenda-link)] font-semibold'
                     : isSubtle
                         ? 'text-[var(--fg-muted)] italic'
                         : 'text-[var(--fg-secondary)]'
@@ -229,81 +226,42 @@ function RenderValue({ value }: { value: FeatureValue }) {
 }
 
 export function PlanComparisonTable() {
-    const [isExpanded, setIsExpanded] = useState(false);
-
     return (
-        <div className="mt-12 sm:mt-16">
-            <div className="text-center mb-6">
-                <button
-                    type="button"
-                    onClick={() => setIsExpanded((prev) => !prev)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-3 text-sm font-semibold text-[var(--fg)] hover:border-[var(--accent-border)] hover:bg-[var(--accent-subtle)] transition-colors shadow-sm"
-                    aria-expanded={isExpanded}
-                >
-                    <span>{isExpanded ? 'Ocultar comparativa detallada' : 'Comparar todas las características en detalle'}</span>
-                    <IconChevronDown
-                        size={18}
-                        className={`transition-transform duration-200 text-[var(--fg-muted)] ${isExpanded ? 'rotate-180' : ''}`}
-                    />
-                </button>
-            </div>
-
-            {isExpanded && (
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm animate-fade-in">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b border-[var(--border)] bg-[var(--bg-subtle)]">
-                                    <th className="py-4 px-4 sm:px-6 text-sm font-semibold text-[var(--fg)] w-1/2 sm:w-7/12">
-                                        Característica
-                                    </th>
-                                    <th className="py-4 px-3 sm:px-4 text-center text-sm font-semibold text-[var(--fg-secondary)] w-1/4 sm:w-2.5/12">
-                                        Gratis
-                                    </th>
-                                    <th className="py-4 px-3 sm:px-4 text-center text-sm font-bold text-[var(--accent)] bg-[var(--accent-subtle)]/30 w-1/4 sm:w-2.5/12">
-                                        Pro
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {COMPARISON_CATEGORIES.map((category) => (
-                                    <tr key={category.title} className="contents">
-                                        <td
-                                            colSpan={3}
-                                            className="pt-6 pb-2 px-4 sm:px-6 text-xs font-bold uppercase tracking-wider text-[var(--accent)] bg-[var(--bg-subtle)]/50 border-t border-[var(--border)]"
-                                        >
-                                            {category.title}
-                                        </td>
-                                        {category.items.map((item, idx) => (
-                                            <tr
-                                                key={item.name}
-                                                className={`border-b border-[var(--border)] hover:bg-[var(--bg-subtle)]/40 transition-colors ${
-                                                    idx % 2 === 0 ? 'bg-[var(--surface)]' : 'bg-[var(--bg-subtle)]/20'
-                                                }`}
-                                            >
-                                                <td className="py-3.5 px-4 sm:px-6">
-                                                    <p className="text-xs sm:text-sm font-medium text-[var(--fg)]">{item.name}</p>
-                                                    {item.description && (
-                                                        <p className="text-[11px] text-[var(--fg-muted)] mt-0.5 leading-snug">
-                                                            {item.description}
-                                                        </p>
-                                                    )}
-                                                </td>
-                                                <td className="py-3.5 px-3 sm:px-4 text-center align-middle">
-                                                    <RenderValue value={item.free} />
-                                                </td>
-                                                <td className="py-3.5 px-3 sm:px-4 text-center align-middle bg-[var(--accent-subtle)]/15">
-                                                    <RenderValue value={item.pro} />
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
+        <div className="min-w-0 overflow-hidden rounded-[var(--agenda-radius-control)] border border-[var(--border)]">
+            <table className="w-full table-fixed text-left">
+                <thead>
+                    <tr className="bg-[var(--bg-subtle)] text-sm">
+                        <th scope="col" className="w-[50%] px-2.5 py-3 sm:px-4">Función</th>
+                        <th scope="col" className="w-[25%] px-1 py-3 text-center">Gratis</th>
+                        <th scope="col" className="w-[25%] bg-[var(--agenda-tint)] px-1 py-3 text-center text-[var(--agenda-link)]">Pro</th>
+                    </tr>
+                </thead>
+                {COMPARISON_CATEGORIES.map((category) => (
+                    <tbody key={category.title}>
+                        <tr>
+                            <th colSpan={3} scope="rowgroup" className="border-t border-[var(--border)] bg-[var(--bg-subtle)] px-2.5 py-2 text-xs font-bold text-[var(--agenda-link)] sm:px-4">
+                                {category.title}
+                            </th>
+                        </tr>
+                        {category.items.map((item) => (
+                            <tr key={item.name} className="border-t border-[var(--border)]">
+                                <th scope="row" className="break-words px-2.5 py-2.5 text-xs font-semibold sm:px-4 sm:text-sm">
+                                    {item.name}
+                                    {item.description && (
+                                        <span className="mt-0.5 block text-[0.6875rem] font-normal leading-snug text-[var(--fg-muted)]">{item.description}</span>
+                                    )}
+                                </th>
+                                <td className="break-words px-1 py-2.5 text-center align-middle sm:px-2">
+                                    <RenderValue value={item.free} />
+                                </td>
+                                <td className="break-words bg-[var(--agenda-tint)] px-1 py-2.5 text-center align-middle sm:px-2">
+                                    <RenderValue value={item.pro} />
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                ))}
+            </table>
         </div>
     );
 }

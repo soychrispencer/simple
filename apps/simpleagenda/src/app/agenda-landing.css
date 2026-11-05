@@ -1,0 +1,170 @@
+.agenda-landing {
+    --bg: #fcfbf7;
+    --bg-subtle: #f4f2e9;
+    --surface: #fffefa;
+    --border: #dedfd5;
+    --border-strong: #b7c3bb;
+    --fg: #182f2a;
+    --fg-secondary: #41564e;
+    --fg-muted: #53675e;
+    --agenda-hero: #f5f2e8;
+    --agenda-green: #0f766e;
+    --agenda-green-hover: #0d645e;
+    --agenda-link: #0d6b63;
+    --agenda-tint: #e5f2ed;
+    --agenda-brand-border: #acd1c5;
+    --agenda-on-green: #fff;
+    --agenda-radius-panel: 1rem;
+    --agenda-radius-control: 0.625rem;
+    --agenda-shadow: 0 12px 32px rgb(24 47 42 / 8%);
+    --accent-subtle: var(--agenda-tint);
+    --accent-border: var(--agenda-brand-border);
+    background: var(--bg);
+    color: var(--fg);
+}
+
+:is(.dark, [data-theme="dark"]) .agenda-landing {
+    --bg: #111b19;
+    --bg-subtle: #152320;
+    --surface: #1b2c27;
+    --border: #384d45;
+    --border-strong: #5c756a;
+    --fg: #f1f5ec;
+    --fg-secondary: #c3d5cb;
+    --fg-muted: #a7beb1;
+    --agenda-hero: #172622;
+    --agenda-link: #8adccb;
+    --agenda-tint: #213c34;
+    --agenda-brand-border: #528579;
+    --agenda-shadow: 0 12px 32px rgb(0 0 0 / 22%);
+}
+
+.agenda-landing .container-app {
+    max-width: 83rem;
+    padding-inline: clamp(1rem, 4vw, 4rem);
+}
+
+.agenda-landing .marketplace-header {
+    background-color: var(--bg);
+}
+
+.agenda-landing .marketplace-header--scrolled {
+    background: color-mix(in srgb, var(--bg) 97%, transparent) !important;
+}
+
+.agenda-landing h1.agenda-display {
+    max-width: 16ch;
+    font-size: clamp(2rem, 4.6vw, 4.25rem);
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 1.02;
+    text-wrap: balance;
+}
+
+.agenda-landing h2.agenda-heading {
+    font-size: clamp(1.85rem, 3.2vw, 2.85rem);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+    text-wrap: balance;
+}
+
+.agenda-eyebrow {
+    color: var(--agenda-link);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.agenda-panel {
+    border: 1px solid var(--border);
+    border-radius: var(--agenda-radius-panel);
+    background: var(--surface);
+}
+
+.agenda-button {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border: 1px solid transparent;
+    border-radius: var(--agenda-radius-control);
+    background: var(--agenda-green);
+    color: var(--agenda-on-green);
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: center;
+}
+
+.agenda-button:hover {
+    background: var(--agenda-green-hover);
+}
+
+.agenda-button--secondary {
+    border-color: var(--agenda-brand-border);
+    background: transparent;
+    color: var(--agenda-link);
+}
+
+.agenda-button--secondary:hover {
+    background: var(--agenda-tint);
+}
+
+.agenda-button--inverse {
+    background: #fcfbf7;
+    color: #0d6b63;
+}
+
+.agenda-button--inverse:hover {
+    background: #e5f2ed;
+}
+
+.agenda-choice {
+    min-height: 2.75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--agenda-radius-control);
+    background: var(--surface);
+    color: var(--fg);
+}
+
+.agenda-choice:hover {
+    border-color: var(--agenda-link);
+}
+
+.agenda-choice[aria-pressed="true"] {
+    border-color: var(--agenda-green);
+    background: var(--agenda-green);
+    color: var(--agenda-on-green);
+}
+
+.agenda-landing :is(a, button, summary, select):focus-visible {
+    outline: 2px solid var(--agenda-link);
+    outline-offset: 3px;
+}
+
+.agenda-landing .agenda-button--inverse:focus-visible {
+    outline-color: #fff;
+}
+
+@media (max-width: 399px) {
+    .agenda-landing .marketplace-header > .container-app {
+        gap: 0.375rem;
+    }
+
+    .agenda-landing .marketplace-header > .container-app > a [role="img"] {
+        gap: 0.375rem;
+    }
+
+    .agenda-landing .marketplace-header > .container-app > a [role="img"] > svg {
+        width: clamp(5.25rem, 27vw, 7rem);
+        height: auto;
+    }
+
+    .agenda-landing .marketplace-header > .container-app > div:last-child {
+        gap: 0.25rem;
+    }
+}
