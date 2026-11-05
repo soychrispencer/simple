@@ -8,11 +8,10 @@ import {
     IconSparkles,
     IconArrowRight,
     IconRotateClockwise,
-    IconCreditCard,
-    IconUser,
     IconShieldCheck,
 } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
+import { SectionHeader } from './section-header';
 
 type ServiceOption = {
     id: string;
@@ -84,22 +83,16 @@ export function InteractiveBookingDemo({ onStartFree }: { onStartFree?: () => vo
     };
 
     return (
-        <section id="demo-interactiva" className="scroll-mt-20 py-16 sm:py-24" style={{ background: 'var(--bg-subtle)' }}>
+        <section id="demo-interactiva" className="scroll-mt-20 py-14 sm:py-20 border-b border-[var(--border)]" style={{ background: 'var(--bg)' }}>
             <div className="container-app">
-                <div className="mx-auto max-w-2xl text-center mb-10 sm:mb-14">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)]">
-                        <IconSparkles size={13} />
-                        Demostración interactiva
-                    </div>
-                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[var(--fg)]">
-                        Pruébalo exactamente como lo verá tu paciente
-                    </h2>
-                    <p className="mt-3 text-sm sm:text-base text-[var(--fg-muted)] leading-relaxed">
-                        Tus clientes no tienen que descargar ninguna aplicación ni crearse una cuenta. Hacen clic en tu link, eligen su hora en 30 segundos y la cita queda confirmada.
-                    </p>
-                </div>
+                <SectionHeader
+                    badgeIcon={<IconSparkles size={14} />}
+                    badgeLabel="Demostración interactiva"
+                    title="Pruébalo exactamente como lo verá tu paciente"
+                    subtitle="Tus clientes no tienen que descargar ninguna aplicación ni crearse una cuenta. Hacen clic en tu link, eligen su hora en 30 segundos y la cita queda confirmada."
+                />
 
-                <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl sm:rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-xl">
+                <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-lg">
                     {/* Fake Browser / Link Bar */}
                     <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-3 sm:px-6">
                         <div className="flex gap-1.5">

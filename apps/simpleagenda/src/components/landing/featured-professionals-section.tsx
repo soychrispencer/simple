@@ -145,25 +145,25 @@ export function FeaturedProfessionalsSection() {
     }, []);
 
     return (
-        <section id="destacados" className="scroll-mt-24 border-b border-(--border) py-14 sm:py-20" style={{ background: 'var(--bg)' }}>
+        <section id="destacados" className="scroll-mt-24 border-b border-(--border) py-14 sm:py-20" style={{ background: 'var(--bg-subtle)' }}>
             <div className="container-app">
                 <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--accent)] mb-2">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-3.5 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)] shadow-2xs">
                             <IconSparkles size={14} />
                             Comunidad activa
                         </div>
-                        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-fg">
+                        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[var(--fg)] leading-tight">
                             Profesionales que ya usan SimpleAgenda
                         </h2>
-                        <p className="mt-2 max-w-2xl text-sm text-fg-muted">
+                        <p className="mt-3 max-w-2xl text-sm sm:text-base text-[var(--fg-secondary)] leading-relaxed">
                             Explora perfiles y agendas en vivo. Tus clientes disfrutarán de esta misma experiencia de reserva simple, rápida y sin registro.
                         </p>
                     </div>
                     <PanelButtonLink
                         href="/profesionales"
                         variant="secondary"
-                        className="h-11 px-5 sm:self-center shrink-0"
+                        className="h-11 px-5 sm:self-center shrink-0 rounded-xl"
                     >
                         Ver directorio completo
                         <IconChevronRight size={17} />

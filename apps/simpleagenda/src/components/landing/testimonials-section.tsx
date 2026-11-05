@@ -1,6 +1,7 @@
 'use client';
 
-import { IconStar, IconQuote, IconCheck, IconShieldCheck } from '@tabler/icons-react';
+import { IconStar, IconShieldCheck } from '@tabler/icons-react';
+import { SectionHeader } from './section-header';
 
 type Testimonial = {
     name: string;
@@ -69,27 +70,21 @@ const METRICS = [
 
 export function TestimonialsSection() {
     return (
-        <section className="py-16 sm:py-24" style={{ background: 'var(--bg-subtle)' }}>
+        <section className="py-14 sm:py-20 border-b border-[var(--border)]" style={{ background: 'var(--bg)' }}>
             <div className="container-app">
-                {/* Header */}
-                <div className="mx-auto max-w-2xl text-center mb-12 sm:mb-16">
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-3 text-[var(--accent)]">
-                        Casos de éxito reales
-                    </p>
-                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[var(--fg)]">
-                        Profesionales en Chile que ya ordenaron su consulta
-                    </h2>
-                    <p className="mt-3 text-sm sm:text-base text-[var(--fg-muted)] leading-relaxed">
-                        Desde psicólogos y kinesiólogos hasta centros de estética y barberías. Así transformaron su rutina diaria.
-                    </p>
-                </div>
+                <SectionHeader
+                    badgeIcon={<IconStar size={14} className="fill-[var(--accent)] text-[var(--accent)]" />}
+                    badgeLabel="Casos de éxito reales"
+                    title="Profesionales en Chile que ya ordenaron su consulta"
+                    subtitle="Desde psicólogos y kinesiólogos hasta centros de estética y barberías. Así transformaron su rutina diaria."
+                />
 
                 {/* Testimonial Cards Grid */}
                 <div className="mx-auto max-w-6xl grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
                     {TESTIMONIALS.map((t) => (
                         <article
                             key={t.name}
-                            className="flex flex-col justify-between rounded-2xl sm:rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow relative"
+                            className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 shadow-xs hover:shadow-sm transition-shadow relative"
                         >
                             <div>
                                 {/* Rating Stars & Verified badge */}
@@ -138,7 +133,7 @@ export function TestimonialsSection() {
                 </div>
 
                 {/* Metrics Bar */}
-                <div className="mx-auto mt-14 max-w-5xl rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 shadow-sm">
+                <div className="mx-auto mt-12 max-w-5xl rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 shadow-xs">
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
                         {METRICS.map((m) => (
                             <div key={m.label} className="space-y-1">

@@ -12,13 +12,11 @@ import {
     IconArrowRight,
     IconCheck,
     IconShieldCheck,
-    IconDeviceMobile,
     IconSparkles,
     IconChevronDown,
     IconStar,
     IconBuilding,
     IconBrandWhatsapp,
-    IconLock,
     IconCalendarEvent,
 } from '@tabler/icons-react';
 import {
@@ -29,6 +27,7 @@ import {
     isPlatformLaunchActive,
     resolveOperatorLandingCopy,
 } from '@simple/utils';
+import { SectionHeader } from '@/components/landing/section-header';
 import { FeaturedProfessionalsSection } from '@/components/landing/featured-professionals-section';
 import { PlanComparisonTable } from '@/components/landing/plan-comparison-table';
 import { InteractiveBookingDemo } from '@/components/landing/interactive-booking-demo';
@@ -62,9 +61,9 @@ const CORE_FEATURES = [
         desc: 'Historial de sesiones, notas privadas de atención y datos de contacto centralizados en un solo lugar.',
     },
     {
-        icon: IconDeviceMobile,
-        title: 'Desde cualquier celular o PC',
-        desc: 'Acceso inmediato desde cualquier navegador web. Sin obligar a tus pacientes a descargar ninguna app.',
+        icon: IconBrandWhatsapp,
+        title: 'Link directo y personalizable',
+        desc: 'Tu link exclusivo (simpleagenda.app/tu-nombre) listo para poner en tu Instagram, WhatsApp Business o tarjeta digital.',
     },
     {
         icon: IconCalendarEvent,
@@ -133,25 +132,26 @@ function FAQItem({ q, a }: { q: string; a: string }) {
     const [open, setOpen] = useState(false);
     return (
         <div
-            className="border-b transition-colors"
+            className="border-b transition-colors last:border-b-0"
             style={{ borderColor: 'var(--border)' }}
         >
             <button
                 onClick={() => setOpen(!open)}
-                className="w-full flex items-center justify-between py-5 text-left gap-4"
+                className="flex w-full items-center justify-between py-5 text-left transition-colors"
+                aria-expanded={open}
             >
-                <span className="font-medium text-sm sm:text-base" style={{ color: 'var(--fg)' }}>{q}</span>
+                <span className="font-semibold text-sm sm:text-base text-[var(--fg)] pr-4">{q}</span>
                 <IconChevronDown
                     size={18}
-                    className="shrink-0 transition-transform duration-200"
-                    style={{ color: 'var(--fg-muted)', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    className="shrink-0 text-[var(--fg-muted)] transition-transform duration-200"
+                    style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
                 />
             </button>
             <div
                 className="overflow-hidden transition-all duration-200"
                 style={{ maxHeight: open ? '260px' : '0px', opacity: open ? 1 : 0 }}
             >
-                <p className="pb-5 text-sm leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>{a}</p>
+                <p className="pb-5 text-xs sm:text-sm leading-relaxed text-[var(--fg-secondary)]">{a}</p>
             </div>
         </div>
     );
@@ -163,7 +163,6 @@ export default function HomePage() {
     const { isLoggedIn, openAuth } = useAuth();
     const router = useRouter();
     const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
-    const copy = resolveOperatorLandingCopy('agenda');
     const showPlans = !isPlatformLaunchActive('agenda');
 
     const handleCTA = () => {
@@ -178,7 +177,7 @@ export default function HomePage() {
         <div className="flex flex-col">
 
             {/* ═══════════════ HERO ═══════════════ */}
-            <section className="vertical-hero-texture relative overflow-hidden" style={{ background: 'var(--bg)' }}>
+            <section className="vertical-hero-texture relative overflow-hidden border-b border-[var(--border)]" style={{ background: 'var(--bg)' }}>
                 <div className="container-app pt-12 sm:pt-16 lg:pt-24 pb-16 sm:pb-20 lg:pb-28">
                     <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(460px,1.15fr)] lg:gap-12">
                         
@@ -186,15 +185,18 @@ export default function HomePage() {
                         <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
                             
                             {/* Chilean active badge */}
-                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold mb-5 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)] animate-fade-in shadow-xs">
+                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold mb-5 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)] animate-fade-in shadow-2xs">
                                 <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent)]"></span>
                                 </span>
-                                <span className="flex items-center gap-1.5"><IconSparkles size={13} className="text-amber-500" /><span><strong>+140 citas agendadas</strong> esta semana en Chile Â· 98% de asistencia</span></span>
+                                <span className="flex items-center gap-1.5">
+                                    <IconSparkles size={13} className="text-amber-500" />
+                                    <span><strong>+140 citas agendadas</strong> esta semana en Chile · 98% de asistencia</span>
+                                </span>
                             </div>
 
-                            {/* Main Headline: Punchy, clean, 2 lines */}
+                            {/* Main Headline: Punchy, clean */}
                             <h1
                                 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] mb-5 animate-slide-up"
                                 style={{ color: 'var(--fg)', letterSpacing: '-0.025em' }}
@@ -205,8 +207,8 @@ export default function HomePage() {
 
                             {/* Subtitle: Crisp and readable */}
                             <p
-                                className="text-base sm:text-lg leading-relaxed mb-8 max-w-lg mx-auto lg:mx-0 animate-slide-up"
-                                style={{ color: 'var(--fg-secondary)', animationDelay: '80ms' }}
+                                className="text-base sm:text-lg leading-relaxed mb-8 max-w-lg mx-auto lg:mx-0 animate-slide-up text-[var(--fg-secondary)]"
+                                style={{ animationDelay: '80ms' }}
                             >
                                 Comparte tu link de reservas. Tus clientes eligen día y hora en 30 segundos según tu disponibilidad real, con confirmación y recordatorios automáticos.
                             </p>
@@ -216,13 +218,13 @@ export default function HomePage() {
                                 <PanelButton
                                     type="button"
                                     variant="accent"
-                                    className="h-12 px-7 text-sm font-semibold shadow-md gap-2"
+                                    className="h-12 px-7 text-sm font-semibold shadow-md gap-2 rounded-xl"
                                     onClick={handleCTA}
                                 >
                                     {isLoggedIn ? 'Ir a mi agenda' : 'Crear mi agenda gratis'}
                                     <IconArrowRight size={16} />
                                 </PanelButton>
-                                <PanelButtonLink href="#demo-interactiva" variant="secondary" className="h-12 px-6 text-sm font-semibold">
+                                <PanelButtonLink href="#demo-interactiva" variant="secondary" className="h-12 px-6 text-sm font-semibold rounded-xl">
                                     <IconCalendar size={15} />
                                     Probar demo en vivo
                                 </PanelButtonLink>
@@ -231,20 +233,20 @@ export default function HomePage() {
                             {/* Social Proof & Chilean trust indicators */}
                             <div className="mt-8 pt-6 border-t border-[var(--border)] flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 animate-fade-in" style={{ animationDelay: '240ms' }}>
                                 <div className="flex -space-x-2.5 overflow-hidden">
-                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-teal-600 text-xs font-bold text-white shadow-xs">VM</div>
-                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-xs font-bold text-white shadow-xs">EC</div>
-                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-amber-600 text-xs font-bold text-white shadow-xs">CS</div>
-                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-xs font-bold text-white shadow-xs">RV</div>
-                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-slate-700 text-xs font-bold text-white shadow-xs">+90</div>
+                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-teal-600 text-xs font-bold text-white shadow-2xs">VM</div>
+                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-xs font-bold text-white shadow-2xs">EC</div>
+                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-amber-600 text-xs font-bold text-white shadow-2xs">CS</div>
+                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-xs font-bold text-white shadow-2xs">RV</div>
+                                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-slate-700 text-xs font-bold text-white shadow-2xs">+90</div>
                                 </div>
                                 <div className="flex flex-col text-center sm:text-left text-xs">
                                     <div className="flex items-center justify-center sm:justify-start gap-1">
                                         {[1, 2, 3, 4, 5].map((s) => (
-                                            <IconStar key={s} size={13} fill="#eab308" className="text-yellow-500" />
+                                            <IconStar key={s} size={13} className="fill-amber-400 text-amber-400" />
                                         ))}
-                                        <span className="font-bold ml-1" style={{ color: 'var(--fg)' }}>5.0 / 5.0</span>
+                                        <span className="font-bold ml-1 text-[var(--fg)]">5.0 / 5.0</span>
                                     </div>
-                                    <span style={{ color: 'var(--fg-secondary)' }} className="mt-0.5">
+                                    <span className="mt-0.5 text-[var(--fg-secondary)]">
                                         Recomendado por psicólogos, médicos y terapeutas en Chile
                                     </span>
                                 </div>
@@ -254,10 +256,9 @@ export default function HomePage() {
 
                         {/* Hero Right: Live Interactive Mockup Card */}
                         <div className="relative mx-auto w-full max-w-xl animate-scale-in">
-                            
                             {/* Outer App Window Frame */}
                             <div
-                                className="relative rounded-2xl border overflow-hidden shadow-2xl transition-all"
+                                className="relative rounded-2xl border overflow-hidden shadow-xl transition-all"
                                 style={{
                                     borderColor: 'var(--border)',
                                     background: 'var(--surface)',
@@ -270,162 +271,148 @@ export default function HomePage() {
                                         <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                                     </div>
-                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-[var(--surface)] border border-[var(--border)] text-[var(--fg-muted)] font-mono text-[11px] max-w-[260px] truncate">
-                                        <IconLock size={11} className="text-emerald-500 shrink-0" />
+                                    <div className="flex items-center gap-1 px-3 py-0.5 rounded-md bg-[var(--surface)] border text-[11px] font-mono text-[var(--fg-muted)] shadow-2xs" style={{ borderColor: 'var(--border)' }}>
+                                        <IconLock size={10} className="text-emerald-500" />
                                         <span>simpleagenda.app/dra-valentina</span>
                                     </div>
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                        ● En línea
-                                    </span>
-                                </div>
-
-                                {/* Consultation hero picture with active badge overlay */}
-                                <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100">
-                                    <img
-                                        src="/hero/consultation-hero.webp"
-                                        alt="Profesional atendiendo en su consulta con SimpleAgenda"
-                                        width={1200}
-                                        height={675}
-                                        className="h-full w-full object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                                    
-                                    {/* Bottom profile tag over image */}
-                                    <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-white">
-                                        <div>
-                                            <p className="text-sm font-bold drop-shadow-sm">Dra. Valentina Muñoz</p>
-                                            <p className="text-xs text-white/90 drop-shadow-sm">Psicología Clínica · Providencia</p>
-                                        </div>
-                                        <span className="rounded-full bg-white/20 backdrop-blur-md border border-white/30 px-3 py-1 text-xs font-semibold text-white">
-                                            Agenda abierta
-                                        </span>
+                                    <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                        <span>En línea</span>
                                     </div>
                                 </div>
 
-                                {/* Body: Simulated live booking & status */}
-                                <div className="p-4 sm:p-5 space-y-3 bg-[var(--surface)]">
-                                    
-                                    {/* Live Notification Pill */}
-                                    <div className="flex items-center gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10">
-                                        <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                                            <IconCheck size={16} />
+                                {/* Mockup Content Area: Professional profile header */}
+                                <div className="p-4 sm:p-5">
+                                    <div className="relative aspect-16/9 rounded-xl overflow-hidden mb-4 border border-[var(--border)]">
+                                        <img
+                                            src="/hero/consultation-hero.webp"
+                                            alt="Consulta profesional de psicología clínica"
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                                        <div className="absolute bottom-3 left-3 right-3 text-white">
+                                            <p className="font-bold text-sm sm:text-base">Dra. Valentina Muñoz</p>
+                                            <p className="text-xs text-white/80">Psicología Clínica · Providencia</p>
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center justify-between gap-1">
-                                                <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                                                    ¡Nueva reserva confirmada!
-                                                </p>
-                                                <span className="text-[10px] text-emerald-700/80 dark:text-emerald-400">Hace 3 min</span>
+                                        <div className="absolute top-2.5 right-2.5">
+                                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/90 text-zinc-800 shadow-xs backdrop-blur-xs">
+                                                Agenda abierta
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Simulated Live Booking State */}
+                                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                                                <IconCheck size={16} stroke={3} />
                                             </div>
-                                            <p className="text-xs text-[var(--fg-secondary)] truncate">
-                                                Camila S. reservó <strong>Sesión Individual</strong> · Jueves 16:30
-                                            </p>
+                                            <div>
+                                                <p className="font-bold text-[var(--fg)]">¡Nueva reserva confirmada!</p>
+                                                <p className="text-[11px] text-[var(--fg-muted)]">Camila S. reservó Sesión Individual · Jueves 16:30</p>
+                                            </div>
                                         </div>
+                                        <span className="text-[10px] text-[var(--fg-muted)] font-medium">Hace 3 min</span>
                                     </div>
 
-                                    {/* Daily metrics preview */}
-                                    <div className="grid grid-cols-3 gap-2 pt-1">
-                                        <div className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] text-center">
-                                            <p className="text-[11px] text-[var(--fg-muted)]">Hoy</p>
-                                            <p className="text-sm font-bold text-[var(--fg)] mt-0.5">8 citas</p>
+                                    {/* Mini Metrics Row */}
+                                    <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                                        <div className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]">
+                                            <p className="text-[10px] text-[var(--fg-muted)]">Hoy</p>
+                                            <p className="font-bold text-[var(--fg)]">6 citas</p>
                                         </div>
-                                        <div className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] text-center">
-                                            <p className="text-[11px] text-[var(--fg-muted)]">Facturado</p>
-                                            <p className="text-sm font-bold text-[var(--accent)] mt-0.5">$280.000</p>
+                                        <div className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]">
+                                            <p className="text-[10px] text-[var(--fg-muted)]">Facturado</p>
+                                            <p className="font-bold text-[var(--accent)]">$280.000</p>
                                         </div>
-                                        <div className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] text-center">
-                                            <p className="text-[11px] text-[var(--fg-muted)]">Asistencia</p>
-                                            <p className="text-sm font-bold text-emerald-600 mt-0.5">98%</p>
+                                        <div className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]">
+                                            <p className="text-[10px] text-[var(--fg-muted)]">Asistencia</p>
+                                            <p className="font-bold text-emerald-600">98%</p>
                                         </div>
                                     </div>
-
                                 </div>
                             </div>
 
+                            {/* Floating WhatsApp Bubble */}
+                            <div
+                                className="absolute -bottom-4 -left-4 sm:-bottom-5 sm:-left-6 rounded-2xl border p-3.5 shadow-xl flex items-center gap-3 backdrop-blur-md animate-fade-in"
+                                style={{
+                                    borderColor: 'var(--border)',
+                                    background: 'var(--surface)',
+                                }}
+                            >
+                                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                                    <IconBrandWhatsapp size={20} />
+                                </div>
+                                <div className="text-xs">
+                                    <p className="font-bold text-[var(--fg)]">Cero horas perdidas</p>
+                                    <p className="text-[11px] text-[var(--fg-muted)]">Tus clientes se agendan solos 24/7</p>
+                                </div>
+                            </div>
                         </div>
 
                     </div>
                 </div>
             </section>
 
-            {/* ═══════════════ PAIN COMPARISON: WHATSAPP VS SIMPLEAGENDA ═══════════════ */}
+            {/* ═══════════════ ACTO 1: DOLOR VS SOLUCIÓN ═══════════════ */}
             <PainComparisonSection />
 
-            {/* ═══════════════ INTERACTIVE BOOKING DEMO ═══════════════ */}
+            {/* ═══════════════ ACTO 1 (CONT): DEMO INTERACTIVA ═══════════════ */}
             <InteractiveBookingDemo onStartFree={handleCTA} />
 
-            {/* ═══════════════ FEATURED PROFESSIONALS DIRECTORY (NEVER EMPTY) ═══════════════ */}
-            <FeaturedProfessionalsSection />
+            {/* ═══════════════ ACTO 2: FUNCIONALIDADES ESENCIALES ═══════════════ */}
+            <section id="funciones" className="py-14 sm:py-20 border-b border-[var(--border)] scroll-mt-20" style={{ background: 'var(--bg-subtle)' }}>
+                <div className="container-app">
+                    <SectionHeader
+                        badgeIcon={<IconSparkles size={14} />}
+                        badgeLabel="Plataforma todo en uno"
+                        title="Todo lo que necesitas para tu consulta"
+                        subtitle="Diseñado especialmente para profesionales independientes, consultas y salones que atienden con citas en Chile."
+                    />
 
-            {/* ═══════════════ REAL TESTIMONIALS & METRICS FROM CHILE ═══════════════ */}
-            <TestimonialsSection />
-
-            {/* ═══════════════ 1. FUNCIONALIDADES ESENCIALES ═══════════════ */}
-            <section id="funciones" className="container-app section-marketing scroll-mt-20">
-                <div className="text-center mb-10 sm:mb-14">
-                    <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent)]">
-                        Plataforma todo en uno
-                    </p>
-                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-3 text-[var(--fg)]">
-                        Todo lo que necesitas para tu consulta
-                    </h2>
-                    <p className="max-w-xl mx-auto text-sm sm:text-base text-[var(--fg-muted)]">
-                        Diseñado especialmente para profesionales independientes, consultas y salones que atienden con citas en Chile.
-                    </p>
-                </div>
-
-                {/* 6 feature cards in a 3-column grid */}
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
-                    {CORE_FEATURES.map((f) => (
-                        <div
-                            key={f.title}
-                            className="p-5 sm:p-6 rounded-2xl border transition-all duration-200"
-                            style={{
-                                borderColor: 'var(--border)',
-                                background: 'var(--surface)',
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-border)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-                        >
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
-                                <f.icon size={20} />
-                            </div>
-                            <h3 className="text-base font-bold mb-1.5 text-[var(--fg)]">{f.title}</h3>
-                            <p className="text-xs sm:text-sm leading-relaxed text-[var(--fg-muted)]">{f.desc}</p>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Rubros adaptados */}
-                <div className="mt-10 pt-6 border-t border-[var(--border)] max-w-5xl mx-auto text-center">
-                    <p className="text-xs font-semibold mb-3 text-[var(--fg-secondary)]">Adaptado a tu especialidad y rubro en Chile:</p>
-                    <div className="flex flex-wrap justify-center gap-2">
-                        {PROFESSION_TAGS.map((tag) => (
-                            <span
-                                key={tag}
-                                className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--fg-secondary)] shadow-2xs"
+                    {/* 6 feature cards */}
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
+                        {CORE_FEATURES.map((f) => (
+                            <div
+                                key={f.title}
+                                className="p-5 sm:p-6 rounded-2xl border transition-all duration-200 border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent-border)] hover:shadow-sm"
                             >
-                                {tag}
-                            </span>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 bg-[var(--accent-subtle)] text-[var(--accent)]">
+                                    <f.icon size={20} />
+                                </div>
+                                <h3 className="text-base font-bold mb-1.5 text-[var(--fg)]">{f.title}</h3>
+                                <p className="text-xs sm:text-sm leading-relaxed text-[var(--fg-secondary)]">{f.desc}</p>
+                            </div>
                         ))}
+                    </div>
+
+                    {/* Rubros adaptados */}
+                    <div className="mt-10 pt-6 border-t border-[var(--border)] max-w-5xl mx-auto text-center">
+                        <p className="text-xs font-semibold mb-3 text-[var(--fg-secondary)]">Adaptado a tu especialidad y rubro en Chile:</p>
+                        <div className="flex flex-wrap justify-center gap-2">
+                            {PROFESSION_TAGS.map((tag) => (
+                                <span
+                                    key={tag}
+                                    className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--fg-secondary)] shadow-2xs"
+                                >
+                                    {tag}
+                                </span>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </section>
 
-            {/* ═══════════════ 2. CÓMO FUNCIONA — 3 PASOS ═══════════════ */}
-            <section id="como-funciona" className="scroll-mt-20" style={{ background: 'var(--bg-subtle)' }}>
-                <div className="container-app section-marketing">
-                    <div className="text-center mb-10 sm:mb-12">
-                        <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent)]">
-                            Puesta en marcha
-                        </p>
-                        <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold mb-3 text-[var(--fg)]">
-                            Empieza en 3 sencillos pasos
-                        </h3>
-                        <p className="max-w-md mx-auto text-sm text-[var(--fg-muted)]">
-                            Sin instalaciones complejas ni configuraciones técnicas. Tu agenda lista en menos de 5 minutos.
-                        </p>
-                    </div>
+            {/* ═══════════════ ACTO 2 (CONT): CÓMO FUNCIONA — 3 PASOS ═══════════════ */}
+            <section id="como-funciona" className="py-14 sm:py-20 border-b border-[var(--border)] scroll-mt-20" style={{ background: 'var(--bg)' }}>
+                <div className="container-app">
+                    <SectionHeader
+                        badgeIcon={<IconCheck size={14} />}
+                        badgeLabel="Puesta en marcha"
+                        title="Empieza en 3 sencillos pasos"
+                        subtitle="Sin instalaciones complejas ni configuraciones técnicas. Tu agenda lista en menos de 5 minutos."
+                    />
 
                     <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
                         {STEPS.map((step) => (
@@ -434,13 +421,13 @@ export default function HomePage() {
                                 className="relative rounded-2xl border p-6 text-center transition-all bg-[var(--surface)] border-[var(--border)] shadow-xs"
                             >
                                 <div
-                                    className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4 font-extrabold text-sm shadow-xs"
+                                    className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4 font-extrabold text-sm shadow-2xs"
                                     style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                                 >
                                     {step.step}
                                 </div>
                                 <h4 className="font-bold text-base mb-2 text-[var(--fg)]">{step.title}</h4>
-                                <p className="text-xs sm:text-sm leading-relaxed text-[var(--fg-muted)]">{step.desc}</p>
+                                <p className="text-xs sm:text-sm leading-relaxed text-[var(--fg-secondary)]">{step.desc}</p>
                             </div>
                         ))}
                     </div>
@@ -449,7 +436,7 @@ export default function HomePage() {
                         <PanelButton
                             type="button"
                             variant="accent"
-                            className="h-12 px-8 text-sm font-semibold shadow-md gap-2"
+                            className="h-12 px-8 text-sm font-semibold shadow-md gap-2 rounded-xl"
                             onClick={handleCTA}
                         >
                             {isLoggedIn ? 'Ir a mi agenda' : 'Crear mi agenda gratis ahora'}
@@ -462,54 +449,57 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* ═══════════════ 3. CALCULADORA DE RETORNO / AHORRO ═══════════════ */}
+            {/* ═══════════════ ACTO 3: COMUNIDAD ACTIVA EN CHILE ═══════════════ */}
+            <FeaturedProfessionalsSection />
+
+            {/* ═══════════════ ACTO 3 (CONT): TESTIMONIOS Y MÉTRICAS ═══════════════ */}
+            <TestimonialsSection />
+
+            {/* ═══════════════ ACTO 4: CALCULADORA DE RETORNO / AHORRO ═══════════════ */}
             <RoiCalculator onStartFree={handleCTA} />
 
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• RESPUESTA RÃPIDA WHATSAPP â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            {/* ═══════════════ ACTO 4 (CONT): RESPUESTA RÁPIDA WHATSAPP ═══════════════ */}
             <WhatsAppSnippetCard />
 
-            {/* ═══════════════ PLANS & PRICING ═══════════════ */}
+            {/* ═══════════════ ACTO 5: PLANES Y PRECIOS ═══════════════ */}
             {showPlans ? (
-                <section id="planes" className="scroll-mt-20" style={{ background: 'var(--bg)' }}>
-                    <div className="container-app section-marketing">
-                        <div className="mx-auto mb-8 max-w-2xl text-center">
-                            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--accent)]">
-                                Planes transparentes y sin letra chica
-                            </p>
-                            <h2 className="mb-3 text-2xl font-extrabold sm:text-3xl lg:text-4xl text-[var(--fg)]">
-                                Empieza gratis, prueba Pro 30 días y después decides.
-                            </h2>
-                            <p className="text-sm sm:text-base text-[var(--fg-muted)]">
-                                Al registrarte tienes acceso completo a Pro por 30 días sin tarjeta. Al terminar, sigues en el plan Gratis para siempre o activas Pro desde {formatAgendaProAnnualMonthlyPrice()}. No hay cobros automáticos.
-                            </p>
+                <section id="planes" className="scroll-mt-20 py-14 sm:py-20 border-b border-[var(--border)]" style={{ background: 'var(--bg-subtle)' }}>
+                    <div className="container-app">
+                        <SectionHeader
+                            badgeIcon={<IconCreditCard size={14} />}
+                            badgeLabel="Planes transparentes"
+                            title="Empieza gratis, prueba Pro 30 días y después decides"
+                            subtitle={`Al registrarte tienes acceso completo a Pro por 30 días sin tarjeta. Al terminar, sigues en el plan Gratis para siempre o activas Pro desde ${formatAgendaProAnnualMonthlyPrice()}. No hay cobros automáticos.`}
+                        />
 
-                            {/* Trust badges strip */}
-                            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] font-medium text-[var(--fg-secondary)] shadow-2xs">
-                                    <IconShieldCheck size={14} className="text-emerald-500" />
-                                    Mercado Pago Chile (Webpay / Tarjetas)
-                                </span>
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] font-medium text-[var(--fg-secondary)] shadow-2xs">
-                                    <IconCreditCard size={14} className="text-blue-500" />
-                                    Transferencias (Cuenta RUT / Bancos)
-                                </span>
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] font-medium text-[var(--fg-secondary)] shadow-2xs">
-                                    <IconCalendarEvent size={14} className="text-indigo-500" />
-                                    Google Calendar integrado
-                                </span>
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)] font-bold shadow-2xs">
-                                    0% comisión por cita
-                                </span>
-                            </div>
+                        {/* Trust badges strip */}
+                        <div className="mb-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] font-medium text-[var(--fg-secondary)] shadow-2xs">
+                                <IconShieldCheck size={14} className="text-emerald-500" />
+                                Mercado Pago Chile (Webpay / Tarjetas)
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] font-medium text-[var(--fg-secondary)] shadow-2xs">
+                                <IconCreditCard size={14} className="text-blue-500" />
+                                Transferencias (Cuenta RUT / Bancos)
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] font-medium text-[var(--fg-secondary)] shadow-2xs">
+                                <IconCalendarEvent size={14} className="text-indigo-500" />
+                                Google Calendar integrado
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)] font-bold shadow-2xs">
+                                0% comisión por cita
+                            </span>
+                        </div>
 
-                            {/* Billing Period Selector */}
-                            <div className="mt-8 inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-sm">
+                        {/* Billing Period Selector */}
+                        <div className="text-center mb-10">
+                            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-2xs">
                                 <button
                                     type="button"
                                     onClick={() => setBillingPeriod('monthly')}
                                     className={`rounded-full px-5 py-2 text-xs font-semibold transition-all ${
                                         billingPeriod === 'monthly'
-                                            ? 'bg-[var(--accent)] text-white shadow-xs'
+                                            ? 'bg-[var(--accent)] text-white shadow-2xs'
                                             : 'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
                                     }`}
                                 >
@@ -520,7 +510,7 @@ export default function HomePage() {
                                     onClick={() => setBillingPeriod('annual')}
                                     className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold transition-all ${
                                         billingPeriod === 'annual'
-                                            ? 'bg-[var(--accent)] text-white shadow-xs'
+                                            ? 'bg-[var(--accent)] text-white shadow-2xs'
                                             : 'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
                                     }`}
                                 >
@@ -540,14 +530,9 @@ export default function HomePage() {
 
                         {/* 2 Main Plans Grid: Free vs Pro */}
                         <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2 items-stretch">
-                            
                             {/* Free Plan */}
                             <article
-                                className="flex flex-col rounded-2xl border p-6 sm:p-8 transition-shadow"
-                                style={{
-                                    borderColor: 'var(--border)',
-                                    background: 'var(--surface)',
-                                }}
+                                className="flex flex-col rounded-2xl border p-6 sm:p-8 transition-shadow bg-[var(--surface)] border-[var(--border)]"
                             >
                                 <div>
                                     <div className="flex items-center justify-between gap-2">
@@ -579,46 +564,43 @@ export default function HomePage() {
                                     </div>
                                 </div>
 
-                                <ul className="mb-6 grid gap-2.5 text-xs leading-relaxed text-[var(--fg-secondary)]">
+                                <ul className="mb-8 space-y-3 text-xs text-[var(--fg-secondary)]">
                                     <li className="flex gap-2">
-                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                                        Perfil público y link de reservas online personalizado
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-emerald-500" />
+                                        Página pública con link propio (simpleagenda.app/tu-nombre)
                                     </li>
                                     <li className="flex gap-2">
-                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                                        Agenda interactiva y fichas de clientes
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-emerald-500" />
+                                        Agenda online 24/7 con disponibilidad en tiempo real
                                     </li>
                                     <li className="flex gap-2">
-                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                                        Confirmación automática por email
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-emerald-500" />
+                                        Confirmación inmediata por correo para ti y tu cliente
                                     </li>
                                     <li className="flex gap-2">
-                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                                        Cobros por Mercado Pago o transferencia bancaria
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-emerald-500" />
+                                        Pagos por transferencia bancaria (0% comisión)
                                     </li>
                                     <li className="flex gap-2">
-                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                                        Sin comisión por reserva (0%)
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-emerald-500" />
+                                        Panel de gestión con calendario diario y semanal
                                     </li>
                                 </ul>
 
                                 <PanelButton
                                     type="button"
                                     variant="secondary"
-                                    className="mt-auto h-12 w-full text-sm font-semibold"
+                                    className="mt-auto h-12 w-full text-sm font-semibold rounded-xl"
                                     onClick={handleCTA}
                                 >
-                                    {isLoggedIn ? 'Ir a mi agenda' : 'Crear cuenta gratis'}
+                                    {isLoggedIn ? 'Ir a mi panel' : 'Crear cuenta gratis'}
                                 </PanelButton>
                             </article>
 
                             {/* Pro Plan (Featured) */}
                             <article
-                                className="relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 shadow-xl"
-                                style={{
-                                    borderColor: 'var(--accent)',
-                                    background: 'var(--surface)',
-                                }}
+                                className="relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 shadow-xl bg-[var(--surface)]"
+                                style={{ borderColor: 'var(--accent)' }}
                             >
                                 <div>
                                     <div className="flex items-center justify-between gap-2">
@@ -653,20 +635,32 @@ export default function HomePage() {
                                         <p className="font-semibold text-[var(--fg)]">Capacidad profesional completa:</p>
                                         <ul className="mt-1.5 space-y-1 text-[var(--fg-secondary)]">
                                             <li>• <strong>Reservas ilimitadas</strong> sin tope mensual</li>
-                                            <li>• <strong>Servicios y sucursales ilimitados</strong></li>
-                                            <li>• <strong>Prueba Pro completa de 30 días</strong> sin tarjeta</li>
+                                            <li>• <strong>Servicios ilimitados</strong> con duración y precios propios</li>
+                                            <li>• <strong>Múltiples sucursales</strong> o consultorios simultáneos</li>
                                         </ul>
                                     </div>
                                 </div>
 
-                                <ul className="mb-6 grid gap-2.5 text-xs leading-relaxed text-[var(--fg-secondary)]">
+                                <ul className="mb-8 space-y-3 text-xs text-[var(--fg-secondary)]">
                                     <li className="flex gap-2">
                                         <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                                        <span><strong>Todo lo incluido en Gratis</strong> sin restricciones de volumen</span>
+                                        <strong>Todo lo de Gratis, más:</strong>
                                     </li>
                                     <li className="flex gap-2">
                                         <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                                        Recordatorios automáticos por email para reducir inasistencias
+                                        <strong>Recordatorios automáticos por email</strong> para reducir inasistencias
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        <strong>Sincronización con Google Calendar</strong> (evita topes de horario)
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Cobro en línea con <strong>Mercado Pago y Webpay Plus</strong>
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                                        Ficha completa de pacientes, historial y notas de sesión
                                     </li>
                                     <li className="flex gap-2">
                                         <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
@@ -676,16 +670,12 @@ export default function HomePage() {
                                         <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
                                         Packs de sesiones, promociones y descuentos automáticos
                                     </li>
-                                    <li className="flex gap-2">
-                                        <IconCheck size={16} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                                        Estadísticas de rendimiento, encuestas NPS y referidos
-                                    </li>
                                 </ul>
 
                                 <PanelButton
                                     type="button"
                                     variant="accent"
-                                    className="mt-auto h-12 w-full text-sm font-semibold gap-2 shadow-md"
+                                    className="mt-auto h-12 w-full text-sm font-semibold gap-2 shadow-md rounded-xl"
                                     onClick={() => isLoggedIn ? router.push('/panel/mi-cuenta/suscripcion') : openAuth('register')}
                                 >
                                     {isLoggedIn ? 'Ver plan Pro' : 'Crear cuenta gratis y probar Pro'}
@@ -700,8 +690,7 @@ export default function HomePage() {
                         {/* Multi-professional center & Pro+ WhatsApp Preview */}
                         <div className="mx-auto mt-10 max-w-4xl grid gap-4 sm:grid-cols-3">
                             <div
-                                className="sm:col-span-2 flex flex-col justify-between rounded-2xl border p-5 sm:p-6"
-                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                                className="sm:col-span-2 flex flex-col justify-between rounded-2xl border p-5 sm:p-6 bg-[var(--surface)] border-[var(--border)]"
                             >
                                 <div className="flex items-start gap-4">
                                     <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-subtle)] text-[var(--accent)]">
@@ -714,7 +703,7 @@ export default function HomePage() {
                                                 Plan Empresa
                                             </span>
                                         </div>
-                                        <p className="mt-1 text-xs text-[var(--fg-muted)] leading-relaxed">
+                                        <p className="mt-1 text-xs text-[var(--fg-secondary)] leading-relaxed">
                                             Centraliza agendas, recepcionistas, múltiples sucursales y reportes consolidados para tu clínica, salón o centro.
                                         </p>
                                     </div>
@@ -731,15 +720,14 @@ export default function HomePage() {
                             </div>
 
                             <div
-                                className="flex flex-col justify-between rounded-2xl border p-5 sm:p-6"
-                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                                className="flex flex-col justify-between rounded-2xl border p-5 sm:p-6 bg-[var(--surface)] border-[var(--border)]"
                             >
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <IconBrandWhatsapp size={18} className="text-[#25D366]" />
                                         <h3 className="text-sm font-bold text-[var(--fg)]">Próximamente Pro+</h3>
                                     </div>
-                                    <p className="mt-1.5 text-xs text-[var(--fg-muted)] leading-relaxed">
+                                    <p className="mt-1.5 text-xs text-[var(--fg-secondary)] leading-relaxed">
                                         Confirmaciones, recordatorios y seguimiento de clientes automático por WhatsApp.
                                     </p>
                                 </div>
@@ -756,16 +744,18 @@ export default function HomePage() {
                 </section>
             ) : null}
 
-            {/* ═══════════════ FAQ CHILENO ═══════════════ */}
-            <section style={{ background: 'var(--bg-subtle)' }}>
-                <div className="container-app section-marketing">
+            {/* ═══════════════ ACTO 5 (CONT): FAQ CHILENO ═══════════════ */}
+            <section style={{ background: 'var(--bg)' }} className="py-14 sm:py-20 border-b border-[var(--border)]">
+                <div className="container-app">
                     <div className="max-w-2xl mx-auto">
-                        <div className="text-center mb-10 sm:mb-12">
-                            <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent)]">FAQ</p>
-                            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[var(--fg)]">Preguntas frecuentes</h2>
-                        </div>
+                        <SectionHeader
+                            badgeIcon={<IconShieldCheck size={14} />}
+                            badgeLabel="Preguntas frecuentes"
+                            title="Todo lo que necesitas saber antes de empezar"
+                            subtitle="Respuestas claras sobre pagos, sincronización y funcionamiento en Chile."
+                        />
                         <div
-                            className="rounded-2xl border overflow-hidden px-4 sm:px-6"
+                            className="rounded-2xl border overflow-hidden px-4 sm:px-6 shadow-2xs divide-y divide-[var(--border)]"
                             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                         >
                             {CHILEAN_FAQS.map((faq) => (
@@ -776,47 +766,48 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* ═══════════════ FINAL HIGH-CONVERSION CTA ═══════════════ */}
-            <section className="container-app section-marketing">
-                <div
-                    className="relative overflow-hidden rounded-2xl sm:rounded-3xl px-6 py-12 sm:px-12 sm:py-16 lg:py-20 text-center bg-[linear-gradient(135deg,var(--accent)_0%,color-mix(in_oklab,var(--accent)_75%,black)_100%)] shadow-xl"
-                >
-                    {/* Decorative circles */}
-                    <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
-                    <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+            {/* ═══════════════ ACTO 5 (FINAL): BANNER DE CIERRE ═══════════════ */}
+            <section className="py-14 sm:py-20" style={{ background: 'var(--bg)' }}>
+                <div className="container-app">
+                    <div
+                        className="relative overflow-hidden rounded-2xl px-6 py-12 sm:px-12 sm:py-16 lg:py-20 text-center bg-[linear-gradient(135deg,var(--accent)_0%,color-mix(in_oklab,var(--accent)_75%,black)_100%)] shadow-xl"
+                    >
+                        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
+                        <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
 
-                    <div className="relative z-10 max-w-xl mx-auto">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-4 bg-white/20 text-white backdrop-blur-xs">
-                            <IconSparkles size={14} />
-                            Comienza hoy en menos de 5 minutos
+                        <div className="relative z-10 max-w-xl mx-auto">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-4 bg-white/20 text-white backdrop-blur-xs">
+                                <IconSparkles size={14} />
+                                Comienza hoy en menos de 5 minutos
+                            </div>
+                            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-4 text-white" style={{ letterSpacing: '-0.02em' }}>
+                                ¿Listo para dejar atrás el caos de WhatsApp y organizar tu agenda?
+                            </h2>
+                            <p className="text-sm sm:text-base mb-8 text-white/90 leading-relaxed">
+                                Únete a profesionales de la salud, estética, bienestar y servicios que ya automatizan sus citas con SimpleAgenda en Chile.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                                <PanelButton
+                                    type="button"
+                                    variant="accent"
+                                    onClick={handleCTA}
+                                    className="h-12 px-8 text-sm font-bold gap-2 bg-white text-[var(--accent)] hover:bg-white/90 shadow-lg rounded-xl"
+                                >
+                                    {isLoggedIn ? 'Ir a mi agenda' : 'Crear mi agenda gratis ahora'}
+                                    <IconArrowRight size={16} />
+                                </PanelButton>
+                            </div>
+                            <p className="mt-4 text-xs text-white/75">
+                                Prueba Pro completa de 30 días · Sin tarjeta de crédito · Sin letra chica
+                            </p>
                         </div>
-                        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-4 text-white" style={{ letterSpacing: '-0.02em' }}>
-                            ¿Listo para dejar atrás el caos de WhatsApp y organizar tu agenda?
-                        </h2>
-                        <p className="text-sm sm:text-base mb-8 text-white/90 leading-relaxed">
-                            Únete a profesionales de la salud, estética, bienestar y servicios que ya automatizan sus citas con SimpleAgenda en Chile.
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-                            <PanelButton
-                                type="button"
-                                variant="accent"
-                                onClick={handleCTA}
-                                className="h-12 px-8 text-sm font-bold gap-2 bg-white text-[var(--accent)] hover:bg-white/90 shadow-lg"
-                            >
-                                {isLoggedIn ? 'Ir a mi agenda' : 'Crear mi agenda gratis ahora'}
-                                <IconArrowRight size={16} />
-                            </PanelButton>
-                        </div>
-                        <p className="mt-4 text-xs text-white/75">
-                            Prueba Pro completa de 30 días · Sin tarjeta de crédito · Sin letra chica
-                        </p>
                     </div>
                 </div>
             </section>
 
-
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• MOBILE STICKY CTA â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+            {/* ═══════════════ MOBILE STICKY CTA ═══════════════ */}
             <MobileStickyCTA onStartFree={handleCTA} />
+
         </div>
     );
 }

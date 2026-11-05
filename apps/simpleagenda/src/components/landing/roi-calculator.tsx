@@ -7,9 +7,9 @@ import {
     IconTrendingUp,
     IconArrowRight,
     IconSparkles,
-    IconShieldCheck,
 } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
+import { SectionHeader } from './section-header';
 
 export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
     const [weeklyAppointments, setWeeklyAppointments] = useState<number>(20);
@@ -30,23 +30,16 @@ export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
     const roiMultiplier = Math.max(1, Math.round(revenueSavedPerMonth / proCostMonthly));
 
     return (
-        <section id="calculadora" className="scroll-mt-20 py-16 sm:py-24" style={{ background: 'var(--bg-subtle)' }}>
+        <section id="calculadora" className="scroll-mt-20 py-14 sm:py-20 border-b border-[var(--border)]" style={{ background: 'var(--bg)' }}>
             <div className="container-app">
-                <div className="mx-auto max-w-2xl text-center mb-10 sm:mb-14">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)]">
-                        <IconCalculator size={14} />
-                        Calculadora de retorno
-                    </div>
-                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[var(--fg)]">
-                        ¿Cuánto tiempo y dinero estás perdiendo en WhatsApp?
-                    </h2>
-                    <p className="mt-3 text-sm sm:text-base text-[var(--fg-muted)] leading-relaxed">
-                        Desliza los valores según tu consulta y calcula las horas que recuperas al mes y los ingresos que dejas de perder por inasistencias.
-                    </p>
-                </div>
+                <SectionHeader
+                    badgeIcon={<IconCalculator size={14} />}
+                    badgeLabel="Calculadora de retorno"
+                    title="¿Cuánto tiempo y dinero estás perdiendo en WhatsApp?"
+                    subtitle="Desliza los valores según tu consulta y calcula las horas que recuperas al mes y los ingresos que dejas de perder por inasistencias."
+                />
 
                 <div className="mx-auto max-w-4xl grid gap-8 lg:grid-cols-12 items-center">
-                    
                     {/* Controls column */}
                     <div
                         className="lg:col-span-7 rounded-2xl border p-6 sm:p-8 space-y-7 shadow-xs"
@@ -136,12 +129,10 @@ export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
                                 </button>
                             </div>
                         </div>
-
                     </div>
 
                     {/* Results column */}
                     <div className="lg:col-span-5 flex flex-col gap-4">
-                        
                         {/* Result Card 1: Hours saved */}
                         <div
                             className="rounded-2xl border p-5 sm:p-6 shadow-sm"
@@ -215,9 +206,7 @@ export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
                             Empezar gratis y recuperar mi tiempo
                             <IconArrowRight size={16} />
                         </PanelButton>
-
                     </div>
-
                 </div>
             </div>
         </section>

@@ -5,14 +5,10 @@ import {
     IconCheck,
     IconBrandWhatsapp,
     IconSparkles,
-    IconClock,
     IconAlertCircle,
     IconTrendingUp,
-    IconCalendarCheck,
-    IconMoonStars,
-    IconCreditCard,
-    IconMailForward,
 } from '@tabler/icons-react';
+import { SectionHeader } from './section-header';
 
 const WHATSAPP_PAINS = [
     {
@@ -62,77 +58,66 @@ const SIMPLE_BENEFITS = [
 
 export function PainComparisonSection() {
     return (
-        <section className="py-16 sm:py-24" style={{ background: 'var(--bg)' }}>
+        <section className="py-14 sm:py-20 border-b border-[var(--border)]" style={{ background: 'var(--bg-subtle)' }}>
             <div className="container-app">
-                <div className="mx-auto max-w-2xl text-center mb-12 sm:mb-16">
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-3 text-[var(--accent)]">
-                        El cambio real en tu día a día
-                    </p>
-                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[var(--fg)]">
-                        ¿Cuánto tiempo pierdes hoy coordinando citas?
-                    </h2>
-                    <p className="mt-3 text-sm sm:text-base text-[var(--fg-muted)] leading-relaxed">
-                        Atender bien a tus pacientes ya es demandante. Gestionar tus horas no debería ser un segundo trabajo.
-                    </p>
-                </div>
+                <SectionHeader
+                    badgeIcon={<IconBrandWhatsapp size={14} />}
+                    badgeLabel="El cambio en tu día a día"
+                    title="¿Cuánto tiempo pierdes hoy coordinando citas?"
+                    subtitle="Atender bien a tus pacientes ya es demandante. Gestionar tus horas no debería ser un segundo trabajo."
+                />
 
                 <div className="mx-auto max-w-5xl grid gap-6 md:grid-cols-2 items-stretch">
-                    {/* The Chaos of WhatsApp */}
-                    <div
-                        className="rounded-2xl sm:rounded-3xl border p-6 sm:p-8 flex flex-col justify-between"
-                        style={{
-                            borderColor: 'color-mix(in oklab, #ef4444 30%, var(--border))',
-                            background: 'color-mix(in oklab, #ef4444 3%, var(--surface))',
-                        }}
-                    >
+                    {/* The Chaos of WhatsApp — Restrained, elegant neutral state */}
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 flex flex-col justify-between shadow-xs">
                         <div>
                             <div className="flex items-center justify-between pb-5 border-b border-[var(--border)]">
                                 <div className="flex items-center gap-3">
-                                    <div className="size-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
-                                        <IconBrandWhatsapp size={22} />
+                                    <div className="size-10 rounded-xl bg-[var(--bg-subtle)] text-[var(--fg-muted)] flex items-center justify-center shrink-0 border border-[var(--border)]">
+                                        <IconBrandWhatsapp size={20} />
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-base sm:text-lg text-[var(--fg)]">
                                             Coordinar por WhatsApp
                                         </h3>
-                                        <p className="text-xs text-red-500 font-medium">Caos, fricción y horas perdidas</p>
+                                        <p className="text-xs text-[var(--fg-muted)] font-medium">Fricción manual y mensajes fuera de horario</p>
                                     </div>
                                 </div>
-                                <span className="rounded-full bg-red-500/10 text-red-600 px-2.5 py-1 text-[11px] font-semibold">
-                                    Agotador
+                                <span className="rounded-full bg-[var(--bg-subtle)] text-[var(--fg-muted)] px-2.5 py-1 text-[11px] font-semibold border border-[var(--border)]">
+                                    Manual
                                 </span>
                             </div>
 
                             <ul className="mt-6 space-y-4">
                                 {WHATSAPP_PAINS.map((item, idx) => (
                                     <li key={idx} className="flex items-start gap-3 text-xs sm:text-sm">
-                                        <div className="size-5 rounded-full bg-red-500/15 text-red-500 flex items-center justify-center shrink-0 mt-0.5">
-                                            <IconX size={13} stroke={2.5} />
+                                        <div className="size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex items-center justify-center shrink-0 mt-0.5">
+                                            <IconX size={12} stroke={2.5} />
                                         </div>
                                         <div>
                                             <strong className="text-[var(--fg)] font-semibold block">{item.title}</strong>
-                                            <span className="text-[var(--fg-muted)] leading-relaxed">{item.desc}</span>
+                                            <span className="text-[var(--fg-secondary)] leading-relaxed">{item.desc}</span>
                                         </div>
                                     </li>
                                 ))}
                             </ul>
                         </div>
 
-                        <div className="mt-8 pt-5 border-t border-[var(--border)] text-xs text-[var(--fg-muted)] flex items-center gap-2">
-                            <IconAlertCircle size={16} className="text-red-500 shrink-0" />
+                        <div className="mt-8 pt-5 border-t border-[var(--border)] text-xs text-[var(--fg-muted)] flex items-center gap-2 font-medium">
+                            <IconAlertCircle size={16} className="text-[var(--fg-muted)] shrink-0" />
                             <span>Resultado: Pierdes entre 6 y 10 horas semanales solo respondiendo mensajes.</span>
                         </div>
                     </div>
 
-                    {/* With SimpleAgenda */}
+                    {/* With SimpleAgenda — Crisp accent state */}
                     <div
-                        className="rounded-2xl sm:rounded-3xl border-2 p-6 sm:p-8 flex flex-col justify-between shadow-xl relative"
+                        className="rounded-2xl border-2 p-6 sm:p-8 flex flex-col justify-between shadow-md relative"
                         style={{
                             borderColor: 'var(--accent)',
                             background: 'var(--surface)',
                         }}
                     >
-                        <div className="absolute -top-3 right-6 bg-[var(--accent)] text-white text-[11px] font-bold px-3 py-0.5 rounded-full shadow-sm">
+                        <div className="absolute -top-3 right-6 bg-[var(--accent)] text-white text-[11px] font-bold px-3 py-0.5 rounded-full shadow-xs">
                             Tu consulta en piloto automático
                         </div>
 
@@ -140,7 +125,7 @@ export function PainComparisonSection() {
                             <div className="flex items-center justify-between pb-5 border-b border-[var(--border)]">
                                 <div className="flex items-center gap-3">
                                     <div className="size-10 rounded-xl bg-[var(--accent-subtle)] text-[var(--accent)] flex items-center justify-center shrink-0">
-                                        <IconSparkles size={22} />
+                                        <IconSparkles size={20} />
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-base sm:text-lg text-[var(--fg)]">
@@ -150,7 +135,7 @@ export function PainComparisonSection() {
                                     </div>
                                 </div>
                                 <span className="rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] px-2.5 py-1 text-[11px] font-bold">
-                                    Eficiente
+                                    Automatizado
                                 </span>
                             </div>
 
@@ -158,18 +143,18 @@ export function PainComparisonSection() {
                                 {SIMPLE_BENEFITS.map((item, idx) => (
                                     <li key={idx} className="flex items-start gap-3 text-xs sm:text-sm">
                                         <div className="size-5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] flex items-center justify-center shrink-0 mt-0.5">
-                                            <IconCheck size={13} stroke={2.5} />
+                                            <IconCheck size={12} stroke={2.5} />
                                         </div>
                                         <div>
                                             <strong className="text-[var(--fg)] font-semibold block">{item.title}</strong>
-                                            <span className="text-[var(--fg-muted)] leading-relaxed">{item.desc}</span>
+                                            <span className="text-[var(--fg-secondary)] leading-relaxed">{item.desc}</span>
                                         </div>
                                     </li>
                                 ))}
                             </ul>
                         </div>
 
-                        <div className="mt-8 pt-5 border-t border-[var(--border)] text-xs text-[var(--accent)] font-medium flex items-center gap-2">
+                        <div className="mt-8 pt-5 border-t border-[var(--border)] text-xs text-[var(--accent)] font-semibold flex items-center gap-2">
                             <IconTrendingUp size={16} className="shrink-0" />
                             <span>Resultado: Clientes felices agendando solos y tú enfocado 100% en atender.</span>
                         </div>
