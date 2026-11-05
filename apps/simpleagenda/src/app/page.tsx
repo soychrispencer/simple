@@ -11,17 +11,9 @@ import {
     IconBell,
     IconArrowRight,
     IconCheck,
-    IconClockHour4,
-    IconLink,
     IconShieldCheck,
     IconDeviceMobile,
-    IconHeartHandshake,
-    IconStethoscope,
-    IconYoga,
-    IconMoodSmile,
-    IconScissors,
     IconSparkles,
-    IconBriefcase,
     IconChevronDown,
     IconStar,
     IconBuilding,
@@ -42,81 +34,66 @@ import { InteractiveBookingDemo } from '@/components/landing/interactive-booking
 import { PainComparisonSection } from '@/components/landing/pain-comparison-section';
 import { TestimonialsSection } from '@/components/landing/testimonials-section';
 
-const BENEFIT_ICONS = [IconClockHour4, IconShieldCheck, IconHeartHandshake] as const;
-
 /* ────────────────────────── Data ────────────────────────── */
 
-const FEATURES = [
+const CORE_FEATURES = [
     {
         icon: IconCalendar,
-        title: 'Agenda inteligente 24/7',
-        desc: 'Calendario visual con reservas online. Tus clientes o pacientes eligen horario según tu disponibilidad real sin cruces ni llamadas.',
-    },
-    {
-        icon: IconUsers,
-        title: 'Ficha de clientes y pacientes',
-        desc: 'Historial de atenciones, notas clínicas o de servicio y datos de contacto centralizados en un solo lugar.',
-    },
-    {
-        icon: IconCreditCard,
-        title: 'Control de pagos y anticipos',
-        desc: 'Registra cobros, cobra online con Mercado Pago o transferencia bancaria y visualiza tus ingresos del mes.',
+        title: 'Reservas online 24/7',
+        desc: 'Tus clientes eligen servicio, fecha y hora desde tu propio link según tu disponibilidad real, sin llamadas ni mensajes.',
     },
     {
         icon: IconBell,
         title: 'Recordatorios automáticos',
-        desc: 'Reduce inasistencias drásticamente con recordatorios por email antes de cada sesión o cita programada.',
+        desc: 'Reduce inasistencias drásticamente con avisos por correo antes de cada atención sin enviar mensajes manuales.',
+    },
+    {
+        icon: IconCreditCard,
+        title: 'Pagos en CLP con 0% comisión',
+        desc: 'Recibe pagos con Mercado Pago o transferencias directas a tu cuenta. No cobramos comisiones por cita.',
+    },
+    {
+        icon: IconUsers,
+        title: 'Ficha de clientes y notas',
+        desc: 'Historial de sesiones, notas privadas de atención y datos de contacto centralizados en un solo lugar.',
+    },
+    {
+        icon: IconDeviceMobile,
+        title: 'Desde cualquier celular o PC',
+        desc: 'Acceso inmediato desde cualquier navegador web. Sin obligar a tus pacientes a descargar ninguna app.',
+    },
+    {
+        icon: IconShieldCheck,
+        title: 'Disponibilidad sincronizada',
+        desc: 'Bloquea pausas y almuerzos. Si agendas una cita tú mismo, el horario se bloquea de inmediato para evitar cruces.',
     },
 ];
 
 const STEPS = [
     {
-        icon: IconLink,
-        title: '1. Crea tu perfil',
-        desc: 'Configura tus servicios, duración, precios y tus horarios de atención en menos de 5 minutos.',
+        step: '1',
+        title: 'Crea tu perfil en 2 minutos',
+        desc: 'Define tus servicios, precios en pesos chilenos y tus horarios de atención disponibles.',
     },
     {
-        icon: IconCalendar,
-        title: '2. Comparte tu link',
-        desc: 'Pégalo en tu biografía de Instagram, en tu estado de WhatsApp o envíalo directamente cuando te pidan hora.',
+        step: '2',
+        title: 'Comparte tu propio link',
+        desc: 'Pégalo en tu biografía de Instagram, en tu estado de WhatsApp o envíalo a quien te pida hora.',
     },
     {
-        icon: IconClockHour4,
-        title: '3. Recibe reservas',
-        desc: 'Tus clientes reservan de inmediato. Ambos reciben la confirmación por email con los datos de la cita.',
+        step: '3',
+        title: 'Recibe reservas automáticas',
+        desc: 'Tus clientes agendan solos 24/7. Ambos reciben confirmación inmediata con los detalles de la cita.',
     },
 ];
 
-const DIFFERENTIATORS = [
-    {
-        icon: IconShieldCheck,
-        title: 'Sin comisiones por cita (0%)',
-        desc: 'Todo lo que cobras es 100% tuyo. No cobramos porcentajes ni comisiones ocultas sobre tus atenciones.',
-    },
-    {
-        icon: IconDeviceMobile,
-        title: 'Desde cualquier celular o PC',
-        desc: 'Tanto tú como tus clientes acceden directamente desde el navegador web, sin obligar a nadie a descargar aplicaciones.',
-    },
-    {
-        icon: IconHeartHandshake,
-        title: 'Pensado para servicios en Chile',
-        desc: 'Montos en pesos chilenos (CLP), integración con Mercado Pago local y transferencias con RUT y cuenta bancaria.',
-    },
-    {
-        icon: IconClockHour4,
-        title: 'Listo en 5 minutos',
-        desc: 'Registro sin tarjeta de crédito. Tu página pública de reservas queda lista para compartir hoy mismo.',
-    },
-];
-
-const PROFESSIONALS = [
-    { icon: IconMoodSmile, label: 'Psicólogos y Terapeutas' },
-    { icon: IconStethoscope, label: 'Médicos y Kinesiólogos' },
-    { icon: IconScissors, label: 'Barberías y Salones' },
-    { icon: IconSparkles, label: 'Centros de Estética' },
-    { icon: IconYoga, label: 'Nutrición y Bienestar' },
-    { icon: IconBriefcase, label: 'Consultorías y Coaching' },
+const PROFESSION_TAGS = [
+    'Psicólogos y Terapeutas',
+    'Médicos y Kinesiólogos',
+    'Barberías y Salones',
+    'Centros de Estética',
+    'Nutrición y Bienestar',
+    'Consultorías y Coaching',
 ];
 
 /* ────────────────────────── Helpers ────────────────────────── */
@@ -157,10 +134,6 @@ export default function HomePage() {
     const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
     const copy = resolveOperatorLandingCopy('agenda');
     const showPlans = !isPlatformLaunchActive('agenda');
-    const trialBenefits = copy.benefits.map((item, index) => ({
-        ...item,
-        icon: BENEFIT_ICONS[index] ?? IconHeartHandshake,
-    }));
 
     const handleCTA = () => {
         if (isLoggedIn) {
@@ -356,279 +329,111 @@ export default function HomePage() {
             {/* ═══════════════ REAL TESTIMONIALS & METRICS FROM CHILE ═══════════════ */}
             <TestimonialsSection />
 
-            {/* ═══════════════ WHY SIMPLEAGENDA + PROFESSIONS ═══════════════ */}
-            <section style={{ background: 'var(--bg)' }}>
-                <div className="container-app section-marketing">
-                    <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center max-w-5xl mx-auto">
-                        
-                        {/* Left — real professional mobile usage image */}
-                        <div className="flex justify-center">
-                            <div
-                                className="relative w-full max-w-sm rounded-2xl overflow-hidden animate-scale-in"
-                                style={{
-                                    border: '1px solid var(--border)',
-                                    boxShadow: 'var(--shadow-xl)',
-                                    background: 'var(--surface)',
-                                }}
-                            >
-                                <img
-                                    src="/hero/mobile-agenda-professional.webp"
-                                    alt="Profesional revisando su agenda desde el celular"
-                                    width={1024}
-                                    height={1536}
-                                    className="aspect-[4/5] w-full object-cover"
-                                />
-                                <div
-                                    className="absolute bottom-4 left-4 right-4 rounded-2xl border p-3.5 shadow-lg"
-                                    style={{ borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)' }}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0" style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}>
-                                            <IconDeviceMobile size={20} />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold" style={{ color: '#0f172a' }}>Control total desde tu celular</p>
-                                            <p className="text-xs" style={{ color: '#475569' }}>Revisa tus citas entre atenciones o fuera del consultorio.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Right — differentiators + professional types */}
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent)]">
-                                Ventajas claras
-                            </p>
-                            <h2 className="text-2xl sm:text-3xl font-extrabold mb-3 text-[var(--fg)]">
-                                ¿Por qué elegir SimpleAgenda?
-                            </h2>
-                            <p className="mb-8 text-sm sm:text-base leading-relaxed text-[var(--fg-muted)]">
-                                Diseñado para simplificar el día a día de profesionales independientes y centros que trabajan con citas programadas en Chile.
-                            </p>
-
-                            <div className="grid sm:grid-cols-2 gap-4">
-                                {DIFFERENTIATORS.map((d, i) => (
-                                    <div
-                                        key={d.title}
-                                        className="flex gap-3 p-4 rounded-xl border transition-all duration-200"
-                                        style={{
-                                            borderColor: 'var(--border)',
-                                            background: 'var(--surface)',
-                                        }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-border)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                    >
-                                        <div
-                                            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                                            style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
-                                        >
-                                            <d.icon size={18} />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-sm font-bold mb-0.5" style={{ color: 'var(--fg)' }}>{d.title}</h3>
-                                            <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{d.desc}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Professional types */}
-                            <div className="mt-8 pt-6 border-t border-[var(--border)]">
-                                <p className="text-xs font-semibold mb-3 text-[var(--fg-secondary)]">Adaptado a tu rubro y especialidad:</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {PROFESSIONALS.map((pro) => (
-                                        <div
-                                            key={pro.label}
-                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-200"
-                                            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                                        >
-                                            <pro.icon size={15} style={{ color: 'var(--accent)' }} />
-                                            <span className="text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>{pro.label}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* ═══════════════ FEATURE SHOWCASE — alternating visual+text ═══════════════ */}
+            {/* ═══════════════ 1. FUNCIONALIDADES ESENCIALES ═══════════════ */}
             <section id="funciones" className="container-app section-marketing scroll-mt-20">
-                <div className="text-center mb-10 sm:mb-14 lg:mb-16">
-                    <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent)]">Funcionalidades</p>
+                <div className="text-center mb-10 sm:mb-14">
+                    <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent)]">
+                        Plataforma todo en uno
+                    </p>
                     <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-3 text-[var(--fg)]">
-                        Todo lo que necesitas en un solo lugar
+                        Todo lo que necesitas para tu consulta
                     </h2>
                     <p className="max-w-xl mx-auto text-sm sm:text-base text-[var(--fg-muted)]">
-                        Una plataforma completa pensada para profesionales, consultas y negocios que necesitan ordenar reservas sin complicaciones técnicas.
+                        Diseñado especialmente para profesionales independientes, consultas y salones que atienden con citas en Chile.
                     </p>
                 </div>
 
-                {/* Row 1: Booking page — image left, text right */}
-                <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center max-w-5xl mx-auto">
-                    <div className="flex justify-center">
-                        <div
-                            className="w-full max-w-sm rounded-2xl overflow-hidden"
-                            style={{ border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)', background: 'var(--surface)' }}
-                        >
-                            <img src="/hero/booking.svg" alt="Página de reservas online de SimpleAgenda" width={480} height={420} className="w-full h-auto" />
-                        </div>
-                    </div>
-                    <div>
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
-                            <IconCalendar size={20} />
-                        </div>
-                        <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Reservas online automáticas 24/7</h3>
-                        <p className="leading-relaxed mb-5 text-sm sm:text-base text-[var(--fg-muted)]">
-                            Tus clientes eligen servicio, fecha y hora directamente desde tu link público. Sin llamadas interminables, sin audios de WhatsApp a deshoras.
-                        </p>
-                        <ul className="flex flex-col gap-2.5">
-                            {[
-                                'Página pública personalizada con tu nombre y servicios',
-                                'Horarios disponibles actualizados en tiempo real',
-                                'Confirmación instantánea por email para ti y tu cliente',
-                            ].map((item) => (
-                                <li key={item} className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                    <IconCheck size={16} className="shrink-0" style={{ color: 'var(--accent)' }} />
-                                    {item}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-
-                {/* Row 2: Dashboard — text left, image right */}
-                <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center max-w-5xl mx-auto mt-14 sm:mt-16 lg:mt-20">
-                    <div className="order-2 lg:order-1">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
-                            <IconCreditCard size={20} />
-                        </div>
-                        <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Control total de tu consulta y finanzas</h3>
-                        <p className="leading-relaxed mb-5 text-sm sm:text-base text-[var(--fg-muted)]">
-                            Visualiza tus citas del día, clientes activos e ingresos del mes en un panel intuitivo. Registra pagos y mantén orden contable sin planillas de Excel desordenadas.
-                        </p>
-                        <ul className="flex flex-col gap-2.5">
-                            {[
-                                'Panel con métricas de reservas, ingresos y asistencia',
-                                'Historial de pagos y atenciones por paciente',
-                                'Notas de sesión privadas para tus atenciones',
-                            ].map((item) => (
-                                <li key={item} className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                    <IconCheck size={16} className="shrink-0" style={{ color: 'var(--accent)' }} />
-                                    {item}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div className="flex justify-center order-1 lg:order-2">
-                        <div
-                            className="w-full max-w-sm rounded-2xl overflow-hidden"
-                            style={{ border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)', background: 'var(--surface)' }}
-                        >
-                            <img src="/hero/dashboard.svg" alt="Dashboard de SimpleAgenda con métricas y citas" width={480} height={340} className="w-full h-auto" />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Feature cards — compact row */}
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto mt-12 sm:mt-16">
-                    {FEATURES.map((f, i) => (
+                {/* 6 feature cards in a 3-column grid */}
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
+                    {CORE_FEATURES.map((f) => (
                         <div
                             key={f.title}
-                            className="p-5 rounded-xl border transition-all duration-200"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xs)' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-border)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'var(--shadow-xs)'; }}
+                            className="p-5 sm:p-6 rounded-2xl border transition-all duration-200"
+                            style={{
+                                borderColor: 'var(--border)',
+                                background: 'var(--surface)',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-border)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                         >
-                            <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
-                                <f.icon size={18} />
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+                                <f.icon size={20} />
                             </div>
-                            <h4 className="text-sm font-bold mb-1.5" style={{ color: 'var(--fg)' }}>{f.title}</h4>
-                            <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{f.desc}</p>
+                            <h3 className="text-base font-bold mb-1.5 text-[var(--fg)]">{f.title}</h3>
+                            <p className="text-xs sm:text-sm leading-relaxed text-[var(--fg-muted)]">{f.desc}</p>
                         </div>
                     ))}
                 </div>
-            </section>
 
-            {/* ═══════════════ HOW IT WORKS — 3 steps ═══════════════ */}
-            <section id="como-funciona" className="scroll-mt-20" style={{ background: 'var(--bg-subtle)' }}>
-                <div className="container-app section-marketing">
-                    <div className="text-center mb-10 sm:mb-12">
-                        <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent)]">Cómo funciona</p>
-                        <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold mb-3 text-[var(--fg)]">Empieza en 3 sencillos pasos</h3>
-                        <p className="max-w-md mx-auto text-sm text-[var(--fg-muted)]">Sin instalaciones complejas ni configuraciones difíciles. Listo en menos de 5 minutos.</p>
-                    </div>
-                    <div className="grid md:grid-cols-3 gap-8 max-w-3xl mx-auto">
-                        {STEPS.map((step, i) => (
-                            <div key={i} className="relative text-center">
-                                {i < STEPS.length - 1 && (
-                                    <div className="hidden md:block absolute top-7 left-[60%] w-[80%] h-px" style={{ background: 'var(--border)' }} />
-                                )}
-                                <div
-                                    className="relative w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold shadow-md"
-                                    style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
-                                >
-                                    <step.icon size={20} />
-                                </div>
-                                <h4 className="font-bold text-base mb-1.5" style={{ color: 'var(--fg)' }}>{step.title}</h4>
-                                <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto" style={{ color: 'var(--fg-muted)' }}>{step.desc}</p>
-                            </div>
+                {/* Rubros adaptados */}
+                <div className="mt-10 pt-6 border-t border-[var(--border)] max-w-5xl mx-auto text-center">
+                    <p className="text-xs font-semibold mb-3 text-[var(--fg-secondary)]">Adaptado a tu especialidad y rubro en Chile:</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                        {PROFESSION_TAGS.map((tag) => (
+                            <span
+                                key={tag}
+                                className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--fg-secondary)] shadow-2xs"
+                            >
+                                {tag}
+                            </span>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* ═══════════════ FREE TRIAL CTA ═══════════════ */}
-            <section id="prueba-gratis" className="container-app section-marketing scroll-mt-20">
-                <div className="text-center mb-10 sm:mb-12 max-w-2xl mx-auto">
-                    <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent)]">{copy.sectionEyebrow}</p>
-                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-3 text-[var(--fg)]">
-                        {copy.sectionTitle}
-                    </h2>
-                    <p className="text-sm sm:text-base text-[var(--fg-muted)]">
-                        {copy.sectionSubtitle}
-                    </p>
-                </div>
-                <div className="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto mb-10">
-                    {trialBenefits.map((item) => (
-                        <div
-                            key={item.title}
-                            className="p-5 rounded-xl border text-center"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                        >
+            {/* ═══════════════ 2. CÓMO FUNCIONA — 3 PASOS ═══════════════ */}
+            <section id="como-funciona" className="scroll-mt-20" style={{ background: 'var(--bg-subtle)' }}>
+                <div className="container-app section-marketing">
+                    <div className="text-center mb-10 sm:mb-12">
+                        <p className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent)]">
+                            Puesta en marcha
+                        </p>
+                        <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold mb-3 text-[var(--fg)]">
+                            Empieza en 3 sencillos pasos
+                        </h3>
+                        <p className="max-w-md mx-auto text-sm text-[var(--fg-muted)]">
+                            Sin instalaciones complejas ni configuraciones técnicas. Tu agenda lista en menos de 5 minutos.
+                        </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                        {STEPS.map((step) => (
                             <div
-                                className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3"
-                                style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                                key={step.step}
+                                className="relative rounded-2xl border p-6 text-center transition-all bg-[var(--surface)] border-[var(--border)] shadow-xs"
                             >
-                                <item.icon size={20} />
+                                <div
+                                    className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4 font-extrabold text-sm shadow-xs"
+                                    style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+                                >
+                                    {step.step}
+                                </div>
+                                <h4 className="font-bold text-base mb-2 text-[var(--fg)]">{step.title}</h4>
+                                <p className="text-xs sm:text-sm leading-relaxed text-[var(--fg-muted)]">{step.desc}</p>
                             </div>
-                            <h3 className="text-sm font-bold mb-1.5 text-[var(--fg)]">{item.title}</h3>
-                            <p className="text-xs leading-relaxed text-[var(--fg-muted)]">{item.desc}</p>
-                        </div>
-                    ))}
-                </div>
-                <div className="text-center">
-                    <PanelButton
-                        type="button"
-                        variant="accent"
-                        className="h-12 px-8 text-sm font-semibold shadow-md gap-2"
-                        onClick={handleCTA}
-                    >
-                        {isLoggedIn ? 'Ir a mi agenda' : copy.sectionCta}
-                        <IconArrowRight size={16} />
-                    </PanelButton>
-                    <p className="mt-4 text-xs max-w-md mx-auto text-[var(--fg-muted)]">
-                        {copy.sectionFootnote}
-                    </p>
+                        ))}
+                    </div>
+
+                    <div className="mt-10 text-center">
+                        <PanelButton
+                            type="button"
+                            variant="accent"
+                            className="h-12 px-8 text-sm font-semibold shadow-md gap-2"
+                            onClick={handleCTA}
+                        >
+                            {isLoggedIn ? 'Ir a mi agenda' : 'Crear mi agenda gratis ahora'}
+                            <IconArrowRight size={16} />
+                        </PanelButton>
+                        <p className="mt-3 text-xs text-[var(--fg-muted)]">
+                            Prueba Pro completa de 30 días sin tarjeta · Sin cobros automáticos
+                        </p>
+                    </div>
                 </div>
             </section>
 
             {/* ═══════════════ PLANS & PRICING ═══════════════ */}
             {showPlans ? (
-                <section id="planes" className="scroll-mt-20" style={{ background: 'var(--bg-subtle)' }}>
+                <section id="planes" className="scroll-mt-20" style={{ background: 'var(--bg)' }}>
                     <div className="container-app section-marketing">
                         <div className="mx-auto mb-10 max-w-2xl text-center">
                             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--accent)]">
