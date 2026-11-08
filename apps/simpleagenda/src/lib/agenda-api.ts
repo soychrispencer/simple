@@ -48,19 +48,25 @@ export function notifyAgendaSetupChanged(): void {
     window.dispatchEvent(new Event('simple:agenda-setup-changed'));
 }
 
-export type AgendaPlanId = 'free' | 'pro';
+export type AgendaPlanId = 'free' | 'pro' | 'pro_plus';
 
 import { isPlatformLaunchActive } from '@simple/utils';
 
 export function hasAgendaFullAccess(profile: { plan: string; planExpiresAt: string | null }): boolean {
     if (isPlatformLaunchActive('agenda')) return true;
-    if (profile.plan === 'pro') {
+    if (profile.plan === 'pro' || profile.plan === 'pro_plus') {
         return !profile.planExpiresAt || new Date(profile.planExpiresAt) >= new Date();
     }
     if (profile.plan === 'free') {
         return Boolean(profile.planExpiresAt && new Date(profile.planExpiresAt) >= new Date());
     }
     return false;
+}
+
+export function hasAgendaProPlusAccess(profile: { plan: string; planExpiresAt: string | null }): boolean {
+    if (isPlatformLaunchActive('agenda')) return true;
+    if (profile.plan !== 'pro_plus') return false;
+    return !profile.planExpiresAt || new Date(profile.planExpiresAt) >= new Date();
 }
 
 export function isAgendaTrialPeriod(profile: { plan: string; planExpiresAt: string | null }): boolean {

@@ -45,7 +45,7 @@ export function AgendaPricingPlans() {
             price: annual ? `$${AGENDA_PRICING.proPlusAnnualTotalNetClp.toLocaleString('es-CL')}` : `$${AGENDA_PRICING.proPlusMonthlyNetClp.toLocaleString('es-CL')}`,
             priceDetail: annual ? '+ IVA / año' : '+ IVA / mes',
             annualDetail: annual ? `Equivale a ${formatAgendaProPlusAnnualMonthlyPrice()}. Ahorra ${AGENDA_PRICING.proAnnualDiscountPct}% al pagar el año.` : null,
-            description: 'Para profesionales que quieren automatizar su comunicación y hacer volver a sus clientes.',
+            description: 'Para profesionales que quieren recuperar clientes y volver a llenar su agenda.',
             lead: AGENDA_PLAN_CATALOG.proPlus.features[0],
             features: AGENDA_PLAN_CATALOG.proPlus.features.slice(1),
             action: 'pro_plus' as const,
@@ -110,7 +110,7 @@ export function AgendaPricingPlans() {
 
                             <div className="mt-5 flex-1 border-t border-[var(--border)] pt-5">
                                 <p className="agenda-plan-feature-lead mb-3 text-sm font-bold">{plan.lead}</p>
-                                <ul className="mb-7 space-y-3 text-sm leading-relaxed text-[var(--fg-secondary)]">
+                                <ul className="mb-7 space-y-4 text-sm leading-relaxed text-[var(--fg-secondary)]">
                                     {plan.features.map((feature) => (
                                         <li key={feature} className="flex items-start gap-2.5">
                                             <IconCheck

@@ -222,6 +222,13 @@ export default function ClientesPage() {
                     <p className="text-sm mt-0.5 agenda-panel-muted">
                         {clients.length} {clients.length !== 1 ? vocab.clients : vocab.client}
                     </p>
+                    <Link
+                        href="/panel/clientes/reactivar"
+                        className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-(--accent-ink) hover:underline"
+                    >
+                        <IconTag size={13} />
+                        Reactivar clientes · Pro+
+                    </Link>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     {clients.length > 0 && (

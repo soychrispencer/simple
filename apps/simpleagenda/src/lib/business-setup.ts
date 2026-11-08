@@ -45,7 +45,7 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
     // Con acceso completo (trial/pro), no mostrar expired en el carril de setup.
     const billingForSetup: PanelBillingAccess =
         profile && hasAgendaFullAccess(profile) && billing.status === 'expired'
-            ? { ...billing, status: profile.plan === 'pro' ? 'pro' : 'trial' }
+            ? { ...billing, status: profile.plan === 'pro' || profile.plan === 'pro_plus' ? 'pro' : 'trial' }
             : billing;
 
     const hasProfile = Boolean(profile?.displayName?.trim() && profile?.profession?.trim());

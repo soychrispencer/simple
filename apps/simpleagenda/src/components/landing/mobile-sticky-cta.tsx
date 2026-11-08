@@ -15,16 +15,39 @@ export function MobileStickyCTA() {
         const demo = document.getElementById('demo-interactiva');
         const closing = document.getElementById('empezar');
         if (!demo || !closing) return;
+        const plans = document.getElementById('planes');
 
         const updateVisibility = () => {
-            setVisible(demo.getBoundingClientRect().bottom <= 0 && closing.getBoundingClientRect().top >= window.innerHeight);
+            const outsidePlans = !plans
+                || plans.getBoundingClientRect().bottom <= 0
+                || plans.getBoundingClientRect().top >= window.innerHeight;
+            const shouldShow = demo.getBoundingClientRect().bottom <= 0
+                && closing.getBoundingClientRect().top >= window.innerHeight
+                && outsidePlans;
+            setVisible((current) => current === shouldShow ? current : shouldShow);
+        };
+        let frame = 0;
+        const scheduleUpdate = () => {
+            if (frame) return;
+            frame = window.requestAnimationFrame(() => {
+                frame = 0;
+                updateVisibility();
+            });
         };
         const observer = new IntersectionObserver(updateVisibility);
         observer.observe(demo);
         observer.observe(closing);
+        if (plans) observer.observe(plans);
+        window.addEventListener('scroll', scheduleUpdate, { passive: true });
+        window.addEventListener('resize', updateVisibility);
         updateVisibility();
 
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('scroll', scheduleUpdate);
+            window.removeEventListener('resize', updateVisibility);
+            if (frame) window.cancelAnimationFrame(frame);
+        };
     }, [dismissed]);
 
     if (!visible || dismissed) return null;

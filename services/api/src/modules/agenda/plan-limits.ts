@@ -136,7 +136,7 @@ export async function checkAppointmentLimit(profileId: string, additionalAppoint
     const used = await getAgendaMonthlyBookingCount(profileId);
     if (used + additionalAppointments <= AGENDA_PRICING.free.monthlyBookings) return null;
 
-    return `El plan Gratis incluye hasta ${AGENDA_PRICING.free.monthlyBookings} reservas al mes. Ya llevas ${used}; activa Pro por ${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes para seguir recibiendo reservas.`;
+    return `El plan Gratis incluye hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan). Ya llevas ${used}; activa Pro por ${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes para seguir recibiendo reservas.`;
 }
 
 /** Genera slots para una fecha según reglas de disponibilidad y citas existentes. */

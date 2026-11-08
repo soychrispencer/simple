@@ -27,25 +27,25 @@ const COPY: Record<AgendaTrialEmailKind, {
     trial_d7: {
         subject: 'Te quedan 7 días de prueba en Simple Agenda',
         headline: 'Quedan 7 días de tu prueba',
-        body: `Al terminar tu prueba, tu cuenta seguirá en Gratis sin cobro automático: tendrás ${AGENDA_PRICING.free.monthlyBookings} reservas al mes, ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación. Pro cuesta ${formatAgendaProMonthlyPrice()} y mantiene las funciones completas.`,
+        body: `Al terminar tu prueba, tu cuenta seguirá en Gratis sin cobro automático: tendrás ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan), ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación. Pro cuesta ${formatAgendaProMonthlyPrice()} y mantiene las funciones completas.`,
         button: 'Ver planes',
     },
     trial_d3: {
         subject: 'Quedan 3 días de tu prueba en Simple Agenda',
         headline: 'Tu prueba termina en 3 días',
-        body: `Tu agenda seguirá activa en Gratis cuando termine la prueba. Tendrás hasta ${AGENDA_PRICING.free.monthlyBookings} reservas nuevas al mes y no se te cobrará automáticamente. Activa Pro por ${formatAgendaProMonthlyPrice()} si necesitas funciones completas.`,
+        body: `Tu agenda seguirá activa en Gratis cuando termine la prueba. Tendrás hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan) y no se te cobrará automáticamente. Activa Pro por ${formatAgendaProMonthlyPrice()} si necesitas funciones completas.`,
         button: 'Activar Pro',
     },
     trial_d1: {
         subject: 'Mañana termina tu prueba en Simple Agenda',
         headline: 'Último día de prueba mañana',
-        body: `Mañana tu cuenta pasará a Gratis. Tu perfil y tus datos se mantienen, y podrás recibir hasta ${AGENDA_PRICING.free.monthlyBookings} reservas al mes. No se hará ningún cobro automático.`,
+        body: `Mañana tu cuenta pasará a Gratis. Tu perfil y tus datos se mantienen, y podrás recibir hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan). No se hará ningún cobro automático.`,
         button: 'Activar Pro',
     },
     trial_expired: {
         subject: 'Tu cuenta sigue en Gratis en Simple Agenda',
         headline: 'Tu cuenta continúa en Gratis',
-        body: `Conservas tu perfil público y puedes recibir hasta ${AGENDA_PRICING.free.monthlyBookings} reservas al mes. Pro cuesta ${formatAgendaProMonthlyPrice()} y desbloquea las funciones completas. No se generará ningún cobro automático.`,
+        body: `Conservas tu perfil público y puedes recibir hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan). Pro cuesta ${formatAgendaProMonthlyPrice()} y desbloquea las funciones completas. No se generará ningún cobro automático.`,
         button: 'Ver plan Pro',
     },
 };

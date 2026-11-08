@@ -22,9 +22,10 @@ import { AgendaCta } from '@/components/landing/agenda-cta';
 import { AgendaPricingPlans } from '@/components/landing/agenda-pricing-plans';
 
 const questions = [
-    ['¿Qué pasa cuando termina la prueba?', `Pasas automáticamente a Gratis, con hasta ${AGENDA_PRICING.free.monthlyBookings} reservas nuevas al mes. Solo pagas si eliges activar Pro.`],
+    ['¿Qué pasa cuando termina la prueba?', `Pasas automáticamente a Gratis, con hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes. Las canceladas también cuentan. Solo pagas si eliges activar Pro.`],
     ['¿Mis clientes necesitan una cuenta?', 'No. Pueden elegir un horario y reservar directamente desde tu link.'],
-    ['¿Cómo puedo cobrar por una cita?', 'Puedes configurar Mercado Pago, transferencia bancaria o un link de pago personalizado.'],
+    ['¿Cómo puedo cobrar por una cita?', 'Puedes configurar Mercado Pago, transferencia bancaria o un link de pago personalizado. SimpleAgenda no cobra comisión por reserva; el proveedor de pago puede aplicar sus propias tarifas.'],
+    ['¿SimpleAgenda envía WhatsApp automáticamente?', 'Aún no. Pro+ permite encontrar clientes que llevan 30, 60 o 90 días sin una atención y preparar un mensaje individual para WhatsApp o correo. Tú revisas y envías cada mensaje. Los recordatorios automáticos actuales llegan por email.'],
 ];
 
 const businessQuoteMessage = 'Hola, quiero cotizar el plan Empresa de SimpleAgenda. Somos ___ profesionales y tenemos ___ sucursales.';
@@ -144,7 +145,8 @@ export default function HomePage() {
                                 <p className="agenda-eyebrow mb-2">Para consultas y equipos</p>
                                 <h3 className="text-xl font-bold">{AGENDA_PLAN_CATALOG.business.name}</h3>
                                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--fg-secondary)]">{AGENDA_PLAN_CATALOG.business.description}</p>
-                                <ul className="mt-4 grid gap-2 text-sm text-[var(--fg-secondary)] sm:grid-cols-2">
+                                <p className="mt-4 text-xs font-semibold text-[var(--fg-muted)]">En la cotización podemos revisar:</p>
+                                <ul className="mt-2 grid gap-2 text-sm text-[var(--fg-secondary)] sm:grid-cols-2">
                                     {AGENDA_PLAN_CATALOG.business.features.map((feature) => (
                                         <li key={feature} className="flex items-start gap-2">
                                             <IconCheck size={15} className="mt-0.5 shrink-0 text-[var(--agenda-lime)]" stroke={2.5} />

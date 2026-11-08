@@ -78,8 +78,8 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
                             </p>
                             <p className="mt-1 text-sm text-(--fg-secondary)">
                                 {trialActive
-                                    ? `Después podrás recibir ${bookingsLimit} reservas al mes, usar ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación. No hay cobro automático.`
-                                    : `Este mes: ${bookingsUsed} de ${bookingsLimit} reservas. Tu perfil y tus datos siguen disponibles.`}
+                                    ? `Después podrás recibir ${bookingsLimit} reservas creadas al mes (las canceladas también cuentan), usar ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación. No hay cobro automático.`
+                                    : `Este mes: ${bookingsUsed} de ${bookingsLimit} reservas creadas. Las canceladas también cuentan; tu perfil y tus datos siguen disponibles.`}
                             </p>
                         </div>
                     </div>

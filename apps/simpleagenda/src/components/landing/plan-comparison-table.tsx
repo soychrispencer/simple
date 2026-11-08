@@ -22,7 +22,7 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
         items: [
             {
                 name: 'Reservas nuevas al mes',
-                description: 'Cantidad de citas que pueden reservar tus clientes mensualmente.',
+                description: 'Reservas creadas durante el mes calendario en Chile. Las reservas canceladas también cuentan.',
                 free: `Hasta ${AGENDA_PRICING.free.monthlyBookings} al mes`,
                 pro: 'Ilimitadas',
                 proPlus: 'Ilimitadas',
@@ -114,30 +114,31 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Recordatorios automáticos por email',
-                description: 'Recordatorios programados para reducir inasistencias.',
+                description: 'Se envían 24 horas y 30 minutos antes de la cita cuando el cliente dejó su correo.',
                 free: false,
                 pro: true,
                 proPlus: true,
             },
             {
-                name: 'Mensajería interna con clientes',
-                description: 'Canal de chat directo con quienes han reservado.',
+                name: 'Contacto manual por WhatsApp o correo',
+                description: 'Abre un mensaje preparado desde la ficha; tú lo revisas y lo envías.',
                 free: true,
                 pro: true,
                 proPlus: true,
             },
             {
-                name: 'Confirmaciones y recordatorios por WhatsApp',
-                description: 'Mensajes directos al teléfono de cada cliente.',
+                name: 'Envíos automáticos por WhatsApp',
+                description: 'Los recordatorios automáticos disponibles hoy se envían por email.',
                 free: false,
                 pro: false,
-                proPlus: 'Incluido según consumo',
+                proPlus: false,
             },
             {
                 name: 'Seguimiento automático después de la cita',
+                description: 'No disponible actualmente.',
                 free: false,
                 pro: false,
-                proPlus: true,
+                proPlus: false,
             },
         ],
     },
@@ -153,10 +154,10 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Comisión por reserva de SimpleAgenda',
-                description: 'No retenemos ningún porcentaje de tus honorarios.',
-                free: '0% (sin comisión)',
-                pro: '0% (sin comisión)',
-                proPlus: '0% (sin comisión)',
+                description: 'SimpleAgenda no cobra comisión por reserva. Mercado Pago u otro proveedor puede aplicar sus propias tarifas.',
+                free: '0% de comisión de SimpleAgenda',
+                pro: '0% de comisión de SimpleAgenda',
+                proPlus: '0% de comisión de SimpleAgenda',
             },
             {
                 name: 'Módulo de finanzas e ingresos',
@@ -199,7 +200,8 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 proPlus: true,
             },
             {
-                name: 'Campañas de reactivación y segmentación',
+                name: 'Clientes inactivos y reactivación',
+                description: 'Filtra por última atención (30, 60 o 90 días) y prepara mensajes individuales. Tú los envías.',
                 free: false,
                 pro: false,
                 proPlus: true,
@@ -229,9 +231,9 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Soporte',
-                free: 'Centro de ayuda y email',
-                pro: 'Soporte prioritario',
-                proPlus: 'Soporte prioritario',
+                free: 'Recursos de ayuda',
+                pro: 'Recursos de ayuda',
+                proPlus: 'Recursos de ayuda',
             },
         ],
     },
@@ -251,7 +253,7 @@ function RenderValue({ value }: { value: FeatureValue }) {
     }
 
     const isSubtle = value.includes('Próximamente') || value.startsWith('Se confirma') || value.startsWith('Se define');
-    const isHighlight = value === 'Ilimitadas' || value === 'Ilimitados' || value === '0% (sin comisión)';
+    const isHighlight = value === 'Ilimitadas' || value === 'Ilimitados' || value === '0% de comisión de SimpleAgenda';
 
     return (
         <span
@@ -307,7 +309,7 @@ export function PlanComparisonTable() {
                 </table>
             </div>
             <p className="mt-3 text-xs leading-relaxed text-[var(--fg-muted)]">
-                Los precios mensuales se muestran antes de IVA. Mercado Pago confirma el total con impuestos antes de pagar.
+                Los precios se muestran antes de IVA. El proveedor de pago puede cobrar tarifas propias, que se informan antes de pagar.
             </p>
         </>
     );
