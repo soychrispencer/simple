@@ -44,7 +44,7 @@ export function OperatorDirectoryFilterChips({
                 </Link>
             ))}
             {clearHref ? (
-                <Link href={clearHref} className="text-xs font-semibold text-accent hover:underline">
+                <Link href={clearHref} className="text-xs font-semibold text-accent-ink hover:underline">
                     {clearLabel}
                 </Link>
             ) : null}
@@ -92,7 +92,7 @@ export function OperatorDirectoryPageFrame({
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">{resultsEyebrow}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-ink">{resultsEyebrow}</p>
                     <p className="mt-2 text-sm text-fg-muted">{resultsLabel}</p>
                 </div>
                 {sortControl ? <div className="grid w-full gap-1.5 sm:w-52">{sortControl}</div> : null}

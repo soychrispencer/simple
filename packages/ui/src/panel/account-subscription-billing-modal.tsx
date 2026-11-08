@@ -178,7 +178,7 @@ export function AccountSubscriptionBillingModal({
                         <PanelNotice tone="neutral">
                             {ACCOUNT_BILLING_ADDRESS_BLOCK.description}
                             {' '}
-                            <Link href="/panel/mi-cuenta/ubicacion" className="font-medium text-accent underline">
+                            <Link href="/panel/mi-cuenta/ubicacion" className="font-medium text-accent-ink underline">
                                 Gestionar direcciones
                             </Link>
                         </PanelNotice>

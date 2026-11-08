@@ -13,7 +13,7 @@ export function OperatorDirectoryBoostedSection({
 }) {
     return (
         <section className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">{title}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-ink">{title}</p>
             {description ? (
                 <p className="mt-2 text-sm text-fg-muted">{description}</p>
             ) : null}

@@ -42,9 +42,8 @@ export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
                 <div className="mx-auto max-w-4xl grid gap-8 lg:grid-cols-12 items-center">
                     {/* Controls column */}
                     <div
-                        className="lg:col-span-7 rounded-2xl border p-6 sm:p-8 space-y-7 shadow-xs"
+                        className="agenda-surface-card lg:col-span-7 rounded-2xl p-6 sm:p-8 space-y-7"
                         style={{
-                            borderColor: 'var(--border)',
                             background: 'var(--surface)',
                         }}
                     >
@@ -54,7 +53,7 @@ export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
                                 <label className="text-sm font-bold text-[var(--fg)]">
                                     Citas que atiendes por semana:
                                 </label>
-                                <span className="text-base font-extrabold text-[var(--accent)]">
+                                <span className="text-base font-extrabold text-[var(--accent-ink)]">
                                     {weeklyAppointments} citas / sem
                                 </span>
                             </div>
@@ -80,7 +79,7 @@ export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
                                 <label className="text-sm font-bold text-[var(--fg)]">
                                     Valor promedio por consulta o sesión:
                                 </label>
-                                <span className="text-base font-extrabold text-[var(--accent)]">
+                                <span className="text-base font-extrabold text-[var(--accent-ink)]">
                                     ${avgPrice.toLocaleString('es-CL')} CLP
                                 </span>
                             </div>
@@ -135,14 +134,13 @@ export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
                     <div className="lg:col-span-5 flex flex-col gap-4">
                         {/* Result Card 1: Hours saved */}
                         <div
-                            className="rounded-2xl border p-5 sm:p-6 shadow-sm"
+                            className="agenda-surface-card rounded-2xl p-5 sm:p-6"
                             style={{
-                                borderColor: 'var(--border)',
                                 background: 'var(--surface)',
                             }}
                         >
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-[var(--accent)] flex items-center justify-center shrink-0">
+                                <div className="w-10 h-10 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] flex items-center justify-center shrink-0">
                                     <IconClockHour4 size={22} />
                                 </div>
                                 <div>
@@ -159,19 +157,18 @@ export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
 
                         {/* Result Card 2: Revenue saved */}
                         <div
-                            className="rounded-2xl border p-5 sm:p-6 shadow-sm"
+                            className="agenda-surface-card agenda-surface-card--accent rounded-2xl p-5 sm:p-6"
                             style={{
-                                borderColor: 'var(--border)',
                                 background: 'var(--surface)',
                             }}
                         >
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                                <div className="w-10 h-10 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] flex items-center justify-center shrink-0">
                                     <IconTrendingUp size={22} />
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold text-[var(--fg-muted)]">Ingresos que dejas de perder</p>
-                                    <p className="text-2xl font-extrabold text-emerald-600 mt-0.5">
+                                    <p className="text-2xl font-extrabold text-[var(--accent-ink)] mt-0.5">
                                         +${revenueSavedPerMonth.toLocaleString('es-CL')}{' '}
                                         <span className="text-xs font-normal text-[var(--fg-muted)]">CLP / mes</span>
                                     </p>
@@ -185,7 +182,7 @@ export function RoiCalculator({ onStartFree }: { onStartFree?: () => void }) {
                         {/* Summary highlight */}
                         <div className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-subtle)]/40 p-4 text-xs">
                             <div className="flex items-start gap-2.5">
-                                <IconSparkles size={18} className="text-[var(--accent)] shrink-0 mt-0.5" />
+                                <IconSparkles size={18} className="text-[var(--accent-ink)] shrink-0 mt-0.5" />
                                 <div>
                                     <p className="font-bold text-[var(--fg)]">
                                         SimpleAgenda Pro cuesta $11.990/mes.

@@ -43,11 +43,9 @@ export function AgendaProfessionField({ value, onChange, disabled = false }: Age
                             onClick={() => onChange(option.label)}
                             className="rounded-full border px-3 py-1 text-xs transition-colors hover:border-[var(--accent)] disabled:opacity-50"
                             style={{
-                                borderColor: value === option.label ? 'var(--accent)' : 'var(--border)',
-                                color: value === option.label ? 'var(--accent)' : 'var(--fg-muted)',
-                                background: value === option.label
-                                    ? 'color-mix(in oklab, var(--accent) 10%, transparent)'
-                                    : 'transparent',
+                                borderColor: value === option.label ? 'var(--signal, var(--accent))' : 'var(--border)',
+                                background: value === option.label ? 'color-mix(in srgb, var(--signal, var(--accent)) 14%, var(--surface))' : 'transparent',
+                                color: value === option.label ? 'var(--accent-ink, var(--accent))' : 'var(--fg-muted)',
                             }}
                         >
                             {option.label}

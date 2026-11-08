@@ -8,8 +8,10 @@ import { getPanelNavItems, isPanelNavActive } from '@/components/panel/panel-nav
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { NotificationBell } from '@/components/panel/notification-bell';
 import { fetchPanelNotifications } from '@/lib/panel-notifications';
+import { useAgendaLaunchMode } from '@/components/layout/agenda-launch-mode-context';
 
 export function Header() {
+    const agendaLaunchMode = useAgendaLaunchMode();
     const copy = resolveOperatorLandingCopy('agenda');
     const vocab = useAgendaVocab();
     const getItems = useCallback(
@@ -17,24 +19,9 @@ export function Header() {
         [vocab.Clients],
     );
     const publicLinks = [
+        { href: '/#como-funciona', label: 'Cómo funciona' },
+        ...(!agendaLaunchMode ? [{ href: '/#planes', label: 'Planes' }] : []),
         { href: '/profesionales', label: 'Profesionales' },
-        { href: '/#planes', label: 'Planes y precios' },
-        {
-            href: '/para-profesionales',
-            label: 'Para profesionales',
-            items: [
-                {
-                    href: '/#funciones',
-                    label: 'Funciones',
-                    description: 'Agenda, clientes, pagos y recordatorios.',
-                },
-                {
-                    href: '/#demo-interactiva',
-                    label: 'Ver cómo se reserva',
-                    description: 'Prueba cómo eligen una hora tus pacientes.',
-                },
-            ],
-        },
     ];
 
     return (
@@ -49,6 +36,8 @@ export function Header() {
             primaryActionHref="/panel/agenda?nueva=1"
             primaryActionIcon={IconPlus}
             guestRegisterLabel={copy.headerCta}
+            /* La barra completa no cabe hasta 1024px: el menú aparece en lg. */
+            desktopNavigationAt="lg"
         />
     );
 }

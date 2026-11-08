@@ -101,8 +101,8 @@ const pages: Record<SitePageKey, SiteInfoPageData> = {
             'Análisis de producto, distribución y performance.',
             'Contenido editorial con foco en operación real.',
         ],
-        primaryCta: { label: 'Ir a Descubre', href: '/descubre' },
-        secondaryCta: { label: 'Ver publicaciones', href: '/ventas' },
+        primaryCta: { label: 'Explorar vehículos', href: '/ventas' },
+        secondaryCta: { label: 'Conocer SimpleAutos', href: '/nosotros' },
         footerNav,
         sections: [
             {

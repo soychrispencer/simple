@@ -38,7 +38,7 @@ export type AdminPlatformAccess = {
 export type AdminSubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'free' | 'trial';
 
 export type AdminUserSubscriptions = {
-    agenda?: { plan: 'free' | 'pro'; status: AdminSubscriptionStatus; expiresAt: string | null };
+    agenda?: { plan: 'free' | 'pro' | 'pro_plus'; status: AdminSubscriptionStatus; expiresAt: string | null };
     autos?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
     propiedades?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
     serenatas?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
@@ -51,7 +51,7 @@ export type AdminAgendaSubscription = {
     userEmail: string;
     displayName: string;
     slug: string;
-    plan: 'free' | 'pro';
+    plan: 'free' | 'pro' | 'pro_plus';
     planExpiresAt: string | null;
     isPublished: boolean;
     status: 'active' | 'expired' | 'trial' | 'free';

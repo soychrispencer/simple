@@ -27,6 +27,7 @@ export function activeSubscriptionToResponse(subscription: ActiveSubscription | 
         accountId: subscription.accountId,
         vertical: subscription.vertical,
         planId: subscription.planId,
+        billingCycle: subscription.billingCycle ?? 'monthly',
         planName: subscription.planName,
         priceMonthly: subscription.priceMonthly,
         currency: subscription.currency,

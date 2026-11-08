@@ -55,10 +55,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-    pending: '#d97706',
-    paid: 'var(--accent)',
-    refunded: '#6366F1',
-    waived: '#9CA3AF',
+    pending: 'var(--color-warning)',
+    paid: 'var(--accent-ink)',
+    refunded: 'var(--color-info)',
+    waived: 'var(--fg-muted)',
 };
 
 type Period = 'month' | '30d' | '90d' | 'all';
@@ -364,7 +364,7 @@ export default function PagosPage() {
                     </div>
                 </div>
                 <div className="rounded-2xl border p-6 sm:p-8 agenda-pagos-surface">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
                         <IconLock size={22} />
                     </div>
                     <h2 className="text-xl font-bold agenda-pagos-title mb-2">Cobros es una función Pro</h2>
@@ -489,7 +489,7 @@ export default function PagosPage() {
                                                 className="w-full rounded-md transition-all"
                                                 style={{
                                                     height: `${Math.max(heightPct, b.total > 0 ? 6 : 2)}%`,
-                                                    background: isCurrent ? 'var(--accent)' : 'var(--accent-soft)',
+                                                    background: isCurrent ? 'var(--signal)' : 'var(--accent-soft)',
                                                     border: '1px solid var(--accent-border, var(--border))',
                                                     opacity: b.total === 0 ? 0.4 : 1,
                                                 }}
@@ -522,7 +522,7 @@ export default function PagosPage() {
                                         <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
                                             <div
                                                 className="h-full rounded-full transition-all"
-                                                style={{ width: `${m.pct}%`, background: 'var(--accent)' }}
+                                                style={{ width: `${m.pct}%`, background: 'var(--signal)' }}
                                             />
                                         </div>
                                     </div>
@@ -539,7 +539,7 @@ export default function PagosPage() {
                     className="rounded-2xl border flex flex-col items-center justify-center py-24 text-center"
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
                         <IconCreditCard size={24} />
                     </div>
                     <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--fg)' }}>Sin cobros registrados</h2>
@@ -564,7 +564,7 @@ export default function PagosPage() {
                         >
                             <div
                                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                                style={{ background: `${STATUS_COLORS[payment.status] ?? 'var(--border)'}18`, color: STATUS_COLORS[payment.status] ?? 'var(--fg-muted)' }}
+                                style={{ background: `color-mix(in srgb, ${STATUS_COLORS[payment.status] ?? 'var(--border)'} 10%, transparent)`, color: STATUS_COLORS[payment.status] ?? 'var(--fg-muted)' }}
                             >
                                 {payment.method === 'cash' ? <IconCash size={16} /> : <IconBuildingBank size={16} />}
                             </div>
@@ -576,12 +576,12 @@ export default function PagosPage() {
                                     </p>
                                     <span
                                         className="px-2 py-0.5 rounded-full text-xs font-medium"
-                                        style={{ background: `${STATUS_COLORS[payment.status]}20`, color: STATUS_COLORS[payment.status] ?? 'var(--fg-muted)' }}
+                                        style={{ background: `color-mix(in srgb, ${STATUS_COLORS[payment.status]} 12%, transparent)`, color: STATUS_COLORS[payment.status] ?? 'var(--fg-muted)' }}
                                     >
                                         {STATUS_LABELS[payment.status] ?? payment.status}
                                     </span>
                                     {overdueIds.has(payment.id) && (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626' }}>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'var(--color-error-subtle)', color: 'var(--color-error)' }}>
                                             <IconAlertTriangle size={10} />
                                             Atrasado
                                         </span>
@@ -610,7 +610,7 @@ export default function PagosPage() {
                                             rel="noopener noreferrer"
                                             aria-label="Enviar recordatorio por WhatsApp"
                                             className="inline-flex items-center justify-center gap-1 w-9 h-9 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle)"
-                                            style={{ borderColor: 'var(--border)', color: '#25D366' }}
+                                            style={{ borderColor: 'var(--border)', color: 'var(--brand-whatsapp)' }}
                                             title="Enviar recordatorio por WhatsApp"
                                         >
                                             <IconBrandWhatsapp size={15} />
@@ -624,7 +624,7 @@ export default function PagosPage() {
                                         disabled={markingPaid === payment.id}
                                         aria-label="Marcar como pagado"
                                         className="inline-flex items-center justify-center gap-1.5 w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                                     >
                                         {markingPaid === payment.id ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
                                         <span className="hidden sm:inline">Pagado</span>
@@ -646,7 +646,7 @@ export default function PagosPage() {
                                             onClick={() => void handleDelete(payment.id)}
                                             disabled={deletingId === payment.id}
                                             className="px-2 py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
-                                            style={{ background: '#EF4444', color: '#fff' }}
+                                            style={{ background: 'var(--color-error-solid)', color: '#fff' }}
                                         >
                                             {deletingId === payment.id ? <IconLoader2 size={11} className="animate-spin" /> : 'Eliminar'}
                                         </button>
@@ -689,7 +689,7 @@ export default function PagosPage() {
                                 onClick={() => void handleCreate()}
                                 disabled={creating}
                                 className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                style={{ background: 'var(--accent)', color: '#fff' }}
+                                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                             >
                                 {creating && <IconLoader2 size={14} className="animate-spin" />}
                                 {creating ? 'Guardando...' : 'Registrar'}
@@ -777,8 +777,9 @@ export default function PagosPage() {
                                             onClick={() => setForm((p) => ({ ...p, method: m }))}
                                             className="py-2 px-3 rounded-xl border text-xs transition-colors"
                                             style={{
-                                                borderColor: form.method === m ? 'var(--accent)' : 'var(--border)',
-                                                color: form.method === m ? 'var(--accent)' : 'var(--fg-secondary)',
+                                                borderColor: form.method === m ? 'var(--signal)' : 'var(--border)',
+                                                background: form.method === m ? 'color-mix(in srgb, var(--signal) 14%, var(--surface))' : 'transparent',
+                                                color: form.method === m ? 'var(--accent-ink)' : 'var(--fg-secondary)',
                                                 fontWeight: form.method === m ? 600 : 400,
                                             }}
                                         >
@@ -822,7 +823,7 @@ export default function PagosPage() {
                             </div>
 
                             {createError && (
-                                <p className="text-sm" style={{ color: '#dc2626' }}>{createError}</p>
+                                <p className="text-sm" style={{ color: 'var(--color-error)' }}>{createError}</p>
                             )}
                     </div>
                 </AgendaScrollModal>
@@ -841,7 +842,7 @@ export default function PagosPage() {
                                 onClick={() => void handleSaveEdit()}
                                 disabled={editSaving || !editAmount || Number(editAmount) <= 0}
                                 className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                style={{ background: 'var(--accent)', color: '#fff' }}
+                                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                             >
                                 {editSaving && <IconLoader2 size={14} className="animate-spin" />}
                                 {editSaving ? 'Guardando...' : 'Guardar cambios'}
@@ -876,8 +877,9 @@ export default function PagosPage() {
                                             onClick={() => setEditMethod(m)}
                                             className="py-2 px-3 rounded-xl border text-xs transition-colors"
                                             style={{
-                                                borderColor: editMethod === m ? 'var(--accent)' : 'var(--border)',
-                                                color: editMethod === m ? 'var(--accent)' : 'var(--fg-secondary)',
+                                                borderColor: editMethod === m ? 'var(--signal)' : 'var(--border)',
+                                                background: editMethod === m ? 'color-mix(in srgb, var(--signal) 14%, var(--surface))' : 'transparent',
+                                                color: editMethod === m ? 'var(--accent-ink)' : 'var(--fg-secondary)',
                                                 fontWeight: editMethod === m ? 600 : 400,
                                             }}
                                         >

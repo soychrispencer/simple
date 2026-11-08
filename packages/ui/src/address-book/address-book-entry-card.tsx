@@ -67,7 +67,7 @@ export function AddressBookEntryCard({
                     ) : featuredOnProfile ? (
                         <span
                             className="rounded-full px-2 py-1 text-[11px] font-medium"
-                            style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                            style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                         >
                             {profileBadgeLabel}
                         </span>

@@ -12,6 +12,8 @@ export type VehicleType = 'car' | 'motorcycle' | 'truck' | 'bus' | 'machinery' |
 
 interface VehicleFiltersProps {
     currentVehicleType?: VehicleType | '';
+    alwaysShowSearch?: boolean;
+    collapsible?: boolean;
 }
 
 const VEHICLE_TYPE_OPTIONS = [
@@ -96,7 +98,7 @@ const AERIAL_TYPES = [
     { value: 'ultralight', label: 'Ultraligero' },
 ];
 
-export default function VehicleFilters({ currentVehicleType = '' }: VehicleFiltersProps) {
+export default function VehicleFilters({ currentVehicleType = '', alwaysShowSearch = false, collapsible = false }: VehicleFiltersProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const searchParamsRef = useRef(searchParams);
@@ -306,34 +308,63 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
     return (
         <div className="w-full">
             <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Filtros</h3>
+                {alwaysShowSearch && collapsible ? (
                     <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={clearFilters}
-                            className="text-xs underline hidden sm:inline-block"
-                            style={{ color: 'var(--fg-muted)' }}
-                        >
-                            Limpiar filtros
-                        </button>
+                        <label className="sr-only" htmlFor="vehicle-feed-search">Buscar vehículos</label>
+                        <input
+                            id="vehicle-feed-search"
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Marca, modelo o versión"
+                            className="h-10 min-w-0 flex-1 rounded-full border px-4 text-sm"
+                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                        />
                         <button
                             type="button"
                             onClick={() => setIsExpanded(!isExpanded)}
-                            className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)' }}
+                            className="flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors"
+                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
                             aria-label={isExpanded ? 'Contraer filtros' : 'Expandir filtros'}
+                            aria-expanded={isExpanded}
                         >
                             <IconAdjustmentsHorizontal size={14} />
-                            {isExpanded ? 'Ocultar' : 'Filtros'}
+                            Filtros
                             <IconChevronDown size={14} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                         </button>
                     </div>
-                </div>
+                ) : (
+                    <>
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Filtros</h3>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={clearFilters}
+                                    className="text-xs underline hidden sm:inline-block"
+                                    style={{ color: 'var(--fg-muted)' }}
+                                >
+                                    Limpiar filtros
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsExpanded(!isExpanded)}
+                                    className={`${collapsible ? 'flex' : 'sm:hidden'} items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors`}
+                                    style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)' }}
+                                    aria-label={isExpanded ? 'Contraer filtros' : 'Expandir filtros'}
+                                    aria-expanded={isExpanded}
+                                >
+                                    <IconAdjustmentsHorizontal size={14} />
+                                    {isExpanded ? 'Ocultar' : 'Filtros'}
+                                    <IconChevronDown size={14} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
 
                 {/* Contenido de filtros - visible en desktop, expandible en móvil */}
-                <div className={`space-y-4 ${isExpanded ? 'block' : 'hidden sm:block'}`}>
-                    {/* Búsqueda */}
+                {alwaysShowSearch && !collapsible ? (
                     <div className="space-y-1.5">
                         <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Buscar</label>
                         <input
@@ -345,6 +376,34 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                             style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)' }}
                         />
                     </div>
+                ) : null}
+
+                <div className={`space-y-4 ${alwaysShowSearch && collapsible ? 'border-t border-(--border) pt-4' : ''} ${isExpanded ? 'block' : collapsible ? 'hidden' : 'hidden sm:block'}`}>
+                    {alwaysShowSearch && collapsible ? (
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={clearFilters}
+                                className="text-xs underline"
+                                style={{ color: 'var(--fg-muted)' }}
+                            >
+                                Limpiar filtros
+                            </button>
+                        </div>
+                    ) : null}
+                    {!alwaysShowSearch ? (
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Buscar</label>
+                            <input
+                                type="text"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Marca, modelo o versión"
+                                className="w-full h-9 px-3 rounded-lg border text-sm"
+                                style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)' }}
+                            />
+                        </div>
+                    ) : null}
 
                 {/* Tipo de vehículo */}
                 <div className="space-y-1.5">

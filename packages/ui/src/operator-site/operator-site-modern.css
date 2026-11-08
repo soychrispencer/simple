@@ -134,7 +134,7 @@
 }
 
 .os-marquee__sep {
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
     opacity: 0.85;
 }
 
@@ -313,12 +313,12 @@
 
 .os-page[data-os-layout="portfolio"] .os-section__label::before {
     content: "{ ";
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 .os-page[data-os-layout="portfolio"] .os-section__label::after {
     content: " }";
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 .os-page[data-os-layout="portfolio"] .os-section__title {

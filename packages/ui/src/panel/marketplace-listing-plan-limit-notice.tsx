@@ -19,11 +19,11 @@ export function MarketplacePublishMessageNotice({
         return (
             <PanelNotice tone="warning">
                 {message}{' '}
-                <Link href={subscriptionHref} className="font-medium underline" style={{ color: 'var(--accent)' }}>
+                <Link href={subscriptionHref} className="font-medium underline" style={{ color: 'var(--accent-ink)' }}>
                     Ver planes
                 </Link>
                 {' · '}
-                <Link href={miNegocioHref} className="font-medium underline" style={{ color: 'var(--accent)' }}>
+                <Link href={miNegocioHref} className="font-medium underline" style={{ color: 'var(--accent-ink)' }}>
                     Mi negocio
                 </Link>
             </PanelNotice>

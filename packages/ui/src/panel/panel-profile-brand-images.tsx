@@ -147,7 +147,7 @@ export function PanelProfileBrandImages({
                 className={
                     isProfilePage
                         ? 'flex size-20 items-center justify-center overflow-hidden rounded-2xl text-xl font-bold shadow-lg sm:size-24 sm:text-2xl'
-                        : 'flex size-14 items-center justify-center overflow-hidden rounded-[14px] border-2 border-white/90 bg-[var(--accent-soft)] text-lg font-bold text-[var(--accent)] shadow-md sm:size-16 sm:text-xl'
+                        : 'flex size-14 items-center justify-center overflow-hidden rounded-[14px] border-2 border-white/90 bg-[var(--accent-soft)] text-lg font-bold text-accent-ink shadow-md sm:size-16 sm:text-xl'
                 }
                 style={
                     isProfilePage
@@ -155,8 +155,8 @@ export function PanelProfileBrandImages({
                             border: '4px solid var(--bg)',
                             background: hasLogo
                                 ? undefined
-                                : 'linear-gradient(135deg, var(--accent-soft) 0%, var(--accent-subtle, var(--accent-soft)) 100%)',
-                            color: hasLogo ? 'transparent' : 'var(--accent)',
+                                : 'var(--accent-soft)',
+                            color: hasLogo ? 'transparent' : 'var(--accent-ink)',
                         }
                         : undefined
                 }
@@ -188,8 +188,8 @@ export function PanelProfileBrandImages({
                 <div
                     className="flex h-full w-full items-center justify-center text-sm font-semibold"
                     style={{
-                        background: 'linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-subtle) 55%, var(--bg-subtle) 100%)',
-                        color: 'var(--accent)',
+                        background: 'var(--bg-subtle)',
+                        color: 'var(--accent-ink)',
                     }}
                 >
                     Portada pendiente
@@ -252,7 +252,7 @@ export function PanelProfileBrandImages({
                             className="mt-1 flex min-w-0 items-center gap-1.5 text-sm font-medium"
                             style={{ color: 'var(--fg-secondary)' }}
                         >
-                            <IconMap size={15} className="shrink-0" style={{ color: 'var(--accent)' }} aria-hidden />
+                            <IconMap size={15} className="shrink-0" style={{ color: 'var(--accent-ink)' }} aria-hidden />
                             <span className="truncate" title={resolvedSubtitle ?? undefined}>
                                 {resolvedSubtitle ?? 'Por confirmar'}
                             </span>
@@ -315,7 +315,7 @@ export function PanelProfileBrandImages({
                             height: 180,
                             background: resolvedCoverUrl
                                 ? undefined
-                                : 'linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 40%, #1a1a2e) 50%, #0f0f23 100%)',
+                                : 'var(--agenda-green, var(--accent))',
                         }}
                     >
                         {resolvedCoverUrl ? (
@@ -338,7 +338,7 @@ export function PanelProfileBrandImages({
                         {resolvedName}
                     </h3>
                     {resolvedProfession ? (
-                        <p className="mt-1 max-w-full truncate text-sm font-semibold" style={{ color: 'var(--accent)' }} title={resolvedProfession}>
+                        <p className="mt-1 max-w-full truncate text-sm font-semibold" style={{ color: 'var(--accent-ink)' }} title={resolvedProfession}>
                             {resolvedProfession}
                         </p>
                     ) : (
@@ -372,7 +372,7 @@ export function PanelProfileBrandImages({
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-80"
-                        style={{ color: 'var(--accent)' }}
+                        style={{ color: 'var(--accent-ink)' }}
                     >
                         {previewLinkLabel}
                         <IconExternalLink size={13} aria-hidden />

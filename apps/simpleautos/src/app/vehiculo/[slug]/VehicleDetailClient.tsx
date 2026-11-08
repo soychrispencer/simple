@@ -98,7 +98,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
         ? '/arriendos'
         : item.section === 'auction'
             ? '/subastas'
-            : '/ventas';
+            : '/ventas?section=sale';
 
     const contactBlock = (
         <>

@@ -81,7 +81,7 @@ export default function DominioPage() {
                     <Link
                         href="/panel/mi-negocio"
                         className="mt-1 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                        style={{ background: 'var(--accent)', color: '#fff' }}
+                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                     >
                         Configurar link
                     </Link>
@@ -91,13 +91,13 @@ export default function DominioPage() {
                     {/* Link actual */}
                     <PanelCard size="md">
                         <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
                                 <IconWorld size={22} />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                     <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Tu dominio actual</h2>
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(13,148,136,0.1)', color: 'var(--accent)' }}>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}>
                                         <IconCheck size={10} /> Activo
                                     </span>
                                 </div>
@@ -125,7 +125,7 @@ export default function DominioPage() {
                             <Link
                                 href="/panel/mi-negocio/apariencia"
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                                style={{ background: 'var(--accent)', color: '#fff' }}
+                                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                             >
                                 Personalizar apariencia
                             </Link>
@@ -168,7 +168,7 @@ export default function DominioPage() {
                                                         style={{ background: 'var(--bg-muted)', color: 'var(--fg)', border: '1px solid var(--border)' }}
                                                     >
                                                         <code>{APP_HOST}</code>
-                                                        {copied ? <IconCheck size={11} style={{ color: 'var(--accent)' }} /> : <IconCopy size={11} />}
+                                                        {copied ? <IconCheck size={11} style={{ color: 'var(--accent-ink)' }} /> : <IconCopy size={11} />}
                                                     </button>
                                                 </span>
                                             ),
@@ -181,7 +181,7 @@ export default function DominioPage() {
                                         <li key={i} className="flex items-start gap-3">
                                             <div
                                                 className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[11px] font-semibold"
-                                                style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                                                style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                                             >
                                                 {i + 1}
                                             </div>
@@ -197,7 +197,7 @@ export default function DominioPage() {
                                     className="flex items-start gap-3 rounded-xl px-4 py-3 mb-4"
                                     style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-border, var(--border))' }}
                                 >
-                                    <IconLock size={15} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 2 }} />
+                                    <IconLock size={15} style={{ color: 'var(--accent-ink)', flexShrink: 0, marginTop: 2 }} />
                                     <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                                         Cuando esté disponible, <strong style={{ color: 'var(--fg)' }}>Dominio personalizado</strong> será parte del plan Pro.
                                     </p>

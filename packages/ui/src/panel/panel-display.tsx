@@ -85,6 +85,7 @@ export type PanelStatCardProps = {
     value: string;
     meta?: string;
     icon?: ReactNode;
+    accent?: boolean;
     trend?: {
         label: string;
         tone?: 'positive' | 'negative' | 'neutral';
@@ -95,6 +96,7 @@ export type PanelEmptyStateProps = {
     title?: string;
     description: string;
     action?: ReactNode;
+    illustration?: ReactNode;
     className?: string;
 };
 
@@ -216,7 +218,7 @@ export function PanelIconButton(props: PanelIconButtonProps) {
             onClick={onClick}
             disabled={disabled}
             className={joinClasses(
-                'rounded-button flex items-center justify-center shrink-0 transition-[background,color,opacity,transform] duration-150 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+                'rounded-button flex items-center justify-center shrink-0 transition-[background,color,opacity,transform] duration-150 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
                 sizeClass,
                 className,
             )}
@@ -237,7 +239,7 @@ export function PanelPageHeader(props: PanelPageHeaderProps) {
                     href={backHref}
                     className="inline-flex items-center gap-1 text-xs font-medium mb-3 transition-colors"
                     style={{ color: 'var(--fg-muted)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-ink)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fg-muted)'; }}
                 >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -275,7 +277,7 @@ export function PanelAccountProfileCard(props: PanelAccountProfileCardProps) {
             <div className="flex items-center gap-4">
                 <div
                     className="w-16 h-16 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                    style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}
                 >
                     <IconUser size={24} />
                 </div>
@@ -332,24 +334,39 @@ export function PanelActions(props: PanelActionsProps) {
 }
 
 export function PanelStatCard(props: PanelStatCardProps) {
-    const { label, value, meta, icon, trend } = props;
+    const { label, value, meta, icon, accent = false, trend } = props;
+    const accentSupportingText = 'color-mix(in srgb, var(--accent-surface-fg) 86%, var(--accent-surface))';
     const trendTone = trend?.tone ?? 'neutral';
-    const trendColor = trendTone === 'positive'
-        ? '#166534'
-        : trendTone === 'negative'
-            ? '#991b1b'
-            : 'var(--fg-secondary)';
-    const trendBg = trendTone === 'positive'
-        ? 'rgba(22,163,74,0.12)'
-        : trendTone === 'negative'
-            ? 'rgba(239,68,68,0.10)'
-            : 'var(--bg-muted)';
+    const trendColor = accent
+        ? 'var(--signal-contrast, var(--accent-surface-fg))'
+        : trendTone === 'positive'
+            ? 'var(--color-success)'
+            : trendTone === 'negative'
+                ? 'var(--color-error)'
+                : 'var(--fg-secondary)';
+    const trendBg = accent
+        ? 'var(--signal, transparent)'
+        : trendTone === 'positive'
+            ? 'var(--color-success-subtle)'
+            : trendTone === 'negative'
+                ? 'var(--color-error-subtle)'
+                : 'var(--bg-muted)';
 
     return (
-        <div className="rounded-card border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+        <div className="rounded-card border p-4" style={{ borderColor: accent ? 'var(--accent-surface)' : 'var(--border)', background: accent ? 'var(--accent-surface)' : 'var(--surface)' }}>
             <div className="mb-3 flex items-center justify-between gap-3">
                 {icon ? (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                    <div
+                        className="flex h-8 w-8 items-center justify-center rounded-xl"
+                        style={{
+                            background: accent
+                                ? 'var(--panel-stat-accent-icon-background, var(--accent-surface-tint))'
+                                : 'var(--panel-stat-icon-background, var(--bg-muted))',
+                            color: accent
+                                ? 'var(--panel-stat-accent-icon-color, var(--accent-surface-fg))'
+                                : 'var(--panel-stat-icon-color, var(--fg-muted))',
+                        }}
+                    >
                         {icon}
                     </div>
                 ) : <span />}
@@ -359,18 +376,19 @@ export function PanelStatCard(props: PanelStatCardProps) {
                     </span>
                 ) : null}
             </div>
-            <p className="text-2xl font-semibold" style={{ color: 'var(--fg)' }}>{value}</p>
-            <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>{label}</p>
-            {meta ? <p className="mt-2 text-xs" style={{ color: 'var(--fg-secondary)' }}>{meta}</p> : null}
+            <p className="text-2xl font-semibold" style={{ color: accent ? 'var(--signal, var(--accent-surface-fg))' : 'var(--fg)' }}>{value}</p>
+            <p className="mt-1 text-xs" style={{ color: accent ? accentSupportingText : 'var(--fg-muted)' }}>{label}</p>
+            {meta ? <p className="mt-2 text-xs" style={{ color: accent ? accentSupportingText : 'var(--fg-secondary)' }}>{meta}</p> : null}
         </div>
     );
 }
 
 export function PanelEmptyState(props: PanelEmptyStateProps) {
-    const { title = 'Sin resultados', description, action, className } = props;
+    const { title = 'Sin resultados', description, action, illustration, className } = props;
 
     return (
         <div className={joinClasses('rounded-card border p-6 md:p-7 text-center', className)} style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+            {illustration ? <div aria-hidden="true" className="mb-3 flex justify-center">{illustration}</div> : null}
             <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{title}</p>
             <p className="text-sm mt-2" style={{ color: 'var(--fg-secondary)' }}>{description}</p>
             {action ? <div className="mt-4 flex items-center justify-center">{action}</div> : null}

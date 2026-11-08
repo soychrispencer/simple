@@ -4,7 +4,10 @@ import { join } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const productionApps = ['simpleagenda', 'simpleautos', 'simplepropiedades', 'simpleserenatas', 'simpleplataforma', 'simpleadmin'];
+const requestedApps = process.argv.slice(2);
+const productionApps = requestedApps.length
+    ? requestedApps
+    : ['simpleagenda', 'simpleautos', 'simplepropiedades', 'simpleserenatas', 'simpleplataforma', 'simpleadmin'];
 for (const id of productionApps) {
     const source = join(root, 'brand', 'identity-05', id);
     const output = join(root, 'apps', id, 'public');
@@ -20,4 +23,4 @@ for (const id of productionApps) {
         await writeFile(join(output, 'favicon-48x48.png'), new Resvg(await readFile(join(source, 'micro-avatar.svg')), { fitTo: { mode: 'width', value: 48 } }).render().asPng());
     }
 }
-console.log('Six production asset sets exported. This script does not deploy applications.');
+console.log(`${productionApps.length} production asset set(s) exported. This script does not deploy applications.`);

@@ -42,7 +42,7 @@ export function PanelConfirmDialog({
     const iconWrapClass =
         tone === 'danger'
             ? 'bg-[color-mix(in_oklab,var(--color-error)_12%,transparent)] text-[var(--color-error)]'
-            : 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] text-[var(--accent)]';
+            : 'bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] text-accent-ink';
 
     return (
         <div

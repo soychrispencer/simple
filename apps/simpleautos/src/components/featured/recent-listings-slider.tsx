@@ -55,7 +55,7 @@ export default function RecentListingsSlider() {
     const [loading, setLoading] = useState(true);
 
     const listingSectionMeta: Record<PublicListingSection, { label: string; href: string }> = {
-        sale: { label: 'Ventas', href: '/ventas' },
+        sale: { label: 'Ventas', href: '/ventas?section=sale' },
         rent: { label: 'Arriendos', href: '/arriendos' },
         auction: { label: 'Subastas', href: '/subastas' },
     };

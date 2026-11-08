@@ -17,7 +17,7 @@ export function BusinessOperationalAlertSettingRow({
     return (
         <div className="flex items-start justify-between gap-4 rounded-xl border border-(--border) bg-(--surface) px-4 py-3">
             <div className="flex min-w-0 flex-1 items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-ink">
                     <IconComponent size={18} stroke={1.75} />
                 </div>
                 <div className="min-w-0">

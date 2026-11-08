@@ -288,7 +288,7 @@ export default function HorariosConfigPage() {
                 title={AGENDA_BUSINESS_HORARIOS_PAGE.title}
                 description={AGENDA_BUSINESS_HORARIOS_PAGE.description}
             >
-                <div className="rounded-2xl border px-5 py-4 text-sm flex items-center gap-3" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
+                <div className="rounded-2xl border px-5 py-4 text-sm flex items-center gap-3" style={{ borderColor: 'var(--color-error-border)', background: 'var(--color-error-bg)', color: 'var(--color-error)' }}>
                     <IconAlertCircle size={16} className="shrink-0" />
                     <div>
                         <p className="font-medium">{loadError}</p>
@@ -309,7 +309,7 @@ export default function HorariosConfigPage() {
             description={AGENDA_BUSINESS_HORARIOS_PAGE.description}
         >
             {defaultError ? (
-                <div className="mb-4 rounded-2xl border px-4 py-3 text-sm flex items-center gap-2" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
+                <div className="mb-4 rounded-2xl border px-4 py-3 text-sm flex items-center gap-2" style={{ borderColor: 'var(--color-error-border)', background: 'var(--color-error-bg)', color: 'var(--color-error)' }}>
                     <IconAlertCircle size={15} className="shrink-0" />
                     {defaultError}
                 </div>

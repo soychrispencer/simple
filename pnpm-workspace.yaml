@@ -3,6 +3,12 @@ packages:
   - 'apps/simple*'
   - 'services/*'
 
+allowBuilds:
+  core-js: true
+  esbuild: true
+  ffmpeg-static: true
+  sharp: true
+
 overrides:
   shell-quote: '>=1.8.4'
   vite: '>=6.4.3'

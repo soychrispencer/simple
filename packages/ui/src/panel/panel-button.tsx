@@ -58,7 +58,7 @@ export function getPanelButtonClassName(props?: {
         : 'h-10 px-4 text-sm';
 
     return joinClasses(
-        'panel-button inline-flex items-center justify-center gap-2 border font-medium transition-[background,color,border-color,box-shadow,transform] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+        'panel-button inline-flex items-center justify-center gap-2 border font-medium transition-[background,color,border-color,box-shadow,transform] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
         sizeClass,
         props?.className,
     );
@@ -97,24 +97,24 @@ export function getPanelButtonStyle(variant: PanelButtonVariant = 'secondary') {
                 } as CSSProperties)
                 : variant === 'accent'
                     ? ({
-                        '--panel-btn-bg': 'var(--accent)',
-                        '--panel-btn-color': 'var(--accent-contrast)',
-                        '--panel-btn-border': 'var(--accent)',
+                        '--panel-btn-bg': 'var(--agenda-action-bg, var(--accent))',
+                        '--panel-btn-color': 'var(--agenda-action-fg, var(--accent-contrast))',
+                        '--panel-btn-border': 'var(--agenda-action-bg, var(--accent))',
                         '--panel-btn-shadow': 'none',
-                        '--panel-btn-hover-bg': 'var(--accent)',
-                        '--panel-btn-hover-color': 'var(--accent-contrast)',
-                        '--panel-btn-hover-border': 'var(--accent)',
+                        '--panel-btn-hover-bg': 'var(--agenda-action-bg, var(--accent))',
+                        '--panel-btn-hover-color': 'var(--agenda-action-fg, var(--accent-contrast))',
+                        '--panel-btn-hover-border': 'var(--agenda-action-bg, var(--accent))',
                         '--panel-btn-hover-shadow': 'none',
                     } as CSSProperties)
                     : variant === 'success'
                         ? ({
-                            '--panel-btn-bg': 'color-mix(in oklab, #22c55e 14%, var(--surface))',
-                            '--panel-btn-color': '#15803d',
-                            '--panel-btn-border': 'color-mix(in oklab, #22c55e 35%, transparent)',
+                            '--panel-btn-bg': 'var(--color-success-bg)',
+                            '--panel-btn-color': 'var(--color-success)',
+                            '--panel-btn-border': 'var(--color-success-border)',
                             '--panel-btn-shadow': 'none',
-                            '--panel-btn-hover-bg': 'color-mix(in oklab, #22c55e 18%, var(--surface))',
-                            '--panel-btn-hover-color': '#15803d',
-                            '--panel-btn-hover-border': 'color-mix(in oklab, #22c55e 45%, transparent)',
+                            '--panel-btn-hover-bg': 'var(--color-success-subtle)',
+                            '--panel-btn-hover-color': 'var(--color-success)',
+                            '--panel-btn-hover-border': 'var(--color-success)',
                             '--panel-btn-hover-shadow': 'none',
                         } as CSSProperties)
                         : ({

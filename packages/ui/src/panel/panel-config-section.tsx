@@ -73,7 +73,7 @@ export function PanelConfigSection(props: PanelConfigSectionProps) {
                         <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
                             {completedRequired} de {requiredItems.length} secciones esenciales
                         </span>
-                        <span className="text-xs font-semibold" style={{ color: 'var(--accent)' }}>
+                        <span className="text-xs font-semibold" style={{ color: 'var(--accent-ink)' }}>
                             {Math.round((completedRequired / requiredItems.length) * 100)}%
                         </span>
                     </div>
@@ -100,8 +100,8 @@ export function PanelConfigSection(props: PanelConfigSectionProps) {
                             <div
                                 className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors"
                                 style={{
-                                    background: isDone ? 'var(--accent)' : 'var(--bg-muted)',
-                                    color: isDone ? '#fff' : 'var(--fg-muted)',
+                                    background: isDone ? 'var(--accent-surface)' : 'var(--bg-muted)',
+                                    color: isDone ? 'var(--accent-surface-fg)' : 'var(--fg-muted)',
                                 }}
                             >
                                 {isDone ? (

@@ -113,7 +113,7 @@ export function BusinessPublicLocationCard({
                 ) : (
                     <p className="text-xs leading-5" style={{ color: 'var(--fg-muted)' }}>
                         {primaryAddressField.missingDefaultHint}{' '}
-                        <Link href={addressesHref} className="font-medium text-accent hover:underline">
+                        <Link href={addressesHref} className="font-medium text-accent-ink hover:underline">
                             {primaryAddressField.missingDefaultHintLink}
                         </Link>
                         .
@@ -131,7 +131,7 @@ export function BusinessPublicLocationCard({
             />
 
             <div className="flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
-                <IconClock size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+                <IconClock size={14} className="mt-0.5 shrink-0 text-accent-ink" aria-hidden />
                 <span>
                     {businessOperatingTimezoneLabel(timezoneContext)}:{' '}
                     <strong className="text-fg">

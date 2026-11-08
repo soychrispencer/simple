@@ -38,11 +38,11 @@ export function MarketplacePublishPlanLimitNotice({
             <PanelNotice tone="warning">
                 Tu plan {planLimit.planLabel} permite hasta {formatLimit(planLimit.maxListings)} avisos activos
                 {' '}({planLimit.listingCount}/{formatLimit(planLimit.maxListings)}).{' '}
-                <Link href={subscriptionHref} className="font-medium underline" style={{ color: 'var(--accent)' }}>
+                <Link href={subscriptionHref} className="font-medium underline" style={{ color: 'var(--accent-ink)' }}>
                     Ver planes
                 </Link>
                 {' · '}
-                <Link href={miNegocioHref} className="font-medium underline" style={{ color: 'var(--accent)' }}>
+                <Link href={miNegocioHref} className="font-medium underline" style={{ color: 'var(--accent-ink)' }}>
                     Mi negocio
                 </Link>
             </PanelNotice>
@@ -54,7 +54,7 @@ export function MarketplacePublishPlanLimitNotice({
             <PanelNotice tone="info">
                 Te queda 1 aviso en tu plan {planLimit.planLabel} ({planLimit.listingCount}/{formatLimit(planLimit.maxListings)}).
                 {' '}
-                <Link href={subscriptionHref} className="font-medium underline" style={{ color: 'var(--accent)' }}>
+                <Link href={subscriptionHref} className="font-medium underline" style={{ color: 'var(--accent-ink)' }}>
                     Ver planes
                 </Link>
             </PanelNotice>

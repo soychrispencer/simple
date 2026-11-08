@@ -315,7 +315,7 @@ export type AdCampaignVerticalType = VerticalType | 'serenatas' | 'plataforma';
 export type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'subastas' | 'proyectos';
 export type CheckoutKind = 'boost' | 'advertising' | 'subscription' | 'serenata_booking';
 export type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
-export type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
+export type SubscriptionPlanId = 'free' | 'pro' | 'pro_plus' | 'enterprise';
 export type ActiveSubscriptionStatus = 'active' | 'cancelled' | 'paused';
 export type InstagramAccountStatus = 'connected' | 'error' | 'disconnected';
 export type InstagramPublicationStatus = 'published' | 'failed';
@@ -356,6 +356,7 @@ export type ActiveSubscription = {
     userId: string;
     vertical: VerticalType;
     planId: Exclude<SubscriptionPlanId, 'free'>;
+    billingCycle?: 'monthly' | 'annual';
     planName: string;
     priceMonthly: number;
     currency: 'CLP';
@@ -386,6 +387,7 @@ export type PaymentOrderMetadata =
         kind: 'subscription';
         planId: Exclude<SubscriptionPlanId, 'free'>;
         planName: string;
+        billingCycle?: 'monthly' | 'annual';
     }
     | {
         kind: 'serenata_booking';

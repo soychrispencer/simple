@@ -4,7 +4,7 @@ import { subscriptions, subscriptionPlans } from '../../db/schema.js';
 import type { ActiveSubscription, SubscriptionPlanId, VerticalType } from '../../lib/domain-types.js';
 
 function isPaidPlanId(planId: string): planId is Exclude<SubscriptionPlanId, 'free'> {
-    return planId === 'pro' || planId === 'enterprise';
+    return planId === 'pro' || planId === 'pro_plus' || planId === 'enterprise';
 }
 
 /**
@@ -22,6 +22,7 @@ export async function loadActiveSubscriptionsCache(): Promise<Map<string, Active
             status: subscriptions.status,
             providerSubscriptionId: subscriptions.providerSubscriptionId,
             providerStatus: subscriptions.providerStatus,
+            billingCycle: subscriptions.billingCycle,
             startedAt: subscriptions.startedAt,
             updatedAt: subscriptions.updatedAt,
             expiresAt: subscriptions.expiresAt,
@@ -51,6 +52,7 @@ export async function loadActiveSubscriptionsCache(): Promise<Map<string, Active
             userId: row.userId,
             vertical: row.vertical as VerticalType,
             planId: row.planId,
+            billingCycle: row.billingCycle === 'annual' ? 'annual' : 'monthly',
             planName: row.planName,
             priceMonthly: Number(row.priceMonthly),
             currency: (row.currency as 'CLP') ?? 'CLP',

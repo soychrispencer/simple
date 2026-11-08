@@ -96,9 +96,9 @@ export function BusinessBlockedDaysSection({
                                         onClick={() => onFormFieldChange('mode', mode)}
                                         className="flex-1 rounded-xl border py-2.5 text-sm transition-colors"
                                         style={{
-                                            borderColor: form.mode === mode ? 'var(--accent)' : 'var(--border)',
-                                            background: form.mode === mode ? 'var(--accent-soft)' : 'transparent',
-                                            color: form.mode === mode ? 'var(--accent)' : 'var(--fg-secondary)',
+                                            borderColor: form.mode === mode ? 'var(--signal, var(--accent))' : 'var(--border)',
+                                            background: form.mode === mode ? 'color-mix(in srgb, var(--signal, var(--accent)) 14%, var(--surface))' : 'transparent',
+                                            color: form.mode === mode ? 'var(--accent-ink, var(--accent))' : 'var(--fg-secondary)',
                                             fontWeight: form.mode === mode ? 600 : 400,
                                         }}
                                     >

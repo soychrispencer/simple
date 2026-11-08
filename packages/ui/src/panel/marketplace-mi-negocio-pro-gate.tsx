@@ -61,7 +61,7 @@ export function MarketplaceMiNegocioProGate({
             <div className="container-app panel-page flex min-h-[60vh] flex-col items-center justify-center py-16 text-center">
                 <div
                     className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full"
-                    style={{ background: 'color-mix(in oklab, var(--accent) 12%, transparent)', color: 'var(--accent)' }}
+                    style={{ background: 'color-mix(in oklab, var(--accent) 12%, transparent)', color: 'var(--accent-ink)' }}
                 >
                     <IconLock size={36} stroke={1.75} />
                 </div>

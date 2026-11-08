@@ -24,7 +24,7 @@ import {
 } from '@simple/utils';
 import { OperatorSiteAboutSection } from './operator-site-about.js';
 import { OperatorSiteBookingHeroCard } from './operator-site-booking-hero-card.js';
-import { OperatorSiteThemeShell } from './operator-site-theme-shell.js';
+import { OperatorSiteThemeShell, type OperatorSiteAccentFallback } from './operator-site-theme-shell.js';
 import { OperatorSiteReveal } from './operator-site-reveal.js';
 import { OperatorSiteScheduleSection, OperatorSiteScheduleSidebar } from './operator-site-schedule.js';
 import { OperatorSiteOffersBlock } from './operator-site-catalog.js';
@@ -45,6 +45,19 @@ const ALL_NAV_ITEMS = [
     { id: 'contacto', label: 'Contacto' },
     { id: 'pagos', label: 'Pagos' },
 ] as const;
+
+/**
+ * El color automático conserva el teal como marca y el lima como énfasis;
+ * si el profesional elige un acento propio, ese color prevalece en su sitio.
+ */
+const AGENDA_SITE_ACCENT: OperatorSiteAccentFallback = {
+    light: 'var(--agenda-green, #002E32)',
+    dark: 'var(--agenda-green, #002E32)',
+    lightInk: 'var(--agenda-green, #002E32)',
+    darkInk: 'var(--agenda-lime, #B8DB3A)',
+    lightContrast: 'var(--agenda-white, #FFFFFF)',
+    darkContrast: 'var(--agenda-white, #FFFFFF)',
+};
 
 const BOOKING_SECTION_ID = 'servicios';
 
@@ -73,7 +86,7 @@ function PaymentMethodsBlock({ pm, layout }: { pm: AgendaOperatorSiteProps['prof
                     <div className="os-glass" style={{ padding: '1.25rem' }}>
                         <div className="flex flex-col gap-3">
                             {pm.requiresAdvancePayment ? (
-                                <p className="text-xs rounded-xl px-3 py-2" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+                                <p className="text-xs rounded-xl px-3 py-2" style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}>
                                     Puede solicitarse pago anticipado al reservar.
                                 </p>
                             ) : null}
@@ -678,12 +691,19 @@ export function AgendaOperatorSite({
         return [...names, ...extras].filter((item, index, list) => list.indexOf(item) === index);
     }, [isPortfolio, catalog, profile.displayName, profile.city, profile.servesOnline, profile.servesPresential]);
 
+    // 'teal' es el valor que guarda el editor cuando el profesional no elige color
+    // (es el default histórico de toda la plataforma). En SimpleAgenda ese tono ya no
+    // pertenece a la paleta, así que se interpreta como «sin elección».
+    const operatorAccent = appearance?.accentColor;
+    const accentChoice = !operatorAccent || operatorAccent === 'teal' ? undefined : operatorAccent;
+
     return (
         <OperatorSiteThemeShell
             slug={profile.slug}
             layout={layout}
             defaultColorMode={colorMode}
-            accentColor={appearance?.accentColor}
+            accentColor={accentChoice}
+            accentFallback={AGENDA_SITE_ACCENT}
         >
             <OperatorSiteNav
                 brandLabel={profile.displayName}

@@ -133,7 +133,7 @@ export function PanelAccountResidenceSection({
                 disabled={saving}
             />
             <div className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2.5 text-xs text-[var(--fg-muted)]">
-                <IconClock size={14} className="mt-0.5 shrink-0 text-[var(--accent)]" aria-hidden />
+                <IconClock size={14} className="mt-0.5 shrink-0 text-accent-ink" aria-hidden />
                 <span>
                     Zona horaria del panel:{' '}
                     <strong className="text-[var(--fg)]">

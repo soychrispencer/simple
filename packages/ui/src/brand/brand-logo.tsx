@@ -17,19 +17,28 @@ export type BrandLogoProps = {
 };
 
 
-function brandLogoIconWrapStyle(variant: BrandLogoVariant): CSSProperties {
+function brandLogoIconWrapStyle(variant: BrandLogoVariant, appId: SimpleAppId): CSSProperties {
+    if (appId === 'simpleagenda' && variant !== 'ghost' && variant !== 'watermark') {
+        return {
+            background: 'var(--agenda-lime, #B8DB3A)',
+            borderColor: 'var(--agenda-lime, #B8DB3A)',
+            color: 'var(--agenda-green, #002E32)',
+            boxShadow: 'var(--shadow-sm)',
+        };
+    }
+
     switch (variant) {
         case 'ghost':
             return {
                 background: 'transparent',
                 borderColor: 'var(--accent-border)',
-                color: 'var(--accent)',
+                color: 'var(--accent-ink)',
             };
         case 'onAccent':
             return {
                 background: 'var(--accent-contrast)',
                 borderColor: 'color-mix(in oklab, var(--accent-contrast) 78%, var(--accent))',
-                color: 'var(--accent)',
+                color: 'var(--accent-ink)',
                 boxShadow: 'var(--shadow-sm)',
             };
         case 'watermark':
@@ -42,9 +51,9 @@ function brandLogoIconWrapStyle(variant: BrandLogoVariant): CSSProperties {
             };
         default:
             return {
-                background: 'var(--accent)',
-                borderColor: 'var(--accent)',
-                color: 'var(--accent-contrast)',
+                background: 'var(--accent-surface)',
+                borderColor: 'var(--accent-surface)',
+                color: 'var(--accent-surface-fg)',
                 boxShadow: 'var(--shadow-sm)',
             };
     }
@@ -66,12 +75,12 @@ export function BrandLogo({
             : variant === 'onAccent'
                 ? 'var(--accent-contrast)'
                 : 'var(--fg)';
-    const wordmarkSecondary = wordmarkPrimary;
-
     const wordmarkHeight = variant === 'watermark' || size === 'sm' ? 18 : size === 'lg' ? 28 : 21;
+    const wordmarkFontSize = Math.round(wordmarkHeight);
+    const wordmarkSuffix = brand.shortName.replace(/^Simple/, '') || brand.shortName;
 
     const iconBox = clsx(
-        'flex items-center justify-center border transition-[box-shadow,border-color,background-color,transform,filter] duration-[var(--serenatas-motion-duration,180ms)] ease-[var(--serenatas-motion-ease,cubic-bezier(0.16,1,0.3,1))]',
+        'brand-logo__icon flex items-center justify-center border transition-[box-shadow,border-color,background-color,transform,filter] duration-[var(--serenatas-motion-duration,180ms)] ease-[var(--serenatas-motion-ease,cubic-bezier(0.16,1,0.3,1))]',
         size === 'sm' && variant !== 'watermark' && 'w-8 h-8 rounded-[var(--radius)]',
         size === 'sm' && variant === 'watermark' && 'w-9 h-9 rounded-[var(--radius)]',
         size === 'md' && 'w-9 h-9 rounded-[var(--radius)]',
@@ -93,23 +102,26 @@ export function BrandLogo({
             style={variant === 'watermark' ? { filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.32))' } : undefined}
         >
             {showIcon ? (
-                <span className={iconBox} style={brandLogoIconWrapStyle(variant)}>
+                <span className={iconBox} style={brandLogoIconWrapStyle(variant, appId)}>
                     <svg aria-hidden="true" viewBox="0 0 80 80" width="100%" height="100%" fill="none">
                         <g transform="translate(8 8)" dangerouslySetInnerHTML={{ __html: size === 'sm' || variant === 'watermark' ? artwork.micro : artwork.full }} />
                     </svg>
                 </span>
             ) : null}
             {showWordmark ? (
-                <svg
+                <span
                     aria-hidden="true"
-                    viewBox={`0 0 ${artwork.wordmarkWidth} ${artwork.wordmarkHeight}`}
-                    height={wordmarkHeight}
-                    width={wordmarkHeight * artwork.wordmarkWidth / artwork.wordmarkHeight}
-                    className="shrink-0 overflow-visible"
+                    className="brand-logo__wordmark inline-flex shrink-0 whitespace-nowrap leading-none"
+                    style={{
+                        color: wordmarkPrimary,
+                        fontFamily: 'var(--font-display, Instrument Sans, Inter, sans-serif)',
+                        fontSize: `${wordmarkFontSize}px`,
+                        letterSpacing: '-0.045em',
+                    }}
                 >
-                    <g style={{ color: wordmarkPrimary }} dangerouslySetInnerHTML={{ __html: artwork.wordmarkPrimary }} />
-                    <g style={{ color: wordmarkSecondary }} dangerouslySetInnerHTML={{ __html: artwork.wordmarkSecondary }} />
-                </svg>
+                    <span style={{ fontWeight: 700 }}>Simple</span>
+                    <span style={{ fontWeight: 400 }}>{wordmarkSuffix}</span>
+                </span>
             ) : null}
         </span>
     );

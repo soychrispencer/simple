@@ -1,6 +1,6 @@
 import type { VerticalType } from '@simple/types';
 import { getSubscriptionPlans } from '../advertising/service.js';
-type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
+type SubscriptionPlanId = 'free' | 'pro' | 'pro_plus' | 'enterprise';
 import { countFreeBoostsUsedThisMonth } from './service.js';
 
 export type FreeBoostQuota = {

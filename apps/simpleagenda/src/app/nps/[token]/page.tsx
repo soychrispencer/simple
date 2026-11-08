@@ -10,8 +10,8 @@ const SCORES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 function scoreColor(score: number) {
     if (score >= 9) return 'var(--accent)';
-    if (score >= 7) return '#d97706';
-    return '#dc2626';
+    if (score >= 7) return 'var(--color-warning-solid)';
+    return 'var(--color-error-solid)';
 }
 
 export default function NpsPublicPage() {
@@ -67,7 +67,7 @@ export default function NpsPublicPage() {
         return (
             <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg)' }}>
                 <div className="text-center max-w-sm">
-                    <IconAlertCircle size={44} className="mx-auto mb-4" style={{ color: '#dc2626' }} />
+                    <IconAlertCircle size={44} className="mx-auto mb-4" style={{ color: 'var(--color-error)' }} />
                     <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Enlace inválido</h1>
                     <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
                         El enlace de la encuesta no es válido o ha expirado.
@@ -82,10 +82,9 @@ export default function NpsPublicPage() {
             <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg)' }}>
                 <div className="text-center max-w-sm">
                     <div
-                        className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-                        style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)' }}
+                        className="mx-auto mb-4 flex size-16 items-center justify-center rounded-card bg-(--accent-soft) text-(--accent-ink)"
                     >
-                        <IconCheck size={32} style={{ color: 'var(--accent)' }} />
+                        <IconCheck size={32} aria-hidden="true" />
                     </div>
                     <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>¡Gracias por tu opinión!</h1>
                     <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
@@ -95,7 +94,7 @@ export default function NpsPublicPage() {
                         <a
                             href={`/${context.professional.slug}`}
                             className="mt-6 inline-block px-4 py-2 rounded-xl text-sm font-medium"
-                            style={{ background: 'var(--accent)', color: '#fff' }}
+                            style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                         >
                             Volver al perfil
                         </a>
@@ -126,7 +125,7 @@ export default function NpsPublicPage() {
                     ) : (
                         <span
                             className="w-12 h-12 rounded-full flex items-center justify-center"
-                            style={{ background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: 'var(--accent)' }}
+                            style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                         >
                             <IconHeart size={22} />
                         </span>
@@ -168,7 +167,7 @@ export default function NpsPublicPage() {
                                 style={{
                                     borderColor: active ? scoreColor(n) : 'var(--border)',
                                     background: active ? scoreColor(n) : 'var(--surface)',
-                                    color: active ? '#fff' : 'var(--fg)',
+                                    color: active ? 'var(--accent-contrast)' : 'var(--fg)',
                                 }}
                             >
                                 {n}
@@ -196,7 +195,7 @@ export default function NpsPublicPage() {
                 {error ? (
                     <div
                         className="mt-3 text-sm px-3 py-2 rounded-lg border flex items-start gap-2"
-                        style={{ borderColor: '#fecaca', background: 'color-mix(in srgb, #dc2626 6%, transparent)', color: '#991b1b' }}
+                        style={{ borderColor: 'var(--color-error-border)', background: 'var(--color-error-bg)', color: 'var(--color-error)' }}
                     >
                         <IconAlertCircle size={14} className="mt-0.5 shrink-0" />
                         <span>{error}</span>
@@ -209,7 +208,7 @@ export default function NpsPublicPage() {
                         onClick={handleSubmit}
                         disabled={submitting || score === null}
                         className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-opacity disabled:opacity-60"
-                        style={{ background: 'var(--accent)', color: '#fff' }}
+                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                     >
                         {submitting ? (
                             <IconLoader2 size={15} className="animate-spin" />

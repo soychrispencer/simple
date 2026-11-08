@@ -12,8 +12,8 @@ function NotifIcon({ type }: { type: string }) {
 }
 
 function notifColor(type: string): string {
-    if (type === 'cancellation') return '#ef4444';
-    if (type === 'today') return 'var(--accent)';
+    if (type === 'cancellation') return 'var(--color-error)';
+    if (type === 'today') return 'var(--accent-ink)';
     return 'var(--fg-secondary)';
 }
 
@@ -93,7 +93,7 @@ export function NotificationBell() {
                 {unread > 0 ? (
                     <span
                         className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold leading-none px-0.5"
-                        style={{ background: '#ef4444', color: '#fff' }}
+                        style={{ background: 'var(--color-error-solid)', color: '#fff' }}
                     >
                         {unread > 9 ? '9+' : unread}
                     </span>
@@ -149,7 +149,7 @@ export function NotificationBell() {
                             href="/panel/agenda"
                             onClick={() => setOpen(false)}
                             className="text-xs font-medium transition-colors hover:underline"
-                            style={{ color: 'var(--accent)' }}
+                            style={{ color: 'var(--accent-ink)' }}
                         >
                             Ver agenda completa →
                         </a>

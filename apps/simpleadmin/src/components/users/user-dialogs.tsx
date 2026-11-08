@@ -174,8 +174,8 @@ export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps 
     const setField = (vertical: AdminVertical, field: string, value: string) => setForm((current) => {
         const resetAgendaExpiration = vertical === 'agenda'
             && field === 'plan'
-            && value === 'pro'
-            && current.agenda.plan !== 'pro';
+            && (value === 'pro' || value === 'pro_plus')
+            && current.agenda.plan !== value;
         return {
             ...current,
             [vertical]: {
@@ -228,14 +228,14 @@ export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps 
                         <div className="grid gap-3 sm:grid-cols-3">
                             <Field label="Plan"><ModernSelect value={form[vertical].plan} onChange={(value) => setField(vertical, 'plan', value)} options={PLAN_OPTIONS[vertical]} /></Field>
                             {vertical !== 'agenda' ? <Field label="Estado"><ModernSelect value={form[vertical].status} onChange={(value) => setField(vertical, 'status', value)} options={SUBSCRIPTION_STATUS_OPTIONS} disabled={form[vertical].plan === 'free'} /></Field> : null}
-                            {vertical !== 'agenda' || form.agenda.plan === 'pro' ? (
+                            {vertical !== 'agenda' || form.agenda.plan === 'pro' || form.agenda.plan === 'pro_plus' ? (
                                 <Field label="Expiración"><input className="form-input" type="date" value={form[vertical].expiresAt} onChange={(event) => setField(vertical, 'expiresAt', event.target.value)} /></Field>
                             ) : null}
                             {vertical === 'serenatas' ? <Field label="Fin prueba dueño" className="sm:col-start-3"><input className="form-input" type="date" value={form.serenatas.trialEndsAt} onChange={(event) => setField('serenatas', 'trialEndsAt', event.target.value)} /></Field> : null}
                             {vertical === 'agenda' ? (
                                 <div className="sm:col-span-3">
                                     <PanelNotice tone="info">
-                                        Las cuentas nuevas reciben 30 días de Pro y luego continúan en Gratis. En esta pantalla, Gratis no tiene vencimiento; Pro+ aparece próximamente y Empresa / Negocios se cotizará según el tamaño del equipo.
+                                        Las cuentas nuevas reciben 30 días de Pro y luego continúan en Gratis. En esta pantalla puedes asignar Gratis, Pro o Pro+; Empresa / Negocios se cotiza según el tamaño del equipo.
                                     </PanelNotice>
                                 </div>
                             ) : null}

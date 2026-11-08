@@ -69,7 +69,7 @@ export function PainComparisonSection() {
 
                 <div className="mx-auto max-w-5xl grid gap-6 md:grid-cols-2 items-stretch">
                     {/* The Chaos of WhatsApp — Restrained, elegant neutral state */}
-                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 flex flex-col justify-between shadow-xs">
+                    <div className="agenda-surface-card rounded-2xl p-6 sm:p-8 flex flex-col justify-between">
                         <div>
                             <div className="flex items-center justify-between pb-5 border-b border-[var(--border)]">
                                 <div className="flex items-center gap-3">
@@ -91,7 +91,7 @@ export function PainComparisonSection() {
                             <ul className="mt-6 space-y-4">
                                 {WHATSAPP_PAINS.map((item, idx) => (
                                     <li key={idx} className="flex items-start gap-3 text-xs sm:text-sm">
-                                        <div className="size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex items-center justify-center shrink-0 mt-0.5">
+                                        <div className="agenda-pain-icon size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                                             <IconX size={12} stroke={2.5} />
                                         </div>
                                         <div>
@@ -111,30 +111,29 @@ export function PainComparisonSection() {
 
                     {/* With SimpleAgenda — Crisp accent state */}
                     <div
-                        className="rounded-2xl border-2 p-6 sm:p-8 flex flex-col justify-between shadow-md relative"
+                        className="agenda-surface-card agenda-surface-card--accent rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative"
                         style={{
-                            borderColor: 'var(--accent)',
                             background: 'var(--surface)',
                         }}
                     >
-                        <div className="absolute -top-3 right-6 bg-[var(--accent)] text-white text-[11px] font-bold px-3 py-0.5 rounded-full shadow-xs">
+                        <div className="absolute -top-3 right-6 bg-[var(--accent)] text-[var(--accent-contrast)] text-[11px] font-bold px-3 py-0.5 rounded-full shadow-xs">
                             Tu consulta en piloto automático
                         </div>
 
                         <div>
                             <div className="flex items-center justify-between pb-5 border-b border-[var(--border)]">
                                 <div className="flex items-center gap-3">
-                                    <div className="size-10 rounded-xl bg-[var(--accent-subtle)] text-[var(--accent)] flex items-center justify-center shrink-0">
+                                    <div className="size-10 rounded-xl bg-[var(--accent-subtle)] text-[var(--accent-ink)] flex items-center justify-center shrink-0">
                                         <IconSparkles size={20} />
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-base sm:text-lg text-[var(--fg)]">
                                             Con SimpleAgenda
                                         </h3>
-                                        <p className="text-xs text-[var(--accent)] font-semibold">Orden, tranquilidad y más reservas</p>
+                                        <p className="text-xs text-[var(--accent-ink)] font-semibold">Orden, tranquilidad y más reservas</p>
                                     </div>
                                 </div>
-                                <span className="rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] px-2.5 py-1 text-[11px] font-bold">
+                                <span className="rounded-full bg-[var(--accent-subtle)] text-[var(--accent-ink)] px-2.5 py-1 text-[11px] font-bold">
                                     Automatizado
                                 </span>
                             </div>
@@ -142,7 +141,7 @@ export function PainComparisonSection() {
                             <ul className="mt-6 space-y-4">
                                 {SIMPLE_BENEFITS.map((item, idx) => (
                                     <li key={idx} className="flex items-start gap-3 text-xs sm:text-sm">
-                                        <div className="size-5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] flex items-center justify-center shrink-0 mt-0.5">
+                                        <div className="size-5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent-ink)] flex items-center justify-center shrink-0 mt-0.5">
                                             <IconCheck size={12} stroke={2.5} />
                                         </div>
                                         <div>
@@ -154,7 +153,7 @@ export function PainComparisonSection() {
                             </ul>
                         </div>
 
-                        <div className="mt-8 pt-5 border-t border-[var(--border)] text-xs text-[var(--accent)] font-semibold flex items-center gap-2">
+                        <div className="mt-8 pt-5 border-t border-[var(--border)] text-xs text-[var(--accent-ink)] font-semibold flex items-center gap-2">
                             <IconTrendingUp size={16} className="shrink-0" />
                             <span>Resultado: Clientes felices agendando solos y tú enfocado 100% en atender.</span>
                         </div>

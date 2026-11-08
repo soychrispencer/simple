@@ -8,9 +8,9 @@ import { fetchAgendaStats, fetchAgendaProfile, hasAgendaFullAccess, type AgendaS
 import { AGENDA_PRICING, fmtCLP, fmtTodayLabel } from '@simple/utils';
 import { usePanelFormatters } from '@simple/auth';
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
-import { PanelPageHeader } from '@simple/ui/panel';
-import { PanelStatCard } from '@simple/ui/panel';
+import { PanelPageHeader, PanelStatCard } from '@simple/ui/panel';
 import { AgendaOnboardingRail } from '@/components/panel/agenda-onboarding-rail';
+import { ReservationTicket } from '@/components/agenda/reservation-ticket';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,8 +48,8 @@ function WeekBarChart({ data, loading }: { data: AgendaWeekDay[]; loading: boole
                     const barH = Math.max((d.count / max) * H, d.count > 0 ? 6 : 2);
                     const x = i * (BAR_W + GAP);
                     const y = H - barH;
-                    const fill = d.isToday ? 'var(--accent)' : d.count > 0 ? 'var(--accent-soft)' : 'var(--border)';
-                    const textColor = d.isToday ? 'var(--accent)' : 'var(--fg-muted)';
+                    const fill = d.isToday ? 'var(--signal)' : d.count > 0 ? 'var(--accent-soft)' : 'var(--border)';
+                    const textColor = d.isToday ? 'var(--accent-ink)' : 'var(--fg-muted)';
 
                     return (
                         <g key={d.date}>
@@ -144,6 +144,8 @@ export default function PanelHomePage() {
     const hasProAccess = profile ? hasAgendaFullAccess(profile) : false;
     const monthlyBookingsUsed = profile?.monthlyBookingsUsed ?? 0;
     const monthlyBookingsLimit = profile?.monthlyBookingsLimit ?? AGENDA_PRICING.free.monthlyBookings;
+    const nextAppointment = loading ? null : stats?.nextAppointment;
+    const confirmedNext = nextAppointment?.status === 'confirmed' ? nextAppointment : null;
     const panelDescription = greeting
         ? `${greeting} · ${dateLabel}`
         : `Resumen de agenda y clientes · ${dateLabel}`;
@@ -154,7 +156,7 @@ export default function PanelHomePage() {
             value: loading ? null : String(stats?.todayCount ?? 0),
             icon: IconCalendar,
             href: '/panel/agenda',
-            accent: true,
+            accent: !confirmedNext,
         },
         {
             label: `${vocab.Clients} activos`,
@@ -168,17 +170,6 @@ export default function PanelHomePage() {
             value: loading ? null : hasProAccess ? fmtCLP(stats?.pendingPayments ?? 0) : `${monthlyBookingsUsed}/${monthlyBookingsLimit}`,
             icon: hasProAccess ? IconCreditCard : IconCalendar,
             href: hasProAccess ? '/panel/finanzas' : '/panel/agenda',
-            accent: false,
-        },
-        {
-            label: 'Próxima cita',
-            value: loading ? null : (
-                stats?.nextAppointment
-                    ? `${fmt.dateShort(stats.nextAppointment.startsAt)} ${fmt.time(stats.nextAppointment.startsAt)}`
-                    : '—'
-            ),
-            icon: IconClockHour4,
-            href: '/panel/agenda',
             accent: false,
         },
     ];
@@ -198,19 +189,39 @@ export default function PanelHomePage() {
 
             <div className="grid gap-4 pb-2">
                 <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-4">
-                {statCards.map((stat) => (
+                    {statCards.map((stat) => (
+                        <Link
+                            key={stat.label}
+                            href={stat.href}
+                            className="agenda-panel-stat-link block min-w-0 rounded-card transition-transform active:scale-[0.98]"
+                        >
+                            <PanelStatCard
+                                label={stat.label}
+                                value={stat.value ?? '—'}
+                                icon={<stat.icon size={18} />}
+                                accent={stat.accent}
+                            />
+                        </Link>
+                    ))}
                     <Link
-                        key={stat.label}
-                        href={stat.href}
-                        className="group block transition-transform active:scale-[0.98]"
+                        href="/panel/agenda"
+                        className="agenda-panel-stat-link block min-w-0 rounded-card transition-transform active:scale-[0.98]"
                     >
-                        <PanelStatCard
-                            label={stat.label}
-                            value={stat.value ?? '—'}
-                            icon={<stat.icon size={18} />}
-                        />
+                        {confirmedNext ? (
+                            <ReservationTicket
+                                label={`Próxima cita · ${fmt.dateShort(confirmedNext.startsAt)}`}
+                                time={fmt.time(confirmedNext.startsAt)}
+                                status="Cita confirmada"
+                                className="agenda-ticket--compact agenda-ticket--wide agenda-panel-next-ticket"
+                            />
+                        ) : (
+                            <PanelStatCard
+                                label="Próxima cita"
+                                value={nextAppointment ? `${fmt.dateShort(nextAppointment.startsAt)} ${fmt.time(nextAppointment.startsAt)}` : '—'}
+                                icon={<IconClockHour4 size={18} />}
+                            />
+                        )}
                     </Link>
-                ))}
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">

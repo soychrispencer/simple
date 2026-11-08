@@ -1,0 +1,38 @@
+/* Los avisos de orientación usan un tinte de marca en todo el panel. */
+.agenda-panel-workspace {
+    --color-info-border: var(--accent-border);
+    --color-info-bg: var(--accent-soft);
+    --color-info-text: var(--accent-ink);
+}
+
+:is(.dark, [data-theme="dark"]) .agenda-panel-workspace {
+    --agenda-action-bg: var(--agenda-green);
+    --agenda-action-fg: var(--agenda-white);
+}
+
+.agenda-panel-next-ticket {
+    height: 100%;
+    min-height: 7.75rem;
+}
+
+.agenda-panel-stat-link:focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+}
+
+.agenda-panel-workspace :is(h1, h2, h3) {
+    font-family: var(--font-display);
+}
+
+.agenda-calendar-today[aria-current="date"] {
+    background: var(--signal);
+    color: var(--signal-contrast);
+}
+
+.agenda-calendar-time {
+    font-variant-numeric: tabular-nums;
+}
+
+.agenda-calendar-time[data-status="confirmed"] {
+    color: var(--signal);
+}

@@ -507,14 +507,14 @@ export function PanelAccountPersonalDataSection({
                                         <button
                                             type="button"
                                             onClick={onEditEmail}
-                                            className="font-medium text-(--accent) underline-offset-2 hover:underline"
+                                            className="font-medium text-accent-ink underline-offset-2 hover:underline"
                                         >
                                             Seguridad
                                         </button>
                                     ) : (
                                         <Link
                                             href={emailSecurityHref}
-                                            className="font-medium text-(--accent) underline-offset-2 hover:underline"
+                                            className="font-medium text-accent-ink underline-offset-2 hover:underline"
                                         >
                                             Seguridad
                                         </Link>

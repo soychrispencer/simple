@@ -51,7 +51,7 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
     }
 
     function getInstagramRequiredPlanIds(): Array<Exclude<SubscriptionPlanId, 'free'>> {
-        return ['pro', 'enterprise'];
+        return ['pro', 'pro_plus', 'enterprise'];
     }
 
     function userCanUsePublicProfile(user: AppUser, vertical: VerticalType): boolean {
@@ -64,7 +64,7 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
         if (isPlatformLaunchActive(vertical)) return true;
         if (user.role === 'superadmin') return true;
         const planId = getEffectivePlanId(user, vertical);
-        return planId === 'pro' || planId === 'enterprise';
+        return planId === 'pro' || planId === 'pro_plus' || planId === 'enterprise';
     }
 
     function cancelActiveSubscriptionForUser(userId: string, vertical: VerticalType): void {

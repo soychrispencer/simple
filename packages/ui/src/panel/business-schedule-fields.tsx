@@ -104,7 +104,7 @@ export function BusinessScheduleRangeFields({
                 </PanelField>
             </div>
             <BusinessScheduleOvernightHint startTime={startTime} endTime={endTime} />
-            {error ? <p className="text-xs" style={{ color: '#dc2626' }}>{error}</p> : null}
+            {error ? <p className="text-xs" style={{ color: 'var(--color-error)' }}>{error}</p> : null}
             {footer}
         </div>
     );

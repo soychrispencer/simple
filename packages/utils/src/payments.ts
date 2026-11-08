@@ -6,10 +6,11 @@ export type AdDurationDays = 7 | 15 | 30;
 export type PaymentBoostSection = 'sale' | 'rent' | 'auction' | 'project' | 'marketplace' | 'landing' | 'products' | 'services';
 export type PaymentBoostTargetType = 'listing' | 'serenata_group' | 'operator_profile' | 'operator_product' | 'operator_service';
 export type PaymentBoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
-export type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
+export type SubscriptionPlanId = 'free' | 'pro' | 'pro_plus' | 'enterprise';
 
 export type PaymentProvider = 'mercadopago';
 export type BillingCurrency = 'CLP' | 'USD';
+export type SubscriptionBillingCycle = 'monthly' | 'annual';
 
 export type PaymentOrderView = {
     id: string;
@@ -53,7 +54,8 @@ export type SubscriptionPlan = {
 export type ActiveSubscription = {
     id: string;
     vertical: PaymentVertical;
-    planId: 'pro' | 'enterprise' | 'free';
+    planId: 'pro' | 'pro_plus' | 'enterprise' | 'free';
+    billingCycle?: SubscriptionBillingCycle;
     planName: string;
     priceMonthly: number;
     currency: BillingCurrency;
@@ -162,7 +164,8 @@ export async function startSubscriptionCheckout(
     vertical: PaymentVertical,
     input: {
         returnUrl: string;
-        planId: 'pro' | 'enterprise';
+        planId: 'pro' | 'pro_plus' | 'enterprise';
+        billingCycle?: SubscriptionBillingCycle;
     }
 ): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string; alreadyActive?: boolean; message?: string }> {
     const { data } = await apiFetch<StartCheckoutResponse>('/api/payments/checkout', {
@@ -173,6 +176,7 @@ export async function startSubscriptionCheckout(
             returnUrl: input.returnUrl,
             subscription: {
                 planId: input.planId,
+                billingCycle: input.billingCycle ?? 'monthly',
             },
         }),
     });

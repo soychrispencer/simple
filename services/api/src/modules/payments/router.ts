@@ -193,13 +193,14 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     where: deps.dbHelpers.eq(deps.tables2.agendaProfessionalProfiles.userId, user.id),
                 });
                 const dbSub = await loadCurrentSubscriptionFromDb(user.id, 'agenda');
-                if (dbSub && (dbSub.planSlug === 'pro' || dbSub.planSlug === 'enterprise') && dbSub.status === 'active') {
+                if (dbSub && (dbSub.planSlug === 'pro' || dbSub.planSlug === 'pro_plus' || dbSub.planSlug === 'enterprise') && dbSub.status === 'active') {
                     const matchedPlan = plans.find((p: any) => p.id === dbSub.planSlug) ?? plans.find((p: any) => p.id === 'pro');
                     currentSubscription = {
                         id: dbSub.id,
                         accountId: dbSub.accountId,
                         vertical: 'agenda' as const,
-                        planId: dbSub.planSlug === 'enterprise' ? 'enterprise' : 'pro',
+                        planId: dbSub.planSlug,
+                        billingCycle: dbSub.billingCycle,
                         planName: matchedPlan?.name ?? dbSub.planName ?? 'Pro',
                         priceMonthly: dbSub.priceMonthly,
                         currency: dbSub.currency,
@@ -211,16 +212,18 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         planExpiresAt: dbSub.expiresAt?.getTime() ?? null,
                     };
                 } else if (profile) {
-                    const hasActivePro = profile.plan === 'pro'
+                    const hasActivePro = (profile.plan === 'pro' || profile.plan === 'pro_plus')
                         && (!profile.planExpiresAt || profile.planExpiresAt >= new Date());
                     if (hasActivePro) {
-                        const matchedPlan = plans.find((p: any) => p.id === 'pro');
+                        const profilePlanId = profile.plan === 'pro_plus' ? 'pro_plus' : 'pro';
+                        const matchedPlan = plans.find((p: any) => p.id === profilePlanId);
                         currentSubscription = {
                             id: `agenda-${profile.id}`,
                             accountId: profile.accountId ?? null,
                             vertical: 'agenda' as const,
-                            planId: 'pro',
-                            planName: matchedPlan?.name ?? 'Pro',
+                            planId: profilePlanId,
+                            billingCycle: 'monthly' as const,
+                            planName: matchedPlan?.name ?? (profilePlanId === 'pro_plus' ? 'Pro+' : 'Pro'),
                             priceMonthly: matchedPlan?.priceMonthly ?? 0,
                             currency: 'CLP',
                             features: matchedPlan?.features ?? [],
@@ -232,7 +235,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         };
                     } else {
                         const matchedPlan = plans.find((p: any) => p.id === 'free');
-                        const isTrial = profile.plan !== 'pro'
+                        const isTrial = profile.plan !== 'pro' && profile.plan !== 'pro_plus'
                             && Boolean(profile.planExpiresAt && profile.planExpiresAt >= new Date());
                         currentSubscription = {
                             id: `agenda-${profile.id}`,
@@ -344,6 +347,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         accountId: dbSub.accountId,
                         vertical,
                         planId: dbSub.planSlug,
+                        billingCycle: dbSub.billingCycle,
                         planName: matchedPlan?.name ?? dbSub.planName ?? 'Pro',
                         priceMonthly: dbSub.priceMonthly,
                         currency: dbSub.currency,
@@ -372,6 +376,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         accountId: dbSub.accountId,
                         vertical: dbSub.vertical,
                         planId: dbSub.planSlug,
+                        billingCycle: dbSub.billingCycle,
                         planName: dbSub.planName,
                         priceMonthly: dbSub.priceMonthly,
                         currency: dbSub.currency,
@@ -747,6 +752,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
 
             const vertical = checkoutData.vertical;
             const resolvedPlanId = checkoutData.planId ?? checkoutData.subscription?.planId;
+            const billingCycle = checkoutData.subscription?.billingCycle ?? 'monthly';
             if (!resolvedPlanId) {
                 return c.json({ ok: false, error: 'planId es requerido' }, 400);
             }
@@ -755,23 +761,62 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             if (!plan) {
                 return c.json({ ok: false, error: 'Plan no disponible' }, 400);
             }
+            if (billingCycle === 'annual' && (vertical !== 'agenda' || (plan.id !== 'pro' && plan.id !== 'pro_plus'))) {
+                return c.json({ ok: false, error: 'La facturación anual solo está disponible para Pro y Pro+ de SimpleAgenda.' }, 400);
+            }
             let subscriptionAlreadyActive = false;
             try {
                 const dbSub = await loadCurrentSubscriptionFromDb(user.id, vertical);
-                if (dbSub && dbSub.planSlug === plan.id) {
-                    subscriptionAlreadyActive = true;
+                if (dbSub?.status === 'active') {
+                    const currentBillingCycle = dbSub.billingCycle ?? 'monthly';
+                    if (dbSub.planSlug === plan.id && currentBillingCycle === billingCycle) {
+                        subscriptionAlreadyActive = true;
+                    } else {
+                        return c.json({
+                            ok: false,
+                            error: `Cancela tu suscripción ${dbSub.planName} ${currentBillingCycle === 'annual' ? 'anual' : 'mensual'} antes de contratar ${plan.name} ${billingCycle === 'annual' ? 'anual' : 'mensual'} para evitar cobros duplicados.`,
+                        }, 409);
+                    }
                 } else {
                     const memorySub = deps.getCurrentSubscription(user.id, vertical);
-                    if (
-                        memorySub?.status === 'active'
-                        && memorySub.planId === plan.id
-                        && deps.cancelActiveSubscriptionForUser
-                    ) {
-                        deps.cancelActiveSubscriptionForUser(user.id, vertical);
+                    if (memorySub?.status === 'active') {
+                        const currentBillingCycle = memorySub.billingCycle ?? 'monthly';
+                        if (memorySub.planId === plan.id && currentBillingCycle === billingCycle) {
+                            subscriptionAlreadyActive = true;
+                        } else {
+                            return c.json({
+                                ok: false,
+                                error: `Cancela tu suscripción ${memorySub.planName} ${currentBillingCycle === 'annual' ? 'anual' : 'mensual'} antes de contratar ${plan.name} ${billingCycle === 'annual' ? 'anual' : 'mensual'} para evitar cobros duplicados.`,
+                            }, 409);
+                        }
+                    } else if (vertical === 'agenda') {
+                        const profile = await deps.dbQuery.agendaProfessionalProfiles.findFirst({
+                            where: deps.dbHelpers.eq(deps.tables2.agendaProfessionalProfiles.userId, user.id),
+                        });
+                        const profilePlan = profile?.plan;
+                        const profilePlanExpiresAt = profile?.planExpiresAt;
+                        const profileHasPaidPlan =
+                            (profilePlan === 'pro' || profilePlan === 'pro_plus')
+                            && (!profilePlanExpiresAt || profilePlanExpiresAt >= new Date());
+
+                        if (profileHasPaidPlan) {
+                            const profilePlanName = profilePlan === 'pro_plus' ? 'Pro+' : 'Pro';
+                            if (profilePlan !== plan.id || billingCycle !== 'monthly') {
+                                return c.json({
+                                    ok: false,
+                                    error: `Cancela tu suscripción ${profilePlanName} mensual antes de contratar ${plan.name} ${billingCycle === 'annual' ? 'anual' : 'mensual'} para evitar cobros duplicados.`,
+                                }, 409);
+                            }
+                            subscriptionAlreadyActive = true;
+                        }
                     }
                 }
             } catch (dbErr) {
                 console.error('[payments/checkout] subscription DB lookup failed:', dbErr);
+                return c.json({
+                    ok: false,
+                    error: 'No pudimos verificar tu suscripción actual. Inténtalo nuevamente antes de iniciar otro cobro.',
+                }, 503);
             }
             if (subscriptionAlreadyActive) {
                 return c.json({
@@ -790,7 +835,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             }
 
             const orderId = deps.makePaymentOrderId('subscription');
-            const billing = getSubscriptionBillingCharge(paymentProvider, vertical, plan);
+            const billing = getSubscriptionBillingCharge(paymentProvider, vertical, plan, billingCycle);
             const subscriptionChargeAmount = billing.amount;
             const subscriptionCurrency = billing.currency;
             const subscriptionBackUrl = deps.appendCheckoutParams(returnUrl, {
@@ -798,7 +843,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 purchaseId: orderId,
                 kind: 'subscription',
             });
-            const subscriptionReason = `Suscripción ${plan.name} · ${vertical === 'autos' ? 'SimpleAutos' : vertical === 'propiedades' ? 'SimplePropiedades' : vertical === 'serenatas' ? 'SimpleSerenatas' : 'SimpleAgenda'}`;
+            const subscriptionReason = `Suscripción ${plan.name} ${billingCycle === 'annual' ? 'anual' : 'mensual'} · ${vertical === 'autos' ? 'SimpleAutos' : vertical === 'propiedades' ? 'SimplePropiedades' : vertical === 'serenatas' ? 'SimpleSerenatas' : 'SimpleAgenda'}`;
 
             let providerReferenceId: string;
             let checkoutUrl: string | null;
@@ -819,6 +864,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         currencyId: subscriptionCurrency,
                         payerEmail: user.email,
                         backUrl: subscriptionBackUrl,
+                        billingCycle,
                     });
                     providerReferenceId = preapproval.id;
                     checkoutUrl = preapproval.initPoint;
@@ -846,7 +892,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 userId: user.id,
                 vertical,
                 kind: 'subscription',
-                title: `Suscripción ${plan.name}`,
+                title: `Suscripción ${plan.name} ${billingCycle === 'annual' ? 'anual' : 'mensual'}`,
                 amount: subscriptionChargeAmount,
                 currency: subscriptionCurrency,
                 status: orderStatus,
@@ -862,6 +908,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     kind: 'subscription',
                     planId: plan.id,
                     planName: plan.name,
+                    billingCycle,
                     chargeAmountClp: subscriptionCurrency === 'CLP' ? subscriptionChargeAmount : undefined,
                     promotion: vertical === 'agenda' && plan.promotion ? {
                         promoPriceMonthly: plan.promotion.priceMonthly,

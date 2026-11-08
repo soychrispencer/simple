@@ -28,7 +28,7 @@ function MetricCard({
                 className={`flex items-center gap-1 rounded-md border px-2 py-1${reel ? ' marketplace-reel-card__metric' : ''}`}
                 style={reel ? undefined : { borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
             >
-                <span style={reel ? { color: '#fff' } : { color: 'var(--accent)' }}>{icon}</span>
+                <span style={reel ? { color: '#fff' } : { color: 'var(--accent-ink)' }}>{icon}</span>
                 <span className="text-[11px] font-medium" style={reel ? { color: '#fff' } : { color: 'var(--fg)' }}>
                     {value}
                 </span>
@@ -41,7 +41,7 @@ function MetricCard({
             className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors hover:border-[var(--accent)]"
             style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
         >
-            <span style={{ color: 'var(--accent)' }}>{icon}</span>
+            <span style={{ color: 'var(--accent-ink)' }}>{icon}</span>
             <div className="flex flex-col leading-none">
                 <span className="text-[13px] font-semibold" style={{ color: 'var(--fg)' }}>
                     {value}
@@ -142,7 +142,7 @@ export default function ListingEngagementRow({ engagement, layout = 'row', dense
                         className="rounded-lg border px-2 py-2 text-center transition-colors hover:border-[var(--accent)]"
                         style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
                     >
-                        <div className="flex items-center justify-center gap-1" style={{ color: 'var(--accent)' }}>
+                        <div className="flex items-center justify-center gap-1" style={{ color: 'var(--accent-ink)' }}>
                             {item.icon}
                         </div>
                         <div className="mt-1 text-base font-semibold leading-none" style={{ color: 'var(--fg)' }}>

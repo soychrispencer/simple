@@ -3,9 +3,9 @@ import { persistPaymentOrderToDb } from './persist.js';
 import { persistUserSubscription } from '../subscriptions/persist-db.js';
 
 export type ConfirmSubscriptionDeps = {
-    getPaidSubscriptionPlan: (vertical: VerticalType, planId: 'pro' | 'enterprise') => PaidSubscriptionPlanRecord | null;
+    getPaidSubscriptionPlan: (vertical: VerticalType, planId: 'pro' | 'pro_plus' | 'enterprise') => PaidSubscriptionPlanRecord | null;
     upsertActiveSubscription: (sub: Record<string, unknown>) => Record<string, unknown>;
-    makeSubscriptionId: (vertical: VerticalType, planId: 'pro' | 'enterprise') => string;
+    makeSubscriptionId: (vertical: VerticalType, planId: 'pro' | 'pro_plus' | 'enterprise') => string;
     updatePaymentOrder: (
         userId: string,
         orderId: string,
@@ -36,12 +36,13 @@ export async function confirmSubscriptionFromPreapproval(
     deps: ConfirmSubscriptionDeps,
     input: ConfirmSubscriptionInput,
 ): Promise<ConfirmSubscriptionResult> {
-    const metadata = input.order.metadata as { kind?: string; planId?: string } | undefined;
+    const metadata = input.order.metadata as { kind?: string; planId?: string; billingCycle?: 'monthly' | 'annual' } | undefined;
     if (metadata?.kind !== 'subscription' || !metadata.planId) {
         return { ok: false, error: 'La orden no tiene metadata de suscripción válida.', status: 409 };
     }
 
-    const planId = metadata.planId as 'pro' | 'enterprise';
+    const planId = metadata.planId as 'pro' | 'pro_plus' | 'enterprise';
+    const billingCycle = metadata.billingCycle === 'annual' ? 'annual' : 'monthly';
     const vertical = String(input.order.vertical) as VerticalType;
     const parsedStatus = deps.parseMercadoPagoPreapprovalStatus(input.providerStatus);
 
@@ -64,6 +65,7 @@ export async function confirmSubscriptionFromPreapproval(
             accountId,
             vertical,
             planSlug: planId,
+            billingCycle,
             provider: 'mercadopago',
             providerSubscriptionId: input.providerPreapprovalId,
             providerStatus: input.providerStatus,
@@ -88,6 +90,7 @@ export async function confirmSubscriptionFromPreapproval(
         accountId,
         vertical,
         planSlug: planId,
+        billingCycle,
         provider: 'mercadopago',
         providerSubscriptionId: input.providerPreapprovalId,
         providerStatus: input.providerStatus,
@@ -103,7 +106,8 @@ export async function confirmSubscriptionFromPreapproval(
         vertical,
         planId: plan.id,
         planName: plan.name,
-        priceMonthly: billedAmount,
+        priceMonthly: plan.priceMonthly,
+        billingCycle,
         currency: billedCurrency,
         features: plan.features,
         status: 'active',

@@ -944,6 +944,7 @@ export const subscriptions = pgTable('subscriptions', {
   provider: varchar('provider', { length: 30 }).notNull().default('mercadopago'), // 'mercadopago'
   providerSubscriptionId: varchar('provider_subscription_id', { length: 255 }), // MercadoPago subscription ID
   providerStatus: varchar('provider_status', { length: 50 }), // MercadoPago status
+  billingCycle: varchar('billing_cycle', { length: 12 }).notNull().default('monthly'), // 'monthly' | 'annual'
   startedAt: timestamp('started_at').notNull().defaultNow(),
   expiresAt: timestamp('expires_at'), // Next billing date
   cancelledAt: timestamp('cancelled_at'),

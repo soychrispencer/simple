@@ -1,10 +1,11 @@
 import type { PaidSubscriptionPlanRecord, PaymentVerticalType } from '../../lib/domain-types.js';
+import { AGENDA_PRICING } from '@simple/utils';
 import type { PaymentProvider } from '../payments/resolve-provider.js';
 
 /** Precio mensual USD (referencia internacional, sin IVA chileno). */
 export const INTERNATIONAL_SUBSCRIPTION_USD_MONTHLY: Record<
     PaymentVerticalType,
-    Partial<Record<'pro' | 'enterprise', number>>
+    Partial<Record<'pro' | 'pro_plus' | 'enterprise', number>>
 > = {
     autos: { pro: 39, enterprise: 99 },
     propiedades: { pro: 39, enterprise: 99 },
@@ -15,9 +16,17 @@ export const INTERNATIONAL_SUBSCRIPTION_USD_MONTHLY: Record<
 export function getMercadoPagoSubscriptionChargeClp(
     vertical: PaymentVerticalType,
     plan: PaidSubscriptionPlanRecord,
+    billingCycle: 'monthly' | 'annual' = 'monthly',
 ): number {
-    const withVat = (vertical === 'agenda' || vertical === 'serenatas') && plan.id === 'pro';
+    const withVat = (vertical === 'agenda' && (plan.id === 'pro' || plan.id === 'pro_plus'))
+        || (vertical === 'serenatas' && plan.id === 'pro');
     if (withVat) {
+        if (vertical === 'agenda' && billingCycle === 'annual') {
+            const annualNetPrice = plan.id === 'pro_plus'
+                ? AGENDA_PRICING.proPlusAnnualTotalNetClp
+                : AGENDA_PRICING.proAnnualTotalNetClp;
+            return Math.round(annualNetPrice * (1 + 1900 / 10_000));
+        }
         const netPrice = vertical === 'agenda' && plan.promotion
             ? plan.promotion.priceMonthly
             : plan.priceMonthly;
@@ -30,10 +39,11 @@ export function getSubscriptionBillingCharge(
     provider: PaymentProvider,
     vertical: PaymentVerticalType,
     plan: PaidSubscriptionPlanRecord,
+    billingCycle: 'monthly' | 'annual' = 'monthly',
 ): { amount: number; currency: 'CLP' | 'USD' } {
     if (provider === 'mercadopago') {
         return {
-            amount: getMercadoPagoSubscriptionChargeClp(vertical, plan),
+            amount: getMercadoPagoSubscriptionChargeClp(vertical, plan, billingCycle),
             currency: 'CLP',
         };
     }

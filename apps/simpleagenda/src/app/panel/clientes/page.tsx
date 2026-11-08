@@ -8,6 +8,7 @@ import { fetchAgendaClients, createAgendaClient, updateAgendaClient, deleteAgend
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { buildWhatsAppClickUrl, resolveClientWhatsAppPhone } from '@/lib/whatsapp-click';
+import { CalendarMascot } from '@/components/agenda/calendar-mascot';
 
 type ClientForm = {
     firstName: string;
@@ -265,7 +266,7 @@ export default function ClientesPage() {
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
                         style={{
                             background: selectedTagId === null ? 'var(--accent-soft)' : 'var(--bg-muted)',
-                            color: selectedTagId === null ? 'var(--accent)' : 'var(--fg-muted)',
+                            color: selectedTagId === null ? 'var(--accent-ink)' : 'var(--fg-muted)',
                             border: `1px solid ${selectedTagId === null ? 'var(--accent-border, var(--border))' : 'var(--border)'}`,
                         }}
                     >
@@ -283,7 +284,7 @@ export default function ClientesPage() {
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
                                 style={{
                                     background: active ? (t.color ? `${t.color}22` : 'var(--accent-soft)') : 'var(--bg-muted)',
-                                    color: active ? (t.color ?? 'var(--accent)') : 'var(--fg-muted)',
+                                    color: active ? (t.color ?? 'var(--accent-ink)') : 'var(--fg-muted)',
                                     border: `1px solid ${active ? (t.color ?? 'var(--accent-border, var(--border))') : 'var(--border)'}`,
                                 }}
                             >
@@ -380,7 +381,7 @@ export default function ClientesPage() {
                                 />
                             </Field>
 
-                            {error && <p className="text-sm" style={{ color: '#dc2626' }}>{error}</p>}
+                            {error && <p className="text-sm" style={{ color: 'var(--color-error)' }}>{error}</p>}
                     </div>
                 </AgendaScrollModal>
             )}
@@ -393,9 +394,13 @@ export default function ClientesPage() {
                 </div>
             ) : loading ? null : filtered.length === 0 ? (
                 <div className="rounded-2xl border flex flex-col items-center justify-center py-20 text-center agenda-panel-surface">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 agenda-panel-accent-soft">
-                        <IconUsers size={20} />
-                    </div>
+                    {!query ? (
+                        <CalendarMascot className="mb-3 h-auto w-[76px]" />
+                    ) : (
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 agenda-panel-accent-soft">
+                            <IconUsers size={20} />
+                        </div>
+                    )}
                     <p className="text-sm font-medium mb-1 agenda-panel-fg">
                         {query ? 'Sin resultados' : vocab.noClients}
                     </p>
@@ -412,7 +417,7 @@ export default function ClientesPage() {
                             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                         >
                             {/* Avatar — click goes to detail */}
-                            <Link href={`/panel/clientes/${client.id}`} className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+                            <Link href={`/panel/clientes/${client.id}`} className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0" style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}>
                                 {initials(client)}
                             </Link>
 
@@ -429,7 +434,7 @@ export default function ClientesPage() {
                                                 className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
                                                 style={{
                                                     background: t.color ? `${t.color}22` : 'var(--accent-soft)',
-                                                    color: t.color ?? 'var(--accent)',
+                                                    color: t.color ?? 'var(--accent-ink)',
                                                 }}
                                             >
                                                 {t.name}
@@ -464,7 +469,7 @@ export default function ClientesPage() {
                                     title="Eliminar"
                                     aria-label="Eliminar"
                                     className="hidden sm:flex w-8 h-8 rounded-lg items-center justify-center border transition-colors hover:bg-red-500/10"
-                                    style={{ borderColor: 'var(--border)', color: '#dc2626' }}
+                                    style={{ borderColor: 'var(--border)', color: 'var(--color-error)' }}
                                 >
                                     <IconTrash size={14} />
                                 </button>
@@ -484,7 +489,7 @@ export default function ClientesPage() {
                     bodyClassName="agenda-panel-popover"
                     footer={(
                         <div className="flex gap-3">
-                            <button onClick={() => void handleEditSave()} disabled={editSaving} className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-button text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60" style={{ background: 'var(--accent)', color: '#fff' }}>
+                            <button onClick={() => void handleEditSave()} disabled={editSaving} className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-button text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60" style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}>
                                 {editSaving ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
                                 {editSaving ? 'Guardando...' : 'Guardar cambios'}
                             </button>
@@ -525,7 +530,7 @@ export default function ClientesPage() {
                             <Field label="Notas internas">
                                 <textarea value={editForm.internalNotes} onChange={(e) => setEditForm((p) => ({ ...p, internalNotes: e.target.value }))} rows={3} placeholder={`Notas privadas sobre este ${vocab.client}...`} className="field-input resize-none" />
                             </Field>
-                            {editError && <p className="flex items-center gap-1.5 text-sm" style={{ color: '#dc2626' }}><IconAlertCircle size={13} />{editError}</p>}
+                            {editError && <p className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-error)' }}><IconAlertCircle size={13} />{editError}</p>}
                     </div>
                 </AgendaScrollModal>
             )}
@@ -536,7 +541,7 @@ export default function ClientesPage() {
                     <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setDeleteClient(null)} />
                     <div className="relative w-full max-w-sm rounded-2xl border p-6" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-start gap-3 mb-4">
-                            <div className="w-9 h-9 rounded-button flex items-center justify-center shrink-0" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
+                            <div className="w-9 h-9 rounded-button flex items-center justify-center shrink-0" style={{ background: 'var(--color-error-subtle)', color: 'var(--color-error)' }}>
                                 <IconAlertCircle size={18} />
                             </div>
                             <div>
@@ -544,9 +549,9 @@ export default function ClientesPage() {
                                 <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Esta acción no se puede deshacer. Se eliminarán todos los datos de <strong>{fullName(deleteClient)}</strong>.</p>
                             </div>
                         </div>
-                        {deleteError && <p className="text-xs mb-3" style={{ color: '#dc2626' }}>{deleteError}</p>}
+                        {deleteError && <p className="text-xs mb-3" style={{ color: 'var(--color-error)' }}>{deleteError}</p>}
                         <div className="flex gap-2">
-                            <button onClick={() => void handleDelete()} disabled={deleting} className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-button text-sm font-semibold border transition-opacity hover:opacity-80 disabled:opacity-50" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)' }}>
+                            <button onClick={() => void handleDelete()} disabled={deleting} className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-button text-sm font-semibold border transition-opacity hover:opacity-80 disabled:opacity-50" style={{ background: 'var(--color-error-subtle)', color: 'var(--color-error)', borderColor: 'var(--color-error-border)' }}>
                                 {deleting ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />}
                                 {deleting ? 'Eliminando...' : 'Sí, eliminar'}
                             </button>
@@ -636,7 +641,7 @@ function ContactMenu({ client }: { client: AgendaClient }) {
                             className="flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-(--bg-subtle) transition-colors"
                             style={{ color: 'var(--fg-secondary)' }}
                         >
-                            <IconBrandWhatsapp size={13} style={{ color: '#22c55e' }} />
+                            <IconBrandWhatsapp size={13} style={{ color: 'var(--brand-whatsapp)' }} />
                             WhatsApp
                         </a>
                     )}

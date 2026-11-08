@@ -35,7 +35,7 @@ export function PanelSectionSaveFooter({
                 </p>
             ) : null}
             {!saveError && saved ? (
-                <p className="flex items-center gap-1.5 text-sm text-accent sm:mr-auto">
+                <p className="flex items-center gap-1.5 text-sm text-accent-ink sm:mr-auto">
                     <IconCheck size={14} />
                     {savedMessage}
                 </p>

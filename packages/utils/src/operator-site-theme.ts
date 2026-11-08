@@ -135,16 +135,22 @@ export const OPERATOR_SITE_ACCENT_OPTIONS: Array<{
 ];
 
 export const DEFAULT_OPERATOR_SITE_ACCENT: OperatorSiteAccentColor = 'teal';
-export const DEFAULT_OPERATOR_SITE_ACCENT_HEX = '#0F766E';
+export const DEFAULT_OPERATOR_SITE_ACCENT_HEX = '#002E32';
+
+/**
+ * `auto` = sin color propio: la página usa el acento de la vertical
+ * (SimpleAgenda: teal profundo en claro y lima para las acciones en oscuro).
+ */
+export const OPERATOR_SITE_ACCENT_AUTO = 'auto';
 
 export type OperatorSiteAccentEditorValue = {
-    preset: OperatorSiteAccentColor | 'custom';
+    preset: OperatorSiteAccentColor | 'custom' | 'auto';
     customHex: string;
 };
 
 export function defaultOperatorSiteAccentEditorValue(): OperatorSiteAccentEditorValue {
     return {
-        preset: DEFAULT_OPERATOR_SITE_ACCENT,
+        preset: OPERATOR_SITE_ACCENT_AUTO,
         customHex: DEFAULT_OPERATOR_SITE_ACCENT_HEX,
     };
 }
@@ -185,6 +191,7 @@ export function parseOperatorSiteAccent(raw: unknown): OperatorSiteAccentEditorV
         };
     }
 
+    // Vacío, 'auto' o cualquier valor desconocido → acento de la vertical.
     return defaultOperatorSiteAccentEditorValue();
 }
 
@@ -196,6 +203,7 @@ export function serializeOperatorSiteAccent(value: OperatorSiteAccentEditorValue
 }
 
 export function isValidOperatorSiteAccentStorage(value: string): boolean {
+    if (value === OPERATOR_SITE_ACCENT_AUTO) return true;
     if (normalizeOperatorSiteAccentHex(value)) return true;
     return OPERATOR_SITE_ACCENT_COLORS.includes(value as OperatorSiteAccentColor);
 }
@@ -203,7 +211,10 @@ export function isValidOperatorSiteAccentStorage(value: string): boolean {
 /** @deprecated Usar `parseOperatorSiteAccent` o `operatorSiteAccentCssValue`. */
 export function normalizeOperatorSiteAccent(raw: unknown): OperatorSiteAccentColor {
     const parsed = parseOperatorSiteAccent(raw);
-    return parsed.preset === 'custom' ? DEFAULT_OPERATOR_SITE_ACCENT : parsed.preset;
+    if (parsed.preset === 'custom' || parsed.preset === OPERATOR_SITE_ACCENT_AUTO) {
+        return DEFAULT_OPERATOR_SITE_ACCENT;
+    }
+    return parsed.preset;
 }
 
 export function operatorSiteAccentValue(accent: OperatorSiteAccentColor): string {
@@ -217,6 +228,10 @@ export function operatorSiteAccentCssValue(raw: unknown): string {
         if (editor.preset === 'custom') {
             return normalizeOperatorSiteAccentHex(editor.customHex) ?? DEFAULT_OPERATOR_SITE_ACCENT_HEX;
         }
+        // 'auto': la vertical decide; este hex es solo el fallback para las que no tienen par propio.
+        if (editor.preset === OPERATOR_SITE_ACCENT_AUTO) {
+            return DEFAULT_OPERATOR_SITE_ACCENT_HEX;
+        }
         return operatorSiteAccentValue(editor.preset);
     }
 
@@ -224,5 +239,26 @@ export function operatorSiteAccentCssValue(raw: unknown): string {
     if (parsed.preset === 'custom') {
         return normalizeOperatorSiteAccentHex(parsed.customHex) ?? DEFAULT_OPERATOR_SITE_ACCENT_HEX;
     }
+    if (parsed.preset === OPERATOR_SITE_ACCENT_AUTO) {
+        return DEFAULT_OPERATOR_SITE_ACCENT_HEX;
+    }
     return operatorSiteAccentValue(parsed.preset);
+}
+
+/** Elige texto blanco o tinta según el mayor contraste con un acento HEX. */
+export function operatorSiteAccentContrastCssValue(raw: string): string {
+    const normalized = normalizeOperatorSiteAccentHex(raw);
+    if (!normalized) return '#FFFFFF';
+
+    const hex = normalized.slice(1);
+    const linearChannel = (offset: number) => {
+        const channel = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance = 0.2126 * linearChannel(0) + 0.7152 * linearChannel(2) + 0.0722 * linearChannel(4);
+    const inkLuminance = 0.0044; // #0E0E10
+    const whiteContrast = 1.05 / (luminance + 0.05);
+    const inkContrast = (luminance + 0.05) / (inkLuminance + 0.05);
+
+    return whiteContrast >= inkContrast ? '#FFFFFF' : '#0E0E10';
 }

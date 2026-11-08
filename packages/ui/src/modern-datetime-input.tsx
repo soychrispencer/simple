@@ -291,9 +291,9 @@ export function ModernDateInput({
                             onClick={() => selectable && selectDate(ymd)}
                             className={`h-9 w-full rounded-lg text-sm font-medium transition-colors ${
                                 selected
-                                    ? 'bg-accent text-[var(--button-primary-color)]'
+                                    ? 'bg-accent text-[var(--accent-contrast)]'
                                     : isToday
-                                      ? 'border border-accent-border bg-accent-soft text-accent'
+                                      ? 'border border-accent-border bg-accent-soft text-accent-ink'
                                       : selectable
                                         ? 'text-fg hover:bg-bg-subtle'
                                         : 'cursor-not-allowed text-fg-muted opacity-35'
@@ -308,7 +308,7 @@ export function ModernDateInput({
             <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-2">
                 <button
                     type="button"
-                    className="text-xs font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent-ink hover:underline"
                     onClick={() => {
                         onChange('');
                         setOpen(false);

@@ -70,7 +70,7 @@ export type VehicleListingCardData = {
 
 type Props = {
     data: VehicleListingCardData;
-    mode: 'grid' | 'list';
+    mode: 'feed' | 'grid' | 'list';
 };
 
 function variantLabel(variant?: CardVariant): string {
@@ -193,7 +193,8 @@ export default function VehicleListingCard({ data, mode }: Props) {
 
     return (
         <MarketplaceReelListingCard
-            mode={mode}
+            mode="grid"
+            socialFeed={mode === 'feed'}
             accent="autos"
             href={data.href}
             title={data.title}
@@ -221,6 +222,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
             shareText={`Mira este vehículo: ${data.title} - ${data.price}`}
             onReport={() => alert('Función de reportar próximamente disponible')}
             emptyMediaIcon={<IconCar size={28} className="text-white/40" />}
+            className={mode === 'feed' ? 'simpleautos-integrated-feed-card' : undefined}
         />
     );
 }

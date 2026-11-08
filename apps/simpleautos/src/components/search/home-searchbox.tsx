@@ -790,6 +790,7 @@ export default function HomeSearchBox({ listingTab }: HomeSearchBoxProps) {
         }
         
         const params = buildSearchParams(finalFilters);
+        if (filters.tab === 'comprar') params.set('section', 'sale');
         const queryString = params.toString();
         router.push(queryString ? `${tabMeta.href}?${queryString}` : tabMeta.href);
         setShowSuggestions(false);

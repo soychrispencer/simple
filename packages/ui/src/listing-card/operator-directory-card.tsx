@@ -9,7 +9,7 @@ const CARD_SHELL_CLASS =
     'group/card flex h-full flex-col overflow-hidden rounded-[1.1rem] border border-border bg-surface shadow-sm ring-1 ring-black/[0.03] transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-md focus-within:ring-2 focus-within:ring-[var(--accent)] focus-within:ring-offset-2 dark:ring-white/10';
 
 const LOGO_FRAME =
-    'flex shrink-0 items-center justify-center overflow-hidden rounded-card border-2 border-white/90 bg-accent-soft font-bold text-accent shadow-md';
+    'flex shrink-0 items-center justify-center overflow-hidden rounded-card border-2 border-white/90 bg-accent-soft font-bold text-accent-ink shadow-md';
 
 const LOGO_SIZES = {
     sm: 'size-12 text-base',
@@ -138,7 +138,7 @@ export function OperatorDirectoryCard({
                     />
                 ) : (
                     coverFallback ?? (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-soft via-bg-subtle to-bg-subtle text-accent/70">
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-soft via-bg-subtle to-bg-subtle text-accent-ink/70">
                             <OperatorDirectoryLogo
                                 name={name}
                                 logoUrl={logoUrl}
@@ -217,7 +217,7 @@ export function OperatorDirectoryCardStat({
                 {label}
             </p>
             <p className={`mt-1 flex min-w-0 items-center gap-1.5 text-sm font-medium text-fg-secondary ${align === 'right' ? 'justify-end' : ''}`}>
-                {icon ? <span className="shrink-0 text-accent">{icon}</span> : null}
+                {icon ? <span className="shrink-0 text-accent-ink">{icon}</span> : null}
                 <span className={align === 'right' ? '' : 'truncate'}>{value}</span>
             </p>
         </div>
@@ -260,7 +260,7 @@ export function OperatorDirectoryCardSection({
                 ) : null}
             </div>
             {trailing ? (
-                <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
+                <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent-ink">
                     {trailing}
                 </span>
             ) : null}

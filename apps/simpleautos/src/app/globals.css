@@ -6,6 +6,13 @@
 @import "../../../../packages/ui/src/theme-base.css";
 @import "leaflet/dist/leaflet.css";
 
+/* El feed conserva formato reel en móvil y usa tarjeta de marketplace en escritorio. */
+@media (min-width: 768px) {
+    .simpleautos-integrated-feed-card {
+        aspect-ratio: 3 / 4 !important;
+    }
+}
+
 /* SimpleAutos — Spencer base + accent vertical #E84A1F */
 
 :root {

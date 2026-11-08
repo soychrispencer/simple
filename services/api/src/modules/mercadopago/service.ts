@@ -193,6 +193,7 @@ export async function createPreapproval(input: {
     currencyId: string;
     payerEmail: string;
     backUrl: string;
+    billingCycle?: 'monthly' | 'annual';
 }): Promise<{ id: string; initPoint: string | null; status: string | null }> {
     const payload = await requestMercadoPago<MercadoPagoPreapprovalResponse>('/preapproval', {
         method: 'POST',
@@ -204,7 +205,7 @@ export async function createPreapproval(input: {
             back_url: input.backUrl,
             status: 'pending',
             auto_recurring: {
-                frequency: 1,
+                frequency: input.billingCycle === 'annual' ? 12 : 1,
                 frequency_type: 'months',
                 transaction_amount: input.amount,
                 currency_id: input.currencyId,

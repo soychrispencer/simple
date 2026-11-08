@@ -25,9 +25,9 @@ export function BusinessCatalogModalityField({
                         onClick={() => onChange(key, !values[key])}
                         className="flex-1 rounded-xl border px-3 py-2.5 text-sm transition-colors"
                         style={{
-                            borderColor: values[key] ? 'var(--accent)' : 'var(--border)',
-                            background: values[key] ? 'var(--accent-soft)' : 'transparent',
-                            color: values[key] ? 'var(--accent)' : 'var(--fg-secondary)',
+                            borderColor: values[key] ? 'var(--signal, var(--accent))' : 'var(--border)',
+                            background: values[key] ? 'color-mix(in srgb, var(--signal, var(--accent)) 14%, var(--surface))' : 'transparent',
+                            color: values[key] ? 'var(--accent-ink, var(--accent))' : 'var(--fg-secondary)',
                             fontWeight: values[key] ? 600 : 400,
                         }}
                     >

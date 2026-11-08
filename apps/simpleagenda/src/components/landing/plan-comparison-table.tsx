@@ -8,6 +8,7 @@ type ComparisonItem = {
     description?: string;
     free: FeatureValue;
     pro: FeatureValue;
+    proPlus: FeatureValue;
 };
 
 type ComparisonCategory = {
@@ -24,24 +25,34 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 description: 'Cantidad de citas que pueden reservar tus clientes mensualmente.',
                 free: `Hasta ${AGENDA_PRICING.free.monthlyBookings} al mes`,
                 pro: 'Ilimitadas',
+                proPlus: 'Ilimitadas',
             },
             {
                 name: 'Servicios activos en vitrina',
                 description: 'Tipos de atenciones o prestaciones disponibles para reserva.',
                 free: `Hasta ${AGENDA_PRICING.free.activeServices} servicios`,
                 pro: 'Ilimitados',
+                proPlus: 'Ilimitados',
             },
             {
                 name: 'Sucursales o lugares de atención',
                 description: 'Consultorios físicos o espacios de trabajo diferenciados.',
                 free: `${AGENDA_PRICING.free.activeLocations} ubicación`,
                 pro: 'Ilimitadas',
+                proPlus: 'Ilimitadas',
             },
             {
                 name: 'Base de datos de clientes',
                 description: 'Contactos y fichas acumuladas en tu sistema.',
                 free: 'Ilimitados',
                 pro: 'Ilimitados',
+                proPlus: 'Ilimitados',
+            },
+            {
+                name: 'Profesionales y agendas de equipo',
+                free: 'Una agenda',
+                pro: 'Una agenda',
+                proPlus: 'Una agenda',
             },
         ],
     },
@@ -50,39 +61,44 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
         items: [
             {
                 name: 'Perfil público de reservas',
-                description: 'Página propia (simpleagenda.cl/tu-nombre) lista para compartir.',
+                description: 'Página propia lista para compartir con tus clientes.',
                 free: true,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Reserva online 24/7 sin registro',
-                description: 'Tus clientes o pacientes agendan en segundos sin crear cuentas.',
+                description: 'Tus clientes o pacientes agendan sin crear una cuenta.',
                 free: true,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Calendario y bloqueo de horarios',
                 description: 'Control visual de días, franjas y pausas.',
                 free: true,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Ficha de clientes e historial',
-                description: 'Notas de atención, teléfono y registro de visitas previas.',
+                description: 'Notas de atención, contacto y registro de visitas previas.',
                 free: true,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Sincronización con Google Calendar',
                 description: 'Conecta tu calendario personal para evitar dobles reservas.',
                 free: true,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Alertas sonoras y notificaciones en navegador',
-                description: 'Avisos instantáneos cuando entra una nueva reserva.',
                 free: true,
                 pro: true,
+                proPlus: true,
             },
         ],
     },
@@ -91,27 +107,37 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
         items: [
             {
                 name: 'Confirmación inmediata por email',
-                description: 'Envío de comprobante automático con los detalles de la hora.',
+                description: 'Comprobante automático con los detalles de la hora.',
                 free: true,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Recordatorios automáticos por email',
-                description: 'Recordatorios programados antes de la cita para reducir inasistencias.',
+                description: 'Recordatorios programados para reducir inasistencias.',
                 free: false,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Mensajería interna con clientes',
                 description: 'Canal de chat directo con quienes han reservado.',
                 free: true,
                 pro: true,
+                proPlus: true,
             },
             {
-                name: 'Recordatorios por WhatsApp',
-                description: 'Mensajes directos por WhatsApp a clientes.',
-                free: 'Próximamente (Pro+)',
-                pro: 'Próximamente (Pro+)',
+                name: 'Confirmaciones y recordatorios por WhatsApp',
+                description: 'Mensajes directos al teléfono de cada cliente.',
+                free: false,
+                pro: false,
+                proPlus: 'Incluido según consumo',
+            },
+            {
+                name: 'Seguimiento automático después de la cita',
+                free: false,
+                pro: false,
+                proPlus: true,
             },
         ],
     },
@@ -123,24 +149,28 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 description: 'Cobra vía Mercado Pago o transferencia bancaria al agendar.',
                 free: true,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Comisión por reserva de SimpleAgenda',
                 description: 'No retenemos ningún porcentaje de tus honorarios.',
                 free: '0% (sin comisión)',
                 pro: '0% (sin comisión)',
+                proPlus: '0% (sin comisión)',
             },
             {
                 name: 'Módulo de finanzas e ingresos',
-                description: 'Métricas de ingresos brutos, cobros pendientes y pagados.',
+                description: 'Ingresos brutos, cobros pendientes y pagos recibidos.',
                 free: false,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Packs de sesiones y promociones',
-                description: 'Descuentos por paquetes o promociones temporales para atraer reservas.',
+                description: 'Descuentos por paquetes o promociones temporales.',
                 free: false,
                 pro: true,
+                proPlus: true,
             },
         ],
     },
@@ -152,18 +182,27 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 description: 'Evolución mensual, días más solicitados y rendimiento.',
                 free: false,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Encuestas de satisfacción (NPS)',
-                description: 'Recolección automática de feedback tras cada atención.',
+                description: 'Recolección de feedback después de cada atención.',
                 free: false,
                 pro: true,
+                proPlus: true,
             },
             {
                 name: 'Programa de referidos para clientes',
                 description: 'Incentiva a tus clientes actuales a recomendarte.',
                 free: false,
                 pro: true,
+                proPlus: true,
+            },
+            {
+                name: 'Campañas de reactivación y segmentación',
+                free: false,
+                pro: false,
+                proPlus: true,
             },
         ],
     },
@@ -174,21 +213,25 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 name: 'Tarjeta de crédito al registrarse',
                 free: 'No requerida',
                 pro: 'No requerida',
+                proPlus: 'No requerida',
             },
             {
                 name: 'Prueba completa sin costo',
                 free: '30 días de Pro incluidos',
                 pro: '30 días de Pro incluidos',
+                proPlus: '30 días de Pro incluidos',
             },
             {
                 name: 'Permanencia o cláusulas mínimas',
                 free: 'Sin contrato',
                 pro: 'Cancela cuando quieras',
+                proPlus: 'Cancela cuando quieras',
             },
             {
                 name: 'Soporte',
                 free: 'Centro de ayuda y email',
                 pro: 'Soporte prioritario',
+                proPlus: 'Soporte prioritario',
             },
         ],
     },
@@ -197,24 +240,24 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
 function RenderValue({ value }: { value: FeatureValue }) {
     if (typeof value === 'boolean') {
         return value ? (
-            <span className="inline-flex items-center justify-center size-6 rounded-full bg-[var(--accent-subtle)] text-[var(--agenda-link)]" aria-label="Incluido">
+            <span className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--agenda-lime)] text-[var(--agenda-green)]" aria-label="Incluido">
                 <IconCheck size={16} stroke={2.5} />
             </span>
         ) : (
-            <span className="inline-flex items-center justify-center size-6 rounded-full text-[var(--fg-muted)]" aria-label="No incluido">
+            <span className="inline-flex size-6 items-center justify-center rounded-full text-[var(--fg-muted)]" aria-label="No incluido">
                 <IconMinus size={16} stroke={1.5} />
             </span>
         );
     }
 
-    const isSubtle = value.includes('Próximamente');
+    const isSubtle = value.includes('Próximamente') || value.startsWith('Se confirma') || value.startsWith('Se define');
     const isHighlight = value === 'Ilimitadas' || value === 'Ilimitados' || value === '0% (sin comisión)';
 
     return (
         <span
             className={`text-xs font-medium ${
                 isHighlight
-                    ? 'text-[var(--agenda-link)] font-semibold'
+                    ? 'agenda-comparison-highlight font-semibold'
                     : isSubtle
                         ? 'text-[var(--fg-muted)] italic'
                         : 'text-[var(--fg-secondary)]'
@@ -227,41 +270,45 @@ function RenderValue({ value }: { value: FeatureValue }) {
 
 export function PlanComparisonTable() {
     return (
-        <div className="min-w-0 overflow-hidden rounded-[var(--agenda-radius-control)] border border-[var(--border)]">
-            <table className="w-full table-fixed text-left">
-                <thead>
-                    <tr className="bg-[var(--bg-subtle)] text-sm">
-                        <th scope="col" className="w-[50%] px-2.5 py-3 sm:px-4">Función</th>
-                        <th scope="col" className="w-[25%] px-1 py-3 text-center">Gratis</th>
-                        <th scope="col" className="w-[25%] bg-[var(--agenda-tint)] px-1 py-3 text-center text-[var(--agenda-link)]">Pro</th>
-                    </tr>
-                </thead>
-                {COMPARISON_CATEGORIES.map((category) => (
-                    <tbody key={category.title}>
-                        <tr>
-                            <th colSpan={3} scope="rowgroup" className="border-t border-[var(--border)] bg-[var(--bg-subtle)] px-2.5 py-2 text-xs font-bold text-[var(--agenda-link)] sm:px-4">
-                                {category.title}
-                            </th>
+        <>
+            <p className="mb-3 text-xs text-[var(--fg-muted)] sm:hidden">Desliza horizontalmente para comparar los tres planes.</p>
+            <div className="agenda-comparison-table min-w-0 overflow-x-auto overscroll-x-contain rounded-[var(--agenda-radius-control)] border border-[var(--border)]">
+                <table className="w-full min-w-[740px] table-fixed text-left" aria-label="Comparación de funciones de los planes">
+                    <thead>
+                        <tr className="bg-[var(--bg-subtle)] text-sm">
+                            <th scope="col" className="w-[29%] px-4 py-3">Función</th>
+                            <th scope="col" className="w-[23.67%] px-2 py-3 text-center">Gratis</th>
+                            <th scope="col" className="agenda-comparison-highlight w-[23.67%] bg-[var(--agenda-tint)] px-2 py-3 text-center">Pro</th>
+                            <th scope="col" className="w-[23.66%] px-2 py-3 text-center">Pro+</th>
                         </tr>
-                        {category.items.map((item) => (
-                            <tr key={item.name} className="border-t border-[var(--border)]">
-                                <th scope="row" className="break-words px-2.5 py-2.5 text-xs font-semibold sm:px-4 sm:text-sm">
-                                    {item.name}
-                                    {item.description && (
-                                        <span className="mt-0.5 block text-[0.6875rem] font-normal leading-snug text-[var(--fg-muted)]">{item.description}</span>
-                                    )}
+                    </thead>
+                    {COMPARISON_CATEGORIES.map((category) => (
+                        <tbody key={category.title}>
+                            <tr>
+                                <th colSpan={4} scope="rowgroup" className="agenda-comparison-highlight border-t border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-2.5 text-xs font-bold">
+                                    {category.title}
                                 </th>
-                                <td className="break-words px-1 py-2.5 text-center align-middle sm:px-2">
-                                    <RenderValue value={item.free} />
-                                </td>
-                                <td className="break-words bg-[var(--agenda-tint)] px-1 py-2.5 text-center align-middle sm:px-2">
-                                    <RenderValue value={item.pro} />
-                                </td>
                             </tr>
-                        ))}
-                    </tbody>
-                ))}
-            </table>
-        </div>
+                            {category.items.map((item) => (
+                                <tr key={item.name} className="border-t border-[var(--border)]">
+                                    <th scope="row" className="break-words px-4 py-3 text-xs font-semibold sm:text-sm">
+                                        {item.name}
+                                        {item.description && (
+                                            <span className="mt-1 block text-[0.6875rem] font-normal leading-snug text-[var(--fg-muted)]">{item.description}</span>
+                                        )}
+                                    </th>
+                                    <td className="break-words px-2 py-3 text-center align-middle"><RenderValue value={item.free} /></td>
+                                    <td className="break-words bg-[var(--agenda-tint)] px-2 py-3 text-center align-middle"><RenderValue value={item.pro} /></td>
+                                    <td className="break-words px-2 py-3 text-center align-middle"><RenderValue value={item.proPlus} /></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    ))}
+                </table>
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-[var(--fg-muted)]">
+                Los precios mensuales se muestran antes de IVA. Mercado Pago confirma el total con impuestos antes de pagar.
+            </p>
+        </>
     );
 }

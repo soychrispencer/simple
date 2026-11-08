@@ -86,7 +86,7 @@ export function ContextMessagesInlineLink({
         : `/panel/mensajes?contextType=${encodeURIComponent(contextType)}&contextId=${encodeURIComponent(contextId)}`;
 
     return (
-        <Link href={href} className={className} style={{ color: 'var(--accent)' }}>
+        <Link href={href} className={className} style={{ color: 'var(--accent-ink)' }}>
             {threadId ? openLabel : startLabel}
         </Link>
     );

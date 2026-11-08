@@ -1,6 +1,6 @@
 # SimpleAgenda — ads
 
-Accent `#0F766E` · ícono Calendar.
+Teal profundo `#002E32` · lima `#B8DB3A` · ilustración profesional + mascota-calendario.
 
 ## Campañas
 

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" fill="none">
+  <title>La hora disponible se convierte en una reserva confirmada</title>
+  <rect width="900" height="600" rx="32" fill="#FAFAFA"/>
+
+  <path d="M625 0h275v600H542c87-47 132-128 111-221-18-80-12-139 28-202C715 122 684 52 625 0Z" fill="#002E32"/>
+  <circle cx="759" cy="126" r="96" fill="#B8DB3A"/>
+  <circle cx="759" cy="126" r="72" stroke="#002E32" stroke-opacity=".2" stroke-width="2"/>
+  <path d="M759 64v10m62 52h10m-82 72v10m-62-82h-10" stroke="#002E32" stroke-opacity=".35" stroke-linecap="round" stroke-width="3"/>
+  <path d="M759 126v39m0-39-24-29" stroke="#002E32" stroke-linecap="round" stroke-width="7"/>
+  <circle cx="759" cy="126" r="6" fill="#002E32"/>
+
+  <path d="M521 332c87 0 81 115 171 115" stroke="#B8DB3A" stroke-linecap="round" stroke-width="12"/>
+  <circle cx="521" cy="332" r="12" fill="#B8DB3A" stroke="#002E32" stroke-width="4"/>
+  <circle cx="692" cy="447" r="13" fill="#B8DB3A"/>
+  <path d="m677 447 12 12 24-27" stroke="#002E32" stroke-linecap="round" stroke-linejoin="round" stroke-width="5"/>
+
+  <rect x="61" y="66" width="518" height="466" rx="28" fill="#0E0E10" fill-opacity=".12"/>
+  <rect x="52" y="54" width="518" height="466" rx="28" fill="#FFFFFF" stroke="#D9D9D9" stroke-width="2"/>
+  <rect x="52" y="54" width="518" height="119" rx="28" fill="#002E32"/>
+  <path d="M52 143h518v30H52z" fill="#002E32"/>
+
+  <rect x="80" y="82" width="44" height="44" rx="13" fill="#B8DB3A"/>
+  <path d="M93 92v22m18-22v22M88 101h29m-28-5h27" stroke="#002E32" stroke-linecap="round" stroke-width="3"/>
+  <text x="142" y="99" fill="#B8DB3A" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.6">AGENDA ABIERTA</text>
+  <text x="142" y="129" fill="#FFFFFF" font-family="Instrument Sans, Inter, Arial, sans-serif" font-size="22" font-weight="700">Agenda del martes</text>
+  <circle cx="531" cy="105" r="4" fill="#B8DB3A"/>
+  <circle cx="514" cy="105" r="4" fill="#FFFFFF" fill-opacity=".55"/>
+  <circle cx="497" cy="105" r="4" fill="#FFFFFF" fill-opacity=".32"/>
+
+  <text x="86" y="212" fill="#343434" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.35">HORARIOS DISPONIBLES</text>
+  <path d="M82 233h458M82 397h458" stroke="#D9D9D9" stroke-width="1.5"/>
+
+  <circle cx="99" cy="277" r="6" fill="#D9D9D9"/>
+  <text x="121" y="283" fill="#343434" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="650">09:00</text>
+  <rect x="405" y="256" width="112" height="36" rx="18" fill="#F1F3F1"/>
+  <text x="461" y="279" text-anchor="middle" fill="#343434" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing=".8">DISPONIBLE</text>
+
+  <rect x="75" y="307" width="472" height="72" rx="18" fill="#B8DB3A"/>
+  <circle cx="101" cy="343" r="6" fill="#002E32"/>
+  <text x="123" y="351" fill="#0E0E10" font-family="Instrument Sans, Inter, Arial, sans-serif" font-size="25" font-weight="700">10:30</text>
+  <text x="261" y="347" fill="#0E0E10" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="800" letter-spacing="1.1">NUEVA RESERVA</text>
+  <circle cx="511" cy="343" r="17" fill="#002E32"/>
+  <path d="m504 343 5 5 10-11" stroke="#B8DB3A" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+
+  <circle cx="99" cy="439" r="6" fill="#002E32"/>
+  <text x="121" y="445" fill="#343434" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="650">12:00</text>
+  <rect x="405" y="418" width="112" height="36" rx="18" fill="#002E32"/>
+  <text x="461" y="441" text-anchor="middle" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing=".8">RESERVADO</text>
+
+  <circle cx="843" cy="251" r="4" fill="#B8DB3A"/>
+  <circle cx="813" cy="282" r="3" fill="#FFFFFF" fill-opacity=".76"/>
+  <path d="M743 313v24m-12-12h24m-20-8 16 16m0-16-16 16" stroke="#B8DB3A" stroke-linecap="round" stroke-width="3"/>
+</svg>

@@ -69,11 +69,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-    pending: '#F59E0B',
-    confirmed: '#0F766E',
-    completed: '#6366F1',
-    cancelled: '#EF4444',
-    no_show: '#9CA3AF',
+    pending: 'var(--agenda-status-pending)',
+    confirmed: 'var(--agenda-status-confirmed)',
+    completed: 'var(--agenda-status-completed)',
+    cancelled: 'var(--agenda-status-cancelled)',
+    no_show: 'var(--agenda-status-noshow)',
 };
 
 const TIMELINE_LABELS: Record<string, string> = {
@@ -367,7 +367,7 @@ export default function ClienteFichaPage() {
                 <div className="flex items-start gap-4">
                     <div
                         className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
-                        style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                        style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}
                     >
                         {initials}
                     </div>
@@ -394,7 +394,7 @@ export default function ClienteFichaPage() {
                                     aria-label={`Eliminar ${vocab.client}`}
                                     title={`Eliminar ${vocab.client}`}
                                     className="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40"
-                                    style={{ borderColor: 'var(--border)', color: '#dc2626' }}
+                                    style={{ borderColor: 'var(--border)', color: 'var(--color-error)' }}
                                 >
                                     <IconTrash size={15} />
                                 </button>
@@ -408,7 +408,7 @@ export default function ClienteFichaPage() {
                                     className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-xs font-medium"
                                     style={{
                                         background: t.color ? `${t.color}22` : 'var(--accent-soft)',
-                                        color: t.color ?? 'var(--accent)',
+                                        color: t.color ?? 'var(--accent-ink)',
                                         border: `1px solid ${t.color ?? 'var(--accent-border, var(--border))'}`,
                                     }}
                                 >
@@ -416,7 +416,7 @@ export default function ClienteFichaPage() {
                                     <button
                                         type="button"
                                         onClick={() => void handleUnassignTag(t.id)}
-                                        className="rounded-full p-0.5 hover:bg-black/10 transition-colors"
+                                        className="rounded-full p-0.5 hover:bg-[var(--bg-subtle)] transition-colors"
                                         aria-label={`Quitar etiqueta ${t.name}`}
                                     >
                                         <IconX size={10} />
@@ -429,7 +429,7 @@ export default function ClienteFichaPage() {
                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
                                 style={{
                                     background: tagPickerOpen ? 'var(--accent-soft)' : 'var(--bg-muted)',
-                                    color: tagPickerOpen ? 'var(--accent)' : 'var(--fg-muted)',
+                                    color: tagPickerOpen ? 'var(--accent-ink)' : 'var(--fg-muted)',
                                     border: '1px dashed var(--border)',
                                 }}
                                 aria-expanded={tagPickerOpen}
@@ -455,7 +455,7 @@ export default function ClienteFichaPage() {
                                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
                                                 style={{
                                                     background: t.color ? `${t.color}22` : 'var(--accent-soft)',
-                                                    color: t.color ?? 'var(--accent)',
+                                                    color: t.color ?? 'var(--accent-ink)',
                                                     border: `1px solid ${t.color ?? 'var(--accent-border, var(--border))'}`,
                                                 }}
                                             >
@@ -482,7 +482,7 @@ export default function ClienteFichaPage() {
                                         type="submit"
                                         disabled={!tagInput.trim() || tagBusy}
                                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                                     >
                                         {tagBusy ? <IconLoader2 size={11} className="animate-spin" /> : <IconPlus size={11} />}
                                         Crear
@@ -530,7 +530,7 @@ export default function ClienteFichaPage() {
                             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-colors"
                             style={{
                                 background: isActive ? 'var(--accent-soft)' : 'transparent',
-                                color: isActive ? 'var(--accent)' : 'var(--fg-muted)',
+                                color: isActive ? 'var(--accent-ink)' : 'var(--fg-muted)',
                                 fontWeight: isActive ? 600 : 500,
                             }}
                         >
@@ -638,10 +638,10 @@ export default function ClienteFichaPage() {
                                         cp.status === 'completed' ? { bg: 'var(--bg-muted)', fg: 'var(--fg-muted)', label: 'Completado' } :
                                         cp.status === 'refunded' ? { bg: 'var(--bg-muted)', fg: 'var(--fg-muted)', label: 'Reembolsado' } :
                                         expired || cp.status === 'expired' ? { bg: 'var(--bg-muted)', fg: 'var(--fg-muted)', label: 'Expirado' } :
-                                        { bg: 'rgba(13,148,136,0.1)', fg: 'var(--accent)', label: 'Activo' };
+                                        { bg: 'var(--accent-soft)', fg: 'var(--accent)', label: 'Activo' };
                                     return (
                                         <div key={cp.id} className="flex items-center gap-3 p-3 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                                            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
                                                 <IconPackage size={16} />
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -685,7 +685,7 @@ export default function ClienteFichaPage() {
                                         onClick={() => void handleAssignPack()}
                                         disabled={packBusy || availablePacks.length === 0}
                                         className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60"
-                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                                     >
                                         {packBusy ? <IconLoader2 size={11} className="animate-spin inline mr-1" /> : null}
                                         Asignar
@@ -716,7 +716,7 @@ export default function ClienteFichaPage() {
                                                 </select>
                                             </div>
                                             {packError && (
-                                                <p className="text-xs" style={{ color: '#dc2626' }}>{packError}</p>
+                                                <p className="text-xs" style={{ color: 'var(--color-error)' }}>{packError}</p>
                                             )}
                                         </>
                                     )}
@@ -735,7 +735,7 @@ export default function ClienteFichaPage() {
                             onClick={() => void handleSaveNotes()}
                             disabled={saving}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle) disabled:opacity-60"
-                            style={{ borderColor: 'var(--border)', color: notesSaved ? 'var(--accent)' : 'var(--fg-secondary)' }}
+                            style={{ borderColor: 'var(--border)', color: notesSaved ? 'var(--accent-ink)' : 'var(--fg-secondary)' }}
                         >
                             {saving ? <IconLoader2 size={11} className="animate-spin" /> : notesSaved ? <IconCheck size={11} /> : null}
                             {notesSaved ? 'Guardado' : 'Guardar'}
@@ -792,7 +792,7 @@ export default function ClienteFichaPage() {
                 </div>
 
                 {uploadError && (
-                    <p className="text-xs mb-3" style={{ color: '#dc2626' }}>{uploadError}</p>
+                    <p className="text-xs mb-3" style={{ color: 'var(--color-error)' }}>{uploadError}</p>
                 )}
 
                 {attachments.length === 0 ? (
@@ -833,7 +833,7 @@ export default function ClienteFichaPage() {
                                             <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
                                         </a>
                                     ) : (
-                                        <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                        <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
                                             <KindIcon size={17} />
                                         </div>
                                     )}
@@ -959,7 +959,7 @@ export default function ClienteFichaPage() {
                     <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => !deleting && setConfirmDelete(false)} />
                     <div className="relative w-full max-w-sm rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-start gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--color-error-subtle)', color: 'var(--color-error)' }}>
                                 <IconAlertTriangle size={18} />
                             </div>
                             <div className="min-w-0">
@@ -970,14 +970,14 @@ export default function ClienteFichaPage() {
                             </div>
                         </div>
                         {deleteError && (
-                            <p className="text-sm mb-3" style={{ color: '#dc2626' }}>{deleteError}</p>
+                            <p className="text-sm mb-3" style={{ color: 'var(--color-error)' }}>{deleteError}</p>
                         )}
                         <div className="flex gap-3">
                             <button
                                 onClick={() => void handleDeleteClient()}
                                 disabled={deleting}
                                 className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border transition-opacity hover:opacity-80 disabled:opacity-50"
-                                style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)' }}
+                                style={{ background: 'var(--color-error-subtle)', color: 'var(--color-error)', borderColor: 'var(--color-error-border)' }}
                             >
                                 {deleting ? <IconLoader2 size={14} className="animate-spin" /> : <IconTrash size={14} />}
                                 {deleting ? 'Eliminando...' : 'Eliminar'}

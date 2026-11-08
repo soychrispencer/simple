@@ -139,7 +139,7 @@ export function MarketplaceFinanceView({ vertical }: { vertical: 'autos' | 'prop
                     <PanelCard size="lg" className="flex flex-col items-center gap-3 text-center py-10">
                         <div
                             className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                            style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                            style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                         >
                             <IconTrendingUp size={22} />
                         </div>

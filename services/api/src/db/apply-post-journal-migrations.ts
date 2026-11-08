@@ -106,6 +106,7 @@ export const POST_JOURNAL_TAGS = [
     '0139_timeline_events',
     '0140_relationship_notes',
     '0141_agenda_existing_accounts_to_free',
+    '0142_agenda_subscription_billing_cycle',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

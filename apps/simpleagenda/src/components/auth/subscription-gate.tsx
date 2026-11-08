@@ -67,7 +67,9 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
             <div className="container-app pt-4">
                 <div className="flex flex-col gap-3 rounded-2xl border border-(--accent-border) bg-(--accent-subtle) p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                     <div className="flex items-start gap-3">
-                        <IconSparkles size={20} className="mt-0.5 shrink-0 text-(--accent)" />
+                        <span className="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-(--agenda-lime) text-(--agenda-green)">
+                            <IconSparkles size={17} />
+                        </span>
                         <div>
                             <p className="font-semibold text-(--fg)">
                                 {trialActive

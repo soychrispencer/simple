@@ -36,5 +36,13 @@ export function PanelBottomNav() {
         PRIMARY_HREF,
     );
 
-    return <SharedPanelBottomNav items={navItems} LinkComponent={Link} />;
+    return (
+        <div className="agenda-panel-quick-action">
+            <SharedPanelBottomNav
+                items={navItems}
+                LinkComponent={Link}
+                highlightStyle={{ boxShadow: '0 0 0 1px var(--accent-ink)' }}
+            />
+        </div>
+    );
 }

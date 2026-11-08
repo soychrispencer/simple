@@ -30,7 +30,7 @@ export function FinanceBarChart({
                                 className="h-full rounded-md transition-[width] duration-300"
                                 style={{
                                     width: `${Math.max(pct, 2)}%`,
-                                    background: 'var(--accent)',
+                                    background: 'var(--signal, var(--accent))',
                                 }}
                             />
                         </div>

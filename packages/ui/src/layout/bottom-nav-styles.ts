@@ -39,5 +39,5 @@ export function bottomNavPrimaryActionStyleWithShadow(boxShadow?: string): CSSPr
     };
 }
 
-export const bottomNavStandardActiveColor = 'var(--accent)';
+export const bottomNavStandardActiveColor = 'var(--accent-ink, var(--accent))';
 export const bottomNavStandardMutedColor = 'var(--fg-muted)';

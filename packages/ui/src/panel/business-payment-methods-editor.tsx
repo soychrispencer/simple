@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
@@ -135,7 +135,7 @@ export function BusinessPaymentMethodsEditor({
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                         <div
                             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                            style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                            style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                         >
                             <IconCreditCard size={18} />
                         </div>
@@ -161,9 +161,9 @@ export function BusinessPaymentMethodsEditor({
                             <div
                                 className="flex items-start gap-2 mb-3 px-3 py-2 rounded-xl text-xs"
                                 style={{
-                                    background: 'rgba(234,179,8,0.08)',
-                                    color: '#92400e',
-                                    border: '1px solid rgba(234,179,8,0.2)',
+                                    background: 'var(--color-warning-bg)',
+                                    color: 'var(--color-warning-text)',
+                                    border: '1px solid var(--color-warning-border)',
                                 }}
                             >
                                 <IconAlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -189,8 +189,8 @@ export function BusinessPaymentMethodsEditor({
                         <div
                             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                             style={{
-                                background: value.acceptsTransfer ? 'rgba(13,148,136,0.1)' : 'var(--accent-soft)',
-                                color: 'var(--accent)',
+                                background: value.acceptsTransfer ? 'var(--accent-soft)' : 'var(--accent-soft)',
+                                color: 'var(--accent-ink)',
                             }}
                         >
                             <IconBuildingBank size={18} />
@@ -203,7 +203,7 @@ export function BusinessPaymentMethodsEditor({
                                 {value.acceptsTransfer && hasBankData ? (
                                     <span
                                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                                        style={{ background: 'rgba(13,148,136,0.1)', color: 'var(--accent)' }}
+                                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                                     >
                                         <IconCheck size={10} /> Activo
                                     </span>
@@ -211,7 +211,7 @@ export function BusinessPaymentMethodsEditor({
                                 {value.acceptsTransfer && !hasBankData ? (
                                     <span
                                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                                        style={{ background: 'rgba(234,179,8,0.1)', color: '#92400e' }}
+                                        style={{ background: 'var(--color-warning-bg)', color: 'var(--color-warning-text)' }}
                                     >
                                         <IconAlertCircle size={10} /> Incompleto
                                     </span>
@@ -329,7 +329,7 @@ export function BusinessPaymentMethodsEditor({
                                 {value.acceptsMp && mercadoPago.mode === 'oauth' && mpConnected ? (
                                     <span
                                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                                        style={{ background: 'rgba(13,148,136,0.1)', color: 'var(--accent)' }}
+                                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                                     >
                                         <IconCheck size={10} /> Conectado
                                     </span>
@@ -357,7 +357,7 @@ export function BusinessPaymentMethodsEditor({
 
                 {value.acceptsMp && mercadoPago.mode === 'oauth' && !mpConnected ? (
                     <div className="mt-4 pt-4 flex items-start gap-3" style={{ borderTop: '1px solid var(--border)' }}>
-                        <IconAlertCircle size={15} style={{ color: '#b45309', flexShrink: 0, marginTop: 1 }} />
+                        <IconAlertCircle size={15} style={{ color: 'var(--color-warning)', flexShrink: 0, marginTop: 1 }} />
                         <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium mb-1" style={{ color: 'var(--fg)' }}>
                                 Cuenta no conectada
@@ -383,8 +383,8 @@ export function BusinessPaymentMethodsEditor({
                     <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                             Los cobros van directo a tu cuenta de MercadoPago. Puedes desconectarla en{' '}
-                            <Link href={mercadoPago.integrationsHref} className="font-medium text-accent hover:underline">
-                                Mi cuenta → Integraciones
+                            <Link href={mercadoPago.integrationsHref} className="font-medium text-accent-ink hover:underline">
+                                Mi cuenta â†’ Integraciones
                             </Link>
                             .
                         </p>
@@ -411,8 +411,8 @@ export function BusinessPaymentMethodsEditor({
                         <div
                             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                             style={{
-                                background: value.acceptsPaymentLink ? 'rgba(13,148,136,0.1)' : 'var(--accent-soft)',
-                                color: 'var(--accent)',
+                                background: value.acceptsPaymentLink ? 'var(--accent-soft)' : 'var(--accent-soft)',
+                                color: 'var(--accent-ink)',
                             }}
                         >
                             <IconLink size={18} />
@@ -425,7 +425,7 @@ export function BusinessPaymentMethodsEditor({
                                 {value.acceptsPaymentLink && value.paymentLinkUrl.trim() ? (
                                     <span
                                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                                        style={{ background: 'rgba(13,148,136,0.1)', color: 'var(--accent)' }}
+                                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                                     >
                                         <IconCheck size={10} /> Activo
                                     </span>
@@ -433,7 +433,7 @@ export function BusinessPaymentMethodsEditor({
                                 {value.acceptsPaymentLink && !value.paymentLinkUrl.trim() ? (
                                     <span
                                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                                        style={{ background: 'rgba(234,179,8,0.1)', color: '#92400e' }}
+                                        style={{ background: 'var(--color-warning-bg)', color: 'var(--color-warning-text)' }}
                                     >
                                         <IconAlertCircle size={10} /> Falta URL
                                     </span>

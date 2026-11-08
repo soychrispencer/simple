@@ -56,7 +56,7 @@ export function PanelMarketplacePlanBanner({
                     {listingCount}/{formatListingLimit(maxListings)} avisos
                 </span>
                 {billingStatus === 'trial' && trialDaysRemaining != null ? (
-                    <span className="text-sm" style={{ color: 'var(--accent)' }}>
+                    <span className="text-sm" style={{ color: 'var(--accent-ink)' }}>
                         {trialDaysRemaining} {trialDaysRemaining === 1 ? 'día' : 'días'} de prueba Pro
                     </span>
                 ) : null}
@@ -81,7 +81,7 @@ export function PanelMarketplacePlanBanner({
             {showProfileCta ? (
                 <div className="rounded-2xl border p-4 space-y-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-muted)' }}>
                     <div className="flex items-start gap-3">
-                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ background: 'color-mix(in oklab, var(--accent) 14%, transparent)', color: 'var(--accent)' }}>
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ background: 'color-mix(in oklab, var(--accent) 14%, transparent)', color: 'var(--accent-ink)' }}>
                             <IconSparkles size={16} />
                         </span>
                         <div className="space-y-1">

@@ -32,7 +32,7 @@ function channelIcon(key: string) {
     if (key === 'facebook' || key === 'portal:facebook') return <IconBrandFacebook size={16} className="text-[#1877F2]" />;
     if (key === 'tiktok') return <IconBrandTiktok size={16} />;
     if (key === 'youtube') return <IconBrandYoutube size={16} className="text-red-600" />;
-    if (key === 'simple') return <IconMapPin size={16} className="text-[var(--accent)]" />;
+    if (key === 'simple') return <IconMapPin size={16} className="text-accent-ink" />;
     return null;
 }
 
@@ -137,7 +137,7 @@ export function ListingDistributionPanel({
                                             href={channel.permalink}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent)] hover:underline"
+                                            className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-ink hover:underline"
                                         >
                                             Abrir
                                             <IconExternalLink size={11} />

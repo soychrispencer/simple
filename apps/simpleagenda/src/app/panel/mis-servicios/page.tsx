@@ -204,7 +204,7 @@ function ServiciosConfigPageContent() {
                 footer: isGroup ? (
                     <Link
                         href={`/panel/mis-servicios/${service.id}`}
-                        className="pl-1 text-xs text-accent hover:underline"
+                        className="pl-1 text-xs text-accent-ink hover:underline"
                     >
                         Gestionar asistentes
                     </Link>

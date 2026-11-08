@@ -158,7 +158,7 @@ const adDurationDaysSchema = z.union([z.literal(7), z.literal(15), z.literal(30)
 const adDestinationTypeSchema = z.enum(['none', 'custom_url', 'listing', 'profile']);
 const adOverlayAlignSchema = z.enum(['left', 'center', 'right']);
 const adPlacementSectionSchema = z.enum(['home', 'ventas', 'arriendos', 'subastas', 'proyectos', 'mariachis', 'professionals']);
-const paidSubscriptionPlanIdSchema = z.enum(['pro', 'enterprise']);
+const paidSubscriptionPlanIdSchema = z.enum(['pro', 'pro_plus', 'enterprise']);
 const listingStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
 const listingManageStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
 const addressBookKindSchema = z.enum([
@@ -405,6 +405,7 @@ export const createCheckoutSchema = z.discriminatedUnion('kind', [
         planId: paidSubscriptionPlanIdSchema.optional(),
         subscription: z.object({
             planId: paidSubscriptionPlanIdSchema,
+            billingCycle: z.enum(['monthly', 'annual']).optional(),
         }).optional(),
     }).refine((d) => d.planId != null || d.subscription?.planId != null, {
         message: 'planId is required',

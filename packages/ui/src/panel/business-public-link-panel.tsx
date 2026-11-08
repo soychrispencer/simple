@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -229,7 +229,7 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default' }: Busine
                     <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
                         {checkingSlug && <IconLoader2 size={14} className="animate-spin text-(--fg-muted)" />}
                         {!checkingSlug && slugAvailable === true && slugDraft !== slug && (
-                            <IconCheck size={14} className="text-accent" />
+                            <IconCheck size={14} className="text-accent-ink" />
                         )}
                         {!checkingSlug && slugAvailable === false && (
                             <IconX size={14} style={{ color: 'var(--color-error)' }} />
@@ -296,8 +296,8 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default' }: Busine
                     <span
                         className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
                         style={{
-                            background: state.isPublished ? 'rgba(13,148,136,0.1)' : 'rgba(100,116,139,0.1)',
-                            color: state.isPublished ? 'var(--accent)' : 'var(--fg-muted)',
+                            background: state.isPublished ? 'var(--accent-soft)' : 'var(--bg-muted)',
+                            color: state.isPublished ? 'var(--accent-ink, var(--accent))' : 'var(--fg-muted)',
                         }}
                     >
                         {state.isPublished ? <IconEye size={10} /> : <IconEyeOff size={10} />}
@@ -312,7 +312,7 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default' }: Busine
                                 {publicUrl ?? 'Define tu enlace'}
                             </span>
                             <IconAction title={copied ? 'Copiado' : 'Copiar link'} onClick={() => void handleCopy()} disabled={!publicUrl}>
-                                {copied ? <IconCheck size={15} className="text-accent" /> : <IconCopy size={15} />}
+                                {copied ? <IconCheck size={15} className="text-accent-ink" /> : <IconCopy size={15} />}
                             </IconAction>
                             <IconAction title="Compartir" onClick={() => void handleShare()} disabled={!publicUrl}>
                                 <IconShare3 size={15} />
@@ -337,13 +337,13 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default' }: Busine
                                     <IconQrcode size={14} />
                                     {showQr ? 'Ocultar QR' : 'Ver código QR'}
                                 </button>
-                                {shared ? <span className="text-xs text-accent">Compartido</span> : null}
+                                {shared ? <span className="text-xs text-accent-ink">Compartido</span> : null}
                             </div>
                         ) : (
                             <button
                                 type="button"
                                 onClick={startEditSlug}
-                                className="text-left text-xs font-medium text-accent hover:underline"
+                                className="text-left text-xs font-medium text-accent-ink hover:underline"
                             >
                                 Personalizar enlace
                             </button>
@@ -392,8 +392,8 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default' }: Busine
                     <span
                         className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
                         style={{
-                            background: state.isPublished ? 'rgba(13,148,136,0.1)' : 'rgba(100,116,139,0.1)',
-                            color: state.isPublished ? 'var(--accent)' : 'var(--fg-muted)',
+                            background: state.isPublished ? 'var(--accent-soft)' : 'var(--bg-muted)',
+                            color: state.isPublished ? 'var(--accent-ink, var(--accent))' : 'var(--fg-muted)',
                         }}
                     >
                         {state.isPublished ? <IconEye size={11} /> : <IconEyeOff size={11} />}

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { IconCheck, IconLoader2 } from '@tabler/icons-react';
@@ -119,6 +119,7 @@ export function OperatorSiteAppearanceEditor({
         ?? defaultOperatorSiteAccentEditorValue().customHex;
 
     const isCustomAccent = value.accent.preset === 'custom';
+    const isAutoAccent = value.accent.preset === 'auto';
 
     return (
         <div className="space-y-6">
@@ -147,7 +148,7 @@ export function OperatorSiteAppearanceEditor({
                                     <p className="text-[11px] font-medium text-fg mt-2">{option.structure}</p>
                                     <p className="text-[11px] text-fg-muted mt-1">{option.hint}</p>
                                 </div>
-                                {active ? <IconCheck size={18} className="text-[var(--accent)] shrink-0" /> : null}
+                                {active ? <IconCheck size={18} className="text-accent-ink shrink-0" /> : null}
                             </div>
                         </button>
                     );
@@ -169,7 +170,7 @@ export function OperatorSiteAppearanceEditor({
                                 type="button"
                                 onClick={() => handleSelectColor(option.id)}
                                 className={`rounded-full px-4 py-2 text-sm font-medium border transition-colors ${active
-                                    ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                                    ? 'bg-[var(--accent)] text-[var(--accent-contrast)] border-[var(--accent)]'
                                     : 'border-[var(--border)] text-fg-secondary hover:text-fg'}`}
                             >
                                 {option.label}
@@ -182,10 +183,28 @@ export function OperatorSiteAppearanceEditor({
             <PanelCard size="lg" className="space-y-4">
                 <PanelBlockHeader
                     title="Color de acento"
-                    description="Color principal de botones, links y elementos destacados de tu página."
+                    description="Color principal de botones, links y elementos destacados. «Automático» usa el color de la marca."
                     className="mb-0"
                 />
                 <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
+                    <button
+                        type="button"
+                        onClick={() => handleSelectAccent('auto')}
+                        className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 transition-all ${isAutoAccent
+                            ? 'border-[var(--accent)] ring-2 ring-[var(--accent-subtle)]'
+                            : 'border-[var(--border)] hover:border-[var(--accent-border)]'}`}
+                        title="Automático: color de la marca"
+                    >
+                        <span
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/10 bg-[var(--accent)] text-[10px] font-bold text-[var(--accent-contrast)]"
+                            aria-hidden
+                        >
+                            A
+                        </span>
+                        <span className="text-[10px] font-medium text-fg-secondary leading-tight text-center">
+                            Automático
+                        </span>
+                    </button>
                     {OPERATOR_SITE_ACCENT_OPTIONS.map((option) => {
                         const active = !isCustomAccent && value.accent.preset === option.id;
                         return (
@@ -249,7 +268,7 @@ export function OperatorSiteAppearanceEditor({
                             value={value.accent.customHex}
                             onChange={(event) => handleCustomHexChange(event.target.value)}
                             onBlur={handleCustomHexBlur}
-                            placeholder="#0F766E"
+                            placeholder="#0D453C"
                             spellCheck={false}
                             className="min-w-[7.5rem] flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-fg"
                         />
@@ -286,7 +305,7 @@ export function OperatorSiteAppearanceEditor({
                         Guardar ahora
                     </PanelButton>
                     {saving ? <span className="text-sm text-fg-muted">Guardando…</span> : null}
-                    {!saving && savedFlash ? <span className="text-sm text-[var(--accent)]">Guardado</span> : null}
+                    {!saving && savedFlash ? <span className="text-sm text-accent-ink">Guardado</span> : null}
                 </div>
             )}
         </div>

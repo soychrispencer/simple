@@ -62,7 +62,7 @@ export default function GoogleCallback() {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
                 <div className="w-full max-w-md mx-4 rounded-card p-8 text-center border border-(--border) bg-(--surface)">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--color-error-subtle)', color: 'var(--color-error)' }}>
                         <IconX size={22} />
                     </div>
                     <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Error de conexión</h2>
@@ -79,7 +79,7 @@ export default function GoogleCallback() {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
                 <div className="w-full max-w-md mx-4 rounded-card p-8 text-center border border-(--border) bg-(--surface)">
-                    <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--color-success-subtle)', color: 'var(--brand-whatsapp)' }}>
                         <IconCheck size={28} strokeWidth={2.5} />
                     </div>
                     <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Cuenta creada</h2>

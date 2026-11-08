@@ -24,7 +24,7 @@ export function PanelBusinessPublishRequirementsList({
                 {items.map((item) => (
                     <li key={item.id} className="flex items-start gap-2 text-sm">
                         {item.met ? (
-                            <IconCheck size={15} className="mt-0.5 shrink-0 text-(--accent)" aria-hidden />
+                            <IconCheck size={15} className="mt-0.5 shrink-0 text-accent-ink" aria-hidden />
                         ) : (
                             <IconCircle size={15} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
                         )}
@@ -63,8 +63,8 @@ export function PanelBusinessPublishRequirements({
         <div
             className="rounded-xl border p-3 text-left"
             style={{
-                borderColor: 'color-mix(in oklab, #f59e0b 35%, var(--border))',
-                background: 'color-mix(in oklab, #f59e0b 6%, var(--surface))',
+                borderColor: 'var(--color-warning-border)',
+                background: 'var(--color-warning-bg)',
             }}
         >
             <PanelBusinessPublishRequirementsList items={items} title={title} />

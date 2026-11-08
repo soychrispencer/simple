@@ -1,8 +1,11 @@
 export const AGENDA_PRICING = {
     trialDays: 30,
     proMonthlyNetClp: 9_990,
+    proPlusMonthlyNetClp: 14_990,
     proAnnualMonthlyEquivalentNetClp: 7_990,
     proAnnualTotalNetClp: 95_880,
+    proPlusAnnualMonthlyEquivalentNetClp: 11_992,
+    proPlusAnnualTotalNetClp: 143_900,
     proAnnualDiscountPct: 20,
     free: {
         monthlyBookings: 30,
@@ -44,8 +47,8 @@ export const AGENDA_PLAN_CATALOG = {
     proPlus: {
         id: 'pro_plus',
         name: 'Pro+',
-        availability: 'coming_soon',
-        priceMonthlyNetClp: null,
+        availability: 'available',
+        priceMonthlyNetClp: AGENDA_PRICING.proPlusMonthlyNetClp,
         description: 'Más automatización y comunicación para profesionales en crecimiento.',
         features: [
             'Todo lo incluido en Pro',
@@ -77,10 +80,22 @@ export function formatAgendaProMonthlyPrice(): string {
     return `$${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA / mes`;
 }
 
+export function formatAgendaProPlusMonthlyPrice(): string {
+    return `$${AGENDA_PRICING.proPlusMonthlyNetClp.toLocaleString('es-CL')} + IVA / mes`;
+}
+
 export function formatAgendaProAnnualMonthlyPrice(): string {
     return `$${AGENDA_PRICING.proAnnualMonthlyEquivalentNetClp.toLocaleString('es-CL')} + IVA / mes`;
 }
 
 export function formatAgendaProAnnualTotalPrice(): string {
     return `$${AGENDA_PRICING.proAnnualTotalNetClp.toLocaleString('es-CL')} + IVA / año`;
+}
+
+export function formatAgendaProPlusAnnualMonthlyPrice(): string {
+    return `$${AGENDA_PRICING.proPlusAnnualMonthlyEquivalentNetClp.toLocaleString('es-CL')} + IVA / mes`;
+}
+
+export function formatAgendaProPlusAnnualTotalPrice(): string {
+    return `$${AGENDA_PRICING.proPlusAnnualTotalNetClp.toLocaleString('es-CL')} + IVA / año`;
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { IconCreditCard, IconRefresh, IconUsers } from '@tabler/icons-react';
-import { AGENDA_PLAN_CATALOG, formatAgendaProMonthlyPrice } from '@simple/utils';
+import { AGENDA_PLAN_CATALOG, formatAgendaProMonthlyPrice, formatAgendaProPlusMonthlyPrice } from '@simple/utils';
 import {
     PanelButton,
     PanelCard,
@@ -25,12 +25,14 @@ import {
 
 function planPriceLabel(plan: (typeof AGENDA_PLAN_CATALOG)[keyof typeof AGENDA_PLAN_CATALOG]) {
     if (plan.id === 'pro') return formatAgendaProMonthlyPrice();
+    if (plan.id === 'pro_plus') return formatAgendaProPlusMonthlyPrice();
     if (plan.id === 'free') return 'Siempre gratis después de la prueba';
     return plan.availability === 'contact' ? 'A cotizar según el equipo' : 'Próximamente';
 }
 
-function statusLabel(status: AdminAgendaSubscription['status']) {
-    if (status === 'active') return 'Pro activo';
+function statusLabel(item: AdminAgendaSubscription) {
+    if (item.status === 'active') return item.plan === 'pro_plus' ? 'Pro+ activo' : 'Pro activo';
+    const { status } = item;
     if (status === 'trial') return 'Prueba Pro';
     if (status === 'expired') return 'Gratis · Pro vencido';
     return 'Gratis';
@@ -121,7 +123,7 @@ export function AdminAgendaPlansDashboard({ user }: { user: AdminSessionUser }) 
 
             <PanelPageHeader
                 title="Cuentas y planes actuales"
-                description="Para asignar Gratis o Pro, abre la cuenta en Usuarios y entra a Suscripciones. Pro+ y Empresa no se asignan hasta habilitar sus funciones y cobros."
+                description="Para asignar Gratis, Pro o Pro+, abre la cuenta en Usuarios y entra a Suscripciones. Empresa se cotiza según el tamaño del equipo."
             />
 
             <PanelList>
@@ -142,8 +144,8 @@ export function AdminAgendaPlansDashboard({ user }: { user: AdminSessionUser }) 
                             <p className="truncate text-sm font-semibold text-[var(--fg)]">{item.displayName || item.userName}</p>
                             <p className="truncate text-xs text-[var(--fg-muted)]">{item.userEmail}</p>
                         </div>
-                        <p className="text-sm text-[var(--fg-secondary)]">{item.status === 'trial' ? 'Prueba Pro' : item.status === 'expired' ? 'Gratis' : item.plan === 'pro' ? 'Pro' : 'Gratis'}</p>
-                        <PanelStatusBadge label={statusLabel(item.status)} tone={statusTone(item.status)} />
+                        <p className="text-sm text-[var(--fg-secondary)]">{item.status === 'trial' ? 'Prueba Pro' : item.status === 'expired' ? 'Gratis' : item.plan === 'pro_plus' ? 'Pro+' : item.plan === 'pro' ? 'Pro' : 'Gratis'}</p>
+                        <PanelStatusBadge label={statusLabel(item)} tone={statusTone(item.status)} />
                         <span className="text-xs text-[var(--fg-secondary)]">{item.isPublished ? 'Publicado' : 'Privado'}</span>
                         <Link
                             href={`/?vertical=agenda&q=${encodeURIComponent(item.userEmail)}`}

@@ -21,7 +21,7 @@ function parsePrice(priceStr: string): { price: number; currency: string } | nul
 export function buildVehicleJsonLd(item: PublicListing): object {
     const offer = parsePrice(item.price);
     const pageUrl = `${APP_URL}${item.href}`;
-    const sectionPath = item.section === 'rent' ? '/arriendos' : item.section === 'auction' ? '/subastas' : '/ventas';
+    const sectionPath = item.section === 'rent' ? '/arriendos' : item.section === 'auction' ? '/subastas' : '/ventas?section=sale';
     const sectionLabel = item.sectionLabel;
 
     const vehicle: Record<string, unknown> = {

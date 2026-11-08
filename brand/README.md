@@ -9,7 +9,7 @@ Código de marca: `@simple/config` (`packages/config`) y `BrandLogo` en `@simple
 |----------|--------|----------------|-------|
 | SimpleAutos | `#E84A1F` | Volante | blanco |
 | SimplePropiedades | `#4F46E5` | Puerta | blanco |
-| SimpleAgenda | `#0F766E` | Calendario con check | blanco |
+| SimpleAgenda | `#B8DB3A` | Calendario con check | `#002E32` |
 | SimpleSerenatas | `#E11D48` | Guitarra acústica | blanco |
 | SimpleTickets | `#0E7490` | Entrada | blanco |
 | SimpleResto | `#F4B400` | Recibo de tres líneas | `#0C0C0E` (negro) |
@@ -26,6 +26,7 @@ No usar SimpleAdmin / SimplePlataforma en creatividades públicas salvo campaña
 ## Logo e íconos
 
 - **Una sola fuente:** `packages/config/src/brand-vectors.ts` (curvas originales completas, micro y firma). `brand-icon-svg.ts` compone avatares; `BrandLogo` usa esas mismas curvas en cabeceras y pies.
+- El wordmark de SimpleAgenda usa Instrument Sans Bold en contornos, con el punto de la “i” personalizado; así coincide con los titulares del producto y conserva un detalle propio.
 - No crear variantes de logo “solo para redes”. Si cambia el look, se actualiza el SVG oficial.
 - Avatares IG: `brand/instagram-profiles/` (preferir export vector 2048×2048).
   - Full-bleed: `ig-profile-{id}.png`

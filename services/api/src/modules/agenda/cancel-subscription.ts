@@ -5,7 +5,7 @@ import { downgradeAgendaProfileAccess, getAgendaProfile, isAgendaProActive } fro
 import { AGENDA_PRICING } from '@simple/utils';
 
 /**
- * Cancela Pro de Agenda: preapproval MP (si aplica) + suscripción DB + perfil free expirado.
+ * Cancela una suscripción de Agenda: preapproval MP + suscripción DB + perfil Gratis.
  */
 export async function cancelAgendaProSubscription(
     userId: string,
@@ -20,11 +20,11 @@ export async function cancelAgendaProSubscription(
     }
 
     const sub = await loadCurrentSubscriptionFromDb(userId, 'agenda');
-    const hasDbPro = Boolean(sub && sub.planSlug === 'pro');
+    const hasDbPro = Boolean(sub && (sub.planSlug === 'pro' || sub.planSlug === 'pro_plus'));
     const hasProfilePro = isAgendaProActive(profile);
 
     if (!hasDbPro && !hasProfilePro) {
-        return { ok: false, error: 'No tienes un plan Pro activo que cancelar.', status: 400 };
+        return { ok: false, error: 'No tienes un plan pagado activo que cancelar.', status: 400 };
     }
 
     const preapprovalId = sub?.providerSubscriptionId ?? null;
@@ -52,7 +52,8 @@ export async function cancelAgendaProSubscription(
             userId,
             accountId: sub.accountId,
             vertical: 'agenda',
-            planSlug: 'pro',
+            planSlug: sub.planSlug as 'pro' | 'pro_plus',
+            billingCycle: sub.billingCycle,
             providerSubscriptionId: preapprovalId ?? `cancelled-${sub.id}`,
             providerStatus: 'cancelled',
             status: 'cancelled',

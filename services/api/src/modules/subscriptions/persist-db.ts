@@ -8,6 +8,7 @@ import {
     APP_COMMISSION_FREE_BPS,
     APP_COMMISSION_PRO_BPS,
 } from '../serenatas/plan-config.js';
+import { AGENDA_PRICING } from '@simple/utils';
 import {
     downgradeAgendaProfileAccess,
     expiredAgendaPlanEndsAt,
@@ -20,6 +21,7 @@ export type DbSubscriptionRow = {
     vertical: string;
     planSlug: string;
     planName: string;
+    billingCycle: 'monthly' | 'annual';
     priceMonthly: number;
     currency: string;
     features: string[];
@@ -40,6 +42,11 @@ export async function ensureSubscriptionPlanDbId(
     if (!catalog) {
         throw new Error(`Plan ${planSlug} no existe en catálogo (${vertical}).`);
     }
+    const priceYearly = vertical === 'agenda' && planSlug === 'pro'
+        ? AGENDA_PRICING.proAnnualTotalNetClp
+        : vertical === 'agenda' && planSlug === 'pro_plus'
+            ? AGENDA_PRICING.proPlusAnnualTotalNetClp
+            : catalog.priceMonthly * 12;
 
     const existing = await db
         .select({ id: subscriptionPlans.id })
@@ -54,7 +61,7 @@ export async function ensureSubscriptionPlanDbId(
                 name: catalog.name,
                 description: catalog.description,
                 priceMonthly: String(catalog.priceMonthly),
-                priceYearly: String(catalog.priceMonthly * 12),
+                priceYearly: String(priceYearly),
                 currency: catalog.currency,
                 maxListings: catalog.maxListings,
                 maxFeaturedListings: catalog.maxFeaturedListings,
@@ -80,7 +87,7 @@ export async function ensureSubscriptionPlanDbId(
             name: catalog.name,
             description: catalog.description,
             priceMonthly: String(catalog.priceMonthly),
-            priceYearly: String(catalog.priceMonthly * 12),
+            priceYearly: String(priceYearly),
             currency: catalog.currency,
             maxListings: catalog.maxListings,
             maxFeaturedListings: catalog.maxFeaturedListings,
@@ -110,6 +117,7 @@ export async function loadCurrentSubscriptionFromDb(
             vertical: subscriptions.vertical,
             planSlug: subscriptionPlans.planId,
             planName: subscriptionPlans.name,
+            billingCycle: subscriptions.billingCycle,
             priceMonthly: subscriptionPlans.priceMonthly,
             currency: subscriptionPlans.currency,
             features: subscriptionPlans.features,
@@ -134,6 +142,7 @@ export async function loadCurrentSubscriptionFromDb(
 
     return {
         ...row,
+        billingCycle: row.billingCycle === 'annual' ? 'annual' : 'monthly',
         priceMonthly: Number(row.priceMonthly),
         features: Array.isArray(row.features) ? (row.features as string[]) : [],
     };
@@ -144,6 +153,7 @@ export async function persistUserSubscription(input: {
     accountId: string | null;
     vertical: PaymentVerticalType;
     planSlug: Exclude<SubscriptionPlanId, 'free'>;
+    billingCycle?: 'monthly' | 'annual';
     provider?: PaymentProvider;
     providerSubscriptionId: string;
     providerStatus: string;
@@ -170,6 +180,7 @@ export async function persistUserSubscription(input: {
                 provider,
                 providerSubscriptionId: input.providerSubscriptionId,
                 providerStatus: input.providerStatus,
+                billingCycle: input.billingCycle ?? 'monthly',
                 expiresAt: input.expiresAt ?? null,
                 cancelledAt: input.status === 'cancelled' ? now : null,
                 updatedAt: now,
@@ -196,6 +207,7 @@ export async function persistUserSubscription(input: {
             provider,
             providerSubscriptionId: input.providerSubscriptionId,
             providerStatus: input.providerStatus,
+            billingCycle: input.billingCycle ?? 'monthly',
             startedAt: now,
             expiresAt: input.expiresAt ?? null,
             cancelledAt: input.status === 'cancelled' ? now : null,
@@ -290,11 +302,11 @@ async function syncAgendaProfilePlanForUser(
     status: string,
     expiresAt?: Date | null,
 ): Promise<void> {
-    if (status === 'active' && (planSlug === 'pro' || planSlug === 'enterprise')) {
+    if (status === 'active' && (planSlug === 'pro' || planSlug === 'pro_plus' || planSlug === 'enterprise')) {
         await db
             .update(agendaProfessionalProfiles)
             .set({
-                plan: 'pro',
+                plan: planSlug === 'pro_plus' ? 'pro_plus' : 'pro',
                 planExpiresAt: expiresAt ?? null,
                 updatedAt: new Date(),
             })

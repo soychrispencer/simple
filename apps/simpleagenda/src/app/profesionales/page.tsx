@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { IconSearch } from '@tabler/icons-react';
+import { IconCalendarEvent, IconSearch } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
 import {
     interleaveDirectoryGridItems,
@@ -173,11 +173,17 @@ function ProfesionalesPageInner() {
     return (
         <OperatorDirectoryPageFrame
             breadcrumb={(
-                <nav className="text-sm text-fg-muted">
-                    <Link href="/" className="font-medium transition-colors hover:text-fg">Inicio</Link>
-                    <span className="mx-2 opacity-50">/</span>
-                    <span className="font-medium text-fg">Profesionales</span>
-                </nav>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <nav aria-label="Ruta de navegación" className="text-sm text-fg-muted">
+                        <Link href="/" className="font-medium transition-colors hover:text-fg">Inicio</Link>
+                        <span aria-hidden="true" className="mx-2 opacity-50">/</span>
+                        <span aria-current="page" className="font-medium text-fg">Profesionales</span>
+                    </nav>
+                    <span className="inline-flex items-center gap-1.5 rounded-button bg-(--signal) px-2.5 py-1.5 text-xs font-bold text-(--signal-contrast)">
+                        <IconCalendarEvent size={14} aria-hidden="true" />
+                        Reservas online
+                    </span>
+                </div>
             )}
             title="Encuentra un profesional"
             description="Directorio de profesionales con reserva directa en su perfil público. Sin comisiones de Simple por cita."
@@ -237,7 +243,7 @@ function ProfesionalesPageInner() {
                 </>
             ) : (
                 <div className="rounded-card border border-border bg-surface p-8 text-center">
-                    <div className="mx-auto flex size-12 items-center justify-center rounded-button bg-accent-soft text-accent">
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-button bg-accent-soft text-accent-ink">
                         <IconSearch size={24} />
                     </div>
                     <h2 className="mt-4 text-xl font-bold text-fg">No encontramos profesionales con esos filtros</h2>

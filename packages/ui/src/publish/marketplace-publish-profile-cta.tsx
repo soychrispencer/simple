@@ -19,7 +19,7 @@ export function MarketplacePublishProfileCta({
             <div className="flex items-start gap-3">
                 <span
                     className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                    style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}
                 >
                     <IconUserCircle size={20} />
                 </span>

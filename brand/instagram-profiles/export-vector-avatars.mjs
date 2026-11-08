@@ -15,7 +15,7 @@ const FRAME_TILE_RATIO = 0.70;
 const APPS = [
     { id: 'simpleautos', accent: '#E84A1F', glyph: '#FFFFFF' },
     { id: 'simplepropiedades', accent: '#4F46E5', glyph: '#FFFFFF' },
-    { id: 'simpleagenda', accent: '#0F766E', glyph: '#FFFFFF' },
+    { id: 'simpleagenda', accent: '#B8DB3A', glyph: '#002E32' },
     { id: 'simpleserenatas', accent: '#E11D48', glyph: '#FFFFFF' },
     { id: 'simpletickets', accent: '#0E7490', glyph: '#FFFFFF' },
     { id: 'simpleresto', accent: '#F4B400', glyph: '#111111' },
@@ -69,7 +69,9 @@ async function main() {
     await mkdir(OUT, { recursive: true });
     console.log(`Vector export ${SIZE}x${SIZE} | frame tile ${FRAME_TILE_RATIO}`);
 
-    for (const app of APPS) {
+    const requestedIds = process.argv.slice(2);
+    const appsToExport = requestedIds.length ? APPS.filter((app) => requestedIds.includes(app.id)) : APPS;
+    for (const app of appsToExport) {
         await makeFullBleed(app);
         const framed = await makeFramed(app);
         console.log(`${app.id}: full + framed(${framed.tile}px) | ${app.accent} / glyph ${app.glyph}`);

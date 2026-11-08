@@ -81,9 +81,15 @@ export function PanelGroupedNavList({
                                     <span
                                         className="flex h-9 w-9 items-center justify-center rounded-[10px] border transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
                                         style={{
-                                            borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
-                                            background: active ? 'var(--button-primary-bg)' : 'transparent',
-                                            color: active ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
+                                            borderColor: active
+                                                ? 'var(--panel-nav-active-icon-border, var(--accent-surface))'
+                                                : 'var(--panel-nav-icon-border, var(--border))',
+                                            background: active
+                                                ? 'var(--panel-nav-active-icon-background, var(--accent-surface))'
+                                                : 'var(--panel-nav-icon-background, transparent)',
+                                            color: active
+                                                ? 'var(--panel-nav-active-icon-color, var(--accent-surface-fg))'
+                                                : 'var(--panel-nav-icon-color, var(--fg-secondary))',
                                             boxShadow: active ? 'var(--shadow-xs)' : 'none',
                                         }}
                                     >

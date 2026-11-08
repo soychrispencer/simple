@@ -1,0 +1,108 @@
+/* Comprobante y selección de hora en la web, la reserva y el panel. */
+.booking-modal--custom-accent {
+    --signal: color-mix(in srgb, var(--accent) 22%, var(--surface));
+    --signal-contrast: var(--fg);
+}
+
+.agenda-ticket {
+    --ticket-ink: var(--signal-contrast, var(--accent-contrast));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: fit-content;
+    max-width: 100%;
+    min-width: min(13rem, 100%);
+    border-radius: var(--radius-button);
+    background: var(--signal, var(--accent));
+    color: var(--ticket-ink);
+    box-shadow: 0 8px 26px color-mix(in srgb, var(--agenda-ink) 18%, transparent);
+}
+
+.agenda-ticket--wide {
+    width: 100%;
+}
+
+.agenda-ticket__body {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+    padding: clamp(0.625rem, 1.4vw, 1rem);
+}
+
+.agenda-ticket__label {
+    font-size: 0.625rem;
+    font-weight: 750;
+    line-height: 1.35;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.agenda-ticket__time {
+    font-family: var(--font-display, var(--font-sans));
+    font-size: clamp(1.875rem, 3.1vw, 2.75rem);
+    font-weight: 750;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+}
+
+.agenda-ticket__status {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.agenda-ticket__stub {
+    display: grid;
+    place-items: center;
+    width: clamp(2.5rem, 5vw, 4.25rem);
+    border-inline-start: 1px dashed color-mix(in srgb, var(--ticket-ink) 38%, transparent);
+}
+
+.agenda-ticket--compact {
+    min-width: 0;
+    box-shadow: none;
+}
+
+.agenda-ticket--compact .agenda-ticket__body {
+    padding: 0.625rem 0.75rem;
+}
+
+.agenda-ticket--compact .agenda-ticket__time {
+    font-size: 1.625rem;
+}
+
+.agenda-ticket--compact .agenda-ticket__stub {
+    width: 2.5rem;
+}
+
+:is(.agenda-time-option[aria-pressed="true"], .agenda-time-option--selected) {
+    border-color: var(--signal, var(--accent));
+    background: var(--signal, var(--accent));
+    color: var(--signal-contrast, var(--accent-contrast));
+}
+
+/* Los perfiles públicos mantienen el mismo negro/carbón que el panel de Agenda. */
+body.simpleagenda-root .os-page[data-os-color="dark"] {
+    --bg: var(--agenda-ink);
+    --bg-subtle: #222226;
+    --bg-muted: var(--agenda-carbon);
+    --bg-elevated: var(--agenda-dark-surface);
+    --surface: var(--agenda-dark-surface);
+    --border: color-mix(in srgb, var(--agenda-white) 12%, var(--agenda-ink));
+    --border-strong: color-mix(in srgb, var(--agenda-white) 40%, var(--agenda-ink));
+    --fg: var(--agenda-paper);
+    --fg-secondary: color-mix(in srgb, var(--agenda-paper) 78%, var(--agenda-ink));
+    --fg-muted: color-mix(in srgb, var(--agenda-paper) 62%, var(--agenda-ink));
+    --fg-faint: color-mix(in srgb, var(--agenda-paper) 40%, var(--agenda-ink));
+    background: var(--agenda-ink);
+}
+
+body.simpleagenda-root .os-page[data-os-layout="studio"][data-os-color="dark"] .os-hero__overlay {
+    background: linear-gradient(
+        to top,
+        var(--agenda-ink) 0%,
+        color-mix(in srgb, var(--agenda-ink) 82%, transparent) 35%,
+        color-mix(in srgb, var(--agenda-ink) 55%, transparent) 100%
+    );
+}

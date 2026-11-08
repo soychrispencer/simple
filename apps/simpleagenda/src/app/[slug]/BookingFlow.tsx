@@ -20,6 +20,7 @@ import {
 } from '@tabler/icons-react';
 import { fetchPublicSlots, bookAppointment, validatePublicPromo, type TimeSlot, type PaymentMethods, type RecurrenceFrequency } from '@/lib/agenda-api';
 import { PanelScrollModal } from '@simple/ui/panel';
+import { ReservationTicket } from '@/components/agenda/reservation-ticket';
 import { detectBrowserTimezone, timezoneShortLabel, resolveBookingModality, bookingTermsFromRecord } from '@simple/utils';
 import {
     buildBookingShareWaMessage,
@@ -47,6 +48,7 @@ export type BookingFlowHandle = {
 
 type BookingFlowProps = {
     profile: PublicProfile;
+    hasCustomAccent?: boolean;
     /** En operator site: oculta lista plana y usa tarjetas externas. */
     embedded?: boolean;
 };
@@ -94,7 +96,7 @@ function formattedPrice(price: string | null, currency: string): string {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency, minimumFractionDigits: 0 }).format(parseFloat(price));
 }
 
-export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingFlow({ profile, embedded = false }, ref) {
+export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingFlow({ profile, embedded = false, hasCustomAccent = false }, ref) {
     const searchParams = useSearchParams();
     const isReschedule = searchParams.get('reprogramar') === '1';
     const clientTz = useMemo(() => detectBrowserTimezone(), []);
@@ -163,6 +165,9 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     } | null>(null);
     const [confirmedSeries, setConfirmedSeries] = useState<Array<{ id: string; startsAt: string }> | null>(null);
     const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+    const paymentPending = confirmedAppt?.paymentStatus === 'pending';
+    const isConfirmed = confirmedAppt?.status === 'confirmed' && !paymentPending;
+    const resultTitle = isConfirmed ? 'Reserva confirmada' : paymentPending ? 'Pago pendiente' : 'Solicitud enviada';
 
     const loadSlots = useCallback(async (date: string, service: Service) => {
         setLoadingSlots(true);
@@ -206,6 +211,8 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
         setRecurrenceCount(4);
         setSubmitError('');
         setConfirmedAppt(null);
+        setConfirmedSeries(null);
+        setCheckoutUrl(null);
         setPromoCode('');
         setPromoError(null);
         setAppliedPromo(null);
@@ -228,7 +235,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             case 'preconsult': return 'Antes de tu cita';
             case 'encuadre': return 'Condiciones de atención';
             case 'payment': return 'Pago anticipado';
-            case 'confirmed': return '¡Cita reservada!';
+            case 'confirmed': return resultTitle;
             default: return '';
         }
     })();
@@ -368,7 +375,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             setConfirmedAppt({
                 id: 'demo-confirmed-appt',
                 status: 'confirmed',
-                paymentStatus: 'pending',
+                paymentStatus: profile.requiresAdvancePayment ? 'pending' : 'not_required',
                 modality: bookingModality,
                 meetingUrl: 'https://meet.google.com/demo-simpleagenda',
             });
@@ -528,7 +535,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                 size="md"
                 zIndexClass="z-50"
                 overlayClassName="bg-black/40 backdrop-blur-[2px]"
-                panelClassName="booking-modal"
+                panelClassName={hasCustomAccent ? 'booking-modal booking-modal--custom-accent' : 'booking-modal'}
                 titleId="booking-step-title"
                 headerContent={(
                     <>
@@ -615,8 +622,10 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         {slots.map((slot) => (
                                             <button
                                                 key={slot.startsAt}
+                                                type="button"
+                                                aria-pressed={selectedSlot?.startsAt === slot.startsAt}
                                                 onClick={() => handleSlotSelect(slot)}
-                                                className={`py-2.5 rounded-xl border text-sm font-medium transition-colors booking-slot ${selectedSlot?.startsAt === slot.startsAt ? 'booking-slot--selected' : ''}`}
+                                                className="booking-slot agenda-time-option rounded-button border py-2.5 text-sm font-medium tabular-nums"
                                             >
                                                 {formatTime(slot.startsAt, clientTz)}
                                             </button>
@@ -631,10 +640,12 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                         {step === 'info' && (
                             <div>
                                 {selectedSlot && (
-                                    <div className="flex items-center gap-2 p-3 rounded-xl mb-5 booking-badge-online">
-                                        <IconCalendar size={14} />
-                                        <span className="text-xs font-medium">
-                                            {formatDate(selectedSlot.startsAt, clientTz)} — {formatTime(selectedSlot.startsAt, clientTz)}
+                                    <div className="booking-subtle mb-5 flex items-center gap-3 rounded-card border p-3">
+                                        <span className="agenda-time-option--selected shrink-0 rounded-button px-2.5 py-1.5 text-sm font-bold tabular-nums">
+                                            {formatTime(selectedSlot.startsAt, clientTz)}
+                                        </span>
+                                        <span className="booking-fg min-w-0 text-xs font-medium">
+                                            {formatDate(selectedSlot.startsAt, clientTz)}
                                             {showDualTimezone ? (
                                                 <span className="block text-[11px] font-normal booking-muted mt-0.5">
                                                     {formatTime(selectedSlot.startsAt, professionalTz)} hora del profesional
@@ -713,7 +724,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                                 className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors booking-checkbox ${isRecurring ? 'booking-checkbox--checked' : ''}`}
                                                 aria-label="Reservar varias sesiones"
                                             >
-                                                {isRecurring && <IconCheck size={10} color="#fff" />}
+                                                {isRecurring && <IconCheck size={10} color="var(--accent-contrast)" />}
                                             </button>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium booking-fg">Quiero reservar varias sesiones</p>
@@ -910,7 +921,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         onClick={() => setPolicyAgreed(!policyAgreed)}
                                         className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors booking-checkbox ${policyAgreed ? 'booking-checkbox--checked' : ''}`}
                                     >
-                                        {policyAgreed && <IconCheck size={12} color="#fff" />}
+                                        {policyAgreed && <IconCheck size={12} color="var(--accent-contrast)" />}
                                     </button>
                                     <span className="text-sm booking-fg">
                                         He leído y acepto las condiciones de atención.
@@ -1032,30 +1043,37 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                         {/* Step: Confirmed */}
                         {step === 'confirmed' && (
                             <div className="text-center py-4">
-                                <div
-                                    className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 booking-badge-online"
-                                >
-                                    <IconCheck size={32} />
-                                </div>
-                                <h3 className="text-lg font-bold mb-1 booking-fg">
-                                    {confirmedAppt?.status === 'confirmed' ? '¡Cita confirmada!' : 'Solicitud enviada'}
-                                </h3>
-                                <p className="text-sm mb-2 booking-muted">
-                                    {confirmedAppt?.status === 'confirmed'
-                                        ? 'Tu cita ha sido confirmada automáticamente.'
-                                        : 'El profesional revisará tu solicitud y te contactará pronto.'}
-                                </p>
-                                {selectedSlot && (
-                                    <p className="text-sm font-medium mb-4 booking-fg">
-                                        {formatDate(selectedSlot.startsAt, clientTz)}<br />
-                                        {formatTime(selectedSlot.startsAt, clientTz)} — {formatTime(selectedSlot.endsAt, clientTz)}
+                                {isConfirmed && selectedSlot ? (
+                                    <ReservationTicket
+                                        time={formatTime(selectedSlot.startsAt, clientTz)}
+                                        label={formatDate(selectedSlot.startsAt, clientTz)}
+                                        className="agenda-ticket--wide mb-3 text-left"
+                                    />
+                                ) : (
+                                    <div className="mb-4 flex items-start gap-3 rounded-card border border-(--color-warning-border) bg-(--color-warning-subtle) p-4 text-left">
+                                        <IconClock size={20} className="mt-0.5 shrink-0 text-(--color-warning)" aria-hidden="true" />
+                                        <div>
+                                            <h3 className="booking-fg font-bold">{resultTitle}</h3>
+                                            <p className="booking-secondary mt-1 text-sm">
+                                                {paymentPending
+                                                    ? 'Tu solicitud quedó registrada. Completa el pago anticipado para asegurar tu cita.'
+                                                    : 'El profesional revisará tu solicitud y te contactará pronto.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                                {selectedSlot ? (
+                                    <p className="booking-secondary mb-4 text-sm">
+                                        {!isConfirmed ? <span className="booking-fg block font-semibold">{formatDate(selectedSlot.startsAt, clientTz)}</span> : null}
+                                        {isConfirmed ? 'Hasta las ' : `${formatTime(selectedSlot.startsAt, clientTz)} — `}
+                                        {formatTime(selectedSlot.endsAt, clientTz)}
                                         {showDualTimezone ? (
                                             <span className="block text-xs font-normal booking-muted mt-1">
                                                 {formatTime(selectedSlot.startsAt, professionalTz)} — {formatTime(selectedSlot.endsAt, professionalTz)} hora del profesional
                                             </span>
                                         ) : null}
                                     </p>
-                                )}
+                                ) : null}
                                 {confirmedSeries && confirmedSeries.length > 1 && (
                                     <div className="rounded-xl border p-3 mb-4 text-left booking-confirmed-box">
                                         <p className="text-xs font-semibold mb-2 booking-video-label">
@@ -1097,18 +1115,13 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         El profesional te compartirá el enlace de la videollamada por correo.
                                     </div>
                                 )}
-                                {confirmedAppt?.paymentStatus === 'pending' && checkoutUrl && (
+                                {paymentPending && checkoutUrl && (
                                     <a
                                         href={checkoutUrl}
                                         className="block w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-90 mb-3 booking-mercadopago"
                                     >
                                         Completar pago en MercadoPago
                                     </a>
-                                )}
-                                {confirmedAppt?.paymentStatus === 'pending' && !checkoutUrl && (
-                                    <div className="rounded-xl border p-3 mb-4 text-xs text-left booking-muted-box">
-                                        Recuerda realizar el pago anticipado según las instrucciones recibidas para asegurar tu cita.
-                                    </div>
                                 )}
                                 {confirmedAppt && selectedSlot ? (
                                     <a
@@ -1126,7 +1139,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         target="_blank"
                                         rel="noreferrer"
                                         className="mb-3 inline-flex w-full items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
-                                        style={{ background: '#25D366', color: '#fff' }}
+                                        style={{ background: 'var(--brand-whatsapp)', color: 'var(--agenda-ink)' }}
                                     >
                                         <IconBrandWhatsapp size={16} />
                                         Guardar o compartir por WhatsApp

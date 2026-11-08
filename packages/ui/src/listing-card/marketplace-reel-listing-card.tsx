@@ -23,7 +23,7 @@ import {
     buildDefaultReelShareMenuItems,
     type MarketplaceReelShareMenuItem,
 } from './marketplace-reel-share-menu';
-import { LISTING_CARD_COMMERCIAL_ASPECT } from './shared/card-layout';
+import { LISTING_CARD_COMMERCIAL_ASPECT, LISTING_SOCIAL_VERTICAL_ASPECT } from './shared/card-layout';
 import { abbreviateListingSpecLabel, reelSpecPlaceholder, shortenListingLocation } from './shared/build-reel-specs';
 
 export type MarketplaceReelSpec = {
@@ -73,6 +73,8 @@ export type MarketplaceReelListingCardProps = {
     emptyMediaLabel?: string;
     /** Vista previa del wizard: misma apariencia, sin navegación ni menús funcionales. */
     preview?: boolean;
+    /** Formato social vertical con reproducción automática cuando la publicación está visible. */
+    socialFeed?: boolean;
     footerActions?: ReactNode;
     /** Menú ⋮ junto al bloque avatar/precio/título (p. ej. acciones del dueño en panel). */
     identityMenu?: ReactNode;
@@ -248,6 +250,7 @@ export default function MarketplaceReelListingCard({
     emptyMediaIcon,
     emptyMediaLabel = 'Sin fotos',
     preview = false,
+    socialFeed = false,
     footerActions,
     identityMenu,
     className,
@@ -257,6 +260,7 @@ export default function MarketplaceReelListingCard({
     const [suppressHoverPlay, setSuppressHoverPlay] = useState(false);
     const [isMuted, setIsMuted] = useState(true);
     const [isHovering, setIsHovering] = useState(false);
+    const [isInView, setIsInView] = useState(false);
     const [showShareToast, setShowShareToast] = useState(false);
     const [shareToastMessage, setShareToastMessage] = useState('Link copiado');
     const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -333,7 +337,7 @@ export default function MarketplaceReelListingCard({
         ? optimizeListingImageUrl(videoPosterSource, { width: imageWidth })
         : undefined;
     const isVideoPlaying = currentMedia?.type === 'video'
-        && (manualPlay || (isHovering && !suppressHoverPlay));
+        && (manualPlay || ((isHovering || (socialFeed && isInView)) && !suppressHoverPlay));
 
     useEffect(() => {
         if (currentMediaIndex >= media.length) {
@@ -364,6 +368,24 @@ export default function MarketplaceReelListingCard({
             video.pause();
         }
     }, [isVideoPlaying, currentMediaIndex]);
+
+    useEffect(() => {
+        if (!socialFeed || !cardRef.current || typeof IntersectionObserver === 'undefined') {
+            setIsInView(false);
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                const visible = entry.isIntersecting && entry.intersectionRatio >= 0.55;
+                setIsInView(visible);
+                if (!visible) setSuppressHoverPlay(false);
+            },
+            { threshold: [0, 0.55] },
+        );
+        observer.observe(cardRef.current);
+        return () => observer.disconnect();
+    }, [socialFeed]);
 
     const handleCardMouseEnter = () => {
         setIsHovering(true);
@@ -493,18 +515,19 @@ export default function MarketplaceReelListingCard({
                         className="absolute inset-0 h-full w-full object-cover"
                         draggable={false}
                         decoding="async"
+                        loading={socialFeed ? 'lazy' : undefined}
                     />
                 ) : null}
                 <video
                     ref={videoRef}
                     src={currentMedia.url}
-                    poster={videoPoster}
+                    poster={socialFeed && !isInView ? undefined : videoPoster}
                     className="absolute inset-0 z-[1] h-full w-full object-cover"
                     autoPlay={false}
                     muted={isMuted}
                     loop
                     playsInline
-                    preload="metadata"
+                    preload={socialFeed && !isInView ? 'none' : 'metadata'}
                     controls={false}
                     onError={advanceMediaOnError}
                 />
@@ -732,7 +755,7 @@ export default function MarketplaceReelListingCard({
             className={joinClasses(
                 'marketplace-reel-card marketplace-reel-card--grid group/card relative w-full overflow-hidden rounded-[1.35rem] shadow-lg select-none transition-all duration-200 hover:-translate-y-[2px] hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--accent) focus-visible:ring-offset-2',
                 preview ? 'cursor-default' : 'cursor-pointer',
-                LISTING_CARD_COMMERCIAL_ASPECT,
+                socialFeed ? LISTING_SOCIAL_VERTICAL_ASPECT : LISTING_CARD_COMMERCIAL_ASPECT,
                 className,
             )}
         >

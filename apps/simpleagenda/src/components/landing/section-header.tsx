@@ -24,7 +24,7 @@ export function SectionHeader({
             className={`mb-10 sm:mb-14 ${isCenter ? 'text-center mx-auto max-w-2xl' : 'text-left max-w-2xl'} ${className}`}
         >
             <div
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-3.5 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)] shadow-2xs ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-3.5 border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent-ink)] shadow-2xs ${
                     isCenter ? 'mx-auto' : ''
                 }`}
             >

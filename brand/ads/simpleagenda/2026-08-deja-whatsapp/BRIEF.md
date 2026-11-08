@@ -1,6 +1,6 @@
 # Brief — SimpleAgenda · Dejá WhatsApp
 
-- **Vertical:** SimpleAgenda (`#0F766E` · Calendar)
+- **Vertical:** SimpleAgenda (`#002E32` teal profundo · `#B8DB3A` lima · profesional + mascota-calendario)
 - **Campaña:** `2026-08-deja-whatsapp`
 - **Objetivo:** Conversión a trial 30 días (registro gratis, sin tarjeta)
 - **Audiencia:** Profesionales genéricos que atienden con horas reservadas (Chile)
@@ -22,7 +22,7 @@
 
 | Rol | Texto |
 |-----|-------|
-| Hook | Dejá de coordinar citas por WhatsApp |
+| Hook | Deja de coordinar citas por WhatsApp |
 | Sub | Citas, clientes y pagos en un solo lugar |
 | CTA | Probar 30 días gratis |
 | Badge | AGENDA ONLINE |

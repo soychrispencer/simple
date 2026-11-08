@@ -39,7 +39,7 @@ export function BusinessAddressSelector({
                 <div className="flex items-start gap-3">
                     <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                     >
                         <IconMapPin size={18} />
                     </div>
@@ -110,7 +110,7 @@ export function BusinessAddressSelector({
                             >
                                 <div
                                     className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                                    style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                                 >
                                     <IconMapPin size={14} />
                                 </div>

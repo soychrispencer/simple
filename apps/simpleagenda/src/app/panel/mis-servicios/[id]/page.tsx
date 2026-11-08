@@ -10,6 +10,7 @@ import type { AgendaGroupAttendeeStatus, AgendaGroupSessionStatus } from '@simpl
 import { isAgendaGroupService } from '@simple/utils';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { AgendaMisServiciosShell, AgendaMisServiciosLoading } from '@/components/panel/agenda-mis-servicios-shell';
+import { CalendarMascot } from '@/components/agenda/calendar-mascot';
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import {
     fetchAgendaService,
@@ -63,9 +64,9 @@ const statusLabel: Record<AgendaGroupAttendeeStatus, string> = {
 };
 
 const statusTone: Record<AgendaGroupAttendeeStatus, { bg: string; color: string }> = {
-    registered: { bg: 'var(--accent-soft)', color: 'var(--accent)' },
-    attended: { bg: 'rgba(22,163,74,0.1)', color: '#15803d' },
-    no_show: { bg: 'rgba(234,179,8,0.1)', color: '#b45309' },
+    registered: { bg: 'var(--accent-soft)', color: 'var(--accent-ink)' },
+    attended: { bg: 'var(--color-success-subtle)', color: 'var(--color-success)' },
+    no_show: { bg: 'var(--color-warning-subtle)', color: 'var(--color-warning)' },
     cancelled: { bg: 'var(--bg-muted)', color: 'var(--fg-muted)' },
 };
 
@@ -76,9 +77,9 @@ const sessionStatusLabel: Record<AgendaGroupSessionStatus, string> = {
 };
 
 const sessionStatusTone: Record<AgendaGroupSessionStatus, { bg: string; color: string }> = {
-    scheduled: { bg: 'var(--accent-soft)', color: 'var(--accent)' },
-    completed: { bg: 'rgba(22,163,74,0.1)', color: '#15803d' },
-    cancelled: { bg: 'rgba(220,38,38,0.08)', color: '#b91c1c' },
+    scheduled: { bg: 'var(--accent-soft)', color: 'var(--accent-ink)' },
+    completed: { bg: 'var(--color-success-subtle)', color: 'var(--color-success)' },
+    cancelled: { bg: 'var(--color-error-bg)', color: 'var(--color-error)' },
 };
 
 export default function GroupServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -299,7 +300,7 @@ export default function GroupServiceDetailPage({ params }: { params: Promise<{ i
 
             <PanelCard size="md" className="mb-4">
                 <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
                         <IconUsersGroup size={18} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -372,6 +373,7 @@ export default function GroupServiceDetailPage({ params }: { params: Promise<{ i
                 <PanelEmptyState
                     title="Aún no hay asistentes"
                     description={`Agrega ${vocab.clients} o personas externas a esta sesión.`}
+                    illustration={<CalendarMascot className="h-auto w-20" />}
                     action={
                         <PanelButton variant="accent" size="sm" onClick={openNew} disabled={capacityFull || sessionStatus !== 'scheduled'}>
                             <IconUserPlus size={14} /> Agregar asistente
@@ -423,7 +425,7 @@ export default function GroupServiceDetailPage({ params }: { params: Promise<{ i
                                                         onClick={() => void handleChangeStatus(a, 'attended')}
                                                         disabled={actionId === a.id}
                                                     >
-                                                        <IconUserCheck size={14} style={{ color: '#15803d' }} />
+                                                        <IconUserCheck size={14} style={{ color: 'var(--color-success)' }} />
                                                     </PanelButton>
                                                 </span>
                                                 <span title="Marcar como no asistió">
@@ -433,7 +435,7 @@ export default function GroupServiceDetailPage({ params }: { params: Promise<{ i
                                                         onClick={() => void handleChangeStatus(a, 'no_show')}
                                                         disabled={actionId === a.id}
                                                     >
-                                                        <IconUserX size={14} style={{ color: '#b45309' }} />
+                                                        <IconUserX size={14} style={{ color: 'var(--color-warning)' }} />
                                                     </PanelButton>
                                                 </span>
                                             </>
@@ -494,7 +496,7 @@ export default function GroupServiceDetailPage({ params }: { params: Promise<{ i
                 >
                     <div className="flex flex-col gap-4 px-5 py-4">
                             {error && (
-                                <div className="flex items-start gap-2 p-3 rounded-xl text-xs" style={{ background: 'rgba(220,38,38,0.08)', color: '#b91c1c' }}>
+                                <div className="flex items-start gap-2 p-3 rounded-xl text-xs" style={{ background: 'var(--color-error-bg)', color: 'var(--color-error)' }}>
                                     <IconAlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
                                     {error}
                                 </div>

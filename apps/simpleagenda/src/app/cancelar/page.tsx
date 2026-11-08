@@ -43,7 +43,7 @@ function CancelPage() {
         return (
             <div className="min-h-screen flex items-center justify-center p-6">
                 <div className="text-center max-w-sm">
-                    <IconAlertCircle size={48} className="mx-auto mb-4 text-red-400" />
+                    <IconAlertCircle size={48} className="mx-auto mb-4 text-(--color-error)" aria-hidden="true" />
                     <h1 className="text-xl font-bold mb-2">Enlace inválido</h1>
                     <p className="text-sm text-[var(--fg-muted)]">El enlace de cancelación no es válido. Por favor contacta al profesional.</p>
                 </div>
@@ -55,8 +55,8 @@ function CancelPage() {
         return (
             <div className="min-h-screen flex items-center justify-center p-6">
                 <div className="text-center max-w-sm">
-                    <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                        <IconCheck size={32} className="text-green-600" />
+                    <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-card bg-(--color-success-subtle) text-(--color-success)">
+                        <IconCheck size={32} aria-hidden="true" />
                     </div>
                     <h1 className="text-xl font-bold mb-2">Cita cancelada</h1>
                     <p className="text-sm text-[var(--fg-muted)]">Tu cita ha sido cancelada correctamente. Si tenías un correo de confirmación, ya no aplica esa reserva.</p>
@@ -64,7 +64,7 @@ function CancelPage() {
                         <a
                             href={`/${slug}`}
                             className="mt-6 inline-block px-4 py-2 rounded-xl text-sm font-medium"
-                            style={{ background: 'var(--accent)', color: '#fff' }}
+                            style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                         >
                             Reservar nueva cita
                         </a>
@@ -77,8 +77,8 @@ function CancelPage() {
     return (
         <div className="min-h-screen flex items-center justify-center p-4 sm:p-6" style={{ background: 'var(--bg)' }}>
             <div className="w-full max-w-md rounded-2xl border p-6 sm:p-8" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 mx-auto" style={{ background: 'rgba(239,68,68,0.1)' }}>
-                    <IconCalendarX size={28} className="text-red-500" />
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 mx-auto" style={{ background: 'var(--color-error-subtle)' }}>
+                    <IconCalendarX size={28} className="text-(--color-error)" aria-hidden="true" />
                 </div>
                 <h1 className="text-xl font-bold text-center mb-1" style={{ color: 'var(--fg)' }}>Cancelar o reprogramar</h1>
                 <p className="text-sm text-center mb-6" style={{ color: 'var(--fg-muted)' }}>
@@ -86,7 +86,7 @@ function CancelPage() {
                 </p>
 
                 {state === 'error' && (
-                    <div role="alert" className="mb-4 p-3 rounded-xl text-sm text-red-700 bg-red-50 border border-red-200">
+                    <div role="alert" className="mb-4 rounded-button border border-(--color-error-border) bg-(--color-error-subtle) p-3 text-sm text-(--color-error)">
                         {errorMsg}
                     </div>
                 )}
@@ -113,7 +113,7 @@ function CancelPage() {
                             onClick={() => void handleReschedule()}
                             disabled={state === 'loading' || state === 'rescheduling'}
                             className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-60"
-                            style={{ background: 'var(--accent)', color: '#fff' }}
+                            style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                         >
                             {state === 'rescheduling' ? <IconLoader2 size={16} className="animate-spin" /> : <IconCalendarEvent size={16} />}
                             {state === 'rescheduling' ? 'Liberando horario...' : 'Cambiar a otra fecha'}
@@ -123,7 +123,7 @@ function CancelPage() {
                         onClick={() => void handleCancel()}
                         disabled={state === 'loading' || state === 'rescheduling'}
                         className="w-full py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-60 border"
-                        style={{ borderColor: 'rgba(239,68,68,0.3)', background: 'transparent', color: '#ef4444' }}
+                        style={{ borderColor: 'var(--color-error-border)', background: 'transparent', color: 'var(--color-error)' }}
                     >
                         {state === 'loading' && <IconLoader2 size={16} className="animate-spin" />}
                         {state === 'loading' ? 'Cancelando...' : 'Cancelar definitivamente'}

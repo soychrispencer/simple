@@ -65,7 +65,7 @@ export function PanelBusinessSetupCard({
                     </p>
                     <div
                         className="h-1.5 overflow-hidden rounded-full"
-                        style={{ background: 'color-mix(in oklab, var(--accent) 18%, var(--border))' }}
+                        style={{ background: 'var(--bg-muted)' }}
                         role="progressbar"
                         aria-valuenow={percent}
                         aria-valuemin={0}
@@ -74,7 +74,7 @@ export function PanelBusinessSetupCard({
                     >
                         <div
                             className="h-full rounded-full transition-[width] duration-300"
-                            style={{ width: `${percent}%`, background: 'var(--accent)' }}
+                            style={{ width: `${percent}%`, background: 'var(--signal, var(--accent))' }}
                         />
                     </div>
                 </div>

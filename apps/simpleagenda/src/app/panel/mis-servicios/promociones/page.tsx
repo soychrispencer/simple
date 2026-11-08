@@ -151,7 +151,7 @@ function PromocionesPageContent() {
             hideThumbnail: true,
             meta: (
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-semibold text-accent">{formatAgendaPromotionDiscount(promotion)}</span>
+                    <span className="font-semibold text-accent-ink">{formatAgendaPromotionDiscount(promotion)}</span>
                     {promotion.code ? (
                         <BusinessCatalogPromotionCodeChip
                             code={promotion.code}

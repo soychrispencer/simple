@@ -74,9 +74,9 @@ function SectionCard({ title, children, right }: { title: string; children: Reac
 }
 
 function npsColor(score: number) {
-    if (score >= 9) return 'var(--accent)';
-    if (score >= 7) return '#d97706';
-    return '#dc2626';
+    if (score >= 9) return 'var(--accent-ink)';
+    if (score >= 7) return 'var(--color-warning)';
+    return 'var(--color-error)';
 }
 
 export default function AnalyticsPage() {
@@ -243,7 +243,7 @@ export default function AnalyticsPage() {
                                             className="w-full rounded-t-md transition-all"
                                             style={{
                                                 height: `${h}%`,
-                                                background: row.revenue > 0 ? 'var(--accent)' : 'var(--border)',
+                                                background: row.revenue > 0 ? 'var(--signal)' : 'var(--border)',
                                                 opacity: row.revenue > 0 ? 1 : 0.4,
                                             }}
                                         />
@@ -284,7 +284,7 @@ export default function AnalyticsPage() {
                                             >
                                                 <div
                                                     className="h-full"
-                                                    style={{ width: `${pct}%`, background: 'var(--accent)' }}
+                                                    style={{ width: `${pct}%`, background: 'var(--signal)' }}
                                                 />
                                             </div>
                                         </div>
@@ -335,24 +335,24 @@ export default function AnalyticsPage() {
                         <div className="grid grid-cols-3 gap-3">
                             <div
                                 className="p-3 rounded-xl border"
-                                style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--accent) 8%, transparent)' }}
+                                style={{ borderColor: 'var(--border)', background: 'var(--accent-soft)' }}
                             >
                                 <div className="text-xs" style={{ color: 'var(--fg-muted)' }}>Promotores</div>
-                                <div className="text-lg font-semibold" style={{ color: 'var(--accent)' }}>{npsStats.promoters}</div>
+                                <div className="text-lg font-semibold" style={{ color: 'var(--accent-ink)' }}>{npsStats.promoters}</div>
                             </div>
                             <div
                                 className="p-3 rounded-xl border"
                                 style={{ borderColor: 'var(--border)' }}
                             >
                                 <div className="text-xs" style={{ color: 'var(--fg-muted)' }}>Pasivos</div>
-                                <div className="text-lg font-semibold" style={{ color: '#d97706' }}>{npsStats.passives}</div>
+                                <div className="text-lg font-semibold" style={{ color: 'var(--color-warning)' }}>{npsStats.passives}</div>
                             </div>
                             <div
                                 className="p-3 rounded-xl border"
                                 style={{ borderColor: 'var(--border)' }}
                             >
                                 <div className="text-xs" style={{ color: 'var(--fg-muted)' }}>Detractores</div>
-                                <div className="text-lg font-semibold" style={{ color: '#dc2626' }}>{npsStats.detractors}</div>
+                                <div className="text-lg font-semibold" style={{ color: 'var(--color-error)' }}>{npsStats.detractors}</div>
                             </div>
                         </div>
 

@@ -55,6 +55,7 @@ import { ContextMessagesLink } from '@simple/ui/panel';
 import { resolveBookingModality } from '@simple/utils';
 import { WhatsAppClickButton } from '@/components/whatsapp-click-button';
 import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
+import { ReservationTicket } from '@/components/agenda/reservation-ticket';
 import {
     buildAppointmentCancellationWaMessage,
     buildAppointmentConfirmationWaMessage,
@@ -117,11 +118,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-    pending: '#F59E0B',
-    confirmed: '#0F766E',
-    completed: '#6366F1',
-    cancelled: '#EF4444',
-    no_show: '#9CA3AF',
+    pending: 'var(--agenda-status-pending)',
+    confirmed: 'var(--agenda-status-confirmed)',
+    completed: 'var(--agenda-status-completed)',
+    cancelled: 'var(--agenda-status-cancelled)',
+    no_show: 'var(--agenda-status-noshow)',
 };
 
 function getMonthStart(date: Date): Date {
@@ -634,6 +635,12 @@ export default function AgendaPage() {
     const dayHours = Array.from({ length: DAY_VIEW_HOUR_END - DAY_VIEW_HOUR_START + 1 }, (_, i) => DAY_VIEW_HOUR_START + i);
     const isDayToday = dayKey === todayKey;
     const nowMinutes = isDayToday ? (new Date().getHours() * 60 + new Date().getMinutes()) : null;
+    const appointmentTime = (iso: string) => profile ? formatTimeTz(iso, profile.timezone) : formatTime(iso);
+    const selectedDateLabel = selectedAppt
+        ? profile
+            ? fmtDateTz(selectedAppt.startsAt, profile.timezone)
+            : formatDate(new Date(selectedAppt.startsAt))
+        : null;
 
     return (
         <div className="container-app panel-page py-4 lg:py-8">
@@ -733,8 +740,9 @@ export default function AgendaPage() {
                     </button>
                     {/* Nueva cita — el CTA (+) en el bottom nav cubre este flujo en mobile */}
                     <button
+                        type="button"
                         onClick={() => handleCreateOpen()}
-                        className="agenda-panel-btn-accent hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                        className="agenda-panel-btn-outline hidden sm:inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors hover:bg-(--bg-subtle)"
                     >
                         <IconPlus size={15} />
                         Nueva cita
@@ -848,7 +856,7 @@ export default function AgendaPage() {
                                         slot.setHours(h, 0, 0, 0);
                                         handleCreateOpen(slot);
                                     }}
-                                    className="flex-1 h-full transition-colors hover:bg-[--accent-soft]"
+                                    className="flex-1 h-full transition-colors hover:bg-(--accent-soft) focus-visible:bg-(--accent-soft)"
                                     aria-label={`Crear cita a las ${h}:00`}
                                 />
                             </div>
@@ -859,11 +867,12 @@ export default function AgendaPage() {
                             <div
                                 className="absolute left-14 sm:left-16 right-0 pointer-events-none z-10"
                                 style={{ top: ((nowMinutes - DAY_VIEW_HOUR_START * 60) / 60) * DAY_VIEW_HOUR_HEIGHT }}
+                                role="img"
                                 aria-label="Hora actual"
                             >
                                 <div className="flex items-center">
-                                    <div className="w-2 h-2 rounded-full -ml-1" />
-                                    <div className="flex-1 h-px" />
+                                    <div className="agenda-panel-now-dot -ml-1 h-2 w-2 shrink-0 rounded-full" />
+                                    <div className="agenda-panel-now-line h-px flex-1" />
                                 </div>
                             </div>
                         )}
@@ -883,7 +892,7 @@ export default function AgendaPage() {
                                     style={{
                                         top,
                                         height,
-                                        background: '#8b5cf6',
+                                        background: 'var(--agenda-status-group)',
                                         color: '#fff',
                                         boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
                                     }}
@@ -907,7 +916,7 @@ export default function AgendaPage() {
                             const top = ((startMin - DAY_VIEW_HOUR_START * 60) / 60) * DAY_VIEW_HOUR_HEIGHT;
                             const height = Math.max((appt.durationMinutes / 60) * DAY_VIEW_HOUR_HEIGHT - 2, 24);
                             if (top < -DAY_VIEW_HOUR_HEIGHT || top > dayHours.length * DAY_VIEW_HOUR_HEIGHT) return null;
-                            const color = STATUS_COLORS[appt.status] ?? 'var(--accent)';
+                            const color = STATUS_COLORS[appt.status] ?? 'var(--agenda-status-confirmed)';
                             return (
                                 <button
                                     key={appt.id}
@@ -922,7 +931,10 @@ export default function AgendaPage() {
                                     }}
                                 >
                                     <p className="text-xs font-semibold truncate">
-                                        {formatTime(appt.startsAt)} · {appt.clientName ?? `${vocab.client} sin nombre`}
+                                        <span className="agenda-calendar-time" data-status={appt.status}>
+                                            {formatTime(appt.startsAt)}
+                                        </span>
+                                        {' · '}{appt.clientName ?? `${vocab.client} sin nombre`}
                                     </p>
                                     {height > 36 && (() => {
                                         const svc = services.find((s) => s.id === appt.serviceId);
@@ -974,10 +986,10 @@ export default function AgendaPage() {
                                     onClick={() => handleCreateOpen(day)}
                                 >
                                     <div
-                                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold mb-1"
+                                        className="agenda-calendar-today mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold"
+                                        aria-current={isToday ? 'date' : undefined}
                                         style={{
-                                            background: isToday ? 'var(--accent)' : 'transparent',
-                                            color: isToday ? '#fff' : isCurrentMonth ? 'var(--fg)' : 'var(--fg-muted)',
+                                            color: isToday ? undefined : isCurrentMonth ? 'var(--fg)' : 'var(--fg-muted)',
                                             opacity: isCurrentMonth ? 1 : 0.4,
                                         }}
                                     >
@@ -988,7 +1000,7 @@ export default function AgendaPage() {
                                             key={`g-${item.data.id}`}
                                             onClick={(e) => { e.stopPropagation(); router.push(`/panel/mis-servicios/${item.data.id}`); }}
                                             className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate mb-0.5 transition-opacity hover:opacity-80 flex items-center gap-1"
-                                            style={{ background: '#8b5cf6', color: '#fff' }}
+                                            style={{ background: 'var(--agenda-status-group)', color: '#fff' }}
                                         >
                                             <IconUsersGroup size={10} />
                                             {profile ? formatTimeTz(item.data.startsAt!, profile.timezone) : formatTime(item.data.startsAt!)} {item.data.name}
@@ -1000,9 +1012,12 @@ export default function AgendaPage() {
                                             key={appt.id}
                                             onClick={(e) => { e.stopPropagation(); void handleSelectAppt(appt); }}
                                             className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate mb-0.5 transition-opacity hover:opacity-80"
-                                            style={{ background: STATUS_COLORS[appt.status] ?? 'var(--accent)', color: '#fff' }}
+                                            style={{ background: STATUS_COLORS[appt.status] ?? 'var(--agenda-status-confirmed)', color: '#fff' }}
                                         >
-                                            {profile ? formatTimeTz(appt.startsAt, profile.timezone) : formatTime(appt.startsAt)} {appt.clientName ?? appt.client?.firstName ?? '—'}
+                                            <span className="agenda-calendar-time" data-status={appt.status}>
+                                                {appointmentTime(appt.startsAt)}
+                                            </span>
+                                            {' '}{appt.clientName ?? appt.client?.firstName ?? '—'}
                                         </button>
                                         );
                                     })())}
@@ -1034,11 +1049,8 @@ export default function AgendaPage() {
                                     {day.toLocaleDateString('es-CL', { weekday: 'short' })}
                                 </p>
                                 <div
-                                    className="w-7 h-7 rounded-full flex items-center justify-center mx-auto mt-1 text-sm font-semibold"
-                                    style={{
-                                        background: isToday ? 'var(--accent)' : 'transparent',
-                                        color: isToday ? '#fff' : 'var(--fg)',
-                                    }}
+                                    className="agenda-calendar-today mx-auto mt-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold"
+                                    aria-current={isToday ? 'date' : undefined}
                                 >
                                     {day.getDate()}
                                 </div>
@@ -1069,12 +1081,12 @@ export default function AgendaPage() {
                                         onClick={(e) => { e.stopPropagation(); void handleSelectAppt(appt); }}
                                         className="w-full text-left p-1.5 rounded-lg text-xs transition-opacity hover:opacity-80"
                                         style={{
-                                            background: STATUS_COLORS[appt.status] ?? 'var(--accent)',
+                                            background: STATUS_COLORS[appt.status] ?? 'var(--agenda-status-confirmed)',
                                             color: '#fff',
                                         }}
                                     >
-                                        <p className="font-semibold leading-tight truncate">
-                                            {profile ? formatTimeTz(appt.startsAt, profile.timezone) : formatTime(appt.startsAt)}
+                                        <p className="agenda-calendar-time font-semibold leading-tight truncate" data-status={appt.status}>
+                                            {appointmentTime(appt.startsAt)}
                                         </p>
                                         <p className="leading-tight truncate opacity-90">
                                             {appt.clientName ?? appt.client?.firstName ?? '—'}
@@ -1092,24 +1104,43 @@ export default function AgendaPage() {
             {selectedAppt && !showEdit && (
                 <Modal title="Detalle de cita" onClose={() => { setSelectedAppt(null); setStatusError(null); }}>
                     <div className="flex flex-col gap-4">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                                className="px-2.5 py-1 rounded-full text-xs font-semibold text-white"
-                                style={{ background: STATUS_COLORS[selectedAppt.status] ?? 'var(--accent)' }}
-                            >
-                                {STATUS_LABELS[selectedAppt.status] ?? selectedAppt.status}
-                            </span>
-                            {selectedAppt.seriesId && (
-                                <span className="px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
-                                    {selectedAppt.recurrenceFrequency === 'biweekly' ? 'Serie quincenal' : selectedAppt.recurrenceFrequency === 'monthly' ? 'Serie mensual' : 'Serie semanal'}
-                                </span>
-                            )}
-                        </div>
+                        {selectedAppt.status === 'confirmed' && (
+                            <ReservationTicket
+                                label={selectedDateLabel ?? 'Detalle de cita'}
+                                time={appointmentTime(selectedAppt.startsAt)}
+                                status="Cita confirmada"
+                                className="agenda-ticket--compact agenda-ticket--wide"
+                            />
+                        )}
+                        {(selectedAppt.status !== 'confirmed' || selectedAppt.seriesId) && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {selectedAppt.status !== 'confirmed' && (
+                                    <span
+                                        className="px-2.5 py-1 rounded-full text-xs font-semibold text-white"
+                                        style={{ background: STATUS_COLORS[selectedAppt.status] ?? 'var(--agenda-status-confirmed)' }}
+                                    >
+                                        {STATUS_LABELS[selectedAppt.status] ?? selectedAppt.status}
+                                    </span>
+                                )}
+                                {selectedAppt.seriesId && (
+                                    <span className="agenda-panel-series-badge px-2.5 py-1 rounded-full text-xs font-medium">
+                                        {selectedAppt.recurrenceFrequency === 'biweekly' ? 'Serie quincenal' : selectedAppt.recurrenceFrequency === 'monthly' ? 'Serie mensual' : 'Serie semanal'}
+                                    </span>
+                                )}
+                            </div>
+                        )}
 
                         <div className="flex flex-col gap-2">
                             <InfoRow icon={<IconUser size={14} />} label={selectedAppt.clientName ?? selectedAppt.client?.firstName ?? '—'} />
-                            <InfoRow icon={<IconClock size={14} />} label={`${profile ? formatTimeTz(selectedAppt.startsAt, profile.timezone) : formatTime(selectedAppt.startsAt)} — ${profile ? formatTimeTz(selectedAppt.endsAt, profile.timezone) : formatTime(selectedAppt.endsAt)} (${selectedAppt.durationMinutes} min)`} />
-                            <InfoRow icon={<IconCalendarEvent size={14} />} label={profile ? fmtDateTz(selectedAppt.startsAt, profile.timezone) : formatDate(new Date(selectedAppt.startsAt))} />
+                            <InfoRow
+                                icon={<IconClock size={14} />}
+                                label={selectedAppt.status === 'confirmed'
+                                    ? `Hasta las ${appointmentTime(selectedAppt.endsAt)} (${selectedAppt.durationMinutes} min)`
+                                    : `${appointmentTime(selectedAppt.startsAt)} — ${appointmentTime(selectedAppt.endsAt)} (${selectedAppt.durationMinutes} min)`}
+                            />
+                            {selectedAppt.status !== 'confirmed' && selectedDateLabel && (
+                                <InfoRow icon={<IconCalendarEvent size={14} />} label={selectedDateLabel} />
+                            )}
                             {selectedAppt.modality === 'online' && (
                                 <>
                                     <InfoRow icon={<IconVideo size={14} />} label="Online" />
@@ -1119,7 +1150,7 @@ export default function AgendaPage() {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors hover:bg-(--bg-subtle)"
-                                            style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                                            style={{ borderColor: 'var(--signal)', color: 'var(--accent-ink)' }}
                                         >
                                             <IconVideo size={12} /> Unirse a Google Meet
                                         </a>
@@ -1199,7 +1230,7 @@ export default function AgendaPage() {
                             return (
                                 <div className="agenda-panel-border border-t pt-4 flex flex-col gap-2">
                                     <p className="text-xs font-semibold flex items-center gap-1.5">
-                                        <IconBrandWhatsapp size={13} className="text-[#25D366]" />
+                                        <IconBrandWhatsapp size={13} className="text-[var(--brand-whatsapp)]" />
                                         Avisar por WhatsApp
                                     </p>
                                     <p className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
@@ -1256,7 +1287,7 @@ export default function AgendaPage() {
                                     onClick={() => void handleSaveNote()}
                                     disabled={noteSaving || noteLoading || noteContent === noteOriginal}
                                     className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-(--bg-subtle) disabled:opacity-60"
-                                    style={{ borderColor: 'var(--border)', color: noteSaved ? 'var(--accent)' : 'var(--fg-secondary)' }}
+                                    style={{ borderColor: 'var(--border)', color: noteSaved ? 'var(--accent-ink)' : 'var(--fg-secondary)' }}
                                 >
                                     {noteSaving ? <IconLoader2 size={11} className="animate-spin" /> : noteSaved ? <IconCheck size={11} /> : null}
                                     {noteSaved ? 'Guardado' : 'Guardar'}
@@ -1282,7 +1313,7 @@ export default function AgendaPage() {
                             <div
                                 role="alert"
                                 className="rounded-xl border px-3 py-2 text-xs"
-                                style={{ borderColor: 'rgba(220,38,38,0.3)', background: 'rgba(220,38,38,0.06)', color: '#dc2626' }}
+                                style={{ borderColor: 'var(--color-error-border)', background: 'var(--color-error-bg)', color: 'var(--color-error)' }}
                             >
                                 {statusError}
                             </div>
@@ -1297,7 +1328,7 @@ export default function AgendaPage() {
                                             onClick={() => void handleStatusChange(selectedAppt, 'completed')}
                                             disabled={savingStatus === 'completed'}
                                             className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                            style={{ background: '#6366F1', color: '#fff' }}
+                                            style={{ background: 'var(--agenda-status-completed)', color: '#fff' }}
                                         >
                                             {savingStatus === 'completed' ? <IconLoader2 size={13} className="animate-spin" /> : <IconCheck size={13} />}
                                             Completada
@@ -1319,20 +1350,20 @@ export default function AgendaPage() {
                                         onClick={() => setConfirmCancelId(selectedAppt.id)}
                                         disabled={!!savingStatus}
                                         className="w-9 h-9 rounded-xl flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
-                                        style={{ borderColor: 'var(--border)', color: '#EF4444' }}
+                                        style={{ borderColor: 'var(--border)', color: 'var(--color-error)' }}
                                         title="Cancelar cita"
                                     >
                                         <IconBan size={14} />
                                     </button>
                                 </div>
                                 {confirmCancelId === selectedAppt.id && !selectedAppt.seriesId && (
-                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: 'var(--color-error-bg)', border: '1px solid var(--color-error-border)' }}>
                                         <span className="flex-1">¿Cancelar esta cita?</span>
                                         <button
                                             onClick={() => { setConfirmCancelId(null); void handleStatusChange(selectedAppt, 'cancelled'); }}
                                             disabled={savingStatus === 'cancelled'}
                                             className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
-                                            style={{ background: '#EF4444', color: '#fff' }}
+                                            style={{ background: 'var(--color-error-solid)', color: '#fff' }}
                                         >
                                             {savingStatus === 'cancelled' ? <IconLoader2 size={11} className="animate-spin" /> : 'Sí, cancelar'}
                                         </button>
@@ -1346,7 +1377,7 @@ export default function AgendaPage() {
                                 )}
 
                                 {confirmCancelId === selectedAppt.id && selectedAppt.seriesId && (
-                                    <div className="flex flex-col gap-2 px-3 py-3 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                    <div className="flex flex-col gap-2 px-3 py-3 rounded-xl text-xs" style={{ background: 'var(--color-error-bg)', border: '1px solid var(--color-error-border)' }}>
                                         <p>Esta cita es parte de una serie. ¿Qué quieres cancelar?</p>
                                         <div className="flex flex-col gap-1.5">
                                             <button
@@ -1369,7 +1400,7 @@ export default function AgendaPage() {
                                                 onClick={() => { void handleCancelSeries(selectedAppt, 'all'); }}
                                                 disabled={!!savingStatus}
                                                 className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors hover:bg-red-500/10"
-                                                style={{ border: '1px solid #EF4444', color: '#EF4444' }}
+                                                style={{ border: '1px solid var(--color-error)', color: 'var(--color-error)' }}
                                             >
                                                 Toda la serie
                                             </button>
@@ -1651,8 +1682,9 @@ export default function AgendaPage() {
                                         onClick={() => setForm((p) => ({ ...p, modality: m }))}
                                         className="flex-1 py-2 rounded-xl border text-sm transition-colors"
                                         style={{
-                                            borderColor: form.modality === m ? 'var(--accent)' : 'var(--border)',
-                                            color: form.modality === m ? 'var(--accent)' : 'var(--fg-secondary)',
+                                            borderColor: form.modality === m ? 'var(--signal)' : 'var(--border)',
+                                            background: form.modality === m ? 'color-mix(in srgb, var(--signal) 14%, var(--surface))' : 'transparent',
+                                            color: form.modality === m ? 'var(--accent-ink)' : 'var(--fg-secondary)',
                                             fontWeight: form.modality === m ? 600 : 400,
                                         }}
                                     >
@@ -1771,7 +1803,7 @@ export default function AgendaPage() {
                         </div>
 
                         {createError && (
-                            <p className="text-sm" style={{ color: '#dc2626' }}>{createError}</p>
+                            <p className="text-sm" style={{ color: 'var(--color-error)' }}>{createError}</p>
                         )}
 
                         <div className="flex gap-3 pt-2 border-t">

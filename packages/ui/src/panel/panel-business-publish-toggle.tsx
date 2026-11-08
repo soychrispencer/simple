@@ -71,9 +71,9 @@ export function PanelBusinessPublishToggle({
         background: checked
             ? 'color-mix(in oklab, var(--accent) 12%, var(--surface))'
             : isWarning
-              ? 'color-mix(in oklab, #f59e0b 10%, var(--surface))'
+              ? 'var(--color-warning-bg)'
               : 'var(--bg-subtle)',
-        color: checked ? 'var(--accent)' : isWarning ? '#92400e' : 'var(--fg-muted)',
+        color: checked ? 'var(--accent-ink)' : isWarning ? 'var(--color-warning-text)' : 'var(--fg-muted)',
     } as const;
 
     const statusIcon = checked ? (

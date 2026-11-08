@@ -26,7 +26,8 @@ export type {
 };
 
 export type CheckoutStartInput = {
-    planId: 'pro';
+    planId: 'pro' | 'pro_plus';
+    billingCycle?: 'monthly' | 'annual';
     returnUrl: string;
 };
 
@@ -40,6 +41,7 @@ export function startSubscriptionCheckout(
     return startSubscriptionCheckoutForVertical(VERTICAL, {
         returnUrl: input.returnUrl,
         planId: input.planId,
+        billingCycle: input.billingCycle,
     });
 }
 

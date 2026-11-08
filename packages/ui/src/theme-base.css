@@ -9,7 +9,8 @@
     --font-display: 'Instrument Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     --radius-button: 0.625rem;
-    --radius-card: 0.875rem;
+    --radius-card: 1rem;
+    --radius-panel: 1.125rem;
     /* Tokens semánticos → utilidades Tailwind (border-border, bg-surface, text-fg-muted, …) */
     --color-border: var(--border);
     --color-border-strong: var(--border-strong);
@@ -20,6 +21,7 @@
     --color-bg-muted: var(--bg-muted);
     --color-surface: var(--surface);
     --color-accent: var(--accent);
+    --color-accent-ink: var(--accent-ink, var(--accent));
     --color-accent-soft: var(--accent-soft);
     --color-accent-border: var(--accent-border);
     --color-accent-contrast: var(--accent-contrast);
@@ -55,10 +57,19 @@
     --fg-muted: var(--mute);
     --fg-faint: var(--line-strong);
     --accent: var(--ink);
+    --accent-ink: var(--accent);
     --accent-subtle: rgba(17, 17, 17, 0.08);
     --accent-soft: rgba(17, 17, 17, 0.06);
     --accent-border: rgba(17, 17, 17, 0.14);
     --accent-contrast: var(--white);
+    /*
+     * SUPERFICIE DE ACENTO: para tarjetas, tiles y estados que ocupan área.
+     * Por defecto es el mismo acento; cada vertical puede fijarla para que esas
+     * superficies NO cambien de color entre claro y oscuro (solo cambia la acción).
+     */
+    --accent-surface: var(--accent);
+    --accent-surface-fg: var(--accent-contrast);
+    --accent-surface-tint: color-mix(in srgb, var(--accent-contrast) 16%, transparent);
     /* Vertical accent: cada app define --accent* en su globals.css (valores de getSimpleAppBrand en @simple/config).
        Ejemplo SimpleSerenatas: --accent: #E11D48 en apps/simpleserenatas/src/app/globals.css.
        No usamos applyVerticalTheme() en runtime: Next inyecta tokens por app en build; evita flash y mantiene SSR estático. */
@@ -78,6 +89,18 @@
     --shadow-md: 0 8px 24px rgba(17, 17, 17, 0.06);
     --shadow-lg: 0 16px 48px rgba(17, 17, 17, 0.08);
     --shadow-xl: 0 24px 64px rgba(17, 17, 17, 0.10);
+    /*
+     * CONTRATO DEL ACENTO (cada vertical define sus tokens en globals.css)
+     *   --accent          acción principal y enlace. Puede conservar el mismo
+     *                     color en ambos temas o adaptarse al contraste requerido.
+     *   --accent-contrast tinta legible SOBRE --accent.
+     *   --accent-ink      variante del color de marca para texto e iconos; una
+     *                     vertical puede aclararla en oscuro sin alterar botones
+     *                     ni superficies de marca.
+     *   --accent-soft / --accent-subtle / --accent-border
+     *                     derivados para fondos y bordes tenues.
+     * Regla: si --accent se usa como fondo, el texto lleva --accent-contrast.
+     */
     --color-error: #dc2626;
     --color-error-subtle: rgba(220, 38, 38, 0.08);
     --color-success: #059669;
@@ -98,14 +121,43 @@
     --color-info-border: rgba(59, 130, 246, 0.22);
     --color-info-bg: rgba(59, 130, 246, 0.06);
     --color-info-text: #2563eb;
+    /* Marcas de terceros: color de fábrica, igual en claro y oscuro */
+    --brand-whatsapp: #25d366;
+    --brand-mercadopago: #009ee3;
+    /* Rellenos sólidos: para fondos con texto blanco encima.
+       No cambian con el tema (los --color-* adaptativos son para texto/iconos). */
+    --color-error-solid: #dc2626;
+    --color-warning-solid: #b45309;
+    --color-success-solid: #047857;
+    --color-info-solid: #4f46e5;
     --danger: var(--color-error);
     --success: var(--color-success);
     --warning: var(--color-warning);
+    /*
+     * Escala de radios: controles 10 · tarjetas 16 · paneles 18.
+     * Debe ser monótona: antes --radius-xl (20) era mayor que --radius-2xl (16)
+     * y las tarjetas quedaban menos redondeadas que los popovers.
+     */
     --radius: 10px;
     --radius-lg: 14px;
-    --radius-xl: 20px;
+    --radius-xl: 16px;
+    --radius-2xl: 16px;
+    --radius-3xl: 24px;
     --radius-button: 10px;
-    --radius-card: 14px;
+    --radius-card: 16px;
+    --radius-panel: 18px;
+    /*
+     * Geometría de controles. Una sola fuente para todas las familias de botón
+     * (.btn-*, .panel-button, .agenda-button): cambia aquí y cambian todas.
+     */
+    --control-height: 2.5rem;      /* 40px — chrome de la app */
+    --control-height-sm: 2.25rem;  /* 36px — botones compactos */
+    --control-height-lg: 2.75rem;  /* 44px — marketing */
+    --control-padding-x: 1.25rem;
+    --control-font-weight: 600;
+    /* Un solo anillo de foco para toda la plataforma */
+    --focus-ring: var(--accent);
+    --focus-ring-offset: 2px;
     --text-2xs: 0.6875rem;
     --text-xs: 0.75rem;
     --text-sm: 0.875rem;
@@ -131,6 +183,7 @@
     --fg-muted: #6B6B76;
     --fg-faint: #2E2E34;
     --accent: #ffffff;
+    --accent-ink: var(--accent);
     --accent-subtle: rgba(255, 255, 255, 0.12);
     --accent-soft: rgba(255, 255, 255, 0.08);
     --accent-border: rgba(255, 255, 255, 0.22);
@@ -581,7 +634,7 @@ h4,
 }
 .listing-owner-menu-item { color: var(--fg); }
 .listing-owner-menu-item--danger { color: var(--color-error); }
-.listing-owner-menu-item--primary { color: var(--accent); }
+.listing-owner-menu-item--primary { color: var(--accent-ink, var(--accent)); }
 
 /* Location editor */
 .loc-editor-card { border-color: var(--border); background: var(--bg); }
@@ -621,8 +674,8 @@ h4,
     background: var(--button-primary-bg);
     color: var(--button-primary-color);
     border: 1px solid var(--button-primary-border);
-    height: 40px;
-    padding: 0 1.25rem;
+    height: var(--control-height);
+    padding: 0 var(--control-padding-x);
     box-shadow: var(--button-primary-shadow);
 }
 
@@ -637,8 +690,8 @@ h4,
 .btn-outline {
     border: 1px solid var(--border);
     color: var(--fg-secondary);
-    height: 40px;
-    padding: 0 1.25rem;
+    height: var(--control-height);
+    padding: 0 var(--control-padding-x);
     background: transparent;
 }
 
@@ -659,8 +712,8 @@ h4,
     border-radius: var(--radius-button);
     border: 1px solid var(--border);
     color: var(--fg-secondary);
-    height: 40px;
-    padding: 0 1.25rem;
+    height: var(--control-height);
+    padding: 0 var(--control-padding-x);
     background: transparent;
     transition: all 0.2s ease;
     cursor: pointer;
@@ -693,7 +746,7 @@ h4,
 }
 
 .header-nav-link[data-active="true"] {
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
     background: var(--accent-subtle);
     box-shadow: none;
 }
@@ -1676,7 +1729,7 @@ button:disabled,
 .marketplace-flow-pill--active {
     border-color: var(--accent);
     background: var(--accent-subtle);
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
     font-weight: 600;
 }
 
@@ -1789,7 +1842,7 @@ button:disabled,
 
 .marketplace-flow-accent-pill {
     background: var(--accent-subtle);
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
     padding: 0.125rem 0.5rem;
     border-radius: 9999px;
     font-size: 10px;
@@ -1864,7 +1917,7 @@ button:disabled,
 }
 
 .panel-stepper__step--active {
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
     border-bottom-color: var(--accent);
     font-weight: 600;
 }
@@ -1903,7 +1956,7 @@ button:disabled,
     width: 4px;
     height: 4px;
     border-radius: 9999px;
-    background: var(--accent);
+    background: var(--accent-ink, var(--accent));
 }
 
 .rounded-t-card {
@@ -2002,7 +2055,7 @@ button:disabled,
 }
 
 .panel-publish-choice--active .panel-publish-choice__label {
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 /* Publish wizard — pills compactos (combustible, transmisión, direcciones) */
@@ -2129,7 +2182,7 @@ button:disabled,
     font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.02em;
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
     background: color-mix(in oklab, var(--accent-subtle) 80%, var(--surface));
 }
 
@@ -2163,7 +2216,7 @@ button:disabled,
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 .panel-inset-box {
@@ -2189,7 +2242,7 @@ button:disabled,
     margin-bottom: 0.75rem;
     font-size: 3rem;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 @media (min-width: 640px) {
@@ -2941,7 +2994,7 @@ button:disabled,
 
 .marketplace-reel-card--list .marketplace-reel-card__price-row--offer .marketplace-reel-card__price,
 .marketplace-reel-card--list .marketplace-reel-card__price-row--offer .marketplace-reel-card__price--list {
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 .marketplace-reel-card--list .marketplace-reel-card__discount,
@@ -2950,7 +3003,7 @@ button:disabled,
     margin-top: 0;
     border-radius: 999px;
     background: color-mix(in srgb, var(--accent) 14%, transparent);
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
     font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -3057,7 +3110,7 @@ button:disabled,
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 .marketplace-reel-card--list .marketplace-reel-card__spec-pill-icon svg,
@@ -3627,7 +3680,7 @@ button:disabled,
 }
 
 .public-listing-detail-price-card--offer .public-listing-detail-price-card__amount {
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 .public-listing-detail-price-card__discount {
@@ -3635,7 +3688,7 @@ button:disabled,
     align-items: center;
     border-radius: 999px;
     background: color-mix(in srgb, var(--accent) 14%, transparent);
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
     font-size: 0.8125rem;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -3709,7 +3762,7 @@ button:disabled,
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 .public-listing-detail-seller-card__avatar-link {
@@ -3737,7 +3790,7 @@ button:disabled,
 }
 
 .public-listing-detail-seller-card__name--link:hover {
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 .public-listing-detail-seller-card__badge {
@@ -3796,7 +3849,7 @@ button:disabled,
 
 .public-listing-detail-spec-item__icon {
     margin-bottom: 0.5rem;
-    color: var(--accent);
+    color: var(--accent-ink, var(--accent));
 }
 
 .public-listing-detail-spec-item__label {
@@ -3816,4 +3869,20 @@ button:disabled,
     font-size: 0.875rem;
     font-weight: 700;
     color: var(--fg);
+}
+
+/* ============================================================================
+   Movimiento reducido
+   Desactiva animaciones y transiciones cuando el sistema lo pide (WCAG 2.3.3).
+   Cubre las animaciones infinitas decorativas: ping, pulse, spin.
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

@@ -45,7 +45,7 @@ export function BusinessBookingResponseModeCard({
                     <p className="mt-1 max-w-2xl text-sm leading-relaxed text-fg-muted">{description}</p>
                 </div>
                 {showActiveBadge && automaticSelected && !hasUnsavedChanges ? (
-                    <span className="inline-flex w-fit items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
+                    <span className="inline-flex w-fit items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-ink">
                         Automático activo
                     </span>
                 ) : null}
@@ -62,7 +62,7 @@ export function BusinessBookingResponseModeCard({
                     }`}
                 >
                     <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--bg-subtle) text-accent">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--bg-subtle) text-accent-ink">
                             <IconPointer size={18} />
                         </span>
                         <span className="text-sm font-semibold">{manualTitle}</span>
@@ -81,7 +81,7 @@ export function BusinessBookingResponseModeCard({
                     }`}
                 >
                     <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--bg-subtle) text-accent">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--bg-subtle) text-accent-ink">
                             <IconCalendarCheck size={18} />
                         </span>
                         <span className="text-sm font-semibold">{automaticTitle}</span>

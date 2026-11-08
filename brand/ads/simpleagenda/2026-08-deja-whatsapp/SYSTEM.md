@@ -1,70 +1,73 @@
-# Sistema visual — SimpleAgenda ads (Spencer)
+# Sistema visual — publicidad SimpleAgenda
 
-Fuente de verdad para `2026-08-deja-whatsapp`.
-Alineado a **Spencer System** (`packages/ui/spencer-system-mock.html` + `theme-base.css`).
-**No** usar el template viejo de SimplePropiedades (cards teal, dots, Segoe, glow).
+La publicidad sigue la identidad oficial descrita en
+`docs/SIMPLEAGENDA_VISUAL_SYSTEM.md`. Esta carpeta conserva las piezas de
+lanzamiento y sus archivos editables; las siguientes versiones deben usar la
+paleta teal profundo/lima, la ilustración híbrida y la misma tipografía de la web.
 
-## Núcleo Spencer
+## Paleta
 
-| Token | Hex | Uso en ads |
-|-------|-----|------------|
-| `ink` | `#111111` | Hero / story de impacto, tipografía, CTA en paper |
-| `paper` | `#FAFAFA` | Fondos claros, CTA en hero ink |
-| `surface` | `#FFFFFF` | Placas de producto |
-| `mute` | `#737373` | Subtítulos |
-| `line` | `#E5E5E5` | Separadores finos |
-| `accent` | `#0F766E` | Solo logo tile, “Agenda” del wordmark, 1 señal |
+| Color | Hex | Uso |
+|---|---|---|
+| Teal profundo | `#002E32` | Bloques de marca, estructura y acciones en modo claro. |
+| Lima | `#B8DB3A` | Selección, palabra o cifra destacada, confirmación y acciones en modo oscuro. |
+| Ceniza | `#D9D9D9` | Separadores y fondos neutros secundarios. |
+| Carbón | `#343434` | UI oscura y contraste editorial. |
+| Tinta | `#0E0E10` | Fondo oscuro y texto principal. |
+| Papel / blanco | `#FAFAFA` / `#FFFFFF` | Fondos y placas claras. |
+
+Lima es un acento intencional: reservarlo a uno o dos puntos por lámina. No
+usarlo en fondos extensos de varias láminas consecutivas. Alternar composiciones
+claras y teal/tinta para crear ritmo. No usar beige, morado, coral, brillos ni
+degradados.
 
 ## Tipografía
 
-- **Inter** (400–800) — cuerpo y títulos
-- **Instrument Serif** italic — **1 palabra clave** del headline (máx. 1–2 por pieza)
-- Letter-spacing tight en títulos (`-0.04em`)
-- Nada de Segoe como sistema de ads
+- **Inter** para cuerpo, interfaz, etiquetas y llamadas a la acción.
+- **Instrument Sans** para titulares y horas protagonistas.
+- El wordmark de SimpleAgenda también usa Instrument Sans Bold en contornos, con el punto de la “i” personalizado.
+- Las dos fuentes coinciden con el sistema de la web y el panel. No introducir
+  una serif cursiva ni una tercera familia.
+- Titular breve y directo; máximo dos pesos visuales dominantes en una lámina.
 
-## Sí / No
+## Firma visual y composición
 
-**Sí**
-- Portada ink + contenido paper (ritmo marketing Spencer)
-- Mucho aire, poca decoración
-- Un CTA por pieza · radius **10px** (no pill)
-- Primary button = ink (en paper) o paper (en ink)
-- Accent teal como señal, no como look completo
+- La profesional y la mascota-calendario que muestra la reserva confirmada son
+  la firma visual propia de SimpleAgenda. Conservar el trazo negro, cuerpo
+  blanco, ropa teal y detalles lima, con fondo transparente.
+- Alternar la ilustración con fotos documentales a color solo cuando el oficio
+  o la persona real aporten contexto. Ajustar el encuadre para reservar aire
+  para el texto, sin convertir la escena en un fondo oscuro.
+- El blanco y negro no es el tratamiento base: en una consulta puede comunicar
+  solemnidad o autoayuda y quitar energía al producto. Las piezas futuras deben
+  usar la ilustración híbrida o fotos a color con placas teal profundo, lima y
+  papel. Los PNG pintados v13 y consulta-campana-bw.jpg son exploraciones
+  anteriores; no usarlos como referencia de nuevas publicaciones.
+- Priorizar un titular, una prueba del producto y un CTA. Mantener el aire,
+  alineaciones limpias y una jerarquía evidente.
+- En el carrusel de 1080 × 1350, conservar un margen de 72px, encabezado y pie
+  comunes, placas/fotografías de radio 24px y controles de 16px. El logo debe
+  conservar su proporción y tamaño entre láminas.
+- Alternar fondo papel/blanco con teal profundo o tinta; usar carbón como
+  soporte de interfaz. La hora y la oferta de prueba concentran el golpe lima.
+- Mantener un solo titular dominante por pieza. El bloque de 30 días y su CTA
+  forman una sola placa; no usar una franja vertical desproporcionada.
 
-**No**
-- Radial gradients de marca / dots / glass / glow
-- Grids de 3 cards con íconos en círculo de color
-- Purple, crema viejo, plantilla “IA”
-- Tres CTAs compitiendo
+## No usar
 
-## Layout
-
-- **Ink / hook / cierre / prueba (04):** composición centrada; 04 en **ink** con proof 2×2.
-- **Paper / producto (02–03):** asimetría — copy izq, mock der.
-- Beneficios: línea mute con `·` (no chips pill).
-- Proof tipográfico: **grid 2×2** con título + subtítulo (no línea perdida).
-- Mock UI: surface blanca, sin rotación, un solo acento teal.
-- Tipográficas: logo 40px; título hero 72 (post) / 84 (story).
-- CTA: `border-radius: 10px` explícito, min-width ~380, nunca pill.
-- Preview: estudio oscuro + marco feed IG opcional (no se exporta).
-
-Type scale: kicker 13 · título post 56 / hero 72 · story 68 / hero 84 · sub 22/26 · CTA h 58/62.
+- El verde bosque anterior, crema/beige, morado o coral.
+- Fondos lima completos como recurso por defecto.
+- Glow, glassmorphism, degradados, puntos decorativos o mockups flotantes.
+- Marcos desplazados, sombras sólidas bajo botones y barras decorativas.
+- Estilo de plantilla genérica, una grilla repetida de tarjetas o varios CTA.
 
 ## Formatos
 
 | Pieza | Tamaño |
-|-------|--------|
+|---|---|
 | Story | 1080 × 1920 |
 | Post / carrusel | 1080 × 1350 |
 | Highlight | 1080 × 1080 |
 
-## Highlights
-
-Círculo ink · glifo blanco · label Inter debajo. Sin texto fino cerca del borde del crop circular.
-
-## Naming
-
-```
-simpleagenda-{formato}-deja-whatsapp-0{n}.png
-simpleagenda-highlight-{slug}.png
-```
+Mantener la composición dentro de las zonas seguras de Instagram indicadas en
+`brand/ads/_shared/README.md`.

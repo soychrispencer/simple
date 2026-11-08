@@ -11,8 +11,8 @@ export async function getAgendaProfile(userId: string) {
     });
 }
 
-export function normalizeAgendaBillingPlan(plan: string): 'free' | 'pro' {
-    return plan === 'pro' ? 'pro' : 'free';
+export function normalizeAgendaBillingPlan(plan: string): 'free' | 'pro' | 'pro_plus' {
+    return plan === 'pro' || plan === 'pro_plus' ? plan : 'free';
 }
 
 /**
@@ -59,7 +59,8 @@ export function isAgendaTrialActive(profile: { plan: string; planExpiresAt: Date
 }
 
 export function isAgendaProActive(profile: { plan: string; planExpiresAt: Date | null }): boolean {
-    if (normalizeAgendaBillingPlan(profile.plan) !== 'pro') return false;
+    const plan = normalizeAgendaBillingPlan(profile.plan);
+    if (plan !== 'pro' && plan !== 'pro_plus') return false;
     return !profile.planExpiresAt || profile.planExpiresAt.getTime() >= Date.now();
 }
 
@@ -94,7 +95,7 @@ export async function downgradeExpiredAgendaProProfiles(): Promise<number> {
     const result = await db.execute(sql`
         UPDATE agenda_professional_profiles
         SET plan = 'free', updated_at = now()
-        WHERE plan = 'pro'
+        WHERE plan IN ('pro', 'pro_plus')
           AND plan_expires_at IS NOT NULL
           AND plan_expires_at <= now()
     `);

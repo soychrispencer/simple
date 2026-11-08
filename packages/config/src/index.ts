@@ -192,8 +192,8 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
             'gestión de clientes',
             'Chile',
         ],
-        accentLight: '#0F766E',
-        accentDark: '#0F766E',
+        accentLight: '#002E32',
+        accentDark: '#002E32',
     },
     simpleserenatas: {
         id: 'simpleserenatas',
@@ -563,7 +563,7 @@ export function getSimpleBrandIconTokens(appId: SimpleAppId) {
         canvas: SHARED_THEME.backgroundColorLight,
         tile: SHARED_THEME.foregroundLight,
         glyph: SIMPLE_BRAND_ARTWORK[appId].glyph,
-        accent: brand.accentLight,
+        accent: appId === 'simpleagenda' ? '#B8DB3A' : brand.accentLight,
         ring: '#e7e5e4',
     };
 }

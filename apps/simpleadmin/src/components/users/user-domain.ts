@@ -1,5 +1,5 @@
 import type { AdminSessionUser, AdminUserRole, AdminUserSnapshot, AdminUserStatus, AdminVertical } from '@/lib/api';
-import { formatAgendaProMonthlyPrice } from '@simple/utils';
+import { formatAgendaProMonthlyPrice, formatAgendaProPlusMonthlyPrice } from '@simple/utils';
 
 export type VerticalFilter = 'all' | AdminVertical;
 export type StatusFilter = 'all' | AdminUserStatus;
@@ -61,7 +61,11 @@ export const SUBSCRIPTION_STATUS_OPTIONS: Array<{ value: SubscriptionStatusValue
 ];
 
 export const PLAN_OPTIONS: Record<AdminVertical, Array<{ value: string; label: string }>> = {
-    agenda: [{ value: 'free', label: 'Gratis' }, { value: 'pro', label: `Pro · ${formatAgendaProMonthlyPrice()}` }],
+    agenda: [
+        { value: 'free', label: 'Gratis' },
+        { value: 'pro', label: `Pro · ${formatAgendaProMonthlyPrice()}` },
+        { value: 'pro_plus', label: `Pro+ · ${formatAgendaProPlusMonthlyPrice()}` },
+    ],
     autos: [{ value: 'free', label: 'Gratis' }, { value: 'pro', label: 'Pro' }, { value: 'enterprise', label: 'Enterprise' }],
     propiedades: [{ value: 'free', label: 'Gratis' }, { value: 'pro', label: 'Pro' }, { value: 'enterprise', label: 'Enterprise' }],
     serenatas: [{ value: 'free', label: 'Gratis' }, { value: 'pro', label: 'Pro' }],
@@ -121,6 +125,7 @@ export function getSubscriptionSummary(user: AdminUserSnapshot, vertical: AdminV
     if (vertical === 'agenda') {
         if (item.status === 'trial') return 'Prueba Pro activa · 30 días';
         if (plan === 'pro') return item.status === 'expired' ? 'Pro vencido' : 'Pro activo';
+        if (plan === 'pro_plus') return item.status === 'expired' ? 'Pro+ vencido' : 'Pro+ activo';
         return 'Gratis';
     }
     return `${plan || 'free'}${item.status ? ` · ${item.status}` : ''}`;

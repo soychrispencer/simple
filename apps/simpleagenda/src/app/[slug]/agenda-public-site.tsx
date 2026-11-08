@@ -5,6 +5,7 @@ import {
     buildOperatorSiteScheduleDays,
     normalizeOperatorSiteColorMode,
     normalizeOperatorSiteLayout,
+    parseOperatorSiteAccent,
     resolveAgendaOperatorFields,
     resolveOperatorDisplayLabel,
     resolveOperatorTierLabel,
@@ -175,11 +176,15 @@ export function AgendaPublicSite({ profile }: { profile: AgendaPublicProfile }) 
         })),
     };
 
+    const accentColor = profile.appearance?.accentColor;
+    const accentPreset = parseOperatorSiteAccent(accentColor).preset;
+    // Los perfiles antiguos guardaban 'teal' como valor automático.
+    const hasCustomAccent = accentPreset !== 'auto' && accentPreset !== 'teal';
     const appearance = profile.appearance
         ? {
             layout: normalizeOperatorSiteLayout(profile.appearance.layout),
             colorMode: normalizeOperatorSiteColorMode(profile.appearance.colorMode),
-            accentColor: profile.appearance.accentColor,
+            accentColor: hasCustomAccent ? accentColor : undefined,
         }
         : undefined;
 
@@ -193,7 +198,7 @@ export function AgendaPublicSite({ profile }: { profile: AgendaPublicProfile }) 
             catalog={catalog}
             onServiceBook={(serviceId) => bookingRef.current?.openService(serviceId)}
             appearance={appearance}
-            booking={<BookingFlow ref={bookingRef} profile={profile} embedded />}
+            booking={<BookingFlow ref={bookingRef} profile={profile} hasCustomAccent={hasCustomAccent} embedded />}
         />
     );
 }

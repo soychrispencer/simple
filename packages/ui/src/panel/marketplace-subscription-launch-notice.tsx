@@ -16,7 +16,7 @@ export function MarketplaceSubscriptionLaunchNotice({ appLabel }: Props) {
                 <div className="flex flex-wrap items-start gap-3">
                     <span
                         className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-                        style={{ background: 'color-mix(in oklab, var(--accent) 14%, transparent)', color: 'var(--accent)' }}
+                        style={{ background: 'color-mix(in oklab, var(--accent) 14%, transparent)', color: 'var(--accent-ink)' }}
                     >
                         <IconRocket size={20} />
                     </span>

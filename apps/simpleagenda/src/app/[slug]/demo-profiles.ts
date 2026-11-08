@@ -95,7 +95,7 @@ export const DEMO_PROFILES: Record<string, AgendaPublicProfile> = {
         appearance: {
             layout: 'standard',
             colorMode: 'auto',
-            accentColor: '#0F766E',
+            // Sin color propio: hereda el teal de SimpleAgenda y lima para las acciones en oscuro.
         },
     },
     'esteban-carrasco': {

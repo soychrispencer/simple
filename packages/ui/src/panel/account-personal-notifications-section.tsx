@@ -83,7 +83,7 @@ export function PanelAccountPersonalNotificationsSection({
         <div className="flex flex-col gap-4">
             <PanelCard size="md">
                 <div className="mb-2 flex items-center gap-2">
-                    <IconBell size={18} className="text-accent" />
+                    <IconBell size={18} className="text-accent-ink" />
                     <h2 className="text-sm font-semibold text-fg">Panel</h2>
                 </div>
                 <PrefRow
@@ -96,7 +96,7 @@ export function PanelAccountPersonalNotificationsSection({
 
             <PanelCard size="md">
                 <div className="mb-2 flex items-center gap-2">
-                    <IconMail size={18} className="text-accent" />
+                    <IconMail size={18} className="text-accent-ink" />
                     <h2 className="text-sm font-semibold text-fg">Correo electrónico</h2>
                 </div>
                 <PrefRow
@@ -107,7 +107,7 @@ export function PanelAccountPersonalNotificationsSection({
                 />
                 <p className="pt-2 text-xs text-fg-muted">
                     Para actualizar tu correo de contacto, ve a{' '}
-                    <Link href={personalDataHref} className="font-medium text-accent hover:underline">
+                    <Link href={personalDataHref} className="font-medium text-accent-ink hover:underline">
                         Datos personales
                     </Link>
                     .

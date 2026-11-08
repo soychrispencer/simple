@@ -8,7 +8,10 @@ export function isTrialBillingVertical(vertical: VerticalType): boolean {
 
 export function filterCatalogPlans(vertical: VerticalType, plans: SubscriptionPlanRecord[]): SubscriptionPlanRecord[] {
     if (!isTrialBillingVertical(vertical)) return plans;
-    return plans.filter((plan) => plan.id === 'free' || plan.id === 'pro');
+    const visiblePlanIds = vertical === 'agenda'
+        ? new Set(['free', 'pro', 'pro_plus'])
+        : new Set(['free', 'pro']);
+    return plans.filter((plan) => visiblePlanIds.has(plan.id));
 }
 
 export function catalogPaidPlans(vertical: VerticalType, plans: SubscriptionPlanRecord[]): SubscriptionPlanRecord[] {

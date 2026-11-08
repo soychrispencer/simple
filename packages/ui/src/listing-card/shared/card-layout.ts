@@ -2,7 +2,7 @@
  * Política de aspect ratio del marketplace:
  *
  * - 3:4 → tarjetas, grid, list, Instagram foto, previews comerciales
- * - 9:16 → Descubre, video social, TikTok / Shorts / Reels (no cards de venta)
+ * - 9:16 → Feed social integrado, video TikTok / Shorts / Reels
  * - Detalle público → sin ratio fijo (galería contain / viewport)
  */
 
@@ -15,7 +15,7 @@ export const LISTING_CARD_GRID_IMAGE_ASPECT = LISTING_CARD_COMMERCIAL_ASPECT;
 /** Proporción de imagen en tarjetas horizontales (columna media). */
 export const LISTING_CARD_LIST_IMAGE_ASPECT = LISTING_CARD_COMMERCIAL_ASPECT;
 
-/** Ratio social vertical (Descubre, upload de video, preview de reel). */
+/** Ratio social vertical (feed de publicaciones, upload de video, preview de reel). */
 export const LISTING_SOCIAL_VERTICAL_ASPECT = 'aspect-[9/16]' as const;
 
 export const LISTING_CARD_GRID_SHELL_CLASS =

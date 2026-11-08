@@ -220,6 +220,22 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
             recommended: true,
             features: [...AGENDA_PLAN_CATALOG.pro.features],
         },
+        {
+            id: 'pro_plus',
+            name: AGENDA_PLAN_CATALOG.proPlus.name,
+            description: AGENDA_PLAN_CATALOG.proPlus.description,
+            priceMonthly: AGENDA_PRICING.proPlusMonthlyNetClp,
+            currency: 'CLP',
+            maxListings: 0,
+            maxFeaturedListings: 0,
+            maxImagesPerListing: 0,
+            analyticsEnabled: true,
+            prioritySupport: true,
+            customBranding: true,
+            apiAccess: true,
+            maxFreeBoostsPerMonth: 0,
+            features: [...AGENDA_PLAN_CATALOG.proPlus.features],
+        },
     ],
     serenatas: [
         {

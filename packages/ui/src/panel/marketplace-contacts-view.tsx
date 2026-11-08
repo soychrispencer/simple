@@ -122,7 +122,7 @@ function ContactDetail({
                 <button
                     type="button"
                     onClick={onBack}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-ink hover:underline"
                 >
                     <IconArrowLeft size={16} stroke={1.75} />
                     Volver a contactos
@@ -139,7 +139,7 @@ function ContactDetail({
             <button
                 type="button"
                 onClick={onBack}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-ink hover:underline"
             >
                 <IconArrowLeft size={16} stroke={1.75} />
                 Volver a contactos
@@ -223,13 +223,13 @@ function ContactDetail({
                                 </div>
                                 <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
                                     {lead.unreadCount > 0 ? (
-                                        <span className="text-xs font-medium text-accent">
+                                        <span className="text-xs font-medium text-accent-ink">
                                             {lead.unreadCount} sin leer
                                         </span>
                                     ) : null}
                                     <Link
                                         href={`/panel/mensajes?thread=${encodeURIComponent(lead.threadId)}`}
-                                        className="text-sm font-medium text-accent hover:underline"
+                                        className="text-sm font-medium text-accent-ink hover:underline"
                                     >
                                         Abrir chat
                                     </Link>
@@ -370,7 +370,7 @@ export function MarketplaceContactsView({ vertical, copy }: MarketplaceContactsV
                                             <p className="truncate font-medium text-(--fg)">
                                                 {contact.displayName}
                                                 {contact.unreadCount > 0 ? (
-                                                    <span className="ml-2 text-xs font-medium text-accent">
+                                                    <span className="ml-2 text-xs font-medium text-accent-ink">
                                                         {contact.unreadCount} nuevos
                                                     </span>
                                                 ) : null}

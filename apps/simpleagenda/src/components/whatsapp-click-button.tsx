@@ -47,7 +47,7 @@ export function WhatsAppClickButton({
             target="_blank"
             rel="noreferrer"
             className={`inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90 ${className}`}
-            style={{ background: '#25D366', color: '#fff' }}
+            style={{ background: 'var(--brand-whatsapp)', color: 'var(--agenda-ink)' }}
             title={title}
             aria-label={ariaLabel ?? label}
         >

@@ -147,7 +147,7 @@ export function BusinessPublicContactCard({
                             size="md"
                             disabled={disabled}
                             className={`h-[42px] w-[42px] shrink-0 ${
-                                whatsappLinked ? 'text-accent ring-1 ring-accent/25' : 'text-fg-muted hover:text-fg'
+                                whatsappLinked ? 'text-accent-ink ring-1 ring-accent/25' : 'text-fg-muted hover:text-fg'
                             }`}
                         >
                             {whatsappLinked ? <IconLink size={18} stroke={2} /> : <IconLinkOff size={18} stroke={1.75} />}

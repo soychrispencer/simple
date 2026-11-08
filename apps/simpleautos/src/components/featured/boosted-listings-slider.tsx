@@ -57,7 +57,10 @@ export default function BoostedListingsSlider() {
     const [items, setItems] = useState<FeaturedBoostItem[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const sectionMeta = BOOST_SECTION_META[section] ?? { label: 'Ventas', href: '/ventas' };
+    const configuredSectionMeta = BOOST_SECTION_META[section];
+    const sectionMeta = section === 'sale'
+        ? { ...(configuredSectionMeta ?? { label: 'Ventas' }), href: '/ventas?section=sale' }
+        : configuredSectionMeta ?? { label: 'Ventas', href: '/ventas?section=sale' };
 
     const loadItems = useCallback(async () => {
         setLoading(true);

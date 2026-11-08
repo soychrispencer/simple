@@ -10,6 +10,7 @@ const apiBackendUrl = process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_AP
 const nextConfig: NextConfig = {
     output: 'standalone',
     outputFileTracingRoot: path.join(process.cwd(), '../..'),
+    allowedDevOrigins: ['127.0.0.1', 'localhost'],
     transpilePackages: ['@simple/types', '@simple/config', '@simple/ui', '@simple/utils', '@simple/auth', '@simple/marketplace-header'],
     experimental: {
         optimizePackageImports: ['@tabler/icons-react', '@simple/ui', '@simple/auth'],

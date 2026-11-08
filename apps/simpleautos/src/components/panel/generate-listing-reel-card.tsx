@@ -30,7 +30,7 @@ export function GenerateListingReelCard({ listingId, hasVideo = false, onGenerat
         }
 
         setMessage(
-            `Video generado (${result.slideCount ?? 0} escenas, ~${Math.round(result.durationSeconds ?? 0)}s). Ya puedes publicarlo en Reel y Descubre.`,
+            `Video generado (${result.slideCount ?? 0} escenas, ~${Math.round(result.durationSeconds ?? 0)}s). Ya puedes verlo en el feed y compartirlo en redes.`,
         );
         onGenerated?.(result.videoUrl);
     }

@@ -53,7 +53,7 @@ const BASE_SLIDES: HeroSlide[] = [
         headline: 'Compra y vende autos en Chile.',
         sub: 'El marketplace de vehículos verificados: explora, publica o participa en subastas.',
         cta: 'Ver autos',
-        href: '/ventas',
+        href: '/ventas?section=sale',
         sponsored: false,
         overlayEnabled: true,
         align: 'left',

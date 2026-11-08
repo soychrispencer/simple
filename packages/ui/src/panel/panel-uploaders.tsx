@@ -554,12 +554,12 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
                     isActivelyDragging ? '' : 'transition-[border-color,box-shadow,opacity,transform] duration-150',
                 )}
                 style={{
-                    borderColor: isDropTarget ? '#2563eb' : isCover ? 'var(--border-strong)' : 'var(--border)',
+                    borderColor: isDropTarget ? 'var(--signal, var(--accent))' : isCover ? 'var(--border-strong)' : 'var(--border)',
                     background: 'var(--surface)',
                     opacity: isActivelyDragging ? 0.52 : 1,
                     transform: isDropTarget ? 'scale(1.015)' : 'scale(1)',
                     boxShadow: isDropTarget
-                        ? '0 0 0 2px rgba(37,99,235,0.16), 0 10px 26px rgba(37,99,235,0.10)'
+                        ? '0 0 0 2px color-mix(in srgb, var(--signal, var(--accent)) 20%, transparent), 0 10px 26px color-mix(in srgb, var(--signal, var(--accent)) 12%, transparent)'
                         : 'var(--shadow-xs)',
                     cursor: isActivelyDragging ? 'grabbing' : 'grab',
                     touchAction: 'none',
@@ -640,8 +640,8 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
                         <div
                             className="absolute inset-3 rounded-card border-2 border-dashed"
                             style={{
-                                borderColor: '#2563eb',
-                                background: 'rgba(37,99,235,0.10)',
+                                borderColor: 'var(--signal, var(--accent))',
+                                background: 'color-mix(in srgb, var(--signal, var(--accent)) 12%, transparent)',
                             }}
                         />
                     ) : null}

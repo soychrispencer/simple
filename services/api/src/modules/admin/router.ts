@@ -356,7 +356,12 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                     .where(deps.eq(deps.tables.agendaProfessionalProfiles.userId, userId))
                     .limit(1);
 
-                const plan = agendaPayload.plan === 'pro' ? 'pro' : 'free';
+                const plan: 'free' | 'pro' | 'pro_plus' = agendaPayload.plan === 'pro_plus'
+                    ? 'pro_plus'
+                    : agendaPayload.plan === 'pro'
+                        ? 'pro'
+                        : 'free';
+                const isPaidAgendaPlan = plan === 'pro' || plan === 'pro_plus';
                 const expiresAt = agendaPayload.expiresAt ? new Date(agendaPayload.expiresAt) : null;
                 if (expiresAt && Number.isNaN(expiresAt.getTime())) {
                     return c.json({ ok: false, error: 'La fecha de expiración de Agenda no es válida.' }, 400);
@@ -373,23 +378,23 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                         } else {
                             return c.json({ ok: false, error: cancelled.error }, cancelled.status as 400 | 404 | 502);
                         }
-                    } else if (profile[0].plan === 'pro') {
+                    } else if (profile[0].plan === plan) {
                         await deps.db.update(deps.tables.agendaProfessionalProfiles)
-                            .set({ plan: 'pro', planExpiresAt: expiresAt, updatedAt: new Date() })
+                            .set({ plan, planExpiresAt: expiresAt, updatedAt: new Date() })
                             .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profile[0].id));
-                        results.agenda = { plan: 'pro', status: 'active', expiresAt: expiresAt?.toISOString() ?? null };
+                        results.agenda = { plan, status: 'active', expiresAt: expiresAt?.toISOString() ?? null };
                     } else {
                         const result = await persistManualAdminSubscription({
                             userId,
                             accountId: targetAccount.id,
                             vertical: 'agenda',
-                            planSlug: 'pro',
+                            planSlug: plan,
                             status: 'active',
                             expiresAt,
                         });
                         results.agenda = { ...result, expiresAt: expiresAt?.toISOString() ?? null };
                     }
-                } else if (plan === 'pro') {
+                } else if (isPaidAgendaPlan) {
                     const slug = `${targetUser.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
                     await deps.db.insert(deps.tables.agendaProfessionalProfiles).values({
                         accountId: await deps.getPrimaryAccountIdForUser(userId),

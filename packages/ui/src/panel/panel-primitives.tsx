@@ -85,7 +85,7 @@ export function PanelStatusBadge(props: PanelStatusBadgeProps) {
                 : tone === 'info'
                     ? { background: 'var(--color-info-bg, rgba(59,130,246,0.14))', color: 'var(--color-info-text, #1d4ed8)' }
                     : tone === 'accent'
-                        ? { background: 'color-mix(in srgb, var(--accent) 16%, transparent)', color: 'var(--accent)' }
+                        ? { background: 'color-mix(in srgb, var(--accent) 16%, transparent)', color: 'var(--accent-ink)' }
                         : { background: 'var(--bg-muted)', color: 'var(--fg-secondary)' };
     const solidTone = tone === 'success'
         ? { background: 'var(--color-success, #16a34a)', color: '#ffffff' }
@@ -96,7 +96,7 @@ export function PanelStatusBadge(props: PanelStatusBadgeProps) {
                 : tone === 'info'
                     ? { background: 'var(--color-info)', color: '#ffffff' }
                     : tone === 'accent'
-                        ? { background: 'var(--accent)', color: '#ffffff' }
+                        ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
                         : { background: 'var(--fg-muted)', color: '#ffffff' };
     return (
         <span
@@ -120,13 +120,17 @@ export function PanelChoiceCard(props: PanelChoiceCardProps) {
             onClick={onClick}
             disabled={disabled}
             className={joinClasses(
-                'rounded-card border p-4 text-left transition-[border-color,background,opacity,transform,box-shadow] duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0',
+                'rounded-card border p-4 text-left transition-[border-color,background,opacity,transform,box-shadow] duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0',
                 className,
             )}
             style={{
-                borderColor: selected ? 'var(--border-strong)' : 'var(--border)',
-                background: selected ? 'var(--bg-subtle)' : 'var(--surface)',
-                boxShadow: selected ? '0 0 0 1px var(--border-strong), var(--shadow-xs)' : 'none',
+                borderColor: selected ? 'var(--signal, var(--accent))' : 'var(--border)',
+                background: selected
+                    ? 'color-mix(in srgb, var(--signal, var(--accent)) 14%, var(--surface))'
+                    : 'var(--surface)',
+                boxShadow: selected
+                    ? '0 0 0 1px var(--signal, var(--accent)), var(--shadow-xs)'
+                    : 'none',
             }}
         >
             {children}
@@ -148,16 +152,16 @@ export function PanelSwitch(props: PanelSwitchProps) {
             disabled={disabled}
             onClick={() => onChange(!checked)}
             className={joinClasses(
-                'relative inline-flex items-center rounded-full transition-[background,opacity,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50',
+                'relative inline-flex items-center rounded-full transition-[background,opacity,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50',
                 dimensions.track,
                 className,
             )}
-            style={{ background: checked ? 'var(--accent)' : 'var(--bg-muted)' }}
+            style={{ background: checked ? 'var(--signal, var(--accent))' : 'var(--bg-muted)' }}
         >
             <span
                 className={joinClasses('absolute top-1/2 -translate-y-1/2 rounded-full transition-[left,background] duration-150', dimensions.thumb)}
                 style={{
-                    background: checked ? 'var(--accent-contrast, #fff)' : 'var(--fg-muted)',
+                    background: checked ? 'var(--signal-contrast, var(--accent-contrast, #fff))' : 'var(--fg-muted)',
                     left: checked ? dimensions.right : dimensions.left,
                 }}
             />

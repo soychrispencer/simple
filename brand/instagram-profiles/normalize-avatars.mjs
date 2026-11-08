@@ -20,7 +20,7 @@ const TILE_RADIUS_RATIO = 0.25;
 const APPS = [
     { id: 'simpleautos', accent: '#E84A1F' },
     { id: 'simplepropiedades', accent: '#4F46E5' },
-    { id: 'simpleagenda', accent: '#0F766E' },
+    { id: 'simpleagenda', accent: '#B8DB3A' },
     { id: 'simpleserenatas', accent: '#E11D48' },
     { id: 'simpletickets', accent: '#0E7490' },
     { id: 'simpleresto', accent: '#F4B400' },

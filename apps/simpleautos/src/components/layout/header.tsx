@@ -11,7 +11,8 @@ const publicLinks: MarketplacePublicLink[] = [
         href: '/ventas',
         label: 'Vehículos',
         items: [
-            { href: '/ventas', label: 'Comprar', description: 'Autos, motos y más en venta' },
+            { href: '/ventas', label: 'Explorar todo', description: 'Publicaciones con fotos y videos' },
+            { href: '/ventas?section=sale', label: 'Comprar', description: 'Autos, motos y más en venta' },
             { href: '/arriendos', label: 'Arrendar', description: 'Arriendo de vehículos' },
             { href: '/subastas', label: 'Subastas', description: 'Subastas activas' },
         ],
@@ -34,7 +35,6 @@ const publicLinks: MarketplacePublicLink[] = [
             },
         ],
     },
-    { href: '/descubre', label: 'Descubre', isNew: true },
 ];
 
 export function Header() {

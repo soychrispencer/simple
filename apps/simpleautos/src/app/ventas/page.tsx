@@ -5,9 +5,9 @@ import PublicVehicleListingPage from '@/components/listings/public-vehicle-listi
 export default function VentasPage() {
     return (
         <PublicVehicleListingPage
-            section="sale"
-            title="Vehículos en venta"
-            breadcrumbLabel="Ventas"
+            title="Explora vehículos"
+            breadcrumbLabel="Explorar"
+            integratedFeed
         />
     );
 }

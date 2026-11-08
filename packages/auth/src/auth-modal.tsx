@@ -401,7 +401,7 @@ export function AuthModal({
                     aria-label="Cerrar modal"
                     disabled={submitting}
                     type="button"
-                    className="absolute top-4 right-4 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-transparent border-none transition-colors hover:bg-black/5"
+                    className="absolute top-4 right-4 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-transparent border-none transition-colors hover:bg-[var(--bg-subtle)]"
                     style={{
                         cursor: submitting ? 'not-allowed' : 'pointer',
                         color: 'var(--fg-muted)',
@@ -564,7 +564,7 @@ export function AuthModal({
                                     required
                                 />
                                 {password ? (
-                                    <p className="text-xs" style={{ color: passwordStrength === 'Débil' ? '#dc2626' : 'var(--fg-muted)' }}>
+                                    <p className="text-xs" style={{ color: passwordStrength === 'Débil' ? 'var(--color-error)' : 'var(--fg-muted)' }}>
                                         Fortaleza: {passwordStrength}
                                     </p>
                                 ) : null}

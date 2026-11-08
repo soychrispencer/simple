@@ -75,7 +75,7 @@ export function AgendaOnboardingRail({ className = '' }: Props) {
                         <div className="flex flex-wrap items-center gap-2">
                             <span
                                 className="inline-flex h-6 w-6 items-center justify-center rounded-full"
-                                style={{ background: 'rgba(13,148,136,0.15)', color: 'var(--accent)' }}
+                                style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}
                             >
                                 <IconCheck size={14} />
                             </span>

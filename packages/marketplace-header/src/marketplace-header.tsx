@@ -170,6 +170,7 @@ export function MarketplaceHeader({
 }: MarketplaceHeaderProps) {
   const desktopNavigationClass = desktopNavigationAt === 'xl' ? 'hidden xl:flex' : desktopNavigationAt === 'lg' ? 'hidden lg:flex' : 'hidden md:flex';
   const mobileNavigationClass = desktopNavigationAt === 'xl' ? 'relative xl:hidden' : desktopNavigationAt === 'lg' ? 'relative lg:hidden' : 'relative md:hidden';
+  const smallViewportMaxWidth = desktopNavigationAt === 'xl' ? 1279 : desktopNavigationAt === 'lg' ? 1023 : 767;
   const pathname = usePathname() ?? '';
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
@@ -194,12 +195,12 @@ export function MarketplaceHeader({
 
   useEffect(() => {
     const updateViewport = () => {
-      setIsSmallViewport(window.matchMedia('(max-width: 767px)').matches);
+      setIsSmallViewport(window.matchMedia(`(max-width: ${smallViewportMaxWidth}px)`).matches);
     };
     updateViewport();
     window.addEventListener('resize', updateViewport);
     return () => window.removeEventListener('resize', updateViewport);
-  }, []);
+  }, [smallViewportMaxWidth]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -587,11 +588,15 @@ export function MarketplaceHeader({
                           <span
                             className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
                             style={{
-                              borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
+                              borderColor: active
+                                ? 'var(--panel-nav-active-icon-border, var(--button-primary-border))'
+                                : 'var(--border)',
                               background: active
-                                ? 'var(--button-primary-bg)'
+                                ? 'var(--panel-nav-active-icon-background, var(--button-primary-bg))'
                                 : 'color-mix(in srgb, var(--bg-subtle) 70%, transparent)',
-                              color: active ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
+                              color: active
+                                ? 'var(--panel-nav-active-icon-color, var(--button-primary-color))'
+                                : 'var(--fg-secondary)',
                             }}
                           >
                             <ItemIcon size={17} stroke={1.9} />
@@ -643,7 +648,7 @@ export function MarketplaceHeader({
               </PanelButton>
             ) : (
               <div className="flex items-center gap-2">
-                <PanelButton onClick={() => openAuth('login')} variant="secondary" size="sm" className="h-9 px-4 text-sm">
+                <PanelButton onClick={() => openAuth('login')} variant="secondary" size="sm" className="h-9 px-4 text-sm header-login-button">
                   {guestLoginLabel}
                 </PanelButton>
                 <PanelButton onClick={() => openAuth('register')} variant="primary" size="sm" className="h-9 px-4 text-sm">
@@ -693,7 +698,7 @@ export function MarketplaceHeader({
                         openAuth('login');
                       }}
                       variant="secondary"
-                      className="w-full h-10 text-sm"
+                      className="w-full h-10 text-sm header-login-button"
                     >
                       {guestLoginLabel}
                     </PanelButton>

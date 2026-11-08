@@ -1,17 +1,23 @@
 @import "tailwindcss";
 
-/* SimpleAgenda — Spencer base + accent vertical #0F766E */
+/* SimpleAgenda — teal profundo #002E32, lima #B8DB3A y neutros. */
 
 @source "../../../../packages/ui/src";
 @source "../../../../packages/auth/src";
 @source "../../../../packages/marketplace-header/src";
 @import "../../../../packages/ui/src/theme-base.css";
+@import "./agenda-reservation.css";
 @import "./agenda-landing.css";
 
+/* Instrument Sans da una voz editorial común a los títulos de SimpleAgenda. */
+body.simpleagenda-root :is(h1, h2, h3) {
+    font-family: var(--font-display);
+}
+
 /*
- * .field-input â€” alias de .form-input (theme-base) para panel y reservas pÃºblicas.
+ * .field-input — alias de .form-input (theme-base) para panel y reservas públicas.
  * Mismos tokens: --border, --field-focus-border, --bg-subtle, --surface.
- * En flujo pÃºblico preferir .booking-input (misma base).
+ * En flujo público preferir .booking-input (misma base).
  */
 
 .field-input {
@@ -49,7 +55,7 @@
     background-color: var(--surface);
 }
 
-/* Reserva pÃºblica â€” mismos tokens que .field-input / .form-input (sin @apply) */
+/* Reserva pública — mismos tokens que .field-input / .form-input (sin @apply) */
 .booking-input {
     width: 100%;
     min-height: 42px;
@@ -75,20 +81,119 @@
 }
 
 :root {
-    --accent: #0F766E;
-    --accent-subtle: rgba(15, 118, 110, 0.12);
-    --accent-soft: rgba(15, 118, 110, 0.08);
-    --accent-border: rgba(15, 118, 110, 0.20);
-    --accent-contrast: #ffffff;
+    /*
+     * SimpleAgenda — teal profundo y lima sobre neutros de carbón y ceniza.
+     *   TEAL   #002E32  → marca, estructura y acciones en ambos modos.
+     *   LIMA   #B8DB3A  → selección, foco y cifras puntuales en ambos modos.
+     *   CENIZA #D9D9D9  → bordes y estructura neutra.
+     *   CARBÓN #343434  → superficie elevada en modo oscuro.
+     *   TINTA  #0E0E10  → texto y lienzo oscuro.
+     *   PAPEL  #FAFAFA  → lienzo claro.
+     *   BLANCO #FFFFFF  → superficies claras.
+     *
+     * El tema solo invierte los neutros; teal y lima mantienen sus roles.
+     * Los estados funcionales y marcas externas mantienen sus tokens propios.
+     */
+    --agenda-teal: #002E32;
+    /* Alias heredado para componentes compartidos que aún esperan --agenda-green. */
+    --agenda-green: var(--agenda-teal);
+    --agenda-lime: #B8DB3A;
+    --agenda-ash: #D9D9D9;
+    --agenda-carbon: #343434;
+    --agenda-dark-surface: #1C1C1C;
+    --agenda-ink: #0E0E10;
+    --agenda-paper: #FAFAFA;
+    --agenda-white: #FFFFFF;
+
+    --signal: var(--agenda-lime);
+    --signal-hover: color-mix(in srgb, var(--agenda-lime) 84%, var(--agenda-ink));
+    --signal-contrast: var(--agenda-ink);
+
+    /* Estado de citas: rellenos sólidos porque llevan texto blanco encima
+       (los --color-* adaptativos son solo para texto e iconos). */
+    --agenda-status-pending: var(--color-warning-solid);
+    --agenda-status-confirmed: var(--agenda-green);
+    --agenda-status-completed: var(--color-info-solid);
+    --agenda-status-cancelled: var(--color-error-solid);
+    --agenda-status-noshow: color-mix(in srgb, var(--agenda-ink) 55%, var(--agenda-white));
+    --agenda-status-group: var(--agenda-carbon);
+
+    --brand-green: var(--agenda-green);
+    --brand-green-hover: color-mix(in srgb, var(--agenda-green) 88%, var(--agenda-white));
+
+    --accent: var(--brand-green);
+    /* Acentos de texto e iconos: lima destaca sobre los neutros oscuros. */
+    --accent-ink: var(--brand-green);
+    --accent-subtle: color-mix(in srgb, var(--brand-green) 10%, transparent);
+    --accent-soft: color-mix(in srgb, var(--brand-green) 6%, transparent);
+    --accent-border: color-mix(in srgb, var(--brand-green) 22%, transparent);
+    --accent-contrast: var(--agenda-white);
+    /* Superficies estructurales: el mismo teal profundo en ambos modos. */
+    --accent-surface: var(--agenda-green);
+    --accent-surface-fg: var(--agenda-white);
+    --accent-surface-tint: color-mix(in srgb, var(--agenda-white) 16%, transparent);
+    --panel-nav-active-icon-background: var(--agenda-lime);
+    --panel-nav-active-icon-border: var(--agenda-lime);
+    --panel-nav-active-icon-color: var(--agenda-green);
+    --panel-stat-icon-background: color-mix(in srgb, var(--agenda-lime) 12%, var(--agenda-white));
+    --panel-stat-icon-color: var(--agenda-green);
+    --panel-stat-accent-icon-background: var(--agenda-lime);
+    --panel-stat-accent-icon-color: var(--agenda-green);
+    --agenda-action-bg: var(--agenda-lime);
+    --agenda-action-fg: var(--agenda-ink);
+    --button-primary-bg: var(--agenda-lime);
+    --button-primary-color: var(--agenda-ink);
+    --button-primary-border: var(--agenda-lime);
+    --button-primary-shadow: 0 8px 20px color-mix(in srgb, var(--agenda-lime) 18%, transparent);
+    --button-primary-hover-bg: var(--signal-hover);
+    --button-primary-hover-color: var(--agenda-ink);
+    --button-primary-hover-border: var(--signal-hover);
+    --button-primary-hover-shadow: 0 10px 24px color-mix(in srgb, var(--agenda-lime) 24%, transparent);
+    --focus-ring: var(--agenda-lime);
+    --field-focus-border: var(--agenda-lime);
+    --field-focus-ring: color-mix(in srgb, var(--agenda-lime) 22%, transparent);
 }
 
 .dark,
 [data-theme="dark"] {
-    --accent: #0F766E;
-    --accent-subtle: rgba(15, 118, 110, 0.18);
-    --accent-soft: rgba(15, 118, 110, 0.10);
-    --accent-border: rgba(15, 118, 110, 0.34);
-    --accent-contrast: #ffffff;
+    /* Teal y lima conservan sus roles; el tema oscuro invierte los neutros. */
+    --agenda-status-noshow: color-mix(in srgb, var(--agenda-ink) 62%, var(--agenda-white));
+    --accent: var(--agenda-green);
+    --accent-contrast: var(--agenda-white);
+    --accent-ink: var(--agenda-lime);
+    --accent-subtle: color-mix(in srgb, var(--agenda-lime) 14%, transparent);
+    --accent-soft: color-mix(in srgb, var(--agenda-lime) 9%, transparent);
+    --accent-border: color-mix(in srgb, var(--agenda-lime) 34%, transparent);
+    --panel-stat-icon-background: color-mix(in srgb, var(--agenda-lime) 9%, var(--agenda-dark-surface));
+    --panel-stat-icon-color: var(--agenda-lime);
+    --agenda-action-bg: var(--agenda-lime);
+    --agenda-action-fg: var(--agenda-ink);
+    --button-primary-bg: var(--agenda-lime);
+    --button-primary-color: var(--agenda-ink);
+    --button-primary-border: var(--agenda-lime);
+    --button-primary-hover-bg: var(--signal-hover);
+    --button-primary-hover-color: var(--agenda-ink);
+    --button-primary-hover-border: var(--signal-hover);
+    --button-primary-shadow: 0 8px 20px color-mix(in srgb, var(--agenda-lime) 18%, transparent);
+    --button-primary-hover-shadow: 0 10px 24px color-mix(in srgb, var(--agenda-lime) 24%, transparent);
+    --field-focus-border: var(--agenda-lime);
+    --field-focus-ring: color-mix(in srgb, var(--agenda-lime) 22%, transparent);
+    --focus-ring: var(--agenda-lime);
+}
+
+/* SimpleAgenda: negro real como lienzo, carbón para superficies y texto legible. */
+:is(.dark, [data-theme="dark"]) body.simpleagenda-root {
+    --bg: var(--agenda-ink);
+    --bg-subtle: #222226;
+    --bg-muted: var(--agenda-carbon);
+    --bg-elevated: var(--agenda-dark-surface);
+    --surface: var(--agenda-dark-surface);
+    --border: color-mix(in srgb, var(--agenda-white) 12%, var(--agenda-ink));
+    --border-strong: color-mix(in srgb, var(--agenda-white) 40%, var(--agenda-ink));
+    --fg: var(--agenda-paper);
+    --fg-secondary: color-mix(in srgb, var(--agenda-paper) 78%, var(--agenda-ink));
+    --fg-muted: color-mix(in srgb, var(--agenda-paper) 62%, var(--agenda-ink));
+    --fg-faint: color-mix(in srgb, var(--agenda-paper) 40%, var(--agenda-ink));
 }
 
 .vertical-hero-texture::before {
@@ -107,24 +212,24 @@
 .booking-fg { color: var(--fg); }
 .booking-muted { color: var(--fg-muted); }
 .booking-secondary { color: var(--fg-secondary); }
-.booking-accent-banner { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-.booking-badge-online { background: var(--accent-soft); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); }
+.booking-accent-banner { border-color: var(--accent-ink); background: var(--accent-soft); color: var(--accent-ink); }
+.booking-badge-online { background: var(--accent-soft); color: var(--accent-ink); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); }
 .booking-badge-presential { background: var(--bg-subtle); color: var(--fg-muted); border: 1px solid var(--border); }
-.booking-btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 30%, transparent); transition: transform 0.2s ease, box-shadow 0.2s ease; }
-.booking-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 40%, transparent); }
+.booking-btn-primary { background: var(--signal); color: var(--signal-contrast); box-shadow: 0 4px 16px color-mix(in srgb, var(--signal) 24%, transparent); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.booking-btn-primary:hover { background: var(--signal-hover); transform: translateY(-1px); box-shadow: 0 6px 20px color-mix(in srgb, var(--signal) 34%, transparent); }
 .booking-modal { background: var(--surface); border-color: var(--border); box-shadow: var(--shadow-lg); border-top: 2px solid var(--accent); }
 .booking-btn-outline { border-color: var(--border); color: var(--fg-muted); transition: background 0.15s ease, border-color 0.15s ease; }
 .booking-btn-outline:hover { background: var(--bg-subtle); border-color: var(--border-strong); }
 .booking-btn-secondary { border-color: var(--border); color: var(--fg-secondary); transition: background 0.15s ease; }
 .booking-btn-secondary:hover { background: var(--bg-subtle); }
-.booking-info-banner { background: var(--accent-soft); color: var(--accent); }
-.booking-error { color: #dc2626; }
-.booking-error-banner { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+.booking-info-banner { background: var(--accent-soft); color: var(--accent-ink); }
+.booking-error { color: var(--color-error); }
+.booking-error-banner { background: var(--color-error-subtle); color: var(--color-error); }
 .booking-encuadre-box { border-color: var(--border); background: var(--bg-subtle); color: var(--fg); white-space: pre-wrap; }
-.booking-mercadopago { background: #009ee3; color: #fff; }
+.booking-mercadopago { background: var(--brand-mercadopago); color: #fff; }
 .booking-confirmed-box { border-color: var(--accent-border); background: var(--accent-soft); }
 .booking-video-box { border-color: var(--border); background: color-mix(in srgb, var(--accent) 6%, transparent); }
-.booking-video-label { color: var(--accent); }
+.booking-video-label { color: var(--accent-ink); }
 .booking-muted-box { border-color: var(--border); background: var(--bg-subtle); color: var(--fg-muted); }
 
 /* Panel cobros (pagos) */
@@ -133,98 +238,106 @@
 .agenda-pagos-secondary { color: var(--fg-secondary); }
 .agenda-pagos-surface { border-color: var(--border); background: var(--surface); }
 .agenda-pagos-btn-outline { border-color: var(--border); color: var(--fg-secondary); }
-.agenda-pagos-btn-accent { background: var(--accent); color: #fff; }
+.agenda-pagos-btn-accent { background: var(--accent); color: var(--accent-contrast); }
 .agenda-pagos-tab { border-color: var(--border); background: var(--surface); color: var(--fg-secondary); }
-.agenda-pagos-tab--active { border-color: var(--accent); background: var(--accent); color: #fff; }
-.agenda-pagos-stat-accent { color: var(--accent); }
+.agenda-pagos-tab--active { border-color: var(--signal); background: var(--signal); color: var(--signal-contrast); }
+.agenda-pagos-stat-accent { color: var(--accent-ink); }
 .agenda-pagos-stat-warning { color: var(--color-warning); }
 .agenda-pagos-stat-fg { color: var(--fg); }
-.agenda-pagos-overdue { background: rgba(239, 68, 68, 0.1); color: var(--color-error); }
+.agenda-pagos-overdue { background: var(--color-error-subtle); color: var(--color-error); }
 .agenda-pagos-chart-track { background: var(--border); }
-.agenda-pagos-chart-bar { background: var(--accent); }
+.agenda-pagos-chart-bar { background: var(--signal); }
 .agenda-pagos-chart-bar--muted { background: var(--accent-soft); border: 1px solid var(--accent-border, var(--border)); }
 
 /* Panel agenda (calendario) */
+.agenda-panel-quick-action .tabler-icon-plus {
+    color: var(--agenda-lime);
+}
+
+.agenda-panel-quick-action :is(a, button):focus-visible {
+    outline: 2px solid var(--fg);
+    outline-offset: 2px;
+}
+
 .agenda-panel-fg { color: var(--fg); }
 .agenda-panel-muted { color: var(--fg-muted); }
 .agenda-panel-secondary { color: var(--fg-secondary); }
-.agenda-panel-accent { color: var(--accent); }
+.agenda-panel-accent { color: var(--accent-ink); }
 .agenda-panel-border { border-color: var(--border); }
 .agenda-panel-surface { border-color: var(--border); background: var(--surface); }
-.agenda-panel-accent-soft { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-.agenda-panel-accent-dot { background: var(--accent); }
-.agenda-panel-btn-accent { background: var(--accent); color: #fff; }
+.agenda-panel-accent-soft { border-color: var(--accent-ink); background: var(--accent-soft); color: var(--accent-ink); }
+.agenda-panel-accent-dot { background: var(--signal); }
+.agenda-panel-btn-accent { background: var(--accent); color: var(--accent-contrast); }
 .agenda-panel-btn-outline { border-color: var(--border); color: var(--fg-secondary); }
 .agenda-panel-btn-muted { border-color: var(--border); color: var(--fg-muted); }
 .agenda-panel-view-toggle { border-color: var(--border); }
 .agenda-panel-view-btn { background: transparent; color: var(--fg-muted); }
-.agenda-panel-view-btn--active { background: var(--accent); color: #fff; }
+.agenda-panel-view-btn--active { background: var(--signal); color: var(--signal-contrast); }
 .agenda-panel-search-btn { border-color: var(--border); background: transparent; color: var(--fg-muted); }
-.agenda-panel-search-btn--active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.agenda-panel-search-btn--active { border-color: var(--signal); background: color-mix(in srgb, var(--signal) 14%, var(--surface)); color: var(--accent-ink); }
 .agenda-panel-chip { border-color: var(--border); background: transparent; color: var(--fg-secondary); }
-.agenda-panel-chip--active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.agenda-panel-chip--active { border-color: var(--signal); background: color-mix(in srgb, var(--signal) 14%, var(--surface)); color: var(--accent-ink); font-weight: 600; }
 .agenda-panel-card { border-color: var(--border); }
 .agenda-panel-card-surface { border-color: var(--border); background: var(--surface); }
-.agenda-panel-today { border-color: var(--border); background: var(--accent-soft); }
+.agenda-panel-today { border-color: var(--border); background: color-mix(in srgb, var(--signal) 12%, var(--surface)); }
 .agenda-panel-hour { color: var(--fg-muted); }
 .agenda-panel-hour-row { border-top: 1px solid var(--border); }
-.agenda-panel-now-dot { background: var(--accent); }
-.agenda-panel-now-line { background: var(--accent); }
+.agenda-panel-now-dot { border: 1px solid var(--brand-green); background: var(--signal); }
+.agenda-panel-now-line { background: var(--signal); }
 .agenda-panel-subtle { background: var(--bg-subtle); color: var(--fg-muted); }
-.agenda-panel-series-badge { background: var(--accent-soft); color: var(--accent); }
-.agenda-panel-meet-link { border-color: var(--accent); color: var(--accent); }
-.agenda-panel-danger-banner { border: 1px solid rgba(220, 38, 38, 0.3); background: rgba(220, 38, 38, 0.06); color: #dc2626; }
-.agenda-panel-danger-soft { background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.2); }
-.agenda-panel-danger-btn { background: #ef4444; color: #fff; }
-.agenda-panel-danger-outline { border-color: var(--border); color: #ef4444; }
-.agenda-panel-status-complete { background: #6366f1; color: #fff; }
+.agenda-panel-series-badge { background: var(--accent-soft); color: var(--accent-ink); }
+.agenda-panel-meet-link { border-color: var(--accent-ink); color: var(--accent-ink); }
+.agenda-panel-danger-banner { border: 1px solid var(--color-error-border); background: var(--color-error-bg); color: var(--color-error); }
+.agenda-panel-danger-soft { background: var(--color-error-bg); border: 1px solid var(--color-error-border); }
+.agenda-panel-danger-btn { background: var(--color-error); color: var(--bg); }
+.agenda-panel-danger-outline { border-color: var(--border); color: var(--color-error); }
+.agenda-panel-status-complete { background: var(--color-info); color: var(--bg); }
 .agenda-panel-status-secondary { background: var(--bg-subtle); color: var(--fg-secondary); border: 1px solid var(--border); }
-.agenda-panel-whatsapp { background: #25d366; color: #fff; }
-.agenda-panel-group { background: #8b5cf6; color: #fff; }
+.agenda-panel-whatsapp { background: var(--brand-whatsapp); color: var(--agenda-ink); }
+.agenda-panel-group { background: var(--brand-green); color: var(--agenda-white); }
 .agenda-panel-popover { border-color: var(--border); background: var(--surface); box-shadow: var(--shadow-md); }
 .agenda-panel-note-btn { border-color: var(--border); color: var(--fg-secondary); }
-.agenda-panel-note-btn--saved { border-color: var(--border); color: var(--accent); }
+.agenda-panel-note-btn--saved { border-color: var(--border); color: var(--accent-ink); }
 .agenda-panel-input { border: 1px solid var(--border); color: var(--fg); }
-.agenda-panel-input-danger { border: 1px solid #ef4444; color: #ef4444; }
-.agenda-panel-error { color: #dc2626; }
-.agenda-panel-day--today { border-color: var(--border); background: var(--accent-soft); }
+.agenda-panel-input-danger { border: 1px solid var(--color-error); color: var(--color-error); }
+.agenda-panel-error { color: var(--color-error); }
+.agenda-panel-day--today { border-color: var(--border); background: color-mix(in srgb, var(--signal) 12%, var(--surface)); }
 .agenda-panel-day--default { border-color: var(--border); background: transparent; }
-.agenda-panel-avatar { background: var(--accent-subtle); color: var(--accent); }
-.agenda-panel-delete-icon { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
-.agenda-panel-delete-btn { background: rgba(220, 38, 38, 0.1); color: #dc2626; border-color: rgba(220, 38, 38, 0.3); }
+.agenda-panel-avatar { background: var(--accent-subtle); color: var(--accent-ink); }
+.agenda-panel-delete-icon { background: var(--color-error-subtle); color: var(--color-error); }
+.agenda-panel-delete-btn { background: var(--color-error-subtle); color: var(--color-error); border-color: var(--color-error-border); }
 .agenda-panel-tag-chip { border-color: var(--border); color: var(--fg-muted); }
-.agenda-panel-whatsapp-icon { color: #22c55e; }
+.agenda-panel-whatsapp-icon { color: var(--brand-whatsapp); }
 
 /* Panel home (dashboard) */
 .agenda-home-fg { color: var(--fg); }
 .agenda-home-muted { color: var(--fg-muted); }
-.agenda-home-accent { color: var(--accent); }
+.agenda-home-accent { color: var(--accent-ink); }
 .agenda-home-surface { border-color: var(--border); background: var(--surface); }
 .agenda-home-border-top { border-top: 1px solid var(--border); }
 .agenda-home-progress-track { background: var(--border); }
-.agenda-home-progress-fill { background: var(--accent); }
-.agenda-home-trend-up { background: rgba(15, 118, 110, 0.08); color: var(--accent); }
-.agenda-home-trend-down { background: rgba(239, 68, 68, 0.08); color: #ef4444; }
-.agenda-home-trend-neutral { background: rgba(0, 0, 0, 0.04); color: var(--fg-muted); }
-.agenda-home-step-icon--done { background: var(--accent); color: #fff; }
-.agenda-home-step-icon--pending { background: var(--accent-soft); color: var(--accent); }
+.agenda-home-progress-fill { background: var(--signal); }
+.agenda-home-trend-up { background: var(--accent-soft); color: var(--accent-ink); }
+.agenda-home-trend-down { background: var(--color-error-subtle); color: var(--color-error); }
+.agenda-home-trend-neutral { background: var(--bg-subtle); color: var(--fg-muted); }
+.agenda-home-step-icon--done { background: var(--accent); color: var(--accent-contrast); }
+.agenda-home-step-icon--pending { background: var(--accent-soft); color: var(--accent-ink); }
 .agenda-home-step-title--done { color: var(--fg); text-decoration: line-through; opacity: 0.5; }
 .agenda-home-step-title--pending { color: var(--fg); }
 .agenda-home-step-desc--done { color: var(--fg-muted); opacity: 0.5; }
 .agenda-home-step-desc--pending { color: var(--fg-muted); }
-.agenda-home-warning-banner { border-color: rgba(234, 179, 8, 0.4); background: rgba(234, 179, 8, 0.06); }
-.agenda-home-warning-icon { background: rgba(234, 179, 8, 0.12); color: rgb(161, 120, 0); }
-.agenda-home-warning-chevron { color: rgb(161, 120, 0); }
+.agenda-home-warning-banner { border-color: var(--color-warning-border); background: var(--color-warning-bg); }
+.agenda-home-warning-icon { background: var(--color-warning-subtle); color: var(--color-warning-text); }
+.agenda-home-warning-chevron { color: var(--color-warning-text); }
 .agenda-home-chart-overflow { overflow: visible; }
 
 .booking-modal-scroll { max-height: 90vh; overflow-y: auto; }
-.booking-required { color: var(--accent); }
+.booking-required { color: var(--accent-ink); }
 .booking-day { background: transparent; color: var(--fg); cursor: pointer; font-weight: 400; opacity: 1; transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease; border-radius: 0.75rem; }
 .booking-day:hover:not(.booking-day--disabled):not(.booking-day--selected) { background: var(--bg-subtle); }
-.booking-day--selected { background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent); }
+.booking-day--selected { background: var(--signal); color: var(--signal-contrast); font-weight: 600; box-shadow: 0 2px 8px color-mix(in srgb, var(--signal) 30%, transparent); }
 .booking-day--disabled { color: var(--fg-muted); opacity: 0.3; cursor: not-allowed; }
 .booking-slot { border-color: var(--border); background: transparent; color: var(--fg); transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease; }
-.booking-slot:hover:not(.booking-slot--selected) { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 4%, transparent); }
-.booking-slot--selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.booking-slot:hover:not([aria-pressed="true"]) { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 4%, transparent); }
 .booking-checkbox { border: 2px solid var(--border); background: transparent; transition: border-color 0.15s ease, background 0.15s ease; }
-.booking-checkbox--checked { border-color: var(--accent); background: var(--accent); }
+.booking-checkbox--checked { border-color: var(--signal); background: var(--signal); }

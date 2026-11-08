@@ -7,7 +7,7 @@ const sections = [
     {
         title: 'Vehículos',
         links: [
-            { label: 'Comprar', href: '/ventas' },
+            { label: 'Comprar', href: '/ventas?section=sale' },
             { label: 'Arrendar', href: '/arriendos' },
             { label: 'Subastas', href: '/subastas' },
             { label: 'Publicar', href: '/panel/publicar' },
