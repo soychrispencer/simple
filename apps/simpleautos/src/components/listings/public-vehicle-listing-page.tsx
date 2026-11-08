@@ -326,7 +326,7 @@ function PublicVehicleListingPageContent(props: {
 
                 <div className="w-full min-w-0 flex-1">
                     {loading ? null : cards.length === 0 ? (
-                        <div className={isFeedLayout ? 'mx-auto w-full max-w-[430px]' : undefined}>
+                        <div className={isFeedLayout ? 'mx-auto w-full max-w-[430px] md:max-w-[800px]' : undefined}>
                             <PanelCard size="lg">
                                 <PanelNotice tone="neutral">
                                     Aún no hay publicaciones en esta sección. Crea una desde el panel para verla aquí.
