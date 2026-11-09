@@ -8,7 +8,7 @@ export const AGENDA_PRICING = {
     proPlusAnnualTotalNetClp: 143_900,
     proAnnualDiscountPct: 20,
     free: {
-        monthlyBookings: 50,
+        monthlyBookings: 80,
         activeServices: 3,
         activeLocations: 1,
     },
@@ -26,6 +26,7 @@ export const AGENDA_PLAN_CATALOG = {
             `Hasta ${AGENDA_PRICING.free.activeServices} servicios activos y ${AGENDA_PRICING.free.activeLocations} ubicación`,
             'Perfil público, link de reservas, agenda y clientes',
             'Confirmaciones por email',
+            'Recordatorios automáticos por email',
             'Sin cobro automático ni comisión de SimpleAgenda por reserva',
         ],
     },

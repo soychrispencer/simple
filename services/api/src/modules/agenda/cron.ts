@@ -64,24 +64,20 @@ function buildCancelUrl(appointmentId: string, slug: string): string {
 /**
  * Quién recibe recordatorios automáticos:
  * - Launch mode: todos (misma promesa de acceso completo).
- * - Fuera de launch: trial (free + planExpiresAt vigente), Pro o Pro+ vigentes.
+ * - Fuera de launch: Gratis, trial, Pro o Pro+ vigentes.
  */
 function reminderEntitlementCondition(): SQL {
     if (isPlatformLaunchActive('agenda')) {
         return sql`TRUE`;
     }
     return sql`(
-        (
+        ${agendaProfessionalProfiles.plan} = 'free'
+        OR (
             ${agendaProfessionalProfiles.plan} IN ('pro', 'pro_plus')
             AND (
                 ${agendaProfessionalProfiles.planExpiresAt} IS NULL
                 OR ${agendaProfessionalProfiles.planExpiresAt} > now()
             )
-        )
-        OR (
-            ${agendaProfessionalProfiles.plan} = 'free'
-            AND ${agendaProfessionalProfiles.planExpiresAt} IS NOT NULL
-            AND ${agendaProfessionalProfiles.planExpiresAt} > now()
         )
     )`;
 }

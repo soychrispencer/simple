@@ -114,8 +114,8 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Recordatorios automáticos por email',
-                description: 'Se envían 24 horas y 30 minutos antes de la cita cuando el cliente dejó su correo.',
-                free: false,
+                description: 'En todos los planes, se envían 24 horas y 30 minutos antes cuando el cliente dejó su correo.',
+                free: true,
                 pro: true,
                 proPlus: true,
             },

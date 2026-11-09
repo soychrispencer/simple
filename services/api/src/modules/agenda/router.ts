@@ -2258,7 +2258,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
         for (const appt of appts) {
             const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: eq(agendaProfessionalProfiles.id, appt.professionalId) });
-            if (!profile || isFreePlan(profile)) continue;
+            if (!profile || (isFreePlan(profile) && profile.plan !== 'free')) continue;
             const tz = profile.timezone ?? 'America/Santiago';
             const fmtT = (d: Date) => d.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:tz });
             const fmtD = (d: Date) => d.toLocaleDateString('es-CL', { weekday:'long', day:'numeric', month:'long', timeZone:tz });

@@ -50,7 +50,7 @@ const AGENDA_TRIAL: OperatorLandingCopy = {
     audienceOwnerDescription: '',
     faqs: [
         { q: '¿Cómo funciona la prueba?', a: `Al registrarte se activa Pro por ${AGENDA_PRICING.trialDays} días, sin tarjeta. Al terminar, sigues en Gratis y no se genera ningún cobro. Si quieres, puedes activar Pro por ${formatAgendaProMonthlyPrice()}.` },
-        { q: '¿Qué incluye Gratis?', a: `Hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan), ${AGENDA_PRICING.free.activeServices} servicios activos, ${AGENDA_PRICING.free.activeLocations} ubicación, perfil público y confirmaciones por email.` },
+        { q: '¿Qué incluye Gratis?', a: `Hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan), ${AGENDA_PRICING.free.activeServices} servicios activos, ${AGENDA_PRICING.free.activeLocations} ubicación, perfil público, confirmaciones y recordatorios automáticos por email.` },
         { q: '¿Cuánto cuesta Pro?', a: `${formatAgendaProMonthlyPrice()}. Se activa solo si decides contratarlo.` },
         { q: '¿Puedo cancelar cuando quiera?', a: 'Sí. Sin permanencia. Si activas un plan después, puedes cancelarlo en cualquier momento desde tu panel.' },
         { q: '¿Mis clientes necesitan crear una cuenta?', a: 'No. Tus clientes reservan directamente desde tu perfil público sin necesidad de registrarse.' },
