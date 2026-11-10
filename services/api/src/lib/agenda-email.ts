@@ -94,7 +94,7 @@ export async function sendAgendaProfessionalNewBookingEmail(
     }
     await sendAgendaActionEmail(prefs.email, input.title, {
         preheader: input.message,
-        eyebrow: 'Nueva reserva',
+        eyebrow: 'Nueva cita',
         headline: input.title,
         body: input.message,
         buttonLabel: 'Ver en el panel',

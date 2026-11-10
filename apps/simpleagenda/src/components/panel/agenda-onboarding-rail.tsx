@@ -80,7 +80,7 @@ export function AgendaOnboardingRail({ className = '' }: Props) {
                                 <IconCheck size={14} />
                             </span>
                             <h2 className="text-base font-semibold text-(--fg)">
-                                Tu link ya puede recibir reservas
+                                Tu link ya puede recibir citas
                             </h2>
                         </div>
                         <p className="text-sm text-fg-muted">

@@ -19,10 +19,10 @@ export type OperatorSiteLayoutOption = {
 export const OPERATOR_SITE_LAYOUT_OPTIONS: OperatorSiteLayoutOption[] = [
     {
         id: 'booking',
-        label: 'Reserva',
-        description: 'Enfocado en convertir: servicios visibles y reserva al centro.',
-        structure: 'Portada con tarjeta de reserva + servicios en grilla.',
-        hint: 'Ideal para reservas online y perfiles con CTA claro.',
+        label: 'Agenda',
+        description: 'Enfocado en convertir: servicios visibles y un acceso claro para agendar.',
+        structure: 'Portada con acceso para reservar + servicios en grilla.',
+        hint: 'Ideal para agendar citas online desde un perfil claro y directo.',
     },
     {
         id: 'portfolio',

@@ -39,7 +39,7 @@ const AGENDA_TRIAL: OperatorLandingCopy = {
     benefits: [
         { title: `${AGENDA_PRICING.trialDays} días de Pro`, desc: 'Prueba la agenda, los clientes, los pagos y los recordatorios con acceso completo.' },
         { title: 'Sin tarjeta ni cobro automático', desc: 'No te pedimos tarjeta y la prueba termina sin ningún cargo.' },
-        { title: 'Después sigues en Gratis', desc: `Conservas tus datos y puedes recibir ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan), con ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación.` },
+        { title: 'Después sigues en Gratis', desc: `Conservas tus datos y puedes recibir ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes (las canceladas también cuentan), con ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación.` },
     ],
     sectionCta: 'Crear cuenta gratis',
     sectionFootnote: `Pro cuesta ${formatAgendaProMonthlyPrice()}, solo si decides activarlo. Sin comisión de SimpleAgenda; el proveedor de pago puede cobrar sus propias tarifas.`,
@@ -50,7 +50,7 @@ const AGENDA_TRIAL: OperatorLandingCopy = {
     audienceOwnerDescription: '',
     faqs: [
         { q: '¿Cómo funciona la prueba?', a: `Al registrarte se activa Pro por ${AGENDA_PRICING.trialDays} días, sin tarjeta. Al terminar, sigues en Gratis y no se genera ningún cobro. Si quieres, puedes activar Pro por ${formatAgendaProMonthlyPrice()}.` },
-        { q: '¿Qué incluye Gratis?', a: `Hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan), ${AGENDA_PRICING.free.activeServices} servicios activos, ${AGENDA_PRICING.free.activeLocations} ubicación, perfil público, confirmaciones y recordatorios automáticos por email.` },
+        { q: '¿Qué incluye Gratis?', a: `Hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes (las canceladas también cuentan), ${AGENDA_PRICING.free.activeServices} servicios activos, ${AGENDA_PRICING.free.activeLocations} ubicación, perfil público, confirmaciones y recordatorios automáticos por email.` },
         { q: '¿Cuánto cuesta Pro?', a: `${formatAgendaProMonthlyPrice()}. Se activa solo si decides contratarlo.` },
         { q: '¿Puedo cancelar cuando quiera?', a: 'Sí. Sin permanencia. Si activas un plan después, puedes cancelarlo en cualquier momento desde tu panel.' },
         { q: '¿Mis clientes necesitan crear una cuenta?', a: 'No. Tus clientes reservan directamente desde tu perfil público sin necesidad de registrarse.' },
@@ -69,14 +69,14 @@ const AGENDA_LAUNCH: OperatorLandingCopy = {
     sectionEyebrow: 'Lanzamiento',
     sectionTitle: 'Regístrate gratis y empieza hoy',
     sectionSubtitle:
-        'Configura tu agenda, comparte tu link y recibe reservas con acceso completo. Sin tarjeta para registrarte.',
+    'Configura tu agenda, comparte tu link y recibe citas con acceso completo. Sin tarjeta para registrarte.',
     benefits: [
         { title: 'Todo incluido', desc: 'Agenda, clientes, pagos y recordatorios sin restricciones.' },
         { title: 'Sin tarjeta', desc: 'Crea tu cuenta gratis. Los planes de suscripción llegarán pronto.' },
         { title: 'Sin permanencia', desc: 'Usa la plataforma mientras dure el lanzamiento. Te avisamos antes de activar cobros.' },
     ],
     sectionCta: 'Crear cuenta gratis',
-    sectionFootnote: 'Sin comisión por reserva. Los planes pagos se activarán más adelante.',
+    sectionFootnote: 'Sin comisión por cita. Los planes pagos se activarán más adelante.',
     finalSubtitle: 'Regístrate gratis y organiza tu consulta con acceso completo durante el lanzamiento.',
     finalCta: 'Empezar gratis',
     headerCta: 'Empezar gratis',

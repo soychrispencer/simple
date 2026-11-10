@@ -10,7 +10,7 @@ type ReservationTicketProps = {
 export function ReservationTicket({
     time,
     label,
-    status = 'Reserva confirmada',
+    status = 'Cita confirmada',
     className = '',
 }: ReservationTicketProps) {
     return (

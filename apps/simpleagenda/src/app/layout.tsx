@@ -7,7 +7,7 @@ import { buildSimpleAppMetadata } from '@simple/config';
 import { isPlatformLaunchActive } from '@simple/utils';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app').replace(/\/$/, '');
-const APP_TITLE = 'SimpleAgenda | Agenda online y sistema de reservas';
+const APP_TITLE = 'SimpleAgenda | Agenda online para citas';
 const APP_DESCRIPTION = 'Agenda online para profesionales: tus clientes reservan una hora disponible y reciben confirmación automática mientras tú sigues atendiendo.';
 const HERO_IMAGE = '/hero/reserva-online-confirmada.png';
 
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
                 url: `${APP_URL}${HERO_IMAGE}`,
                 width: 1754,
                 height: 896,
-                alt: 'Una profesional atiende a un cliente mientras la agenda muestra una reserva confirmada en el teléfono',
+                alt: 'Una profesional atiende a un cliente mientras la agenda muestra una cita confirmada en el teléfono',
             },
         ],
     },
@@ -100,7 +100,7 @@ const siteSchema = {
             },
             audience: {
                 '@type': 'Audience',
-                audienceType: 'Profesionales y negocios que necesitan agenda online y reservas',
+                audienceType: 'Profesionales y negocios que necesitan una agenda online para sus citas',
             },
         },
     ],

@@ -111,7 +111,7 @@ export const AGENDA_DIRECTORY_SORT_OPTIONS = [
 export const AGENDA_DIRECTORY_SEARCH_COPY = {
     queryPlaceholder: 'Nombre o palabra clave',
     queryAriaLabel: 'Buscar profesional',
-    footerHint: 'Filtra por rubro, zona y modalidad. Reserva directa en el perfil publicado de cada profesional.',
+    footerHint: 'Filtra por rubro, zona y modalidad. Agenda una cita directamente desde el perfil de cada profesional.',
     submitLabel: 'Buscar',
     localityPlaceholder: 'Comuna / ciudad',
     professionPlaceholder: 'Psicólogo, nutricionista…',

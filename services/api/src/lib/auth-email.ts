@@ -350,7 +350,7 @@ async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEm
 
     const dateStr = fmtBookingDateTime(data.startsAt, data.timezone);
     const seriesLines = seriesCount > 0 && data.seriesDates
-        ? ['', `Sesiones reservadas (${seriesCount}):`, ...data.seriesDates.map((d, i) => `  ${i + 1}. ${fmtBookingDateTime(d, data.timezone)}`)]
+        ? ['', `Citas agendadas (${seriesCount}):`, ...data.seriesDates.map((d, i) => `  ${i + 1}. ${fmtBookingDateTime(d, data.timezone)}`)]
         : [];
     const textBody = [
         subject,

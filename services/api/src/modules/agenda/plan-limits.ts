@@ -88,7 +88,7 @@ export async function downgradeAgendaProfileAccess(
         .where(eq(agendaProfessionalProfiles.userId, userId));
 }
 
-/** Normaliza Pro vencidos a Gratis; los perfiles publicados siguen recibiendo reservas. */
+/** Normaliza Pro vencidos a Gratis; los perfiles publicados siguen recibiendo citas. */
 export async function downgradeExpiredAgendaProProfiles(): Promise<number> {
     if (isPlatformLaunchActive('agenda')) return 0;
 
@@ -113,7 +113,7 @@ export async function checkClientLimit(_profileId: string, _additionalClients = 
     return null;
 }
 
-/** Cuenta las reservas creadas durante el mes calendario de Chile, incluidas las canceladas. */
+/** Cuenta las citas creadas durante el mes calendario de Chile, incluidas las canceladas. */
 export async function getAgendaMonthlyBookingCount(profileId: string): Promise<number> {
     const rows = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -136,7 +136,7 @@ export async function checkAppointmentLimit(profileId: string, additionalAppoint
     const used = await getAgendaMonthlyBookingCount(profileId);
     if (used + additionalAppointments <= AGENDA_PRICING.free.monthlyBookings) return null;
 
-    return `El plan Gratis incluye hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan). Ya llevas ${used}; activa Pro por ${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes para seguir recibiendo reservas.`;
+    return `El plan Gratis incluye hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes (las canceladas también cuentan). Ya llevas ${used}; activa Pro por ${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes para seguir recibiendo citas.`;
 }
 
 /** Genera slots para una fecha según reglas de disponibilidad y citas existentes. */

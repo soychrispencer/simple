@@ -21,15 +21,15 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
         title: 'Capacidad y límites',
         items: [
             {
-                name: 'Reservas nuevas al mes',
-                description: 'Reservas creadas durante el mes calendario en Chile. Las reservas canceladas también cuentan.',
+                name: 'Citas nuevas al mes',
+                description: 'Citas creadas durante el mes calendario en Chile. Las canceladas también cuentan.',
                 free: `Hasta ${AGENDA_PRICING.free.monthlyBookings} al mes`,
                 pro: 'Ilimitadas',
                 proPlus: 'Ilimitadas',
             },
             {
                 name: 'Servicios activos en vitrina',
-                description: 'Tipos de atenciones o prestaciones disponibles para reserva.',
+                description: 'Tipos de atenciones o prestaciones que tus clientes pueden agendar.',
                 free: `Hasta ${AGENDA_PRICING.free.activeServices} servicios`,
                 pro: 'Ilimitados',
                 proPlus: 'Ilimitados',
@@ -57,18 +57,18 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
         ],
     },
     {
-        title: 'Gestión de agenda y reservas',
+        title: 'Gestión de agenda y citas',
         items: [
             {
-                name: 'Perfil público de reservas',
-                description: 'Página propia lista para compartir con tus clientes.',
+                name: 'Perfil público para agendar',
+                description: 'Página propia lista para compartir con tus clientes y recibir citas.',
                 free: true,
                 pro: true,
                 proPlus: true,
             },
             {
-                name: 'Reserva online 24/7 sin registro',
-                description: 'Tus clientes o pacientes agendan sin crear una cuenta.',
+                name: 'Agendar cita online 24/7 sin registro',
+                description: 'Tus clientes o pacientes eligen una hora sin crear una cuenta.',
                 free: true,
                 pro: true,
                 proPlus: true,
@@ -89,7 +89,7 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Sincronización con Google Calendar',
-                description: 'Conecta tu calendario personal para evitar dobles reservas.',
+                description: 'Conecta tu calendario personal para evitar topes de horario.',
                 free: true,
                 pro: true,
                 proPlus: true,
@@ -153,8 +153,8 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 proPlus: true,
             },
             {
-                name: 'Comisión por reserva de SimpleAgenda',
-                description: 'SimpleAgenda no cobra comisión por reserva. Mercado Pago u otro proveedor puede aplicar sus propias tarifas.',
+                name: 'Comisión por cita de SimpleAgenda',
+                description: 'SimpleAgenda no cobra comisión por cita. Mercado Pago u otro proveedor puede aplicar sus propias tarifas.',
                 free: '0% de comisión de SimpleAgenda',
                 pro: '0% de comisión de SimpleAgenda',
                 proPlus: '0% de comisión de SimpleAgenda',
@@ -179,7 +179,7 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
         title: 'Crecimiento y reputación',
         items: [
             {
-                name: 'Estadísticas y analítica de reservas',
+                name: 'Estadísticas y analítica de citas',
                 description: 'Evolución mensual, días más solicitados y rendimiento.',
                 free: false,
                 pro: true,

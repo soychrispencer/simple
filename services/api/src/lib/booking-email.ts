@@ -95,7 +95,7 @@ export function buildBookingEmailPackage(
             .map((d, i) => `<li style="margin:0 0 6px;">${i + 1}. ${escapeHtml(fmtBookingDateTime(d, data.timezone))}</li>`)
             .join('');
         extraHtml += buildInfoBoxHtml({
-            title: `Reserva ${freqLabel} · ${seriesDates.length} sesiones`,
+            title: `Cita ${freqLabel} · ${seriesDates.length} sesiones`,
             tone: 'blue',
             bodyHtml: `<ul style="margin:0;padding-left:18px;">${list}</ul>`,
         });

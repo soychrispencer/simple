@@ -18,7 +18,7 @@ export function BookingConfirmation({ time, label, variant }: BookingConfirmatio
             <span className="agenda-confirmation__time agenda-numeral block text-xl font-bold leading-tight tabular-nums sm:text-2xl">{time}</span>
             <span className="flex items-center gap-1.5 text-[0.6875rem] font-semibold">
                 <IconCheck size={13} stroke={3} aria-hidden="true" />
-                Reserva confirmada
+                Cita confirmada
             </span>
         </div>
     );

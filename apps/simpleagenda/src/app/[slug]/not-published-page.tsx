@@ -9,7 +9,7 @@ export function NotPublishedPage({ displayName }: { displayName: string }) {
                     {displayName ? `${displayName} — Página en preparación` : 'Página aún no disponible'}
                 </h1>
                 <p className="leading-relaxed text-white/60">
-                    Este profesional está configurando su página de reservas.
+                    Este profesional está preparando su perfil para agendar citas.
                     Vuelve pronto para agendar tu cita.
                 </p>
                 <a

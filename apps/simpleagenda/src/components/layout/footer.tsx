@@ -16,7 +16,7 @@ export function Footer() {
     return (
         <MarketplaceFooter
             logo={<BrandLogo appId="simpleagenda" size="sm" />}
-            description="SimpleAgenda simplifica la gestión de citas y reservas."
+            description="SimpleAgenda simplifica la gestión de citas y horarios."
             copyrightName="SimpleAgenda"
             legalLinks={legalLinks}
             socialLinks={socialLinks}

@@ -312,7 +312,7 @@ export function SubscriptionManager({
         if (!cancelSubscription || (currentPlanId !== 'pro' && currentPlanId !== 'pro_plus') || cancelling) return;
         const confirmed = window.confirm(
             agendaBilling
-                ? `¿Cancelar tu plan ${currentPlanName}? Dejarás de renovar el cobro y tu cuenta pasará a Gratis. Mantendrás tus datos, tu perfil público y hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes; las canceladas también cuentan.`
+                ? `¿Cancelar tu plan ${currentPlanName}? Dejarás de renovar el cobro y tu cuenta pasará a Gratis. Mantendrás tus datos, tu perfil público y hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes; las canceladas también cuentan.`
                 : `¿Cancelar tu plan ${currentPlanName}? Dejarás de renovar el cobro en Mercado Pago y el acceso a funciones pagadas terminará. Tu configuración se mantiene guardada.`,
         );
         if (!confirmed) return;
@@ -394,7 +394,7 @@ export function SubscriptionManager({
                     <p className="mt-1 text-sm text-(--fg-secondary)">
                         {trial.isExpired
                             ? (agendaBilling
-                                ? `Tu perfil público y tus datos se mantienen. Gratis incluye hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (las canceladas también cuentan), ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación; no hay cobro automático.`
+                                ? `Tu perfil público y tus datos se mantienen. Gratis incluye hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes (las canceladas también cuentan), ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación; no hay cobro automático.`
                                 : 'Tu configuración se mantiene guardada. Solo falta activar Pro para volver a operar.')
                             : 'Puedes activar Pro ahora o esperar al fin de la prueba. Sin permanencia.'}
                     </p>
@@ -639,7 +639,7 @@ export function SubscriptionManager({
                                         <p className="text-xs leading-relaxed text-(--fg-muted)">
                                             {trial?.isExpired
                                                 ? (agendaBilling
-                                                    ? `Tu cuenta continúa en Gratis, con perfil público y ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes; las canceladas también cuentan.`
+                                                    ? `Tu cuenta continúa en Gratis, con perfil público y ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes; las canceladas también cuentan.`
                                                     : 'Tu prueba terminó. Pro reactiva el acceso completo.')
                                                 : trial
                                                     ? `Te quedan ${trial.daysRemaining} días con todo incluido.`

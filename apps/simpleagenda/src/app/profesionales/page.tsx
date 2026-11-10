@@ -181,12 +181,12 @@ function ProfesionalesPageInner() {
                     </nav>
                     <span className="inline-flex items-center gap-1.5 rounded-button bg-(--signal) px-2.5 py-1.5 text-xs font-bold text-(--signal-contrast)">
                         <IconCalendarEvent size={14} aria-hidden="true" />
-                        Reservas online
+                        Citas online
                     </span>
                 </div>
             )}
             title="Encuentra un profesional"
-            description="Directorio de profesionales con reserva directa en su perfil público. Sin comisiones de Simple por cita."
+                    description="Directorio de profesionales donde puedes agendar directamente desde su perfil público. Sin comisiones de Simple por cita."
             search={(
                 <OperatorSearchShell
                     value={draft}

@@ -20,7 +20,7 @@ export function AgendaPublicLinkPanel() {
         normalizeSlug: normalizeBusinessPublicSlugStrict,
         slugMinLength: 3,
         shareTitle: (state) => (state.displayName ? `Reserva con ${state.displayName}` : 'Reserva tu cita'),
-        qrDownloadName: (slug) => `reservas-${slug}`,
+        qrDownloadName: (slug) => `citas-${slug}`,
         emptyStateDescription: 'Completa tu nombre público abajo para generar tu link.',
         load: async () => {
             const profile = await fetchAgendaProfile();

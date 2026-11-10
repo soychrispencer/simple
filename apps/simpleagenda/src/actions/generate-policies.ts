@@ -14,8 +14,8 @@ export type GeneratePoliciesInput = {
 
 const FALLBACK_POLICIES = `POLÍTICAS Y CONDICIONES
 
-1. Reserva y confirmación
-Las reservas quedan agendadas al completar el formulario. Recibirás una confirmación por correo con los datos de la sesión.
+1. Cita y confirmación
+La cita queda agendada al completar el formulario. Recibirás una confirmación por correo con los datos de la sesión.
 
 2. Puntualidad
 Te pedimos llegar (o conectarte) cinco minutos antes. Si llegas tarde, la sesión terminará a la hora pactada para no afectar a otros pacientes.
@@ -52,7 +52,7 @@ DATOS DEL PROFESIONAL:
 REGLAS:
 - Extensión: entre 250 y 500 palabras
 - Estructura en secciones numeradas con título breve y 1-2 oraciones cada una
-- Incluye al menos estas secciones: Reserva y confirmación, Puntualidad, Cancelaciones y reagendamientos, Confidencialidad (con las excepciones legales chilenas), Forma de pago
+- Incluye al menos estas secciones: Cita y confirmación, Puntualidad, Cancelaciones y reagendamientos, Confidencialidad (con las excepciones legales chilenas), Forma de pago
 - Usa "tú" para dirigirte al paciente (tono cercano pero profesional)
 - Cierra con una frase que diga que al reservar acepta estas condiciones
 - No uses asteriscos, markdown ni emojis

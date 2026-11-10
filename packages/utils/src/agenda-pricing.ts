@@ -20,14 +20,14 @@ export const AGENDA_PLAN_CATALOG = {
         name: 'Gratis',
         availability: 'available',
         priceMonthlyNetClp: 0,
-        description: 'Agenda básica para empezar y seguir recibiendo reservas después de la prueba.',
+        description: 'Agenda básica para empezar y seguir recibiendo citas después de la prueba.',
         features: [
-            `Hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes (incluye canceladas)`,
+            `Hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes (las canceladas también cuentan)`,
             `Hasta ${AGENDA_PRICING.free.activeServices} servicios activos y ${AGENDA_PRICING.free.activeLocations} ubicación`,
-            'Perfil público, link de reservas, agenda y clientes',
+            'Perfil público, link para reservar, agenda y clientes',
             'Confirmaciones por email',
             'Recordatorios automáticos por email',
-            'Sin cobro automático ni comisión de SimpleAgenda por reserva',
+            'Sin cobro automático ni comisión de SimpleAgenda por cita',
         ],
     },
     pro: {
@@ -37,12 +37,12 @@ export const AGENDA_PLAN_CATALOG = {
         priceMonthlyNetClp: AGENDA_PRICING.proMonthlyNetClp,
         description: 'Todo lo necesario para gestionar una agenda profesional completa.',
         features: [
-            'Reservas, servicios y ubicaciones sin límites de uso',
+            'Citas, servicios y ubicaciones sin límites de uso',
             'Recordatorios automáticos por email',
             'Finanzas y control de cobros',
             'Packs, promociones y agenda avanzada',
             'Estadísticas, NPS y referidos',
-            'Integraciones disponibles y 0% de comisión de SimpleAgenda por reserva',
+            'Integraciones disponibles y 0% de comisión de SimpleAgenda por cita',
         ],
     },
     proPlus: {
@@ -54,7 +54,7 @@ export const AGENDA_PLAN_CATALOG = {
         features: [
             'Todo lo incluido en Pro',
             'Lista de clientes sin una cita reciente: 30, 60 o 90 días',
-            'Segmentos según última atención y próximas reservas',
+            'Segmentos según última atención y próximas citas',
             'Mensajes individuales listos para WhatsApp o correo',
             'Tú eliges a quién contactar y envías cada mensaje',
         ],

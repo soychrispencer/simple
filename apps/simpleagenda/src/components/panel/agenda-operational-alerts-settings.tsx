@@ -67,13 +67,13 @@ function AgendaInboxAlertsSettings() {
         <div className="space-y-3">
             <BusinessOperationalAlertSettingRow
                 icon={IconBell}
-                title="Sonido de nuevas reservas"
-                description="Aviso sonoro cuando llega una reserva pendiente en tu agenda."
+                title="Sonido de nuevas citas"
+                description="Aviso sonoro cuando llega una cita pendiente a tu agenda."
                 action={
                     <PanelSwitch
                         checked={!alerts.soundMuted}
                         onChange={() => alerts.toggleSoundMuted()}
-                        ariaLabel="Sonido de nuevas reservas"
+                        ariaLabel="Sonido de nuevas citas"
                     />
                 }
             />
@@ -122,7 +122,7 @@ export function AgendaOperationalAlertsSettings({
         {
             key: 'emailNotifyRequests' as const,
             icon: IconCalendarEvent,
-            title: 'Nuevas reservas online',
+            title: 'Citas nuevas online',
             description: `Correo cuando un ${vocab.client} reserva desde tu perfil público (pendiente o confirmada).`,
         },
         {
@@ -137,7 +137,7 @@ export function AgendaOperationalAlertsSettings({
         <PanelCard size="lg" className="space-y-8">
             <PanelBlockHeader
                 title={BUSINESS_OPERATIONAL_ALERTS_SECTION.title}
-                description={`Alertas cuando llegan reservas online o un ${vocab.client} cancela.`}
+                description={`Alertas cuando llegan citas online o un ${vocab.client} cancela.`}
                 className="mb-0"
             />
 

@@ -211,7 +211,7 @@ export default function ReactivarClientesPage() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <p className="text-sm font-semibold text-(--fg)">Sin una atención reciente</p>
-                        <p className="mt-0.5 text-xs text-(--fg-muted)">Solo incluye clientes sin una reserva próxima.</p>
+                        <p className="mt-0.5 text-xs text-(--fg-muted)">Solo incluye clientes sin una cita próxima.</p>
                     </div>
                     <div className="inline-flex w-full rounded-xl border border-(--border) bg-(--bg-subtle) p-1 sm:w-auto" role="group" aria-label="Días desde la última atención">
                         {INACTIVITY_OPTIONS.map((days) => (

@@ -35,7 +35,7 @@ const TESTIMONIALS: Testimonial[] = [
         quote:
             'Los recordatorios automáticos por correo cambiaron todo. Pasamos de tener 4 o 5 clientes que no llegaban por semana a casi cero inasistencias. Y si alguien cancela, el horario se libera en la web al segundo y otro cliente lo toma de inmediato.',
         highlight: 'Reducción de inasistencias del 95%',
-        verifiedMetric: '90+ reservas mensuales',
+        verifiedMetric: '90+ citas mensuales',
     },
     {
         name: 'Camila Silva',
@@ -64,7 +64,7 @@ const TESTIMONIALS: Testimonial[] = [
 const METRICS = [
     { value: '+500', label: 'Horas agendadas cada mes' },
     { value: '98.4%', label: 'Asistencia con recordatorios' },
-    { value: '0%', label: 'Comisión por reserva' },
+    { value: '0%', label: 'Comisión por cita' },
     { value: '4.9/5', label: 'Satisfacción de profesionales' },
 ];
 

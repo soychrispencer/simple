@@ -2589,7 +2589,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         if (requestedFrequency && !profile.allowsRecurrentBooking) return c.json({ ok: false, error: 'Este profesional no permite reservar sesiones recurrentes.' }, 403);
         const recurrenceCountRaw = typeof body.recurrenceCount === 'number' ? body.recurrenceCount : 1;
         const publicTotalOccurrences = requestedFrequency ? Math.max(2, Math.min(recurrenceCountRaw, 26)) : 1;
-        if (isFreePlan(profile)) { const le = await checkAppointmentLimit(profile.id, publicTotalOccurrences); if (le) return c.json({ ok: false, error: 'Esta agenda alcanzó su límite mensual de reservas. Contacta directamente al profesional para consultar disponibilidad.' }, 403); }
+        if (isFreePlan(profile)) { const le = await checkAppointmentLimit(profile.id, publicTotalOccurrences); if (le) return c.json({ ok: false, error: 'Esta agenda alcanzó su límite mensual de citas. Contacta directamente al profesional para consultar disponibilidad.' }, 403); }
         const publicSeriesId = publicTotalOccurrences > 1 ? randomUUID() : null;
         const bookingEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
         const bookingPhone = typeof body.clientPhone === 'string' && body.clientPhone ? body.clientPhone : null;
@@ -2695,7 +2695,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             userId: profile.userId,
             vertical: 'agenda',
             type: 'appointment.new_booking',
-            title: 'Nueva reserva online',
+            title: 'Nueva cita online',
             body: `${String(body.clientName)} — ${fmtD3(startsAt)} a las ${fmtT3(startsAt)}`,
             actionUrl: '/panel/agenda',
             entityType: 'appointment',
@@ -2705,7 +2705,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         void sendPushToUser(profile.userId, { title: '📅 Nueva cita agendada', body: `${String(body.clientName)} — ${fmtD3(startsAt)} a las ${fmtT3(startsAt)}`, url: '/panel/agenda' });
         void import('../../lib/agenda-email.js').then(({ sendAgendaProfessionalNewBookingEmailForUser }) =>
             sendAgendaProfessionalNewBookingEmailForUser(profile.userId, {
-                title: status === 'pending' ? 'Nueva reserva pendiente de confirmación' : 'Nueva reserva online confirmada',
+                title: status === 'pending' ? 'Nueva cita pendiente de confirmación' : 'Nueva cita online confirmada',
                 message: `${String(body.clientName)} reservó para ${fmtD3(startsAt)} a las ${fmtT3(startsAt)}${serviceName ? ` (${serviceName})` : ''}.`,
             }).catch((err: unknown) => console.error('[agenda] Failed to send professional new booking email:', err)),
         );

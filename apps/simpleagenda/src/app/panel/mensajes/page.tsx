@@ -10,7 +10,7 @@ export default function MensajesPage() {
             vertical="agenda"
             copy={{
                 description: `Conversaciones con ${vocab.clients} y consultas de tu agenda`,
-                emptyInbox: `Cuando un ${vocab.client} te escriba desde tu perfil o una reserva aparecerá aquí.`,
+                emptyInbox: `Cuando un ${vocab.client} te escriba desde tu perfil o una cita aparecerá aquí.`,
             }}
         />
     );

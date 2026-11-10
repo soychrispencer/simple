@@ -221,12 +221,12 @@ export function AgendaConfiguracionesContent() {
             <div className="w-full space-y-4">
                 <BusinessBookingResponseModeCard
                     title="Confirmación de citas"
-                    description="Elige si las reservas se confirman al instante o quedan pendientes de tu aprobación."
+                    description="Elige si las citas se confirman al instante o quedan pendientes de tu aprobación."
                     mode={automaticSelected ? 'automatic' : 'manual'}
                     onModeChange={(next) => setBooking('confirmationMode', next === 'automatic' ? 'auto' : 'manual')}
-                    manualDescription="Cada reserva queda pendiente para que la apruebes o rechaces desde el panel."
+                    manualDescription="Cada cita queda pendiente para que la apruebes o rechaces desde el panel."
                     automaticTitle="Confirmar automáticamente"
-                    automaticDescription="Si el horario está disponible, la reserva se confirma sin intervención manual."
+                    automaticDescription="Si el horario está disponible, la cita se confirma sin intervención manual."
                     hasUnsavedChanges={hasChanges}
                 />
 

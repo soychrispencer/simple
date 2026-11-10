@@ -167,7 +167,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
     const paymentPending = confirmedAppt?.paymentStatus === 'pending';
     const isConfirmed = confirmedAppt?.status === 'confirmed' && !paymentPending;
-    const resultTitle = isConfirmed ? 'Reserva confirmada' : paymentPending ? 'Pago pendiente' : 'Solicitud enviada';
+    const resultTitle = isConfirmed ? 'Cita confirmada' : paymentPending ? 'Pago pendiente' : 'Solicitud enviada';
 
     const loadSlots = useCallback(async (date: string, service: Service) => {
         setLoadingSlots(true);
@@ -932,7 +932,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                     disabled={!policyAgreed || submitting}
                                     className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"
                                 >
-                                    {submitting ? <IconLoader2 size={16} className="animate-spin inline" /> : 'Confirmar reserva'}
+                                    {submitting ? <IconLoader2 size={16} className="animate-spin inline" /> : 'Confirmar cita'}
                                 </button>
                             </div>
                         )}
@@ -1009,7 +1009,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                                 className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 booking-btn-primary"
                                             >
                                                 {submitting ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                                                Confirmar reserva
+                                                Confirmar cita
                                             </button>
                                         </div>
                                     )}
@@ -1026,7 +1026,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                                 className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 booking-btn-primary"
                                             >
                                                 {submitting ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                                                Confirmar reserva
+                                                Confirmar cita
                                             </button>
                                         </div>
                                     )}

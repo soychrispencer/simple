@@ -22,9 +22,9 @@ import { AgendaCta } from '@/components/landing/agenda-cta';
 import { AgendaPricingPlans } from '@/components/landing/agenda-pricing-plans';
 
 const questions = [
-    ['¿Qué pasa cuando termina la prueba?', `Pasas automáticamente a Gratis, con hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes. Las canceladas también cuentan. Solo pagas si eliges activar Pro.`],
+    ['¿Qué pasa cuando termina la prueba?', `Pasas automáticamente a Gratis, con hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes. Las canceladas también cuentan. Solo pagas si eliges activar Pro.`],
     ['¿Mis clientes necesitan una cuenta?', 'No. Pueden elegir un horario y reservar directamente desde tu link.'],
-    ['¿Cómo puedo cobrar por una cita?', 'Puedes configurar Mercado Pago, transferencia bancaria o un link de pago personalizado. SimpleAgenda no cobra comisión por reserva; el proveedor de pago puede aplicar sus propias tarifas.'],
+    ['¿Cómo puedo cobrar por una cita?', 'Puedes configurar Mercado Pago, transferencia bancaria o un link de pago personalizado. SimpleAgenda no cobra comisión por cita; el proveedor de pago puede aplicar sus propias tarifas.'],
     ['¿SimpleAgenda envía WhatsApp automáticamente?', 'Aún no. Pro+ permite encontrar clientes que llevan 30, 60 o 90 días sin una atención y preparar un mensaje individual para WhatsApp o correo. Tú revisas y envías cada mensaje. Los recordatorios automáticos actuales llegan por email.'],
 ];
 
@@ -62,7 +62,7 @@ export default function HomePage() {
                         </div>
                     </div>
                     <figure className="agenda-hero-visual">
-                        <Image src="/hero/reserva-online-confirmada.png" alt="Una profesional atiende a un cliente mientras la agenda muestra una reserva confirmada en el teléfono" width={1754} height={896} priority sizes="(min-width: 1328px) 640px, (min-width: 1100px) 55vw, 100vw" className="agenda-hero-visual__image" />
+                        <Image src="/hero/reserva-online-confirmada.png" alt="Una profesional atiende a un cliente mientras la agenda muestra una cita confirmada en el teléfono" width={1754} height={896} priority sizes="(min-width: 1328px) 640px, (min-width: 1100px) 55vw, 100vw" className="agenda-hero-visual__image" />
                     </figure>
                 </div>
             </section>
@@ -95,7 +95,7 @@ export default function HomePage() {
                         </p>
                         <div className="agenda-fee-note mt-6 sm:mt-8">
                             <strong className="agenda-numeral">0%</strong>
-                            <span>de comisión de SimpleAgenda por reserva</span>
+                            <span>de comisión de SimpleAgenda por cita</span>
                         </div>
                     </div>
                     <figure className="agenda-function-snapshot p-4 sm:p-5">

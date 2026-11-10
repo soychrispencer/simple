@@ -76,7 +76,7 @@ export default function DominioPage() {
                         Primero publica tu link
                     </p>
                     <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                        Configura tu link de reservas antes de conectar un dominio propio.
+                        Configura el link para que tus clientes puedan agendar citas antes de conectar un dominio propio.
                     </p>
                     <Link
                         href="/panel/mi-negocio"
@@ -102,7 +102,7 @@ export default function DominioPage() {
                                     </span>
                                 </div>
                                 <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>
-                                    Todas tus reservas hoy pasan por este link.
+                                    Todas las citas agendadas desde tu perfil pasan por este link.
                                 </p>
                                 <div
                                     className="px-3 py-2 rounded-lg text-sm font-mono truncate"

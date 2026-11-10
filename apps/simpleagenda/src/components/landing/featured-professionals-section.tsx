@@ -157,7 +157,7 @@ export function FeaturedProfessionalsSection() {
                             Profesionales que ya usan SimpleAgenda
                         </h2>
                         <p className="mt-3 max-w-2xl text-sm sm:text-base text-[var(--fg-secondary)] leading-relaxed">
-                            Explora perfiles y agendas en vivo. Tus clientes disfrutarán de esta misma experiencia de reserva simple, rápida y sin registro.
+                            Explora perfiles y agendas en vivo. Tus clientes disfrutarán de una forma simple y rápida de agendar su cita, sin registrarse.
                         </p>
                     </div>
                     <PanelButtonLink

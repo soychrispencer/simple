@@ -166,7 +166,7 @@ export default function PanelHomePage() {
             accent: false,
         },
         {
-            label: hasProAccess ? 'Pagos pendientes' : 'Reservas este mes',
+            label: hasProAccess ? 'Pagos pendientes' : 'Citas este mes',
             value: loading ? null : hasProAccess ? fmtCLP(stats?.pendingPayments ?? 0) : `${monthlyBookingsUsed}/${monthlyBookingsLimit}`,
             icon: hasProAccess ? IconCreditCard : IconCalendar,
             href: hasProAccess ? '/panel/finanzas' : '/panel/agenda',
@@ -272,11 +272,11 @@ export default function PanelHomePage() {
                     ) : (
                         <div className="flex h-full flex-col justify-center">
                             <p className="text-sm font-semibold agenda-home-fg">Tu plan Gratis</p>
-                            <p className="mt-1 text-xs agenda-home-muted">Reservas creadas este mes</p>
+                            <p className="mt-1 text-xs agenda-home-muted">Citas nuevas este mes</p>
                             <p className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight agenda-home-fg">
                                 {loading ? '—' : `${monthlyBookingsUsed} / ${monthlyBookingsLimit}`}
                             </p>
-                            <div className="mt-3 h-2 overflow-hidden rounded-full bg-(--border)" aria-label={`${monthlyBookingsUsed} de ${monthlyBookingsLimit} reservas usadas`}>
+                            <div className="mt-3 h-2 overflow-hidden rounded-full bg-(--border)" aria-label={`${monthlyBookingsUsed} de ${monthlyBookingsLimit} citas creadas`}>
                                 <div className="h-full rounded-full bg-(--accent)" style={{ width: `${Math.min(100, monthlyBookingsLimit ? monthlyBookingsUsed / monthlyBookingsLimit * 100 : 0)}%` }} />
                             </div>
                             <Link href="/panel/mi-cuenta/suscripcion" className="mt-5 inline-flex items-center gap-1 text-xs font-medium agenda-home-accent">

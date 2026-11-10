@@ -12,7 +12,7 @@ import { buildAgendaVocabFromSubtype } from '@/lib/vocabulary';
 export type AgendaBusinessSetupStatus = {
     steps: BusinessSetupStep[];
     billing: PanelBillingAccess;
-    /** Perfil ya público: se puede mostrar el banner “listo para recibir reservas”. */
+    /** Perfil ya público: se puede mostrar el banner “listo para recibir citas”. */
     isPublished: boolean;
     publicUrl: string | null;
     displayName: string | null;
@@ -82,7 +82,7 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
         {
             id: 'publicar',
             label: 'Publicar y compartir',
-            description: 'Activa tu link público para recibir reservas.',
+            description: 'Activa tu link público para recibir citas.',
             href: '/panel/mi-negocio#agenda-publish-control',
             complete: isPublished,
         },

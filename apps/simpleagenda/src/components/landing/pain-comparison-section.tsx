@@ -17,7 +17,7 @@ const WHATSAPP_PAINS = [
     },
     {
         title: 'Revisar cuadernos y notas con apuro',
-        desc: 'Abres agendas en papel o notas del celular mientras estás con otro cliente, arriesgando dobles reservas.',
+        desc: 'Abres agendas en papel o notas del celular mientras estás con otro cliente, arriesgando citas duplicadas en el mismo horario.',
     },
     {
         title: 'Mensajes a las 23:30 hrs y fines de semana',
@@ -43,8 +43,8 @@ const SIMPLE_BENEFITS = [
         desc: 'Bloquea pausas y almuerzos. Si tienes Google Calendar conectado, evita automáticamente cualquier tope.',
     },
     {
-        title: 'Tu agenda recibe reservas 24/7 mientras descansas',
-        desc: 'El 65% de las reservas se hacen fuera del horario laboral. Tu consulta sigue facturando mientras duermes.',
+        title: 'Tu agenda recibe citas 24/7 mientras descansas',
+        desc: 'El 65% de las citas se agendan fuera del horario laboral. Tu consulta sigue recibiendo clientes mientras duermes.',
     },
     {
         title: 'Recordatorios automáticos por email',
@@ -130,7 +130,7 @@ export function PainComparisonSection() {
                                         <h3 className="font-bold text-base sm:text-lg text-[var(--fg)]">
                                             Con SimpleAgenda
                                         </h3>
-                                        <p className="text-xs text-[var(--accent-ink)] font-semibold">Orden, tranquilidad y más reservas</p>
+                                        <p className="text-xs text-[var(--accent-ink)] font-semibold">Orden, tranquilidad y más citas</p>
                                     </div>
                                 </div>
                                 <span className="rounded-full bg-[var(--accent-subtle)] text-[var(--accent-ink)] px-2.5 py-1 text-[11px] font-bold">

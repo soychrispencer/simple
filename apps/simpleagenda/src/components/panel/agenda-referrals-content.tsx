@@ -241,7 +241,7 @@ export function AgendaReferralsContent() {
             {bookingUrl ? (
                 <PanelCard size="sm" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                        <p className="text-sm font-semibold text-fg">Tu página de reservas</p>
+                        <p className="text-sm font-semibold text-fg">Tu perfil para agendar citas</p>
                         <p className="mt-0.5 truncate text-xs text-fg-muted">{bookingUrl}</p>
                     </div>
                     <div className="flex shrink-0 gap-2">

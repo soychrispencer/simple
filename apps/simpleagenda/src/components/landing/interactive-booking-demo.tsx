@@ -134,7 +134,7 @@ export function InteractiveBookingDemo() {
         <section id="demo-interactiva" aria-labelledby="demo-title" className="scroll-mt-20">
             <div className="agenda-demo-layout container-app grid gap-8 py-14 sm:gap-10 sm:py-14 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-14 lg:py-20">
                 <div className="agenda-demo-copy max-w-md">
-                    <p className="agenda-eyebrow mb-3">Del link a la reserva</p>
+                    <p className="agenda-eyebrow mb-3">Del link a la cita</p>
                     <h2 id="demo-title" className="agenda-heading agenda-demo-title">Elige una hora. <span>Y queda confirmada.</span></h2>
                     <p className="agenda-demo-description mt-4 max-w-sm text-base leading-relaxed sm:text-lg">
                         Prueba el recorrido: elige un servicio, una hora disponible y confirma. Tus clientes reservan sin crear una cuenta.
@@ -220,7 +220,7 @@ export function InteractiveBookingDemo() {
                                 </fieldset>
 
                                 <button type="button" className="agenda-button w-full" onClick={handleConfirm}>
-                                    Confirmar reserva de prueba
+                                    Confirmar cita de prueba
                                     <IconArrowRight size={16} className="shrink-0" aria-hidden="true" />
                                 </button>
                             </div>

@@ -65,6 +65,6 @@ export async function cancelAgendaProSubscription(
 
     return {
         ok: true,
-        message: `Suscripción cancelada. No se renovará el cobro. Tu cuenta pasa a Gratis y mantiene perfil público, datos y hasta ${AGENDA_PRICING.free.monthlyBookings} reservas creadas al mes; las canceladas también cuentan.`,
+        message: `Suscripción cancelada. No se renovará el cobro. Tu cuenta pasa a Gratis y mantiene perfil público, datos y hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes; las canceladas también cuentan.`,
     };
 }

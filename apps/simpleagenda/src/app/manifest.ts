@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
     return {
         name: 'SimpleAgenda',
         short_name: 'SimpleAgenda',
-        description: 'Agenda online para reservas, citas, clientes y pagos.',
+        description: 'Agenda online para citas, clientes y pagos.',
         start_url: '/',
         scope: '/',
         display: 'browser',

@@ -72,7 +72,7 @@ export function useAgendaBookingAlerts({ enabled }: Options) {
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                 const first = pending.find((item) => item.id === newIds[0]);
                 try {
-                    new Notification(newIds.length === 1 ? 'Nueva reserva pendiente' : `${newIds.length} reservas nuevas`, {
+                    new Notification(newIds.length === 1 ? 'Nueva cita pendiente' : `${newIds.length} citas nuevas`, {
                         body: first
                             ? `${first.clientName ?? vocab.Client} · ${new Date(first.startsAt).toLocaleString('es-CL')}`
                             : 'Revisa tu agenda para confirmar.',

@@ -59,7 +59,7 @@ function CancelPage() {
                         <IconCheck size={32} aria-hidden="true" />
                     </div>
                     <h1 className="text-xl font-bold mb-2">Cita cancelada</h1>
-                    <p className="text-sm text-[var(--fg-muted)]">Tu cita ha sido cancelada correctamente. Si tenías un correo de confirmación, ya no aplica esa reserva.</p>
+                    <p className="text-sm text-[var(--fg-muted)]">Tu cita ha sido cancelada correctamente. Si tenías un correo de confirmación, ya no aplica.</p>
                     {slug && (
                         <a
                             href={`/${slug}`}

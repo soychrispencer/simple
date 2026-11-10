@@ -79,7 +79,7 @@ const STATUS_COLORS: Record<string, string> = {
 const TIMELINE_LABELS: Record<string, string> = {
     'relationship.created': 'Alta en agenda',
     'relationship.updated': 'Ficha actualizada',
-    'booking.requested': 'Reserva solicitada',
+    'booking.requested': 'Cita solicitada',
     'booking.confirmed': 'Cita confirmada',
     'booking.status_changed': 'Cambio de estado de cita',
     'payment.recorded': 'Cobro registrado',
