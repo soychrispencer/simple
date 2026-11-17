@@ -479,6 +479,8 @@ Aplicar cada migración de producción solo después de comparar accesos y cobro
 
 **Preflight OAuth de Mercado Pago en producción (17 de noviembre de 2026):** en Coolify, `API_BASE_URL` vale `https://api.simpleplataforma.app`. Están creadas las variables `MP_AGENDA_APP_ID` y `MP_AGENDA_APP_SECRET`; no aparecen `MP_OPERATOR_APP_ID`, `MP_OPERATOR_APP_SECRET` ni `MP_OPERATOR_REDIRECT_URI`. Como el código admite ese respaldo, la URL de retorno calculada es `https://api.simpleplataforma.app/api/integrations/mercadopago/callback`, siempre que las credenciales heredadas tengan valores válidos. La presencia de las variables no confirma sus valores ni que el callback esté registrado en la aplicación OAuth de Mercado Pago. No se consultó ni modificó ese panel y no se inició OAuth; esa verificación sigue pendiente.
 
+**Regresión de navegación del encabezado por rol (17 de noviembre de 2026):** la prueba autenticada del agente ahora verifica también el menú de cuenta global en SimplePropiedades y SimpleAutos: muestra las acciones de trabajo y oculta Publicidad, Finanzas, Estadísticas y Mi negocio. El recorrido de alternancia entre cuenta personal y empresa espera a que el selector termine de hidratarse, evitando una lectura intermitente durante la carga. `PLAYWRIGHT_CHANNEL=chrome pnpm --filter @simple/propiedades run test:e2e:roles` pasó los ocho casos en local, incluidos ambos encabezados. No constituye verificación en producción.
+
 ## Archivos y documentos de referencia
 
 - [Lenguaje común de Simple](./SIMPLE_PLATFORM_LANGUAGE.md)

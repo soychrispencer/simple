@@ -86,15 +86,25 @@ test.describe('SimplePropiedades: panel local por segmento y rol', () => {
     test('una misma persona alterna entre su cuenta personal y el espacio de empresa', async ({ page, context }) => {
         await login(page, context, TEST_USERS.owner);
 
+        const currentAccountResponse = await page.request.get(`${API_BASE}/api/accounts/current`);
+        expect(currentAccountResponse.ok(), 'La API debe cargar los espacios del dueño').toBe(true);
+        const currentAccount = await currentAccountResponse.json() as {
+            memberships?: Array<{ accountId: string; isDefault: boolean; account?: { name?: string; isPersonal?: boolean } | null }>;
+        };
+        const membershipLabels = (currentAccount.memberships ?? []).map((membership) =>
+            `${membership.account?.name ?? membership.accountId}${membership.isDefault ? ' · predeterminado' : ''}`,
+        );
+
         const switcher = page.getByRole('combobox', { name: 'Espacio activo' });
+        await expect(switcher).toBeVisible();
         const options = await switcher.locator('option').evaluateAll((elements) => elements.map((option) => ({
             id: (option as HTMLOptionElement).value,
             label: option.textContent?.trim() ?? '',
         })));
         const personal = options.find((option) => option.label.includes('Cuenta personal'));
         const company = options.find((option) => option.label.includes('Simple E2E Inmobiliaria'));
-        expect(personal?.id, 'El dueño conserva su espacio personal').toBeTruthy();
-        expect(company?.id, 'El dueño tiene acceso al espacio de empresa').toBeTruthy();
+        expect(personal?.id, `El dueño conserva su espacio personal. Espacios recibidos: ${membershipLabels.join(' | ') || 'ninguno'}`).toBeTruthy();
+        expect(company?.id, `El dueño tiene acceso al espacio de empresa. Espacios recibidos: ${membershipLabels.join(' | ') || 'ninguno'}`).toBeTruthy();
 
         try {
             await switcher.selectOption(personal!.id);
@@ -137,6 +147,32 @@ test.describe('SimplePropiedades: panel local por segmento y rol', () => {
         await expect(page.getByRole('link', { name: 'Finanzas', exact: true })).toHaveCount(0);
         await expect(page.getByRole('link', { name: 'Estadísticas', exact: true })).toHaveCount(0);
         await expect(page.getByRole('link', { name: 'Equipo', exact: true })).toHaveCount(0);
+
+        await page.getByRole('button', { name: 'Panel de usuario' }).click();
+        const accountNavigation = page.getByRole('navigation', { name: 'Navegación de panel' });
+        await expect(accountNavigation.getByRole('link', { name: 'Mi panel', exact: true })).toBeVisible();
+        await expect(accountNavigation.getByRole('link', { name: 'Publicaciones', exact: true })).toBeVisible();
+        await expect(accountNavigation.getByRole('link', { name: 'Contactos', exact: true })).toBeVisible();
+        await expect(accountNavigation.getByRole('link', { name: 'Mensajes', exact: true })).toBeVisible();
+        await expect(accountNavigation.getByRole('link', { name: 'Mi cuenta', exact: true })).toBeVisible();
+        await expect(accountNavigation.getByRole('link', { name: 'Publicidad', exact: true })).toHaveCount(0);
+        await expect(accountNavigation.getByRole('link', { name: 'Finanzas', exact: true })).toHaveCount(0);
+        await expect(accountNavigation.getByRole('link', { name: 'Estadísticas', exact: true })).toHaveCount(0);
+        await expect(accountNavigation.getByRole('link', { name: 'Mi negocio', exact: true })).toHaveCount(0);
+
+        await page.goto('http://localhost:3002/panel');
+        await expect(page.getByRole('button', { name: 'Panel de usuario' })).toBeVisible();
+        await page.getByRole('button', { name: 'Panel de usuario' }).click();
+        const autosAccountNavigation = page.getByRole('navigation', { name: 'Navegación de panel' });
+        await expect(autosAccountNavigation.getByRole('link', { name: 'Mi panel', exact: true })).toBeVisible();
+        await expect(autosAccountNavigation.getByRole('link', { name: 'Mis publicaciones', exact: true })).toBeVisible();
+        await expect(autosAccountNavigation.getByRole('link', { name: 'Contactos', exact: true })).toBeVisible();
+        await expect(autosAccountNavigation.getByRole('link', { name: 'Mensajes', exact: true })).toBeVisible();
+        await expect(autosAccountNavigation.getByRole('link', { name: 'Mi cuenta', exact: true })).toBeVisible();
+        await expect(autosAccountNavigation.getByRole('link', { name: 'Publicidad', exact: true })).toHaveCount(0);
+        await expect(autosAccountNavigation.getByRole('link', { name: 'Finanzas', exact: true })).toHaveCount(0);
+        await expect(autosAccountNavigation.getByRole('link', { name: 'Estadísticas', exact: true })).toHaveCount(0);
+        await expect(autosAccountNavigation.getByRole('link', { name: 'Mi negocio', exact: true })).toHaveCount(0);
     });
 
     test('dueño coordina visitas del equipo y puede asignar responsable en SimpleAgenda', async ({ page, context }) => {
