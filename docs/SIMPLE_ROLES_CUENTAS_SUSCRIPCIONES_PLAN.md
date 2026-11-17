@@ -481,6 +481,8 @@ Aplicar cada migración de producción solo después de comparar accesos y cobro
 
 **Regresión de navegación del encabezado por rol (17 de noviembre de 2026):** la prueba autenticada del agente ahora verifica también el menú de cuenta global en SimplePropiedades y SimpleAutos: muestra las acciones de trabajo y oculta Publicidad, Finanzas, Estadísticas y Mi negocio. El recorrido de alternancia entre cuenta personal y empresa espera a que el selector termine de hidratarse, evitando una lectura intermitente durante la carga. `PLAYWRIGHT_CHANNEL=chrome pnpm --filter @simple/propiedades run test:e2e:roles` pasó los ocho casos en local, incluidos ambos encabezados. No constituye verificación en producción.
 
+**Verificación local de perfiles simultáneos en SimpleSerenatas (17 de noviembre de 2026):** el recorrido autenticado confirmó en una misma cuenta los perfiles de proveedor y músico, sus comisiones separadas (700 y 300 puntos base), planes Pro y Gratis independientes, cambio de perfil persistido tras recargar y el texto de pertenencia del plan correcto. `test:e2e:role-coexistence` pasó con Chrome local; la fixture sintética fue eliminada correctamente al terminar. Esta prueba no contrata ni cancela planes reales.
+
 ## Archivos y documentos de referencia
 
 - [Lenguaje común de Simple](./SIMPLE_PLATFORM_LANGUAGE.md)
