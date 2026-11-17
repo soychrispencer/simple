@@ -66,8 +66,8 @@ COPY --from=builder /app/services/api/drizzle ./services/api/drizzle
 COPY --from=builder /app/services/api/entrypoint.sh ./services/api/entrypoint.sh
 COPY scripts ./scripts
 
-# Install pnpm and drizzle-kit in production stage
-RUN npm install -g pnpm@10 drizzle-kit
+# Install pnpm; drizzle-kit is a local production dependency so its config imports resolve.
+RUN npm install -g pnpm@10
 RUN pnpm install --prod
 
 # Make entrypoint executable

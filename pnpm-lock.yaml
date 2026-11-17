@@ -684,6 +684,9 @@ importers:
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
+      drizzle-kit:
+        specifier: ^0.31.10
+        version: 0.31.10
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
@@ -733,9 +736,6 @@ importers:
       '@types/web-push':
         specifier: ^3.6.4
         version: 3.6.4
-      drizzle-kit:
-        specifier: ^0.31.10
-        version: 0.31.10
       tsx:
         specifier: ^4.22.4
         version: 4.22.4
