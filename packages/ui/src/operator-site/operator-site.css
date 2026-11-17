@@ -533,6 +533,20 @@
     margin-bottom: 0.5rem;
 }
 
+.os-hero__description {
+    max-width: 36rem;
+    margin: 0 0 0.8rem;
+    color: rgba(255, 255, 255, 0.84);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
+}
+
+.os-page[data-os-color="light"] .os-hero__description {
+    color: var(--fg-secondary);
+    text-shadow: none;
+}
+
 .os-hero__subtitle {
     font-size: 0.9375rem;
     font-weight: 500;

@@ -4,11 +4,11 @@ import type { PaymentOrderRecord } from './order-cache.js';
 export type ListUserPaymentOrdersDeps = {
     getPaymentOrdersForUser: (
         userId: string,
-        options?: { vertical?: string; kind?: string },
+        options?: { vertical?: string; kind?: string; accountId?: string | null },
     ) => PaymentOrderRecord[];
     listPaymentOrdersForUserFromDb?: (
         userId: string,
-        options?: { vertical?: string; kind?: string; limit?: number },
+        options?: { vertical?: string; kind?: string; accountId?: string | null; limit?: number },
     ) => Promise<HydratedPaymentOrder[]>;
     upsertPaymentOrder: (order: PaymentOrderRecord) => PaymentOrderRecord;
 };
@@ -20,7 +20,7 @@ export type ListUserPaymentOrdersDeps = {
 export async function listUserPaymentOrdersMerged(
     deps: ListUserPaymentOrdersDeps,
     userId: string,
-    options: { vertical?: string; kind?: string; limit?: number } = {},
+    options: { vertical?: string; kind?: string; accountId?: string | null; limit?: number } = {},
 ): Promise<PaymentOrderRecord[]> {
     const limit = options.limit ?? 100;
     const fromMap = deps.getPaymentOrdersForUser(userId, options);
@@ -46,6 +46,7 @@ export async function listUserPaymentOrdersMerged(
     return [...byId.values()]
         .filter((item) => (options.vertical ? item.vertical === options.vertical : true))
         .filter((item) => (options.kind ? item.kind === options.kind : true))
+        .filter((item) => (options.accountId !== undefined ? (item.accountId ?? null) === options.accountId : true))
         .sort((a, b) => b.createdAt - a.createdAt)
         .slice(0, limit);
 }

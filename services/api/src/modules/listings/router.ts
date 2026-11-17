@@ -1,4 +1,7 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
+import type { ListingAccessControl } from './access.js';
+import { ListingWriteAuthorizationError } from './persist.js';
 import { resolveUniqueListingHref } from './href-slug.js';
 
 export type ListingsRouterDeps = {
@@ -20,10 +23,31 @@ export type ListingsRouterDeps = {
         user: { id: string; role: string },
         vertical: unknown,
         mine: boolean,
+        accountId?: string | null,
     ) => Promise<any[]>;
-    insertListingRecord: (record: any) => Promise<any>;
-    saveListingRecord: (record: any) => Promise<any>;
-    deleteListingRecord: (id: string) => Promise<void>;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string>;
+    getAccountMembershipsForUser?: (userId: string) => Array<{ accountId: string; role: string }>;
+    getAccountMembershipFromDb?: (userId: string) => Promise<{ accountId: string; role: string } | null>;
+    isPersonalAccountForUser?: (userId: string, accountId: string) => boolean;
+    listingAccessControl: ListingAccessControl;
+    getListingTeamContext?: (userId: string, vertical: 'autos' | 'propiedades') => Promise<{
+        accountId: string;
+        teamEnabled: boolean;
+        canManage: boolean;
+        members: Array<{ userId: string; role: string; name: string; email: string | null }>;
+    } | null>;
+    listAccountListingAssignments?: (accountId: string, vertical: 'autos' | 'propiedades') => Promise<Array<{ listingId: string; assignedUserId: string }>>;
+    isListingAssignedToUser?: (accountId: string, listingId: string, userId: string) => Promise<boolean>;
+    replaceAccountListingAssignments?: (input: {
+        accountId: string;
+        vertical: 'autos' | 'propiedades';
+        listingId: string;
+        assignedUserIds: string[];
+        assignedByUserId: string;
+    }) => Promise<{ ok: true } | { ok: false; error: string; status: 400 | 403 | 404 }>;
+    insertListingRecord: (record: any, actor: { id: string }) => Promise<any>;
+    saveListingRecord: (record: any, actor: { id: string }) => Promise<any>;
+    deleteListingRecord: (id: string, actor: { id: string }) => Promise<void>;
     isListingSlugConflictError: (error: unknown) => boolean;
     listingToResponse: (record: any) => any;
     listingToDetailResponse: (record: any) => any;
@@ -39,16 +63,25 @@ export type ListingsRouterDeps = {
     }) => any[];
     getInstagramPublicationsForUser?: (userId: string, vertical?: any) => any[];
     getSocialPublicationsForUser?: (userId: string, vertical?: any) => any[];
-    getListingDraftRecord: (userId: string, vertical: any) => Promise<any>;
-    upsertListingDraftRecord: (userId: string, vertical: any, draft: unknown) => Promise<any>;
-    deleteListingDraftRecord: (userId: string, vertical: any) => Promise<void>;
+    getListingDraftRecord: (userId: string, vertical: any, accountId?: string | null) => Promise<any>;
+    upsertListingDraftRecord: (userId: string, vertical: any, draft: unknown, accountId?: string | null) => Promise<any>;
+    deleteListingDraftRecord: (userId: string, vertical: any, accountId?: string | null) => Promise<void>;
     generateListingReel?: (input: {
         user: { id: string; role?: string };
         listing: any;
         replaceExisting?: boolean;
     }) => Promise<{ publicUrl: string; sizeBytes: number; durationSeconds: number; slideCount: number }>;
     isReelGeneratorAvailable?: () => boolean;
-    checkListingCreationAllowed?: (user: { id: string; role?: string }, vertical: unknown) => string | null;
+    checkListingCreationAllowed?: (
+        user: { id: string },
+        vertical: unknown,
+        options?: {
+            targetStatus?: string;
+            previousStatus?: string;
+            photoCount?: number;
+            previousPhotoCount?: number;
+        },
+    ) => string | null | Promise<string | null>;
     schemas: {
         createListingSchema: any;
         updateListingSchema: any;
@@ -62,13 +95,17 @@ export type ListingsRouterDeps = {
 
 export function createListingDraftRouter(deps: ListingsRouterDeps) {
     const app = new Hono();
+    const getCurrentAccountId = async (userId: string) => deps.getAccountMembershipFromDb
+        ? (await deps.getAccountMembershipFromDb(userId))?.accountId ?? null
+        : await deps.getPrimaryAccountIdForUser(userId);
 
     app.get('/', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const vertical = deps.parseVertical(c.req.query('vertical'));
-        const item = await deps.getListingDraftRecord(user.id, vertical);
+        const accountId = await getCurrentAccountId(user.id);
+        const item = await deps.getListingDraftRecord(user.id, vertical, accountId);
         return c.json({ ok: true, item });
     });
 
@@ -81,7 +118,8 @@ export function createListingDraftRouter(deps: ListingsRouterDeps) {
         const parsed = deps.schemas.listingDraftWriteSchema.safeParse(payload);
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
 
-        const item = await deps.upsertListingDraftRecord(user.id, vertical, parsed.data.draft);
+        const accountId = await getCurrentAccountId(user.id);
+        const item = await deps.upsertListingDraftRecord(user.id, vertical, parsed.data.draft, accountId);
         return c.json({ ok: true, item });
     });
 
@@ -90,7 +128,8 @@ export function createListingDraftRouter(deps: ListingsRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const vertical = deps.parseVertical(c.req.query('vertical'));
-        await deps.deleteListingDraftRecord(user.id, vertical);
+        const accountId = await getCurrentAccountId(user.id);
+        await deps.deleteListingDraftRecord(user.id, vertical, accountId);
         return c.json({ ok: true });
     });
 
@@ -99,6 +138,32 @@ export function createListingDraftRouter(deps: ListingsRouterDeps) {
 
 export function createListingsRouter(deps: ListingsRouterDeps) {
     const app = new Hono();
+    const getCurrentAccountId = async (userId: string) => deps.getAccountMembershipFromDb
+        ? (await deps.getAccountMembershipFromDb(userId))?.accountId ?? null
+        : await deps.getPrimaryAccountIdForUser(userId);
+
+    function listingPhotoCount(rawData: unknown): number {
+        if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) return 0;
+        const record = rawData as Record<string, unknown>;
+        const media = record.media && typeof record.media === 'object' && !Array.isArray(record.media)
+            ? record.media as Record<string, unknown>
+            : null;
+        const photos = media?.photos ?? record.photos;
+        return Array.isArray(photos) ? photos.length : 0;
+    }
+
+    const { canManageListing, canDeleteListing } = deps.listingAccessControl;
+
+    async function runListingWrite<T>(c: any, action: () => Promise<T>) {
+        try {
+            return { ok: true as const, value: await action() };
+        } catch (error) {
+            if (error instanceof ListingWriteAuthorizationError) {
+                return { ok: false as const, response: c.json({ ok: false, error: error.message }, error.status) };
+            }
+            throw error;
+        }
+    }
 
     async function resolvePanelListing(listingId: string) {
         if (deps.getListingByIdFromDb) {
@@ -106,6 +171,63 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         }
         return deps.listingsById.get(listingId) ?? await deps.getListingById(listingId);
     }
+
+    app.get('/assignments', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const vertical = deps.parseVertical(c.req.query('vertical'));
+        if (vertical !== 'propiedades') return c.json({ ok: false, error: 'Esta asignación está disponible para SimplePropiedades.' }, 400);
+        const context = await deps.getListingTeamContext?.(user.id, vertical);
+        if (!context) return c.json({ ok: false, error: 'No encontramos tu espacio activo.' }, 403);
+        if (!context.teamEnabled) return c.json({ ok: true, enabled: false, canManage: false, assignments: [], members: [] });
+        if (!context.canManage) return c.json({ ok: false, error: 'Solo quien administra el espacio puede organizar la cartera del equipo.' }, 403);
+        const assignments = await deps.listAccountListingAssignments?.(context.accountId, vertical) ?? [];
+        return c.json({
+            ok: true,
+            enabled: true,
+            canManage: true,
+            members: context.members,
+            assignments,
+        });
+    });
+
+    app.put('/assignments/:listingId', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const listingId = c.req.param('listingId') ?? '';
+        if (!z.string().uuid().safeParse(listingId).success) return c.json({ ok: false, error: 'Publicación no válida.' }, 400);
+        const payload = await c.req.json().catch(() => null);
+        const parsed = z.object({
+            vertical: z.literal('propiedades'),
+            assignedUserIds: z.array(z.string().uuid()).max(100),
+        }).safeParse(payload);
+        if (!parsed.success) return c.json({ ok: false, error: 'Selecciona integrantes válidos para la publicación.' }, 400);
+
+        const context = await deps.getListingTeamContext?.(user.id, parsed.data.vertical);
+        if (!context?.teamEnabled || !context.canManage) {
+            return c.json({ ok: false, error: 'Solo quien administra un espacio de empresa puede asignar publicaciones.' }, 403);
+        }
+        const listing = await resolvePanelListing(listingId);
+        if (!listing || listing.accountId !== context.accountId || listing.vertical !== parsed.data.vertical) {
+            return c.json({ ok: false, error: 'La publicación no pertenece a este espacio.' }, 404);
+        }
+        const assignedUserIds = [...new Set(parsed.data.assignedUserIds)];
+        if (assignedUserIds.some((id) => !context.members.some((member) => member.userId === id))) {
+            return c.json({ ok: false, error: 'Hay una persona seleccionada que ya no pertenece a este equipo.' }, 400);
+        }
+        if (!deps.replaceAccountListingAssignments) {
+            return c.json({ ok: false, error: 'La asignación de publicaciones no está disponible.' }, 503);
+        }
+        const result = await deps.replaceAccountListingAssignments({
+            accountId: context.accountId,
+            vertical: parsed.data.vertical,
+            listingId,
+            assignedUserIds,
+            assignedByUserId: user.id,
+        });
+        if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
+        return c.json({ ok: true, assignedUserIds });
+    });
 
     // ── Listings ──────────────────────────────────────────────────────────────
 
@@ -115,18 +237,28 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
 
         const vertical = deps.parseVertical(c.req.query('vertical'));
         const mine = c.req.query('mine') !== 'false';
+        const accountId = await getCurrentAccountId(user.id);
 
-        const records = deps.listListingsFromDb
-            ? await deps.listListingsFromDb(user, vertical, mine)
-            : Array.from(deps.listingsById.values())
-                .filter((listing) => listing.vertical === vertical)
-                .filter((listing) => {
-                    if (!mine) return user.role === 'superadmin' ? true : listing.ownerId === user.id;
-                    return listing.ownerId === user.id;
-                })
+        let records: any[];
+        if (deps.listListingsFromDb) {
+            records = await deps.listListingsFromDb(user, vertical, mine, accountId);
+        } else {
+            const candidates = Array.from(deps.listingsById.values())
+                .filter((listing) => listing.vertical === vertical);
+            const visibility = await Promise.all(candidates.map(async (listing) => ({
+                listing,
+                visible: await canManageListing(user, listing),
+            })));
+            records = visibility
+                .filter((item) => item.visible)
+                .map((item) => item.listing)
                 .sort((a: any, b: any) => b.updatedAt - a.updatedAt);
+        }
 
-        const items = records.map((listing: any) => deps.listingToResponse(listing));
+        const items = await Promise.all(records.map(async (listing: any) => ({
+            ...deps.listingToResponse(listing),
+            canDelete: await canDeleteListing(user, listing),
+        })));
 
         return c.json({ ok: true, items });
     });
@@ -140,7 +272,11 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
 
         const vertical = parsed.data.vertical;
-        const limitError = deps.checkListingCreationAllowed?.(user, vertical);
+        const nextStatus = deps.parseListingStatus(parsed.data.status);
+        const limitError = await deps.checkListingCreationAllowed?.(user, vertical, {
+            targetStatus: nextStatus,
+            photoCount: listingPhotoCount(parsed.data.rawData),
+        });
         if (limitError) return c.json({ ok: false, error: limitError }, 403);
 
         const section = deps.parseListingSection(parsed.data.listingType, vertical);
@@ -155,6 +291,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         });
 
         const record: any = {
+            accountId: await getCurrentAccountId(user.id),
             id: listingId,
             ownerId: user.id,
             vertical,
@@ -166,7 +303,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             location: locationLabel,
             locationData,
             href,
-            status: deps.parseListingStatus(parsed.data.status),
+            status: nextStatus,
             views: 0,
             favs: 0,
             leads: 0,
@@ -179,7 +316,9 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         };
 
         try {
-            const persisted = await deps.insertListingRecord(record);
+            const write = await runListingWrite(c, () => deps.insertListingRecord(record, user));
+            if (!write.ok) return write.response;
+            const persisted = write.value;
             const current = deps.listingIdsByUser.get(user.id) ?? [];
             deps.listingIdsByUser.set(user.id, [persisted.id, ...current]);
             deps.upsertBoostListingFromListing(persisted);
@@ -201,7 +340,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const listingId = c.req.param('id') ?? '';
         const listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        if (!await canManageListing(user, listing)) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
 
@@ -209,6 +348,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             ok: true,
             item: {
                 ...deps.listingToDetailResponse(listing),
+                canDelete: await canDeleteListing(user, listing),
                 distribution: deps.buildListingDistribution
                     ? deps.buildListingDistribution({
                         listing,
@@ -227,13 +367,24 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const listingId = c.req.param('id') ?? '';
         let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        if (!await canManageListing(user, listing)) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
 
         const payload = await c.req.json().catch(() => null);
         const parsed = deps.schemas.updateListingSchema.safeParse(payload);
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+
+        const nextStatus = parsed.data.status ?? listing.status;
+        const previousPhotoCount = listingPhotoCount(listing.rawData);
+        const nextPhotoCount = listingPhotoCount(parsed.data.rawData);
+        const limitError = await deps.checkListingCreationAllowed?.(user, listing.vertical, {
+            targetStatus: nextStatus,
+            previousStatus: listing.status,
+            photoCount: nextPhotoCount,
+            previousPhotoCount,
+        });
+        if (limitError) return c.json({ ok: false, error: limitError }, 403);
 
         const locationData = deps.normalizeListingLocation(parsed.data.locationData);
         const locationLabel = locationData?.publicLabel || parsed.data.location?.trim() || undefined;
@@ -254,13 +405,13 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         listing.rawData = deps.stripStoredListingMetadata(parsed.data.rawData);
         listing.videoUrl = parsed.data.videoUrl ?? listing.videoUrl;
         listing.videoThumbnailUrl = parsed.data.videoThumbnailUrl ?? listing.videoThumbnailUrl;
-        if (parsed.data.status) {
-            listing.status = parsed.data.status;
-        }
+        listing.status = nextStatus;
         listing.updatedAt = Date.now();
 
         try {
-            listing = await deps.saveListingRecord(listing);
+            const write = await runListingWrite(c, () => deps.saveListingRecord(listing, user));
+            if (!write.ok) return write.response;
+            listing = write.value;
             deps.upsertBoostListingFromListing(listing);
             void deps.maybeAutoPublishListing(user, listing);
 
@@ -280,7 +431,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const listingId = c.req.param('id') ?? '';
         let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        if (!await canManageListing(user, listing)) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
 
@@ -313,7 +464,9 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
                 lastError: 'Faltan campos requeridos para este portal.',
             };
             listing.updatedAt = now;
-            listing = await deps.saveListingRecord(listing);
+            const write = await runListingWrite(c, () => deps.saveListingRecord(listing, user));
+            if (!write.ok) return write.response;
+            listing = write.value;
             return c.json(
                 {
                     ok: false,
@@ -337,7 +490,9 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             lastError: null,
         };
         listing.updatedAt = now;
-        listing = await deps.saveListingRecord(listing);
+        const write = await runListingWrite(c, () => deps.saveListingRecord(listing, user));
+        if (!write.ok) return write.response;
+        listing = write.value;
 
         return c.json({
             ok: true,
@@ -353,7 +508,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const listingId = c.req.param('id') ?? '';
         let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        if (!await canManageListing(user, listing)) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
 
@@ -383,7 +538,9 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         if (parsed.data.action === 'clear') {
             delete listing.integrations[portal];
             listing.updatedAt = now;
-            listing = await deps.saveListingRecord(listing);
+            const write = await runListingWrite(c, () => deps.saveListingRecord(listing, user));
+            if (!write.ok) return write.response;
+            listing = write.value;
             return c.json({
                 ok: true,
                 portal,
@@ -408,7 +565,9 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             lastError: null,
         };
         listing.updatedAt = now;
-        listing = await deps.saveListingRecord(listing);
+        const write = await runListingWrite(c, () => deps.saveListingRecord(listing, user));
+        if (!write.ok) return write.response;
+        listing = write.value;
 
         return c.json({
             ok: true,
@@ -435,7 +594,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const listingId = c.req.param('id') ?? '';
         let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        if (!await canManageListing(user, listing)) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
         if (listing.status !== 'active') {
@@ -449,11 +608,13 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         }
 
         try {
-            const result = await deps.generateListingReel({
+            const write = await runListingWrite(c, () => deps.generateListingReel!({
                 user,
                 listing,
                 replaceExisting: parsed?.success ? parsed.data.replaceExisting : false,
-            });
+            }));
+            if (!write.ok) return write.response;
+            const result = write.value;
             listing = await resolvePanelListing(listingId);
             return c.json({
                 ok: true,
@@ -475,7 +636,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const listingId = c.req.param('id') ?? '';
         let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        if (!await canManageListing(user, listing)) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
 
@@ -495,9 +656,19 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             return c.json({ ok: true, item: deps.listingToResponse(listing) });
         }
 
+        const limitError = await deps.checkListingCreationAllowed?.(user, listing.vertical, {
+            targetStatus: nextStatus,
+            previousStatus: currentStatus,
+            photoCount: listingPhotoCount(listing.rawData),
+            previousPhotoCount: listingPhotoCount(listing.rawData),
+        });
+        if (limitError) return c.json({ ok: false, error: limitError }, 403);
+
         listing.status = nextStatus;
         listing.updatedAt = Date.now();
-        listing = await deps.saveListingRecord(listing);
+        const write = await runListingWrite(c, () => deps.saveListingRecord(listing, user));
+        if (!write.ok) return write.response;
+        listing = write.value;
         void deps.maybeAutoPublishListing(user, listing);
 
         return c.json({ ok: true, item: deps.listingToResponse(listing) });
@@ -510,11 +681,12 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const listingId = c.req.param('id') ?? '';
         const listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-            return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
+        if (!await canDeleteListing(user, listing)) {
+            return c.json({ ok: false, error: 'Solo quien administra el espacio puede eliminar una publicación.' }, 403);
         }
 
-        await deps.deleteListingRecord(listingId);
+        const write = await runListingWrite(c, () => deps.deleteListingRecord(listingId, user));
+        if (!write.ok) return write.response;
         return c.json({ ok: true });
     });
 
@@ -525,7 +697,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const listingId = c.req.param('id') ?? '';
         let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        if (!await canManageListing(user, listing)) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
 
@@ -533,11 +705,23 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             return c.json({ ok: false, error: 'Este aviso ya está cerrado y no puede renovarse.' }, 409);
         }
 
+        if (listing.status === 'draft') {
+            const limitError = await deps.checkListingCreationAllowed?.(user, listing.vertical, {
+                targetStatus: 'active',
+                previousStatus: 'draft',
+                photoCount: listingPhotoCount(listing.rawData),
+                previousPhotoCount: listingPhotoCount(listing.rawData),
+            });
+            if (limitError) return c.json({ ok: false, error: limitError }, 403);
+        }
+
         listing.updatedAt = Date.now();
         if (listing.status === 'draft') {
             listing.status = 'active';
         }
-        listing = await deps.saveListingRecord(listing);
+        const write = await runListingWrite(c, () => deps.saveListingRecord(listing, user));
+        if (!write.ok) return write.response;
+        listing = write.value;
         void deps.maybeAutoPublishListing(user, listing);
 
         return c.json({ ok: true, item: deps.listingToResponse(listing) });

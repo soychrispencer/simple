@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IconSparkles } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
-import { AGENDA_PRICING, isPlatformLaunchActive } from '@simple/utils';
+import { AGENDA_PRICING, fetchAgendaAccountVisitContext, isPlatformLaunchActive } from '@simple/utils';
 import { agendaTrialDaysRemaining, fetchAgendaProfile, hasAgendaFullAccess, isAgendaTrialPeriod, type AgendaProfile } from '@/lib/agenda-api';
 import Link from 'next/link';
 
@@ -16,21 +16,51 @@ const AGENDA_PRO_ROUTES = [
     '/panel/mis-servicios/packs',
     '/panel/mis-servicios/promociones',
 ];
+const PROPERTY_WORKFLOW_ROUTES = [
+    '/panel/visitas-equipo',
+    '/panel/contactos',
+];
 
 export function SubscriptionGate({ children }: { children: React.ReactNode }) {
     const pathname = usePathname() ?? '';
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
+    const [propertyVisitsWorkspace, setPropertyVisitsWorkspace] = useState(false);
     const [loading, setLoading] = useState(true);
+    const isProFeaturePage = AGENDA_PRO_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+    const isPropertyWorkflowPage = pathname === '/panel'
+        || PROPERTY_WORKFLOW_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 
     useEffect(() => {
         let cancelled = false;
-        void fetchAgendaProfile().then((data) => {
+        setLoading(true);
+        void (async () => {
+            let propertyWorkspace = false;
+            try {
+                const context = await fetchAgendaAccountVisitContext();
+                propertyWorkspace = Boolean(context?.enabled);
+            } catch {
+                // If the workspace context is temporarily unavailable, keep the existing Agenda fallback.
+            }
             if (cancelled) return;
-            setProfile(data);
-            setLoading(false);
-        });
+            setPropertyVisitsWorkspace(propertyWorkspace);
+            if (propertyWorkspace && isPropertyWorkflowPage && !isProFeaturePage) {
+                setProfile(null);
+                setLoading(false);
+                return;
+            }
+            try {
+                const data = await fetchAgendaProfile();
+                if (cancelled) return;
+                setProfile(data);
+            } catch {
+                if (cancelled) return;
+                setProfile(null);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
         return () => { cancelled = true; };
-    }, []);
+    }, [isProFeaturePage, isPropertyWorkflowPage]);
 
     if (isPlatformLaunchActive('agenda')) return <>{children}</>;
 
@@ -40,7 +70,6 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
     const freeAccount = profile ? !hasAgendaFullAccess(profile) : false;
     if (!profile || (!trialActive && !freeAccount)) return <>{children}</>;
 
-    const isProFeaturePage = AGENDA_PRO_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
     if (freeAccount && isProFeaturePage) {
         return (
             <div className="container-app flex min-h-[55vh] flex-col items-center justify-center py-16 text-center">
@@ -57,6 +86,8 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
             </div>
         );
     }
+
+    if (propertyVisitsWorkspace && isPropertyWorkflowPage) return <>{children}</>;
 
     const daysRemaining = profile.planExpiresAt ? agendaTrialDaysRemaining(profile) : null;
     const bookingsUsed = profile.monthlyBookingsUsed ?? 0;

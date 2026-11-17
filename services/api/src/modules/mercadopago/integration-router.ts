@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { canManageAccountRole } from '../accounts/permissions.js';
+import { isSocialIntegrationAccessError } from '../integrations/social-write-access.js';
 import {
     consumeIntegrationOAuthCookie,
     setIntegrationOAuthCookie,
@@ -34,10 +36,13 @@ export type MercadoPagoIntegrationRouterDeps = {
     safeEqualStrings: (a: string, b: string) => boolean;
     getUserById: (id: string) => Promise<{ id: string } | null>;
     canAuthenticateUser: (user: { id: string }) => boolean;
-    userCanConnectMercadoPago: (user: { id: string; role?: string }, vertical: MercadoPagoOperatorVertical) => boolean | Promise<boolean>;
-    getCurrentPlanId: (user: { id: string; role?: string }, vertical: MercadoPagoOperatorVertical) => string | Promise<string>;
-    ensureMercadoPagoOperatorTarget?: (userId: string, vertical: MercadoPagoOperatorVertical) => Promise<void>;
-    onMercadoPagoOperatorConnected?: (userId: string, vertical: MercadoPagoOperatorVertical) => Promise<void>;
+    userCanConnectMercadoPago: (user: { id: string; role?: string }, vertical: MercadoPagoOperatorVertical, accountId?: string | null) => boolean | Promise<boolean>;
+    getCurrentPlanId: (user: { id: string; role?: string }, vertical: MercadoPagoOperatorVertical, accountId?: string | null) => string | Promise<string>;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
+    getAccountMembershipsForUser: (userId: string) => any[];
+    getAccountMembershipFromDb?: (userId: string, accountId?: string) => Promise<{ accountId: string; role: string } | null>;
+    ensureMercadoPagoOperatorTarget?: (userId: string, vertical: MercadoPagoOperatorVertical, accountId?: string | null) => Promise<void>;
+    onMercadoPagoOperatorConnected?: (userId: string, vertical: MercadoPagoOperatorVertical, accountId?: string | null) => Promise<void>;
     authCookieSameSite: 'Lax' | 'Strict' | 'None';
     authCookieSecure: boolean;
 };
@@ -49,6 +54,26 @@ function parseVerticalQuery(raw: string | undefined): MercadoPagoOperatorVertica
 export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationRouterDeps) {
     const app = new Hono();
 
+    async function getCurrentAccountId(userId: string) {
+        if (deps.getAccountMembershipFromDb) {
+            return (await deps.getAccountMembershipFromDb(userId))?.accountId ?? null;
+        }
+        return deps.getPrimaryAccountIdForUser(userId);
+    }
+
+    async function canManageIntegration(
+        user: { id: string; role?: string },
+        vertical: MercadoPagoOperatorVertical,
+        accountId: string | null,
+    ): Promise<boolean> {
+        if (vertical !== 'autos' && vertical !== 'propiedades') return true;
+        if (!accountId) return false;
+        const membership = deps.getAccountMembershipFromDb
+            ? await deps.getAccountMembershipFromDb(user.id, accountId)
+            : deps.getAccountMembershipsForUser(user.id).find((item: any) => item.accountId === accountId);
+        return canManageAccountRole(membership?.role);
+    }
+
     app.get('/', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -56,22 +81,25 @@ export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationR
         const vertical = parseVerticalQuery(deps.asString(c.req.query('vertical')));
         if (!vertical) return c.json({ ok: false, error: 'Vertical no soportada' }, 400);
 
+        const accountId = await getCurrentAccountId(user.id);
         const origin = deps.resolveBrowserOrigin(c);
         const fallbackReturn = origin ? `${origin}/panel/mi-cuenta/integraciones` : null;
-        const status = await getMercadoPagoOperatorStatus(user.id, vertical);
-        const eligible = await deps.userCanConnectMercadoPago(user, vertical);
-        const hasTarget = await userHasMercadoPagoOperatorTarget(user.id, vertical);
+        const status = await getMercadoPagoOperatorStatus(user.id, vertical, accountId);
+        const eligible = await deps.userCanConnectMercadoPago(user, vertical, accountId);
+        const hasTarget = await userHasMercadoPagoOperatorTarget(user.id, vertical, accountId);
+        const canManage = await canManageIntegration(user, vertical, accountId);
 
         return c.json({
             ok: true,
             vertical,
             configured: isMercadoPagoOperatorOAuthConfigured(),
             eligible,
+            canManageIntegration: canManage,
             hasTarget,
-            currentPlanId: await deps.getCurrentPlanId(user, vertical),
+            currentPlanId: await deps.getCurrentPlanId(user, vertical, accountId),
             connected: status.connected,
-            userId: status.userId,
-            connectUrl: fallbackReturn
+            userId: canManage ? status.userId : null,
+            connectUrl: canManage && fallbackReturn
                 ? `/api/integrations/mercadopago/connect?vertical=${encodeURIComponent(vertical)}&returnTo=${encodeURIComponent(fallbackReturn)}`
                 : null,
         });
@@ -84,7 +112,11 @@ export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationR
         const vertical = parseVerticalQuery(deps.asString(c.req.query('vertical')));
         if (!vertical) return c.json({ ok: false, error: 'Vertical no soportada' }, 400);
 
-        const eligible = await deps.userCanConnectMercadoPago(user, vertical);
+        const accountId = await getCurrentAccountId(user.id);
+        if (!await canManageIntegration(user, vertical, accountId)) {
+            return c.json({ ok: false, error: 'Solo dueños y administradores pueden conectar MercadoPago para este espacio.' }, 403);
+        }
+        const eligible = await deps.userCanConnectMercadoPago(user, vertical, accountId);
         if (!eligible) {
             const origin = deps.resolveBrowserOrigin(c) ?? getMercadoPagoOperatorAppOrigin(vertical);
             const target = new URL(`${origin}/panel/mi-cuenta/integraciones`);
@@ -97,10 +129,10 @@ export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationR
         }
 
         if (deps.ensureMercadoPagoOperatorTarget) {
-            await deps.ensureMercadoPagoOperatorTarget(user.id, vertical);
+            await deps.ensureMercadoPagoOperatorTarget(user.id, vertical, accountId);
         }
 
-        const hasTarget = await userHasMercadoPagoOperatorTarget(user.id, vertical);
+        const hasTarget = await userHasMercadoPagoOperatorTarget(user.id, vertical, accountId);
         if (!hasTarget) {
             return c.json({ ok: false, error: 'Completa tu perfil de negocio antes de conectar MercadoPago.' }, 400);
         }
@@ -122,6 +154,7 @@ export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationR
                 userId: user.id,
                 vertical,
                 returnTo,
+                accountId: vertical === 'serenatas' ? null : accountId,
             }),
             { sameSite: deps.authCookieSameSite, secure: deps.authCookieSecure },
         );
@@ -158,15 +191,23 @@ export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationR
         if (!user || !deps.canAuthenticateUser(user)) {
             return redirectWithStatus('error', 'No pudimos validar tu sesión para conectar MercadoPago.');
         }
+        if (statePayload.accountId && !(deps.getAccountMembershipFromDb
+            ? await deps.getAccountMembershipFromDb(user.id, statePayload.accountId)
+            : deps.getAccountMembershipsForUser(user.id).some((membership) => membership.accountId === statePayload.accountId))) {
+            return redirectWithStatus('error', 'Ya no tienes acceso al espacio desde el que iniciaste la conexión.');
+        }
+        if (!await canManageIntegration(user, statePayload.vertical, statePayload.accountId)) {
+            return redirectWithStatus('error', 'Solo dueños y administradores pueden conectar MercadoPago para este espacio.');
+        }
 
-        const eligible = await deps.userCanConnectMercadoPago(user, statePayload.vertical);
+        const eligible = await deps.userCanConnectMercadoPago(user, statePayload.vertical, statePayload.accountId);
         if (!eligible) return redirectWithStatus('upgrade');
 
         try {
             const tokens = await exchangeMercadoPagoOperatorOAuthCode(code);
-            await saveMercadoPagoOperatorTokens(user.id, statePayload.vertical, tokens);
+            await saveMercadoPagoOperatorTokens(user.id, statePayload.vertical, tokens, statePayload.accountId);
             if (deps.onMercadoPagoOperatorConnected) {
-                await deps.onMercadoPagoOperatorConnected(user.id, statePayload.vertical);
+                await deps.onMercadoPagoOperatorConnected(user.id, statePayload.vertical, statePayload.accountId);
             }
             return redirectWithStatus('connected', 'MercadoPago conectado correctamente.');
         } catch (error) {
@@ -186,7 +227,18 @@ export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationR
         const vertical = parseVerticalQuery(verticalRaw || deps.asString(c.req.query('vertical')));
         if (!vertical) return c.json({ ok: false, error: 'Vertical no soportada' }, 400);
 
-        await disconnectMercadoPagoOperator(user.id, vertical);
+        const accountId = await getCurrentAccountId(user.id);
+        if (!await canManageIntegration(user, vertical, accountId)) {
+            return c.json({ ok: false, error: 'Solo dueños y administradores pueden desconectar MercadoPago para este espacio.' }, 403);
+        }
+        try {
+            await disconnectMercadoPagoOperator(user.id, vertical, accountId);
+        } catch (error) {
+            if (isSocialIntegrationAccessError(error)) {
+                return c.json({ ok: false, error: error.message }, 403);
+            }
+            throw error;
+        }
         return c.json({ ok: true });
     });
 

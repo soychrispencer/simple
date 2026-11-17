@@ -1,5 +1,5 @@
 import type { PaidSubscriptionPlanRecord, PaymentVerticalType } from '../../lib/domain-types.js';
-import { AGENDA_PRICING } from '@simple/utils';
+import { addChileVat, AGENDA_PRICING } from '@simple/utils';
 import type { PaymentProvider } from '../payments/resolve-provider.js';
 
 /** Precio mensual USD (referencia internacional, sin IVA chileno). */
@@ -18,21 +18,17 @@ export function getMercadoPagoSubscriptionChargeClp(
     plan: PaidSubscriptionPlanRecord,
     billingCycle: 'monthly' | 'annual' = 'monthly',
 ): number {
-    const withVat = (vertical === 'agenda' && (plan.id === 'pro' || plan.id === 'pro_plus'))
-        || (vertical === 'serenatas' && plan.id === 'pro');
-    if (withVat) {
-        if (vertical === 'agenda' && billingCycle === 'annual') {
-            const annualNetPrice = plan.id === 'pro_plus'
-                ? AGENDA_PRICING.proPlusAnnualTotalNetClp
-                : AGENDA_PRICING.proAnnualTotalNetClp;
-            return Math.round(annualNetPrice * (1 + 1900 / 10_000));
-        }
-        const netPrice = vertical === 'agenda' && plan.promotion
-            ? plan.promotion.priceMonthly
-            : plan.priceMonthly;
-        return Math.round(netPrice * (1 + 1900 / 10_000));
+    if (vertical === 'agenda' && billingCycle === 'annual') {
+        const annualNetPrice = plan.id === 'pro_plus'
+            ? AGENDA_PRICING.proPlusAnnualTotalNetClp
+            : AGENDA_PRICING.proAnnualTotalNetClp;
+        return addChileVat(annualNetPrice);
     }
-    return plan.priceMonthly;
+
+    const netPrice = vertical === 'agenda' && plan.promotion
+        ? plan.promotion.priceMonthly
+        : plan.priceMonthly;
+    return addChileVat(netPrice);
 }
 
 export function getSubscriptionBillingCharge(

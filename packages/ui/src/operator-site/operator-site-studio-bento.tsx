@@ -23,6 +23,7 @@ import type {
 type OperatorSiteStudioBentoProps = {
     profile: AgendaOperatorSiteProfile;
     bio: string | null;
+    aboutTitle?: string;
     schedule: OperatorSiteSchedule | null;
     socialLinks: OperatorSiteSocialLink[];
     hasLocation: boolean;
@@ -34,6 +35,7 @@ type OperatorSiteStudioBentoProps = {
 export function OperatorSiteStudioBento({
     profile,
     bio,
+    aboutTitle = 'Sobre mí',
     schedule,
     socialLinks,
     hasLocation,
@@ -55,7 +57,7 @@ export function OperatorSiteStudioBento({
                     <div className="os-bento">
                         {bio ? (
                             <div className="os-bento__cell os-bento__cell--bio os-glass" id="sobre-mi">
-                                <p className="os-bento__label">Sobre mí</p>
+                                <p className="os-bento__label">{aboutTitle}</p>
                                 <p className="os-bento__bio">{bio}</p>
                             </div>
                         ) : null}

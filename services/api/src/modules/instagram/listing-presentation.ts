@@ -268,13 +268,9 @@ export async function prepareInstagramImageUrl(
         const skipBrandLogoComposite = ['essential-watermark', 'signature-complete', 'professional-centered'].includes(variant);
         const logoBuffer = !appId || skipBrandLogoComposite ? null : await getInstagramBrandLogoBuffer(appId);
         if (logoBuffer) {
-            let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number } | null = null;
-
-            if (variant.startsWith('property')) {
-                logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
-            } else {
-                logoPlacement = { width: 50, height: 50, top: 30, left: 36 };
-            }
+            const logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number } = variant.startsWith('property')
+                ? { width: 48, height: 48, top: 34, left: 42 }
+                : { width: 50, height: 50, top: 30, left: 36 };
 
             if (logoPlacement) {
                 let logoOverlay = await sharp(logoBuffer)

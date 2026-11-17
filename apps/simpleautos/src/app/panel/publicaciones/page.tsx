@@ -758,12 +758,7 @@ export default function PublicacionesPage() {
         if (!Array.isArray(photos) || photos.length === 0) return [];
         
         return photos.map(p => {
-            let url = '';
-            if (typeof p === 'string') {
-                url = p.trim();
-            } else {
-                url = p?.url || p?.previewUrl || p?.dataUrl || '';
-            }
+            const url = typeof p === 'string' ? p.trim() : p?.url || p?.previewUrl || p?.dataUrl || '';
             return typeof url === 'string' && url.trim() ? url : null;
         }).filter(Boolean) as string[];
     };

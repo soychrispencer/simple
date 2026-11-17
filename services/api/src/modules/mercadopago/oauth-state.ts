@@ -12,6 +12,7 @@ export function makeMercadoPagoOAuthStatePayload(input: {
     userId: string;
     vertical: MercadoPagoOperatorVertical;
     returnTo: string;
+    accountId?: string | null;
 }): string {
     return Buffer.from(JSON.stringify(input)).toString('base64url');
 }
@@ -21,6 +22,7 @@ export function parseMercadoPagoOAuthStatePayload(value: string): {
     userId: string;
     vertical: MercadoPagoOperatorVertical;
     returnTo: string;
+    accountId: string | null;
 } | null {
     if (!value) return null;
     try {
@@ -31,8 +33,9 @@ export function parseMercadoPagoOAuthStatePayload(value: string): {
             typeof decoded.vertical === 'string' ? decoded.vertical : undefined,
         );
         const returnTo = typeof decoded.returnTo === 'string' ? decoded.returnTo.trim() : '';
+        const accountId = typeof decoded.accountId === 'string' ? decoded.accountId.trim() : null;
         if (!nonce || !userId || !vertical || !returnTo) return null;
-        return { nonce, userId, vertical, returnTo };
+        return { nonce, userId, vertical, returnTo, accountId };
     } catch {
         return null;
     }

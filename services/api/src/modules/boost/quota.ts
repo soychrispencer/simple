@@ -9,7 +9,7 @@ export type FreeBoostQuota = {
     remaining: number;
     planId: string;
     planName: string;
-    /** true cuando max/remaining son -1 (superadmin o Enterprise). */
+    /** true cuando el plan tiene cuota ilimitada. */
     unlimited: boolean;
 };
 
@@ -17,26 +17,16 @@ export type FreeBoostQuota = {
  * Cuota de boosts gratuitos según plan de suscripción activo (maxFreeBoostsPerMonth).
  */
 export function resolveFreeBoostQuota(
-    user: { id: string; role: string },
+    user: { id: string; role?: string },
     vertical: VerticalType,
     planId: SubscriptionPlanId,
+    accountId?: string | null,
+    legacyPersonalOwnerUserId?: string,
 ): FreeBoostQuota {
-    if (user.role === 'superadmin') {
-        const used = countFreeBoostsUsedThisMonth(user.id, vertical);
-        return {
-            max: -1,
-            used,
-            remaining: -1,
-            planId: 'superadmin',
-            planName: 'Administrador',
-            unlimited: true,
-        };
-    }
-
     const plan = getSubscriptionPlans(vertical).find((item) => item.id === planId);
     const max = plan?.maxFreeBoostsPerMonth ?? 0;
     const planName = plan?.name ?? 'Gratuito';
-    const used = countFreeBoostsUsedThisMonth(user.id, vertical);
+    const used = countFreeBoostsUsedThisMonth(user.id, vertical, accountId, legacyPersonalOwnerUserId);
 
     if (max < 0) {
         return {

@@ -1,6 +1,8 @@
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
+    accountUsers,
+    accounts,
     agendaProfessionalProfiles,
     listings,
     serenataOwners,
@@ -72,16 +74,19 @@ export type AdminUserSnapshot = {
     verticalSignals: AdminVerticalSignal[];
     platformAccesses: AdminPlatformAccess[];
     primaryPlatform: AdminPlatformAccess | null;
+    accounts: AdminAccountSnapshot[];
     realness: {
         label: 'Cuenta interna/admin' | 'Cuenta real activa' | 'Registro real sin actividad' | 'Registro sin plataforma';
         score: number;
         reasons: string[];
     };
     subscriptions?: {
-        agenda?: { plan: 'free' | 'pro'; status: 'active' | 'expired' | 'free' | 'trial'; expiresAt: string | null };
+        agenda?: { plan: 'free' | 'pro' | 'pro_plus'; status: 'active' | 'expired' | 'free' | 'trial'; expiresAt: string | null };
         autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         serenatas?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
+        serenatasProvider?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
+        serenatasMusician?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
     };
     serenatas?: {
         client: boolean;
@@ -90,7 +95,18 @@ export type AdminUserSnapshot = {
         instrument: string | null;
         ownerStatus: string | null;
         trialEndsAt: string | null;
+        musicianTrialEndsAt: string | null;
     };
+};
+
+export type AdminAccountSnapshot = {
+    id: string;
+    name: string;
+    type: string;
+    isPersonal: boolean;
+    role: string;
+    isDefault: boolean;
+    subscriptions?: NonNullable<AdminUserSnapshot['subscriptions']>;
 };
 
 export type AdminListingSnapshot = {
@@ -208,7 +224,7 @@ function buildRealness(input: {
 }
 
 export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): Promise<AdminUserSnapshot[]> {
-    const [userRows, platformRows, listingRows, agendaProfiles, serenataClientRows, serenataMusicianRows, serenataOwnerRows] = await Promise.all([
+    const [userRows, platformRows, listingRows, agendaProfiles, serenataClientRows, serenataMusicianRows, serenataOwnerRows, accountRows, accountMembershipRows] = await Promise.all([
         db.select().from(users).orderBy(desc(users.createdAt)),
         db.select().from(userPlatformAccess),
         db.select({
@@ -219,6 +235,7 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
         }).from(listings),
         db.select({
             userId: agendaProfessionalProfiles.userId,
+            accountId: agendaProfessionalProfiles.accountId,
             plan: agendaProfessionalProfiles.plan,
             planExpiresAt: agendaProfessionalProfiles.planExpiresAt,
             createdAt: agendaProfessionalProfiles.createdAt,
@@ -232,6 +249,7 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
         db.select({
             userId: serenataMusicians.userId,
             instrument: serenataMusicians.instrument,
+            trialEndsAt: serenataMusicians.trialEndsAt,
             createdAt: serenataMusicians.createdAt,
             updatedAt: serenataMusicians.updatedAt,
         }).from(serenataMusicians),
@@ -242,13 +260,22 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
             createdAt: serenataOwners.createdAt,
             updatedAt: serenataOwners.updatedAt,
         }).from(serenataOwners),
+        db.select().from(accounts),
+        db.select({
+            userId: accountUsers.userId,
+            accountId: accountUsers.accountId,
+            role: accountUsers.role,
+            isDefault: accountUsers.isDefault,
+        }).from(accountUsers),
     ]);
 
     const userIds = userRows.map((user) => user.id);
     const subscriptionRows = userIds.length > 0
         ? await db.select({
             userId: subscriptions.userId,
+            accountId: subscriptions.accountId,
             vertical: subscriptions.vertical,
+            billingProfileType: subscriptions.billingProfileType,
             planSlug: subscriptionPlans.planId,
             planName: subscriptionPlans.name,
             status: subscriptions.status,
@@ -277,6 +304,21 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
             : [],
     );
     const agendaProfilesByUser = new Map(agendaProfiles.map((row) => [row.userId, row]));
+    const accountsById = new Map(accountRows.map((row) => [row.id, row]));
+    const personalAccountByUser = new Map(
+        accountRows
+            .filter((account) => account.isPersonal && account.ownerUserId)
+            .map((account) => [account.ownerUserId!, account.id]),
+    );
+    const membershipsByUser = new Map<string, Array<{ accountId: string; role: string; isDefault: boolean }>>();
+    for (const row of accountMembershipRows) {
+        const bucket = membershipsByUser.get(row.userId) ?? [];
+        bucket.push({ accountId: row.accountId, role: row.role, isDefault: Boolean(row.isDefault) });
+        membershipsByUser.set(row.userId, bucket);
+    }
+    for (const bucket of membershipsByUser.values()) {
+        bucket.sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+    }
     const platformsByUser = new Map<string, AdminPlatformAccess[]>();
     for (const row of platformRows) {
         const v = verticalFromPlatformApp(row.app);
@@ -314,9 +356,24 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
         createdAt: Date;
         updatedAt: Date;
     }>>();
+    const subscriptionsByAccount = new Map<string, Record<string, {
+        planId: string;
+        planName: string;
+        status: string;
+        expiresAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+    }>>();
+    const legacySubscriptionsByUser = new Map<string, Record<string, {
+        planId: string;
+        planName: string;
+        status: string;
+        expiresAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+    }>>();
     for (const row of subscriptionRows) {
-        const bucket = subscriptionsByUser.get(row.userId) ?? {};
-        bucket[row.vertical] = {
+        const value = {
             planId: row.planSlug,
             planName: row.planName,
             status: row.status,
@@ -324,7 +381,33 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         };
+        const bucket = subscriptionsByUser.get(row.userId) ?? {};
+        const subscriptionKey = row.vertical === 'serenatas'
+            ? row.billingProfileType === 'musician' ? 'serenatasMusician' : 'serenatasProvider'
+            : row.vertical;
+        if (!bucket[subscriptionKey] || bucket[subscriptionKey].updatedAt < value.updatedAt) bucket[subscriptionKey] = value;
         subscriptionsByUser.set(row.userId, bucket);
+
+        const memberships = membershipsByUser.get(row.userId) ?? [];
+        const defaultMembership = memberships.find((membership) => membership.isDefault) ?? memberships[0];
+        const defaultAccount = defaultMembership ? accountsById.get(defaultMembership.accountId) : null;
+        const scopedAccountId = row.vertical === 'serenatas'
+            ? personalAccountByUser.get(row.userId) ?? row.accountId
+            : row.accountId ?? (
+            defaultAccount?.isPersonal && defaultAccount.ownerUserId === row.userId
+                ? defaultAccount.id
+                : null
+        );
+        if (scopedAccountId) {
+            const key = `${row.userId}:${scopedAccountId}`;
+            const accountBucket = subscriptionsByAccount.get(key) ?? {};
+            if (!accountBucket[subscriptionKey] || accountBucket[subscriptionKey].updatedAt < value.updatedAt) accountBucket[subscriptionKey] = value;
+            subscriptionsByAccount.set(key, accountBucket);
+        } else if (!row.accountId) {
+            const legacyBucket = legacySubscriptionsByUser.get(row.userId) ?? {};
+            if (!legacyBucket[subscriptionKey] || legacyBucket[subscriptionKey].updatedAt < value.updatedAt) legacyBucket[subscriptionKey] = value;
+            legacySubscriptionsByUser.set(row.userId, legacyBucket);
+        }
     }
 
     return userRows
@@ -343,18 +426,85 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                     || serenataClientsByUser.has(user.id)
                     || serenataMusiciansByUser.has(user.id)
                     || serenataOwnersByUser.has(user.id)
-                    || subscriptionsByUser.get(user.id)?.serenatas
+                    || subscriptionsByUser.get(user.id)?.serenatasProvider
+                    || subscriptionsByUser.get(user.id)?.serenatasMusician
                 )
             ) return true;
             return false;
         })
         .map((user) => {
             const counters = listingCounters.get(user.id) ?? { total: 0, autos: 0, propiedades: 0, rows: [] as typeof listingRows };
-            const agendaProfile = agendaProfilesByUser.get(user.id);
+            const userAgendaProfiles = agendaProfiles.filter((profile) => profile.userId === user.id);
+            const agendaProfile = userAgendaProfiles[0];
             const serenataClient = serenataClientsByUser.get(user.id);
             const serenataMusician = serenataMusiciansByUser.get(user.id);
             const serenataOwner = serenataOwnersByUser.get(user.id);
             const sub = subscriptionsByUser.get(user.id);
+            const memberships = membershipsByUser.get(user.id) ?? [];
+            const defaultMembership = memberships.find((membership) => membership.isDefault) ?? memberships[0];
+            const defaultAccount = defaultMembership ? accountsById.get(defaultMembership.accountId) : null;
+            const defaultAccountSubscriptions = defaultAccount
+                ? { ...(subscriptionsByAccount.get(`${user.id}:${defaultAccount.id}`) ?? {}) }
+                : { ...(legacySubscriptionsByUser.get(user.id) ?? {}) };
+            const personalAccountId = personalAccountByUser.get(user.id);
+            const personalSerenatasBucket = personalAccountId
+                ? subscriptionsByAccount.get(`${user.id}:${personalAccountId}`)
+                : legacySubscriptionsByUser.get(user.id) ?? subscriptionsByUser.get(user.id);
+            const personalSerenatasSubscription = personalSerenatasBucket?.serenatasProvider;
+            const personalSerenatasMusicianSubscription = personalSerenatasBucket?.serenatasMusician;
+            if (personalSerenatasSubscription) {
+                defaultAccountSubscriptions.serenatas = personalSerenatasSubscription;
+                defaultAccountSubscriptions.serenatasProvider = personalSerenatasSubscription;
+            }
+            if (personalSerenatasMusicianSubscription) {
+                defaultAccountSubscriptions.serenatasMusician = personalSerenatasMusicianSubscription;
+            }
+            const legacyAgendaProfile = defaultAccount?.isPersonal
+                ? userAgendaProfiles.find((profile) => !profile.accountId)
+                : undefined;
+            const defaultAgendaProfile = defaultAccount
+                ? userAgendaProfiles.find((profile) => profile.accountId === defaultAccount.id) ?? legacyAgendaProfile
+                : agendaProfile;
+            if (defaultAgendaProfile) {
+                defaultAccountSubscriptions.agenda = {
+                    planId: defaultAgendaProfile.plan === 'pro_plus' ? 'pro_plus' : defaultAgendaProfile.plan === 'pro' ? 'pro' : 'free',
+                    planName: defaultAgendaProfile.plan === 'pro_plus' ? 'Pro+' : defaultAgendaProfile.plan === 'pro' ? 'Pro' : 'Gratis',
+                    status: defaultAgendaProfile.plan === 'free'
+                        ? defaultAgendaProfile.planExpiresAt && defaultAgendaProfile.planExpiresAt >= new Date() ? 'trial' : 'free'
+                        : defaultAgendaProfile.planExpiresAt && defaultAgendaProfile.planExpiresAt < new Date() ? 'expired' : 'active',
+                    expiresAt: defaultAgendaProfile.planExpiresAt ?? null,
+                    createdAt: defaultAgendaProfile.createdAt,
+                    updatedAt: defaultAgendaProfile.updatedAt,
+                };
+            }
+            const accountSnapshots: AdminAccountSnapshot[] = memberships.flatMap((membership) => {
+                const account = accountsById.get(membership.accountId);
+                if (!account) return [];
+                const accountSubs = { ...(subscriptionsByAccount.get(`${user.id}:${account.id}`) ?? {}) };
+                const profile = userAgendaProfiles.find((item) => item.accountId === account.id)
+                    ?? (account.isPersonal && account.ownerUserId === user.id ? userAgendaProfiles.find((item) => !item.accountId) : undefined);
+                if (profile) {
+                    accountSubs.agenda = {
+                        planId: profile.plan === 'pro_plus' ? 'pro_plus' : profile.plan === 'pro' ? 'pro' : 'free',
+                        planName: profile.plan === 'pro_plus' ? 'Pro+' : profile.plan === 'pro' ? 'Pro' : 'Gratis',
+                        status: profile.plan === 'free'
+                            ? profile.planExpiresAt && profile.planExpiresAt >= new Date() ? 'trial' : 'free'
+                            : profile.planExpiresAt && profile.planExpiresAt < new Date() ? 'expired' : 'active',
+                        expiresAt: profile.planExpiresAt ?? null,
+                        createdAt: profile.createdAt,
+                        updatedAt: profile.updatedAt,
+                    };
+                }
+                return [{
+                    id: account.id,
+                    name: account.name,
+                    type: account.type,
+                    isPersonal: Boolean(account.isPersonal),
+                    role: membership.role,
+                    isDefault: membership.isDefault,
+                    subscriptions: Object.keys(accountSubs).length ? accountSubs as NonNullable<AdminUserSnapshot['subscriptions']> : undefined,
+                }];
+            });
             const platformAccesses = platformsByUser.get(user.id) ?? [];
             const primaryPlatform = platformAccesses.find((access) => access.status === 'active') ?? platformAccesses[0] ?? null;
             const signals: AdminVerticalSignal[] = [];
@@ -485,6 +635,7 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                 verticalSignals: signals,
                 platformAccesses,
                 primaryPlatform,
+                accounts: accountSnapshots,
                 realness: buildRealness({
                     role: user.role,
                     status: user.status,
@@ -501,43 +652,62 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                           instrument: serenataMusician?.instrument ?? null,
                           ownerStatus: serenataOwner?.subscriptionStatus ?? null,
                           trialEndsAt: serenataOwner?.trialEndsAt?.toISOString() ?? null,
+                          musicianTrialEndsAt: serenataMusician?.trialEndsAt?.toISOString() ?? null,
                       }
                     : undefined,
                 subscriptions: (() => {
-                    if (!sub && !agendaProfile) return undefined;
-                    const agendaPlan = agendaProfile?.plan === 'pro' ? 'pro' : 'free';
-                    const agendaExpired = Boolean(agendaProfile?.planExpiresAt && agendaProfile.planExpiresAt < new Date());
-                    const agendaTrial = Boolean(agendaPlan === 'free' && agendaProfile?.planExpiresAt && agendaProfile.planExpiresAt >= new Date());
+                    if (!Object.keys(defaultAccountSubscriptions).length && !sub && !agendaProfile) return undefined;
+                    const agendaPlan = defaultAccountSubscriptions.agenda?.planId === 'pro_plus'
+                        ? 'pro_plus'
+                        : defaultAccountSubscriptions.agenda?.planId === 'pro' ? 'pro' : 'free';
+                    const agendaExpired = defaultAccountSubscriptions.agenda?.status === 'expired';
+                    const agendaTrial = defaultAccountSubscriptions.agenda?.status === 'trial';
                     return {
-                        agenda: agendaProfile
+                        agenda: defaultAccountSubscriptions.agenda
                             ? {
                                   plan: agendaPlan,
                                   status: agendaTrial ? 'trial' : agendaPlan === 'free' ? 'free' : agendaExpired ? 'expired' : 'active',
-                                  expiresAt: agendaProfile.planExpiresAt?.toISOString() ?? null,
+                                  expiresAt: defaultAccountSubscriptions.agenda.expiresAt?.toISOString() ?? null,
                               }
                             : undefined,
-                        autos: sub?.autos
+                        autos: defaultAccountSubscriptions.autos
                             ? {
-                                  planId: sub.autos.planId,
-                                  planName: sub.autos.planName,
-                                  status: sub.autos.status,
-                                  expiresAt: sub.autos.expiresAt?.toISOString() ?? null,
+                                  planId: defaultAccountSubscriptions.autos.planId,
+                                  planName: defaultAccountSubscriptions.autos.planName,
+                                  status: defaultAccountSubscriptions.autos.status,
+                                  expiresAt: defaultAccountSubscriptions.autos.expiresAt?.toISOString() ?? null,
                               }
                             : undefined,
-                        propiedades: sub?.propiedades
+                        propiedades: defaultAccountSubscriptions.propiedades
                             ? {
-                                  planId: sub.propiedades.planId,
-                                  planName: sub.propiedades.planName,
-                                  status: sub.propiedades.status,
-                                  expiresAt: sub.propiedades.expiresAt?.toISOString() ?? null,
+                                  planId: defaultAccountSubscriptions.propiedades.planId,
+                                  planName: defaultAccountSubscriptions.propiedades.planName,
+                                  status: defaultAccountSubscriptions.propiedades.status,
+                                  expiresAt: defaultAccountSubscriptions.propiedades.expiresAt?.toISOString() ?? null,
                               }
                             : undefined,
-                        serenatas: sub?.serenatas
+                        serenatas: defaultAccountSubscriptions.serenatas
                             ? {
-                                  planId: sub.serenatas.planId,
-                                  planName: sub.serenatas.planName,
-                                  status: sub.serenatas.status,
-                                  expiresAt: sub.serenatas.expiresAt?.toISOString() ?? null,
+                                  planId: defaultAccountSubscriptions.serenatas.planId,
+                                  planName: defaultAccountSubscriptions.serenatas.planName,
+                                  status: defaultAccountSubscriptions.serenatas.status,
+                                  expiresAt: defaultAccountSubscriptions.serenatas.expiresAt?.toISOString() ?? null,
+                              }
+                            : undefined,
+                        serenatasProvider: defaultAccountSubscriptions.serenatasProvider
+                            ? {
+                                  planId: defaultAccountSubscriptions.serenatasProvider.planId,
+                                  planName: defaultAccountSubscriptions.serenatasProvider.planName,
+                                  status: defaultAccountSubscriptions.serenatasProvider.status,
+                                  expiresAt: defaultAccountSubscriptions.serenatasProvider.expiresAt?.toISOString() ?? null,
+                              }
+                            : undefined,
+                        serenatasMusician: defaultAccountSubscriptions.serenatasMusician
+                            ? {
+                                  planId: defaultAccountSubscriptions.serenatasMusician.planId,
+                                  planName: defaultAccountSubscriptions.serenatasMusician.planName,
+                                  status: defaultAccountSubscriptions.serenatasMusician.status,
+                                  expiresAt: defaultAccountSubscriptions.serenatasMusician.expiresAt?.toISOString() ?? null,
                               }
                             : undefined,
                     };

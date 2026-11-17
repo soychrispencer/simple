@@ -1,17 +1,11 @@
 import Image from 'next/image';
 import { BookingConfirmation } from '@/components/landing/booking-confirmation';
 import {
-    IconApple,
     IconBell,
-    IconBrain,
     IconCalendar,
     IconCheck,
     IconChevronDown,
     IconCreditCard,
-    IconHeartHandshake,
-    IconScissors,
-    IconSparkles,
-    IconStretching,
     IconUser,
 } from '@tabler/icons-react';
 import { AGENDA_PLAN_CATALOG, AGENDA_PRICING, isPlatformLaunchActive } from '@simple/utils';
@@ -31,15 +25,6 @@ const questions = [
 const businessQuoteMessage = 'Hola, quiero cotizar el plan Empresa de SimpleAgenda. Somos ___ profesionales y tenemos ___ sucursales.';
 const businessWhatsAppHref = `https://wa.me/56978623828?text=${encodeURIComponent(businessQuoteMessage)}`;
 
-const industries = [
-    { label: 'Psicología', icon: IconBrain },
-    { label: 'Barbería', icon: IconScissors },
-    { label: 'Estética', icon: IconSparkles },
-    { label: 'Kinesiología', icon: IconStretching },
-    { label: 'Nutrición', icon: IconApple },
-    { label: 'Terapia', icon: IconHeartHandshake },
-];
-
 export default function HomePage() {
     const showPlans = !isPlatformLaunchActive('agenda');
 
@@ -53,7 +38,7 @@ export default function HomePage() {
                             <span className="agenda-display__lead">Tus clientes reservan.</span>
                             <span className="agenda-display__signal">Tú sigues atendiendo.</span>
                         </h1>
-                        <p className="agenda-hero__description">Comparte tu link y tus clientes eligen una hora disponible con confirmación automática.</p>
+                        <p className="agenda-hero__description">Comparte tu link y tus clientes eligen una hora disponible. La cita se confirma automáticamente.</p>
                         <div id="prueba" className="mt-6 scroll-mt-24 sm:mt-8">
                             <AgendaCta location="hero" className="agenda-button agenda-button--signal" />
                             <p className="agenda-hero__terms mt-3.5 max-w-sm text-xs leading-relaxed">
@@ -64,26 +49,28 @@ export default function HomePage() {
                     <figure className="agenda-hero-visual">
                         <Image src="/hero/reserva-online-confirmada.png" alt="Una profesional atiende a un cliente mientras la agenda muestra una cita confirmada en el teléfono" width={1754} height={896} priority sizes="(min-width: 1328px) 640px, (min-width: 1100px) 55vw, 100vw" className="agenda-hero-visual__image" />
                     </figure>
+                    <ol className="agenda-journey agenda-journey--hero" aria-label="Así funciona SimpleAgenda">
+                        {[
+                            'Comparte tu link',
+                            'Eligen una hora',
+                            'Reciben confirmación',
+                            'Tú atiendes',
+                        ].map((step, index) => (
+                            <li key={step} className="agenda-journey__step">
+                                <div className="agenda-journey__marker" aria-hidden="true">
+                                    <span>{String(index + 1).padStart(2, '0')}</span>
+                                    {index < 3 && <span className="agenda-journey__connector" />}
+                                </div>
+                                <span className="agenda-journey__label">{step}</span>
+                            </li>
+                        ))}
+                    </ol>
                 </div>
             </section>
 
             <div id="como-funciona" className="scroll-mt-20">
                 <InteractiveBookingDemo />
             </div>
-
-            <section aria-label="Rubros para los que está diseñado SimpleAgenda" className="agenda-industries">
-                <div className="container-app agenda-industries__inner">
-                    <p className="agenda-eyebrow shrink-0">Para profesionales que trabajan por hora</p>
-                    <ul className="agenda-industries__list">
-                        {industries.map(({ label, icon: Icon }) => (
-                            <li key={label}>
-                                <span className="agenda-industries__icon"><Icon size={16} stroke={1.9} aria-hidden="true" /></span>
-                                <span>{label}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </section>
 
             <section id="funciones" className="agenda-function-band scroll-mt-20">
                 <div className="agenda-function-band__inner container-app grid items-center gap-8 px-5 py-10 sm:gap-10 sm:px-8 sm:py-10 md:grid-cols-2 lg:px-12 lg:py-12">

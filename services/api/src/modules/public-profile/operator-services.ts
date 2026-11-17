@@ -1,6 +1,7 @@
 import type { Hono } from 'hono';
 import type { Context } from 'hono';
 import { cleanupReplacedMediaUrl } from '../media/stored-object.js';
+import { runAccountManagerWrite } from '../accounts/write-access.js';
 
 type Vertical = 'autos' | 'propiedades';
 
@@ -122,32 +123,38 @@ export type OperatorServicesDeps = {
         marketplaceOperatorServicePacks: any;
         marketplaceOperatorServicePromotions: any;
     };
-    getPublicProfileRecord: (userId: string, vertical: Vertical) => { id: string } | null;
-    ensureMarketplaceDraftProfileForUser?: (user: { id: string; name?: string; email?: string }, vertical: Vertical) => Promise<void>;
+    getPublicProfileRecord: (userId: string, vertical: Vertical, accountId?: string | null) => { id: string } | null;
+    canManageActiveAccountProfile: (userId: string) => Promise<boolean>;
+    getAccountMembershipFromDb?: (userId: string) => Promise<{ accountId: string; role: string } | null>;
+    ensureMarketplaceDraftProfileForUser?: (user: { id: string; name?: string; email?: string }, vertical: Vertical, accountId?: string | null) => Promise<void>;
 };
 
 async function resolveProfileId(deps: OperatorServicesDeps, user: { id: string; name?: string; email?: string }, vertical: Vertical) {
+    const accountId = deps.getAccountMembershipFromDb
+        ? (await deps.getAccountMembershipFromDb(user.id))?.accountId ?? null
+        : undefined;
     if (deps.ensureMarketplaceDraftProfileForUser) {
-        await deps.ensureMarketplaceDraftProfileForUser(user as { id: string; name: string; email: string }, vertical);
+        await deps.ensureMarketplaceDraftProfileForUser(user as { id: string; name: string; email: string }, vertical, accountId);
     }
-    const profile = deps.getPublicProfileRecord(user.id, vertical);
-    return profile?.id ?? null;
+    const profile = deps.getPublicProfileRecord(user.id, vertical, accountId);
+    return { profileId: profile?.id ?? null, accountId: accountId ?? null };
 }
 
 /** Lead al minuto: si el perfil draft aún no es público, publicarlo al crear el primer ítem de catálogo. */
 async function ensureProfilePublishedForCatalog(
     deps: OperatorServicesDeps,
     profileId: string,
+    query: any = deps.db,
 ) {
-    const { db, dbHelpers: { eq }, tables } = deps;
-    const [profile] = await db.select().from(tables.publicProfiles)
+    const { dbHelpers: { eq }, tables } = deps;
+    const [profile] = await query.select().from(tables.publicProfiles)
         .where(eq(tables.publicProfiles.id, profileId))
         .limit(1);
     if (!profile || profile.isPublished) return;
     const displayName = typeof profile.displayName === 'string' && profile.displayName.trim()
         ? profile.displayName.trim()
         : 'Mi tienda';
-    await db.update(tables.publicProfiles)
+    await query.update(tables.publicProfiles)
         .set({ isPublished: true, displayName, updatedAt: new Date() })
         .where(eq(tables.publicProfiles.id, profileId));
 }
@@ -341,9 +348,12 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
     async function requireProfile(c: Context, vertical: Vertical) {
         const user = await authUser(c);
         if (!user) return { error: c.json({ ok: false, error: 'No autenticado' }, 401) };
-        const profileId = await resolveProfileId(deps, user, vertical);
-        if (!profileId) return { error: c.json({ ok: false, error: 'Perfil no encontrado' }, 404) };
-        return { user, profileId };
+        if (!await deps.canManageActiveAccountProfile(user.id)) {
+            return { error: c.json({ ok: false, error: 'Solo quien administra este espacio puede gestionar el catálogo.' }, 403) };
+        }
+        const profile = await resolveProfileId(deps, user, vertical);
+        if (!profile.profileId) return { error: c.json({ ok: false, error: 'Perfil no encontrado' }, 404) };
+        return { user, profileId: profile.profileId, accountId: profile.accountId };
     }
 
     app.get('/operator-services', async (c) => {
@@ -372,27 +382,34 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
         const isOnline = typeof body.isOnline === 'boolean' ? body.isOnline : true;
         const isPresential = typeof body.isPresential === 'boolean' ? body.isPresential : true;
         if (!isOnline && !isPresential) return c.json({ ok: false, error: 'Selecciona al menos una modalidad.' }, 400);
-        const [row] = await db.insert(marketplaceOperatorServices).values({
-            publicProfileId: ctx.profileId,
-            vertical,
-            name,
-            description: asString(body.description),
-            imageUrl: asString(body.imageUrl),
-            category: asString(body.category) ?? 'other',
-            pricingMode: body.pricingMode === 'quote' ? 'quote' : 'fixed',
-            price,
-            promoPrice,
-            currency: asString(body.currency) ?? 'CLP',
-            durationMinutes: asNumber(body.durationMinutes),
-            color: asString(body.color),
-            isOnline,
-            isPresential,
-            isActive: body.isActive !== false,
-            position: asNumber(body.position) ?? 0,
-        }).returning();
-        if (body.isActive !== false) {
-            await ensureProfilePublishedForCatalog(deps, ctx.profileId);
-        }
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            async (tx) => {
+                const [row] = await tx.insert(marketplaceOperatorServices).values({
+                    publicProfileId: ctx.profileId,
+                    vertical,
+                    name,
+                    description: asString(body.description),
+                    imageUrl: asString(body.imageUrl),
+                    category: asString(body.category) ?? 'other',
+                    pricingMode: body.pricingMode === 'quote' ? 'quote' : 'fixed',
+                    price,
+                    promoPrice,
+                    currency: asString(body.currency) ?? 'CLP',
+                    durationMinutes: asNumber(body.durationMinutes),
+                    color: asString(body.color),
+                    isOnline,
+                    isPresential,
+                    isActive: body.isActive !== false,
+                    position: asNumber(body.position) ?? 0,
+                }).returning();
+                if (body.isActive !== false) await ensureProfilePublishedForCatalog(deps, ctx.profileId, tx);
+                return row;
+            },
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
+        const row = write.value;
         return c.json({ ok: true, item: mapServiceRow(row) });
     });
 
@@ -424,13 +441,22 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
         const nextOnline = 'isOnline' in patch ? patch.isOnline === true : existing.isOnline !== false;
         const nextPresential = 'isPresential' in patch ? patch.isPresential === true : existing.isPresential !== false;
         if (!nextOnline && !nextPresential) return c.json({ ok: false, error: 'Selecciona al menos una modalidad.' }, 400);
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            async (tx) => {
+                const [row] = await tx.update(marketplaceOperatorServices).set(patch)
+                    .where(and(eq(marketplaceOperatorServices.id, id), eq(marketplaceOperatorServices.publicProfileId, ctx.profileId)))
+                    .returning();
+                return row ?? null;
+            },
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
+        const row = write.value;
+        if (!row) return c.json({ ok: false, error: 'Servicio no encontrado' }, 404);
         if ('imageUrl' in patch) {
             await cleanupReplacedMediaUrl(existing.imageUrl ? String(existing.imageUrl) : null, patch.imageUrl as string | null);
         }
-        const [row] = await db.update(marketplaceOperatorServices).set(patch)
-            .where(and(eq(marketplaceOperatorServices.id, id), eq(marketplaceOperatorServices.publicProfileId, ctx.profileId)))
-            .returning();
-        if (!row) return c.json({ ok: false, error: 'Servicio no encontrado' }, 404);
         return c.json({ ok: true, item: mapServiceRow(row) });
     });
 
@@ -440,8 +466,15 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
         const ctx = await requireProfile(c, vertical);
         if ('error' in ctx) return ctx.error;
         const id = c.req.param('id') ?? '';
-        await db.update(marketplaceOperatorServices).set({ isActive: false, updatedAt: new Date() })
-            .where(and(eq(marketplaceOperatorServices.id, id), eq(marketplaceOperatorServices.publicProfileId, ctx.profileId)));
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            (tx) => tx.update(marketplaceOperatorServices).set({ isActive: false, updatedAt: new Date() })
+                .where(and(eq(marketplaceOperatorServices.id, id), eq(marketplaceOperatorServices.publicProfileId, ctx.profileId)))
+                .returning({ id: marketplaceOperatorServices.id })
+                .then((rows: Array<{ id: string }>) => rows.length),
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
         return c.json({ ok: true });
     });
 
@@ -468,22 +501,31 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
         if (!name || price == null) return c.json({ ok: false, error: 'Nombre y precio son requeridos' }, 400);
         const packPromoError = validatePromoPriceAgainstBase(price, promoPrice);
         if (packPromoError) return c.json({ ok: false, error: packPromoError }, 400);
-        const [row] = await db.insert(marketplaceOperatorServicePacks).values({
-            publicProfileId: ctx.profileId,
-            vertical,
-            name,
-            description: asString(body.description),
-            imageUrl: asString(body.imageUrl),
-            sessionsCount: asNumber(body.sessionsCount) ?? 1,
-            price,
-            promoPrice,
-            currency: asString(body.currency) ?? 'CLP',
-            appliesTo: body.appliesTo === 'services' ? 'services' : 'all',
-            serviceIds: Array.isArray(body.serviceIds) ? body.serviceIds.map(String) : [],
-            validityDays: asNumber(body.validityDays),
-            isActive: body.isActive !== false,
-            position: asNumber(body.position) ?? 0,
-        }).returning();
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            async (tx) => {
+                const [row] = await tx.insert(marketplaceOperatorServicePacks).values({
+                    publicProfileId: ctx.profileId,
+                    vertical,
+                    name,
+                    description: asString(body.description),
+                    imageUrl: asString(body.imageUrl),
+                    sessionsCount: asNumber(body.sessionsCount) ?? 1,
+                    price,
+                    promoPrice,
+                    currency: asString(body.currency) ?? 'CLP',
+                    appliesTo: body.appliesTo === 'services' ? 'services' : 'all',
+                    serviceIds: Array.isArray(body.serviceIds) ? body.serviceIds.map(String) : [],
+                    validityDays: asNumber(body.validityDays),
+                    isActive: body.isActive !== false,
+                    position: asNumber(body.position) ?? 0,
+                }).returning();
+                return row;
+            },
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
+        const row = write.value;
         return c.json({ ok: true, item: mapPackRow(row) });
     });
 
@@ -512,13 +554,22 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
         const nextPackPromo = 'promoPrice' in patch ? (patch.promoPrice as number | null) : (existingPack.promoPrice != null ? Number(existingPack.promoPrice) : null);
         const packPromoError = validatePromoPriceAgainstBase(nextPackPrice, nextPackPromo);
         if (packPromoError) return c.json({ ok: false, error: packPromoError }, 400);
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            async (tx) => {
+                const [row] = await tx.update(marketplaceOperatorServicePacks).set(patch)
+                    .where(and(eq(marketplaceOperatorServicePacks.id, id), eq(marketplaceOperatorServicePacks.publicProfileId, ctx.profileId)))
+                    .returning();
+                return row ?? null;
+            },
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
+        const row = write.value;
+        if (!row) return c.json({ ok: false, error: 'Pack no encontrado' }, 404);
         if ('imageUrl' in patch) {
             await cleanupReplacedMediaUrl(existingPack.imageUrl ? String(existingPack.imageUrl) : null, patch.imageUrl as string | null);
         }
-        const [row] = await db.update(marketplaceOperatorServicePacks).set(patch)
-            .where(and(eq(marketplaceOperatorServicePacks.id, id), eq(marketplaceOperatorServicePacks.publicProfileId, ctx.profileId)))
-            .returning();
-        if (!row) return c.json({ ok: false, error: 'Pack no encontrado' }, 404);
         return c.json({ ok: true, item: mapPackRow(row) });
     });
 
@@ -528,8 +579,15 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
         const ctx = await requireProfile(c, vertical);
         if ('error' in ctx) return ctx.error;
         const id = c.req.param('id') ?? '';
-        await db.update(marketplaceOperatorServicePacks).set({ isActive: false, updatedAt: new Date() })
-            .where(and(eq(marketplaceOperatorServicePacks.id, id), eq(marketplaceOperatorServicePacks.publicProfileId, ctx.profileId)));
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            (tx) => tx.update(marketplaceOperatorServicePacks).set({ isActive: false, updatedAt: new Date() })
+                .where(and(eq(marketplaceOperatorServicePacks.id, id), eq(marketplaceOperatorServicePacks.publicProfileId, ctx.profileId)))
+                .returning({ id: marketplaceOperatorServicePacks.id })
+                .then((rows: Array<{ id: string }>) => rows.length),
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
         return c.json({ ok: true });
     });
 
@@ -556,20 +614,29 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
         if (!label || discountValue == null) return c.json({ ok: false, error: 'Etiqueta y descuento son requeridos' }, 400);
         const discountError = validatePromotionDiscountValue(discountValue, discountType);
         if (discountError) return c.json({ ok: false, error: discountError }, 400);
-        const [row] = await db.insert(marketplaceOperatorServicePromotions).values({
-            publicProfileId: ctx.profileId,
-            vertical,
-            label,
-            description: asString(body.description),
-            discountType,
-            discountValue,
-            appliesTo: body.appliesTo === 'services' ? 'services' : 'all',
-            serviceIds: Array.isArray(body.serviceIds) ? body.serviceIds.map(String) : [],
-            startsAt: body.startsAt ? new Date(String(body.startsAt)) : null,
-            endsAt: body.endsAt ? new Date(String(body.endsAt)) : null,
-            isActive: body.isActive !== false,
-            position: asNumber(body.position) ?? 0,
-        }).returning();
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            async (tx) => {
+                const [row] = await tx.insert(marketplaceOperatorServicePromotions).values({
+                    publicProfileId: ctx.profileId,
+                    vertical,
+                    label,
+                    description: asString(body.description),
+                    discountType,
+                    discountValue,
+                    appliesTo: body.appliesTo === 'services' ? 'services' : 'all',
+                    serviceIds: Array.isArray(body.serviceIds) ? body.serviceIds.map(String) : [],
+                    startsAt: body.startsAt ? new Date(String(body.startsAt)) : null,
+                    endsAt: body.endsAt ? new Date(String(body.endsAt)) : null,
+                    isActive: body.isActive !== false,
+                    position: asNumber(body.position) ?? 0,
+                }).returning();
+                return row;
+            },
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
+        const row = write.value;
         return c.json({ ok: true, item: mapPromotionRow(row) });
     });
 
@@ -604,9 +671,18 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
         if ('serviceIds' in body) patch.serviceIds = Array.isArray(body.serviceIds) ? body.serviceIds.map(String) : [];
         if ('startsAt' in body) patch.startsAt = body.startsAt ? new Date(String(body.startsAt)) : null;
         if ('endsAt' in body) patch.endsAt = body.endsAt ? new Date(String(body.endsAt)) : null;
-        const [row] = await db.update(marketplaceOperatorServicePromotions).set(patch)
-            .where(and(eq(marketplaceOperatorServicePromotions.id, id), eq(marketplaceOperatorServicePromotions.publicProfileId, ctx.profileId)))
-            .returning();
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            async (tx) => {
+                const [row] = await tx.update(marketplaceOperatorServicePromotions).set(patch)
+                    .where(and(eq(marketplaceOperatorServicePromotions.id, id), eq(marketplaceOperatorServicePromotions.publicProfileId, ctx.profileId)))
+                    .returning();
+                return row ?? null;
+            },
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
+        const row = write.value;
         if (!row) return c.json({ ok: false, error: 'Promoción no encontrada' }, 404);
         return c.json({ ok: true, item: mapPromotionRow(row) });
     });
@@ -617,8 +693,15 @@ export function mountOperatorServicesRoutes(app: Hono, deps: OperatorServicesDep
         const ctx = await requireProfile(c, vertical);
         if ('error' in ctx) return ctx.error;
         const id = c.req.param('id') ?? '';
-        await db.update(marketplaceOperatorServicePromotions).set({ isActive: false, updatedAt: new Date() })
-            .where(and(eq(marketplaceOperatorServicePromotions.id, id), eq(marketplaceOperatorServicePromotions.publicProfileId, ctx.profileId)));
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            (tx) => tx.update(marketplaceOperatorServicePromotions).set({ isActive: false, updatedAt: new Date() })
+                .where(and(eq(marketplaceOperatorServicePromotions.id, id), eq(marketplaceOperatorServicePromotions.publicProfileId, ctx.profileId)))
+                .returning({ id: marketplaceOperatorServicePromotions.id })
+                .then((rows: Array<{ id: string }>) => rows.length),
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
         return c.json({ ok: true });
     });
 }

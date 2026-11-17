@@ -9,12 +9,13 @@ const RESERVED_TOP_LEVEL_SEGMENTS = new Set([
     'nps',
 ]);
 
-/** Perfil público / operator site: un solo segmento que no es ruta reservada. */
+/** Perfil público o vista de muestra: estas rutas usan su propia navegación. */
 export function isAgendaOperatorSitePath(pathname: string): boolean {
     const path = pathname.split('?')[0]?.split('#')[0] ?? '/';
     if (path === '/') return false;
 
     const segments = path.split('/').filter(Boolean);
+    if (segments[0]?.toLowerCase() === 'demo-rubros' && segments.length === 2) return true;
     if (segments.length !== 1) return false;
 
     return !RESERVED_TOP_LEVEL_SEGMENTS.has(segments[0]!.toLowerCase());

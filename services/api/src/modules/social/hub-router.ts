@@ -2,35 +2,40 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { VerticalType } from '@simple/types';
 import type { SocialPublishTarget } from './publish-hub.js';
+import { canManageAccountRole } from '../accounts/permissions.js';
 
 export interface SocialHubRouterDeps {
     authUser: (c: Context) => Promise<{ id: string; role?: string } | null>;
     parseVertical: (v: string | undefined) => VerticalType;
     asString: (v: unknown) => string;
     asObject: (v: unknown) => Record<string, unknown>;
-    listingsById: Map<string, { id: string; vertical: VerticalType; ownerId: string; status: string; title: string; updatedAt: number; [key: string]: unknown }>;
-    getListingById: (id: string) => Promise<{ id: string; vertical: VerticalType; ownerId: string; status: string; title: string; updatedAt: number; [key: string]: unknown } | null>;
+    listingsById: Map<string, { id: string; vertical: VerticalType; ownerId: string; accountId?: string | null; status: string; title: string; updatedAt: number; [key: string]: unknown }>;
+    getListingById: (id: string) => Promise<{ id: string; vertical: VerticalType; ownerId: string; accountId?: string | null; status: string; title: string; updatedAt: number; [key: string]: unknown } | null>;
+    canManageListing: (user: { id: string; role?: string }, listing: { id: string; vertical: VerticalType; ownerId: string; [key: string]: unknown }) => Promise<boolean>;
     isInstagramConfigured: () => boolean;
-    userCanUseInstagram: (user: { id: string; role?: string }, vertical: VerticalType) => boolean;
-    getEffectivePlanId: (user: { id: string; role?: string }, vertical: VerticalType) => string;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
+    getAccountMembershipFromDb?: (userId: string) => Promise<{ accountId: string; role: string } | null>;
+    canManageIntegration: (userId: string, accountId: string | null) => boolean;
+    userCanUseInstagram: (user: { id: string; role?: string }, vertical: VerticalType, accountId?: string | null) => boolean;
+    getEffectivePlanId: (user: { id: string; role?: string }, vertical: VerticalType, accountId?: string | null) => string;
     getInstagramRequiredPlanIds: () => string[];
-    getInstagramAccount: (userId: string, vertical: VerticalType) => {
+    getInstagramAccount: (userId: string, vertical: VerticalType, accountId?: string | null) => {
         status: string;
         username: string;
         facebookPageId: string | null;
         facebookPageName: string | null;
     } | null;
-    getTikTokAccount: (userId: string, vertical: VerticalType) => {
+    getTikTokAccount: (userId: string, vertical: VerticalType, accountId?: string | null) => {
         status: string;
         username: string;
     } | null;
-    getYouTubeAccount: (userId: string, vertical: VerticalType) => {
+    getYouTubeAccount: (userId: string, vertical: VerticalType, accountId?: string | null) => {
         status: string;
         channelTitle: string;
     } | null;
     resolveBrowserOrigin: (c: Context) => string | null;
     instagramAccountToResponse: (account: unknown) => unknown;
-    getSocialPublicationsForUser: (userId: string, vertical?: VerticalType) => unknown[];
+    getSocialPublicationsForUser: (userId: string, vertical?: VerticalType, accountId?: string | null) => unknown[];
     socialPublicationToResponse: (item: unknown) => unknown;
     socialPublishSchema: {
         safeParse: (input: unknown) => {
@@ -47,7 +52,7 @@ export interface SocialHubRouterDeps {
     };
     publishListingToSocialHub: (
         user: { id: string; role?: string },
-        listing: { id: string; vertical: VerticalType; status: string; title: string; updatedAt: number; [key: string]: unknown },
+        listing: { id: string; vertical: VerticalType; accountId?: string | null; status: string; title: string; updatedAt: number; [key: string]: unknown },
         options: {
             targets?: SocialPublishTarget[];
             publishAll?: boolean;
@@ -66,11 +71,20 @@ export function createSocialHubRouter(deps: SocialHubRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const vertical = deps.parseVertical(c.req.query('vertical'));
-        const account = deps.getInstagramAccount(user.id, vertical);
+        const membership = deps.getAccountMembershipFromDb
+            ? await deps.getAccountMembershipFromDb(user.id)
+            : null;
+        const accountId = deps.getAccountMembershipFromDb
+            ? membership?.accountId ?? null
+            : await deps.getPrimaryAccountIdForUser(user.id);
+        const canManageIntegration = deps.getAccountMembershipFromDb
+            ? canManageAccountRole(membership?.role)
+            : deps.canManageIntegration(user.id, accountId);
+        const account = deps.getInstagramAccount(user.id, vertical, accountId);
         const igConnected = Boolean(account && account.status === 'connected');
         const fbConnected = Boolean(igConnected && account?.facebookPageId && account.facebookPageName);
-        const tiktokAccount = deps.getTikTokAccount(user.id, vertical);
-        const youtubeAccount = deps.getYouTubeAccount(user.id, vertical);
+        const tiktokAccount = deps.getTikTokAccount(user.id, vertical, accountId);
+        const youtubeAccount = deps.getYouTubeAccount(user.id, vertical, accountId);
         const tiktokConnected = Boolean(tiktokAccount && tiktokAccount.status === 'connected');
         const youtubeConnected = Boolean(youtubeAccount && youtubeAccount.status === 'connected');
         const origin = deps.resolveBrowserOrigin(c);
@@ -80,9 +94,10 @@ export function createSocialHubRouter(deps: SocialHubRouterDeps) {
             ok: true,
             vertical,
             configured: deps.isInstagramConfigured(),
-            eligible: deps.userCanUseInstagram(user, vertical),
-            currentPlanId: deps.getEffectivePlanId(user, vertical),
+            eligible: deps.userCanUseInstagram(user, vertical, accountId),
+            currentPlanId: deps.getEffectivePlanId(user, vertical, accountId),
             requiredPlanIds: deps.getInstagramRequiredPlanIds(),
+            canManageIntegration,
             platforms: {
                 instagram: {
                     available: true,
@@ -100,7 +115,7 @@ export function createSocialHubRouter(deps: SocialHubRouterDeps) {
                     configured: deps.isTikTokConfigured(),
                     connected: tiktokConnected,
                     username: tiktokAccount?.username ?? null,
-                    connectUrl: integrationsReturn && deps.isTikTokConfigured()
+                    connectUrl: integrationsReturn && canManageIntegration && deps.userCanUseInstagram(user, vertical, accountId) && deps.isTikTokConfigured()
                         ? `/api/integrations/tiktok/connect?vertical=${encodeURIComponent(vertical)}&returnTo=${encodeURIComponent(integrationsReturn)}`
                         : null,
                 },
@@ -109,13 +124,13 @@ export function createSocialHubRouter(deps: SocialHubRouterDeps) {
                     configured: deps.isYouTubeConfigured(),
                     connected: youtubeConnected,
                     channelTitle: youtubeAccount?.channelTitle ?? null,
-                    connectUrl: integrationsReturn && deps.isYouTubeConfigured()
+                    connectUrl: integrationsReturn && canManageIntegration && deps.userCanUseInstagram(user, vertical, accountId) && deps.isYouTubeConfigured()
                         ? `/api/integrations/youtube/connect?vertical=${encodeURIComponent(vertical)}&returnTo=${encodeURIComponent(integrationsReturn)}`
                         : null,
                 },
             },
             metaAccount: deps.instagramAccountToResponse(account),
-            recentPublications: deps.getSocialPublicationsForUser(user.id, vertical)
+            recentPublications: deps.getSocialPublicationsForUser(user.id, vertical, accountId)
                 .slice(0, 8)
                 .map((item) => deps.socialPublicationToResponse(item)),
         });
@@ -137,10 +152,10 @@ export function createSocialHubRouter(deps: SocialHubRouterDeps) {
         if (listing.vertical !== parsed.data!.vertical) {
             return c.json({ ok: false, error: 'La publicación no corresponde a esta vertical.' }, 409);
         }
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        if (!await deps.canManageListing(user, listing)) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
-        if (!deps.userCanUseInstagram(user, parsed.data!.vertical)) {
+        if (!deps.userCanUseInstagram(user, parsed.data!.vertical, listing.accountId ?? null)) {
             return c.json({ ok: false, error: 'El hub social está disponible solo para planes Pro y Empresa.' }, 403);
         }
 

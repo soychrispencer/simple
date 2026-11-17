@@ -1,6 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { logger } from '@simple/logger';
-import { isCloudflareR2Url } from '../listings/media-delivery.js';
+import { isCloudflareR2Url, parsePrivateMediaUrl } from '../listings/media-delivery.js';
 
 let r2S3Client: S3Client | null = null;
 
@@ -32,6 +32,13 @@ export function getR2S3Client(): S3Client | null {
 }
 
 export function getS3ClientForUrl(url: string): { client: S3Client | null; bucketName: string } {
+    const privateMedia = parsePrivateMediaUrl(url);
+    if (privateMedia?.storage === 'r2') {
+        return {
+            client: getR2S3Client(),
+            bucketName: process.env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME || '',
+        };
+    }
     if (isCloudflareR2Url(url)) {
         return {
             client: getR2S3Client(),

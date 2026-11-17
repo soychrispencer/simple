@@ -9,9 +9,10 @@ import { usePathname } from 'next/navigation';
 export default function PanelLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname() ?? '';
     const isPublishFlow = pathname.startsWith('/panel/publicar');
+    const isInvitationRoute = pathname === '/panel/equipo';
 
     return (
-        <AuthGuard>
+        <AuthGuard allowInvitationPreview={isInvitationRoute}>
             <PanelConfirmProvider>
                 {isPublishFlow ? (
                     children

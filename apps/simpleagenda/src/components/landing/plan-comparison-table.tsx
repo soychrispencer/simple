@@ -67,6 +67,13 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 proPlus: true,
             },
             {
+                name: 'Diseño de la página pública',
+                description: 'Opciones para presentar tu negocio con una portada y una identidad visual propia.',
+                free: 'Página básica de reservas',
+                pro: 'Portada, estilos y colores personalizables',
+                proPlus: 'Incluido en Pro',
+            },
+            {
                 name: 'Agendar cita online 24/7 sin registro',
                 description: 'Tus clientes o pacientes eligen una hora sin crear una cuenta.',
                 free: true,

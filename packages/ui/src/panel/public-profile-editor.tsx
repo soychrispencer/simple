@@ -21,8 +21,6 @@ import {
     fetchAccountPublicProfile as fetchAccountPublicProfileForVertical,
     formatStructuredLocationLabel,
     fetchAddressBook,
-    getOperatorSubtypes,
-    getOperatorTierOptions,
     loadMarketplaceSocialLinks,
     marketplaceSocialLinksFromPicker,
     publicProfileFieldsFromStructuredLocation,
@@ -56,7 +54,6 @@ import { PanelField } from './panel-display.js';
 import { PanelBlockHeader, PanelNotice } from './panel-primitives.js';
 import { PanelSectionSaveFooter, panelSectionSaveLabel } from './panel-section-save-footer.js';
 import { PanelProfileBrandImages } from './panel-profile-brand-images.js';
-import { OperatorProfileFields } from './operator-profile-fields.js';
 import { BusinessPublicLocationCard, resolveDefaultBusinessAddress } from './business-public-location-card.js';
 import { BusinessPublicContactCard } from './business-public-contact-card.js';
 import { BusinessSchedulePanel } from './business-schedule-panel.js';
@@ -98,30 +95,30 @@ function fetchAccountPublicProfile(vertical: PublicProfileVertical) {
 
 function updateAccountPublicProfile(
     vertical: PublicProfileVertical,
-    input: Omit<EditablePublicProfile, 'id' | 'userId' | 'vertical' | 'publicUrl'>,
+    input: Omit<EditablePublicProfile, 'id' | 'userId' | 'vertical' | 'publicUrl' | 'accountKind' | 'operatorSubtype' | 'operatorSubtypeCustom'>,
 ) {
     return updateAccountPublicProfileForVertical(vertical, input);
 }
 
 function buildPublicProfileSavePayload(
     form: EditablePublicProfile,
-    vertical: PublicProfileVertical,
     isPublished: boolean,
 ) {
-    const { id: _id, userId: _userId, vertical: _vertical, publicUrl: _publicUrl, ...payload } = form;
-    const subtypes = getOperatorSubtypes(vertical, payload.accountKind);
-    const operatorSubtype = payload.operatorSubtype
-        ?? (subtypes.length === 1 ? subtypes[0]?.id ?? null : null);
-    const operatorSubtypeCustom = operatorSubtype === 'other'
-        ? payload.operatorSubtypeCustom?.trim() || null
-        : null;
+    const {
+        id: _id,
+        userId: _userId,
+        vertical: _vertical,
+        publicUrl: _publicUrl,
+        accountKind: _accountKind,
+        operatorSubtype: _operatorSubtype,
+        operatorSubtypeCustom: _operatorSubtypeCustom,
+        ...payload
+    } = form;
     return {
         ...payload,
         companyName: null,
         headline: null,
         specialties: [],
-        operatorSubtype,
-        operatorSubtypeCustom,
         isPublished,
         slug: normalizeSlug(payload.slug || payload.displayName),
         addressLine: payload.primaryAddressId ? null : payload.addressLine,
@@ -329,7 +326,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
         const isPublished = fresh?.ok ? fresh.profile.isPublished : current.isPublished;
         const response = await updateAccountPublicProfile(
             vertical,
-            buildPublicProfileSavePayload({ ...current, avatarImageUrl, coverImageUrl }, vertical, isPublished),
+            buildPublicProfileSavePayload({ ...current, avatarImageUrl, coverImageUrl }, isPublished),
         );
         setBrandSaving(false);
         if (!response.ok) {
@@ -456,7 +453,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
         const isPublished = fresh?.ok ? fresh.profile.isPublished : form.isPublished;
         const response = await updateAccountPublicProfile(
             vertical,
-            buildPublicProfileSavePayload(form, vertical, isPublished),
+            buildPublicProfileSavePayload(form, isPublished),
         );
         setSaving(false);
         if (!response.ok) {
@@ -553,42 +550,20 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                             <input className="form-input" value={form.displayName} onChange={(event) => handleDisplayNameChange(event.target.value)} placeholder={vertical === 'propiedades' ? 'Ej: Inmobiliaria Las Condes' : 'Ej: Ignacio Autos Boutique'} />
                         </PanelField>
 
-                        <OperatorProfileFields
-                            vertical={vertical}
-                            tier={form.accountKind}
-                            subtype={form.operatorSubtype}
-                            subtypeCustom={form.operatorSubtypeCustom ?? ''}
-                            onTierChange={(tier) => {
-                                setForm((current) => (
-                                    current
-                                        ? {
-                                            ...current,
-                                            accountKind: tier,
-                                            operatorSubtype: null,
-                                            operatorSubtypeCustom: null,
-                                            companyName: null,
-                                        }
-                                        : current
-                                ));
-                            }}
-                            onSubtypeChange={(subtype) => {
-                                setForm((current) => (
-                                    current
-                                        ? {
-                                            ...current,
-                                            operatorSubtype: subtype,
-                                            operatorSubtypeCustom:
-                                                subtype === 'other' ? (current.operatorSubtypeCustom ?? '') : null,
-                                        }
-                                        : current
-                                ));
-                            }}
-                            onSubtypeCustomChange={(value) => {
-                                setForm((current) => (
-                                    current ? { ...current, operatorSubtypeCustom: value } : current
-                                ));
-                            }}
-                        />
+                        <div className="rounded-xl border px-4 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                            <p className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Actividad del espacio</p>
+                            <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                    {resolveOperatorDisplayLabel(vertical, form.accountKind, form.operatorSubtype, form.operatorSubtypeCustom)}
+                                </p>
+                                <Link href="/panel/mi-negocio" className="text-xs font-semibold underline underline-offset-2" style={{ color: 'var(--accent)' }}>
+                                    Cambiar en Mi negocio
+                                </Link>
+                            </div>
+                            <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                Simple usa esta actividad para adaptar tu espacio y presentar tu negocio.
+                            </p>
+                        </div>
 
                         <PanelField
                             label={BUSINESS_DESCRIPTION_FIELD.label}
@@ -733,7 +708,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
         };
         const response = await updateAccountPublicProfile(
             vertical,
-            buildPublicProfileSavePayload(updatedForm, vertical, isPublished),
+            buildPublicProfileSavePayload(updatedForm, isPublished),
         );
         setSaving(false);
         if (!response.ok) {
@@ -803,7 +778,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
         const isPublished = fresh?.ok ? fresh.profile.isPublished : form.isPublished;
         const response = await updateAccountPublicProfile(
             vertical,
-            buildPublicProfileSavePayload(form, vertical, isPublished),
+            buildPublicProfileSavePayload(form, isPublished),
         );
         setSaving(false);
         if (!response.ok) {
@@ -897,11 +872,7 @@ export function PublicProfileEditor({ vertical, section, publicLinkBelowBrand }:
                             className="mb-0"
                         />
                         <SummaryItem
-                            label="Tipo"
-                            value={getOperatorTierOptions(vertical).find((item) => item.tier === form.accountKind)?.label ?? form.accountKind}
-                        />
-                        <SummaryItem
-                            label="Negocio"
+                            label="Actividad del espacio"
                             value={resolveOperatorDisplayLabel(
                                 vertical,
                                 form.accountKind,

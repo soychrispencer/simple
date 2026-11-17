@@ -27,13 +27,12 @@ export function getMarketplaceBusinessTabs(vertical: 'autos' | 'propiedades') {
     return vertical === 'propiedades' ? MARKETPLACE_PROPIEDADES_BUSINESS_TABS : MARKETPLACE_AUTOS_BUSINESS_TABS;
 }
 
-/** Agenda: Mi negocio = configuración (sin catálogo). */
+/** Agenda: un solo espacio para perfil, servicios, agenda y página pública. */
 export const AGENDA_BUSINESS_TABS: PanelSectionTabItem[] = [
-    { key: 'datos', label: 'Datos del negocio', href: '/panel/mi-negocio' },
-    { key: 'apariencia', label: 'Apariencia', href: '/panel/mi-negocio/apariencia' },
-    { key: 'direcciones', label: 'Direcciones', href: '/panel/mi-negocio/direcciones' },
-    { key: 'horarios', label: 'Horario', href: '/panel/mi-negocio/horarios' },
-    { key: 'configuraciones', label: 'Configuraciones', href: '/panel/mi-negocio/configuraciones' },
+    { key: 'perfil', label: 'Perfil', href: '/panel/mi-negocio' },
+    { key: 'servicios', label: 'Servicios', href: '/panel/mis-servicios' },
+    { key: 'agenda', label: 'Agenda y reservas', href: '/panel/mi-negocio/agenda' },
+    { key: 'pagina', label: 'Página pública', href: '/panel/mi-negocio/apariencia' },
 ];
 
 /** Serenatas: configuración del negocio (catálogo vive en Mis servicios). */

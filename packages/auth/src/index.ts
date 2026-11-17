@@ -9,6 +9,6 @@ export { ConfirmEmailPage } from './confirm-email-page';
 export { AuthRouteRedirect } from './auth-route-redirect';
 export { EmailVerificationGate } from './email-verification-gate';
 export { PanelAuthGuard } from './panel-auth-guard';
-export { AUTH_PASSWORD_MIN_LENGTH, authRequest, normalizeEmail, getPasswordStrength, resolveSafeInternalPath } from './core';
+export { AUTH_PASSWORD_MIN_LENGTH, authRequest, normalizeEmail, getPasswordStrength, resolveSafeInternalPath, resolveNewUserReturnTo } from './core';
 export type { AuthApiResponse } from './core';
 export type { ConfirmEmailPageProps } from './confirm-email-page';

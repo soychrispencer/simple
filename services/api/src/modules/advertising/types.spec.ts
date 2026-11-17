@@ -15,14 +15,15 @@ describe('Serenatas subscription catalog', () => {
 });
 
 describe('Agenda subscription catalog', () => {
-    it('exposes Gratis and Pro without temporary pricing promotions', () => {
+    it('exposes Gratis, Pro and Pro+ without temporary pricing promotions', () => {
         const plans = SUBSCRIPTION_PLANS_BY_VERTICAL.agenda;
-        expect(plans.map((plan) => plan.id)).toEqual(['free', 'pro']);
+        expect(plans.map((plan) => plan.id)).toEqual(['free', 'pro', 'pro_plus']);
         expect(plans.find((plan) => plan.id === 'pro')).toMatchObject({
-            priceMonthly: 9990,
+            priceMonthly: 14990,
             maxFreeBoostsPerMonth: 0,
         });
         expect(plans.find((plan) => plan.id === 'pro')?.promotion).toBeUndefined();
+        expect(plans.find((plan) => plan.id === 'pro_plus')).toMatchObject({ priceMonthly: 24990 });
         expect(plans.find((plan) => plan.id === 'free')?.name).toBe('Gratis');
     });
 });

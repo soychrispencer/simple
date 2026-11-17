@@ -131,6 +131,7 @@ function PacksPageContent() {
     return (
         <AgendaMisServiciosShell
             {...agendaBusinessSubsectionShellProps('packs')}
+            activeKey="servicios"
             title={AGENDA_BUSINESS_PACKS_PAGE.title}
             description={AGENDA_BUSINESS_PACKS_PAGE.description}
         >

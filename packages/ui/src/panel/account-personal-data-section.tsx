@@ -203,7 +203,7 @@ export function PanelAccountPersonalDataSection({
     const hasPassword = user?.hasPassword !== false;
     const googleConnected = user?.provider === 'google';
     const pendingEmail = user?.pendingEmail?.trim() || '';
-    const accountRole = roleLabel ?? user?.role ?? undefined;
+    const accountRole = roleLabel ?? 'Cuenta Simple';
     const platformAccesses = user?.platformAccesses ?? [];
     const currentApp = user?.currentApp ?? null;
     const currentPlatform = platformAccesses.find((platform) => platform.app === currentApp);

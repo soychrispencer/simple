@@ -57,7 +57,7 @@ export function AccountSubscriptionBillingModal({
                 setBillingAddressId(legal.billingAddressId ?? null);
             }
             setAddressOptions([
-                ...(personal.ok ? personal.items : []),
+                ...(legal?.isPersonal && personal.ok ? personal.items : []),
                 ...(business.ok ? business.items : []),
             ]);
             setLoading(false);

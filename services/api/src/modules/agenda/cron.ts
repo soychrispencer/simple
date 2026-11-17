@@ -1,41 +1,25 @@
 import cron from 'node-cron';
-import { eq, and, gte, lte, isNull, sql, type SQL } from 'drizzle-orm';
+import { eq, and, gte, lte, isNull, inArray, sql, type SQL } from 'drizzle-orm';
 import { isPlatformLaunchActive } from '@simple/utils';
-import { db } from '../../db/index.js';
+import { db, pgClient } from '../../db/index.js';
 import {
     agendaAppointments,
+    agendaAccountVisits,
     agendaNotificationEvents,
     agendaProfessionalProfiles,
+    listings,
+    platformNotifications,
     users,
 } from '../../db/schema.js';
 import { logNotification } from '../../lib/audit.js';
 import { isProduction } from '../../env.js';
 import { sendAppointmentReminderEmail } from '../../lib/auth-email.js';
 import { sendAgendaTrialEmail, type AgendaTrialEmailKind } from '../../lib/agenda-trial-email.js';
-import { insertPlatformNotifications } from '../platform/notifications-service.js';
+import { createAccountNotificationRecipientResolver, insertPlatformNotifications } from '../platform/notifications-service.js';
 import { downgradeExpiredAgendaProProfiles } from './plan-limits.js';
 
 const AGENDA_CRON_ADVISORY_LOCK_KEY = 839_201;
-
-async function tryAcquireAgendaCronLock(): Promise<boolean> {
-    try {
-        const result = await db.execute(
-            sql`SELECT pg_try_advisory_lock(${AGENDA_CRON_ADVISORY_LOCK_KEY}) AS acquired`,
-        );
-        const row = (result as { rows?: Array<{ acquired?: boolean }> }).rows?.[0];
-        return row?.acquired === true;
-    } catch {
-        return true;
-    }
-}
-
-async function releaseAgendaCronLock(): Promise<void> {
-    try {
-        await db.execute(sql`SELECT pg_advisory_unlock(${AGENDA_CRON_ADVISORY_LOCK_KEY})`);
-    } catch {
-        // ignore
-    }
-}
+const ACCOUNT_VISIT_CRON_ADVISORY_LOCK_KEY = 839_204;
 
 function formatReminderLabels(startsAt: Date, timezone: string) {
     const dateLabel = startsAt.toLocaleDateString('es-CL', {
@@ -59,6 +43,108 @@ function agendaAppBaseUrl(): string {
 
 function buildCancelUrl(appointmentId: string, slug: string): string {
     return `${agendaAppBaseUrl()}/cancelar?appt=${encodeURIComponent(appointmentId)}&slug=${encodeURIComponent(slug)}`;
+}
+
+async function sendUpcomingAccountVisitReminders(): Promise<void> {
+    const now = new Date();
+    const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+    const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+
+    await db.transaction(async (tx) => {
+        const lockResult = await tx.execute(
+            sql`SELECT pg_try_advisory_xact_lock(${ACCOUNT_VISIT_CRON_ADVISORY_LOCK_KEY}) AS acquired`,
+        );
+        const lockRow = (lockResult as { rows?: Array<{ acquired?: boolean }> }).rows?.[0];
+        if (lockRow?.acquired !== true) return;
+
+        const visits = await tx.select({
+            visit: agendaAccountVisits,
+            listingTitle: listings.title,
+        })
+            .from(agendaAccountVisits)
+            .leftJoin(listings, eq(agendaAccountVisits.listingId, listings.id))
+            .where(and(
+                gte(agendaAccountVisits.startsAt, windowStart),
+                lte(agendaAccountVisits.startsAt, windowEnd),
+                inArray(agendaAccountVisits.status, ['scheduled', 'confirmed']),
+                isNull(agendaAccountVisits.reminderSentAt),
+            ))
+            .orderBy(agendaAccountVisits.startsAt)
+            .limit(250);
+
+        const resolveRecipient = createAccountNotificationRecipientResolver(tx);
+        for (const { visit, listingTitle } of visits) {
+            const isBrokerageMeeting = visit.visitType === 'brokerage_meeting';
+            const notificationType = isBrokerageMeeting
+                ? 'brokerage_meeting.reminder_24h'
+                : 'property_visit.reminder_24h';
+            const entityType = isBrokerageMeeting ? 'account_business_visit' : 'account_property_visit';
+            const visitSummary = isBrokerageMeeting
+                ? `Reunión comercial${listingTitle ? ` · ${listingTitle}` : ''}`
+                : listingTitle ?? 'Propiedad';
+            const recipientUserId = await resolveRecipient(
+                visit.accountId,
+                [visit.assignedUserId, visit.createdByUserId],
+            );
+            if (!recipientUserId) continue;
+            const [currentVisit] = await tx.select().from(agendaAccountVisits)
+                .where(and(
+                    eq(agendaAccountVisits.id, visit.id),
+                    eq(agendaAccountVisits.accountId, visit.accountId),
+                    inArray(agendaAccountVisits.status, ['scheduled', 'confirmed']),
+                    gte(agendaAccountVisits.startsAt, windowStart),
+                    lte(agendaAccountVisits.startsAt, windowEnd),
+                    isNull(agendaAccountVisits.reminderSentAt),
+                ))
+                .limit(1)
+                .for('update');
+            if (!currentVisit
+                || currentVisit.updatedAt.getTime() !== visit.updatedAt.getTime()
+                || currentVisit.assignedUserId !== visit.assignedUserId
+                || currentVisit.createdByUserId !== visit.createdByUserId) {
+                continue;
+            }
+            const startsAt = visit.startsAt.toISOString();
+            const existing = await tx.select({ id: platformNotifications.id })
+                .from(platformNotifications)
+                .where(and(
+                    eq(platformNotifications.userId, recipientUserId),
+                    eq(platformNotifications.vertical, 'agenda'),
+                    eq(platformNotifications.type, notificationType),
+                    eq(platformNotifications.entityType, entityType),
+                    eq(platformNotifications.entityId, visit.id),
+                    sql`${platformNotifications.metadata}->>'startsAt' = ${startsAt}`,
+                ))
+                .limit(1);
+
+            if (!existing[0]) {
+                const { dateLabel, timeLabel } = formatReminderLabels(visit.startsAt, 'America/Santiago');
+                await insertPlatformNotifications({
+                    userId: recipientUserId,
+                    vertical: 'agenda',
+                    type: notificationType,
+                    title: isBrokerageMeeting ? 'Reunión comercial mañana' : 'Visita inmobiliaria mañana',
+                    body: `${visit.contactName} · ${visitSummary} · ${dateLabel} · ${timeLabel}`,
+                    actionUrl: '/panel/visitas-equipo',
+                    entityType,
+                    entityId: visit.id,
+                    metadata: {
+                        accountId: visit.accountId,
+                        listingId: visit.listingId,
+                        visitType: visit.visitType,
+                        startsAt,
+                    },
+                }, { tx });
+            }
+
+            await tx.update(agendaAccountVisits)
+                .set({ reminderSentAt: now })
+                .where(and(
+                    eq(agendaAccountVisits.id, visit.id),
+                    isNull(agendaAccountVisits.reminderSentAt),
+                ));
+        }
+    });
 }
 
 /**
@@ -85,6 +171,17 @@ function reminderEntitlementCondition(): SQL {
 export function registerAgendaCronJobs() {
     const agendaEnabled = process.env.AGENDA_CRON_ENABLED === 'true';
 
+    if (process.env.SIMPLE_ACCOUNT_VISIT_REMINDERS_ENABLED !== 'false') {
+        cron.schedule('*/5 * * * *', async () => {
+            try {
+                await sendUpcomingAccountVisitReminders();
+            } catch (e) {
+                console.error('[agenda] account visit reminder cron error:', e);
+            }
+        });
+        console.info('[agenda] recordatorios de visitas del equipo programados');
+    }
+
     if (!isProduction && !agendaEnabled) {
         console.info('[agenda] cron jobs desactivados (no es producción y AGENDA_CRON_ENABLED != true)');
         return;
@@ -97,12 +194,21 @@ export function registerAgendaCronJobs() {
     console.info('[agenda] registering reminder cron jobs (advisory lock %s)...', AGENDA_CRON_ADVISORY_LOCK_KEY);
 
     const runWithLock = async (job: () => Promise<void>) => {
-        const acquired = await tryAcquireAgendaCronLock();
-        if (!acquired) return;
+        const lockConnection = await pgClient.reserve();
+        let acquired = false;
         try {
+            const result = await lockConnection`SELECT pg_try_advisory_lock(${AGENDA_CRON_ADVISORY_LOCK_KEY}) AS acquired`;
+            acquired = result[0]?.acquired === true;
+            if (!acquired) return;
             await job();
+        } catch (error) {
+            console.error('[agenda] cron lock/job error:', error);
         } finally {
-            await releaseAgendaCronLock();
+            try {
+                if (acquired) await lockConnection`SELECT pg_advisory_unlock(${AGENDA_CRON_ADVISORY_LOCK_KEY})`;
+            } finally {
+                lockConnection.release();
+            }
         }
     };
 
@@ -124,12 +230,26 @@ export function registerAgendaCronJobs() {
                     .where(and(
                         gte(agendaAppointments.startsAt, windowStart),
                         lte(agendaAppointments.startsAt, windowEnd),
-                        sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
+                        eq(agendaAppointments.status, 'confirmed'),
                         isNull(agendaAppointments.reminderSentAt),
                         entitlement,
                     ));
 
                 for (const { appt, prof } of appts) {
+                    const [claimed] = await db.update(agendaAppointments)
+                        .set({ reminderSentAt: now })
+                        .where(and(
+                            eq(agendaAppointments.id, appt.id),
+                            eq(agendaAppointments.status, 'confirmed'),
+                            eq(agendaAppointments.startsAt, appt.startsAt),
+                            eq(agendaAppointments.updatedAt, appt.updatedAt),
+                            gte(agendaAppointments.startsAt, windowStart),
+                            lte(agendaAppointments.startsAt, windowEnd),
+                            isNull(agendaAppointments.reminderSentAt),
+                        ))
+                        .returning({ id: agendaAppointments.id });
+                    if (!claimed) continue;
+
                     const tz = prof.timezone ?? 'America/Santiago';
                     const { dateLabel, timeLabel } = formatReminderLabels(appt.startsAt, tz);
                     const whenLabel = `${dateLabel} · ${timeLabel}`;
@@ -182,9 +302,6 @@ export function registerAgendaCronJobs() {
                             });
                         }
                     }
-                    await db.update(agendaAppointments)
-                        .set({ reminderSentAt: now })
-                        .where(eq(agendaAppointments.id, appt.id));
                 }
             } catch (e) {
                 console.error('[agenda] 24h reminder cron error:', e);
@@ -208,12 +325,26 @@ export function registerAgendaCronJobs() {
                     .where(and(
                         gte(agendaAppointments.startsAt, windowStart),
                         lte(agendaAppointments.startsAt, windowEnd),
-                        sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
+                        eq(agendaAppointments.status, 'confirmed'),
                         isNull(agendaAppointments.reminder30minSentAt),
                         entitlement,
                     ));
 
                 for (const { appt, prof } of appts) {
+                    const [claimed] = await db.update(agendaAppointments)
+                        .set({ reminder30minSentAt: now })
+                        .where(and(
+                            eq(agendaAppointments.id, appt.id),
+                            eq(agendaAppointments.status, 'confirmed'),
+                            eq(agendaAppointments.startsAt, appt.startsAt),
+                            eq(agendaAppointments.updatedAt, appt.updatedAt),
+                            gte(agendaAppointments.startsAt, windowStart),
+                            lte(agendaAppointments.startsAt, windowEnd),
+                            isNull(agendaAppointments.reminder30minSentAt),
+                        ))
+                        .returning({ id: agendaAppointments.id });
+                    if (!claimed) continue;
+
                     const tz = prof.timezone ?? 'America/Santiago';
                     const { dateLabel, timeLabel } = formatReminderLabels(appt.startsAt, tz);
                     const whenLabel = `${dateLabel} · ${timeLabel}`;
@@ -266,9 +397,6 @@ export function registerAgendaCronJobs() {
                             });
                         }
                     }
-                    await db.update(agendaAppointments)
-                        .set({ reminder30minSentAt: now })
-                        .where(eq(agendaAppointments.id, appt.id));
                 }
             } catch (e) {
                 console.error('[agenda] 30min reminder cron error:', e);

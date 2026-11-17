@@ -178,6 +178,7 @@ function PromocionesPageContent() {
     return (
         <AgendaMisServiciosShell
             {...agendaBusinessSubsectionShellProps('promociones')}
+            activeKey="servicios"
             title={AGENDA_BUSINESS_PROMOCIONES_PAGE.title}
             description={AGENDA_BUSINESS_PROMOCIONES_PAGE.description}
         >

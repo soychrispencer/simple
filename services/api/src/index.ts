@@ -12,6 +12,8 @@ import {
 } from './lib/browser-origin.js';
 import { formatAgo, formatRelativeTimestamp, publicSectionLabel } from './lib/format-relative.js';
 import { activeSubscriptionToResponse, paymentOrderToResponse } from './modules/payments/presentation.js';
+import { canManageAccountRole } from './modules/accounts/permissions.js';
+import { runAccountManagerWrite } from './modules/accounts/write-access.js';
 import { createDebugLogger, asString, asNumber, asObject } from './modules/shared/index.js';
 import type { ValuationFeedRecord, VehicleValuationFeedRecord, ValuationHistoricalPoint, ValuationSourceBreakdown, ValuationConfidenceBreakdown, ValuationFeedLicense, ValuationFeedTransport, ValuationFeedHealth, ValuationFeedSourceStatus, ValuationFeedConnectorLoadResult, ValuationFeedConnector, VehicleValuationFeedConnector, ValuationComparable, VehicleValuationComparable } from './modules/shared/index.js';
 import { serve } from '@hono/node-server';
@@ -44,7 +46,7 @@ import { createEnsureAgendaProfile } from './modules/agenda/ensure-profile.js';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { logger } from '@simple/logger';
-import { isMarketplaceLaunchActive } from '@simple/utils';
+import { isMarketplaceLaunchActive, resolveMarketplaceSubscriptionEntitlements } from '@simple/utils';
 import {
     generateSmartTemplates,
 } from './modules/instagram/templates.js';
@@ -150,7 +152,7 @@ import {
     type ListingPortalSyncRecord,
     type PortalKey,
 } from './modules/listings/portals.js';
-import { listPaymentOrdersForUserFromDb } from './modules/payments/queries.js';
+import { listPaymentOrdersForAccountFromDb, listPaymentOrdersForUserFromDb } from './modules/payments/queries.js';
 
 import { db, pgClient } from './db/index.js';
 import { applyPostJournalMigrations } from './db/apply-post-journal-migrations.js';
@@ -161,6 +163,11 @@ import {
     userPlatformAccess,
     accounts,
     accountUsers,
+    accountInvitations,
+    accountVerticalSettings,
+    accountListingAssignments,
+    accountRelationshipAssignments,
+    accountRelationshipTasks,
     listings,
     savedListings,
     listingDrafts,
@@ -207,6 +214,7 @@ import {
     agendaPacks,
     agendaClientPacks,
     agendaGroupAttendees,
+    agendaAccountVisits,
     serenatas,
     serenataOffers,
     serenataMusicians,
@@ -215,6 +223,8 @@ import {
     serenataProviderGroups,
     serenataGroupServices,
     serenataProviderGroupMembers,
+    serenataRepertoireSongs,
+    serenataSongScores,
     serenataProviderGroupMemberInvites,
     serenataAvailabilityRules,
     serenataProviderGroupBlockedSlots,
@@ -246,6 +256,7 @@ import {
 import {
     AGENDA_RESERVED_SLUGS,
     createAgendaGoogleCalendarSync,
+    createAgendaPropertyVisitCalendarSync,
     createAgendaPushSender,
     createEnsureNpsForAppointment,
     isValidAgendaSlug,
@@ -268,10 +279,11 @@ import {
     isAdminRole,
 } from './modules/auth/admin-guard.js';
 import { createListingsRouter, createListingDraftRouter } from './modules/listings/index.js';
+import { createListingAccessControl } from './modules/listings/access.js';
 import { createBoostRouter } from './modules/boost/index.js';
-import { insertBoostOrderRow, updateBoostOrderRow, mapBoostOrderRow } from './modules/boost/persist.js';
-import { getAllBoostOrdersNormalized, getBoostListingById, getBoostOrdersForUser, isBoostSectionAllowed, getBoostListingsByOwner, parseBoostSection, getSectionsForVertical, getBoostPlans, createBoostOrderRecord, normalizeBoostOrder, countReservedSlots, sectionLabel, inferBoostTargetType } from './modules/boost/service.js';
-import { getBoostTargetById, listBoostTargetsForOwner } from './modules/boost/target-resolvers.js';
+import { insertBoostOrderRow, upsertBoostOrderInCache, mapBoostOrderRow } from './modules/boost/persist.js';
+import { getAllBoostOrdersNormalized, getBoostListingById, getBoostOrdersForUser, getBoostOrdersForAccount, isBoostSectionAllowed, getBoostListingsByOwner, parseBoostSection, getSectionsForVertical, getBoostPlans, createBoostOrderRecord, normalizeBoostOrder, countReservedSlots, sectionLabel, inferBoostTargetType } from './modules/boost/service.js';
+import { getBoostTargetById, listBoostTargetsForOwner, listBoostTargetsForAccount } from './modules/boost/target-resolvers.js';
 import { MARKETPLACE_BOOST_PRICING } from '@simple/utils';
 import { resolveFreeBoostQuota } from './modules/boost/quota.js';
 import { createValuationRouter } from './modules/valuation/index.js';
@@ -339,6 +351,7 @@ import {
     issueEmailVerification,
     sendAppointmentReminderEmail,
     sendBookingConfirmationEmail,
+    sendAccountInvitationEmail,
     sendPasswordChangedEmail,
     sendPasswordResetEmail,
     sendWelcomeEmail,
@@ -391,7 +404,7 @@ import { registerSerenatasCronJobs } from './modules/serenatas/cron.js';
 import { createAccountRouter } from './modules/public-profile/index.js';
 import { createAdvertisingRouter } from './modules/advertising/index.js';
 import { getAdvertisingPrice, getAdPaymentStatusFromOrderStatus, normalizeAdCampaigns, getSubscriptionPlans, isValidHttpDestinationUrl, isAdPlacementSectionAllowed } from './modules/advertising/service.js';
-import { countUserListingsForVertical, getListingLimitError } from './modules/listings/listing-plan-limit.js';
+import { countAccountListingsForVertical, countUserListingsForVertical } from './modules/listings/listing-plan-limit.js';
 import { AD_FORMAT_LABELS, MAX_CAMPAIGNS_TOTAL, MAX_ACTIVE_HERO_CAMPAIGNS } from './modules/advertising/types.js';
 import { createMessagesRouter, createPanelNotificationsRouter } from './modules/messages/index.js';
 import { getMessageThreadByContext } from './modules/messages/service.js';
@@ -482,7 +495,9 @@ import type {
 import {
     accountUsersByUserId,
     accountsById,
+    activeSubscriptionsByAccount,
     activeSubscriptionsByUser,
+    addressBookByAccount,
     addressBookByUser,
     boostOrdersByUser,
     defaultAccountIdByUserId,
@@ -497,6 +512,7 @@ import {
     listingIdsByUser,
     listingsById,
     paymentOrdersByUser,
+    publicProfilesByAccountVertical,
     publicProfilesByUserVertical,
     publicProfilesByVerticalSlug,
     savedByUser,
@@ -510,6 +526,8 @@ const {
     upsertAccountCache,
     upsertAccountUserCache,
     getAccountMembershipsForUser,
+    setDefaultAccountForUser,
+    removeAccountUserCache,
     getPrimaryAccountIdForUserSync,
     getPrimaryAccountIdForUser,
     buildPersonalAccountName,
@@ -700,29 +718,109 @@ const {
     cancelActiveSubscriptionForUser,
     makeSubscriptionId,
     formatPlanLimit,
-} = createSubscriptionAccess({ activeSubscriptionsByUser });
+} = createSubscriptionAccess({
+    activeSubscriptionsByUser,
+    activeSubscriptionsByAccount,
+    defaultAccountIdByUserId,
+    accountsById,
+});
 
-function getMarketplaceEffectivePlanId(user: AppUser, vertical: VerticalType): SubscriptionPlanId {
-    if (user.role === 'superadmin') return 'enterprise';
-    return getEffectivePlanId(user, vertical);
+function getPersonalAccountIdForUser(userId: string): string | null {
+    for (const account of accountsById.values()) {
+        if (account.isPersonal && account.ownerUserId === userId) return account.id;
+    }
+    return null;
 }
 
-function marketplaceUserCanUsePublicProfile(user: AppUser, vertical: VerticalType): boolean {
-    if (user.role === 'superadmin' || user.role === 'admin') return true;
-    return getEffectivePlanId(user, vertical) !== 'free';
+async function resolveMarketplaceEntitlementsForUser(
+    user: { id: string; role?: string },
+    vertical: 'autos' | 'propiedades',
+    accountIdOverride?: string | null,
+    planIdOverride?: SubscriptionPlanId,
+    includeTeamUsage = true,
+) {
+    const accountId = accountIdOverride === undefined
+        ? (await getAccountMembershipFromDb(user.id))?.accountId ?? null
+        : accountIdOverride;
+    const billingContext = await getMarketplaceAccountBillingContext(user.id, vertical, accountId);
+    const planId = planIdOverride ?? getEffectivePlanId(user as AppUser, vertical, accountId);
+    const plan = getSubscriptionPlans(vertical).find((item) => item.id === planId)
+        ?? getSubscriptionPlans(vertical).find((item) => item.id === 'free');
+    if (!plan) return null;
+
+    const activeListings = accountId
+        ? countAccountListingsForVertical(
+            listingsById,
+            accountId,
+            user.id,
+            vertical,
+            billingContext.isPersonal,
+        )
+        : countUserListingsForVertical(listingIdsByUser, listingsById, user.id, vertical);
+    const teamMembers = accountId && includeTeamUsage
+        ? await db.select({ id: accountUsers.id })
+            .from(accountUsers)
+            .where(eq(accountUsers.accountId, accountId))
+        : [];
+    const pendingInvitations = accountId && includeTeamUsage
+        ? await db.select({ email: accountInvitations.email })
+            .from(accountInvitations)
+            .where(and(
+                eq(accountInvitations.accountId, accountId),
+                isNull(accountInvitations.acceptedAt),
+                isNull(accountInvitations.revokedAt),
+                gt(accountInvitations.expiresAt, new Date()),
+            ))
+        : [];
+    const teamMemberUsage = teamMembers.length + new Set(
+        pendingInvitations.map((invitation) => invitation.email.trim().toLowerCase()),
+    ).size;
+
+    return resolveMarketplaceSubscriptionEntitlements({
+        vertical,
+        accountId,
+        accountKind: billingContext.accountKind,
+        plan,
+        usage: { activeListings, teamMembers: teamMemberUsage },
+        launchMode: isMarketplaceLaunchActive(vertical),
+    });
+}
+
+function marketplaceUserCanUsePublicProfile(user: AppUser, vertical: VerticalType, accountId?: string | null): boolean {
+    if (vertical === 'autos' || vertical === 'propiedades') {
+        const planId = getEffectivePlanId(user, vertical, accountId);
+        const plan = getSubscriptionPlans(vertical).find((item) => item.id === planId);
+        if (!plan) return false;
+        return resolveMarketplaceSubscriptionEntitlements({
+            vertical,
+            accountId: accountId === undefined ? getPrimaryAccountIdForUserSync(user.id) : accountId,
+            accountKind: 'individual',
+            plan,
+            usage: { activeListings: 0 },
+            launchMode: isMarketplaceLaunchActive(vertical),
+        }).capabilities.publicProfile;
+    }
+    return getEffectivePlanId(user, vertical, accountId) !== 'free';
 }
 
 const processedMercadoPagoWebhookPaymentIds = new Set<string>();
 const processedMercadoPagoWebhookPreapprovalIds = new Set<string>();
 
-function getDefaultPublicProfileAddress(userId: string): AddressBookEntry | null {
-    const entries = addressBookByUser.get(userId) ?? [];
-    if (entries.length === 0) return null;
-    return entries.find((item) => item.isDefault) ?? entries[0] ?? null;
+function getDefaultPublicProfileAddress(userId: string, vertical: VerticalType, accountIdOverride?: string | null): AddressBookEntry | null {
+    const accountId = accountIdOverride === undefined
+        ? getPrimaryAccountIdForUserSync(userId)
+        : accountIdOverride;
+    const entries = accountId ? addressBookByAccount.get(accountId) ?? [] : [];
+    const visibleEntries = entries.filter((entry) =>
+        entry.scope === 'business' && entry.vertical === vertical && entry.isPublicVisible,
+    );
+    return visibleEntries.find((item) => item.isDefault) ?? visibleEntries[0] ?? null;
 }
 
-function getAddressBookEntryById(userId: string, addressId: string): AddressBookEntry | null {
-    const entries = addressBookByUser.get(userId) ?? [];
+function getAddressBookEntryById(userId: string, addressId: string, accountId?: string | null): AddressBookEntry | null {
+    const resolvedAccountId = accountId ?? getPersonalAccountIdForUser(userId);
+    if (!resolvedAccountId) return null;
+    const entries = addressBookByAccount.get(resolvedAccountId) ?? [];
     return entries.find((item) => item.id === addressId) ?? null;
 }
 
@@ -769,13 +867,18 @@ const listFeaturedBoosted = createListFeaturedBoosted({
     buildLocationPublicLabel: (locationData) =>
         buildLocationPublicLabel(locationData as Parameters<typeof buildLocationPublicLabel>[0]),
     humanizePublicLocationFallback,
-    sanitizeUser: (user) => sanitizeUser(user as AppUser),
-    usersById,
     toPublicMediaUrl,
-    getPublishedSellerProfile: (userId, vertical) => {
-        const profile = getPublishedSellerProfile(userId, vertical as VerticalType);
+    getPublishedSellerProfile: (userId, vertical, accountId) => {
+        const profile = getPublishedSellerProfile(userId, vertical as VerticalType, accountId);
         if (!profile) return null;
-        return { avatarImageUrl: profile.avatarImageUrl ?? null };
+        return {
+            displayName: profile.displayName,
+            slug: profile.slug,
+            publicEmail: profile.publicEmail,
+            publicPhone: profile.publicPhone,
+            publicWhatsapp: profile.publicWhatsapp,
+            avatarImageUrl: profile.avatarImageUrl ?? null,
+        };
     },
 });
 
@@ -828,6 +931,7 @@ const {
     instagramPublicationToResponse,
     upsertInstagramAccountRecord,
     updateInstagramAccountSettings,
+    updateInstagramAccountSettingsForManager,
     disconnectInstagramAccount,
     createInstagramPublicationRecord,
     getLatestInstagramPublicationForListing,
@@ -839,6 +943,7 @@ const {
         if (!accountId) throw new Error('Cuenta primaria no encontrada');
         return accountId;
     },
+    getPersonalAccountIdForUser,
 });
 
 const {
@@ -854,6 +959,7 @@ const {
         if (!accountId) throw new Error('Cuenta primaria no encontrada');
         return accountId;
     },
+    getPersonalAccountIdForUser,
 });
 
 const {
@@ -869,6 +975,7 @@ const {
         if (!accountId) throw new Error('Cuenta primaria no encontrada');
         return accountId;
     },
+    getPersonalAccountIdForUser,
 });
 
 const refreshInstagramAccountIfNeeded = (account: InstagramAccountRecord) =>
@@ -878,7 +985,14 @@ const {
     getAddressBookEntries: getAddressBookEntriesFromDb,
     upsertAddressBookEntry: upsertAddressBookEntryInDb,
     deleteAddressBookEntry: deleteAddressBookEntryInDb,
-} = createAddressBookService(getPrimaryAccountIdForUser);
+} = createAddressBookService(
+    getPrimaryAccountIdForUser,
+    (userId, accountId) => {
+        const account = accountsById.get(accountId);
+        return Boolean(account?.isPersonal && account.ownerUserId === userId);
+    },
+    async (userId) => getAccountMembershipFromDb(userId),
+);
 
 async function getAddressBookEntries(
     userId: string,
@@ -898,6 +1012,21 @@ async function getAddressBookEntries(
             return false;
         });
         addressBookByUser.set(userId, [...other, ...items]);
+    }
+
+    if (scope !== 'personal') {
+        const accountId = await getPrimaryAccountIdForUser(userId);
+        if (accountId) {
+            const current = addressBookByAccount.get(accountId) ?? [];
+            const businessItems = items.filter((entry) => entry.scope === 'business');
+            const next = scope === 'business' && vertical
+                ? [
+                    ...current.filter((entry) => entry.vertical !== vertical),
+                    ...businessItems,
+                ]
+                : businessItems;
+            addressBookByAccount.set(accountId, next);
+        }
     }
     return items;
 }
@@ -919,11 +1048,14 @@ async function deleteAddressBookEntry(userId: string, addressId: string) {
 }
 
 async function refreshAddressBookCacheForUser(userId: string): Promise<void> {
-    const items = await getAddressBookEntriesFromDb(userId);
+    const items = await getAddressBookEntries(userId);
     addressBookByUser.set(userId, items);
 }
 
 function mapUserRowToAppUser(user: typeof users.$inferSelect): AppUser {
+    const role: UserRole = user.role === 'admin' || user.role === 'superadmin'
+        ? user.role
+        : 'user';
     return {
         id: user.id,
         email: user.email,
@@ -936,7 +1068,7 @@ function mapUserRowToAppUser(user: typeof users.$inferSelect): AppUser {
         emailNotifyAccount: user.emailNotifyAccount ?? true,
         inAppNotificationsEnabled: user.inAppNotificationsEnabled ?? true,
         pendingEmail: user.pendingEmail ?? null,
-        role: user.role as UserRole,
+        role,
         status: user.status as UserStatus,
         primaryVertical: (user.primaryVertical as VerticalType | null | undefined) ?? null,
         signupApp: user.signupApp ?? null,
@@ -1044,8 +1176,9 @@ const {
     formatAgo,
     usernameFromName,
     usersById,
-    getPublishedSellerProfile: (userId, vertical) => {
-        const profile = getPublishedSellerProfile(userId, vertical as VerticalType);
+    getPersonalAccountIdForUser,
+    getPublishedSellerProfile: (userId, vertical, accountId) => {
+        const profile = getPublishedSellerProfile(userId, vertical as VerticalType, accountId);
         if (!profile) return null;
         return {
             displayName: profile.displayName,
@@ -1117,8 +1250,12 @@ const {
     },
     {
         getInstagramAccount,
-        userCanUseInstagram: (user, vertical) =>
-            userCanUseInstagram(user as AppUser, vertical as VerticalType),
+        userCanUseInstagram: (user, vertical, accountId) =>
+            userCanUseInstagram(
+                user as AppUser,
+                vertical as VerticalType,
+                accountId === null ? getPersonalAccountIdForUser(user.id) : accountId,
+            ),
         getLatestInstagramPublicationForListing,
         instagramPublicationToResponse,
         refreshInstagramAccountIfNeeded,
@@ -1142,12 +1279,17 @@ const {
         if (!accountId) throw new Error('Cuenta primaria no encontrada');
         return accountId;
     },
+    getPersonalAccountIdForUser,
 });
 
 const publishListingToFacebookPage = createPublishListingToFacebookPage({
     getInstagramAccount,
-    userCanUseInstagram: (user, vertical) =>
-        userCanUseInstagram(user as AppUser, vertical as VerticalType),
+    userCanUseInstagram: (user, vertical, accountId) =>
+        userCanUseInstagram(
+            user as AppUser,
+            vertical as VerticalType,
+            accountId === null ? getPersonalAccountIdForUser(user.id) : accountId,
+        ),
     getLatestSocialPublicationForListing,
     socialPublicationToResponse,
     buildListingPublicUrl: buildListingPublicUrlForInstagram,
@@ -1160,8 +1302,12 @@ const publishListingToFacebookPage = createPublishListingToFacebookPage({
 
 const publishListingToTikTok = createPublishListingToTikTok({
     getTikTokAccount,
-    userCanUseInstagram: (user, vertical) =>
-        userCanUseInstagram(user as AppUser, vertical as VerticalType),
+    userCanUseInstagram: (user, vertical, accountId) =>
+        userCanUseInstagram(
+            user as AppUser,
+            vertical as VerticalType,
+            accountId === null ? getPersonalAccountIdForUser(user.id) : accountId,
+        ),
     getLatestSocialPublicationForListing,
     socialPublicationToResponse,
     buildListingPublicUrl: buildListingPublicUrlForInstagram,
@@ -1173,8 +1319,12 @@ const publishListingToTikTok = createPublishListingToTikTok({
 
 const publishListingToYouTube = createPublishListingToYouTube({
     getYouTubeAccount,
-    userCanUseInstagram: (user, vertical) =>
-        userCanUseInstagram(user as AppUser, vertical as VerticalType),
+    userCanUseInstagram: (user, vertical, accountId) =>
+        userCanUseInstagram(
+            user as AppUser,
+            vertical as VerticalType,
+            accountId === null ? getPersonalAccountIdForUser(user.id) : accountId,
+        ),
     getLatestSocialPublicationForListing,
     socialPublicationToResponse,
     buildListingPublicUrl: buildListingPublicUrlForInstagram,
@@ -1223,7 +1373,7 @@ async function generateListingReelForUser(input: {
     });
 
     const updated = attachGeneratedVideoToListing(input.listing, result.publicUrl, result.sizeBytes);
-    const saved = await saveListingRecord(updated as Parameters<typeof saveListingRecord>[0]);
+    const saved = await saveListingRecord(updated as Parameters<typeof saveListingRecord>[0], input.user);
     upsertBoostListingFromListing(saved as Parameters<typeof upsertBoostListingFromListing>[0]);
     return result;
 }
@@ -1278,14 +1428,15 @@ const {
     getDefaultPublicProfileAddress,
     getAddressBookEntryById,
     getPublicProfileRecord,
-    getEffectivePlanId: (user, vertical) => getMarketplaceEffectivePlanId(user as AppUser, vertical),
-    getCurrentPlanLabel: (user, vertical) => getCurrentPlanLabel(user as AppUser, vertical),
-    userCanUsePublicProfile: (user, vertical) => marketplaceUserCanUsePublicProfile(user as AppUser, vertical),
+    getEffectivePlanId: (user, vertical, accountId) => getEffectivePlanId(user as AppUser, vertical, accountId),
+    getCurrentPlanLabel: (user, vertical, accountId) => getCurrentPlanLabel(user as AppUser, vertical, accountId),
+    userCanUsePublicProfile: (user, vertical, accountId) => marketplaceUserCanUsePublicProfile(user as AppUser, vertical, accountId),
     countFollowers,
     extractListingMediaUrls: (listing) => extractListingMediaUrls(listing as ListingRecord),
     isPublicListingVisible: (listing) => isPublicListingVisible(listing as ListingRecord),
     listingToPublicResponse: (listing) => listingToPublicResponse(listing as ListingRecord),
     listingsById: listingsById as Map<string, {
+        accountId?: string | null;
         ownerId: string;
         vertical: VerticalType;
         updatedAt: number;
@@ -1372,6 +1523,7 @@ const permanentlyDeleteUser = createPermanentlyDeleteUser({
     deleteStoredMediaUrls,
     instagramAccountKey: (userId, vertical) => instagramAccountKey(userId, vertical as VerticalType),
     publicProfileUserVerticalKey: (userId, vertical) => publicProfileUserVerticalKey(userId, vertical as VerticalType),
+    refreshCaches: async () => loadDataFromDB(),
     caches: {
         usersById,
         savedByUser,
@@ -1380,9 +1532,11 @@ const permanentlyDeleteUser = createPermanentlyDeleteUser({
         addressBookByUser,
         paymentOrdersByUser,
         activeSubscriptionsByUser,
+        activeSubscriptionsByAccount,
         instagramPublicationsByUser,
         socialPublicationsByUser,
         publicProfilesByUserVertical,
+        publicProfilesByAccountVertical,
         instagramAccountByUserVertical,
         tiktokAccountByUserVertical,
         youtubeAccountByUserVertical,
@@ -1406,6 +1560,10 @@ const sendPushToUser = createAgendaPushSender({
 });
 
 const syncToGoogleCalendar = createAgendaGoogleCalendarSync({ db, agendaAppointments });
+const syncPropertyVisitToGoogleCalendar = createAgendaPropertyVisitCalendarSync({
+    db,
+    agendaProfessionalProfiles,
+});
 
 const ensureNpsForAppointment = createEnsureNpsForAppointment({ db, agendaNpsResponses });
 
@@ -1450,15 +1608,18 @@ export const loadDataFromDB = createStartupDataLoader({
         boostOrdersByUser,
         listingsById,
         addressBookByUser,
+        addressBookByAccount,
         paymentOrdersByUser,
         instagramAccountByUserVertical,
         tiktokAccountByUserVertical,
         youtubeAccountByUserVertical,
         instagramPublicationsByUser,
         socialPublicationsByUser,
+        publicProfilesByAccountVertical,
         publicProfilesByUserVertical,
         publicProfilesByVerticalSlug,
         activeSubscriptionsByUser,
+        activeSubscriptionsByAccount,
     },
     boostListingsSeed,
     mapUserRowToAppUser,
@@ -1558,10 +1719,15 @@ async function applyUserEmailChange(userId: string, email: string): Promise<void
     }
 }
 
-function getFreeBoostQuota(user: AppUser, vertical: VerticalType) {
-    const sub = getCurrentSubscription(user.id, vertical);
+function getFreeBoostQuota(
+    user: AppUser,
+    vertical: VerticalType,
+    accountId?: string | null,
+    legacyPersonalOwnerUserId?: string,
+) {
+    const sub = getCurrentSubscription(user.id, vertical, accountId);
     const planId = (sub?.planId ?? 'free') as Exclude<SubscriptionPlanId, 'free'> | 'free';
-    return resolveFreeBoostQuota(user, vertical, planId);
+    return resolveFreeBoostQuota(user, vertical, planId, accountId, legacyPersonalOwnerUserId);
 }
 
 app.route('/api/auth', createAuthRouter({
@@ -1620,7 +1786,13 @@ app.route('/api/auth', createAuthRouter({
 }));
 
 app.use('/api/account/*', requireVerifiedSession);
-app.use('/api/accounts/*', requireVerifiedSession);
+app.use('/api/accounts/*', async (c, next) => {
+    if (c.req.method === 'GET' && c.req.path === '/api/accounts/invitations/preview') {
+        await next();
+        return;
+    }
+    return requireVerifiedSession(c, next);
+});
 app.use('/api/panel/*', requireVerifiedSession);
 app.use('/api/messages/*', requireVerifiedSession);
 app.use('/api/listing-draft', requireVerifiedSession);
@@ -1658,6 +1830,70 @@ const {
     loadPaymentOrderFromDb,
 });
 
+async function getListingTeamContext(userId: string, vertical: 'autos' | 'propiedades') {
+    const membership = await getAccountMembershipFromDb(userId);
+    const accountId = membership?.accountId ?? null;
+    if (!accountId || !membership) return null;
+
+    const [account, workspace] = await Promise.all([
+        db.query.accounts.findFirst({ columns: { isPersonal: true }, where: eq(accounts.id, accountId) }),
+        db.query.accountVerticalSettings.findFirst({
+            columns: { accountKind: true },
+            where: and(
+                eq(accountVerticalSettings.accountId, accountId),
+                eq(accountVerticalSettings.vertical, vertical),
+            ),
+        }),
+    ]);
+    const teamEnabled = Boolean(account && !account.isPersonal && workspace?.accountKind === 'company');
+    const canManage = canManageAccountRole(membership.role);
+    if (!teamEnabled) return { accountId, teamEnabled: false, canManage, members: [] as any[] };
+
+    const members = await db.select({
+        userId: accountUsers.userId,
+        role: accountUsers.role,
+        name: users.name,
+        email: users.email,
+    })
+        .from(accountUsers)
+        .innerJoin(users, eq(accountUsers.userId, users.id))
+        .where(eq(accountUsers.accountId, accountId));
+    return {
+        accountId,
+        teamEnabled: true,
+        canManage,
+        members: members.map((member) => ({
+            userId: member.userId,
+            role: member.role,
+            name: member.name?.trim() || member.email || 'Integrante',
+            email: member.email ?? null,
+        })),
+    };
+}
+
+const isListingAssignedToUser = async (accountId: string, listingId: string, userId: string) => {
+    const [assignment] = await db.select({ id: accountListingAssignments.id })
+        .from(accountListingAssignments)
+        .where(and(
+            eq(accountListingAssignments.accountId, accountId),
+            eq(accountListingAssignments.listingId, listingId),
+            eq(accountListingAssignments.assignedUserId, userId),
+        ))
+        .limit(1);
+    return Boolean(assignment);
+};
+
+const listingAccessControl = createListingAccessControl({
+    getPrimaryAccountIdForUser,
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
+    isPersonalAccountForUser: (userId, accountId) => {
+        const account = accountsById.get(accountId);
+        return Boolean(account?.isPersonal && account.ownerUserId === userId);
+    },
+    isListingAssignedToUser,
+});
+
 const listingsDeps = {
     authUser,
     parseVertical,
@@ -1676,17 +1912,126 @@ const listingsDeps = {
         return upsertListingCache(mapListingRowToRecord(row));
     },
     listListingsFromDb: async (
-        user: { id: string; role: string },
+        user: { id: string },
         vertical: unknown,
-        mine: boolean,
+        _mine: boolean,
+        accountId?: string | null,
     ) => {
         const parsedVertical = parseVertical(typeof vertical === 'string' ? vertical : undefined);
         const rows = await fetchListingRowsForPanel({
             vertical: parsedVertical,
             ownerId: user.id,
-            includeAllInVertical: !mine && user.role === 'superadmin',
+            accountId,
+            includeLegacyPersonalListings: Boolean(accountId && accountsById.get(accountId)?.isPersonal),
+            includeAllInVertical: false,
         });
-        return rows.map((row) => upsertListingCache(mapListingRowToRecord(row)));
+        let visibleRows = rows;
+        const membership = accountId
+            ? await getAccountMembershipFromDb(user.id, accountId)
+            : null;
+        if (accountId && membership?.role === 'agent') {
+            const assignments = await db.select({ listingId: accountListingAssignments.listingId })
+                .from(accountListingAssignments)
+                .where(and(
+                    eq(accountListingAssignments.accountId, accountId),
+                    eq(accountListingAssignments.vertical, parsedVertical),
+                    eq(accountListingAssignments.assignedUserId, user.id),
+                ));
+            const assignedListingIds = new Set(assignments.map((item) => item.listingId));
+            visibleRows = rows.filter((row) => row.ownerId === user.id || assignedListingIds.has(row.id));
+        }
+        return visibleRows.map((row) => upsertListingCache(mapListingRowToRecord(row)));
+    },
+    getListingTeamContext,
+    listingAccessControl,
+    listAccountListingAssignments: async (accountId: string, vertical: 'autos' | 'propiedades') => (
+        db.select({ listingId: accountListingAssignments.listingId, assignedUserId: accountListingAssignments.assignedUserId })
+            .from(accountListingAssignments)
+            .where(and(
+                eq(accountListingAssignments.accountId, accountId),
+                eq(accountListingAssignments.vertical, vertical),
+            ))
+    ),
+    isListingAssignedToUser,
+    replaceAccountListingAssignments: async (input: {
+        accountId: string;
+        vertical: 'autos' | 'propiedades';
+        listingId: string;
+        assignedUserIds: string[];
+        assignedByUserId: string;
+    }) => {
+        return db.transaction(async (tx) => {
+            const [actorMembership] = await tx.select({ role: accountUsers.role, isDefault: accountUsers.isDefault })
+                .from(accountUsers)
+                .where(and(
+                    eq(accountUsers.accountId, input.accountId),
+                    eq(accountUsers.userId, input.assignedByUserId),
+                ))
+                .limit(1)
+                .for('update');
+            if (!actorMembership || !actorMembership.isDefault || !canManageAccountRole(actorMembership.role)) {
+                return { ok: false as const, error: 'Tus permisos o tu espacio activo cambiaron. Actualiza la página e inténtalo nuevamente.', status: 403 as const };
+            }
+
+            const [account] = await tx.select({ isPersonal: accounts.isPersonal })
+                .from(accounts)
+                .where(eq(accounts.id, input.accountId))
+                .limit(1)
+                .for('update');
+            const [workspace] = await tx.select({ accountKind: accountVerticalSettings.accountKind })
+                .from(accountVerticalSettings)
+                .where(and(
+                    eq(accountVerticalSettings.accountId, input.accountId),
+                    eq(accountVerticalSettings.vertical, input.vertical),
+                ))
+                .limit(1)
+                .for('update');
+            if (!account || account.isPersonal || workspace?.accountKind !== 'company') {
+                return { ok: false as const, error: 'La asignación solo está disponible en un espacio de empresa activo.', status: 403 as const };
+            }
+
+            for (const assignedUserId of [...input.assignedUserIds].sort()) {
+                const [targetMembership] = await tx.select({ id: accountUsers.id })
+                    .from(accountUsers)
+                    .where(and(
+                        eq(accountUsers.accountId, input.accountId),
+                        eq(accountUsers.userId, assignedUserId),
+                    ))
+                    .limit(1)
+                    .for('update');
+                if (!targetMembership) {
+                    return { ok: false as const, error: 'Hay una persona seleccionada que ya no pertenece a este equipo.', status: 400 as const };
+                }
+            }
+
+            const [listing] = await tx.select({ id: listings.id })
+                .from(listings)
+                .where(and(
+                    eq(listings.id, input.listingId),
+                    eq(listings.accountId, input.accountId),
+                    eq(listings.vertical, input.vertical),
+                ))
+                .limit(1)
+                .for('update');
+            if (!listing) return { ok: false as const, error: 'La publicación ya no pertenece a este espacio.', status: 404 as const };
+
+            await tx.delete(accountListingAssignments).where(and(
+                eq(accountListingAssignments.accountId, input.accountId),
+                eq(accountListingAssignments.listingId, input.listingId),
+                eq(accountListingAssignments.vertical, input.vertical),
+            ));
+            if (input.assignedUserIds.length > 0) {
+                await tx.insert(accountListingAssignments).values(input.assignedUserIds.map((assignedUserId) => ({
+                    accountId: input.accountId,
+                    vertical: input.vertical,
+                    listingId: input.listingId,
+                    assignedUserId,
+                    assignedByUserId: input.assignedByUserId,
+                    updatedAt: new Date(),
+                })));
+            }
+            return { ok: true as const };
+        });
     },
     insertListingRecord,
     saveListingRecord,
@@ -1707,14 +2052,62 @@ const listingsDeps = {
     deleteListingDraftRecord,
     generateListingReel: generateListingReelForUser,
     isReelGeneratorAvailable,
-    checkListingCreationAllowed: (user: { id: string; role?: string }, vertical: unknown) => {
-        if (user.role === 'superadmin') return null;
+    checkListingCreationAllowed: async (
+        user: { id: string },
+        vertical: unknown,
+        options?: {
+            targetStatus?: string;
+            previousStatus?: string;
+            photoCount?: number;
+            previousPhotoCount?: number;
+        },
+    ) => {
         const parsedVertical = parseVertical(typeof vertical === 'string' ? vertical : undefined);
-        if (isMarketplaceLaunchActive(parsedVertical)) return null;
-        const planId = getMarketplaceEffectivePlanId(user as AppUser, parsedVertical);
-        const plan = getSubscriptionPlans(parsedVertical).find((item) => item.id === planId);
-        const count = countUserListingsForVertical(listingIdsByUser, listingsById, user.id, parsedVertical);
-        return getListingLimitError(plan, count);
+        if (parsedVertical !== 'autos' && parsedVertical !== 'propiedades') return null;
+
+        const accountId = (await getAccountMembershipFromDb(user.id))?.accountId ?? null;
+        const entitlements = await resolveMarketplaceEntitlementsForUser(
+            user,
+            parsedVertical,
+            accountId,
+            undefined,
+            false,
+        );
+        if (!entitlements) return null;
+        const targetStatus = options?.targetStatus ?? 'active';
+        const previousStatus = options?.previousStatus;
+        const countsTowardLimit = (status: string | undefined) => status === 'active' || status === 'paused';
+        if (
+            countsTowardLimit(targetStatus)
+            && !countsTowardLimit(previousStatus)
+            && !entitlements.canCreateActiveListing
+        ) {
+            return entitlements.listingLimitReason;
+        }
+
+        const imageLimit = entitlements.limits.imagesPerListing;
+        const photoCount = options?.photoCount;
+        const previousPhotoCount = options?.previousPhotoCount;
+        if (
+            imageLimit !== null
+            && photoCount !== undefined
+            && photoCount > imageLimit
+            && (previousPhotoCount === undefined || photoCount > previousPhotoCount)
+        ) {
+            return 'Tu plan permite hasta ' + imageLimit + ' fotos por publicación. Quita algunas para guardar los cambios.';
+        }
+        return null;
+    },
+    getPrimaryAccountIdForUser: async (userId: string) => {
+        const accountId = await getPrimaryAccountIdForUser(userId);
+        if (!accountId) throw new Error('Cuenta primaria no encontrada');
+        return accountId;
+    },
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
+    isPersonalAccountForUser: (userId: string, accountId: string) => {
+        const account = accountsById.get(accountId);
+        return Boolean(account?.isPersonal && account.ownerUserId === userId);
     },
     schemas: {
         createListingSchema,
@@ -1731,6 +2124,7 @@ app.route('/api/listing-draft', createListingDraftRouter(listingsDeps));
 
 app.route('/api/boost', createBoostRouter({
     authUser,
+    db,
     parseVertical: parsePaymentVertical,
     parseBoostSection,
     getSectionsForVertical,
@@ -1738,15 +2132,16 @@ app.route('/api/boost', createBoostRouter({
     getBoostPlans,
     inferBoostTargetType,
     listBoostTargetsForOwner,
+    listBoostTargetsForAccount,
     getBoostTargetById,
     getBoostOrdersForUser,
+    getBoostOrdersForAccount,
     createBoostOrderRecord,
     normalizeBoostOrder,
     countReservedSlots,
     getFreeBoostQuota,
     sectionLabel,
     listFeaturedBoosted,
-    boostListingsSeed,
     boostOrdersByUser,
     MAX_BOOST_SLOTS_PER_SECTION,
     getMarketplaceBoostPricing: (vertical) => MARKETPLACE_BOOST_PRICING[vertical as keyof typeof MARKETPLACE_BOOST_PRICING] ?? null,
@@ -1754,9 +2149,27 @@ app.route('/api/boost', createBoostRouter({
         createBoostOrderSchema,
         updateBoostOrderSchema,
     },
-    insertBoostOrderRow,
-    updateBoostOrderRow,
+    insertBoostOrderRow: async (order, accountId, transaction) => {
+        const resolvedAccountId = accountId ?? await getPrimaryAccountIdForUser(order.userId);
+        await insertBoostOrderRow(order, resolvedAccountId, transaction ?? db, !transaction);
+    },
+    upsertBoostOrderInCache,
     getPrimaryAccountIdForUser,
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
+    isPersonalAccountForUser: (userId, accountId) => {
+        const account = accountsById.get(accountId);
+        return Boolean(account?.isPersonal && account.ownerUserId === userId);
+    },
+    listAssignedListingIdsForUser: async (accountId, vertical, userId) => (
+        await db.select({ listingId: accountListingAssignments.listingId })
+            .from(accountListingAssignments)
+            .where(and(
+                eq(accountListingAssignments.accountId, accountId),
+                eq(accountListingAssignments.vertical, vertical),
+                eq(accountListingAssignments.assignedUserId, userId),
+            ))
+    ).map((item) => item.listingId),
 }));
 
 app.route('/api/valuation', createValuationRouter());
@@ -1775,6 +2188,10 @@ const addressBookDeps = {
     getAddressBookEntries,
     upsertAddressBookEntry,
     deleteAddressBookEntry,
+    canManageActiveAccountProfile: async (userId: string) => {
+        const membership = await getAccountMembershipFromDb(userId);
+        return canManageAccountRole(membership?.role);
+    },
     schemas: { addressBookWriteSchema },
 };
 app.route('/api/address-book', createAddressBookRouter(addressBookDeps));
@@ -1789,6 +2206,11 @@ app.route('/api', createPaymentsRouter({
     getSubscriptionPlans,
     getPaidSubscriptionPlan,
     getCurrentSubscription,
+    getSubscriptionForAccount: (accountId, vertical) => (
+        activeSubscriptionsByAccount.get(accountId)?.find((subscription) => (
+            subscription.vertical === vertical && subscription.status === 'active'
+        )) ?? null
+    ),
     activeSubscriptionToResponse,
     upsertActiveSubscription,
     makeSubscriptionId,
@@ -1812,6 +2234,7 @@ app.route('/api', createPaymentsRouter({
     getBoostTargetById,
     inferBoostTargetType,
     getBoostOrdersForUser,
+    getBoostOrdersForAccount,
     getBoostPlans,
     parseBoostSection,
     isBoostSectionAllowed,
@@ -1831,7 +2254,7 @@ app.route('/api', createPaymentsRouter({
     AD_FORMAT_LABELS,
     db,
     tables: { adCampaigns },
-    dbHelpers: { eq, and },
+    dbHelpers: { eq, and, isNull },
     listAdminUsersSnapshot,
     dbQuery: db.query,
     dbSql: sql,
@@ -1848,8 +2271,26 @@ app.route('/api', createPaymentsRouter({
     },
     findPaymentOrderByIdFromDb,
     loadPaymentOrderFromDb,
+    listPaymentOrdersForAccountFromDb,
     listPaymentOrdersForUserFromDb,
     getPrimaryAccountIdForUser,
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
+    getPersonalAccountIdForUser: getPersonalAccountIdFromDb,
+    isPersonalAccountForUser: (userId, accountId) => {
+        const account = accountsById.get(accountId);
+        return Boolean(account?.isPersonal && account.ownerUserId === userId);
+    },
+    getMarketplaceAccountBillingContext,
+    getAgendaAccountBillingContext,
+    getMarketplaceEntitlements: async (user, vertical, accountId, planId) => (
+        resolveMarketplaceEntitlementsForUser(
+            user,
+            vertical,
+            accountId,
+            planId as SubscriptionPlanId | undefined,
+        )
+    ),
     cancelActiveSubscriptionForUser,
     processedMercadoPagoWebhookPaymentIds,
     processedMercadoPagoWebhookPreapprovalIds,
@@ -1864,6 +2305,7 @@ app.route('/api/admin', createAdminRouter({
     db,
     eq,
     and,
+    isNull,
     or,
     desc,
     asc,
@@ -1885,6 +2327,7 @@ app.route('/api/admin', createAdminRouter({
     getPaidSubscriptionPlan,
     makeSubscriptionId,
     upsertActiveSubscription,
+    cancelActiveSubscriptionForUser,
     activeSubscriptionsByUser,
     isAdminBootstrapEnabled,
     handleBootstrap: async (c: any) => {
@@ -1938,76 +2381,248 @@ app.route('/api/accounts', createAccountsRouter({
     db,
     ensurePrimaryAccountForUser,
     eq,
+    gt,
     getAccountMembershipsForUser,
+    getMarketplaceEntitlements: (user, vertical, accountId) => (
+        resolveMarketplaceEntitlementsForUser(user, vertical, accountId, undefined, false)
+    ),
     mapAccountRow,
+    mapPublicProfileRow,
     getUserByEmail,
     tables: {
         accounts,
+        accountUsers,
+        accountInvitations,
         users,
         addressBook,
+        accountVerticalSettings,
+        accountListingAssignments,
+        accountRelationshipAssignments,
+        accountRelationshipTasks,
+        agendaAccountVisits,
+        messageThreads,
+        platformNotifications,
+        publicProfiles,
     },
     and,
+    inArray,
+    isNull,
+    mapAccountUserRow,
     upsertAccountCache,
+    upsertAccountUserCache,
+    setDefaultAccountForUser,
+    removeAccountUserCache,
+    upsertPublicProfileCache,
     resolveBrowserOrigin,
     isAuthEmailConfigured,
     issueEmailVerification,
+    sendAccountInvitationEmail,
     getClientIdentifier,
     consumeRateLimit,
     AUTH_RATE_LIMIT_WINDOW_MS,
     emailChangeRequestSchema,
+    syncPropertyVisitToGoogleCalendar,
 }));
 
-const ensureMarketplaceDraftProfileForUser = async (user: AppUser, vertical: VerticalType) => {
+const ensureMarketplaceDraftProfileForUser = async (user: AppUser, vertical: VerticalType, accountIdOverride?: string | null) => {
     if (!isMarketplaceVertical(vertical)) return;
-    if (getPublicProfileRecord(user.id, vertical)) return;
+    const accountId = accountIdOverride === undefined
+        ? (await getAccountMembershipFromDb(user.id))?.accountId ?? null
+        : accountIdOverride;
+    if (!accountId) return;
+    if (getPublicProfileRecord(user.id, vertical, accountId)) return;
 
     const editable = buildEditablePublicProfile(user, vertical);
     const now = new Date();
     try {
-        const rows = await db.insert(publicProfiles).values({
-            accountId: await getPrimaryAccountIdForUser(user.id),
-            userId: user.id,
-            vertical,
-            slug: editable.slug,
-            isPublished: false,
-            accountKind: editable.accountKind,
-            operatorSubtype: editable.operatorSubtype,
-            operatorSubtypeCustom: editable.operatorSubtypeCustom,
-            displayName: editable.displayName,
-            headline: editable.headline,
-            bio: editable.bio,
-            companyName: editable.companyName,
-            website: editable.website,
-            publicEmail: editable.publicEmail,
-            publicPhone: editable.publicPhone,
-            publicWhatsapp: editable.publicWhatsapp,
-            addressLine: editable.addressLine,
-            city: editable.city,
-            region: editable.region,
-            countryCode: editable.countryCode,
-            regionId: editable.regionId,
-            localityId: editable.localityId,
-            timezone: editable.timezone ?? 'America/Santiago',
-            coverImageUrl: editable.coverImageUrl,
-            avatarImageUrl: editable.avatarImageUrl,
-            socialLinks: editable.socialLinks,
-            businessHours: editable.businessHours,
-            specialties: editable.specialties,
-            scheduleNote: editable.scheduleNote,
-            alwaysOpen: editable.alwaysOpen,
-            weeklyBreakStart: editable.weeklyBreakStart ?? null,
-            weeklyBreakEnd: editable.weeklyBreakEnd ?? null,
-            scheduleBlockedSlots: editable.scheduleBlockedSlots ?? [],
-            createdAt: now,
-            updatedAt: now,
-        }).returning();
-        if (rows[0]) {
-            upsertPublicProfileCache(mapPublicProfileRow(rows[0]));
+        const result = await runAccountManagerWrite(db, { userId: user.id, accountId }, async (tx) => {
+            const [existing] = await tx.select().from(publicProfiles)
+                .where(and(
+                    eq(publicProfiles.accountId, accountId),
+                    eq(publicProfiles.vertical, vertical),
+                ))
+                .limit(1);
+            if (existing) return existing;
+
+            const [workspace] = await tx.select().from(accountVerticalSettings)
+                .where(and(
+                    eq(accountVerticalSettings.accountId, accountId),
+                    eq(accountVerticalSettings.vertical, vertical),
+                ))
+                .limit(1);
+            const [profile] = await tx.insert(publicProfiles).values({
+                accountId,
+                userId: user.id,
+                vertical,
+                slug: editable.slug,
+                isPublished: false,
+                accountKind: workspace?.accountKind ?? editable.accountKind,
+                operatorSubtype: workspace?.operatorSubtype ?? editable.operatorSubtype,
+                operatorSubtypeCustom: workspace?.operatorSubtypeCustom ?? editable.operatorSubtypeCustom,
+                displayName: editable.displayName,
+                headline: editable.headline,
+                bio: editable.bio,
+                companyName: editable.companyName,
+                website: editable.website,
+                publicEmail: editable.publicEmail,
+                publicPhone: editable.publicPhone,
+                publicWhatsapp: editable.publicWhatsapp,
+                addressLine: editable.addressLine,
+                city: editable.city,
+                region: editable.region,
+                countryCode: editable.countryCode,
+                regionId: editable.regionId,
+                localityId: editable.localityId,
+                timezone: editable.timezone ?? 'America/Santiago',
+                coverImageUrl: editable.coverImageUrl,
+                avatarImageUrl: editable.avatarImageUrl,
+                socialLinks: editable.socialLinks,
+                businessHours: editable.businessHours,
+                specialties: editable.specialties,
+                scheduleNote: editable.scheduleNote,
+                alwaysOpen: editable.alwaysOpen,
+                weeklyBreakStart: editable.weeklyBreakStart ?? null,
+                weeklyBreakEnd: editable.weeklyBreakEnd ?? null,
+                scheduleBlockedSlots: editable.scheduleBlockedSlots ?? [],
+                createdAt: now,
+                updatedAt: now,
+            }).returning();
+            return profile ?? null;
+        });
+        if (result.ok && result.value) {
+            upsertPublicProfileCache(mapPublicProfileRow(result.value));
         }
     } catch (error) {
         console.error('[marketplace] draft profile bootstrap failed:', error);
     }
 };
+
+const canManageActiveAccountProfile = async (userId: string) => {
+    const membership = await getAccountMembershipFromDb(userId);
+    return canManageAccountRole(membership?.role);
+};
+
+const canManageAccountIntegration = (userId: string, accountId: string | null) => {
+    if (!accountId) return false;
+    const membership = getAccountMembershipsForUser(userId).find((item) => item.accountId === accountId);
+    return canManageAccountRole(membership?.role);
+};
+
+async function getAccountMembershipFromDb(userId: string, accountId?: string) {
+    const where = accountId
+        ? and(eq(accountUsers.userId, userId), eq(accountUsers.accountId, accountId))
+        : and(eq(accountUsers.userId, userId), eq(accountUsers.isDefault, true));
+    const [membership] = await db.select({
+        accountId: accountUsers.accountId,
+        role: accountUsers.role,
+    })
+        .from(accountUsers)
+        .where(where)
+        .limit(1);
+    return membership ?? null;
+}
+
+async function getPersonalAccountIdFromDb(userId: string): Promise<string | null> {
+    const [account] = await db.select({ id: accounts.id })
+        .from(accounts)
+        .where(and(
+            eq(accounts.ownerUserId, userId),
+            eq(accounts.isPersonal, true),
+        ))
+        .limit(1);
+    return account?.id ?? null;
+}
+
+async function getMarketplaceAccountBillingContext(
+    userId: string,
+    vertical: 'autos' | 'propiedades',
+    accountIdOverride?: string | null,
+) {
+    const defaultMembership = accountIdOverride === undefined
+        ? await getAccountMembershipFromDb(userId)
+        : null;
+    const accountId = accountIdOverride === undefined
+        ? defaultMembership?.accountId ?? null
+        : accountIdOverride;
+    const membership = accountId
+        ? (defaultMembership?.accountId === accountId
+            ? defaultMembership
+            : await getAccountMembershipFromDb(userId, accountId))
+        : null;
+    const account = accountId ? accountsById.get(accountId) ?? null : null;
+    const [workspace] = accountId
+        ? await db.select({ accountKind: accountVerticalSettings.accountKind })
+            .from(accountVerticalSettings)
+            .where(and(
+                eq(accountVerticalSettings.accountId, accountId),
+                eq(accountVerticalSettings.vertical, vertical),
+            ))
+            .limit(1)
+        : [];
+    const profile = accountId ? getPublicProfileRecord(userId, vertical, accountId) : null;
+    const rawAccountKind = workspace?.accountKind ?? profile?.accountKind ?? (account?.isPersonal ? 'individual' : 'company');
+    const accountKind: PublicProfileAccountKind = rawAccountKind === 'company'
+        ? 'company'
+        : rawAccountKind === 'independent'
+            ? 'independent'
+            : 'individual';
+    const memberCount = accountId
+        ? Array.from(accountUsersByUserId.values()).flat().filter((item) => item.accountId === accountId).length
+        : 0;
+
+    return {
+        accountId,
+        accountName: account?.name ?? null,
+        isPersonal: Boolean(account?.isPersonal),
+        accountKind,
+        role: membership?.role ?? null,
+        memberCount,
+        canManageBilling: canManageAccountRole(membership?.role),
+    };
+}
+
+async function getAgendaAccountBillingContext(userId: string, accountIdOverride?: string | null) {
+    const defaultMembership = accountIdOverride === undefined
+        ? await getAccountMembershipFromDb(userId)
+        : null;
+    const accountId = accountIdOverride === undefined
+        ? defaultMembership?.accountId ?? null
+        : accountIdOverride;
+    if (!accountId) return null;
+    const membership = defaultMembership?.accountId === accountId
+        ? defaultMembership
+        : await getAccountMembershipFromDb(userId, accountId);
+    const account = accountsById.get(accountId) ?? null;
+    const [workspace] = await db.select({ accountKind: accountVerticalSettings.accountKind })
+        .from(accountVerticalSettings)
+        .where(and(
+            eq(accountVerticalSettings.accountId, accountId),
+            eq(accountVerticalSettings.vertical, 'agenda'),
+        ))
+        .limit(1);
+    const profile = await getAgendaProfile(userId, accountId);
+    const rawAccountKind = workspace?.accountKind
+        ?? profile?.accountKind
+        ?? (account?.isPersonal ? 'individual' : 'company');
+    const accountKind: PublicProfileAccountKind = rawAccountKind === 'company'
+        ? 'company'
+        : rawAccountKind === 'independent'
+            ? 'independent'
+            : 'individual';
+    const memberCount = Array.from(accountUsersByUserId.values())
+        .flat()
+        .filter((item) => item.accountId === accountId).length;
+
+    return {
+        accountId,
+        accountName: account?.name ?? null,
+        isPersonal: Boolean(account?.isPersonal),
+        accountKind,
+        role: membership?.role ?? null,
+        memberCount,
+        canManageBilling: canManageAccountRole(membership?.role),
+    };
+}
 
 app.route('/api/account', createAccountRouter({
     authUser,
@@ -2018,8 +2633,8 @@ app.route('/api/account', createAccountRouter({
     publicProfileBookingTermsWriteSchema,
     generateBookingPoliciesSchema,
     db,
-    tables: { users, publicProfiles, addressBook },
-    dbHelpers: { eq, and },
+    tables: { users, publicProfiles, addressBook, accountVerticalSettings },
+    dbHelpers: { eq, and, isNull },
     mapUserRowToAppUser,
     usersById,
     sanitizeUser,
@@ -2029,9 +2644,14 @@ app.route('/api/account', createAccountRouter({
     publicProfilesByVerticalSlug,
     publicProfileVerticalSlugKey,
     userCanUsePublicProfile: marketplaceUserCanUsePublicProfile,
+    getMarketplaceEntitlements: (user, vertical, accountId) => (
+        resolveMarketplaceEntitlementsForUser(user, vertical, accountId, undefined, false)
+    ),
     getPublicProfileRecord,
+    canManageActiveAccountProfile,
+    getAccountMembershipFromDb,
     ensureMarketplaceDraftProfileForUser,
-    getEffectivePlanId: (user, vertical) => getEffectivePlanId(user as AppUser, vertical),
+    getEffectivePlanId: (user, vertical, accountId) => getEffectivePlanId(user as AppUser, vertical, accountId),
     PUBLIC_PROFILE_DAYS,
     normalizePublicProfileSocialLinks,
     normalizeExternalUrlInput,
@@ -2039,16 +2659,31 @@ app.route('/api/account', createAccountRouter({
     upsertPublicProfileCache,
     mapPublicProfileRow,
     getPrimaryAccountIdForUser,
+    isPersonalAccountForUser: (userId, accountId) => {
+        const account = accountsById.get(accountId);
+        return Boolean(account?.isPersonal && account.ownerUserId === userId);
+    },
     refreshAddressBookCacheForUser,
     randomUUID,
-    buildMarketplaceOperatorAnalytics: (userId, vertical) => buildMarketplaceOperatorAnalytics(userId, vertical, {
+    buildMarketplaceOperatorAnalytics: (userId, vertical, accountId) => buildMarketplaceOperatorAnalytics(userId, vertical, {
         listingsById,
         listingIdsByUser,
+        getAccountScopeForUser: (id, accountIdOverride) => {
+            const accountId = accountIdOverride === undefined
+                ? getPrimaryAccountIdForUserSync(id)
+                : accountIdOverride;
+            return {
+                accountId,
+                isPersonal: Boolean(accountId && accountsById.get(accountId)?.isPersonal),
+            };
+        },
         getPublicProfileRecord,
         countFollowers,
         getDefaultDisplayName: (id) => usersById.get(id)?.name ?? 'Tu cuenta',
-    }),
+    }, accountId),
     operatorServices: {
+        canManageActiveAccountProfile,
+        getAccountMembershipFromDb,
         db,
         dbHelpers: { eq, and, asc, desc, ilike, or, sql },
         tables: {
@@ -2058,9 +2693,11 @@ app.route('/api/account', createAccountRouter({
             marketplaceOperatorServicePromotions,
         },
         getPublicProfileRecord,
-        ensureMarketplaceDraftProfileForUser: async (user, vertical) => ensureMarketplaceDraftProfileForUser(user as AppUser, vertical),
+        ensureMarketplaceDraftProfileForUser: async (user, vertical, accountId) => ensureMarketplaceDraftProfileForUser(user as AppUser, vertical, accountId),
     },
     operatorProducts: {
+        canManageActiveAccountProfile,
+        getAccountMembershipFromDb,
         db,
         dbHelpers: { eq, and, asc, desc, ilike, or, sql },
         tables: {
@@ -2068,7 +2705,7 @@ app.route('/api/account', createAccountRouter({
             marketplaceOperatorProducts,
         },
         getPublicProfileRecord,
-        ensureMarketplaceDraftProfileForUser: async (user, vertical) => ensureMarketplaceDraftProfileForUser(user as AppUser, vertical),
+        ensureMarketplaceDraftProfileForUser: async (user, vertical, accountId) => ensureMarketplaceDraftProfileForUser(user as AppUser, vertical, accountId),
     },
 }));
 
@@ -2078,7 +2715,7 @@ app.route('/api/advertising', createAdvertisingRouter({
     parseVertical: parsePaymentVertical,
     db,
     tables: { adCampaigns },
-    dbHelpers: { eq, and },
+    dbHelpers: { eq, and, isNull },
     listAdCampaignRecords,
     adCampaignToResponse,
     adCampaignCreateSchema,
@@ -2088,6 +2725,12 @@ app.route('/api/advertising', createAdvertisingRouter({
     normalizeAdCampaigns,
     mapAdCampaignRow,
     getPrimaryAccountIdForUser,
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
+    isPersonalAccountForUser: (userId, accountId) => {
+        const account = accountsById.get(accountId);
+        return Boolean(account?.isPersonal && account.ownerUserId === userId);
+    },
     MAX_CAMPAIGNS_TOTAL,
     AdStatus: null as any,
 }));
@@ -2112,6 +2755,9 @@ app.route('/api/messages', createMessagesRouter({
     messageDeps: messageServiceDeps,
     getListingById,
     isPublicListingVisible,
+    getPrimaryAccountIdForUser,
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
     getMessageThreadByContext: (contextType, contextId, buyerUserId) =>
         getMessageThreadByContext(messageServiceDeps, contextType, contextId, buyerUserId),
 }));
@@ -2121,6 +2767,9 @@ app.route('/api/panel', createPanelNotificationsRouter({
     parseVertical: parseMessageVertical,
     listMessageThreadsForUser,
     buildMessageThreadNotification,
+    getPrimaryAccountIdForUser,
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
 }));
 
 app.route('/api/integrations/instagram', createInstagramRouter({
@@ -2132,10 +2781,11 @@ app.route('/api/integrations/instagram', createInstagramRouter({
     logDebug,
     listingsById,
     getListingById,
+    canManageListing: listingAccessControl.canManageListing,
     getInstagramAccount,
-    getInstagramAccountByVertical: async (vertical: any) => {
-        return await db.query.instagramAccounts.findFirst({ where: eq(instagramAccounts.vertical, vertical) });
-    },
+    getPrimaryAccountIdForUser,
+    getAccountMembershipFromDb,
+    canManageIntegration: canManageAccountIntegration,
     resolveBrowserOrigin,
     isInstagramConfigured,
     userCanUseInstagram,
@@ -2162,6 +2812,7 @@ app.route('/api/integrations/instagram', createInstagramRouter({
     instagramSettingsSchema,
     instagramPublishPreferencesSchema,
     updateInstagramAccountSettings,
+    updateInstagramAccountSettingsForManager,
     disconnectInstagramAccount,
     instagramPublishSchema,
     publishListingToInstagram,
@@ -2178,9 +2829,6 @@ app.route('/api/integrations/instagram', createInstagramRouter({
     getSchedulingInsights,
     optimizeInstagramContent,
     InstagramSchedulerService,
-    tables: { instagramAccounts, instagramPublications, listings },
-    db: { query: { listings: db.query.listings } },
-    dbHelpers: { eq },
 }));
 
 app.route('/api/integrations/social', createSocialHubRouter({
@@ -2190,10 +2838,14 @@ app.route('/api/integrations/social', createSocialHubRouter({
     asObject,
     listingsById,
     getListingById,
+    canManageListing: listingAccessControl.canManageListing,
     isInstagramConfigured,
-    userCanUseInstagram: (user, vertical) =>
-        userCanUseInstagram(user as AppUser, vertical as VerticalType),
-    getEffectivePlanId: (user, vertical) => getEffectivePlanId(user as AppUser, vertical as VerticalType),
+    getPrimaryAccountIdForUser,
+    getAccountMembershipFromDb,
+    canManageIntegration: canManageAccountIntegration,
+    userCanUseInstagram: (user, vertical, accountId) =>
+        userCanUseInstagram(user as AppUser, vertical as VerticalType, accountId),
+    getEffectivePlanId: (user, vertical, accountId) => getEffectivePlanId(user as AppUser, vertical as VerticalType, accountId),
     getInstagramRequiredPlanIds,
     getInstagramAccount,
     getTikTokAccount,
@@ -2213,9 +2865,12 @@ app.route('/api/integrations/tiktok', createTikTokRouter({
     parseVertical,
     asString,
     resolveBrowserOrigin,
-    userCanUseInstagram: (user, vertical) =>
-        userCanUseInstagram(user as AppUser, vertical as VerticalType),
-    getEffectivePlanId: (user, vertical) => getEffectivePlanId(user as AppUser, vertical as VerticalType),
+    userCanUseInstagram: (user, vertical, accountId) =>
+        userCanUseInstagram(user as AppUser, vertical as VerticalType, accountId),
+    getEffectivePlanId: (user, vertical, accountId) => getEffectivePlanId(user as AppUser, vertical as VerticalType, accountId),
+    getPrimaryAccountIdForUser,
+    getAccountMembershipFromDb,
+    canManageIntegration: canManageAccountIntegration,
     getInstagramRequiredPlanIds,
     getTikTokAccount,
     tiktokAccountToResponse: (account) => tiktokAccountToResponse(account as TikTokAccountRecord | null),
@@ -2237,9 +2892,12 @@ app.route('/api/integrations/youtube', createYouTubeRouter({
     parseVertical,
     asString,
     resolveBrowserOrigin,
-    userCanUseInstagram: (user, vertical) =>
-        userCanUseInstagram(user as AppUser, vertical as VerticalType),
-    getEffectivePlanId: (user, vertical) => getEffectivePlanId(user as AppUser, vertical as VerticalType),
+    userCanUseInstagram: (user, vertical, accountId) =>
+        userCanUseInstagram(user as AppUser, vertical as VerticalType, accountId),
+    getEffectivePlanId: (user, vertical, accountId) => getEffectivePlanId(user as AppUser, vertical as VerticalType, accountId),
+    getPrimaryAccountIdForUser,
+    getAccountMembershipFromDb,
+    canManageIntegration: canManageAccountIntegration,
     getInstagramRequiredPlanIds,
     getYouTubeAccount,
     youtubeAccountToResponse: (account) => youtubeAccountToResponse(account as YouTubeAccountRecord | null),
@@ -2259,15 +2917,15 @@ app.route('/api/integrations/youtube', createYouTubeRouter({
 async function userCanConnectMercadoPagoOperator(
     user: AppUser,
     vertical: MercadoPagoOperatorVertical,
+    accountId?: string | null,
 ): Promise<boolean> {
-    if (user.role === 'superadmin') return true;
     if (vertical === 'agenda') {
-        const profile = await getAgendaProfile(user.id);
+        const profile = await getAgendaProfile(user.id, accountId);
         if (!profile) return false;
-        return hasAgendaFullAccess(profile, user.role);
+        return hasAgendaFullAccess(profile);
     }
     if (vertical === 'autos' || vertical === 'propiedades') {
-        return userCanUsePublicProfile(user, vertical);
+        return userCanUsePublicProfile(user, vertical, accountId);
     }
     const plan = await resolveActiveSerenataBillingPlan(user.id);
     if (plan === 'pro') return true;
@@ -2281,13 +2939,14 @@ async function userCanConnectMercadoPagoOperator(
 async function getMercadoPagoOperatorPlanId(
     user: AppUser,
     vertical: MercadoPagoOperatorVertical,
+    accountId?: string | null,
 ): Promise<string> {
     if (vertical === 'agenda') {
-        const profile = await getAgendaProfile(user.id);
+        const profile = await getAgendaProfile(user.id, accountId);
         return profile?.plan ?? 'free';
     }
     if (vertical === 'autos' || vertical === 'propiedades') {
-        return getEffectivePlanId(user, vertical);
+        return getEffectivePlanId(user, vertical, accountId);
     }
     return await resolveActiveSerenataBillingPlan(user.id);
 }
@@ -2301,19 +2960,30 @@ app.route('/api/integrations/mercadopago', createMercadoPagoIntegrationRouter({
     safeEqualStrings,
     getUserById,
     canAuthenticateUser: (user) => canAuthenticateUser(user as AppUser),
-    userCanConnectMercadoPago: (user, vertical) => userCanConnectMercadoPagoOperator(user as AppUser, vertical),
-    getCurrentPlanId: (user, vertical) => getMercadoPagoOperatorPlanId(user as AppUser, vertical),
-    ensureMercadoPagoOperatorTarget: async (userId, vertical) => {
+    userCanConnectMercadoPago: (user, vertical, accountId) => userCanConnectMercadoPagoOperator(user as AppUser, vertical, accountId),
+    getCurrentPlanId: (user, vertical, accountId) => getMercadoPagoOperatorPlanId(user as AppUser, vertical, accountId),
+    getPrimaryAccountIdForUser,
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
+    ensureMercadoPagoOperatorTarget: async (userId, vertical, accountId) => {
         if (vertical === 'autos' || vertical === 'propiedades') {
             const user = usersById.get(userId);
-            if (user) await ensureMarketplaceDraftProfileForUser(user, vertical);
+            if (user) await ensureMarketplaceDraftProfileForUser(user, vertical, accountId);
         }
     },
-    onMercadoPagoOperatorConnected: async (userId, vertical) => {
+    onMercadoPagoOperatorConnected: async (userId, vertical, accountId) => {
         if (vertical !== 'autos' && vertical !== 'propiedades') return;
-        const row = await db.query.publicProfiles.findFirst({
-            where: and(eq(publicProfiles.userId, userId), eq(publicProfiles.vertical, vertical)),
-        });
+        const row = accountId
+            ? await db.query.publicProfiles.findFirst({
+                where: and(
+                    eq(publicProfiles.userId, userId),
+                    eq(publicProfiles.vertical, vertical),
+                    eq(publicProfiles.accountId, accountId),
+                ),
+            })
+            : await db.query.publicProfiles.findFirst({
+                where: and(eq(publicProfiles.userId, userId), eq(publicProfiles.vertical, vertical)),
+            });
         if (row) upsertPublicProfileCache(mapPublicProfileRow(row));
     },
     authCookieSameSite,
@@ -2344,6 +3014,61 @@ app.route('/api/media', createMediaRouter({
     requireVerifiedSession,
     asString,
     logDebug,
+    getListingById,
+    canManageListing: listingAccessControl.canManageListing,
+    canAccessProxyMedia: async (user, src) => {
+        const attachmentRows = await db.select({
+            userId: agendaProfessionalProfiles.userId,
+            accountId: agendaProfessionalProfiles.accountId,
+        })
+            .from(agendaClientAttachments)
+            .innerJoin(agendaProfessionalProfiles, eq(agendaClientAttachments.professionalId, agendaProfessionalProfiles.id))
+            .where(eq(agendaClientAttachments.url, src))
+            .limit(1);
+        const attachment = attachmentRows[0];
+        if (attachment?.userId === user.id) {
+            if (!attachment.accountId) return true;
+            return Boolean(await getAccountMembershipFromDb(user.id, attachment.accountId));
+        }
+
+        const scoreRows = await db.select({
+            groupId: serenataRepertoireSongs.providerGroupId,
+            ownerUserId: serenataProviderGroups.ownerUserId,
+            ownerId: serenataProviderGroups.ownerId,
+        })
+            .from(serenataSongScores)
+            .innerJoin(serenataRepertoireSongs, eq(serenataSongScores.repertoireSongId, serenataRepertoireSongs.id))
+            .innerJoin(serenataProviderGroups, eq(serenataRepertoireSongs.providerGroupId, serenataProviderGroups.id))
+            .where(eq(serenataSongScores.storageUrl, src))
+            .limit(1);
+        const score = scoreRows[0];
+        if (!score) return false;
+        if (score.ownerUserId === user.id) return true;
+
+        if (score.ownerId) {
+            const ownerRows = await db.select({ userId: serenataOwners.userId })
+                .from(serenataOwners)
+                .where(eq(serenataOwners.id, score.ownerId))
+                .limit(1);
+            if (ownerRows[0]?.userId === user.id) return true;
+        }
+
+        const musicianRows = await db.select({ id: serenataMusicians.id })
+            .from(serenataMusicians)
+            .where(eq(serenataMusicians.userId, user.id))
+            .limit(1);
+        const musicianId = musicianRows[0]?.id;
+        if (!musicianId) return false;
+        const memberships = await db.select({ id: serenataProviderGroupMembers.id })
+            .from(serenataProviderGroupMembers)
+            .where(and(
+                eq(serenataProviderGroupMembers.providerGroupId, score.groupId),
+                eq(serenataProviderGroupMembers.musicianId, musicianId),
+                eq(serenataProviderGroupMembers.status, 'active'),
+            ))
+            .limit(1);
+        return memberships.length > 0;
+    },
     getStorageProvider,
     getMediaProxyS3Client,
     getS3ClientForUrl,
@@ -2351,6 +3076,7 @@ app.route('/api/media', createMediaRouter({
     extractStorageObjectKey,
     env: {
         CLOUDFLARE_R2_BUCKET_NAME: process.env.CLOUDFLARE_R2_BUCKET_NAME,
+        CLOUDFLARE_R2_PRIVATE_BUCKET_NAME: process.env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME,
         STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
     },
 }));
@@ -2426,13 +3152,23 @@ app.route('/api/public/partnership-inquiries', createPartnershipInquiryRouter({
 }));
 
 app.use('/api/platform/*', requireVerifiedSession);
-app.route('/api/platform', createPlatformRouter({ authUser }));
+app.route('/api/platform', createPlatformRouter({
+    authUser,
+    getPrimaryAccountIdForUser,
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
+}));
 
 app.route('/api/serenatas', createSerenatasRouter({
     authUser,
     requireVerifiedSession,
     sanitizeUser: (user) => sanitizeUser(user as AppUser),
-    cancelActiveSubscriptionForUser: (userId) => cancelActiveSubscriptionForUser(userId, 'serenatas' as never),
+    cancelActiveSubscriptionForUser: (userId, _vertical, accountId, billingProfileType) => (
+        cancelActiveSubscriptionForUser(userId, 'serenatas' as never, accountId, billingProfileType)
+    ),
+    getPrimaryAccountIdForUser,
+    getAccountMembershipsForUser,
+    getAccountMembershipFromDb,
 }));
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2443,9 +3179,16 @@ app.route('/api/serenatas', createSerenatasRouter({
     const agendaDeps = {
         authUser,
         requireVerifiedSession,
+        getPrimaryAccountIdForUser,
+        getAccountMembershipsForUser,
+        getAccountMembershipFromDb,
+        cancelActiveSubscriptionForUser: (userId: string, _vertical: 'agenda', accountId?: string | null) => (
+            cancelActiveSubscriptionForUser(userId, 'agenda', accountId)
+        ),
         asString,
         randomUUID,
         randomBytes,
+        SESSION_SECRET,
         db,
         sql,
         tables: {
@@ -2484,6 +3227,7 @@ app.route('/api/serenatas', createSerenatasRouter({
         logAudit,
         logNotification,
         syncToGoogleCalendar,
+        syncPropertyVisitToGoogleCalendar,
         sendPushToUser,
         sendBookingConfirmationEmail,
         sendAppointmentReminderEmail,

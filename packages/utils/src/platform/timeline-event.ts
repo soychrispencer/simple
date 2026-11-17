@@ -1,6 +1,7 @@
 /**
  * Relationship Engine — TimelineEvent catalog (domain language).
- * Persistence / emission wiring comes later; names here are frozen.
+ * Persistence and emission are being wired into existing domain mutations;
+ * this file freezes the shared event names and references.
  *
  * @see docs/SIMPLE_PLATFORM_TIMELINE_EVENTS.md
  * @see docs/SIMPLE_PLATFORM_LANGUAGE.md
@@ -13,7 +14,8 @@ export type TimelineActor =
     | 'system'
     | 'owner'
     | 'musician'
-    | 'admin';
+    | 'admin'
+    | 'team_member';
 
 export type TimelineVertical = 'agenda' | 'serenatas' | 'autos' | 'propiedades' | 'platform';
 
@@ -71,6 +73,10 @@ export type TimelineEventType =
     | 'engagement.saved'
     | 'engagement.followed'
     | 'lead.opened'
+    | 'relationship.stage_changed'
+    | 'visit.scheduled'
+    | 'task.created'
+    | 'task.completed'
     // Serenatas
     | 'serenata.requested'
     | 'serenata.created'
@@ -99,7 +105,11 @@ export type TimelineSubjectKind =
     | 'listing'
     | 'public_profile'
     | 'provider_group'
-    | 'relationship_note';
+    | 'relationship'
+    | 'relationship_note'
+    | 'relationship_task'
+    | 'account_property_visit'
+    | 'account_business_visit';
 
 /**
  * Stable business UUID for SimpleAdmin ops inbox (Relationship Engine).
@@ -130,11 +140,12 @@ export type TimelineSubjectRef = {
  * Domain event. Emit after successful mutation; never block the business write.
  */
 export type TimelineEventInput = {
+    /** Stable source event key used to suppress provider or job retries. */
+    idempotencyKey?: string;
     type: TimelineEventType;
     occurredAt?: Date | string;
     business: TimelineBusinessRef;
     person?: TimelinePersonRef | null;
-    relationshipId?: string | null;
     subject: TimelineSubjectRef;
     actor: TimelineActor;
     payload?: Record<string, unknown>;

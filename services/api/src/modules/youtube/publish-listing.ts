@@ -6,6 +6,7 @@ export type PublishYouTubeListingUser = { id: string; role?: string };
 
 export type PublishYouTubeListingRecord = {
     id: string;
+    accountId?: string | null;
     vertical: VerticalType;
     status: string;
     title: string;
@@ -15,14 +16,15 @@ export type PublishYouTubeListingRecord = {
 };
 
 export type PublishListingToYouTubeDeps = {
-    getYouTubeAccount: (userId: string, vertical: VerticalType) => YouTubeAccountRecord | null;
-    userCanUseInstagram: (user: PublishYouTubeListingUser, vertical: VerticalType) => boolean;
+    getYouTubeAccount: (userId: string, vertical: VerticalType, accountId?: string | null) => YouTubeAccountRecord | null;
+    userCanUseInstagram: (user: PublishYouTubeListingUser, vertical: VerticalType, accountId?: string | null) => boolean;
     getLatestSocialPublicationForListing: (
         userId: string,
         vertical: VerticalType,
         listingId: string,
         platform: 'youtube',
         contentType?: SocialPublicationContentType,
+        accountId?: string | null,
     ) => SocialPublicationRecord | null;
     socialPublicationToResponse: (record: SocialPublicationRecord) => unknown;
     buildListingPublicUrl: (listing: PublishYouTubeListingRecord) => string;
@@ -34,12 +36,13 @@ export type PublishListingToYouTubeDeps = {
         override: string | null,
     ) => string;
     createSocialPublicationRecord: (
-        input: Omit<SocialPublicationRecord, 'id' | 'createdAt' | 'updatedAt' | 'accountId'>,
+        input: Omit<SocialPublicationRecord, 'id' | 'createdAt' | 'updatedAt'>,
     ) => Promise<SocialPublicationRecord>;
     updateYouTubeAccountRecord: (
         userId: string,
         vertical: VerticalType,
         patch: Partial<YouTubeAccountRecord>,
+        accountId?: string | null,
     ) => Promise<YouTubeAccountRecord | null>;
 };
 
@@ -57,7 +60,7 @@ async function refreshYouTubeAccountIfNeeded(
         scopes: refreshed.scopes,
         lastSyncedAt: Date.now(),
         lastError: null,
-    });
+    }, account.accountId);
     return updated ?? account;
 }
 
@@ -67,11 +70,11 @@ export function createPublishListingToYouTube(deps: PublishListingToYouTubeDeps)
         listing: PublishYouTubeListingRecord,
         options: { captionOverride?: string | null } = {},
     ) {
-        const account = deps.getYouTubeAccount(user.id, listing.vertical);
+        const account = deps.getYouTubeAccount(user.id, listing.vertical, listing.accountId ?? null);
         if (!account || account.status === 'disconnected') {
             throw new Error('Primero conecta tu canal de YouTube.');
         }
-        if (!deps.userCanUseInstagram(user, listing.vertical)) {
+        if (!deps.userCanUseInstagram(user, listing.vertical, listing.accountId ?? null)) {
             throw new Error('YouTube está disponible solo para planes Pro y Empresa.');
         }
         if (listing.status !== 'active') {
@@ -83,7 +86,7 @@ export function createPublishListingToYouTube(deps: PublishListingToYouTubeDeps)
             throw new Error('Sube o genera un video en el aviso antes de publicar en YouTube Shorts.');
         }
 
-        const latest = deps.getLatestSocialPublicationForListing(user.id, listing.vertical, listing.id, 'youtube', 'video');
+        const latest = deps.getLatestSocialPublicationForListing(user.id, listing.vertical, listing.id, 'youtube', 'video', listing.accountId ?? null);
         if (latest?.status === 'published' && latest.sourceUpdatedAt === listing.updatedAt) {
             return deps.socialPublicationToResponse(latest);
         }
@@ -105,6 +108,7 @@ export function createPublishListingToYouTube(deps: PublishListingToYouTubeDeps)
 
             const publication = await deps.createSocialPublicationRecord({
                 userId: user.id,
+                accountId: listing.accountId ?? account.accountId ?? null,
                 vertical: listing.vertical,
                 listingId: listing.id,
                 listingTitle: listing.title,
@@ -123,13 +127,14 @@ export function createPublishListingToYouTube(deps: PublishListingToYouTubeDeps)
             await deps.updateYouTubeAccountRecord(user.id, listing.vertical, {
                 lastPublishedAt: Date.now(),
                 lastError: null,
-            });
+            }, listing.accountId ?? account.accountId ?? null);
 
             return deps.socialPublicationToResponse(publication);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'No se pudo publicar en YouTube.';
             await deps.createSocialPublicationRecord({
                 userId: user.id,
+                accountId: listing.accountId ?? account.accountId ?? null,
                 vertical: listing.vertical,
                 listingId: listing.id,
                 listingTitle: listing.title,
@@ -144,8 +149,8 @@ export function createPublishListingToYouTube(deps: PublishListingToYouTubeDeps)
                 sourceUpdatedAt: listing.updatedAt,
                 publishedAt: null,
             });
-            await deps.updateYouTubeAccountRecord(user.id, listing.vertical, { lastError: message });
-            throw new Error(message);
+            await deps.updateYouTubeAccountRecord(user.id, listing.vertical, { lastError: message }, listing.accountId ?? account.accountId ?? null);
+            throw new Error(message, { cause: error });
         }
     };
 }

@@ -16,7 +16,16 @@ export async function syncMarketplaceProfileWithDefaultAddress(
     const hadPrimary = Boolean(current.profile.primaryAddressId);
     const linkPrimary = options?.linkPrimaryAddress ?? hadPrimary;
 
-    const { id: _id, userId: _userId, vertical: _vertical, publicUrl: _publicUrl, ...profileBody } = current.profile;
+    const {
+        id: _id,
+        userId: _userId,
+        vertical: _vertical,
+        publicUrl: _publicUrl,
+        accountKind: _accountKind,
+        operatorSubtype: _operatorSubtype,
+        operatorSubtypeCustom: _operatorSubtypeCustom,
+        ...profileBody
+    } = current.profile;
 
     const response = await updateAccountPublicProfile(vertical, {
         ...profileBody,

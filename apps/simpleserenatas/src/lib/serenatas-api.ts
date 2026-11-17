@@ -70,6 +70,11 @@ export type MusicianProfile = {
     workZones: string[];
     hasInstrument: boolean;
     hasMariachiAttire: boolean;
+    /** @deprecated SimpleSerenatas actualmente mantiene comisión 0%. */
+    commissionRateBps?: number;
+    /** @deprecated Solo se conserva para cálculos legacy de comisión. */
+    commissionVatRateBps?: number;
+    trialEndsAt?: string;
 };
 
 /** Ficha pública de músico para listados y modal de detalle. */
@@ -108,6 +113,7 @@ export type OwnerProfile = {
 export type SerenataBillingPlanId = 'free' | 'pro';
 
 export type SerenataMePlan = {
+    billingProfileType?: 'provider' | 'musician';
     plan: SerenataBillingPlanId;
     planLabel: string;
     /** @deprecated El modelo actual es prueba gratis por tiempo limitado + Pro. */
@@ -655,7 +661,9 @@ export const serenatasApi = {
     },
     packages: () => request<{ items: SerenataPackage[] }>('/packages'),
     profiles: () => request<{ user: SerenatasUser; profiles: Profiles }>('/profiles'),
-    mePlan: () => request<SerenataMePlan>('/me/plan'),
+    mePlan: (billingProfileType?: 'provider' | 'musician') => request<SerenataMePlan>(
+        `/me/plan${billingProfileType ? `?billingProfileType=${billingProfileType}` : ''}`,
+    ),
     billingHistory: () => request<{ items: SerenataBillingOrder[] }>('/me/billing-history'),
     ownerMusicianPayouts: (status?: 'pending' | 'paid') => {
         const query = status ? `?status=${encodeURIComponent(status)}` : '';
@@ -678,8 +686,11 @@ export const serenatasApi = {
         `/serenatas/${serenataId}/payouts`,
         { method: 'PUT', body: JSON.stringify({ lines }) },
     ),
-    cancelProSubscription: () =>
-        request<{ ok: boolean; message?: string; error?: string }>('/me/subscription/cancel', { method: 'POST' }),
+    cancelProSubscription: (billingProfileType: 'provider' | 'musician' = 'provider') =>
+        request<{ ok: boolean; message?: string; error?: string }>('/me/subscription/cancel', {
+            method: 'POST',
+            body: JSON.stringify({ billingProfileType }),
+        }),
     updateUser: async (payload: {
         name?: string;
         phone?: string | null;

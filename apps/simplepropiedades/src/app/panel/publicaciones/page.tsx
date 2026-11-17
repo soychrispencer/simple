@@ -38,7 +38,7 @@ import { ListingShareSheet } from '@/components/panel/listing-share-sheet';
 import { ModernSelect } from '@simple/ui/forms';
 import { fetchInstagramIntegrationStatus, generateSmartTemplates, publishListingToInstagramEnhanced, type InstagramPublicationView, type InstagramTemplateView, } from '@/lib/instagram';
 import {
-    type ListingStatus, type PanelListing, type PortalKey, fetchMyPanelListings, publishListingToPortal, renewPanelListing, updatePanelListingStatus, deletePanelListing, } from '@/lib/panel-listings';
+    type ListingStatus, type PanelListing, type PanelListingAssignmentContext, type PortalKey, fetchMyPanelListings, fetchPanelListingAssignments, updatePanelListingAssignee, publishListingToPortal, renewPanelListing, updatePanelListingStatus, deletePanelListing, } from '@/lib/panel-listings';
 import { InstagramTemplatePreview } from '@simple/ui/integrations';
 import { PanelIconButton } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
@@ -187,6 +187,7 @@ export default function PublicacionesPage() {
     const searchParams = useSearchParams();
     const { user, authLoading, requireAuth } = useAuth();
     const [listings, setListings] = useState<PanelListing[]>([]);
+    const [listingAssignmentContext, setListingAssignmentContext] = useState<PanelListingAssignmentContext | null>(null);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'horizontal' | 'vertical'>(() => {
         if (typeof window === 'undefined') return 'horizontal';
@@ -234,9 +235,10 @@ export default function PublicacionesPage() {
 
     const loadListings = async () => {
         setLoading(true);
-        const [result, igResult] = await Promise.all([
+        const [result, igResult, assignmentResult] = await Promise.all([
             fetchMyPanelListings(),
-            fetchInstagramIntegrationStatus()
+            fetchInstagramIntegrationStatus(),
+            fetchPanelListingAssignments('propiedades'),
         ]);
         if (result.unauthorized) {
             setNotice('Tu sesión expiró. Vuelve a iniciar sesión.');
@@ -248,8 +250,28 @@ export default function PublicacionesPage() {
         if (igResult) {
             setInstagramPublications(igResult.recentPublications || []);
         }
+        setListingAssignmentContext(assignmentResult);
         setListings(result.items);
         setLoading(false);
+    };
+
+    const onAssignListing = async (listing: PanelListing, assignedUserId: string | null) => {
+        const busyKey = `${listing.id}:assignee`;
+        setStatusBusyKey(busyKey);
+        const result = await updatePanelListingAssignee(listing.id, 'propiedades', assignedUserId);
+        setStatusBusyKey(null);
+        if (!result.ok) {
+            setNotice(result.error ?? 'No pudimos asignar esta publicación.');
+            return;
+        }
+        setListingAssignmentContext((current) => current ? {
+            ...current,
+            assignments: [
+                ...current.assignments.filter((assignment) => assignment.listingId !== listing.id),
+                ...(assignedUserId ? [{ listingId: listing.id, assignedUserId }] : []),
+            ],
+        } : current);
+        setNotice(assignedUserId ? 'Publicación asignada al integrante.' : 'Publicación sin responsable asignado.');
     };
 
     useEffect(() => {
@@ -510,12 +532,7 @@ export default function PublicacionesPage() {
         if (!Array.isArray(photos) || photos.length === 0) return [];
         
         return photos.map(p => {
-            let url = '';
-            if (typeof p === 'string') {
-                url = p.trim();
-            } else {
-                url = p?.url || p?.previewUrl || p?.dataUrl || '';
-            }
+            const url = typeof p === 'string' ? p.trim() : p?.url || p?.previewUrl || p?.dataUrl || '';
             return typeof url === 'string' && url.trim() ? url.trim() : null;
         }).filter(Boolean) as string[];
     };
@@ -638,13 +655,15 @@ export default function PublicacionesPage() {
                 onSelect: () => void onChangeListingStatus(listing, 'draft'),
             });
         }
-        secondaryActions.push({
-            key: 'delete',
-            label: 'Eliminar',
-            icon: <IconTrash size={14} />,
-            tone: 'danger',
-            onSelect: () => void onDeleteListing(listing),
-        });
+        if (listing.canDelete !== false) {
+            secondaryActions.push({
+                key: 'delete',
+                label: 'Eliminar',
+                icon: <IconTrash size={14} />,
+                tone: 'danger',
+                onSelect: () => void onDeleteListing(listing),
+            });
+        }
 
         const busyKey = statusBusyKey && statusBusyKey.startsWith(`${listing.id}:`)
             ? statusBusyKey.slice(listing.id.length + 1)
@@ -688,7 +707,7 @@ export default function PublicacionesPage() {
     return (
         <div className="container-app panel-page py-4 lg:py-8">
             <PanelSectionHeader
-                title="Mis publicaciones"
+                title="Publicaciones"
                 description={kindTab === 'listings'
                     ? `${listings.length} avisos`
                     : kindTab === 'services'
@@ -789,10 +808,38 @@ export default function PublicacionesPage() {
                     }
                 >
                     {filtered.map((listing) => (
-                        <OwnerListingCard
-                            key={listing.id}
-                            {...toOwnerCardData(listing, viewMode === 'horizontal' ? 'list' : 'grid')}
-                        />
+                        <div key={listing.id} className="space-y-2">
+                            <OwnerListingCard
+                                {...toOwnerCardData(listing, viewMode === 'horizontal' ? 'list' : 'grid')}
+                            />
+                            {listingAssignmentContext?.enabled && listingAssignmentContext.canManage ? (
+                                <details className="rounded-lg border border-(--border) bg-(--surface)">
+                                    <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-fg-muted hover:text-(--fg)">
+                                        Asignar responsable
+                                    </summary>
+                                    <div className="space-y-2 border-t border-(--border) px-3 py-3">
+                                        <label className="block text-xs text-fg-muted" htmlFor={`listing-assignee-${listing.id}`}>
+                                            Esta persona verá la publicación en su cartera.
+                                        </label>
+                                        <select
+                                            id={`listing-assignee-${listing.id}`}
+                                            aria-label={`Responsable de ${listing.title}`}
+                                            value={listingAssignmentContext.assignments.find((item) => item.listingId === listing.id)?.assignedUserId ?? ''}
+                                            disabled={statusBusyKey === `${listing.id}:assignee`}
+                                            onChange={(event) => void onAssignListing(listing, event.target.value || null)}
+                                            className="h-10 w-full rounded-lg border border-(--border) bg-(--surface) px-3 text-sm text-(--fg) outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                                        >
+                                            <option value="">Sin responsable</option>
+                                            {listingAssignmentContext.members.map((member) => (
+                                                <option key={member.userId} value={member.userId}>
+                                                    {member.name} · {member.role === 'owner' ? 'Dueño' : member.role === 'admin' ? 'Administrador' : 'Agente'}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </details>
+                            ) : null}
+                        </div>
                     ))}
                 </div>
             ) : null}

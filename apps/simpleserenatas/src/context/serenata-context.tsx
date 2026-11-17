@@ -20,9 +20,11 @@ import {
 } from '@/lib/serenatas-api';
 import {
     type AppMode,
-    ownerFeaturesEnabled,
+    type SerenataRole,
+    ACTIVE_SERENATA_ROLE_STORAGE_KEY,
     clearLegacyAppModeStorage,
-    resolveAppModeFromProfiles,
+    modeForSerenataRole,
+    resolveActiveSerenataRole,
     workApiAs,
 } from '@/lib/app-mode';
 import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
@@ -63,6 +65,8 @@ interface SerenataContextType {
     accountUser: SerenatasUser | null;
 
     mode: AppMode;
+    activeRole: SerenataRole;
+    setActiveRole: (role: SerenataRole) => void;
     ownerFeaturesEnabled: boolean;
 
     profiles: Profiles;
@@ -114,6 +118,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     const searchParams = useSearchParams();
 
     const [section, setSection] = useState<Section>('home');
+    const [preferredRole, setPreferredRole] = useState<SerenataRole>('client');
     const [agendaDate, setAgendaDate] = useState(today);
     const [checkoutStatus, setCheckoutStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [handledSerenataPurchaseId, setHandledSerenataPurchaseId] = useState<string | null>(null);
@@ -131,45 +136,27 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
 
             const nextProfiles = profileResponse.profiles;
             clearLegacyAppModeStorage();
-            const effectiveMode = resolveAppModeFromProfiles(nextProfiles);
-
-            const ownerActive = ownerFeaturesEnabled(nextProfiles);
-
-            if (effectiveMode === 'client') {
-                const serenataResponse = await serenatasApi.clientSerenatas();
-
-                return {
-                    accountUser: user ? { ...profileResponse.user, ...user } : profileResponse.user,
-                    profiles: nextProfiles,
-                    effectiveMode,
-                    ownerFeaturesEnabled: ownerActive,
-                    serenatas: serenataResponse.ok ? serenataResponse.items : [],
-                    ownerSerenatas: [] as Serenata[],
-                    ownerClosureSerenatas: [] as Serenata[],
-                    groups: [] as SerenataGroup[],
-                    packages: packagesResponse.ok ? packagesResponse.items : [],
-                    musicians: musicianResponse.ok ? musicianResponse.items : [],
-                    invitations: [] as Invitation[],
-                };
-            }
-
             const [
+                clientSerenataResponse,
                 musicianSerenataResponse,
                 ownerSerenataResponse,
                 ownerClosureResponse,
                 groupResponse,
                 invitationResponse,
             ] = await Promise.all([
+                nextProfiles.client
+                    ? serenatasApi.clientSerenatas()
+                    : Promise.resolve({ ok: true, items: [] as Serenata[] }),
                 nextProfiles.musician
                     ? serenatasApi.serenatas(undefined, 'musician')
                     : Promise.resolve({ ok: true, items: [] as Serenata[] }),
-                ownerActive
+                nextProfiles.owner
                     ? serenatasApi.serenatas(undefined, 'owner')
                     : Promise.resolve({ ok: true, items: [] as Serenata[] }),
-                ownerActive
+                nextProfiles.owner
                     ? serenatasApi.serenatas(undefined, 'owner', { needsClosure: true })
                     : Promise.resolve({ ok: true, items: [] as Serenata[] }),
-                ownerActive
+                nextProfiles.owner
                     ? serenatasApi.groups()
                     : Promise.resolve({ ok: true, items: [] as SerenataGroup[] }),
                 nextProfiles.musician
@@ -183,11 +170,10 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
             return {
                 accountUser: user ? { ...profileResponse.user, ...user } : profileResponse.user,
                 profiles: nextProfiles,
-                effectiveMode,
-                ownerFeaturesEnabled: ownerActive,
-                serenatas: musicianSerenataResponse.ok ? musicianSerenataResponse.items : [],
-                ownerSerenatas: ownerActive ? ownerItems : [],
-                ownerClosureSerenatas: ownerActive ? ownerClosureItems : [],
+                clientSerenatas: clientSerenataResponse.ok ? clientSerenataResponse.items : [],
+                musicianSerenatas: musicianSerenataResponse.ok ? musicianSerenataResponse.items : [],
+                ownerSerenatas: nextProfiles.owner ? ownerItems : [],
+                ownerClosureSerenatas: nextProfiles.owner ? ownerClosureItems : [],
                 groups: groupResponse.ok ? groupResponse.items : [],
                 packages: packagesResponse.ok ? packagesResponse.items : [],
                 musicians: musicianResponse.ok ? musicianResponse.items : [],
@@ -198,7 +184,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     );
 
     const { data, error: swrError, isLoading, mutate: swrMutate } = useSWR(
-        isLoggedIn ? 'serenatas-data' : null,
+        isLoggedIn && user?.id ? `serenatas-data-${user.id}` : null,
         fetcher,
         {
             revalidateOnFocus: true,
@@ -208,13 +194,37 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     );
 
     const profiles = data?.profiles ?? { client: null, musician: null, owner: null };
-    const mode: AppMode = data?.effectiveMode ?? 'client';
-    const ownerFeatures = data?.ownerFeaturesEnabled ?? false;
-    const agendaApiAs = mode === 'work' ? workApiAs(profiles) : null;
+    useEffect(() => {
+        if (!data?.profiles || !user?.id) return;
+        const storageKey = `${ACTIVE_SERENATA_ROLE_STORAGE_KEY}:${user.id}`;
+        const storedRole = window.localStorage.getItem(storageKey)
+            ?? window.localStorage.getItem(ACTIVE_SERENATA_ROLE_STORAGE_KEY);
+        const resolvedRole = resolveActiveSerenataRole(data.profiles, storedRole);
+        setPreferredRole(resolvedRole);
+        window.localStorage.setItem(storageKey, resolvedRole);
+        window.localStorage.removeItem(ACTIVE_SERENATA_ROLE_STORAGE_KEY);
+    }, [data?.profiles, user?.id]);
+
+    const activeRole = resolveActiveSerenataRole(profiles, preferredRole);
+    const mode: AppMode = modeForSerenataRole(activeRole);
+    const ownerFeatures = activeRole === 'owner' && Boolean(profiles.owner);
+    const agendaApiAs = mode === 'work' ? workApiAs(profiles, activeRole) : null;
+    const visibleSerenatas = activeRole === 'client'
+        ? data?.clientSerenatas ?? []
+        : activeRole === 'musician'
+            ? data?.musicianSerenatas ?? []
+            : [];
+
+    const setActiveRole = useCallback((role: SerenataRole) => {
+        if (user?.id) {
+            window.localStorage.setItem(`${ACTIVE_SERENATA_ROLE_STORAGE_KEY}:${user.id}`, role);
+        }
+        setPreferredRole(role);
+    }, [user?.id]);
 
     const agendaSwrKey =
-        isLoggedIn && data
-            ? `serenatas-agenda-${mode}-${agendaDate}-${agendaApiAs ?? 'client'}`
+        isLoggedIn && user?.id && data
+            ? `serenatas-agenda-${user.id}-${mode}-${agendaDate}-${agendaApiAs ?? 'client'}`
             : null;
 
     const {
@@ -235,8 +245,8 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     );
 
     const routeSwrKey =
-        isLoggedIn && data?.ownerFeaturesEnabled
-            ? `serenatas-route-${agendaDate}`
+        isLoggedIn && user?.id && ownerFeatures
+            ? `serenatas-route-${user.id}-${agendaDate}`
             : null;
 
     const { data: routeData, mutate: mutateRoute } = useSWR(
@@ -253,8 +263,10 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     const ownerSerenatasList = data?.ownerSerenatas ?? [];
 
     const refreshPanelData = useCallback(async () => {
-        await Promise.all([swrMutate(), mutateAgenda(), mutateRoute(), globalMutate(providerGroupsSwrKey())]);
-    }, [mutateAgenda, mutateRoute, swrMutate]);
+        const refreshes: Promise<unknown>[] = [swrMutate(), mutateAgenda(), mutateRoute()];
+        if (user?.id) refreshes.push(globalMutate(providerGroupsSwrKey(user.id)));
+        await Promise.all(refreshes);
+    }, [mutateAgenda, mutateRoute, swrMutate, user?.id]);
 
     const {
         pendingCount: solicitudesPendingCount,
@@ -393,12 +405,14 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         authLoading,
         accountUser: user ? { ...(data?.accountUser ?? {}), ...user } as SerenatasUser : data?.accountUser ?? null,
         mode,
+        activeRole,
+        setActiveRole,
         ownerFeaturesEnabled: ownerFeatures,
         profiles,
         section,
         setSection,
         changeSection,
-        serenatas: data?.serenatas ?? [],
+        serenatas: visibleSerenatas,
         ownerSerenatas: data?.ownerSerenatas ?? [],
         ownerClosureSerenatas: data?.ownerClosureSerenatas ?? [],
         groups: data?.groups ?? [],

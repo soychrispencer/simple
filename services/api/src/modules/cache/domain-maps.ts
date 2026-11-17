@@ -26,8 +26,10 @@ export const followsByUser = new Map<string, FollowRecord[]>();
 export const boostOrdersByUser = new Map<string, BoostOrder[]>();
 export const listingsById = new Map<string, ListingRecord>();
 export const addressBookByUser = new Map<string, AddressBookEntry[]>();
+export const addressBookByAccount = new Map<string, AddressBookEntry[]>();
 export const paymentOrdersByUser = new Map<string, PaymentOrderRecord[]>();
 export const activeSubscriptionsByUser = new Map<string, ActiveSubscription[]>();
+export const activeSubscriptionsByAccount = new Map<string, ActiveSubscription[]>();
 export const instagramAccountByUserVertical = new Map<string, InstagramAccountRecord>();
 export const tiktokAccountByUserVertical = new Map<string, TikTokAccountRecord>();
 export const youtubeAccountByUserVertical = new Map<string, YouTubeAccountRecord>();
@@ -35,10 +37,21 @@ export const instagramPublicationsByUser = new Map<string, InstagramPublicationR
 export const socialPublicationsByUser = new Map<string, import('../../lib/domain-types.js').SocialPublicationRecord[]>();
 export const listingIdsByUser = new Map<string, string[]>();
 
+function getOwnedPersonalAccountId(userId: string): string | null {
+    for (const account of accountsById.values()) {
+        if (account.isPersonal && account.ownerUserId === userId) return account.id;
+    }
+    return null;
+}
+
 export const {
     publicProfilesByUserVertical,
+    publicProfilesByAccountVertical,
     publicProfilesByVerticalSlug,
     upsertPublicProfileCache,
     getPublicProfileRecord,
     getPublishedPublicProfileBySlug,
-} = createPublicProfileCache();
+} = createPublicProfileCache(
+    (userId) => defaultAccountIdByUserId.get(userId) ?? null,
+    getOwnedPersonalAccountId,
+);

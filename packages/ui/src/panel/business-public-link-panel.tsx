@@ -46,6 +46,10 @@ export type BusinessPublicLinkPanelProps = {
     adapter: BusinessPublicLinkAdapter;
     /** `minimal` — una tarjeta compacta para Perfil público. */
     variant?: 'default' | 'minimal';
+    /** Convierte el icono de abrir perfil en una acción visible con texto. */
+    showPublicPreviewAction?: boolean;
+    /** Vista privada con los datos del usuario cuando todavía no publicó su página. */
+    previewUrl?: string | null;
 };
 
 function IconAction({
@@ -76,7 +80,7 @@ function IconAction({
     );
 }
 
-export function BusinessPublicLinkPanel({ adapter, variant = 'default' }: BusinessPublicLinkPanelProps) {
+export function BusinessPublicLinkPanel({ adapter, variant = 'default', showPublicPreviewAction = false, previewUrl }: BusinessPublicLinkPanelProps) {
     const slugMinLength = adapter.slugMinLength ?? 3;
     const [loading, setLoading] = useState(true);
     const [state, setState] = useState<BusinessPublicLinkState | null>(null);
@@ -292,7 +296,7 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default' }: Busine
         return (
             <PanelCard size="sm" className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-(--fg)">Link público</p>
+                    <p className="text-sm font-medium text-(--fg)">{showPublicPreviewAction ? 'Enlace de reservas' : 'Link público'}</p>
                     <span
                         className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
                         style={{
@@ -314,13 +318,27 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default' }: Busine
                             <IconAction title={copied ? 'Copiado' : 'Copiar link'} onClick={() => void handleCopy()} disabled={!publicUrl}>
                                 {copied ? <IconCheck size={15} className="text-accent-ink" /> : <IconCopy size={15} />}
                             </IconAction>
-                            <IconAction title="Compartir" onClick={() => void handleShare()} disabled={!publicUrl}>
-                                <IconShare3 size={15} />
-                            </IconAction>
-                            <IconAction title="Editar enlace" onClick={startEditSlug}>
-                                <IconEdit size={15} />
-                            </IconAction>
-                            {publicUrl ? (
+                            {!showPublicPreviewAction ? (
+                                <>
+                                    <IconAction title="Compartir" onClick={() => void handleShare()} disabled={!publicUrl}>
+                                        <IconShare3 size={15} />
+                                    </IconAction>
+                                    <IconAction title="Editar enlace" onClick={startEditSlug}>
+                                        <IconEdit size={15} />
+                                    </IconAction>
+                                </>
+                            ) : null}
+                            {publicUrl ? showPublicPreviewAction ? (
+                                <a
+                                    href={previewUrl ?? publicUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-(--accent) px-2.5 text-xs font-semibold text-(--accent-contrast) transition-opacity hover:opacity-90"
+                                >
+                                    {previewUrl || !state.isPublished ? 'Vista previa' : 'Ver página'}
+                                    <IconExternalLink size={13} aria-hidden />
+                                </a>
+                            ) : (
                                 <IconAction title="Abrir perfil" href={publicUrl}>
                                     <IconExternalLink size={15} />
                                 </IconAction>
@@ -329,6 +347,12 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default' }: Busine
 
                         {publicUrl ? (
                             <div className="flex flex-wrap items-center gap-3">
+                                {showPublicPreviewAction ? (
+                                    <button type="button" onClick={startEditSlug} className="inline-flex items-center gap-1.5 text-xs font-medium text-(--fg-secondary) transition-colors hover:text-(--fg)">
+                                        <IconEdit size={14} />
+                                        Editar enlace
+                                    </button>
+                                ) : null}
                                 <button
                                     type="button"
                                     onClick={() => setShowQr((value) => !value)}

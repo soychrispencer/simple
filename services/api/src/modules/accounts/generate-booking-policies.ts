@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateGeminiText } from '../../lib/gemini.js';
 
 export type GenerateBookingPoliciesInput = {
     vertical?: 'agenda' | 'serenatas' | 'autos' | 'propiedades';
@@ -77,10 +77,7 @@ REGLAS:
 ${input.existingText ? `TEXTO ACTUAL (referencia de tono):\n${input.existingText}\n\n` : ''}Genera las políticas ahora:`;
 
     try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const result = await model.generateContent(prompt);
-        const text = result.response.text().trim();
+        const text = await generateGeminiText(prompt, apiKey);
         if (!text) return { ok: true, text: FALLBACK_POLICIES };
         return { ok: true, text };
     } catch (error) {

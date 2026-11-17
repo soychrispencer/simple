@@ -103,7 +103,7 @@ export async function checkPublicProfileSlugAvailability(
 
 export async function updateAccountPublicProfile(
     vertical: PublicProfileVertical,
-    input: Omit<EditablePublicProfile, 'id' | 'userId' | 'vertical' | 'publicUrl'>
+    input: Omit<EditablePublicProfile, 'id' | 'userId' | 'vertical' | 'publicUrl' | 'accountKind' | 'operatorSubtype' | 'operatorSubtypeCustom'>
 ): Promise<PublicProfileSettingsResponse> {
     const { data } = await apiFetch<PublicProfileSettingsResponse>(`/api/account/public-profile?vertical=${vertical}`, {
         method: 'PATCH',

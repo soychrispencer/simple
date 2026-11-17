@@ -21,6 +21,7 @@ export type TikTokIntegrationStatus = {
     currentPlanId: string;
     account: TikTokAccountView | null;
     connectUrl: string | null;
+    canManageIntegration?: boolean;
 };
 
 export async function fetchTikTokIntegrationStatus(): Promise<TikTokIntegrationStatus | null> {

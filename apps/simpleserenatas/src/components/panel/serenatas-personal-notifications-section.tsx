@@ -5,7 +5,7 @@ import {
     PanelAccountPersonalNotificationsSection,
     type AccountPersonalNotificationPrefs,
 } from '@simple/ui/panel';
-import type { AppMode } from '@/lib/app-mode';
+import type { AppMode, SerenataRole } from '@/lib/app-mode';
 import {
     categoryNotificationPrefsFromUser,
     getNotificationCategoryRowsForContext,
@@ -29,6 +29,7 @@ function personalPrefsFromUser(user: SerenatasUser | null): AccountPersonalNotif
 export function SerenatasPersonalNotificationsSection({
     accountUser,
     appMode,
+    activeRole,
     profiles,
     phone,
     onSaved,
@@ -36,6 +37,7 @@ export function SerenatasPersonalNotificationsSection({
 }: {
     accountUser: SerenatasUser | null;
     appMode: AppMode;
+    activeRole: SerenataRole;
     profiles: Profiles;
     phone: string;
     onSaved: () => Promise<void>;
@@ -54,8 +56,8 @@ export function SerenatasPersonalNotificationsSection({
     const savedRef = useRef<{ personal: AccountPersonalNotificationPrefs; snapshot: NotificationPrefsSnapshot } | null>(null);
 
     const categoryRows = useMemo(
-        () => getNotificationCategoryRowsForContext(appMode, profiles),
-        [appMode, profiles],
+        () => getNotificationCategoryRowsForContext(appMode, profiles, activeRole),
+        [appMode, activeRole, profiles],
     );
 
     useEffect(() => {

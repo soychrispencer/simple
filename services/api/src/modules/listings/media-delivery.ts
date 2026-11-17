@@ -15,6 +15,38 @@ function getR2PublicBaseUrl(): string {
     return (process.env.CLOUDFLARE_R2_PUBLIC_URL || '').trim().replace(/\/+$/, '');
 }
 
+export type PrivateMediaStorage = 'local' | 'r2';
+
+export type ParsedPrivateMediaUrl = {
+    storage: PrivateMediaStorage;
+    key: string;
+};
+
+export function createPrivateMediaUrl(storage: PrivateMediaStorage, key: string): string {
+    return `simple-private:${storage}:${encodeURIComponent(key)}`;
+}
+
+export function parsePrivateMediaUrl(value: string): ParsedPrivateMediaUrl | null {
+    const match = /^simple-private:(local|r2):(.+)$/i.exec(value.trim());
+    if (!match) return null;
+    try {
+        const key = decodeURIComponent(match[2]).replace(/\\/g, '/');
+        const segments = key.split('/');
+        if (
+            !key
+            || key.startsWith('/')
+            || segments.some((segment) => !segment || segment === '.' || segment === '..')
+        ) return null;
+        return { storage: match[1].toLowerCase() as PrivateMediaStorage, key };
+    } catch {
+        return null;
+    }
+}
+
+export function isPrivateMediaUrl(value: string): boolean {
+    return Boolean(parsePrivateMediaUrl(value));
+}
+
 /** Reescribe URLs legadas de Backblaze B2 al dominio público de R2 (mismos object keys). */
 export function rewriteLegacyBackblazeUrl(url: string): string {
     const trimmed = url.trim();
@@ -70,6 +102,7 @@ function isLocalStorageUrl(url: string): boolean {
 
 export function isOwnedStorageUrl(url: string): boolean {
     if (!url?.trim()) return false;
+    if (isPrivateMediaUrl(url)) return true;
     if (isCloudflareR2Url(url)) return extractR2ObjectKey(url).length > 0;
     return isLocalStorageUrl(url);
 }
@@ -80,6 +113,8 @@ export function isStorageUrl(url: string): boolean {
 }
 
 export function extractR2ObjectKey(url: string): string {
+    const privateMedia = parsePrivateMediaUrl(url);
+    if (privateMedia) return privateMedia.storage === 'r2' ? privateMedia.key : '';
     if (!isCloudflareR2Url(url)) return '';
     try {
         const parsed = new URL(url);
@@ -116,6 +151,7 @@ export function buildMediaProxyUrl(url: string): string {
 export function toDeliveredMediaUrl(url: string): string {
     const normalized = rewriteLegacyBackblazeUrl(url.trim());
     if (!normalized) return '';
+    if (isPrivateMediaUrl(normalized)) return buildMediaProxyUrl(normalized);
 
     const apiBaseUrl = process.env.API_BASE_URL;
     if (

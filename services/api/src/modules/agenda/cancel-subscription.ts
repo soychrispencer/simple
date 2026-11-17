@@ -1,7 +1,11 @@
+import { and, eq } from 'drizzle-orm';
+import { db } from '../../db/index.js';
+import { accountUsers } from '../../db/schema.js';
+import { canManageAccountRole } from '../accounts/permissions.js';
 import { isDevMercadoPagoPreapprovalId } from '../mercadopago/checkout-helpers.js';
 import { cancelPreapproval } from '../mercadopago/service.js';
 import { loadCurrentSubscriptionFromDb, persistUserSubscription } from '../subscriptions/persist-db.js';
-import { downgradeAgendaProfileAccess, getAgendaProfile, isAgendaProActive } from './plan-limits.js';
+import { downgradeAgendaProfileAccessById, getAgendaProfile, isAgendaProActive } from './plan-limits.js';
 import { AGENDA_PRICING } from '@simple/utils';
 
 /**
@@ -9,19 +13,42 @@ import { AGENDA_PRICING } from '@simple/utils';
  */
 export async function cancelAgendaProSubscription(
     userId: string,
+    accountId: string,
+    isPersonalAccount: boolean,
     hooks?: { clearInMemorySubscription?: (userId: string) => void },
+    actingUserId?: string,
 ): Promise<
     | { ok: true; message: string }
     | { ok: false; error: string; status: number }
 > {
-    const profile = await getAgendaProfile(userId);
-    if (!profile) {
-        return { ok: false, error: 'Perfil no encontrado.', status: 404 };
+    if (actingUserId) {
+        const canManageNow = await db.transaction(async (tx) => {
+            const [membership] = await tx.select({
+                role: accountUsers.role,
+                isDefault: accountUsers.isDefault,
+            })
+                .from(accountUsers)
+                .where(and(
+                    eq(accountUsers.accountId, accountId),
+                    eq(accountUsers.userId, actingUserId),
+                ))
+                .limit(1)
+                .for('update');
+            return Boolean(membership?.isDefault && canManageAccountRole(membership.role));
+        });
+        if (!canManageNow) {
+            return { ok: false, error: 'Tus permisos o tu espacio activo cambiaron. Actualiza la página e inténtalo nuevamente.', status: 403 };
+        }
     }
 
-    const sub = await loadCurrentSubscriptionFromDb(userId, 'agenda');
+    const profile = await getAgendaProfile(userId, accountId);
+    const profileMatchesAccount = Boolean(
+        profile && (profile.accountId === accountId || (!profile.accountId && isPersonalAccount)),
+    );
+
+    const sub = await loadCurrentSubscriptionFromDb(userId, 'agenda', accountId);
     const hasDbPro = Boolean(sub && (sub.planSlug === 'pro' || sub.planSlug === 'pro_plus'));
-    const hasProfilePro = isAgendaProActive(profile);
+    const hasProfilePro = Boolean(profileMatchesAccount && profile && isAgendaProActive(profile));
 
     if (!hasDbPro && !hasProfilePro) {
         return { ok: false, error: 'No tienes un plan pagado activo que cancelar.', status: 400 };
@@ -59,7 +86,9 @@ export async function cancelAgendaProSubscription(
             status: 'cancelled',
         });
     }
-    await downgradeAgendaProfileAccess(userId);
+    if (profileMatchesAccount && profile && !hasDbPro) {
+        await downgradeAgendaProfileAccessById(profile.id);
+    }
 
     hooks?.clearInMemorySubscription?.(userId);
 

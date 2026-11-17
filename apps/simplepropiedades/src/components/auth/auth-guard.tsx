@@ -2,6 +2,6 @@
 
 import { PanelAuthGuard } from '@simple/auth';
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
-    return <PanelAuthGuard appLabel="SimplePropiedades">{children}</PanelAuthGuard>;
+export function AuthGuard({ children, allowInvitationPreview = false }: { children: React.ReactNode; allowInvitationPreview?: boolean }) {
+    return <PanelAuthGuard appLabel="SimplePropiedades" brandAppId="simplepropiedades" allowAnonymous={allowInvitationPreview}>{children}</PanelAuthGuard>;
 }

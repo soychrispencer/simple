@@ -23,17 +23,18 @@ export type {
   SubscriptionPlanId,
 };
 
-export async function fetchSubscriptionCatalog(): Promise<SubscriptionCatalogResponse | null> {
-    const { data } = await apiFetch<SubscriptionCatalogResponse>('/api/subscriptions/catalog?vertical=serenatas', { method: 'GET' });
+export async function fetchSubscriptionCatalog(billingProfileType: 'provider' | 'musician' = 'provider'): Promise<SubscriptionCatalogResponse | null> {
+    const { data } = await apiFetch<SubscriptionCatalogResponse>(`/api/subscriptions/catalog?vertical=serenatas&billingProfileType=${billingProfileType}`, { method: 'GET' });
     return data?.ok ? data : null;
 }
 
-export async function startSubscriptionCheckout(input: { planId: 'pro'; returnUrl: string }): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
+export async function startSubscriptionCheckout(input: { planId: 'pro'; returnUrl: string; billingProfileType: 'provider' | 'musician' }): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
     const { data } = await apiFetch<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }>('/api/payments/checkout', {
         method: 'POST',
         body: JSON.stringify({
             kind: 'subscription',
             vertical: 'serenatas',
+            billingProfileType: input.billingProfileType,
             returnUrl: input.returnUrl,
             subscription: { planId: input.planId },
         }),

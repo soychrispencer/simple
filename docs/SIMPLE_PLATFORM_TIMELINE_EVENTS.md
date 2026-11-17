@@ -6,7 +6,7 @@ Companion de:
 
 Tipos en código: `packages/utils/src/platform/timeline-event.ts`
 
-**Regla:** no crear silos CRM. Emitir hechos tipados donde **ya** mutamos. Persistencia del store = paso posterior. Hoy el catálogo congela nombres.
+**Regla:** no crear silos CRM. Emitir hechos tipados donde **ya** mutamos. `timeline_events` es append-only y se escribe mediante `recordTimelineEvent` / `emitTimelineEvent`; una falla al guardar no bloquea la operación de negocio.
 
 ---
 
@@ -25,6 +25,17 @@ TimelineEvent
 ```
 
 Scope default: **Business**. Cross-business Person unificada = más adelante.
+
+## Cobertura implementada (2026-11)
+
+- El catálogo compartido y la persistencia append-only están implementados.
+- Agenda emite eventos de alta de cliente, reservas, cambios de cita, pagos, packs, notas, archivos, referidos, grupos, NPS y promociones.
+- Mensajes emite inicio de conversación, mensajes y apertura de lead; Marketplace agrega guardados, seguimientos, cambios de etapa, tareas, notas y visitas del equipo de Propiedades.
+- La vista inmobiliaria recupera historial por espacio/persona y lo combina con interacciones de tablas existentes para cubrir datos anteriores.
+- Las confirmaciones repetidas de Mercado Pago para la misma cita no duplican los eventos `booking.confirmed` ni `payment.paid`.
+- No hay `people` / `relationships` canónicos ni `relationshipId` persistido. Serenatas aún conserva su historial en sus propias órdenes y solicitudes.
+
+La lista siguiente conserva prioridades y eventos objetivo; no significa que todo esté pendiente de emitir.
 
 ---
 
@@ -151,20 +162,34 @@ Vista **Contactos / Contratantes** = group by Person/Identity + count(`serenata.
 
 No recrear `listing_leads`. Relationship `lead` = lazy al `conversation.started`.
 
+### SimplePropiedades — seguimiento compartido por cuenta
+
+El historial del contacto respeta el espacio activo. Los eventos de persona se filtran por `businessId` de esa cuenta; las conversaciones se mantienen ligadas a los hilos que ya pertenecen al espacio.
+
+| type | Cuándo | subject |
+|------|--------|---------|
+| `relationship.stage_changed` | El equipo cambia la etapa comercial | `relationship` |
+| `visit.scheduled` | Se coordina una visita a propiedad/proyecto o una reunión comercial en SimpleAgenda | `account_property_visit` / `account_business_visit` |
+| `task.created` | Se agrega un próximo paso con responsable o fecha | `relationship_task` |
+| `task.completed` | El equipo marca el próximo paso como listo | `relationship_task` |
+
+Los eventos se asocian al negocio de la cuenta, no a la agenda privada de un profesional. No contienen mensajes, datos de citas profesionales ni notas privadas.
+
 ---
 
-## Estrategia de implementación (sin big-bang)
+## Estrategia y próximos pasos (sin big-bang)
 
 ```
-1. Tipos TS en @simple/utils          ← este paso (catálogo en código)
-2. Helper recordTimelineEvent()       no-op o append-only table mínima
-3. Ganchos Tier 1 Agenda              fire-and-forget tras mutación exitosa
-4. Reader interno / debug             listar eventos por professionalId+clientId
-5. UI timeline en ficha cliente       cuando el store exista
-6. Serenatas cartera + Marketplace lead
+1. Tipos compartidos en @simple/utils         ← implementado
+2. Tabla append-only + emisor fire-and-forget ← implementado
+3. Ganchos Agenda y Marketplace              ← cobertura principal implementada; seguir auditando eventos
+4. Lectura en Contactos y fichas de Agenda    ← implementado en vistas contextuales separadas
+5. Claves de idempotencia                    ← implementadas para callbacks MP de Agenda; ampliar cuando haga falta
+6. Relación canónica / identidad transversal  ← evaluar sin recrear silos de leads
+7. Contactos de Serenatas                    ← pendiente cuando se habilite su flujo de cartera
 ```
 
-**Idempotencia:** clave `(type, subjectRef, occurredAt bucket)` o `subjectRef + type + toStatus` para status_changed.
+**Pendientes técnicos:** extender claves de idempotencia a otros eventos que puedan repetirse ante reintentos, completar cobertura pendiente por dominio y conectar Serenatas cuando exista una vista de cartera. El emisor solo deduplica cuando el origen entrega una clave estable.
 
 **No bloquear** la request de negocio si el emit falla (log + continue).
 

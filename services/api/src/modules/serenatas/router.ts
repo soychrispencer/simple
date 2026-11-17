@@ -1,4 +1,5 @@
 import { Hono, type Context } from 'hono';
+import { canManageAccountRole } from '../accounts/permissions.js';
 import { and, asc, desc, eq, gt, gte, inArray, lte, ne, or, sql } from 'drizzle-orm';
 import { google } from 'googleapis';
 import { z } from 'zod';
@@ -29,12 +30,6 @@ import {
     rejectMarketplaceSerenata,
 } from './marketplace.js';
 import { scheduleSerenataMessageThread } from '../messages/platform-context-threads.js';
-import { assertNoWorkProfileForClientAccount } from './marketplace-client-policy.js';
-import {
-    assertCanActivateSerenataProfile,
-    reconcileExclusiveSerenataProfiles,
-    removeSerenataProfilesExcept,
-} from './profile-exclusivity.js';
 import {
     clientSongSelectionSchema,
     registerRepertoireRoutes,
@@ -96,6 +91,7 @@ import {
 } from './musician-payouts.js';
 import { cancelSerenatasProSubscription } from './cancel-subscription.js';
 import { buildSerenataMePlanResponse, resolveActiveSerenataBillingPlan } from './plan.js';
+import type { SerenataBillingProfileType } from '../../lib/domain-types.js';
 import { normalizeTrialEndsAtForDisplay } from '../billing/trial-config.js';
 import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
 import { sendSerenataGuestGroupInviteEmail } from '../../lib/serenatas-email.js';
@@ -119,7 +115,10 @@ type SerenatasRouterDeps = {
     authUser: (c: Context) => Promise<AuthUser | null>;
     requireVerifiedSession: (c: Context, next: () => Promise<void>) => Promise<Response | void>;
     sanitizeUser?: (user: Record<string, unknown>) => Record<string, unknown>;
-    cancelActiveSubscriptionForUser?: (userId: string, vertical: 'serenatas') => void;
+    cancelActiveSubscriptionForUser?: (userId: string, vertical: 'serenatas', accountId?: string | null, billingProfileType?: SerenataBillingProfileType) => void;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
+    getAccountMembershipsForUser: (userId: string) => any[];
+    getAccountMembershipFromDb?: (userId: string, accountId?: string) => Promise<{ accountId: string; role: string } | null>;
 };
 
 export type SerenataPaymentTarget = typeof serenatas.$inferSelect;
@@ -350,7 +349,7 @@ const ownerPayoutSchema = z.object({
 function jsonError(
     c: Context,
     error: string,
-    status: 400 | 401 | 403 | 404 | 409 | 500 | 503 = 400,
+    status: 400 | 401 | 403 | 404 | 409 | 500 | 502 | 503 = 400,
     detail?: string,
 ) {
     const body: { ok: false; error: string; detail?: string } = { ok: false, error };
@@ -726,7 +725,7 @@ function resolveActorRole(
     return null;
 }
 
-/** Sin `as`, dueño tiene prioridad (una cuenta = un perfil). */
+/** Sin `as`, se usa el perfil de dueño si existe; `?as=` selecciona otros perfiles activos. */
 function defaultActorRole(profiles: Awaited<ReturnType<typeof getProfiles>>): SerenataActorRole | null {
     if (profiles.owner) return 'owner';
     if (profiles.musician) return 'musician';
@@ -763,6 +762,29 @@ async function requireMusician(c: Context, userId: string) {
     const musician = await db.query.serenataMusicians.findFirst({ where: eq(serenataMusicians.userId, userId) });
     if (!musician) return { ok: false as const, response: jsonError(c, 'Activa el perfil músico para continuar.', 403) };
     return { ok: true as const, musician };
+}
+
+async function ensureMusicianProfileForInvite(userId: string) {
+    const existing = await db.query.serenataMusicians.findFirst({
+        where: eq(serenataMusicians.userId, userId),
+    });
+    if (existing) return existing;
+
+    const [created] = await db
+        .insert(serenataMusicians)
+        .values({ userId })
+        .onConflictDoNothing({ target: serenataMusicians.userId })
+        .returning();
+    if (created) return created;
+
+    // Una segunda pestaña puede haber creado el perfil mientras aceptábamos la invitación.
+    return db.query.serenataMusicians.findFirst({
+        where: eq(serenataMusicians.userId, userId),
+    });
+}
+
+function inviteEmailMatches(invitedEmail: string | null, accountEmail: string) {
+    return !invitedEmail || invitedEmail.trim().toLowerCase() === accountEmail.trim().toLowerCase();
 }
 
 async function ensureClientProfile(user: AuthUser, fallback: { phone?: string | null; comuna?: string | null; region?: string | null } = {}) {
@@ -857,7 +879,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/profiles', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        await reconcileExclusiveSerenataProfiles(user.id);
         const profiles = await getProfiles(user.id);
         const publicUser = deps.sanitizeUser ? deps.sanitizeUser(user as Record<string, unknown>) : user;
         return c.json({ ok: true, user: publicUser, profiles });
@@ -866,13 +887,26 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/me/plan', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        let plan: Awaited<ReturnType<typeof resolveActiveSerenataBillingPlan>> = 'free';
+        const requestedBillingProfileType = c.req.query('billingProfileType');
+        if (requestedBillingProfileType && requestedBillingProfileType !== 'provider' && requestedBillingProfileType !== 'musician') {
+            return jsonError(c, 'Perfil de facturación no válido.', 400);
+        }
+        const [ownerProfile, musicianProfile] = await Promise.all([
+            db.query.serenataOwners.findFirst({ where: eq(serenataOwners.userId, user.id) }),
+            db.query.serenataMusicians.findFirst({ where: eq(serenataMusicians.userId, user.id) }),
+        ]);
+        const billingProfileType: SerenataBillingProfileType = requestedBillingProfileType === 'provider'
+            || requestedBillingProfileType === 'musician'
+            ? requestedBillingProfileType
+            : ownerProfile ? 'provider' : 'musician';
+        const billingProfile = billingProfileType === 'provider' ? ownerProfile : musicianProfile;
+        let plan: Awaited<ReturnType<typeof resolveActiveSerenataBillingPlan>>;
         try {
-            const dbSub = await loadCurrentSubscriptionFromDb(user.id, 'serenatas');
+            const dbSub = await loadCurrentSubscriptionFromDb(user.id, 'serenatas', undefined, { billingProfileType });
             if (!dbSub && deps.cancelActiveSubscriptionForUser) {
-                deps.cancelActiveSubscriptionForUser(user.id, 'serenatas');
+                deps.cancelActiveSubscriptionForUser(user.id, 'serenatas', undefined, billingProfileType);
             }
-            plan = await resolveActiveSerenataBillingPlan(user.id);
+            plan = await resolveActiveSerenataBillingPlan(user.id, billingProfileType);
         } catch (err) {
             console.error('[serenatas/me/plan] DB error:', err);
             return jsonError(
@@ -881,23 +915,27 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 503,
             );
         }
-        const ownerProfile = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.userId, user.id) });
-        let trialEndsAt = ownerProfile?.trialEndsAt ?? null;
-        if (ownerProfile && plan === 'free' && !trialEndsAt) {
-            trialEndsAt = defaultSerenataTrialEndsAt(ownerProfile.createdAt ?? new Date());
-            await db
-                .update(serenataOwners)
-                .set({ trialEndsAt, updatedAt: new Date() })
-                .where(eq(serenataOwners.id, ownerProfile.id));
-        } else if (ownerProfile && plan === 'free' && trialEndsAt) {
-            trialEndsAt = normalizeTrialEndsAtForDisplay(
-                trialEndsAt,
-                ownerProfile.createdAt ?? new Date(),
-            );
+        const profileCreatedAt = billingProfile?.createdAt ?? null;
+        let trialEndsAt = billingProfile?.trialEndsAt ?? null;
+
+        if (profileCreatedAt && plan === 'free' && !trialEndsAt) {
+            trialEndsAt = defaultSerenataTrialEndsAt(profileCreatedAt);
+            if (billingProfileType === 'provider' && ownerProfile) {
+                await db.update(serenataOwners)
+                    .set({ trialEndsAt, updatedAt: new Date() })
+                    .where(eq(serenataOwners.id, ownerProfile.id));
+            } else if (billingProfileType === 'musician' && musicianProfile) {
+                await db.update(serenataMusicians)
+                    .set({ trialEndsAt, updatedAt: new Date() })
+                    .where(eq(serenataMusicians.id, musicianProfile.id));
+            }
+        } else if (profileCreatedAt && plan === 'free' && trialEndsAt) {
+            trialEndsAt = normalizeTrialEndsAtForDisplay(trialEndsAt, profileCreatedAt);
         }
         return c.json({
             ok: true,
             ...buildSerenataMePlanResponse(plan, {
+                billingProfileType,
                 proCheckoutAvailable: isMercadoPagoConfigured(),
                 trialEndsAt,
             }),
@@ -907,12 +945,17 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.post('/me/subscription/cancel', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const result = await cancelSerenatasProSubscription(user.id, {
+        const payload = await c.req.json().catch(() => null) as { billingProfileType?: unknown } | null;
+        if (payload?.billingProfileType && payload.billingProfileType !== 'provider' && payload.billingProfileType !== 'musician') {
+            return jsonError(c, 'Perfil de facturación no válido.', 400);
+        }
+        const billingProfileType: SerenataBillingProfileType = payload?.billingProfileType === 'musician' ? 'musician' : 'provider';
+        const result = await cancelSerenatasProSubscription(user.id, billingProfileType, {
             clearInMemorySubscription: deps.cancelActiveSubscriptionForUser
-                ? (uid) => deps.cancelActiveSubscriptionForUser!(uid, 'serenatas')
+                ? (uid, profileType) => deps.cancelActiveSubscriptionForUser!(uid, 'serenatas', undefined, profileType)
                 : undefined,
         });
-        if (!result.ok) return jsonError(c, result.error, 400);
+        if (!result.ok) return jsonError(c, result.error, result.status);
         return c.json({ ok: true, message: result.message });
     });
 
@@ -1005,8 +1048,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.put('/profiles/client', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const clientPolicy = await assertNoWorkProfileForClientAccount(user.id);
-        if (!clientPolicy.ok) return jsonError(c, clientPolicy.error, clientPolicy.status);
         const parsed = clientProfileSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Perfil cliente inválido');
         const existing = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
@@ -1020,8 +1061,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.put('/profiles/musician', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const exclusivity = await assertCanActivateSerenataProfile(user.id, 'musician');
-        if (!exclusivity.ok) return jsonError(c, exclusivity.error, exclusivity.status);
         const parsed = musicianProfileUpdateSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) {
             return c.json(
@@ -1070,8 +1109,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     const upsertOwnerProfile = async (c: Context) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const exclusivity = await assertCanActivateSerenataProfile(user.id, 'owner');
-        if (!exclusivity.ok) return jsonError(c, exclusivity.error, exclusivity.status);
         const parsed = ownerProfileSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Perfil de dueño inválido');
         const values = { ...parsed.data, updatedAt: new Date() };
@@ -1083,6 +1120,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 ...values,
                 subscriptionStatus: 'trialing',
                 subscriptionPrice: 0,
+                commissionRateBps: APP_COMMISSION_FREE_BPS,
+                commissionVatRateBps: COMMISSION_VAT_BPS,
                 trialEndsAt: defaultSerenataTrialEndsAt(),
             }).returning();
         return c.json({ ok: true, profile });
@@ -1097,9 +1136,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (existing) return c.json({ ok: true, profile: existing });
 
         const musician = await db.query.serenataMusicians.findFirst({ where: eq(serenataMusicians.userId, user.id) });
-        const exclusivity = await assertCanActivateSerenataProfile(user.id, 'owner');
-        if (!exclusivity.ok) return jsonError(c, exclusivity.error, exclusivity.status);
-
         const [profile] = await db.insert(serenataOwners).values({
             userId: user.id,
             bio: musician?.bio ?? null,
@@ -1116,7 +1152,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             commissionVatRateBps: COMMISSION_VAT_BPS,
             trialEndsAt: defaultSerenataTrialEndsAt(),
         }).returning();
-        await removeSerenataProfilesExcept(user.id, 'owner');
         return c.json({ ok: true, profile }, 201);
     };
 
@@ -1248,8 +1283,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/client/serenatas', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const clientPolicy = await assertNoWorkProfileForClientAccount(user.id);
-        if (!clientPolicy.ok) return c.json({ ok: true, items: [] });
         await runPendingSerenataLifecycle();
         const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
         if (!client) return c.json({ ok: true, items: [] });
@@ -1277,8 +1310,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.post('/client/serenatas/:id/cancel', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const clientPolicy = await assertNoWorkProfileForClientAccount(user.id);
-        if (!clientPolicy.ok) return jsonError(c, clientPolicy.error, clientPolicy.status);
         const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
         if (!client) return jsonError(c, 'Perfil de cliente no encontrado', 404);
         const parsed = z.object({ cancelReason: z.string().trim().optional() }).safeParse(await c.req.json().catch(() => ({})));
@@ -1370,8 +1401,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.post('/client/serenatas', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const clientPolicy = await assertNoWorkProfileForClientAccount(user.id);
-        if (!clientPolicy.ok) return jsonError(c, clientPolicy.error, clientPolicy.status);
         const rawBody = await c.req.json().catch(() => null);
         const marketplaceParsed = marketplaceSerenataSchema.safeParse(rawBody);
         if (marketplaceParsed.success) {
@@ -1867,7 +1896,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         ownerId: string,
         options: { excludeGroupId?: string | null } = {},
     ) {
-        const plan = await resolveActiveSerenataBillingPlan(userId);
+        const plan = await resolveActiveSerenataBillingPlan(userId, 'provider');
         if (plan === 'pro') return false;
         const owner = await db.query.serenataOwners.findFirst({
             where: eq(serenataOwners.id, ownerId),
@@ -2195,8 +2224,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.post('/group-invites/claim', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireMusician(c, user.id);
-        if (!required.ok) return required.response;
         const parsed = z.object({ token: z.string().trim().min(8) }).safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Invitación inválida');
         const invite = await db.query.serenataGroupInvites.findFirst({
@@ -2217,11 +2244,16 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 where: eq(serenataProviderGroups.id, providerInvite.providerGroupId),
             });
             if (!providerGroup) return jsonError(c, 'Mariachi no encontrado', 404);
+            if (!inviteEmailMatches(providerInvite.email, user.email)) {
+                return jsonError(c, 'Esta invitación fue enviada a otro correo.', 403);
+            }
+            const musician = await ensureMusicianProfileForInvite(user.id);
+            if (!musician) return jsonError(c, 'No pudimos activar tu perfil músico. Intenta nuevamente.', 500);
             const [member] = await db.insert(serenataProviderGroupMembers).values({
                 providerGroupId: providerGroup.id,
-                musicianId: required.musician.id,
+                musicianId: musician.id,
                 role: 'musician',
-                instruments: required.musician.instrument ? [required.musician.instrument] : [],
+                instruments: musician.instrument ? [musician.instrument] : [],
                 status: 'active',
                 invitedByUserId: providerInvite.invitedByUserId,
                 respondedAt: new Date(),
@@ -2235,19 +2267,24 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             }).returning();
             await db.update(serenataProviderGroupMemberInvites).set({
                 status: 'accepted',
-                musicianId: required.musician.id,
+                musicianId: musician.id,
                 updatedAt: new Date(),
             }).where(eq(serenataProviderGroupMemberInvites.id, providerInvite.id));
             return c.json({ ok: true, member, providerGroupId: providerGroup.id });
         }
         const group = await db.query.serenataGroups.findFirst({ where: eq(serenataGroups.id, invite.groupId) });
         if (!group) return jsonError(c, 'Grupo no encontrado', 404);
+        if (!inviteEmailMatches(invite.email, user.email)) {
+            return jsonError(c, 'Esta invitación fue enviada a otro correo.', 403);
+        }
+        const musician = await ensureMusicianProfileForInvite(user.id);
+        if (!musician) return jsonError(c, 'No pudimos activar tu perfil músico. Intenta nuevamente.', 500);
         if (group.providerGroupId) {
             await db.insert(serenataProviderGroupMembers).values({
                 providerGroupId: group.providerGroupId,
-                musicianId: required.musician.id,
+                musicianId: musician.id,
                 role: 'musician',
-                instruments: required.musician.instrument ? [required.musician.instrument] : [],
+                instruments: musician.instrument ? [musician.instrument] : [],
                 status: 'active',
                 invitedByUserId: invite.invitedByUserId,
                 respondedAt: new Date(),
@@ -2262,7 +2299,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         }
         const [member] = await db.insert(serenataGroupMembers).values({
             groupId: invite.groupId,
-            musicianId: required.musician.id,
+            musicianId: musician.id,
             status: 'accepted',
         }).onConflictDoUpdate({
             target: [serenataGroupMembers.groupId, serenataGroupMembers.musicianId],
@@ -2270,7 +2307,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         }).returning();
         await db.update(serenataGroupInvites).set({
             status: 'accepted',
-            musicianId: required.musician.id,
+            musicianId: musician.id,
             updatedAt: new Date(),
         }).where(eq(serenataGroupInvites.id, invite.id));
         return c.json({ ok: true, member, groupId: invite.groupId });

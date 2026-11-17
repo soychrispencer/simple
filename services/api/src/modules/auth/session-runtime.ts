@@ -28,7 +28,7 @@ export function createAuthSessionRuntime(deps: AuthSessionRuntimeDeps) {
             const payload = jwt.verify(token, deps.sessionSecret) as jwt.JwtPayload;
             userId = typeof payload.sub === 'string' ? payload.sub : null;
         } catch {
-            userId = null;
+            // Invalid tokens are treated as unauthenticated sessions.
         }
         if (!userId) return null;
         const user = await deps.getUserById(userId);

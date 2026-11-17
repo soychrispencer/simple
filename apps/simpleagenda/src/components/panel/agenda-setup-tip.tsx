@@ -45,9 +45,9 @@ function actionLabel(stepId: string): string {
  * Sin modales: lleva a la página real del siguiente paso.
  */
 export function AgendaSetupTip({ focusStepId, className = '' }: Props) {
-    const { steps, billing, loading, setupComplete } = useAgendaBusinessSetup();
+    const { steps, billing, loading, setupComplete, propertyVisitsEnabled } = useAgendaBusinessSetup();
 
-    if (loading || !billing || setupComplete || billing.status === 'expired') {
+    if (loading || !billing || propertyVisitsEnabled || setupComplete || billing.status === 'expired') {
         return null;
     }
 

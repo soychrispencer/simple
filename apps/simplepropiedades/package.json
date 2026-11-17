@@ -7,7 +7,10 @@
     "dev:webpack": "next dev --webpack --port 3003",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:roles": "playwright test e2e/roles.spec.ts",
+    "test:e2e:team-scale": "playwright test --config=playwright.team-scale.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -36,6 +39,7 @@
     "@types/node": "^26.0.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@playwright/test": "^1.61.1",
     "tailwindcss": "^4.3.2",
     "typescript": "^6.0.3"
   }

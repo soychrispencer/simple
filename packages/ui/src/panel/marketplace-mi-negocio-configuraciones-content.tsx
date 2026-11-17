@@ -11,6 +11,7 @@ import {
 } from './business-payment-methods-editor.js';
 import { PanelBlockHeader, PanelNotice } from './panel-primitives.js';
 import { PanelSectionSaveFooter } from './panel-section-save-footer.js';
+import { MarketplaceBusinessActivitySettings } from './marketplace-business-activity-settings.js';
 import { BUSINESS_PAYMENT_METHODS_PAGE } from './finance-copy.js';
 import {
     bookingTermsFromRecord,
@@ -148,6 +149,8 @@ export function MarketplaceMiNegocioConfiguracionesContent({ vertical }: { verti
 
     return (
         <div className="flex w-full min-w-0 flex-col gap-6">
+            <MarketplaceBusinessActivitySettings vertical={vertical} />
+
             <div className="space-y-4">
                 <PanelBlockHeader
                     title={BUSINESS_PAYMENT_METHODS_PAGE.title}

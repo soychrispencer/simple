@@ -85,9 +85,9 @@ async function exportFormat(browser, htmlPath, outPath, w, h) {
     await page.goto(pathToFileURL(htmlPath).href, { waitUntil: 'networkidle' });
     await page.waitForSelector('.hero img');
     await page.evaluate(async () => {
-        const imgs = [...document.images];
+        const imgs = [...globalThis.document.images];
         await Promise.all(imgs.map((img) => (img.complete ? Promise.resolve() : new Promise((r) => { img.onload = r; img.onerror = r; }))));
-        document.body.style.width = `${document.documentElement.style.getPropertyValue('--w') || ''}`;
+        globalThis.document.body.style.width = `${globalThis.document.documentElement.style.getPropertyValue('--w') || ''}`;
     });
     // Force exact canvas size from CSS vars
     await page.addStyleTag({

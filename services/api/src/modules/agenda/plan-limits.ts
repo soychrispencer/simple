@@ -1,13 +1,44 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { agendaAppointments, agendaProfessionalProfiles } from '../../db/schema.js';
+import { accountUsers, accounts, agendaAppointments, agendaProfessionalProfiles } from '../../db/schema.js';
 import { defaultTrialEndsAt } from '../billing/trial-config.js';
 
 import { AGENDA_PRICING, isPlatformLaunchActive } from '@simple/utils';
 
-export async function getAgendaProfile(userId: string) {
+export async function getAgendaProfile(userId: string, accountId?: string | null) {
+    let resolvedAccountId = accountId;
+    if (resolvedAccountId === undefined) {
+        const [membership] = await db
+            .select({ accountId: accountUsers.accountId })
+            .from(accountUsers)
+            .where(eq(accountUsers.userId, userId))
+            .orderBy(desc(accountUsers.isDefault), asc(accountUsers.createdAt))
+            .limit(1);
+        resolvedAccountId = membership?.accountId ?? null;
+    }
+
+    if (!resolvedAccountId) {
+        return null;
+    }
+
+    const profile = await db.query.agendaProfessionalProfiles.findFirst({
+        where: and(
+            eq(agendaProfessionalProfiles.userId, userId),
+            eq(agendaProfessionalProfiles.accountId, resolvedAccountId),
+        ),
+    });
+    if (profile) return profile;
+
+    // Legacy profiles can be adopted by the user's personal workspace only.
+    const [account] = await db
+        .select({ isPersonal: accounts.isPersonal, ownerUserId: accounts.ownerUserId })
+        .from(accounts)
+        .where(eq(accounts.id, resolvedAccountId))
+        .limit(1);
+    if (!account?.isPersonal || account.ownerUserId !== userId) return null;
+
     return db.query.agendaProfessionalProfiles.findFirst({
-        where: eq(agendaProfessionalProfiles.userId, userId),
+        where: and(eq(agendaProfessionalProfiles.userId, userId), isNull(agendaProfessionalProfiles.accountId)),
     });
 }
 
@@ -40,6 +71,13 @@ export async function ensureAgendaProfileTrial(
         ? defaultTrialEndsAt(new Date())
         : profile.planExpiresAt;
 
+    const conditions = [
+        eq(agendaProfessionalProfiles.id, profile.id),
+        eq(agendaProfessionalProfiles.plan, profile.plan),
+        profile.planExpiresAt === null
+            ? isNull(agendaProfessionalProfiles.planExpiresAt)
+            : eq(agendaProfessionalProfiles.planExpiresAt, profile.planExpiresAt),
+    ];
     const [updated] = await db
         .update(agendaProfessionalProfiles)
         .set({
@@ -47,10 +85,13 @@ export async function ensureAgendaProfileTrial(
             planExpiresAt,
             updatedAt: new Date(),
         })
-        .where(eq(agendaProfessionalProfiles.id, profile.id))
+        .where(and(...conditions))
         .returning();
 
-    return updated ?? profile;
+    if (updated) return updated;
+    return await db.query.agendaProfessionalProfiles.findFirst({
+        where: eq(agendaProfessionalProfiles.id, profile.id),
+    }) ?? profile;
 }
 
 export function isAgendaTrialActive(profile: { plan: string; planExpiresAt: Date | null }): boolean {
@@ -66,16 +107,14 @@ export function isAgendaProActive(profile: { plan: string; planExpiresAt: Date |
 
 export function hasAgendaFullAccess(
     profile: { plan: string; planExpiresAt: Date | null },
-    userRole?: string,
 ): boolean {
     if (isPlatformLaunchActive('agenda')) return true;
-    if (userRole === 'superadmin') return true;
     return isAgendaTrialActive(profile) || isAgendaProActive(profile);
 }
 
-/** Baja a Gratis sin despublicar el perfil ni borrar la configuración. */
-export async function downgradeAgendaProfileAccess(
-    userId: string,
+/** Baja a Gratis un perfil concreto sin afectar otros espacios del usuario. */
+export async function downgradeAgendaProfileAccessById(
+    profileId: string,
     endsAt: Date = expiredAgendaPlanEndsAt(),
 ): Promise<void> {
     await db
@@ -85,7 +124,7 @@ export async function downgradeAgendaProfileAccess(
             planExpiresAt: endsAt,
             updatedAt: new Date(),
         })
-        .where(eq(agendaProfessionalProfiles.userId, userId));
+        .where(eq(agendaProfessionalProfiles.id, profileId));
 }
 
 /** Normaliza Pro vencidos a Gratis; los perfiles publicados siguen recibiendo citas. */
@@ -104,18 +143,18 @@ export async function downgradeExpiredAgendaProProfiles(): Promise<number> {
 }
 
 /** Sin trial ni Pro activo: bloquea funciones de pago y aplica límites legacy. */
-export function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }, userRole?: string): boolean {
-    return !hasAgendaFullAccess(profile, userRole);
+export function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }): boolean {
+    return !hasAgendaFullAccess(profile);
 }
 
 /** La cuenta Gratis no limita el número de fichas de clientes. */
-export async function checkClientLimit(_profileId: string, _additionalClients = 1): Promise<string | null> {
+export async function checkClientLimit(_profileId: string, _additionalClients = 1, _queryable: any = db): Promise<string | null> {
     return null;
 }
 
 /** Cuenta las citas creadas durante el mes calendario de Chile, incluidas las canceladas. */
-export async function getAgendaMonthlyBookingCount(profileId: string): Promise<number> {
-    const rows = await db
+export async function getAgendaMonthlyBookingCount(profileId: string, queryable: any = db): Promise<number> {
+    const rows = await queryable
         .select({ count: sql<number>`count(*)::int` })
         .from(agendaAppointments)
         .where(and(
@@ -132,8 +171,8 @@ export async function getAgendaMonthlyBookingCount(profileId: string): Promise<n
     return Number(rows[0]?.count ?? 0);
 }
 
-export async function checkAppointmentLimit(profileId: string, additionalAppointments = 1): Promise<string | null> {
-    const used = await getAgendaMonthlyBookingCount(profileId);
+export async function checkAppointmentLimit(profileId: string, additionalAppointments = 1, queryable: any = db): Promise<string | null> {
+    const used = await getAgendaMonthlyBookingCount(profileId, queryable);
     if (used + additionalAppointments <= AGENDA_PRICING.free.monthlyBookings) return null;
 
     return `El plan Gratis incluye hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes (las canceladas también cuentan). Ya llevas ${used}; activa Pro por ${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes para seguir recibiendo citas.`;

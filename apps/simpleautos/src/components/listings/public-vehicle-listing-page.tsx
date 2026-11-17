@@ -156,6 +156,10 @@ function PublicVehicleListingPageContent(props: {
     }, [items, sortOrder]);
 
     const cards = useMemo(() => sortedItems.map((item) => toCardData(item)), [sortedItems]);
+    const feedLanes = useMemo(() => [
+        cards.filter((_, index) => index % 2 === 0),
+        cards.filter((_, index) => index % 2 === 1),
+    ], [cards]);
 
     const currentVehicleType = (searchParams.get('vehicle_type') || '') as VehicleType | '';
     const isFeedLayout = props.integratedFeed && viewMode === 'feed';
@@ -211,13 +215,15 @@ function PublicVehicleListingPageContent(props: {
     );
 
     return (
-        <div className={props.integratedFeed ? 'container-app py-6 pb-24 md:pb-6' : 'container-app py-6'}>
+        <div className={props.integratedFeed
+            ? `container-app py-6 pb-24 md:pb-6 ${isFeedLayout ? 'simpleautos-explore-page' : ''}`
+            : 'container-app py-6'}>
             {isFeedLayout ? (
-                <div className="mx-auto mb-5 w-full max-w-[430px] md:max-w-none">
+                <div className="autos-explore-header mx-auto mb-4 w-full max-w-[1160px]">
                     <PublicBreadcrumbs items={[{ label: 'Inicio', href: '/' }, { label: props.breadcrumbLabel }]} />
-                    <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                    <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{props.title}</h1>
+                            <h1 className="text-3xl font-bold tracking-tight md:text-[3rem] md:leading-[1.05]" style={{ color: 'var(--fg)' }}>{props.title}</h1>
                             <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
                                 {loading ? 'Cargando publicaciones...' : `${cards.length.toLocaleString('es-CL')} resultados reales`}
                             </p>
@@ -239,34 +245,35 @@ function PublicVehicleListingPageContent(props: {
             {props.integratedFeed ? (
                 <div
                     className={isFeedLayout
-                        ? 'mx-auto mb-4 flex w-full max-w-[430px] min-w-0 gap-2 overflow-x-auto pb-1 md:mx-0 md:max-w-none'
+                        ? 'autos-explore-controls mx-auto mb-6 w-full max-w-[1160px]'
                         : 'mb-5 flex min-w-0 gap-2 overflow-x-auto pb-1'}
-                    role="group"
-                    aria-label="Filtrar publicaciones por tipo"
                 >
-                    {FEED_SECTIONS.map((option) => {
-                        const selected = feedSection === option.value;
-                        return (
-                            <button
-                                key={option.value}
-                                type="button"
-                                aria-pressed={selected}
-                                onClick={() => selectFeedSection(option.value)}
-                                className="shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors"
-                                style={selected
-                                    ? { borderColor: 'var(--fg)', background: 'var(--fg)', color: 'var(--bg)' }
-                                    : { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg-secondary)' }}
-                            >
-                                {option.label}
-                            </button>
-                        );
-                    })}
-                </div>
-            ) : null}
-
-            {isFeedLayout ? (
-                <div className="mx-auto mb-5 w-full max-w-[430px] md:mx-0">
-                    <VehicleFilters currentVehicleType={currentVehicleType} alwaysShowSearch collapsible />
+                    <div className={isFeedLayout ? 'flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between' : ''}>
+                        <div className="flex min-w-0 gap-2 overflow-x-auto pb-1" role="group" aria-label="Filtrar publicaciones por tipo">
+                            {FEED_SECTIONS.map((option) => {
+                                const selected = feedSection === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        aria-pressed={selected}
+                                        onClick={() => selectFeedSection(option.value)}
+                                        className="shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors"
+                                        style={selected
+                                            ? { borderColor: 'var(--accent)', background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                                            : { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg-secondary)' }}
+                                    >
+                                        {option.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {isFeedLayout ? (
+                            <div className="w-full shrink-0 lg:w-[380px]">
+                                <VehicleFilters currentVehicleType={currentVehicleType} alwaysShowSearch collapsible />
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
             ) : null}
 
@@ -334,20 +341,44 @@ function PublicVehicleListingPageContent(props: {
                             </PanelCard>
                         </div>
                     ) : (
-                        <div className={viewMode === 'feed'
-                            ? 'mx-auto grid w-full grid-cols-1 gap-6 pb-8 md:grid-cols-2 xl:grid-cols-3 2xl:max-w-[1600px]'
-                            : viewMode === 'grid'
+                        viewMode === 'feed' ? (
+                            <>
+                                <div className="simpleautos-feed-lanes mx-auto hidden w-full lg:grid">
+                                    {feedLanes.map((lane, laneIndex) => (
+                                        <div
+                                            key={`feed-lane-${laneIndex}`}
+                                            className="simpleautos-feed-lane"
+                                            role="region"
+                                            aria-label={`Publicaciones de vehículos, carril ${laneIndex + 1}`}
+                                            tabIndex={0}
+                                        >
+                                            {lane.map((item) => (
+                                                <div key={item.id} className="mx-auto w-full max-w-[420px]">
+                                                    <VehicleListingCard data={item} mode="feed" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="simpleautos-feed-mobile mx-auto grid w-full grid-cols-1 justify-items-center gap-5 pb-8 lg:hidden">
+                                    {cards.map((item) => (
+                                        <div key={item.id} className="mx-auto w-full max-w-[430px]">
+                                            <VehicleListingCard data={item} mode="feed" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        ) : (
+                            <div className={viewMode === 'grid'
                                 ? 'listings-grid grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                                 : 'w-full space-y-3'}>
-                            {cards.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className={viewMode === 'feed' ? 'mx-auto w-full max-w-[430px] md:max-w-none' : 'w-full min-w-0'}
-                                >
-                                    <VehicleListingCard data={item} mode={viewMode} />
-                                </div>
-                            ))}
-                        </div>
+                                {cards.map((item) => (
+                                    <div key={item.id} className="w-full min-w-0">
+                                        <VehicleListingCard data={item} mode={viewMode} />
+                                    </div>
+                                ))}
+                            </div>
+                        )
                     )}
                 </div>
             </div>

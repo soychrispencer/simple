@@ -1,4 +1,5 @@
 import { apiFetch } from './api-client.js';
+import type { MarketplaceSubscriptionEntitlements } from './subscription-entitlements.js';
 
 export type PaymentVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 export type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
@@ -14,6 +15,7 @@ export type SubscriptionBillingCycle = 'monthly' | 'annual';
 
 export type PaymentOrderView = {
     id: string;
+    accountId?: string | null;
     vertical: PaymentVertical;
     kind: 'boost' | 'advertising' | 'subscription';
     title: string;
@@ -36,8 +38,8 @@ export type SubscriptionPlan = {
     priceMonthly: number;
     currency: BillingCurrency;
     maxListings: number;
-    maxFeaturedListings: number;
     maxImagesPerListing: number;
+    maxFreeBoostsPerMonth: number;
     analyticsEnabled: boolean;
     prioritySupport: boolean;
     customBranding: boolean;
@@ -53,6 +55,7 @@ export type SubscriptionPlan = {
 
 export type ActiveSubscription = {
     id: string;
+    accountId?: string | null;
     vertical: PaymentVertical;
     planId: 'pro' | 'pro_plus' | 'enterprise' | 'free';
     billingCycle?: SubscriptionBillingCycle;
@@ -97,6 +100,15 @@ export type SubscriptionCatalogResponse = {
     plans: SubscriptionPlan[];
     freePlan: SubscriptionPlan | null;
     currentSubscription: ActiveSubscription | null;
+    entitlements?: MarketplaceSubscriptionEntitlements | null;
+    accountContext?: {
+        accountId: string | null;
+        accountName: string | null;
+        accountKind: 'individual' | 'independent' | 'company';
+        role: string | null;
+        memberCount: number;
+        canManageBilling: boolean;
+    } | null;
     orders: PaymentOrderView[];
 };
 
@@ -213,4 +225,21 @@ export async function fetchSubscriptionCatalog(vertical: PaymentVertical): Promi
         method: 'GET',
     });
     return data?.ok ? data : null;
+}
+
+export async function cancelSubscription(vertical: PaymentVertical): Promise<{
+    ok: boolean;
+    error?: string;
+    message?: string;
+}> {
+    const { data } = await apiFetch<{
+        ok: boolean;
+        error?: string;
+        message?: string;
+    }>('/api/subscriptions/cancel', {
+        method: 'POST',
+        body: JSON.stringify({ vertical }),
+    });
+
+    return data ?? { ok: false, error: 'No pudimos cancelar la suscripción.' };
 }

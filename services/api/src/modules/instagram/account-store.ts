@@ -1,9 +1,11 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { VerticalType } from '@simple/types';
 import { db } from '../../db/index.js';
 import { instagramAccounts, instagramPublications } from '../../db/schema.js';
 import { asString } from '../shared/index.js';
 import { defaultInstagramCaptionTemplate } from './listing-presentation.js';
+import { integrationAccountKey, integrationWorkspaceKey } from '../integrations/oauth-cookie.js';
+import { lockSocialIntegrationWriteAccess, requireSocialIntegrationAccountId } from '../integrations/social-write-access.js';
 
 export type InstagramAccountStatus = 'connected' | 'error' | 'disconnected';
 export type InstagramPublicationStatus = 'published' | 'failed';
@@ -36,6 +38,19 @@ export type InstagramAccountRecord = {
     updatedAt: number;
 };
 
+type InstagramAccountSettingsPatch = Partial<Pick<InstagramAccountRecord,
+    | 'autoPublishEnabled'
+    | 'captionTemplate'
+    | 'publishStyle'
+    | 'status'
+    | 'lastPublishedAt'
+    | 'lastSyncedAt'
+    | 'lastError'
+    | 'accessToken'
+    | 'tokenExpiresAt'
+    | 'scopes'
+>>;
+
 export type InstagramPublicationRecord = {
     id: string;
     accountId?: string | null;
@@ -63,12 +78,9 @@ export type InstagramAccountStoreMaps = {
 };
 
 export type InstagramAccountStoreDeps = InstagramAccountStoreMaps & {
-    getPrimaryAccountIdForUser: (userId: string) => Promise<string>;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
+    getPersonalAccountIdForUser: (userId: string) => string | null;
 };
-
-function instagramAccountKey(userId: string, vertical: VerticalType): string {
-    return `${userId}:${vertical}`;
-}
 
 export function mapInstagramAccountRow(account: typeof instagramAccounts.$inferSelect): InstagramAccountRecord {
     return {
@@ -123,12 +135,37 @@ export function mapInstagramPublicationRow(publication: typeof instagramPublicat
 }
 
 export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
-    function getInstagramAccount(userId: string, vertical: VerticalType): InstagramAccountRecord | null {
-        return deps.instagramAccountByUserVertical.get(instagramAccountKey(userId, vertical)) ?? null;
+    function getInstagramAccount(userId: string, vertical: VerticalType, accountId?: string | null): InstagramAccountRecord | null {
+        const legacyRecord = deps.instagramAccountByUserVertical.get(integrationAccountKey(userId, vertical));
+        if (accountId === undefined) return legacyRecord?.accountId == null ? legacyRecord ?? null : null;
+
+        const personalAccountId = deps.getPersonalAccountIdForUser(userId);
+        const scopedAccountId = accountId ?? personalAccountId;
+        if (!scopedAccountId) return null;
+        const workspaceRecord = deps.instagramAccountByUserVertical.get(integrationWorkspaceKey(scopedAccountId, vertical));
+        if (workspaceRecord) return workspaceRecord;
+        if (legacyRecord?.accountId === scopedAccountId) return legacyRecord;
+        if (scopedAccountId === personalAccountId && legacyRecord?.accountId == null) return legacyRecord ?? null;
+        return null;
     }
 
-    function getInstagramPublicationsForUser(userId: string, vertical?: VerticalType): InstagramPublicationRecord[] {
-        const items = deps.instagramPublicationsByUser.get(userId) ?? [];
+    function cacheInstagramAccount(account: InstagramAccountRecord): void {
+        if (account.accountId) {
+            deps.instagramAccountByUserVertical.set(integrationWorkspaceKey(account.accountId, account.vertical), account);
+        } else {
+            deps.instagramAccountByUserVertical.set(integrationAccountKey(account.userId, account.vertical), account);
+        }
+    }
+
+    function getInstagramPublicationsForUser(userId: string, vertical?: VerticalType, accountId?: string | null): InstagramPublicationRecord[] {
+        const personalAccountId = deps.getPersonalAccountIdForUser(userId);
+        const scopedAccountId = accountId === undefined ? null : accountId ?? personalAccountId;
+        if (!scopedAccountId) return [];
+        const includeLegacyPersonal = scopedAccountId === personalAccountId;
+        const items = [...deps.instagramPublicationsByUser.values()].flat().filter((item) => (
+            item.accountId === scopedAccountId
+            || (includeLegacyPersonal && item.userId === userId && item.accountId == null)
+        ));
         const filtered = vertical ? items.filter((item) => item.vertical === vertical) : items;
         return [...filtered].sort((a, b) => b.createdAt - a.createdAt);
     }
@@ -181,6 +218,7 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
 
     async function upsertInstagramAccountRecord(input: {
         userId: string;
+        accountId?: string | null;
         vertical: VerticalType;
         instagramUserId: string;
         username: string;
@@ -200,12 +238,47 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         facebookPageName?: string | null;
         facebookPageAccessToken?: string | null;
     }): Promise<InstagramAccountRecord> {
-        const existing = getInstagramAccount(input.userId, input.vertical);
+        const accountId = requireSocialIntegrationAccountId(
+            input.accountId === undefined
+                ? await deps.getPrimaryAccountIdForUser(input.userId)
+                : input.accountId ?? deps.getPersonalAccountIdForUser(input.userId),
+        );
         const now = new Date();
-        const accountId = await deps.getPrimaryAccountIdForUser(input.userId);
+        const mapped = await db.transaction(async (tx: any) => {
+            await lockSocialIntegrationWriteAccess(tx, { userId: input.userId, accountId });
+            const [existing] = await tx.select().from(instagramAccounts).where(and(
+                eq(instagramAccounts.accountId, accountId),
+                eq(instagramAccounts.vertical, input.vertical),
+            )).limit(1).for('update');
 
-        if (existing) {
-            const [row] = await db.update(instagramAccounts).set({
+            if (existing) {
+                const [row] = await tx.update(instagramAccounts).set({
+                    instagramUserId: input.instagramUserId,
+                    username: input.username,
+                    displayName: input.displayName,
+                    accountType: input.accountType,
+                    profilePictureUrl: input.profilePictureUrl,
+                    accessToken: input.accessToken,
+                    tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
+                    scopes: input.scopes,
+                    autoPublishEnabled: input.autoPublishEnabled ?? existing.autoPublishEnabled,
+                    captionTemplate: input.captionTemplate === undefined ? existing.captionTemplate : input.captionTemplate,
+                    status: input.status ?? 'connected',
+                    lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
+                    lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : (existing.lastPublishedAt ? new Date(existing.lastPublishedAt) : null),
+                    lastError: input.lastError ?? null,
+                    facebookPageId: input.facebookPageId === undefined ? existing.facebookPageId : input.facebookPageId,
+                    facebookPageName: input.facebookPageName === undefined ? existing.facebookPageName : input.facebookPageName,
+                    facebookPageAccessToken: input.facebookPageAccessToken === undefined ? existing.facebookPageAccessToken : input.facebookPageAccessToken,
+                    updatedAt: now,
+                }).where(eq(instagramAccounts.id, existing.id)).returning();
+                return mapInstagramAccountRow(row);
+            }
+
+            const [row] = await tx.insert(instagramAccounts).values({
+                accountId,
+                userId: input.userId,
+                vertical: input.vertical,
                 instagramUserId: input.instagramUserId,
                 username: input.username,
                 displayName: input.displayName,
@@ -214,68 +287,30 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
                 accessToken: input.accessToken,
                 tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
                 scopes: input.scopes,
-                autoPublishEnabled: input.autoPublishEnabled ?? existing.autoPublishEnabled,
-                captionTemplate: input.captionTemplate === undefined ? existing.captionTemplate : input.captionTemplate,
+                autoPublishEnabled: input.autoPublishEnabled ?? false,
+                captionTemplate: input.captionTemplate ?? defaultInstagramCaptionTemplate(input.vertical),
                 status: input.status ?? 'connected',
                 lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
-                lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : (existing.lastPublishedAt ? new Date(existing.lastPublishedAt) : null),
+                lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : null,
                 lastError: input.lastError ?? null,
-                facebookPageId: input.facebookPageId === undefined ? existing.facebookPageId : input.facebookPageId,
-                facebookPageName: input.facebookPageName === undefined ? existing.facebookPageName : input.facebookPageName,
-                facebookPageAccessToken: input.facebookPageAccessToken === undefined ? existing.facebookPageAccessToken : input.facebookPageAccessToken,
-                updatedAt: now,
-            }).where(eq(instagramAccounts.id, existing.id)).returning();
+                facebookPageId: input.facebookPageId ?? null,
+                facebookPageName: input.facebookPageName ?? null,
+                facebookPageAccessToken: input.facebookPageAccessToken ?? null,
+            }).returning();
+            return mapInstagramAccountRow(row);
+        });
 
-            const mapped = mapInstagramAccountRow(row);
-            deps.instagramAccountByUserVertical.set(instagramAccountKey(mapped.userId, mapped.vertical), mapped);
-            return mapped;
-        }
-
-        const [row] = await db.insert(instagramAccounts).values({
-            accountId,
-            userId: input.userId,
-            vertical: input.vertical,
-            instagramUserId: input.instagramUserId,
-            username: input.username,
-            displayName: input.displayName,
-            accountType: input.accountType,
-            profilePictureUrl: input.profilePictureUrl,
-            accessToken: input.accessToken,
-            tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
-            scopes: input.scopes,
-            autoPublishEnabled: input.autoPublishEnabled ?? false,
-            captionTemplate: input.captionTemplate ?? defaultInstagramCaptionTemplate(input.vertical),
-            status: input.status ?? 'connected',
-            lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
-            lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : null,
-            lastError: input.lastError ?? null,
-            facebookPageId: input.facebookPageId ?? null,
-            facebookPageName: input.facebookPageName ?? null,
-            facebookPageAccessToken: input.facebookPageAccessToken ?? null,
-        }).returning();
-
-        const mapped = mapInstagramAccountRow(row);
-        deps.instagramAccountByUserVertical.set(instagramAccountKey(mapped.userId, mapped.vertical), mapped);
+        cacheInstagramAccount(mapped);
         return mapped;
     }
 
     async function updateInstagramAccountSettings(
         userId: string,
         vertical: VerticalType,
-        patch: {
-            autoPublishEnabled?: boolean;
-            captionTemplate?: string | null;
-            publishStyle?: Record<string, unknown> | null;
-            status?: InstagramAccountStatus;
-            lastPublishedAt?: number | null;
-            lastSyncedAt?: number | null;
-            lastError?: string | null;
-            accessToken?: string;
-            tokenExpiresAt?: number | null;
-            scopes?: string[];
-        },
+        patch: InstagramAccountSettingsPatch,
+        accountId?: string | null,
     ): Promise<InstagramAccountRecord | null> {
-        const existing = getInstagramAccount(userId, vertical);
+        const existing = getInstagramAccount(userId, vertical, accountId);
         if (!existing) return null;
 
         const [row] = await db.update(instagramAccounts).set({
@@ -299,21 +334,79 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         }).where(eq(instagramAccounts.id, existing.id)).returning();
 
         const mapped = mapInstagramAccountRow(row);
-        deps.instagramAccountByUserVertical.set(instagramAccountKey(mapped.userId, mapped.vertical), mapped);
+        cacheInstagramAccount(mapped);
         return mapped;
     }
 
-    async function disconnectInstagramAccount(userId: string, vertical: VerticalType): Promise<void> {
-        const existing = getInstagramAccount(userId, vertical);
-        if (!existing) return;
-        await db.delete(instagramPublications).where(eq(instagramPublications.instagramAccountId, existing.id));
-        await db.delete(instagramAccounts).where(eq(instagramAccounts.id, existing.id));
-        deps.instagramAccountByUserVertical.delete(instagramAccountKey(userId, vertical));
-        deps.instagramPublicationsByUser.delete(userId);
+    async function updateInstagramAccountSettingsForManager(
+        userId: string,
+        vertical: VerticalType,
+        patch: InstagramAccountSettingsPatch,
+        accountId?: string | null,
+    ): Promise<InstagramAccountRecord | null> {
+        const workspaceId = requireSocialIntegrationAccountId(accountId);
+        const mapped = await db.transaction(async (tx: any) => {
+            await lockSocialIntegrationWriteAccess(tx, { userId, accountId: workspaceId });
+            const [existing] = await tx.select().from(instagramAccounts).where(and(
+                eq(instagramAccounts.accountId, workspaceId),
+                eq(instagramAccounts.vertical, vertical),
+            )).limit(1).for('update');
+            if (!existing) return null;
+
+            const [row] = await tx.update(instagramAccounts).set({
+                autoPublishEnabled: patch.autoPublishEnabled ?? existing.autoPublishEnabled,
+                captionTemplate: patch.captionTemplate === undefined ? existing.captionTemplate : patch.captionTemplate,
+                publishStyle: patch.publishStyle === undefined ? existing.publishStyle : patch.publishStyle,
+                status: patch.status ?? existing.status,
+                lastPublishedAt: patch.lastPublishedAt === undefined
+                    ? (existing.lastPublishedAt ? new Date(existing.lastPublishedAt) : null)
+                    : (patch.lastPublishedAt ? new Date(patch.lastPublishedAt) : null),
+                lastSyncedAt: patch.lastSyncedAt === undefined
+                    ? (existing.lastSyncedAt ? new Date(existing.lastSyncedAt) : new Date())
+                    : (patch.lastSyncedAt ? new Date(patch.lastSyncedAt) : null),
+                lastError: patch.lastError === undefined ? existing.lastError : patch.lastError,
+                accessToken: patch.accessToken ?? existing.accessToken,
+                tokenExpiresAt: patch.tokenExpiresAt === undefined
+                    ? (existing.tokenExpiresAt ? new Date(existing.tokenExpiresAt) : null)
+                    : (patch.tokenExpiresAt ? new Date(patch.tokenExpiresAt) : null),
+                scopes: patch.scopes ?? existing.scopes,
+                updatedAt: new Date(),
+            }).where(eq(instagramAccounts.id, existing.id)).returning();
+            return mapInstagramAccountRow(row);
+        });
+
+        if (mapped) cacheInstagramAccount(mapped);
+        return mapped;
+    }
+
+    async function disconnectInstagramAccount(userId: string, vertical: VerticalType, accountId?: string | null): Promise<void> {
+        const workspaceId = requireSocialIntegrationAccountId(accountId);
+        await db.transaction(async (tx: any) => {
+            await lockSocialIntegrationWriteAccess(tx, { userId, accountId: workspaceId });
+            await tx.delete(instagramPublications).where(and(
+                eq(instagramPublications.accountId, workspaceId),
+                eq(instagramPublications.vertical, vertical),
+            ));
+            await tx.delete(instagramAccounts).where(and(
+                eq(instagramAccounts.accountId, workspaceId),
+                eq(instagramAccounts.vertical, vertical),
+            ));
+        });
+        for (const [key, account] of deps.instagramAccountByUserVertical.entries()) {
+            if (account.accountId === workspaceId && account.vertical === vertical) deps.instagramAccountByUserVertical.delete(key);
+        }
+        for (const [publisherId, publications] of deps.instagramPublicationsByUser.entries()) {
+            const remaining = publications.filter((publication) =>
+                publication.accountId !== workspaceId || publication.vertical !== vertical,
+            );
+            if (remaining.length) deps.instagramPublicationsByUser.set(publisherId, remaining);
+            else deps.instagramPublicationsByUser.delete(publisherId);
+        }
     }
 
     async function createInstagramPublicationRecord(input: {
         userId: string;
+        accountId?: string | null;
         instagramAccountId: string;
         vertical: VerticalType;
         listingId: string;
@@ -328,7 +421,11 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         sourceUpdatedAt: number | null;
         publishedAt: number | null;
     }): Promise<InstagramPublicationRecord> {
-        const accountId = await deps.getPrimaryAccountIdForUser(input.userId);
+        const accountId = requireSocialIntegrationAccountId(
+            input.accountId === undefined
+                ? await deps.getPrimaryAccountIdForUser(input.userId)
+                : input.accountId ?? deps.getPersonalAccountIdForUser(input.userId),
+        );
         const [row] = await db.insert(instagramPublications).values({
             accountId,
             userId: input.userId,
@@ -358,8 +455,9 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         vertical: VerticalType,
         listingId: string,
         contentType?: InstagramPublicationContentType,
+        accountId?: string | null,
     ): InstagramPublicationRecord | null {
-        const matches = getInstagramPublicationsForUser(userId, vertical)
+        const matches = getInstagramPublicationsForUser(userId, vertical, accountId)
             .filter((item) => item.listingId === listingId);
         if (contentType) {
             return matches.find((item) => item.contentType === contentType) ?? null;
@@ -374,6 +472,7 @@ export function createInstagramAccountStore(deps: InstagramAccountStoreDeps) {
         instagramPublicationToResponse,
         upsertInstagramAccountRecord,
         updateInstagramAccountSettings,
+        updateInstagramAccountSettingsForManager,
         disconnectInstagramAccount,
         createInstagramPublicationRecord,
         getLatestInstagramPublicationForListing,

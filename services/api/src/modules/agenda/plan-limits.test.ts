@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-const returning = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+const returning = vi.hoisted(() => vi.fn());
 const set = vi.hoisted(() => vi.fn());
 vi.mock('../../db/index.js', () => ({ db: {
     update: () => ({ set }),
@@ -12,6 +12,7 @@ beforeEach(() => {
     vi.stubEnv('AGENDA_LAUNCH_MODE', 'false');
     vi.stubEnv('NEXT_PUBLIC_AGENDA_LAUNCH_MODE', 'false');
     set.mockClear();
+    returning.mockResolvedValue([{ id: 'legacy', plan: 'free', planExpiresAt: new Date('2026-10-29T12:00:00Z') }]);
     set.mockReturnValue({ where: () => ({ returning }) });
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });

@@ -19,6 +19,7 @@ export {
 } from './panel-primitives';
 export { PanelFilterChip, type PanelFilterChipProps } from './panel-filter-chip';
 export { PanelShell, type PanelShellProps } from './panel-shell';
+export { PanelAccountSwitcher } from './account-switcher';
 export { PanelPageFrame, type PanelPageFrameProps } from './panel-page-frame.js';
 export { PanelSectionPage, type PanelSectionPageProps } from './panel-section-page.js';
 export { PanelConfirmDialog, type PanelConfirmDialogProps } from './panel-confirm-dialog';
@@ -83,6 +84,10 @@ export {
     type MarketplaceOperatorPublishDefaults,
 } from './use-marketplace-operator-publish-defaults';
 export { useMarketplaceBusinessBrand } from './use-marketplace-business-brand';
+export {
+    announceMarketplaceWorkspaceReady,
+    useMarketplaceWorkspaceNavigation,
+} from './use-marketplace-workspace-navigation';
 export { resolveMarketplacePlanBannerState, type MarketplacePlanBannerState } from './marketplace-plan-banner-state';
 export { MarketplaceSubscriptionLaunchNotice } from './marketplace-subscription-launch-notice.js';
 export { MarketplaceMiNegocioProGate, type MarketplaceMiNegocioProGateProps } from './marketplace-mi-negocio-pro-gate';
@@ -93,7 +98,6 @@ export {
     applyMarketplaceMiNegocioNavBadge,
     marketplaceMiNegocioHasProAccess,
     marketplaceMiNegocioNavBadge,
-    type MarketplacePanelRole,
 } from './marketplace-mi-negocio-access';
 export { useMarketplacePanelBilling } from './use-marketplace-panel-billing';
 export {
@@ -137,6 +141,10 @@ export {
 export {
     MarketplaceMiNegocioConfiguracionesContent,
 } from './marketplace-mi-negocio-configuraciones-content.js';
+export {
+    BusinessActivitySettings,
+    MarketplaceBusinessActivitySettings,
+} from './marketplace-business-activity-settings.js';
 export {
     BusinessMiNegocioConfiguracionesLayout,
     type BusinessMiNegocioConfiguracionesLayoutProps,
@@ -217,6 +225,7 @@ export {
     resolvePanelBillingAccess,
     resolvePanelBillingFromCatalog,
     type BusinessSetupStep,
+    type PanelAccountKind,
     type PanelBillingAccess,
     type PanelBillingStatus,
 } from './business-setup';
@@ -654,6 +663,7 @@ export {
 } from './listing-distribution-panel.js';
 
 export { MarketplaceFinanceView } from './marketplace-finance-view';
+export { AccountWorkspaceSetup, type AccountWorkspaceSetupVertical } from './account-workspace-setup.js';
 export { MarketplaceBoostManager, type MarketplaceBoostManagerProps } from './marketplace-boost-manager.js';
 export { MarketplacePublicidadShell, type MarketplacePublicidadShellProps } from './marketplace-publicidad-shell.js';
 export {
@@ -661,3 +671,5 @@ export {
     type MarketplaceCampaignBuilderProps,
     type MarketplaceAdvertisingClient,
 } from './marketplace-campaign-builder.js';
+
+export { AccountTeamManager, type AccountTeamManagerProps } from './account-team-manager.js';

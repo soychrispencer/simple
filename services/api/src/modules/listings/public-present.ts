@@ -10,6 +10,7 @@ export type { BoostSection };
 /** Compatible con ListingRecord del monolito (campos extra permitidos). */
 export type ListingPublicRecord = {
     id: string;
+    accountId?: string | null;
     ownerId?: string;
     vertical: string;
     section: BoostSection;
@@ -40,9 +41,11 @@ export type ListingPublicPresentDeps = {
     formatAgo: (updatedAt: number) => string;
     usernameFromName: (name: string) => string;
     usersById: Map<string, { id: string; name: string; email: string; phone?: string | null; avatar?: string }>;
+    getPersonalAccountIdForUser?: (userId: string) => string | null;
     getPublishedSellerProfile: (
         userId: string,
         vertical: string,
+        accountId?: string | null,
     ) => {
         displayName?: string;
         slug?: string;
@@ -120,6 +123,7 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         formatAgo,
         usernameFromName,
         usersById,
+        getPersonalAccountIdForUser,
         getPublishedSellerProfile,
     } = deps;
 
@@ -261,20 +265,26 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
 
     function listingToPublicResponse(record: ListingPublicRecord) {
         const owner = record.ownerId ? usersById.get(record.ownerId) : undefined;
-        const sellerProfile = owner ? getPublishedSellerProfile(owner.id, record.vertical) : null;
+        const sellerProfile = owner ? getPublishedSellerProfile(owner.id, record.vertical, record.accountId) : null;
         const sellerName = sellerProfile?.displayName ?? owner?.name ?? 'Cuenta verificada';
         const username = sellerProfile?.slug ?? usernameFromName(sellerName);
         const profileAvatar = toPublicMediaUrl(sellerProfile?.avatarImageUrl);
         // Solo logo del negocio/perfil público; sin fallback a avatar personal.
         const avatarUrl = profileAvatar || null;
-        const sellerEmail = sellerProfile?.publicEmail?.trim() || owner?.email || null;
+        const allowPersonalContactFallback = Boolean(
+            owner
+            && (!record.accountId || record.accountId === getPersonalAccountIdForUser?.(owner.id)),
+        );
+        const sellerEmail = sellerProfile?.publicEmail?.trim()
+            || (allowPersonalContactFallback ? owner?.email : null)
+            || null;
         const sellerPhone = sellerProfile?.publicPhone?.trim()
             || sellerProfile?.publicWhatsapp?.trim()
-            || owner?.phone
+            || (allowPersonalContactFallback ? owner?.phone : null)
             || null;
         const sellerWhatsapp = sellerProfile?.publicWhatsapp?.trim()
             || sellerProfile?.publicPhone?.trim()
-            || owner?.phone
+            || (allowPersonalContactFallback ? owner?.phone : null)
             || null;
 
         return {

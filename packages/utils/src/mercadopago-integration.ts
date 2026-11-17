@@ -8,6 +8,7 @@ export type MercadoPagoIntegrationStatus = {
     vertical: MercadoPagoIntegrationVertical;
     configured: boolean;
     eligible: boolean;
+    canManageIntegration: boolean;
     hasTarget: boolean;
     currentPlanId: string;
     connected: boolean;

@@ -14,10 +14,10 @@ import { sectionFromPanelPath } from '@/lib/panel-routes';
 
 export function PanelBottomNav() {
     const pathname = usePathname() ?? '';
-    const { mode, profiles } = useSerenata();
+    const { mode, activeRole, profiles } = useSerenata();
     const section = sectionFromPanelPath(pathname);
-    const primaryAction = getPrimaryActionConfig(mode, profiles, pathname);
-    const tabs = getMobileBottomNavItems(mode, profiles);
+    const primaryAction = getPrimaryActionConfig(mode, profiles, pathname, activeRole);
+    const tabs = getMobileBottomNavItems(mode, profiles, activeRole);
 
     const navItems = applyBottomNavPrimaryHighlight(
         tabs.map((item) => ({

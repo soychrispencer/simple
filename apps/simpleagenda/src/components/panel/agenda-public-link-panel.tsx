@@ -11,7 +11,7 @@ import { checkSlugAvailable, fetchAgendaProfile, saveAgendaProfile } from '@/lib
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3004';
 const SLUG_RE = /^[a-z0-9-]{3,50}$/;
 
-export function AgendaPublicLinkPanel() {
+export function AgendaPublicLinkPanel({ previewUrl }: { previewUrl?: string }) {
     const adapter = useMemo<BusinessPublicLinkAdapter>(() => ({
         appBaseUrl: APP_URL,
         profilePathPrefix: '/',
@@ -50,5 +50,5 @@ export function AgendaPublicLinkPanel() {
         },
     }), []);
 
-    return <BusinessPublicLinkPanel adapter={adapter} variant="minimal" />;
+    return <BusinessPublicLinkPanel adapter={adapter} variant="minimal" showPublicPreviewAction previewUrl={previewUrl} />;
 }

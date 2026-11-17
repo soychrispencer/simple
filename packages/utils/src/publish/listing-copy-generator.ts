@@ -90,7 +90,7 @@ export function generateAutosListingDescription(input: AutosCopyInput): string {
     const age = yearNum ? currentYear - yearNum : null;
     const kmNum = input.mileage ? parseInt(parseDigits(input.mileage), 10) : null;
 
-    let hook = '';
+    let hook: string;
     if (input.condition === 'Nuevo') {
         hook = `✨ ${input.brandName} ${input.modelName} 0km, sin uso y listo para transferir.`;
     } else if (input.condition === 'Seminuevo' || (age !== null && age <= 3 && input.condition !== 'Siniestrado' && input.condition !== 'Para desarme')) {

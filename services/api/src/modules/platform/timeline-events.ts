@@ -16,7 +16,8 @@ export async function recordTimelineEvent(
                 ? new Date(input.occurredAt)
                 : new Date();
 
-    await db.insert(timelineEvents).values({
+    const row = {
+        idempotencyKey: input.idempotencyKey ?? null,
         type: input.type,
         occurredAt: Number.isNaN(occurredAt.getTime()) ? new Date() : occurredAt,
         vertical: input.business.vertical,
@@ -27,7 +28,13 @@ export async function recordTimelineEvent(
         subjectId: input.subject.id,
         actor: input.actor,
         payload: input.payload ?? null,
-    });
+    };
+    const insert = db.insert(timelineEvents).values(row);
+    if (input.idempotencyKey) {
+        await insert.onConflictDoNothing();
+    } else {
+        await insert;
+    }
 }
 
 /** Fire-and-forget wrapper for request handlers. */

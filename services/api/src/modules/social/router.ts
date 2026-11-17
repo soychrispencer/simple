@@ -20,7 +20,7 @@ export interface SocialRouterDeps {
     countFollowers: (userId: string, vertical: any) => number;
     usersById: Map<string, any>;
     buildSocialFeedClips: (vertical: any, section: string | undefined) => any[];
-    getPublishedSellerProfile: (userId: string, vertical: any) => any;
+    getPublishedSellerProfile: (userId: string, vertical: any, accountId?: string | null) => any;
     usernameFromName: (name: string) => string;
     formatAgo: (ts: number) => string;
 }
@@ -101,7 +101,7 @@ export function createSocialRouter(deps: SocialRouterDeps) {
             if (vertical && targetListing.ownerId && targetListing.ownerId !== user.id) {
                 emitTimelineEvent(db, timelineEvents, {
                     type: 'engagement.saved',
-                    business: { vertical, id: targetListing.ownerId },
+                    business: { vertical, id: targetListing.accountId ?? targetListing.ownerId },
                     person: { id: user.id, kind: 'user' },
                     subject: { kind: 'listing', id: listingId },
                     actor: 'buyer',
@@ -146,7 +146,9 @@ export function createSocialRouter(deps: SocialRouterDeps) {
             })
             .map((clip: any) => {
                 const author = usersById.get(clip.authorId);
-                const authorProfile = author ? getPublishedSellerProfile(author.id, vertical) : null;
+                const authorProfile = author
+                    ? getPublishedSellerProfile(author.id, vertical, clip.accountId ?? null)
+                    : null;
                 const authorName = authorProfile?.displayName ?? author?.name ?? 'Cuenta verificada';
                 const authorUsername = authorProfile?.slug ?? usernameFromName(authorName);
                 return {
@@ -169,7 +171,7 @@ export function createSocialRouter(deps: SocialRouterDeps) {
                         name: authorName,
                         username: authorUsername,
                         profileHref: authorProfile ? `/perfil/${authorUsername}` : null,
-                        avatar: authorProfile?.avatarImageUrl ?? author?.avatar,
+                        avatar: authorProfile?.avatarImageUrl ?? null,
                         followers: countFollowers(clip.authorId, vertical),
                         isFollowing: followSet.has(clip.authorId),
                         canFollow: user ? user.id !== clip.authorId : true,

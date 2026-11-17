@@ -38,6 +38,7 @@ export const AGENDA_PLAN_CATALOG = {
         description: 'Todo lo necesario para gestionar una agenda profesional completa.',
         features: [
             'Citas, servicios y ubicaciones sin límites de uso',
+            'Página pública personalizable: portada, estilos visuales y colores de marca',
             'Recordatorios automáticos por email',
             'Finanzas y control de cobros',
             'Packs, promociones y agenda avanzada',

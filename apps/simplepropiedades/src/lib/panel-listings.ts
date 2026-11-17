@@ -29,6 +29,7 @@ export type PanelListing = {
     description: string;
     price: string;
     status: ListingStatus;
+    canDelete?: boolean;
     views: number;
     clicks?: number;
     favs: number;
@@ -42,6 +43,13 @@ export type PanelListing = {
     integrations: ListingPortalSync[];
     distribution?: ListingDistributionChannel[];
     rawData?: unknown;
+};
+
+export type PanelListingAssignmentContext = {
+    enabled: boolean;
+    canManage: boolean;
+    members: Array<{ userId: string; role: string; name: string; email: string | null }>;
+    assignments: Array<{ listingId: string; assignedUserId: string }>;
 };
 
 export type CreatePanelListingInput = {
@@ -59,6 +67,15 @@ export type CreatePanelListingInput = {
 type ListResponse = {
     ok: boolean;
     items?: PanelListing[];
+    error?: string;
+};
+
+type AssignmentResponse = {
+    ok: boolean;
+    enabled?: boolean;
+    canManage?: boolean;
+    members?: PanelListingAssignmentContext['members'];
+    assignments?: PanelListingAssignmentContext['assignments'];
     error?: string;
 };
 
@@ -118,6 +135,34 @@ export async function fetchMyPanelListings(): Promise<{ items: PanelListing[]; u
     if (status === 401) return { items: [], unauthorized: true };
     if (!data?.ok || !Array.isArray(data.items)) return { items: [] };
     return { items: data.items };
+}
+
+export async function fetchPanelListingAssignments(
+    vertical: 'autos' | 'propiedades',
+): Promise<PanelListingAssignmentContext | null> {
+    const { data } = await apiRequest<AssignmentResponse>(`/api/listings/assignments?vertical=${vertical}`, { method: 'GET' });
+    if (!data?.ok) return null;
+    return {
+        enabled: Boolean(data.enabled),
+        canManage: Boolean(data.canManage),
+        members: data.members ?? [],
+        assignments: data.assignments ?? [],
+    };
+}
+
+export async function updatePanelListingAssignee(
+    listingId: string,
+    vertical: 'autos' | 'propiedades',
+    assignedUserId: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+    const { data } = await apiRequest<{ ok: boolean; error?: string }>(
+        `/api/listings/assignments/${encodeURIComponent(listingId)}`,
+        {
+            method: 'PUT',
+            body: JSON.stringify({ vertical, assignedUserIds: assignedUserId ? [assignedUserId] : [] }),
+        },
+    );
+    return data?.ok ? { ok: true } : { ok: false, error: data?.error ?? 'No pudimos actualizar la asignación.' };
 }
 
 export async function createPanelListing(input: CreatePanelListingInput): Promise<{ ok: boolean; item?: PanelListing; error?: string; unauthorized?: boolean }> {

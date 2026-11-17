@@ -62,7 +62,7 @@ export const messageThreads = pgTable('message_threads', {
 export const messageEntries = pgTable('message_entries', {
   id: uuid('id').primaryKey().defaultRandom(),
   threadId: uuid('thread_id').references(() => messageThreads.id).notNull(),
-  senderUserId: uuid('sender_user_id').references(() => users.id).notNull(),
+  senderUserId: uuid('sender_user_id').references(() => users.id, { onDelete: 'set null' }),
   senderRole: varchar('sender_role', { length: 20 }).notNull(),
   body: text('body').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),

@@ -12,16 +12,21 @@ import {
 } from '../integrations/oauth-cookie.js';
 import { getIntegrationFallbackReturn, resolveInstagramOAuthState, decodeOAuthStateParam, finalizeIntegrationReturnUrl, resolveIntegrationRequestHost } from '../integrations/app-origin.js';
 import { makeInstagramStatePayload, parseInstagramStatePayload } from '../instagram/oauth-state.js';
+import { isSocialIntegrationAccessError } from '../integrations/social-write-access.js';
+import { canManageAccountRole } from '../accounts/permissions.js';
 
 export interface YouTubeRouterDeps {
     authUser: (c: Context) => Promise<{ id: string; role?: string } | null>;
     parseVertical: (v: string | undefined) => import('@simple/types').VerticalType;
     asString: (v: unknown) => string;
     resolveBrowserOrigin: (c: Context) => string | null;
-    userCanUseInstagram: (user: { id: string; role?: string }, vertical: import('@simple/types').VerticalType) => boolean;
-    getEffectivePlanId: (user: { id: string; role?: string }, vertical: import('@simple/types').VerticalType) => string;
+    userCanUseInstagram: (user: { id: string; role?: string }, vertical: import('@simple/types').VerticalType, accountId?: string | null) => boolean;
+    getEffectivePlanId: (user: { id: string; role?: string }, vertical: import('@simple/types').VerticalType, accountId?: string | null) => string;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
+    getAccountMembershipFromDb?: (userId: string, accountId?: string) => Promise<{ accountId: string; role: string } | null>;
+    canManageIntegration: (userId: string, accountId: string | null) => boolean;
     getInstagramRequiredPlanIds: () => string[];
-    getYouTubeAccount: (userId: string, vertical: import('@simple/types').VerticalType) => unknown;
+    getYouTubeAccount: (userId: string, vertical: import('@simple/types').VerticalType, accountId?: string | null) => unknown;
     youtubeAccountToResponse: (account: unknown) => unknown;
     sanitizeBrowserReturnUrl: (url: string, fallback: string) => string;
     randomBytes: (size: number) => Buffer;
@@ -30,7 +35,7 @@ export interface YouTubeRouterDeps {
     getUserById: (id: string) => Promise<{ id: string } | null>;
     canAuthenticateUser: (user: { id: string }) => boolean;
     upsertYouTubeAccountRecord: (input: Record<string, unknown>) => Promise<unknown>;
-    disconnectYouTubeAccount: (userId: string, vertical: import('@simple/types').VerticalType) => Promise<void>;
+    disconnectYouTubeAccount: (userId: string, vertical: import('@simple/types').VerticalType, accountId?: string | null) => Promise<void>;
     youtubeStateCookie: string;
     authCookieSameSite: 'Lax' | 'Strict' | 'None';
     authCookieSecure: boolean;
@@ -39,11 +44,28 @@ export interface YouTubeRouterDeps {
 export function createYouTubeRouter(deps: YouTubeRouterDeps) {
     const app = new Hono();
 
+    async function getCurrentAccountId(userId: string) {
+        if (deps.getAccountMembershipFromDb) {
+            return (await deps.getAccountMembershipFromDb(userId))?.accountId ?? null;
+        }
+        return deps.getPrimaryAccountIdForUser(userId);
+    }
+
+    async function canManageCurrentIntegration(userId: string, accountId: string | null) {
+        if (deps.getAccountMembershipFromDb) {
+            if (!accountId) return false;
+            return canManageAccountRole((await deps.getAccountMembershipFromDb(userId, accountId))?.role);
+        }
+        return deps.canManageIntegration(userId, accountId);
+    }
+
     app.get('/', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const vertical = deps.parseVertical(c.req.query('vertical'));
+        const accountId = await getCurrentAccountId(user.id);
+        const canManageIntegration = await canManageCurrentIntegration(user.id, accountId);
         const origin = deps.resolveBrowserOrigin(c);
         const fallbackReturn = origin ? `${origin}/panel/mi-cuenta/integraciones` : null;
 
@@ -51,13 +73,14 @@ export function createYouTubeRouter(deps: YouTubeRouterDeps) {
             ok: true,
             vertical,
             configured: isYouTubeConfigured(),
-            eligible: deps.userCanUseInstagram(user, vertical),
-            currentPlanId: deps.getEffectivePlanId(user, vertical),
+            eligible: deps.userCanUseInstagram(user, vertical, accountId),
+            currentPlanId: deps.getEffectivePlanId(user, vertical, accountId),
             requiredPlanIds: deps.getInstagramRequiredPlanIds(),
-            connectUrl: fallbackReturn
+            canManageIntegration,
+            connectUrl: fallbackReturn && canManageIntegration && deps.userCanUseInstagram(user, vertical, accountId)
                 ? `/api/integrations/youtube/connect?vertical=${encodeURIComponent(vertical)}&returnTo=${encodeURIComponent(fallbackReturn)}`
                 : null,
-            account: deps.youtubeAccountToResponse(deps.getYouTubeAccount(user.id, vertical)),
+            account: deps.youtubeAccountToResponse(deps.getYouTubeAccount(user.id, vertical, accountId)),
         });
     });
 
@@ -65,7 +88,11 @@ export function createYouTubeRouter(deps: YouTubeRouterDeps) {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const vertical = deps.parseVertical(c.req.query('vertical'));
-        if (!deps.userCanUseInstagram(user, vertical)) {
+        const accountId = await getCurrentAccountId(user.id);
+        if (!await canManageCurrentIntegration(user.id, accountId)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede conectar YouTube.' }, 403);
+        }
+        if (!deps.userCanUseInstagram(user, vertical, accountId)) {
             return c.json({ ok: false, error: 'YouTube está disponible solo para planes Pro y Empresa.' }, 403);
         }
         if (!isYouTubeConfigured()) {
@@ -76,6 +103,7 @@ export function createYouTubeRouter(deps: YouTubeRouterDeps) {
         const statePayload = makeInstagramStatePayload({
             nonce,
             userId: user.id,
+            accountId,
             vertical,
         });
         setIntegrationOAuthCookie(c, deps.youtubeStateCookie, statePayload, { sameSite: deps.authCookieSameSite, secure: deps.authCookieSecure });
@@ -126,12 +154,20 @@ export function createYouTubeRouter(deps: YouTubeRouterDeps) {
         if (!user || !deps.canAuthenticateUser(user)) {
             return redirectWithStatus('error', 'No pudimos validar tu sesión para conectar YouTube.');
         }
+        const accountId = statePayload.accountId ?? await getCurrentAccountId(user.id);
+        if (!accountId || !await canManageCurrentIntegration(user.id, accountId)) {
+            return redirectWithStatus('error', 'Solo quien administra este espacio puede conectar YouTube.');
+        }
+        if (!deps.userCanUseInstagram(user, statePayload.vertical, accountId)) {
+            return redirectWithStatus('error', 'YouTube no está habilitado para el plan de este espacio.');
+        }
 
         try {
             const exchanged = await exchangeYouTubeCode(code);
             const profile = await fetchYouTubeChannelProfile(exchanged.accessToken);
             await deps.upsertYouTubeAccountRecord({
                 userId: user.id,
+                accountId,
                 vertical: statePayload.vertical,
                 channelId: profile.channelId,
                 channelTitle: profile.channelTitle,
@@ -160,7 +196,18 @@ export function createYouTubeRouter(deps: YouTubeRouterDeps) {
             ? deps.asString((payload as Record<string, unknown>).vertical)
             : '';
         const vertical = deps.parseVertical(verticalRaw || c.req.query('vertical'));
-        await deps.disconnectYouTubeAccount(user.id, vertical);
+        const accountId = await getCurrentAccountId(user.id);
+        if (!await canManageCurrentIntegration(user.id, accountId)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede desconectar YouTube.' }, 403);
+        }
+        try {
+            await deps.disconnectYouTubeAccount(user.id, vertical, accountId);
+        } catch (error) {
+            if (isSocialIntegrationAccessError(error)) {
+                return c.json({ ok: false, error: error.message }, 403);
+            }
+            throw error;
+        }
         return c.json({ ok: true });
     });
 

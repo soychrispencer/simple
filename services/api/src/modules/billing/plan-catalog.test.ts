@@ -2,13 +2,25 @@ import { describe, expect, it } from 'vitest';
 import {
     catalogPaidPlans,
     filterCatalogPlans,
+    isMarketplacePlanAvailableForAccount,
     normalizeCatalogSubscription,
 } from './plan-catalog.js';
 import { SUBSCRIPTION_PLANS_BY_VERTICAL } from '../advertising/types.js';
 
 describe('plan-catalog', () => {
-    it('agenda y serenatas solo exponen free y pro', () => {
-        expect(filterCatalogPlans('agenda', SUBSCRIPTION_PLANS_BY_VERTICAL.agenda).map((plan) => plan.id)).toEqual(['free', 'pro']);
+    it.each(['autos', 'propiedades'] as const)('%s muestra solo la oferta que corresponde a la actividad de la cuenta', (vertical) => {
+        const plans = SUBSCRIPTION_PLANS_BY_VERTICAL[vertical];
+
+        expect(filterCatalogPlans(vertical, plans, 'individual').map((plan) => plan.id)).toEqual(['free']);
+        expect(catalogPaidPlans(vertical, plans, 'individual')).toEqual([]);
+        expect(filterCatalogPlans(vertical, plans, 'independent').map((plan) => plan.id)).toEqual(['free', 'pro']);
+        expect(catalogPaidPlans(vertical, plans, 'independent').map((plan) => plan.id)).toEqual(['pro']);
+        expect(filterCatalogPlans(vertical, plans, 'company').map((plan) => plan.id)).toEqual(['free', 'pro', 'enterprise']);
+        expect(catalogPaidPlans(vertical, plans, 'company').map((plan) => plan.id)).toEqual(['pro', 'enterprise']);
+    });
+
+    it('agenda expone sus tres planes y Serenatas solo su plan de pago', () => {
+        expect(filterCatalogPlans('agenda', SUBSCRIPTION_PLANS_BY_VERTICAL.agenda).map((plan) => plan.id)).toEqual(['free', 'pro', 'pro_plus']);
         expect(catalogPaidPlans('serenatas', SUBSCRIPTION_PLANS_BY_VERTICAL.serenatas).map((plan) => plan.id)).toEqual(['pro']);
     });
 
@@ -36,5 +48,13 @@ describe('plan-catalog', () => {
             'pro',
             'enterprise',
         ]);
+    });
+
+    it('applies one paid-plan eligibility rule to catalog and checkout', () => {
+        expect(isMarketplacePlanAvailableForAccount('individual', 'free')).toBe(true);
+        expect(isMarketplacePlanAvailableForAccount('individual', 'pro')).toBe(false);
+        expect(isMarketplacePlanAvailableForAccount('independent', 'pro')).toBe(true);
+        expect(isMarketplacePlanAvailableForAccount('independent', 'enterprise')).toBe(false);
+        expect(isMarketplacePlanAvailableForAccount('company', 'enterprise')).toBe(true);
     });
 });

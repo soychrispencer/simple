@@ -169,6 +169,6 @@ export async function publishYouTubeShort(input: {
     } catch (error) {
         const message = formatYouTubeApiError(error);
         ytLogger.error('YouTube upload failed', error instanceof Error ? error : new Error(message));
-        throw new Error(message);
+        throw new Error(message, { cause: error });
     }
 }

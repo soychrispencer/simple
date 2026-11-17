@@ -11,14 +11,17 @@ import {
 
 /** Propaga TZ operativa (desde ubicación del negocio) al perfil profesional. */
 export async function syncAgendaProfileTimezoneFromOperatingLocation(
-    userId: string,
+    _userId: string,
     profileRow: Record<string, unknown>,
 ): Promise<string> {
     const tz = normalizeTimezone(inferTimezoneForAgendaProfile(profileRow as Parameters<typeof inferTimezoneForAgendaProfile>[0]));
-    await db
-        .update(agendaProfessionalProfiles)
-        .set({ timezone: tz, updatedAt: new Date() })
-        .where(eq(agendaProfessionalProfiles.userId, userId));
+    const profileId = typeof profileRow.id === 'string' ? profileRow.id : null;
+    if (profileId) {
+        await db
+            .update(agendaProfessionalProfiles)
+            .set({ timezone: tz, updatedAt: new Date() })
+            .where(eq(agendaProfessionalProfiles.id, profileId));
+    }
     return tz;
 }
 

@@ -7,27 +7,30 @@ import {
     IconFileText,
     IconPlus,
     IconMessageCircle,
-    IconUser,
+    IconAddressBook,
 } from '@tabler/icons-react';
 import { PanelBottomNav as SharedPanelBottomNav } from '@simple/ui/panel';
-import { applyBottomNavPrimaryHighlight, createPanelAccountNavItem } from '@simple/ui/layout';
+import { applyBottomNavPrimaryHighlight } from '@simple/ui/layout';
 import { isPanelNavActive } from '@/components/panel/panel-nav-config';
 
 const PRIMARY_HREF = '/panel/publicar';
 
 const items = [
     { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
-    { href: '/panel/publicaciones', label: 'Mis publicaciones', icon: IconFileText },
+    { href: '/panel/publicaciones', label: 'Publicaciones', icon: IconFileText },
     { href: PRIMARY_HREF, label: 'Publicar', icon: IconPlus },
+    { href: '/panel/contactos', label: 'Contactos', icon: IconAddressBook },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
-    createPanelAccountNavItem(IconUser),
 ];
 
-export function PanelBottomNav() {
+export function PanelBottomNav({ workspaceReady = true }: { workspaceReady?: boolean }) {
     const pathname = usePathname() ?? '';
+    const visibleItems = workspaceReady
+        ? items
+        : items.filter((item) => ['/panel', PRIMARY_HREF, '/panel/mi-cuenta'].includes(item.href));
 
     const navItems = applyBottomNavPrimaryHighlight(
-        items.map((item) => ({
+        visibleItems.map((item) => ({
             ...item,
             active: isPanelNavActive(pathname, item.href),
         })),

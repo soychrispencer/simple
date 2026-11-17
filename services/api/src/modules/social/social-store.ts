@@ -11,6 +11,7 @@ export type SocialPublicationStoreMaps = {
 
 export type SocialPublicationStoreDeps = SocialPublicationStoreMaps & {
     getPrimaryAccountIdForUser: (userId: string) => Promise<string>;
+    getPersonalAccountIdForUser: (userId: string) => string | null;
 };
 
 export function mapSocialPublicationRow(row: typeof socialPublications.$inferSelect): SocialPublicationRecord {
@@ -37,8 +38,15 @@ export function mapSocialPublicationRow(row: typeof socialPublications.$inferSel
 }
 
 export function createSocialPublicationStore(deps: SocialPublicationStoreDeps) {
-    function getSocialPublicationsForUser(userId: string, vertical?: VerticalType): SocialPublicationRecord[] {
-        const items = deps.socialPublicationsByUser.get(userId) ?? [];
+    function getSocialPublicationsForUser(userId: string, vertical?: VerticalType, accountId?: string | null): SocialPublicationRecord[] {
+        const personalAccountId = deps.getPersonalAccountIdForUser(userId);
+        const scopedAccountId = accountId === undefined ? null : accountId ?? personalAccountId;
+        if (!scopedAccountId) return [];
+        const includeLegacyPersonal = scopedAccountId === personalAccountId;
+        const items = [...deps.socialPublicationsByUser.values()].flat().filter((item) => (
+            item.accountId === scopedAccountId
+            || (includeLegacyPersonal && item.userId === userId && item.accountId == null)
+        ));
         const filtered = vertical ? items.filter((item) => item.vertical === vertical) : items;
         return [...filtered].sort((a, b) => b.createdAt - a.createdAt);
     }
@@ -49,8 +57,9 @@ export function createSocialPublicationStore(deps: SocialPublicationStoreDeps) {
         listingId: string,
         platform: SocialPlatform,
         contentType?: SocialPublicationContentType,
+        accountId?: string | null,
     ): SocialPublicationRecord | null {
-        const items = getSocialPublicationsForUser(userId, vertical)
+        const items = getSocialPublicationsForUser(userId, vertical, accountId)
             .filter((item) => item.listingId === listingId && item.platform === platform);
         if (contentType) {
             const match = items.find((item) => item.contentType === contentType);
@@ -81,10 +90,13 @@ export function createSocialPublicationStore(deps: SocialPublicationStoreDeps) {
     }
 
     async function createSocialPublicationRecord(
-        input: Omit<SocialPublicationRecord, 'id' | 'createdAt' | 'updatedAt' | 'accountId'>,
+        input: Omit<SocialPublicationRecord, 'id' | 'createdAt' | 'updatedAt'>,
     ): Promise<SocialPublicationRecord> {
         const now = new Date();
-        const accountId = await deps.getPrimaryAccountIdForUser(input.userId);
+        const accountId = input.accountId === undefined
+            ? await deps.getPrimaryAccountIdForUser(input.userId)
+            : input.accountId ?? deps.getPersonalAccountIdForUser(input.userId);
+        if (!accountId) throw new Error('No encontramos el espacio personal para guardar el historial social.');
         const [row] = await db.insert(socialPublications).values({
             accountId,
             userId: input.userId,

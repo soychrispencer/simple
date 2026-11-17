@@ -28,7 +28,7 @@ import { PanelButton, optimizeListingPhotoFile, PanelChoiceCard, PanelIconButton
 import { PanelCard, PanelNotice, MarketplacePublishMessageNotice, MarketplacePublishPlanLimitNotice, useMarketplacePublishPlanLimit, isMarketplacePublishBlockedByPlan, useMarketplaceOperatorPublishDefaults } from '@simple/ui/panel';
 import { MarketplaceOperatorPublishHint, MarketplaceAutosFleetRentFields, MarketplaceAutosConsignmentFields, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishPhotoProcessNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishPriceBlock, SimplePublishRequiredMark, formatClPriceInput, parseDigits, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, type SimplePublishPhotoProcessProgress, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
-import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, vehicleAppearanceOptionsForType, vehicleTechEquipmentOptionsForType, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, validateBusinessServiceModality, type PublishType } from '@simple/utils';
+import { generateAutosListingDescription, generateAutosListingTitle, isSupportedExternalVideoUrl, validatePublishVideoFile, fetchSubscriptionCatalog, type DraftMediaUploadProgress, estimateVehicleValue, buildVehicleFeatureCodes, getVehicleEquipmentLabels, vehicleAppearanceOptionsForType, vehicleTechEquipmentOptionsForType, DEFAULT_VEHICLE_CONDITION, vehicleConditionsForPublisher, type VehicleConditionValue, buildVehicleCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, validateBusinessServiceModality, type PublishType } from '@simple/utils';
 import type { AutosOperatorPublishContext } from '@simple/utils';
 import type { VehicleValuationEstimate, VehicleValuationRequest } from '@simple/types';
 import { ModernSelect } from '@simple/ui/forms';
@@ -1693,8 +1693,22 @@ function Step1PhotosAndIdentity({
     const videoCameraInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
     const [processingPhotos, setProcessingPhotos] = useState(false);
+    const [maxPhotos, setMaxPhotos] = useState(20);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
     const [videoProcessError, setVideoProcessError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let mounted = true;
+        void fetchSubscriptionCatalog('autos').then((subscriptionCatalog) => {
+            if (!mounted || !subscriptionCatalog?.entitlements) return;
+            setMaxPhotos(subscriptionCatalog.entitlements.limits.imagesPerListing ?? 50);
+        }).catch(() => {
+            // Keep the current publishing flow available if the catalog cannot load.
+        });
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const reportPhotoProgress = (progress: SimplePublishPhotoProcessProgress | null) => {
         onPhotoProcessProgressChange?.(progress);
@@ -1709,11 +1723,15 @@ function Step1PhotosAndIdentity({
 
     const handleFiles = async (files: FileList | null) => {
         if (!files || processingPhotos) return;
-        const toAdd = Array.from(files).slice(0, 20 - form.photos.length);
+        const selectedFiles = Array.from(files);
+        const availableSlots = Math.max(maxPhotos - form.photos.length, 0);
+        const toAdd = selectedFiles.slice(0, availableSlots);
+        setPhotoProcessError(selectedFiles.length > availableSlots
+            ? 'Tu plan permite hasta ' + maxPhotos + ' fotos por publicación. Puedes agregar ' + availableSlots + ' más.'
+            : null);
         if (toAdd.length === 0) return;
 
         setProcessingPhotos(true);
-        setPhotoProcessError(null);
         reportPhotoProgress({ current: 0, total: toAdd.length });
 
         try {
@@ -1846,7 +1864,8 @@ function Step1PhotosAndIdentity({
                             previewUrl: photo.preview.trim(),
                             isCover: photo.isCover,
                         }))}
-                        recommendedPhotos={5}
+                        maxPhotos={maxPhotos}
+                        recommendedPhotos={Math.min(5, maxPhotos)}
                         photoError={photoProcessError || undefined}
                         photoInvalid={isAutosFieldInvalid(fieldErrors, 'photos')}
                         photosBusy={processingPhotos}

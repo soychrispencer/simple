@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { IconPlus } from '@tabler/icons-react';
 import { MarketplaceHeader } from '@simple/marketplace-header';
-import { resolveOperatorLandingCopy } from '@simple/utils';
+import { fetchCurrentAccountContext, resolveOperatorLandingCopy } from '@simple/utils';
 import { getPanelNavItems, isPanelNavActive } from '@/components/panel/panel-nav-config';
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { NotificationBell } from '@/components/panel/notification-bell';
@@ -14,9 +14,21 @@ export function Header() {
     const agendaLaunchMode = useAgendaLaunchMode();
     const copy = resolveOperatorLandingCopy('agenda');
     const vocab = useAgendaVocab();
+    const [accountRole, setAccountRole] = useState<string | null>(null);
+    const [isPersonalAccount, setIsPersonalAccount] = useState(true);
+    useEffect(() => {
+        let cancelled = false;
+        void fetchCurrentAccountContext().then((context) => {
+            if (cancelled || !context) return;
+            const activeMembership = context.memberships.find((membership) => membership.isDefault);
+            setAccountRole(activeMembership?.role ?? null);
+            setIsPersonalAccount(context.account?.isPersonal ?? true);
+        });
+        return () => { cancelled = true; };
+    }, []);
     const getItems = useCallback(
-        (role: Parameters<typeof getPanelNavItems>[0]) => getPanelNavItems(role, vocab.Clients),
-        [vocab.Clients],
+        () => getPanelNavItems(vocab.Clients, accountRole, isPersonalAccount),
+        [accountRole, isPersonalAccount, vocab.Clients],
     );
     const publicLinks = [
         { href: '/#como-funciona', label: 'Cómo funciona' },

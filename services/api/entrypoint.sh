@@ -22,9 +22,7 @@ if [ ! -f "drizzle.config.ts" ]; then
 fi
 
 echo "[Entrypoint] Running database migrations..."
-drizzle-kit migrate --config=drizzle.config.ts || {
-    echo "[Entrypoint] WARNING: Migration failed or no migrations to run. Continuing to post-journal migrations..."
-}
+drizzle-kit migrate --config=drizzle.config.ts
 
 echo "[Entrypoint] Running post-journal database migrations..."
 node dist/db/apply-post-journal-migrations-cli.js || {

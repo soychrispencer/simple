@@ -34,6 +34,7 @@ export function createStorageProvider(): StorageProvider {
         const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
         const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
         const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+        const privateBucketName = process.env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME;
         const publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL;
         const workerUrl = process.env.CLOUDFLARE_WORKER_URL || '';
 
@@ -48,7 +49,7 @@ export function createStorageProvider(): StorageProvider {
             );
         }
 
-        return new CloudflareR2Provider(accountId, accessKeyId, secretAccessKey, bucketName, publicUrl, workerUrl);
+        return new CloudflareR2Provider(accountId, accessKeyId, secretAccessKey, bucketName, publicUrl, workerUrl, privateBucketName);
     }
 
     throw new Error(

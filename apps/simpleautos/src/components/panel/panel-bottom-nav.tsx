@@ -23,11 +23,14 @@ const items = [
     createPanelAccountNavItem(IconUser),
 ];
 
-export function PanelBottomNav() {
+export function PanelBottomNav({ workspaceReady = true }: { workspaceReady?: boolean }) {
     const pathname = usePathname() ?? '';
+    const visibleItems = workspaceReady
+        ? items
+        : items.filter((item) => ['/panel', PRIMARY_HREF, '/panel/mi-cuenta'].includes(item.href));
 
     const navItems = applyBottomNavPrimaryHighlight(
-        items.map((item) => ({
+        visibleItems.map((item) => ({
             ...item,
             active: isPanelNavActive(pathname, item.href),
         })),

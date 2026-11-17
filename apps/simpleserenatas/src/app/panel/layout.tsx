@@ -16,18 +16,18 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
                 <PanelQueryRedirect />
             </Suspense>
             <AuthGuard>
-                <SubscriptionGate>
+                <SerenataProvider>
                     <PanelConfirmProvider>
-                        <SerenataProvider>
-                            <div className="flex min-h-screen min-w-0 flex-col bg-(--bg) text-(--fg)">
-                                <div className="shrink-0">
-                                    <Header />
-                                </div>
-                                <PanelShell>{children}</PanelShell>
+                        <div className="flex min-h-screen min-w-0 flex-col bg-(--bg) text-(--fg)">
+                            <div className="shrink-0">
+                                <Header />
                             </div>
-                        </SerenataProvider>
+                            <PanelShell>
+                                <SubscriptionGate>{children}</SubscriptionGate>
+                            </PanelShell>
+                        </div>
                     </PanelConfirmProvider>
-                </SubscriptionGate>
+                </SerenataProvider>
             </AuthGuard>
         </>
     );

@@ -21,6 +21,7 @@ export type YouTubeIntegrationStatus = {
     currentPlanId: string;
     account: YouTubeAccountView | null;
     connectUrl: string | null;
+    canManageIntegration?: boolean;
 };
 
 export async function fetchYouTubeIntegrationStatus(): Promise<YouTubeIntegrationStatus | null> {

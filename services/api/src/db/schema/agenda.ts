@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users, accounts } from './users.js';
 
-// Professional profile — one per user (the practitioner using SimpleAgenda)
+// Professional profile — one per user and workspace (the practitioner using SimpleAgenda)
 export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
   accountId: uuid('account_id').references(() => accounts.id),
@@ -87,7 +87,12 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   uniqueSlug: uniqueIndex('agenda_profiles_slug_idx').on(table.slug),
-  uniqueUser: uniqueIndex('agenda_profiles_user_id_idx').on(table.userId),
+  uniqueAccountUser: uniqueIndex('agenda_profiles_account_user_idx')
+    .on(table.accountId, table.userId)
+    .where(sql`${table.accountId} IS NOT NULL`),
+  uniqueLegacyUser: uniqueIndex('agenda_profiles_legacy_user_idx')
+    .on(table.userId)
+    .where(sql`${table.accountId} IS NULL`),
 }));
 
 // Services / session types offered by the professional
@@ -491,6 +496,7 @@ export const agendaNotificationEvents = pgTable('agenda_notification_events', {
 /** Same table as monolith schema — Relationship Engine timeline. */
 export const timelineEvents = pgTable('timeline_events', {
   id: uuid('id').primaryKey().defaultRandom(),
+  idempotencyKey: varchar('idempotency_key', { length: 255 }),
   type: varchar('type', { length: 80 }).notNull(),
   occurredAt: timestamp('occurred_at').notNull().defaultNow(),
   vertical: varchar('vertical', { length: 20 }).notNull(),
@@ -503,6 +509,9 @@ export const timelineEvents = pgTable('timeline_events', {
   payload: jsonb('payload').$type<Record<string, unknown> | null>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
+  idempotencyKeyUniqueIdx: uniqueIndex('timeline_events_idempotency_key_idx')
+    .on(table.idempotencyKey)
+    .where(sql`${table.idempotencyKey} IS NOT NULL`),
   businessPersonOccurredIdx: index('timeline_events_business_person_occurred_idx').on(
     table.businessId,
     table.personId,

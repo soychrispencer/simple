@@ -26,7 +26,6 @@ import {
     serenatasApi,
 } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
-import { ownerFeaturesEnabled } from '@/lib/app-mode';
 import { panelAccountTypeLabel } from '@/components/panel/panel-nav-config';
 import type { Section } from '@/context/serenata-context';
 import {
@@ -37,6 +36,7 @@ import {
     normalizeAccountTab,
     profileSectionHref,
     resolveAccountTab,
+    storeAccountTab,
 } from '@/lib/account-tab';
 import {
     validateChileMobilePhone,
@@ -50,7 +50,6 @@ import { SerenatasPersonalNotificationsSection } from './serenatas-personal-noti
 import { SerenatasGoogleCalendarIntegrationCard } from './serenatas-google-calendar-integration-card';
 import { DeleteAccountSheet } from './account/delete-account-sheet';
 import { syncAccountTabUrl } from '@/lib/sync-account-tab-url';
-import { isMusicianAccount } from '@/lib/serenata-profile';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { GoogleDisconnectConfirmSheet } from './account/google-disconnect-confirm-sheet';
 import { PasswordChangeModal } from './account/password-change-modal';
@@ -105,10 +104,11 @@ export function ProfileView({
 }: ProfileViewProps) {
     const profiles = apiProfiles;
     const profile = profileProp ?? resolveProfile(apiProfiles);
-    const ownerActive = ownerFeaturesEnabled(profiles);
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [subsection, setSubsection] = useState<AccountSubsection>(() => resolveAccountTab(searchParams.get('account_tab')));
+    const [subsection, setSubsection] = useState<AccountSubsection>(() =>
+        resolveAccountTab(searchParams.get('account_tab'), accountUser?.id, profile),
+    );
     const [notificationPrefsDirty, setNotificationPrefsDirty] = useState(false);
     const [emailChangeModalOpen, setEmailChangeModalOpen] = useState(false);
     const [newEmail, setNewEmail] = useState('');
@@ -151,14 +151,13 @@ export function ProfileView({
             setNotificationPrefsDirty(false);
         }
         setSubsection(tab);
-        if (typeof window !== 'undefined') window.localStorage.setItem('account_tab', tab);
+        storeAccountTab(tab, accountUser?.id, profile);
         syncAccountTabUrl(tab);
     };
 
     useEffect(() => {
-        const tab = normalizeAccountTab(searchParams.get('account_tab'));
-        if (tab) setSubsection(tab);
-    }, [searchParams]);
+        setSubsection(resolveAccountTab(searchParams.get('account_tab'), accountUser?.id, profile));
+    }, [accountUser?.id, profile, searchParams]);
 
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [accountStatus, setAccountStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
@@ -176,7 +175,12 @@ export function ProfileView({
     const [experienceYears, setExperienceYears] = useState(0);
     const [saving, setSaving] = useState(false);
     const appMode: AppMode = mode ?? (profile === 'client' ? 'client' : 'work');
-    const accountPillItems = useMemo(() => getAccountPillItems(appMode, profiles), [appMode, profiles]);
+    const subscriptionProfileActive = appMode === 'work'
+        && (profile === 'owner' ? Boolean(profiles.owner) : profile === 'musician' && Boolean(profiles.musician));
+    const accountPillItems = useMemo(
+        () => getAccountPillItems(appMode, profiles, profile),
+        [appMode, profiles, profile],
+    );
     const accountSectionTabs = useMemo(
         () =>
             accountPillItems.map((item) => ({
@@ -188,13 +192,13 @@ export function ProfileView({
     );
 
     useEffect(() => {
-        if (isAccountTabVisible(subsection, appMode, profiles)) return;
+        if (isAccountTabVisible(subsection, appMode, profiles, profile)) return;
         const fallback = accountPillItems[0]?.key ?? 'data';
         setSubsection(fallback);
         syncAccountTabUrl(fallback);
-    }, [subsection, appMode, profiles, accountPillItems]);
+    }, [subsection, appMode, profiles, profile, accountPillItems]);
 
-    const showMusicianProfileTab = appMode === 'work' && isMusicianAccount(profiles);
+    const showMusicianProfileTab = appMode === 'work' && profile === 'musician' && Boolean(profiles.musician);
 
     const experienceYearsError = useMemo(
         () => (showMusicianProfileTab ? experienceYearsValidation(experienceYears) : null),
@@ -625,7 +629,7 @@ export function ProfileView({
         return { ok: true, url: uploadResult.url };
     };
 
-    const profileLabel = panelAccountTypeLabel(profiles);
+    const profileLabel = panelAccountTypeLabel(profiles, profile);
 
     return (
         <PanelAccountShell
@@ -639,6 +643,7 @@ export function ProfileView({
                     <SerenatasPersonalNotificationsSection
                         accountUser={accountUser}
                         appMode={appMode}
+                        activeRole={profile}
                         profiles={profiles}
                         phone={phone}
                         onSaved={refresh}
@@ -661,8 +666,8 @@ export function ProfileView({
             </div>
             ) : null}
 
-                {subsection === 'subscription' && ownerActive ? (
-                <SubscriptionSection />
+                {subsection === 'subscription' && subscriptionProfileActive ? (
+                <SubscriptionSection billingProfileType={profile === 'owner' ? 'provider' : 'musician'} />
             ) : null}
 
                 {subsection === 'data' || subsection === 'security' ? (

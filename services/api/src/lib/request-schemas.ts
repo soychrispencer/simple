@@ -13,6 +13,7 @@ export const registerSchema = z.object({
     password: z.string().min(8).max(120),
     termsAccepted: z.boolean().optional(),
     captchaToken: z.string().trim().max(4096).nullable().optional(),
+    returnTo: z.string().trim().max(2048).optional(),
 });
 
 export const updateProfileSchema = z.object({
@@ -20,7 +21,6 @@ export const updateProfileSchema = z.object({
     phone: z.string().trim().max(20).nullable().optional().default(null),
 });
 
-const publicProfileAccountKindSchema = z.enum(['individual', 'independent', 'company']);
 const publicProfileDayIdSchema = z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
 const publicProfileSocialLinksSchema = z.object({
     instagram: z.string().trim().max(120).nullable().optional().default(null),
@@ -40,9 +40,6 @@ const publicProfileBusinessHourSchema = z.object({
 export const publicProfileWriteSchema = z.object({
     slug: z.string().trim().min(3).max(80),
     isPublished: z.boolean().default(false),
-    accountKind: publicProfileAccountKindSchema.default('individual'),
-    operatorSubtype: z.string().trim().max(40).nullable().optional().default(null),
-    operatorSubtypeCustom: z.string().trim().max(160).nullable().optional().default(null),
     displayName: z.string().trim().min(2).max(160),
     headline: z.string().trim().max(180).nullable().optional().default(null),
     bio: z.string().trim().max(2400).nullable().optional().default(null),
@@ -402,6 +399,7 @@ export const createCheckoutSchema = z.discriminatedUnion('kind', [
         kind: z.literal('subscription'),
         vertical: subscriptionVerticalSchema,
         returnUrl: z.string().url(),
+        billingProfileType: z.enum(['provider', 'musician']).optional(),
         planId: paidSubscriptionPlanIdSchema.optional(),
         subscription: z.object({
             planId: paidSubscriptionPlanIdSchema,
@@ -428,6 +426,7 @@ export const confirmCheckoutSchema = z.object({
 
 export const emailVerificationRequestSchema = z.object({
     email: z.string().email().optional(),
+    returnTo: z.string().trim().max(2048).optional(),
 });
 
 export const emailVerificationConfirmSchema = z.object({

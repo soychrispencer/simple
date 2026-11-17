@@ -1,0 +1,107 @@
+# Piloto de cuentas, roles y paneles de Simple
+
+## Propósito
+
+Comprobar que cada persona entiende su espacio, puede completar su tarea principal y solo accede a los datos y acciones que le corresponden. Por decisión del negocio, la validación autenticada se hará directamente en producción, sin staging: primero con cuentas internas y datos de prueba identificables; después se amplía a participantes externos cuando los recorridos críticos estén verificados. El piloto cubre SimplePropiedades, SimpleAutos, el trabajo inmobiliario conectado con SimpleAgenda y una validación separada del plan individual de proveedores de SimpleSerenatas.
+
+En SimpleSerenatas, el plan, la prueba y la comisión pertenecen a cada perfil de músico o proveedor; pueden convivir bajo el mismo acceso y el plan se factura en la cuenta personal aunque la persona participe en grupos o tenga rol de agente en otro espacio. Los grupos conservan su operación propia. La tasa actual queda sin cambios durante esta validación.
+
+Para el piloto inmobiliario, validar primero el valor operativo de Simple: publicar, recibir/registrar una consulta, organizar el seguimiento y coordinar una visita entre integrantes. SimplePropiedades todavía no tiene usuarios activos; por eso las visitas, consultas o leads de demostración sirven para evaluar el flujo, pero no son evidencia de alcance ni de generación de demanda del portal. No prometer resultados de tráfico hasta medirlos con actividad real.
+
+## Preparación
+
+- Antes de desplegar, generar una copia recuperable de la base de producción y comprobar que se puede restaurar. Registrar el commit y el estado de las migraciones. Detener el despliegue si no se puede confirmar el respaldo.
+- Confirmar que las migraciones y el catálogo de planes corresponden a la versión que se va a pilotear; después de aplicar `0167_account_users_single_default`, cada persona con membresías debe tener exactamente un espacio predeterminado. `0169_serenatas_individual_billing` asocia los planes Serenatas a la cuenta personal; `0170_serenatas_commission_zero_default` define 0% para perfiles nuevos y conserva valores individuales; `0171_serenatas_musician_billing_profile` agrega fecha de prueba y comisión al perfil músico; `0172_serenatas_profile_billing_scope` separa planes de músico y proveedor y rechaza escrituras sin tipo de perfil; `0174_account_single_owner_membership` impide más de un dueño por espacio y falla si el titular de la cuenta no coincide con su membresía `owner`; `0175_account_membership_role_check` restringe los roles guardados a `owner`, `admin` y `agent`; `0176_account_invitation_role_check` permite invitar solo como `admin` o `agent`; `0177_account_team_list_indexes` prepara las consultas paginadas de integrantes e invitaciones sin limitar el tamaño del equipo.
+- Antes de migrar, ejecutar contra la base de producción las auditorías `db:audit:account-memberships`, `db:audit:subscription-account-scope`, `db:audit:serenatas-billing-scope` y `db:audit:private-media-scope`. Resolver anomalías de cuentas y suscripciones; guardar únicamente conteos agregados. La auditoría confirma el estado previo de membresías, suscripciones y referencias a archivos privados.
+- No proceder si aparecen datos incompatibles con las migraciones `0168` o `0174`–`0176`: `0168` corrige referencias y elimina conexiones sociales duplicadas; `0174` exige que el dueño coincida con la membresía `owner`; `0175` y `0176` restringen roles persistidos. Revisar esos casos con datos agregados y una estrategia de reparación antes del deploy.
+- Mantener los cobros reales fuera de la prueba. No completar un checkout live, cambiar planes de clientes existentes ni modificar comisiones durante el piloto. Los espacios de empresa admiten integrantes sin tope por ahora; comunicar solo precios y otros límites aprobados.
+- Preparar cuentas internas separadas por segmento y una segunda identidad para probar invitaciones y permisos. Etiquetar los registros de prueba y retirarlos al cerrar la validación sin tocar datos reales de clientes.
+- Registrar observaciones por segmento y tarea; no anotar contraseñas, datos tributarios ni información de clientes reales.
+
+### Preflight de producción
+
+Antes de invitar participantes, confirmar que la API y los paneles apuntan a producción y que el despliegue incluye las migraciones `0169`–`0177`. Guardar credenciales solo en el gestor de secretos del entorno; no copiarlas al repositorio, al runbook ni a capturas. El primer recorrido se limita a cuentas internas y operaciones reversibles.
+
+| Recorrido | Configuración requerida en producción | Comprobación antes del piloto |
+| --- | --- | --- |
+| Registro e invitaciones | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Usar identidades internas. Completar una verificación y una invitación por correo a la segunda identidad; si el envío no está disponible, registrar la carencia y no invitar a externos. |
+| Visitas y calendario | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y las URL de retorno HTTPS de producción registradas en OAuth | Conectar una cuenta y calendario de prueba, crear o actualizar una visita y comprobar desconexión. No enlazar calendarios personales ni invitar a externos hasta validar permisos. |
+| Mercado Pago en SimpleAgenda | Credenciales OAuth `MP_OPERATOR_APP_ID` / `MP_OPERATOR_APP_SECRET` o el respaldo existente `MP_AGENDA_APP_ID` / `MP_AGENDA_APP_SECRET`; `MP_OPERATOR_REDIRECT_URI=https://api.simpleplataforma.app/api/integrations/mercadopago/callback` | Registrar la URL nueva en la aplicación OAuth que usa el flujo actual. Si esa app también sirve el flujo antiguo, agregarla sin quitar `https://api.simpleplataforma.app/api/agenda/mercadopago/callback`; si no, conservar la URL antigua en la app heredada. Probar con un perfil interno; no desconectar ni reemplazar la cuenta de una clienta. |
+| Suscripciones y pagos | Catálogo de producción y secretos Mercado Pago configurados en el entorno | Verificar lectura del plan, cuenta y precio neto + IVA sin iniciar checkout ni generar cargos. El flujo de pago real requiere una validación comercial separada. |
+| Adjuntos privados | `CLOUDFLARE_R2_ACCOUNT_ID`, `CLOUDFLARE_R2_ACCESS_KEY_ID`, `CLOUDFLARE_R2_SECRET_ACCESS_KEY`, `CLOUDFLARE_R2_PRIVATE_BUCKET_NAME` y el bucket público de origen solo si hay referencias pendientes | Confirmar que el bucket privado no tenga dominio público. Ejecutar `db:audit:private-media-scope` y el dry-run; detenerse si una referencia u objeto fuente no se puede verificar. No aplicar esta migración como parte automática del piloto de roles. |
+
+Registrar cada fila como **validada**, **no disponible** o **fallida** con fecha y responsable. Un recorrido dependiente de una integración marcada “no disponible” no cuenta como aprobado. Si la auditoría de producción devuelve cero archivos pendientes, registrar ese resultado y no exigir credenciales R2 para la migración de adjuntos.
+
+## Participantes y tareas
+
+| Segmento | Tarea que debe poder completar | Evidencia a observar |
+| --- | --- | --- |
+| Particular o propietario | Entrar a su espacio personal, publicar una propiedad, atender una consulta y coordinar una visita | Conserva el plan y los datos personales; llega a la primera publicación y sabe dónde responder |
+| Corredor independiente | Configurar su actividad, publicar, abrir el contacto que originó una consulta y avanzar su seguimiento | Ve su cartera, etapa e historial; puede continuar la oportunidad hasta visita o resultado |
+| Administrador independiente de arriendos | Configurar su actividad y atender consultas de los inmuebles que gestiona | La navegación y los textos corresponden a administración de propiedades; sus datos no aparecen en otro espacio |
+| Dueño o administrador de inmobiliaria | Crear o seleccionar el espacio empresarial, invitar integrantes, asignar publicaciones y contactos, revisar el plan del espacio | La cuenta personal permanece separada; equipo, cartera y facturación corresponden a la empresa |
+| Agente de inmobiliaria | Aceptar una invitación, ver publicaciones y contactos propios o asignados, actualizar seguimiento y coordinar una visita | No administra el equipo, el plan, las integraciones ni las publicaciones de otros agentes |
+| Desarrolladora o equipo comercial de proyectos | Configurar la actividad de proyectos, publicar un proyecto/unidades, gestionar el interés y coordinar una visita o reunión | La opción de proyecto, el origen del contacto y los siguientes pasos son claros; registra qué datos necesitaría importar desde su sistema actual |
+| Equipo que usa SimpleAgenda para corretaje | Crear una visita ligada a propiedad y contacto, y una reunión sin publicación; cambiar responsable o fecha | El evento aparece en el espacio correcto; los conflictos privados solo indican disponibilidad y no exponen detalles |
+| Persona que administra un mariachi y también toca como músico en otro grupo | Usar el mismo acceso para administrar su grupo y aceptar o trabajar en otro grupo desde el perfil músico | Los perfiles conviven sin borrar datos; grupo, solicitudes y permisos se mantienen independientes; cada perfil conserva su propio plan y comisión |
+| Músico o proveedor de SimpleSerenatas | Consultar, contratar y cancelar el plan del perfil seleccionado desde la cuenta personal mientras tiene activo un espacio de empresa; revisar el historial correspondiente | Músico y proveedor pueden tener planes distintos; cambiar de perfil cancela o modifica solo el seleccionado y no permite que otro proveedor vea sus órdenes |
+
+## Entrevista de encaje comercial
+
+Antes de proponer un plan, conversar 15–20 minutos con una persona de cada segmento disponible. El propósito es entender cómo trabaja hoy y qué tendría que resolver Simple para convivir con sus herramientas actuales; no es una oferta ni una aprobación de precios.
+
+1. ¿Qué usa hoy para publicar, administrar contactos, coordinar visitas y hacer seguimiento? ¿Qué partes mantiene en WhatsApp, hojas de cálculo u otros sistemas?
+2. Seguir una oportunidad real desde que llega la consulta hasta la visita o el cierre. ¿Dónde vuelve a ingresar datos, se pierde el contexto o depende de una persona específica?
+3. ¿Qué tendría que importar, enlazar o integrarse para probar Simple junto con sus herramientas actuales, sin migrar toda la operación de inmediato? Preguntar qué partes mantendría en su plataforma actual y qué sí estaría dispuesto a llevar a Simple.
+4. Sin mostrar precios al inicio, preguntar qué problema resolvería suficiente valor para adoptar otra herramienta y qué resultado tendría que observar para mantenerla después del piloto. Distinguir entre “la usaría junto con mi sistema” y “la usaría en reemplazo”.
+5. Registrar, si la persona lo comparte, el rango de cartera activa, proyectos/unidades, tamaño del equipo y gasto mensual aproximado en software y portales. El equipo de Simple no tiene tope de integrantes por ahora; el tamaño del equipo se registra para entender operación y soporte, no para cobrar asientos.
+6. Después de mostrar solo funciones implementadas, preguntar qué valor mensual tendría sentido para la operación descrita. Registrar primero su rango sin sugerir un precio; luego mostrar el precio vigente neto + IVA y anotar la reacción por separado como percepción exploratoria, no como compromiso de pago.
+7. Si el valor propuesto incluye visibilidad del portal, aclarar que SimplePropiedades todavía no tiene usuarios activos y preguntar qué valor operativo de CRM, cartera o coordinación justificaría probarlo mientras se construye audiencia.
+
+No presentar funciones aún no disponibles como si estuvieran listas ni comunicar precios, comisiones o capacidades comerciales que no estén aprobados. En el registro, separar lo observado en uso real de las respuestas hipotéticas de precio.
+
+## Recorrido de validación
+
+1. **Registro, invitación e identidad:** crear cuenta desde el flujo normal y desde una invitación. Abrir el enlace de equipo sin sesión y confirmar que la vista previa muestra espacio, correo invitado y permiso, con opciones claras de crear cuenta o iniciar sesión; la vista previa usa el token y no se guarda en caché, mientras que la aceptación y el resto de las rutas de cuenta siguen protegidas. Confirmar que la verificación vuelve al enlace de invitación y que solo el correo invitado puede aceptarla. La membresía se agrega sin borrar la cuenta personal y, al aceptar, se activa el espacio compartido. Confirmar también que una invitación válida activa el perfil músico solo al aceptarse, y que aceptar una invitación no borra perfiles músico, proveedor o cliente ya existentes. En el mismo navegador, cerrar sesión e iniciar con otra persona; confirmar que selector, marca, permisos, plan y visitas muestran solo el contexto de la sesión nueva, también mientras cargan sus datos, y que no permanece abierto ningún formulario o dato local de la persona anterior.
+2. **Actividad y espacio:** configurar particular, independiente o empresa. Confirmar que cambiar de actividad no mueve publicaciones, contactos ni facturación a otro espacio. Con la cartera vacía, omitir la primera acción, cambiar la actividad y comprobar que aparece la sugerencia pertinente; volver a la actividad anterior debe conservar su omisión.
+3. **Equipo:** invitar agente y administrador; confirmar que crear y aceptar invitaciones no bloquea por cupos; probar asignaciones e intentar desde cada rol acciones que no le corresponden, tanto en el panel como directamente contra la API. En un espacio de demostración con más de 50 integrantes e invitaciones pendientes, comprobar los totales, cargar las páginas siguientes y verificar que el dueño conserva los controles aunque no aparezca en la primera página. En las visitas de equipo, buscar por nombre y correo a un integrante posterior a la primera página, asignarle una visita y confirmar que se muestre su nombre. En una cuenta de prueba, iniciar Google Calendar o Mercado Pago OAuth y retirar al integrante antes del retorno; confirmar que la API rechace guardar credenciales en un espacio al que ya no pertenece.
+4. **Suscripción:** revisar catálogo, plan activo, uso y orden de pago por espacio. Cambiar de espacio y comprobar que el plan y la cancelación no afectan al otro. Para SimpleSerenatas, comprobar por separado el plan proveedor y músico, con la misma cuenta activa. Cambiar entre ambos perfiles, recargar y volver a iniciar sesión; comprobar que el perfil elegido se mantiene o se resuelve de forma predecible, y que fechas de prueba, comisión, contratación y cancelación solo afectan al perfil seleccionado. Vencer la prueba de un perfil mientras el otro sigue disponible: confirmar que el selector permanece accesible, que el perfil no vencido sigue funcionando y que la ruta `mi-cuenta?account_tab=subscription` permite contratar o revisar el plan vencido. Incluir cancelación tardía y confirmar que órdenes no queden visibles a administradores del equipo. Repetir una cancelación después de que otra instancia la haya procesado y confirmar que se limpia solo la caché del perfil y del cobro que coinciden. En otros productos, confirmar que un aviso tardío de cancelación de una orden anterior tampoco reemplaza el plan activo del espacio. Probar además que la activación tardía de un checkout anterior no reemplaza uno posterior y que dos confirmaciones simultáneas no crean dos suscripciones. Para cuentas `admin` y `superadmin` en plan Gratis, confirmar que el plan, su etiqueta y el cupo de boosts reflejan la suscripción real, nunca el rol. Confirmar además que el rol global no habilite publicaciones, boosts, estadísticas, mensajes ni integraciones de un espacio al que la persona no pertenece; en esas rutas se valida membresía y entitlement. Con flags de lanzamiento desactivados, comprobar que el rol global no desbloquea funciones comerciales; con flags activos, registrar el acceso como efecto del lanzamiento. Verificar por separado que los permisos internos de SimpleAdmin sigan disponibles.
+5. **CRM y agenda:** seguir una consulta desde su origen, actualizar etapa, registrar próximo paso y coordinar una visita. Si el contacto no tiene publicación asociada, abrir “Agendar” desde su ficha y confirmar que propone una reunión con ese contacto, sin seleccionar otra publicación del espacio. Al cambiar el tipo a reunión comercial, confirmar que la propiedad queda vacía salvo que se seleccione expresamente como relacionada; la hora inicial debe mantener al menos una hora de margen para completar el formulario. En móvil, usar “Agendar” para abrir el formulario de visita, cerrarlo y volver a abrirlo desde la misma página; confirmar que la acción responde cada vez y que el registro queda en el espacio activo. Confirmar el historial y los recordatorios del responsable correcto. En dos perfiles profesionales de Agenda, intentar asociar a una cita o cobro el cliente, servicio o cita del otro perfil; la API debe rechazarlo. Borrar un bono de un perfil no debe cambiar citas del otro.
+6. **Salida del equipo:** retirar un agente o administrador de un espacio con datos activos. Confirmar que la información de la empresa se conserva, las asignaciones se liberan y la persona conserva su cuenta personal.
+
+## Registro de resultados
+
+Por cada tarea, registrar:
+
+- segmento y rol con que se realizó;
+- si la completó sin ayuda y dónde se detuvo;
+- tiempo hasta la primera acción útil;
+- palabras o controles que generaron confusión;
+- herramientas actuales, fricción para convivir con ellas y requisitos mínimos de integración/importación;
+- uso previsto junto con el sistema actual o como reemplazo; registrar por separado si una función resuelve duplicación de trabajo;
+- cartera, proyectos/unidades y tamaño de equipo; gasto aproximado solo si la persona decide compartirlo;
+- valor y rango de precio declarado, separado de una intención real de contratación;
+- si mencionó alcance del portal, registrar esa expectativa como hipótesis; no contar datos de prueba ni leads sintéticos como actividad real;
+- resultado de permisos, datos visibles y facturación;
+- evidencia mínima: ruta, hora, mensaje de error o captura sin datos sensibles;
+- severidad, responsable y decisión de corregir o aceptar.
+
+Indicadores a comparar entre segmentos: finalización de configuración inicial, tiempo hasta primera publicación, primera consulta respondida, uso de Contactos, invitaciones aceptadas, primera visita coordinada y contratación/cancelación correcta. Primero se observa una línea base; no se fijan metas numéricas sin acuerdo comercial.
+
+## Criterios de salida
+
+**Detener la ampliación del piloto** si ocurre cualquiera de estos casos:
+
+- un integrante ve datos de otra cuenta o una cartera que no le corresponde;
+- un agente administra equipo, facturación, integraciones o publicaciones ajenas;
+- un plan, cobro o cancelación afecta a un espacio distinto del seleccionado;
+- se pierden datos compartidos al retirar a una persona;
+- una visita expone detalles de una cita privada o queda asignada a la persona incorrecta.
+
+Se puede ampliar cuando todas las tareas críticas de los segmentos participantes se completan, no quedan fallos de acceso o facturación, y los problemas de comprensión que bloquean el trabajo tienen una solución verificada. Las cuentas de empresa permanecen sin tope de integrantes por ahora; precios y otras capacidades comerciales requieren aprobación aparte.
+
+## Migración y reversión
+
+Antes de cualquier migración de producción, conservar una copia recuperable de la base, comparar suscripciones y órdenes por cuenta, confirmar asignaciones y tener una ruta de reversión compatible con las migraciones aplicadas. Comunicar cambios de plan antes de activarlos. El piloto no autoriza por sí mismo una migración masiva ni un cambio de precio.
+
+Para adjuntos privados, crear y comprobar primero un bucket R2 privado distinto al bucket público. En producción, revisar la auditoría de alcance y ejecutar `db:migrate:private-media` (dry-run por defecto). El migrador consulta primero la base: si no hay referencias pendientes, termina sin requerir acceso a R2; si las encuentra, exige las credenciales y valida ambos buckets, la URL pública y cada objeto fuente antes de ofrecer la migración. Solo aplicar después de validar que todas las referencias y objetos fuente son compatibles y verificables. El modo `--apply` exige `NODE_ENV=production` y recibe `DATABASE_URL` y credenciales R2 desde el entorno seguro; no carga `.env` ni `.env.local`. Mantener los objetos originales hasta comprobar el acceso privado y descartar que se compartan con otros usos.

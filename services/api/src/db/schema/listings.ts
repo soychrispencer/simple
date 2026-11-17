@@ -35,12 +35,18 @@ export const savedListings = pgTable('saved_listings', {
 export const listingDrafts = pgTable('listing_drafts', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id).notNull(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
   vertical: varchar('vertical', { length: 20 }).notNull(),
   draftData: jsonb('draft_data').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserVerticalDraft: uniqueIndex('listing_drafts_user_vertical_idx').on(table.userId, table.vertical),
+  uniqueAccountUserVerticalDraft: uniqueIndex('listing_drafts_account_user_vertical_idx')
+    .on(table.userId, table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL`),
+  uniqueLegacyUserVerticalDraft: uniqueIndex('listing_drafts_user_vertical_legacy_idx')
+    .on(table.userId, table.vertical)
+    .where(sql`${table.accountId} IS NULL`),
 }));
 
 // Follows table

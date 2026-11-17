@@ -25,7 +25,7 @@ export type MessageThreadRecord = {
 export type MessageEntryRecord = {
     id: string;
     threadId: string;
-    senderUserId: string;
+    senderUserId: string | null;
     senderRole: MessageSenderRole;
     body: string;
     createdAt: number;
@@ -57,7 +57,7 @@ export function mapMessageEntryRow(entry: typeof messageEntries.$inferSelect): M
     return {
         id: entry.id,
         threadId: entry.threadId,
-        senderUserId: entry.senderUserId,
+        senderUserId: entry.senderUserId ?? null,
         senderRole: entry.senderRole as MessageSenderRole,
         body: entry.body,
         createdAt: entry.createdAt.getTime(),

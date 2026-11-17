@@ -87,6 +87,7 @@ export function SerenatasPanelSectionPage({ section }: { section: Section }) {
         user,
         accountUser,
         mode,
+        activeRole,
         profiles,
         ownerFeaturesEnabled: ownerFeatures,
         changeSection,
@@ -141,6 +142,7 @@ export function SerenatasPanelSectionPage({ section }: { section: Section }) {
             <PanelContent
                 section={section}
                 mode={mode}
+                activeRole={activeRole}
                 ownerFeaturesEnabled={ownerFeatures}
                 profiles={profiles}
                 accountSuspended={isSuspended}

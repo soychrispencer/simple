@@ -5,7 +5,7 @@ export type MarketplaceRequestBlock =
     | { allowed: false; reason: string };
 
 export function resolveMarketplaceRequestBlock(
-    profiles: Profiles | null | undefined,
+    _profiles: Profiles | null | undefined,
     options?: {
         isLoggedIn?: boolean;
         profilesReady?: boolean;
@@ -23,24 +23,6 @@ export function resolveMarketplaceRequestBlock(
 
     if (options?.profilesReady === false) {
         return { allowed: false, reason: 'Verificando tu cuenta…' };
-    }
-
-    if (!profiles) {
-        return { allowed: true };
-    }
-
-    if (profiles.owner) {
-        return {
-            allowed: false,
-            reason: 'Las cuentas de dueño no pueden contratar por el marketplace. Registra serenatas propias en Agenda.',
-        };
-    }
-
-    if (profiles.musician) {
-        return {
-            allowed: false,
-            reason: 'Las cuentas de músico no pueden contratar por el marketplace.',
-        };
     }
 
     const userId = options?.userId?.trim();

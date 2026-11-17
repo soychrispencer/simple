@@ -1,14 +1,14 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { SubscriptionPlanId, AppUser, VerticalType } from '../../lib/domain-types.js';
-import { publicProfiles, serenataClients, serenataMusicians, serenataOwners } from '../../db/schema.js';
+import { accountUsers, accounts, publicProfiles, serenataClients, serenataMusicians, serenataOwners } from '../../db/schema.js';
 import { formatAuthFromAddress, getAuthMailerTransporter } from '../../lib/auth-email.js';
 import { getEmailBrandProfileForVertical, type EmailBrandProfile, type EmailBrandVertical } from '../../lib/email-brand.js';
 import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
 import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from '../../lib/email-template.js';
-import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
+import { getPersonalAccountIdForUserFromDb, persistManualAdminSubscription } from '../subscriptions/persist-db.js';
 import { cancelAgendaProSubscription } from '../agenda/cancel-subscription.js';
-import { downgradeAgendaProfileAccess } from '../agenda/plan-limits.js';
+import { downgradeAgendaProfileAccessById } from '../agenda/plan-limits.js';
 import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import {
     captureManualResponse,
@@ -21,6 +21,7 @@ export type AdminRouterDeps = {
     db: any;
     eq: any;
     and: any;
+    isNull: any;
     or?: any;
     desc: any;
     asc?: any;
@@ -43,6 +44,7 @@ export type AdminRouterDeps = {
     getPaidSubscriptionPlan: (vertical: any, planId: any) => any;
     makeSubscriptionId: (vertical: any, planId: any) => string;
     upsertActiveSubscription: (sub: any) => void;
+    cancelActiveSubscriptionForUser?: (userId: string, vertical: VerticalType, accountId?: string | null, billingProfileType?: 'provider' | 'musician') => void;
     activeSubscriptionsByUser: Map<string, any[]>;
     isAdminBootstrapEnabled: () => boolean;
     handleBootstrap: (c: any) => Promise<Response>;
@@ -154,6 +156,25 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         } catch (error) {
             console.error('[admin audit] error creating log', error);
         }
+    };
+
+    const resolveSubscriptionAccount = async (userId: string, requestedAccountId?: string | null) => {
+        const targetUser = await deps.getUserById(userId);
+        if (!targetUser) return { ok: false as const, error: 'Usuario no encontrado', status: 404 as const };
+        if (requestedAccountId) {
+            const memberships = await deps.db.select({ id: accountUsers.id })
+                .from(accountUsers)
+                .where(deps.and(
+                    deps.eq(accountUsers.accountId, requestedAccountId),
+                    deps.eq(accountUsers.userId, userId),
+                ))
+                .limit(1);
+            if (!memberships.length) return { ok: false as const, error: 'El usuario no pertenece a ese espacio de trabajo', status: 403 as const };
+            const accountRows = await deps.db.select().from(accounts).where(deps.eq(accounts.id, requestedAccountId)).limit(1);
+            if (!accountRows[0]) return { ok: false as const, error: 'Espacio de trabajo no encontrado', status: 404 as const };
+            return { ok: true as const, account: accountRows[0] };
+        }
+        return { ok: true as const, account: await deps.ensurePrimaryAccountForUser(targetUser) };
     };
 
     // ── Bootstrap ────────────────────────────────────────────────────────────
@@ -278,6 +299,15 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         } catch (error) {
             console.error('[admin] permanentlyDeleteUser failed', { userId, error });
             const detail = error instanceof Error ? error.message : String(error);
+            if (/transfiere la propiedad del espacio empresarial/i.test(detail)) {
+                return c.json(
+                    {
+                        ok: false,
+                        error: 'Este usuario es titular de un espacio de trabajo compartido. Transfiere primero su propiedad desde el panel de equipo.',
+                    },
+                    409,
+                );
+            }
             const isFkViolation = /foreign key|violates foreign key|23503/i.test(detail);
             return c.json(
                 {
@@ -339,22 +369,53 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 return c.json({ ok: false, error: 'Solo superadmin puede editar suscripciones' }, 403);
             }
 
-            const payload = await c.req.json().catch(() => null) as { subscriptions?: Record<string, unknown> } | null;
+            const payload = await c.req.json().catch(() => null) as { accountId?: string | null; subscriptions?: Record<string, unknown> } | null;
             const userId = c.req.param('id') ?? '';
+            if (payload?.accountId !== undefined && payload.accountId !== null && (typeof payload.accountId !== 'string' || !payload.accountId.trim())) {
+                return c.json({ ok: false, error: 'El espacio de trabajo no es válido' }, 400);
+            }
 
             const targetUser = await deps.getUserById(userId);
             if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
-            const targetAccount = await deps.ensurePrimaryAccountForUser(targetUser);
+            const requestedAccountId = payload?.accountId?.trim() || null;
+            let targetAccount: any;
+            if (requestedAccountId) {
+                const memberships = await deps.db.select({ id: accountUsers.id })
+                    .from(accountUsers)
+                    .where(deps.and(
+                        deps.eq(accountUsers.accountId, requestedAccountId),
+                        deps.eq(accountUsers.userId, userId),
+                    ))
+                    .limit(1);
+                if (!memberships.length) return c.json({ ok: false, error: 'El usuario no pertenece a ese espacio de trabajo' }, 403);
+                const accountRows = await deps.db.select().from(accounts).where(deps.eq(accounts.id, requestedAccountId)).limit(1);
+                if (!accountRows[0]) return c.json({ ok: false, error: 'Espacio de trabajo no encontrado' }, 404);
+                targetAccount = accountRows[0];
+            } else {
+                targetAccount = await deps.ensurePrimaryAccountForUser(targetUser);
+            }
 
             const subData = payload?.subscriptions ?? {};
             const results: Record<string, unknown> = {};
 
             if (subData.agenda) {
                 const agendaPayload = subData.agenda as { plan?: string; expiresAt?: string | null };
-                const profile = await deps.db.select()
+                let profile = await deps.db.select()
                     .from(deps.tables.agendaProfessionalProfiles)
-                    .where(deps.eq(deps.tables.agendaProfessionalProfiles.userId, userId))
+                    .where(deps.and(
+                        deps.eq(deps.tables.agendaProfessionalProfiles.userId, userId),
+                        deps.eq(deps.tables.agendaProfessionalProfiles.accountId, targetAccount.id),
+                    ))
                     .limit(1);
+                if (profile.length === 0 && targetAccount.isPersonal) {
+                    profile = await deps.db.select()
+                        .from(deps.tables.agendaProfessionalProfiles)
+                        .where(deps.and(
+                            deps.eq(deps.tables.agendaProfessionalProfiles.userId, userId),
+                            deps.isNull(deps.tables.agendaProfessionalProfiles.accountId),
+                        ))
+                        .limit(1);
+                }
 
                 const plan: 'free' | 'pro' | 'pro_plus' = agendaPayload.plan === 'pro_plus'
                     ? 'pro_plus'
@@ -369,11 +430,11 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
                 if (profile.length > 0) {
                     if (plan === 'free') {
-                        const cancelled = await cancelAgendaProSubscription(userId);
+                        const cancelled = await cancelAgendaProSubscription(userId, targetAccount.id, targetAccount.isPersonal);
                         if (cancelled.ok) {
                             results.agenda = { plan, status: 'free', message: cancelled.message };
                         } else if (cancelled.status === 400) {
-                            await downgradeAgendaProfileAccess(userId);
+                            await downgradeAgendaProfileAccessById(profile[0].id);
                             results.agenda = { plan: 'free', expiresAt: null };
                         } else {
                             return c.json({ ok: false, error: cancelled.error }, cancelled.status as 400 | 404 | 502);
@@ -397,7 +458,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 } else if (isPaidAgendaPlan) {
                     const slug = `${targetUser.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
                     await deps.db.insert(deps.tables.agendaProfessionalProfiles).values({
-                        accountId: await deps.getPrimaryAccountIdForUser(userId),
+                        accountId: targetAccount.id,
                         userId,
                         slug,
                         displayName: targetUser.name,
@@ -420,7 +481,9 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
             const billingVerticals = ['autos', 'propiedades', 'serenatas'] as const;
             for (const vertical of billingVerticals) {
-                const raw = subData[vertical] as {
+                const raw = (vertical === 'serenatas'
+                    ? subData.serenatasProvider ?? subData.serenatas
+                    : subData[vertical]) as {
                     planId?: string;
                     status?: 'active' | 'cancelled' | 'expired';
                     expiresAt?: string | null;
@@ -439,22 +502,57 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 const status = raw.status ?? (planSlug === 'free' ? 'cancelled' : 'active');
                 const expiresAt = raw.expiresAt ? new Date(raw.expiresAt) : null;
 
-                results[vertical] = await persistManualAdminSubscription({
+                const persisted = await persistManualAdminSubscription({
                     userId,
                     accountId: targetAccount.id,
                     vertical,
+                    ...(vertical === 'serenatas' ? { billingProfileType: 'provider' as const } : {}),
                     planSlug,
                     status,
                     expiresAt,
                 });
+                results[vertical] = persisted;
+
+                if (vertical === 'serenatas') {
+                    if (persisted.status === 'active' && persisted.planSlug !== 'free') {
+                        const plan = deps.getPaidSubscriptionPlan('serenatas', persisted.planSlug);
+                        const personalAccountId = await getPersonalAccountIdForUserFromDb(userId);
+                        if (plan && personalAccountId) {
+                            deps.upsertActiveSubscription({
+                                id: deps.makeSubscriptionId('serenatas' as never, plan.id),
+                                accountId: personalAccountId,
+                                userId,
+                                vertical: 'serenatas',
+                                billingProfileType: 'provider',
+                                planId: plan.id,
+                                planName: plan.name,
+                                priceMonthly: plan.priceMonthly,
+                                billingCycle: 'monthly',
+                                currency: 'CLP',
+                                features: plan.features,
+                                status: 'active',
+                                providerPreapprovalId: `admin-manual-${adminUser.id}-${Date.now()}`,
+                                providerStatus: 'manual',
+                                startedAt: Date.now(),
+                                updatedAt: Date.now(),
+                            });
+                        }
+                    } else {
+                        deps.cancelActiveSubscriptionForUser?.(userId, 'serenatas' as never, undefined, 'provider');
+                    }
+                }
 
                 if (vertical === 'serenatas' && raw.trialEndsAt !== undefined) {
-                    const trialEndsAt = raw.trialEndsAt ? new Date(raw.trialEndsAt) : null;
-                    const owners = await deps.db.select({ id: serenataOwners.id })
+                    const requestedTrialEndsAt = raw.trialEndsAt ? new Date(raw.trialEndsAt) : null;
+                    if (requestedTrialEndsAt && Number.isNaN(requestedTrialEndsAt.getTime())) {
+                        return c.json({ ok: false, error: 'La fecha de prueba del perfil proveedor no es válida.' }, 400);
+                    }
+                    const owners = await deps.db.select({ id: serenataOwners.id, createdAt: serenataOwners.createdAt })
                         .from(serenataOwners)
                         .where(deps.eq(serenataOwners.userId, userId))
                         .limit(1);
                     if (owners[0]) {
+                        const trialEndsAt = requestedTrialEndsAt ?? defaultSerenataTrialEndsAt(owners[0].createdAt);
                         await deps.db.update(serenataOwners)
                             .set({ trialEndsAt, updatedAt: new Date() })
                             .where(deps.eq(serenataOwners.id, owners[0].id));
@@ -469,12 +567,89 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 }
             }
 
+            const musicianBilling = subData.serenatasMusician as {
+                planId?: string;
+                status?: 'active' | 'cancelled' | 'expired';
+                expiresAt?: string | null;
+                trialEndsAt?: string | null;
+            } | undefined;
+            if (musicianBilling) {
+                const planSlug = (musicianBilling.planId ?? 'free') as SubscriptionPlanId;
+                if (!['free', 'pro'].includes(planSlug)) {
+                    return c.json({ ok: false, error: 'Plan inválido para el perfil músico de Serenatas' }, 400);
+                }
+                const expiresAt = musicianBilling.expiresAt ? new Date(musicianBilling.expiresAt) : null;
+                const trialEndsAt = musicianBilling.trialEndsAt ? new Date(musicianBilling.trialEndsAt) : null;
+                if ((expiresAt && Number.isNaN(expiresAt.getTime())) || (trialEndsAt && Number.isNaN(trialEndsAt.getTime()))) {
+                    return c.json({ ok: false, error: 'La fecha de facturación del perfil músico no es válida.' }, 400);
+                }
+                const status = musicianBilling.status ?? (planSlug === 'free' ? 'cancelled' : 'active');
+                const persisted = await persistManualAdminSubscription({
+                    userId,
+                    accountId: targetAccount.id,
+                    vertical: 'serenatas',
+                    billingProfileType: 'musician',
+                    planSlug,
+                    status,
+                    expiresAt,
+                });
+                results.serenatasMusician = persisted;
+
+                if (persisted.status === 'active' && persisted.planSlug !== 'free') {
+                    const plan = deps.getPaidSubscriptionPlan('serenatas', persisted.planSlug);
+                    const personalAccountId = await getPersonalAccountIdForUserFromDb(userId);
+                    if (plan && personalAccountId) {
+                        deps.upsertActiveSubscription({
+                            id: deps.makeSubscriptionId('serenatas' as never, plan.id),
+                            accountId: personalAccountId,
+                            userId,
+                            vertical: 'serenatas',
+                            billingProfileType: 'musician',
+                            planId: plan.id,
+                            planName: plan.name,
+                            priceMonthly: plan.priceMonthly,
+                            billingCycle: 'monthly',
+                            currency: 'CLP',
+                            features: plan.features,
+                            status: 'active',
+                            providerPreapprovalId: `admin-manual-${adminUser.id}-${Date.now()}`,
+                            providerStatus: 'manual',
+                            startedAt: Date.now(),
+                            updatedAt: Date.now(),
+                        });
+                    }
+                } else {
+                    deps.cancelActiveSubscriptionForUser?.(userId, 'serenatas' as never, undefined, 'musician');
+                }
+
+                if (musicianBilling.trialEndsAt !== undefined) {
+                    const musicianProfiles = await deps.db.select({ id: serenataMusicians.id, createdAt: serenataMusicians.createdAt })
+                        .from(serenataMusicians)
+                        .where(deps.eq(serenataMusicians.userId, userId))
+                        .limit(1);
+                    if (musicianProfiles[0]) {
+                        const effectiveTrialEndsAt = trialEndsAt ?? defaultSerenataTrialEndsAt(musicianProfiles[0].createdAt);
+                        await deps.db.update(serenataMusicians)
+                            .set({ trialEndsAt: effectiveTrialEndsAt, updatedAt: new Date() })
+                            .where(deps.eq(serenataMusicians.id, musicianProfiles[0].id));
+                        results.serenatasMusicianTrialEndsAt = effectiveTrialEndsAt.toISOString();
+                    } else {
+                        results.serenatasMusicianTrialEndsAt = { skipped: 'Usuario sin perfil músico Serenatas' };
+                    }
+                }
+            }
+
             await createAdminAudit({
                 actorUserId: adminUser.id,
                 action: 'user.subscriptions.update',
                 entityType: 'user',
                 entityId: userId,
-                payload: { subscriptions: subData, results },
+                payload: {
+                    accountId: targetAccount.id,
+                    serenatasBillingOwner: subData.serenatasProvider || subData.serenatas ? 'provider_user' : undefined,
+                    subscriptions: subData,
+                    results,
+                },
             });
 
             return c.json({ ok: true, results });
@@ -494,7 +669,6 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         const payload = await c.req.json().catch(() => null) as {
             profileType?: string;
-            removeClientProfile?: boolean;
             note?: string;
         } | null;
         const profileType = payload?.profileType;
@@ -528,11 +702,6 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 });
                 result.client = 'created';
             }
-            // Remove musician and owner profiles when switching to client-only
-            await deps.db.delete(serenataMusicians).where(deps.eq(serenataMusicians.userId, userId));
-            await deps.db.delete(serenataOwners).where(deps.eq(serenataOwners.userId, userId));
-            result.musicianRemoved = true;
-            result.ownerRemoved = true;
         }
 
         if (profileType === 'musician') {
@@ -557,11 +726,6 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 });
                 result.musician = 'created';
             }
-            // Remove client and owner profiles when switching to musician-only
-            await deps.db.delete(serenataClients).where(deps.eq(serenataClients.userId, userId));
-            await deps.db.delete(serenataOwners).where(deps.eq(serenataOwners.userId, userId));
-            result.clientRemoved = true;
-            result.ownerRemoved = true;
         }
 
         if (profileType === 'owner') {
@@ -603,11 +767,6 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 });
                 result.owner = 'created';
             }
-            // Remove client and musician profiles when switching to owner-only
-            await deps.db.delete(serenataClients).where(deps.eq(serenataClients.userId, userId));
-            await deps.db.delete(serenataMusicians).where(deps.eq(serenataMusicians.userId, userId));
-            result.clientRemoved = true;
-            result.musicianRemoved = true;
         }
 
         await createAdminAudit({
@@ -839,28 +998,48 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin' }, 403);
 
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-        const { userId, vertical, planId, expiresAt } = body as { userId?: string; vertical?: string; planId?: string; expiresAt?: string | null };
+        const { userId, vertical, planId, expiresAt, accountId: requestedAccountId } = body as { userId?: string; vertical?: string; planId?: string; expiresAt?: string | null; accountId?: string | null };
 
         if (!userId || !vertical || !planId) return c.json({ ok: false, error: 'userId, vertical y planId son requeridos' }, 400);
+        if (requestedAccountId !== undefined && requestedAccountId !== null && (typeof requestedAccountId !== 'string' || !requestedAccountId.trim())) {
+            return c.json({ ok: false, error: 'El espacio de trabajo no es válido' }, 400);
+        }
         const v = deps.parseVertical(vertical);
         if (!['autos', 'propiedades'].includes(v)) return c.json({ ok: false, error: 'Vertical debe ser autos o propiedades' }, 400);
 
+        const accountResult = await resolveSubscriptionAccount(userId, typeof requestedAccountId === 'string' ? requestedAccountId.trim() : null);
+        if (!accountResult.ok) return c.json({ ok: false, error: accountResult.error }, accountResult.status);
+        const accountId = accountResult.account.id;
+        const parsedExpiry = expiresAt ? new Date(expiresAt) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        if (Number.isNaN(parsedExpiry.getTime())) return c.json({ ok: false, error: 'La fecha de expiración no es válida.' }, 400);
+
         if (planId === 'free') {
-            const current = deps.activeSubscriptionsByUser.get(userId) ?? [];
-            const updated = current.map((item: any) => {
-                if (item.vertical !== v || item.status !== 'active') return item;
-                return { ...item, status: 'cancelled' as const, updatedAt: Date.now() };
+            await persistManualAdminSubscription({
+                userId,
+                accountId,
+                vertical: v,
+                planSlug: 'free',
+                status: 'cancelled',
+                expiresAt: parsedExpiry,
             });
-            deps.activeSubscriptionsByUser.set(userId, updated);
+            deps.cancelActiveSubscriptionForUser?.(userId, v, accountId);
             return c.json({ ok: true, planId: 'free' });
         }
 
         const plan = deps.getPaidSubscriptionPlan(v, planId);
         if (!plan) return c.json({ ok: false, error: 'Plan no encontrado' }, 400);
 
-        const expiry = expiresAt ? new Date(expiresAt).getTime() : Date.now() + 365 * 24 * 60 * 60 * 1000;
+        await persistManualAdminSubscription({
+            userId,
+            accountId,
+            vertical: v,
+            planSlug: plan.id,
+            status: 'active',
+            expiresAt: parsedExpiry,
+        });
         const sub = {
             id: deps.makeSubscriptionId(v, planId),
+            accountId,
             userId,
             vertical: v,
             planId,
@@ -875,7 +1054,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             updatedAt: Date.now(),
         };
         deps.upsertActiveSubscription(sub);
-        return c.json({ ok: true, planId, expiresAt: new Date(expiry).toISOString() });
+        return c.json({ ok: true, planId, expiresAt: parsedExpiry.toISOString() });
     });
 
     app.delete('/subscriptions/cancel-plan', async (c) => {
@@ -883,16 +1062,23 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
         if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin' }, 403);
 
-        const body = await c.req.json().catch(() => ({})) as { userId?: string; vertical?: string };
+        const body = await c.req.json().catch(() => ({})) as { userId?: string; vertical?: string; accountId?: string | null };
         if (!body.userId || !body.vertical) return c.json({ ok: false, error: 'userId y vertical son requeridos' }, 400);
+        if (body.accountId !== undefined && body.accountId !== null && (typeof body.accountId !== 'string' || !body.accountId.trim())) {
+            return c.json({ ok: false, error: 'El espacio de trabajo no es válido' }, 400);
+        }
         const v = deps.parseVertical(body.vertical);
-
-        const current = deps.activeSubscriptionsByUser.get(body.userId) ?? [];
-        const updated = current.map((item: any) => {
-            if (item.vertical !== v || item.status !== 'active') return item;
-            return { ...item, status: 'cancelled' as const, updatedAt: Date.now() };
+        const accountResult = await resolveSubscriptionAccount(body.userId, typeof body.accountId === 'string' ? body.accountId.trim() : null);
+        if (!accountResult.ok) return c.json({ ok: false, error: accountResult.error }, accountResult.status);
+        const accountId = accountResult.account.id;
+        await persistManualAdminSubscription({
+            userId: body.userId,
+            accountId,
+            vertical: v,
+            planSlug: 'free',
+            status: 'cancelled',
         });
-        deps.activeSubscriptionsByUser.set(body.userId, updated);
+        deps.cancelActiveSubscriptionForUser?.(body.userId, v, accountId);
         return c.json({ ok: true });
     });
 
@@ -955,16 +1141,33 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         if (!profiles[0]) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
         const targetUser = await deps.getUserById(profiles[0].userId);
         if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
-        const account = await deps.ensurePrimaryAccountForUser(targetUser);
+        let profileAccountId = profiles[0].accountId as string | null;
+        if (!profileAccountId) {
+            const [personalAccount] = await deps.db.select({ id: accounts.id })
+                .from(accounts)
+                .where(deps.and(
+                    deps.eq(accounts.ownerUserId, targetUser.id),
+                    deps.eq(accounts.isPersonal, true),
+                ))
+                .limit(1);
+            profileAccountId = personalAccount?.id ?? null;
+            if (!profileAccountId) {
+                return c.json({ ok: false, error: 'No encontramos la cuenta personal asociada a este perfil antiguo.' }, 409);
+            }
+        }
         const expiry = agendaPlan === 'pro' && expiresAt ? new Date(expiresAt) : null;
         if (expiry && Number.isNaN(expiry.getTime())) return c.json({ ok: false, error: 'La fecha de expiración no es válida.' }, 400);
         let result: Record<string, unknown>;
         if (agendaPlan === 'free') {
-            const cancelled = await cancelAgendaProSubscription(targetUser.id);
+            const [billingAccount] = await deps.db.select({ isPersonal: accounts.isPersonal })
+                .from(accounts)
+                .where(deps.eq(accounts.id, profileAccountId))
+                .limit(1);
+            const cancelled = await cancelAgendaProSubscription(targetUser.id, profileAccountId, Boolean(billingAccount?.isPersonal));
             if (cancelled.ok) {
                 result = { plan: 'free', status: 'free', message: cancelled.message };
             } else if (cancelled.status === 400) {
-                await downgradeAgendaProfileAccess(targetUser.id);
+                await downgradeAgendaProfileAccessById(profileId);
                 result = { plan: 'free', status: 'free' };
             } else {
                 return c.json({ ok: false, error: cancelled.error }, cancelled.status as 400 | 404 | 502);
@@ -977,7 +1180,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         } else {
             result = await persistManualAdminSubscription({
                 userId: targetUser.id,
-                accountId: account.id,
+                accountId: profileAccountId,
                 vertical: 'agenda',
                 planSlug: 'pro',
                 status: 'active',
@@ -1007,12 +1210,30 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         if (!profile[0]) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
         const targetUser = await deps.getUserById(profile[0].userId);
         if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
-        const cancelled = await cancelAgendaProSubscription(targetUser.id);
+        let accountId = profile[0].accountId as string | null;
+        if (!accountId) {
+            const [personalAccount] = await deps.db.select({ id: accounts.id })
+                .from(accounts)
+                .where(deps.and(
+                    deps.eq(accounts.ownerUserId, targetUser.id),
+                    deps.eq(accounts.isPersonal, true),
+                ))
+                .limit(1);
+            accountId = personalAccount?.id ?? null;
+            if (!accountId) {
+                return c.json({ ok: false, error: 'No encontramos la cuenta personal asociada a este perfil antiguo.' }, 409);
+            }
+        }
+        const [billingAccount] = await deps.db.select({ isPersonal: accounts.isPersonal })
+            .from(accounts)
+            .where(deps.eq(accounts.id, accountId))
+            .limit(1);
+        const cancelled = await cancelAgendaProSubscription(targetUser.id, accountId, Boolean(billingAccount?.isPersonal));
         let result: Record<string, unknown>;
         if (cancelled.ok) {
             result = { plan: 'free', status: 'free', message: cancelled.message };
         } else if (cancelled.status === 400) {
-            await downgradeAgendaProfileAccess(targetUser.id);
+            await downgradeAgendaProfileAccessById(profile[0].id);
             result = { plan: 'free', status: 'free' };
         } else {
             return c.json({ ok: false, error: cancelled.error }, cancelled.status as 400 | 404 | 502);

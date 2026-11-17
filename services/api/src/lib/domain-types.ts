@@ -212,6 +212,7 @@ export type FollowRecord = {
 
 export type FeedClip = {
     id: string;
+    accountId?: string | null;
     vertical: VerticalType;
     section: 'ventas' | 'arriendos' | 'subastas' | 'proyectos';
     href: string;
@@ -317,6 +318,7 @@ export type CheckoutKind = 'boost' | 'advertising' | 'subscription' | 'serenata_
 export type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
 export type SubscriptionPlanId = 'free' | 'pro' | 'pro_plus' | 'enterprise';
 export type ActiveSubscriptionStatus = 'active' | 'cancelled' | 'paused';
+export type SerenataBillingProfileType = 'provider' | 'musician';
 export type InstagramAccountStatus = 'connected' | 'error' | 'disconnected';
 export type InstagramPublicationStatus = 'published' | 'failed';
 export type InstagramPublicationContentType = 'image' | 'carousel' | 'reel';
@@ -330,7 +332,6 @@ export type SubscriptionPlanRecord = {
     priceMonthly: number;
     currency: 'CLP';
     maxListings: number;
-    maxFeaturedListings: number;
     maxImagesPerListing: number;
     analyticsEnabled: boolean;
     prioritySupport: boolean;
@@ -355,6 +356,7 @@ export type ActiveSubscription = {
     accountId?: string | null;
     userId: string;
     vertical: VerticalType;
+    billingProfileType?: SerenataBillingProfileType | null;
     planId: Exclude<SubscriptionPlanId, 'free'>;
     billingCycle?: 'monthly' | 'annual';
     planName: string;
@@ -388,6 +390,7 @@ export type PaymentOrderMetadata =
         planId: Exclude<SubscriptionPlanId, 'free'>;
         planName: string;
         billingCycle?: 'monthly' | 'annual';
+        billingProfileType?: SerenataBillingProfileType;
     }
     | {
         kind: 'serenata_booking';
@@ -651,7 +654,7 @@ export type MessageThreadRecord = {
 export type MessageEntryRecord = {
     id: string;
     threadId: string;
-    senderUserId: string;
+    senderUserId: string | null;
     senderRole: MessageSenderRole;
     body: string;
     createdAt: number;

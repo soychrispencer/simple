@@ -12,13 +12,11 @@ import { resolveAccountAvatarUrl } from '@simple/utils';
 import { BrandLogo } from '@simple/ui/brand';
 import { PanelButton } from '@simple/ui/panel';
 
-export type MarketplacePanelRole = 'user' | 'admin' | 'superadmin';
-
 export type MarketplacePanelNavItem = {
   href: string;
   label: string;
   icon: ComponentType<{ size?: number; stroke?: number }>;
-  visibility?: 'all' | 'admin_plus';
+  visibility?: 'all' | 'admin_plus' | 'professional_plus';
   badge?: string;
   section?: string;
 };
@@ -109,7 +107,7 @@ export type MarketplaceHeaderProps = {
   publicLinks: MarketplacePublicLink[];
   /** Ancho mínimo de la navegación completa cuando la página necesita más espacio. */
   desktopNavigationAt?: 'md' | 'lg' | 'xl';
-  getPanelNavItems: (role: MarketplacePanelRole) => MarketplacePanelNavItem[];
+  getPanelNavItems: () => MarketplacePanelNavItem[];
   isPanelNavActive: (pathname: string, href: string) => boolean;
   fetchPanelNotifications: () => Promise<PanelNotification[]>;
   /** Cache de favoritos al cambiar sesión (opcional). */
@@ -266,8 +264,7 @@ export function MarketplaceHeader({
     }
   };
 
-  const role: MarketplacePanelRole = user?.role ?? 'user';
-  const panelItems = useMemo(() => getPanelNavItems(role), [getPanelNavItems, role]);
+  const panelItems = useMemo(() => getPanelNavItems(), [getPanelNavItems]);
   const userName = user?.name?.trim() || 'Usuario';
   const userAvatar = user?.avatar ?? null;
   const unreadNotifications = notifications.length;

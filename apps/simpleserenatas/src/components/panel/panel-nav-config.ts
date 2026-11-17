@@ -21,7 +21,12 @@ import {
 } from '@tabler/icons-react';
 import { serenatasApi, type Profiles } from '@/lib/serenatas-api';
 import { CLIENT_MARKETPLACE_HREF, isClientMarketplaceHref } from '@/lib/client-marketplace';
-import { type AppMode, ownerFeaturesEnabled } from '@/lib/app-mode';
+import {
+    type AppMode,
+    type SerenataRole,
+    ownerFeaturesEnabled,
+    resolveActiveSerenataRole,
+} from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { panelSectionHref, sectionFromPanelPath } from '@/lib/panel-routes';
 import { type MarketplacePanelNavItem, type PanelNotification } from '@simple/marketplace-header';
@@ -47,8 +52,9 @@ export function getPrimaryActionConfig(
     mode: AppMode,
     profiles: Profiles,
     pathname?: string,
+    activeRole?: SerenataRole,
 ): PrimaryActionConfig {
-    if (ownerFeaturesEnabled(profiles)) {
+    if ((activeRole ?? resolveActiveSerenataRole(profiles)) === 'owner' && ownerFeaturesEnabled(profiles)) {
         return {
             label: 'Agenda',
             href: panelSectionHref('agenda'),
@@ -70,7 +76,12 @@ export function getPrimaryActionConfig(
     return { label: 'Ver invitaciones', href: panelSectionHref('invitations'), icon: IconUsersGroup, show: true };
 }
 
-export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
+export function getPanelNavItems(
+    mode: AppMode,
+    profiles: Profiles,
+    activeRole?: SerenataRole,
+): PanelNavItem[] {
+    const role = activeRole ?? resolveActiveSerenataRole(profiles);
     const items: PanelNavItem[] = [
         {
             id: 'home',
@@ -80,7 +91,7 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
         },
     ];
 
-    if (mode === 'client') {
+    if (mode === 'client' || role === 'client') {
         items.push({ id: 'mariachis', href: CLIENT_MARKETPLACE_HREF, label: 'Explorar', icon: IconUsersGroup });
         items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis serenatas', icon: IconMusic });
         items.push({ id: 'mensajes', href: panelSectionHref('mensajes'), label: 'Mensajes', icon: IconMessageCircle });
@@ -89,7 +100,7 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
         return items;
     }
 
-    const isOwner = ownerFeaturesEnabled(profiles);
+    const isOwner = role === 'owner' && ownerFeaturesEnabled(profiles);
 
     if (isOwner) {
         items.push({ id: 'solicitudes', href: panelSectionHref('solicitudes'), label: 'Solicitudes', icon: IconBell });
@@ -118,30 +129,43 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
  * Tabs visibles en bottom nav móvil (5 ítems: acción principal + Mi cuenta al final).
  * El resto del panel queda en el menú lateral / hamburguesa del header.
  */
-export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
-    if (mode === 'client') {
-        return getPanelNavItems(mode, profiles).filter((t) =>
+export function getMobileBottomNavItems(
+    mode: AppMode,
+    profiles: Profiles,
+    activeRole?: SerenataRole,
+): PanelNavItem[] {
+    const role = activeRole ?? resolveActiveSerenataRole(profiles);
+    if (mode === 'client' || role === 'client') {
+        return getPanelNavItems(mode, profiles, role).filter((t) =>
             ['home', 'mariachis', 'serenatas', 'profile', 'mensajes'].includes(t.id),
         );
     }
-    if (ownerFeaturesEnabled(profiles)) {
-        return getPanelNavItems(mode, profiles).filter((t) =>
+    if (role === 'owner' && ownerFeaturesEnabled(profiles)) {
+        return getPanelNavItems(mode, profiles, role).filter((t) =>
             ['home', 'solicitudes', 'mensajes', 'agenda', 'profile'].includes(t.id),
         );
     }
-    return getPanelNavItems(mode, profiles).filter((t) =>
+    return getPanelNavItems(mode, profiles, role).filter((t) =>
         ['home', 'invitations', 'agenda', 'serenatas', 'profile'].includes(t.id),
     );
 }
 
 /** @deprecated El footer ya no usa «Más»; secciones extra vía drawer del header. */
-export function getMobileOverflowNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
-    const bottomIds = new Set(getMobileBottomNavItems(mode, profiles).map((t) => t.id));
-    return getPanelNavItems(mode, profiles).filter((t) => !bottomIds.has(t.id));
+export function getMobileOverflowNavItems(
+    mode: AppMode,
+    profiles: Profiles,
+    activeRole?: SerenataRole,
+): PanelNavItem[] {
+    const bottomIds = new Set(getMobileBottomNavItems(mode, profiles, activeRole).map((t) => t.id));
+    return getPanelNavItems(mode, profiles, activeRole).filter((t) => !bottomIds.has(t.id));
 }
 
-export function getMarketplaceNavItems(mode: AppMode, profiles: Profiles): MarketplacePanelNavItem[] {
-    return getPanelNavItems(mode, profiles).map((item) => ({
+export function getMarketplaceNavItems(
+    mode: AppMode,
+    profiles: Profiles,
+    activeRole?: SerenataRole,
+): MarketplacePanelNavItem[] {
+    return getPanelNavItems(mode, profiles, activeRole).map((item) => ({
         href: item.href,
         label: item.label,
         icon: item.icon,
@@ -210,9 +234,10 @@ export async function markAllPanelNotificationsRead(): Promise<void> {
 }
 
 /** Etiqueta del tipo de cuenta en sidebar y cabecera del panel. */
-export function panelAccountTypeLabel(profiles: Profiles): string {
-    if (profiles.owner) return OWNER_ROLE_LABEL;
-    if (profiles.musician) return 'Músico';
-    if (profiles.client) return 'Cliente';
+export function panelAccountTypeLabel(profiles: Profiles, activeRole?: SerenataRole): string {
+    const role = activeRole ?? resolveActiveSerenataRole(profiles);
+    if (role === 'owner' && profiles.owner) return OWNER_ROLE_LABEL;
+    if (role === 'musician' && profiles.musician) return 'Músico';
+    if (role === 'client' && profiles.client) return 'Cliente';
     return 'Usuario';
 }

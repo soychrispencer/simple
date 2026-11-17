@@ -4,13 +4,13 @@ import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSerenata } from '@/context/serenata-context';
 import { legacyQueryToPanelPath } from '@/lib/panel-routes';
-import { isAccountTab } from '@/lib/account-tab';
+import { isAccountTab, storeAccountTab } from '@/lib/account-tab';
 
 /** En `/`, redirige `?section=` legacy a rutas `/panel/*` o catálogo. */
 export function LegacySectionRedirect() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { mode, ownerFeaturesEnabled, authLoading, isLoggedIn } = useSerenata();
+    const { mode, ownerFeaturesEnabled, authLoading, isLoggedIn, user, activeRole } = useSerenata();
 
     useEffect(() => {
         const section = searchParams.get('section');
@@ -23,10 +23,10 @@ export function LegacySectionRedirect() {
         if (!target) return;
 
         const tab = searchParams.get('account_tab');
-        if (isAccountTab(tab)) localStorage.setItem('account_tab', tab);
+        if (isAccountTab(tab)) storeAccountTab(tab, user?.id, activeRole);
 
         router.replace(target, { scroll: false });
-    }, [authLoading, isLoggedIn, mode, ownerFeaturesEnabled, router, searchParams]);
+    }, [activeRole, authLoading, isLoggedIn, mode, ownerFeaturesEnabled, router, searchParams, user?.id]);
 
     return null;
 }

@@ -21,8 +21,16 @@ import { loadPaymentOrdersCache } from '../payments/load-payment-orders-cache.js
 import { loadActiveSubscriptionsCache } from '../subscriptions/load-subscriptions-cache.js';
 import { mapBoostOrderRow } from '../boost/persist.js';
 import { makeGeoPoint, type GeoPoint } from '../listings/location.js';
+import { integrationWorkspaceKey } from '../integrations/oauth-cookie.js';
 
 type AnyRecord = any;
+
+function setLatestIntegrationMapping(map: Map<string, AnyRecord>, key: string, record: AnyRecord): void {
+    const current = map.get(key);
+    if (!current || Number(record.updatedAt ?? 0) >= Number(current.updatedAt ?? 0)) {
+        map.set(key, record);
+    }
+}
 
 export type StartupCacheMaps = {
     usersById: Map<string, AnyRecord>;
@@ -34,6 +42,7 @@ export type StartupCacheMaps = {
     boostOrdersByUser: Map<string, AnyRecord[]>;
     listingsById: Map<string, AnyRecord>;
     addressBookByUser: Map<string, AnyRecord[]>;
+    addressBookByAccount: Map<string, AnyRecord[]>;
     paymentOrdersByUser: Map<string, AnyRecord[]>;
     instagramAccountByUserVertical: Map<string, AnyRecord>;
     tiktokAccountByUserVertical: Map<string, AnyRecord>;
@@ -41,8 +50,10 @@ export type StartupCacheMaps = {
     instagramPublicationsByUser: Map<string, AnyRecord[]>;
     socialPublicationsByUser: Map<string, AnyRecord[]>;
     publicProfilesByUserVertical: Map<string, AnyRecord>;
+    publicProfilesByAccountVertical: Map<string, AnyRecord>;
     publicProfilesByVerticalSlug: Map<string, AnyRecord>;
     activeSubscriptionsByUser: Map<string, AnyRecord[]>;
+    activeSubscriptionsByAccount: Map<string, AnyRecord[]>;
 };
 
 export type StartupLoadDeps = {
@@ -112,6 +123,7 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
 
         const publicProfileResults = await db.select().from(publicProfiles);
         maps.publicProfilesByUserVertical.clear();
+        maps.publicProfilesByAccountVertical.clear();
         maps.publicProfilesByVerticalSlug.clear();
         for (const profile of publicProfileResults) {
             upsertPublicProfileCache(mapPublicProfileRow(profile));
@@ -183,30 +195,33 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
         const instagramAccountResults = await db.select().from(instagramAccounts);
         for (const account of instagramAccountResults) {
             const mapped = mapInstagramAccountRow(account);
-            maps.instagramAccountByUserVertical.set(
-                instagramAccountKey(mapped.userId, mapped.vertical),
-                mapped,
-            );
+            if (mapped.accountId) {
+                setLatestIntegrationMapping(maps.instagramAccountByUserVertical, integrationWorkspaceKey(mapped.accountId, mapped.vertical), mapped);
+            } else {
+                setLatestIntegrationMapping(maps.instagramAccountByUserVertical, instagramAccountKey(mapped.userId, mapped.vertical), mapped);
+            }
         }
         logger.info('Loaded Instagram accounts', { count: instagramAccountResults.length });
 
         const tiktokAccountResults = await db.select().from(tiktokAccounts);
         for (const account of tiktokAccountResults) {
             const mapped = mapTikTokAccountRow(account);
-            maps.tiktokAccountByUserVertical.set(
-                instagramAccountKey(mapped.userId, mapped.vertical),
-                mapped,
-            );
+            if (mapped.accountId) {
+                setLatestIntegrationMapping(maps.tiktokAccountByUserVertical, integrationWorkspaceKey(mapped.accountId, mapped.vertical), mapped);
+            } else {
+                setLatestIntegrationMapping(maps.tiktokAccountByUserVertical, instagramAccountKey(mapped.userId, mapped.vertical), mapped);
+            }
         }
         logger.info('Loaded TikTok accounts', { count: tiktokAccountResults.length });
 
         const youtubeAccountResults = await db.select().from(youtubeAccounts);
         for (const account of youtubeAccountResults) {
             const mapped = mapYouTubeAccountRow(account);
-            maps.youtubeAccountByUserVertical.set(
-                instagramAccountKey(mapped.userId, mapped.vertical),
-                mapped,
-            );
+            if (mapped.accountId) {
+                setLatestIntegrationMapping(maps.youtubeAccountByUserVertical, integrationWorkspaceKey(mapped.accountId, mapped.vertical), mapped);
+            } else {
+                setLatestIntegrationMapping(maps.youtubeAccountByUserVertical, instagramAccountKey(mapped.userId, mapped.vertical), mapped);
+            }
         }
         logger.info('Loaded YouTube accounts', { count: youtubeAccountResults.length });
 
@@ -238,9 +253,10 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
 
         const addressBookResults = await db.select().from(addressBook);
         const addressBookByUserMap = new Map<string, AnyRecord[]>();
+        const addressBookByAccountMap = new Map<string, AnyRecord[]>();
         for (const entry of addressBookResults) {
             const current = addressBookByUserMap.get(entry.userId) ?? [];
-            current.push({
+            const mapped = {
                 id: entry.id,
                 kind: entry.kind,
                 scope: entry.scope || 'personal',
@@ -261,11 +277,29 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
                 geoPoint: (entry.geoPoint as GeoPoint) || makeGeoPoint(null, null, 'none'),
                 createdAt: entry.createdAt.getTime(),
                 updatedAt: entry.updatedAt.getTime(),
-            });
+            };
+            current.push(mapped);
             addressBookByUserMap.set(entry.userId, current);
+
+            const legacyPersonalAccountId = !entry.accountId && entry.scope === 'business'
+                ? [...maps.accountsById.values()].find((account: any) =>
+                    account.isPersonal && account.ownerUserId === entry.userId,
+                )?.id ?? null
+                : null;
+            const businessAccountId = entry.accountId ?? legacyPersonalAccountId;
+            if (businessAccountId && entry.scope === 'business') {
+                const accountEntries = addressBookByAccountMap.get(businessAccountId) ?? [];
+                accountEntries.push(mapped);
+                addressBookByAccountMap.set(businessAccountId, accountEntries);
+            }
         }
+        maps.addressBookByUser.clear();
         for (const [userId, list] of addressBookByUserMap) {
             maps.addressBookByUser.set(userId, list);
+        }
+        maps.addressBookByAccount.clear();
+        for (const [accountId, list] of addressBookByAccountMap) {
+            maps.addressBookByAccount.set(accountId, list);
         }
         logger.info('Loaded address book entries', { count: addressBookResults.length });
 
@@ -289,6 +323,7 @@ export function createStartupDataLoader(deps: StartupLoadDeps) {
 
         const subscriptionsCache = await loadActiveSubscriptionsCache();
         maps.activeSubscriptionsByUser.clear();
+        maps.activeSubscriptionsByAccount.clear();
         let subscriptionCount = 0;
         for (const subs of subscriptionsCache.values()) {
             for (const sub of subs) {

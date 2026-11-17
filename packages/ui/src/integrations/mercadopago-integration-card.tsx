@@ -101,6 +101,12 @@ export function MercadoPagoIntegrationCard({
                 <PanelNotice tone="warning">No pudimos cargar el estado de MercadoPago.</PanelNotice>
             ) : !status.configured ? (
                 <PanelNotice tone="warning">MercadoPago aún no está disponible.</PanelNotice>
+            ) : !status.canManageIntegration ? (
+                <PanelNotice tone="neutral">
+                    {connected
+                        ? 'MercadoPago está conectado para este espacio. Solo dueños y administradores pueden cambiar esta conexión.'
+                        : 'Solo dueños y administradores pueden conectar MercadoPago para este espacio.'}
+                </PanelNotice>
             ) : missingTarget ? (
                 <PanelNotice tone="warning">
                     Completa tu perfil de negocio antes de conectar MercadoPago.

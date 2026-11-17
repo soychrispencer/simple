@@ -29,7 +29,9 @@ export const instagramAccounts = pgTable('instagram_accounts', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserVertical: uniqueIndex('instagram_accounts_user_vertical_idx').on(table.userId, table.vertical),
+  accountVertical: uniqueIndex('instagram_accounts_account_vertical_idx')
+    .on(table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL`),
 }));
 
 export const socialPublications = pgTable('social_publications', {
@@ -73,7 +75,9 @@ export const tiktokAccounts = pgTable('tiktok_accounts', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserVertical: uniqueIndex('tiktok_accounts_user_vertical_idx').on(table.userId, table.vertical),
+  accountVertical: uniqueIndex('tiktok_accounts_account_vertical_idx')
+    .on(table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL`),
 }));
 
 export const youtubeAccounts = pgTable('youtube_accounts', {
@@ -96,7 +100,9 @@ export const youtubeAccounts = pgTable('youtube_accounts', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserVertical: uniqueIndex('youtube_accounts_user_vertical_idx').on(table.userId, table.vertical),
+  accountVertical: uniqueIndex('youtube_accounts_account_vertical_idx')
+    .on(table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL`),
 }));
 
 export const instagramPublications = pgTable('instagram_publications', {

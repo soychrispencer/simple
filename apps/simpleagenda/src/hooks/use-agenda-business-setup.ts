@@ -11,6 +11,7 @@ import { fetchAgendaBusinessSetupStatus } from '@/lib/business-setup';
 export function useAgendaBusinessSetup(enabled = true) {
     const [steps, setSteps] = useState<BusinessSetupStep[]>([]);
     const [billing, setBilling] = useState<PanelBillingAccess | null>(null);
+    const [propertyVisitsEnabled, setPropertyVisitsEnabled] = useState(false);
     const [isPublished, setIsPublished] = useState(false);
     const [publicUrl, setPublicUrl] = useState<string | null>(null);
     const [displayName, setDisplayName] = useState<string | null>(null);
@@ -23,12 +24,13 @@ export function useAgendaBusinessSetup(enabled = true) {
             const status = await fetchAgendaBusinessSetupStatus();
             setSteps(status.steps);
             setBilling(status.billing);
+            setPropertyVisitsEnabled(status.propertyVisitsEnabled);
             setIsPublished(status.isPublished);
             setPublicUrl(status.publicUrl);
             setDisplayName(status.displayName);
             setError(null);
-        } catch {
-            setError('No pudimos comprobar tu configuración. Intenta nuevamente.');
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'No pudimos comprobar tu configuración. Intenta nuevamente.');
         } finally {
             setLoading(false);
         }
@@ -62,6 +64,7 @@ export function useAgendaBusinessSetup(enabled = true) {
     return {
         steps,
         billing,
+        propertyVisitsEnabled,
         loading,
         error,
         isPublished,

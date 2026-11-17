@@ -42,6 +42,18 @@ export type AdminUserSubscriptions = {
     autos?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
     propiedades?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
     serenatas?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
+    serenatasProvider?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
+    serenatasMusician?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
+};
+
+export type AdminAccountSnapshot = {
+    id: string;
+    name: string;
+    type: string;
+    isPersonal: boolean;
+    role: string;
+    isDefault: boolean;
+    subscriptions?: AdminUserSubscriptions;
 };
 
 export type AdminAgendaSubscription = {
@@ -82,6 +94,7 @@ export type AdminUserSnapshot = {
     verticalSignals: AdminVerticalSignal[];
     platformAccesses: AdminPlatformAccess[];
     primaryPlatform: AdminPlatformAccess | null;
+    accounts: AdminAccountSnapshot[];
     realness: {
         label: string;
         score: number;
@@ -95,6 +108,7 @@ export type AdminUserSnapshot = {
         instrument: string | null;
         ownerStatus: string | null;
         trialEndsAt: string | null;
+        musicianTrialEndsAt: string | null;
     };
 };
 
@@ -156,6 +170,7 @@ export async function fetchAdminUsers(input: {
         ...user,
         platformAccesses: user.platformAccesses ?? [],
         primaryPlatform: user.primaryPlatform ?? null,
+        accounts: user.accounts ?? [],
     }));
     return {
         items,
@@ -186,10 +201,10 @@ export async function updateAdminUser(userId: string, input: {
     });
 }
 
-export async function updateAdminUserSubscriptions(userId: string, subscriptions: Record<string, unknown>): Promise<void> {
+export async function updateAdminUserSubscriptions(userId: string, accountId: string | null, subscriptions: Record<string, unknown>): Promise<void> {
     await expectOk(`/api/admin/users/${encodeURIComponent(userId)}/subscriptions`, {
         method: 'PATCH',
-        body: JSON.stringify({ subscriptions }),
+        body: JSON.stringify({ accountId, subscriptions }),
     });
 }
 

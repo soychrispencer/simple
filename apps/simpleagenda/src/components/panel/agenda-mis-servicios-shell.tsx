@@ -2,6 +2,7 @@
 
 import type { ComponentProps, ReactNode } from 'react';
 import {
+    AGENDA_BUSINESS_TABS,
     PanelMiNegocioLoading,
     PanelMiNegocioShell,
 } from '@simple/ui/panel';
@@ -12,13 +13,13 @@ type ShellProps = Omit<ComponentProps<typeof PanelMiNegocioShell>, 'publishToggl
     headerActions?: ReactNode;
 };
 
-/** Inbox de administración del catálogo (fuera de Mi negocio). */
+/** Mantiene el catálogo dentro del espacio de trabajo Mi negocio. */
 export function AgendaMisServiciosShell({ activeKey = 'servicios', ...props }: ShellProps) {
     return (
         <PanelMiNegocioShell
             {...props}
             activeKey={activeKey}
-            tabs={[]}
+            tabs={AGENDA_BUSINESS_TABS}
             publishToggle={<AgendaBusinessPublishToggle />}
         />
     );
@@ -33,7 +34,7 @@ export function AgendaMisServiciosLoading({ activeKey = 'servicios', ...props }:
         <PanelMiNegocioLoading
             {...props}
             activeKey={activeKey}
-            tabs={[]}
+            tabs={AGENDA_BUSINESS_TABS}
             publishToggle={<AgendaBusinessPublishToggle />}
         />
     );

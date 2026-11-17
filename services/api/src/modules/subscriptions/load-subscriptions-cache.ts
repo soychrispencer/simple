@@ -1,4 +1,4 @@
-import { and, eq, or, isNull, gt } from 'drizzle-orm';
+import { and, asc, eq, or, isNull, gt } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { subscriptions, subscriptionPlans } from '../../db/schema.js';
 import type { ActiveSubscription, SubscriptionPlanId, VerticalType } from '../../lib/domain-types.js';
@@ -19,6 +19,7 @@ export async function loadActiveSubscriptionsCache(): Promise<Map<string, Active
             accountId: subscriptions.accountId,
             userId: subscriptions.userId,
             vertical: subscriptions.vertical,
+            billingProfileType: subscriptions.billingProfileType,
             status: subscriptions.status,
             providerSubscriptionId: subscriptions.providerSubscriptionId,
             providerStatus: subscriptions.providerStatus,
@@ -39,7 +40,8 @@ export async function loadActiveSubscriptionsCache(): Promise<Map<string, Active
                 eq(subscriptions.status, 'active'),
                 or(isNull(subscriptions.expiresAt), gt(subscriptions.expiresAt, now)),
             ),
-        );
+        )
+        .orderBy(asc(subscriptions.updatedAt));
 
     const byUser = new Map<string, ActiveSubscription[]>();
 
@@ -51,6 +53,9 @@ export async function loadActiveSubscriptionsCache(): Promise<Map<string, Active
             accountId: row.accountId ?? null,
             userId: row.userId,
             vertical: row.vertical as VerticalType,
+            billingProfileType: row.billingProfileType === 'provider' || row.billingProfileType === 'musician'
+                ? row.billingProfileType
+                : null,
             planId: row.planId,
             billingCycle: row.billingCycle === 'annual' ? 'annual' : 'monthly',
             planName: row.planName,
@@ -65,8 +70,7 @@ export async function loadActiveSubscriptionsCache(): Promise<Map<string, Active
         };
 
         const current = byUser.get(row.userId) ?? [];
-        const withoutVertical = current.filter((item) => item.vertical !== subscription.vertical);
-        byUser.set(row.userId, [subscription, ...withoutVertical]);
+        byUser.set(row.userId, [subscription, ...current]);
     }
 
     return byUser;

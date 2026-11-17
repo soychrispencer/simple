@@ -119,6 +119,7 @@ export function PanelChoiceCard(props: PanelChoiceCardProps) {
             type={type}
             onClick={onClick}
             disabled={disabled}
+            aria-pressed={selected}
             className={joinClasses(
                 'rounded-card border p-4 text-left transition-[border-color,background,opacity,transform,box-shadow] duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0',
                 className,

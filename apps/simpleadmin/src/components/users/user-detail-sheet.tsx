@@ -35,14 +35,6 @@ export function UserDetailSheet({
     onDelete: () => void;
     onSerenatasProfile: (profile: SerenatasProfile) => void;
 }) {
-    const currentSerenatasProfile: SerenatasProfile | null = user.serenatas?.owner
-        ? 'owner'
-        : user.serenatas?.musician
-            ? 'musician'
-            : user.serenatas?.client
-                ? 'client'
-                : null;
-
     return (
         <PanelScrollModal
             title={user.name}
@@ -99,6 +91,9 @@ export function UserDetailSheet({
                 </Section>
 
                 <Section title="Suscripciones" action={capabilities.manageSubscriptions ? <button type="button" onClick={onSubscriptions} className="text-xs font-medium text-[var(--fg)]">Editar</button> : null}>
+                    {user.accounts.find((account) => account.isDefault) ? (
+                        <p className="mb-2 text-xs text-[var(--fg-muted)]">Espacio principal: {user.accounts.find((account) => account.isDefault)?.name}</p>
+                    ) : null}
                     <div className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
                         {(['agenda', 'autos', 'propiedades', 'serenatas'] as const).map((vertical) => (
                             <div key={vertical} className="flex items-center justify-between gap-3 py-2.5">
@@ -112,22 +107,28 @@ export function UserDetailSheet({
                 {capabilities.manageSerenatas ? (
                     <Section title="Perfil SimpleSerenatas">
                         <div className="grid grid-cols-3 gap-2">
-                            {SERENATAS_PROFILE_OPTIONS.map((option) => (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => onSerenatasProfile(option.value)}
-                                    className="h-9 border text-sm font-medium transition-colors"
-                                    style={{
-                                        borderColor: currentSerenatasProfile === option.value ? 'var(--fg)' : 'var(--border)',
-                                        background: currentSerenatasProfile === option.value ? 'var(--fg)' : 'var(--surface)',
-                                        color: currentSerenatasProfile === option.value ? 'var(--bg)' : 'var(--fg)',
-                                    }}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
+                            {SERENATAS_PROFILE_OPTIONS.map((option) => {
+                                const active = Boolean(user.serenatas?.[option.value]);
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        disabled={active}
+                                        onClick={() => onSerenatasProfile(option.value)}
+                                        className="flex min-h-11 flex-col items-center justify-center border px-2 py-1 text-sm font-medium transition-colors disabled:cursor-default"
+                                        style={{
+                                            borderColor: active ? 'var(--success)' : 'var(--border)',
+                                            background: active ? 'var(--bg-subtle)' : 'var(--surface)',
+                                            color: 'var(--fg)',
+                                        }}
+                                    >
+                                        <span>{option.label}</span>
+                                        <span className="text-[11px] font-normal" style={{ color: 'var(--fg-muted)' }}>{active ? 'Activo' : 'Agregar'}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
+                        <p className="mt-2 text-xs text-[var(--fg-muted)]">Los perfiles pueden convivir en una cuenta. Agregar uno conserva los demás.</p>
                     </Section>
                 ) : null}
             </div>

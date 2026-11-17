@@ -6,16 +6,42 @@ export function isTrialBillingVertical(vertical: VerticalType): boolean {
     return TRIAL_BILLING_VERTICALS.has(vertical);
 }
 
-export function filterCatalogPlans(vertical: VerticalType, plans: SubscriptionPlanRecord[]): SubscriptionPlanRecord[] {
-    if (!isTrialBillingVertical(vertical)) return plans;
-    const visiblePlanIds = vertical === 'agenda'
-        ? new Set(['free', 'pro', 'pro_plus'])
-        : new Set(['free', 'pro']);
-    return plans.filter((plan) => visiblePlanIds.has(plan.id));
+export type MarketplaceAccountKind = 'individual' | 'independent' | 'company';
+
+/** Free is available to every segment; paid plans follow the active account segment. */
+export function isMarketplacePlanAvailableForAccount(
+    accountKind: MarketplaceAccountKind | undefined,
+    planId: string,
+): boolean {
+    if (planId === 'free') return true;
+    if (accountKind === 'individual') return false;
+    if (accountKind === 'independent' && planId === 'enterprise') return false;
+    return true;
 }
 
-export function catalogPaidPlans(vertical: VerticalType, plans: SubscriptionPlanRecord[]): SubscriptionPlanRecord[] {
-    return filterCatalogPlans(vertical, plans).filter((plan) => plan.id !== 'free');
+export function filterCatalogPlans(
+    vertical: VerticalType,
+    plans: SubscriptionPlanRecord[],
+    accountKind?: MarketplaceAccountKind,
+): SubscriptionPlanRecord[] {
+    if (vertical === 'autos' || vertical === 'propiedades') {
+        return plans.filter((plan) => isMarketplacePlanAvailableForAccount(accountKind, plan.id));
+    }
+    if (isTrialBillingVertical(vertical)) {
+        const visiblePlanIds = vertical === 'agenda'
+            ? new Set(['free', 'pro', 'pro_plus'])
+            : new Set(['free', 'pro']);
+        return plans.filter((plan) => visiblePlanIds.has(plan.id));
+    }
+    return plans;
+}
+
+export function catalogPaidPlans(
+    vertical: VerticalType,
+    plans: SubscriptionPlanRecord[],
+    accountKind?: MarketplaceAccountKind,
+): SubscriptionPlanRecord[] {
+    return filterCatalogPlans(vertical, plans, accountKind).filter((plan) => plan.id !== 'free');
 }
 
 export function normalizeCatalogSubscription(

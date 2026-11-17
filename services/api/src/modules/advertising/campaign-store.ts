@@ -1,4 +1,4 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, isNull, or } from 'drizzle-orm';
 import type { adCampaigns } from '../../db/schema.js';
 import {
     isAdPlacementSectionAllowed,
@@ -82,12 +82,30 @@ export function adCampaignToResponse(record: AdCampaignRecord) {
 export function createAdCampaignStore(db: any, adCampaignsTable: typeof adCampaigns) {
     async function listAdCampaignRecords(options: {
         userId?: string;
+        accountId?: string;
+        includeLegacyPersonalForUserId?: string;
         vertical?: VerticalType;
         paymentStatus?: AdPaymentStatus;
         onlyPublicActive?: boolean;
     } = {}): Promise<AdCampaignRecord[]> {
         const conditions: any[] = [];
-        if (options.userId) conditions.push(eq(adCampaignsTable.userId, options.userId));
+        if (options.accountId) {
+            const accountScope = eq(adCampaignsTable.accountId, options.accountId);
+            conditions.push(options.includeLegacyPersonalForUserId
+                ? or(
+                    accountScope,
+                    and(
+                        eq(adCampaignsTable.userId, options.includeLegacyPersonalForUserId),
+                        isNull(adCampaignsTable.accountId),
+                    ),
+                )
+                : accountScope);
+        } else if (options.userId) {
+            conditions.push(and(
+                eq(adCampaignsTable.userId, options.userId),
+                isNull(adCampaignsTable.accountId),
+            ));
+        }
         if (options.vertical) conditions.push(eq(adCampaignsTable.vertical, options.vertical));
         if (options.paymentStatus) conditions.push(eq(adCampaignsTable.paymentStatus, options.paymentStatus));
 
@@ -111,11 +129,24 @@ export function createAdCampaignStore(db: any, adCampaignsTable: typeof adCampai
         return normalizeAdCampaigns([mapAdCampaignRow(rows[0])])[0] ?? null;
     }
 
-    async function getAdCampaignRecordForUser(userId: string, id: string): Promise<AdCampaignRecord | null> {
+    async function getAdCampaignRecordForUser(
+        userId: string,
+        id: string,
+        accountId?: string | null,
+        includeLegacyPersonal = false,
+    ): Promise<AdCampaignRecord | null> {
+        const ownership = accountId
+            ? includeLegacyPersonal
+                ? or(
+                    eq(adCampaignsTable.accountId, accountId),
+                    and(eq(adCampaignsTable.userId, userId), isNull(adCampaignsTable.accountId)),
+                )
+                : eq(adCampaignsTable.accountId, accountId)
+            : and(eq(adCampaignsTable.userId, userId), isNull(adCampaignsTable.accountId));
         const rows = await db
             .select()
             .from(adCampaignsTable)
-            .where(and(eq(adCampaignsTable.id, id), eq(adCampaignsTable.userId, userId)))
+            .where(and(eq(adCampaignsTable.id, id), ownership))
             .limit(1);
         if (rows.length === 0) return null;
         return normalizeAdCampaigns([mapAdCampaignRow(rows[0])])[0] ?? null;

@@ -4,6 +4,7 @@ import { IconCheck, IconClock, IconMapPin, IconX } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelStatusBadge } from '@simple/ui/panel';
 import type { Invitation, Profiles } from '@/lib/serenatas-api';
+import type { SerenataRole } from '@/lib/app-mode';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { EmptyBlock, toInputDate } from './shared';
 import { useSerenataPanelFormat } from '@/hooks/use-serenata-panel-format';
@@ -31,10 +32,12 @@ function invitationEventDate(item: Invitation) {
 
 export function InvitationsView({
     profiles,
+    activeRole,
     invitations,
     refresh,
 }: {
     profiles: Profiles;
+    activeRole: SerenataRole;
     invitations: Invitation[];
     refresh: () => Promise<void>;
 }) {
@@ -48,7 +51,7 @@ export function InvitationsView({
 
     return (
         <div className="grid gap-4">
-            <ProfileIncompleteNotice mode="work" profiles={profiles} />
+            <ProfileIncompleteNotice mode="work" profiles={profiles} activeRole={activeRole} />
             {pending.length > 0 ? (
                 <PanelCard>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -51,7 +51,16 @@ export function PanelMarketplacePublicLinkPanel({
         saveSlug: async (slug) => {
             const response = await fetchAccountPublicProfile(vertical);
             if (!response?.ok) return { ok: false, error: 'No pudimos cargar tu perfil.' };
-            const { id: _id, userId: _userId, vertical: _vertical, publicUrl: _publicUrl, ...payload } = response.profile;
+            const {
+                id: _id,
+                userId: _userId,
+                vertical: _vertical,
+                publicUrl: _publicUrl,
+                accountKind: _accountKind,
+                operatorSubtype: _operatorSubtype,
+                operatorSubtypeCustom: _operatorSubtypeCustom,
+                ...payload
+            } = response.profile;
             const saved = await updateAccountPublicProfile(vertical, { ...payload, slug });
             if (!saved.ok) {
                 return { ok: false, error: saved.error ?? 'No se pudo guardar.' };

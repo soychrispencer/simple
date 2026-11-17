@@ -4,10 +4,12 @@ import { OperatorSiteReveal, type OperatorSiteRevealVariant } from './operator-s
 
 export function OperatorSiteAboutSection({
     bio,
+    title = 'Conoce mi enfoque',
     variant = 'standard',
     revealVariant = 'fade-up',
 }: {
     bio: string;
+    title?: string;
     variant?: 'standard' | 'editorial';
     revealVariant?: OperatorSiteRevealVariant;
 }) {
@@ -18,6 +20,7 @@ export function OperatorSiteAboutSection({
                     <div className="os-section__inner">
                         <div className="os-about-editorial">
                             <p className="os-about-editorial__label">Sobre mí</p>
+                            <h2 className="os-section__title">{title}</h2>
                             <blockquote className="os-about-editorial__quote">{bio}</blockquote>
                         </div>
                     </div>
@@ -31,7 +34,7 @@ export function OperatorSiteAboutSection({
             <section id="sobre-mi" className="os-section">
                 <div className="os-section__inner">
                     <p className="os-section__label">Sobre mí</p>
-                    <h2 className="os-section__title">Conoce mi enfoque</h2>
+                    <h2 className="os-section__title">{title}</h2>
                     <div className="os-glass os-about">{bio}</div>
                 </div>
             </section>

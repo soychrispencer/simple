@@ -19,6 +19,7 @@ export type TikTokIntegrationStatus = {
     eligible: boolean;
     currentPlanId: string;
     account: TikTokIntegrationAccount | null;
+    canManageIntegration?: boolean;
 };
 
 export type TikTokIntegrationCardProps = {
@@ -88,6 +89,7 @@ export function TikTokIntegrationCard({
 
     const account = status?.account ?? null;
     const connected = Boolean(account && account.status !== 'disconnected');
+    const canManage = status?.canManageIntegration !== false;
 
     return (
         <PanelCard size="lg">
@@ -104,6 +106,13 @@ export function TikTokIntegrationCard({
                     connected={false}
                     locked
                     lockedHint={`Tu plan actual es ${status.currentPlanId}. Disponible en Pro y Empresa.`}
+                    canManagePlan={canManage}
+                    readOnly={!canManage}
+                    readOnlyHint={!canManage && status.eligible
+                        ? connected
+                            ? 'La conexión del espacio está lista para publicar. Solo dueños o administradores pueden cambiarla.'
+                            : 'Pide a quien administra este espacio que conecte sus redes.'
+                        : undefined}
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}
                 />
@@ -116,6 +125,12 @@ export function TikTokIntegrationCard({
                         ? formatConnectedAccountLabel(`@${account.username}`, account.displayName)
                         : undefined}
                     busy={disconnecting}
+                    readOnly={!canManage}
+                    readOnlyHint={!canManage
+                        ? connected
+                            ? 'La conexión del espacio está lista para publicar. Solo dueños o administradores pueden cambiarla.'
+                            : 'Pide a quien administra este espacio que conecte sus redes.'
+                        : undefined}
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}
                 />

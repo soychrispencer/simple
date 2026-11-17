@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import { AuthModal, AuthProvider } from '@simple/auth';
 import { NavigationProvider } from '@simple/ui/navigation';
 import { LogoutHomeRedirect } from '@/components/logout-home-redirect';
-import { SignupProfileBootstrap } from '@/components/signup-profile-bootstrap';
 import { GroupInviteBootstrap } from '@/components/group-invite-bootstrap';
 import { SerenataRequestModalProvider } from '@/components/serenata-request/serenata-request-modal-context';
 import { SerenataRequestModal } from '@/components/serenata-request/serenata-request-modal';
@@ -16,7 +15,6 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
             <NavigationProvider>
                 <SerenataRequestModalProvider>
                     <LogoutHomeRedirect />
-                    <SignupProfileBootstrap />
                     <Suspense fallback={null}>
                         <GroupInviteBootstrap />
                         <SerenataRequestDeepLink />

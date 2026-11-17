@@ -104,31 +104,32 @@ export type MessageServiceDeps = {
 export function getMessageThreadViewerRole(
     thread: MessageThreadRecord,
     viewerUserId: string,
+    sellerOverride = false,
 ): 'seller' | 'buyer' {
-    return viewerUserId === thread.ownerUserId ? 'seller' : 'buyer';
+    return viewerUserId === thread.ownerUserId || sellerOverride ? 'seller' : 'buyer';
 }
 
-export function getMessageThreadUnreadCount(thread: MessageThreadRecord, viewerUserId: string): number {
-    return getMessageThreadViewerRole(thread, viewerUserId) === 'seller'
+export function getMessageThreadUnreadCount(thread: MessageThreadRecord, viewerUserId: string, sellerOverride = false): number {
+    return getMessageThreadViewerRole(thread, viewerUserId, sellerOverride) === 'seller'
         ? thread.ownerUnreadCount
         : thread.buyerUnreadCount;
 }
 
-function isMessageThreadArchived(thread: MessageThreadRecord, viewerUserId: string): boolean {
-    return getMessageThreadViewerRole(thread, viewerUserId) === 'seller'
+function isMessageThreadArchived(thread: MessageThreadRecord, viewerUserId: string, sellerOverride = false): boolean {
+    return getMessageThreadViewerRole(thread, viewerUserId, sellerOverride) === 'seller'
         ? thread.ownerArchivedAt != null
         : thread.buyerArchivedAt != null;
 }
 
-function isMessageThreadSpam(thread: MessageThreadRecord, viewerUserId: string): boolean {
-    return getMessageThreadViewerRole(thread, viewerUserId) === 'seller'
+function isMessageThreadSpam(thread: MessageThreadRecord, viewerUserId: string, sellerOverride = false): boolean {
+    return getMessageThreadViewerRole(thread, viewerUserId, sellerOverride) === 'seller'
         ? thread.ownerSpamAt != null
         : thread.buyerSpamAt != null;
 }
 
-export function getMessageThreadFolder(thread: MessageThreadRecord, viewerUserId: string): MessageFolder {
-    if (isMessageThreadSpam(thread, viewerUserId)) return 'spam';
-    if (isMessageThreadArchived(thread, viewerUserId)) return 'archived';
+export function getMessageThreadFolder(thread: MessageThreadRecord, viewerUserId: string, sellerOverride = false): MessageFolder {
+    if (isMessageThreadSpam(thread, viewerUserId, sellerOverride)) return 'spam';
+    if (isMessageThreadArchived(thread, viewerUserId, sellerOverride)) return 'archived';
     return 'inbox';
 }
 
@@ -137,6 +138,7 @@ export async function messageThreadToResponse(
     thread: MessageThreadRecord,
     viewerUserId: string,
     entries: MessageEntryRecord[] = [],
+    sellerOverride = false,
 ) {
     const listing = thread.listingId
         ? (() => {
@@ -155,13 +157,13 @@ export async function messageThreadToResponse(
         : await deps.resolveThreadListingDisplay(thread);
     const owner = deps.usersById.get(thread.ownerUserId) ?? null;
     const buyer = deps.usersById.get(thread.buyerUserId) ?? null;
-    const viewerRole = getMessageThreadViewerRole(thread, viewerUserId);
+    const viewerRole = getMessageThreadViewerRole(thread, viewerUserId, sellerOverride);
     const counterpart = viewerRole === 'seller' ? buyer : owner;
     const lastEntry = entries.length > 0 ? entries[entries.length - 1] : null;
-    const unreadCount = getMessageThreadUnreadCount(thread, viewerUserId);
-    const archived = isMessageThreadArchived(thread, viewerUserId);
-    const spam = isMessageThreadSpam(thread, viewerUserId);
-    const folder = getMessageThreadFolder(thread, viewerUserId);
+    const unreadCount = getMessageThreadUnreadCount(thread, viewerUserId, sellerOverride);
+    const archived = isMessageThreadArchived(thread, viewerUserId, sellerOverride);
+    const spam = isMessageThreadSpam(thread, viewerUserId, sellerOverride);
+    const folder = getMessageThreadFolder(thread, viewerUserId, sellerOverride);
 
     return {
         id: thread.id,
@@ -198,7 +200,7 @@ export function messageEntryToResponse(
     entry: MessageEntryRecord,
     viewerUserId: string,
 ) {
-    const sender = deps.usersById.get(entry.senderUserId) ?? null;
+    const sender = entry.senderUserId ? deps.usersById.get(entry.senderUserId) ?? null : null;
     return {
         id: entry.id,
         threadId: entry.threadId,
@@ -206,7 +208,7 @@ export function messageEntryToResponse(
         body: entry.body,
         createdAt: entry.createdAt,
         createdAgo: deps.formatAgo(entry.createdAt),
-        isMine: entry.senderUserId === viewerUserId,
+        isMine: entry.senderUserId !== null && entry.senderUserId === viewerUserId,
         sender: sender ? {
             id: sender.id,
             name: sender.name,
@@ -219,8 +221,9 @@ export async function buildMessageThreadNotification(
     deps: MessageServiceDeps,
     thread: MessageThreadRecord,
     viewerUserId: string,
+    sellerOverride = false,
 ) {
-    if (getMessageThreadFolder(thread, viewerUserId) !== 'inbox' || getMessageThreadUnreadCount(thread, viewerUserId) <= 0) {
+    if (getMessageThreadFolder(thread, viewerUserId, sellerOverride) !== 'inbox' || getMessageThreadUnreadCount(thread, viewerUserId, sellerOverride) <= 0) {
         return null;
     }
     const entries = await listMessageEntries(deps, thread.id);
@@ -228,7 +231,9 @@ export async function buildMessageThreadNotification(
     const listing = thread.listingId
         ? deps.listingsById.get(thread.listingId) ?? null
         : await deps.resolveThreadListingDisplay(thread);
-    const counterpartId = viewerUserId === thread.ownerUserId ? thread.buyerUserId : thread.ownerUserId;
+    const counterpartId = getMessageThreadViewerRole(thread, viewerUserId, sellerOverride) === 'seller'
+        ? thread.buyerUserId
+        : thread.ownerUserId;
     const counterpart = deps.usersById.get(counterpartId) ?? null;
     return {
         id: `message-thread:${thread.id}`,
@@ -289,11 +294,14 @@ export async function listMessageThreadsForUser(
     userId: string,
     vertical?: string,
     folder: MessageFolder = 'inbox',
+    accountId?: string | null,
 ): Promise<MessageThreadRecord[]> {
-    const conditions = [or(
+    const participants = [
         deps.eq(deps.tables.messageThreads.ownerUserId, userId),
         deps.eq(deps.tables.messageThreads.buyerUserId, userId),
-    )];
+    ];
+    if (accountId) participants.push(deps.eq(deps.tables.messageThreads.accountId, accountId));
+    const conditions = [or(...participants)!];
     if (vertical) {
         conditions.push(deps.eq(deps.tables.messageThreads.vertical, vertical));
     }
@@ -304,7 +312,11 @@ export async function listMessageThreadsForUser(
         .orderBy(desc(deps.tables.messageThreads.lastMessageAt));
     return rows
         .map(deps.mapMessageThreadRow)
-        .filter((thread: MessageThreadRecord) => getMessageThreadFolder(thread, userId) === folder);
+        .filter((thread: MessageThreadRecord) => getMessageThreadFolder(
+            thread,
+            userId,
+            Boolean(accountId && thread.accountId === accountId && thread.ownerUserId !== userId),
+        ) === folder);
 }
 
 export async function listMessageEntries(deps: MessageServiceDeps, threadId: string): Promise<MessageEntryRecord[]> {
@@ -321,6 +333,7 @@ export async function createMessageThread(
     input: {
         vertical: string;
         listingId: string;
+        accountId?: string | null;
         ownerUserId: string;
         buyerUserId: string;
         lastMessageAt?: number;
@@ -330,6 +343,7 @@ export async function createMessageThread(
 ): Promise<MessageThreadRecord> {
     const now = new Date(input.lastMessageAt ?? Date.now());
     const rows = await deps.db.insert(deps.tables.messageThreads).values({
+        accountId: input.accountId ?? null,
         vertical: input.vertical,
         contextType: 'listing',
         contextId: input.listingId,

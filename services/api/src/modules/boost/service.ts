@@ -68,6 +68,19 @@ export function getBoostListingsByOwner(vertical: VerticalType, ownerId: string)
         .map((item) => ({ ...item, targetType: item.targetType ?? 'listing' }));
 }
 
+export function getBoostListingsByAccount(
+    vertical: VerticalType,
+    accountId: string,
+    legacyOwnerUserId?: string,
+): BoostTargetRecord[] {
+    return boostListingsSeed
+        .filter((item) => item.vertical === vertical && (
+            item.accountId === accountId
+            || (legacyOwnerUserId && !item.accountId && item.ownerId === legacyOwnerUserId)
+        ))
+        .map((item) => ({ ...item, targetType: item.targetType ?? 'listing' }));
+}
+
 export function normalizeBoostOrder(order: BoostOrder, now = Date.now()): BoostOrder {
     if (order.status === 'paused' || order.status === 'ended') {
         if (order.status === 'ended') return { ...order, status: 'ended' };
@@ -97,6 +110,21 @@ export function getBoostOrdersForUser(userId: string, vertical?: VerticalType): 
     return [...filtered].sort((a, b) => b.createdAt - a.createdAt);
 }
 
+export function getBoostOrdersForAccount(
+    accountId: string,
+    vertical?: VerticalType,
+    legacyPersonalOwnerUserId?: string,
+): BoostOrder[] {
+    const orders = getAllBoostOrdersNormalized()
+        .filter((order) => order.accountId === accountId || (
+            Boolean(legacyPersonalOwnerUserId)
+            && !order.accountId
+            && order.userId === legacyPersonalOwnerUserId
+        ))
+        .filter((order) => (vertical ? order.vertical === vertical : true));
+    return [...orders].sort((a, b) => b.createdAt - a.createdAt);
+}
+
 export function sectionLabel(section: BoostSection): string {
     if (section === 'marketplace') return 'Directorio';
     if (section === 'landing') return 'Portada';
@@ -120,15 +148,31 @@ export function countReservedSlots(vertical: VerticalType, section: BoostSection
     }).length;
 }
 
-export function countFreeBoostsUsedThisMonth(userId: string, vertical: VerticalType): number {
+export function countFreeBoostsUsedThisMonth(
+    userId: string,
+    vertical: VerticalType,
+    accountId?: string | null,
+    legacyPersonalOwnerUserId?: string,
+): number {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    const orders = getBoostOrdersForUser(userId, vertical);
+    const orders = accountId
+        ? getAllBoostOrdersNormalized().filter((order) => (
+            order.vertical === vertical
+            && (order.accountId === accountId || (
+                Boolean(legacyPersonalOwnerUserId)
+                && !order.accountId
+                && order.userId === legacyPersonalOwnerUserId
+            ))
+        ))
+        : getBoostOrdersForUser(userId, vertical);
     return orders.filter((order) => order.createdAt >= monthStart && order.price === 0).length;
 }
 
 export function createBoostOrderRecord(input: {
     userId: string;
+    accountId?: string | null;
+    legacyPersonalOwnerUserId?: string;
     vertical: VerticalType;
     target: BoostTargetRecord;
     section: BoostSection;
@@ -137,8 +181,16 @@ export function createBoostOrderRecord(input: {
 }): { ok: boolean; order?: BoostOrder; error?: string } {
     const targetType = input.target.targetType ?? 'listing';
     const targetId = input.target.id;
-    const ownOrders = getBoostOrdersForUser(input.userId);
-    const hasRunningForTarget = ownOrders.some((order) => {
+    const scopedOrders = input.accountId
+        ? getAllBoostOrdersNormalized().filter((order) => (
+            order.accountId === input.accountId || (
+                Boolean(input.legacyPersonalOwnerUserId)
+                && !order.accountId
+                && order.userId === input.legacyPersonalOwnerUserId
+            )
+        ))
+        : getBoostOrdersForUser(input.userId);
+    const hasRunningForTarget = scopedOrders.some((order) => {
         const orderTargetId = order.targetId ?? order.listingId;
         if (order.vertical !== input.vertical || orderTargetId !== targetId) return false;
         return order.status === 'active' || order.status === 'scheduled' || order.status === 'paused';
@@ -159,6 +211,7 @@ export function createBoostOrderRecord(input: {
 
     const nextOrder = normalizeBoostOrder({
         id: makeBoostOrderId(),
+        accountId: input.accountId ?? null,
         userId: input.userId,
         targetType,
         targetId,
@@ -175,9 +228,6 @@ export function createBoostOrderRecord(input: {
         createdAt,
         updatedAt: createdAt,
     });
-
-    const existing = boostOrdersByUser.get(input.userId) ?? [];
-    boostOrdersByUser.set(input.userId, [nextOrder as DomainBoostOrder, ...existing]);
 
     return { ok: true, order: nextOrder };
 }

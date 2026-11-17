@@ -38,6 +38,7 @@ import {
 } from '@simple/ui/panel';
 import { AgendaMiNegocioShell, AgendaMiNegocioLoading } from '@/components/panel/agenda-mi-negocio-shell';
 import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
+import { AgendaBusinessLocationsContent } from '@/components/panel/agenda-consultorios-content';
 import { AgendaPublicProfileLocationContact, resolveDefaultAgendaLocation, type AgendaPublicContactForm } from '@/components/panel/agenda-public-profile-location-contact';
 import { IconNotebook, IconUser } from '@tabler/icons-react';
 import type { StructuredLocation } from '@simple/types';
@@ -46,6 +47,11 @@ import {
     agendaBusinessLocationToProfilePayload,
 } from '@/components/panel/agenda-business-location-fields';
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
+import {
+    fetchAccountWorkspace,
+    saveAccountWorkspace,
+    type AccountWorkspaceState,
+} from '@simple/utils';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app';
 
@@ -66,6 +72,9 @@ export default function PerfilConfigPage() {
         operatorSubtype: null,
         operatorSubtypeCustom: '',
     });
+    const [workspaceState, setWorkspaceState] = useState<AccountWorkspaceState | null>(null);
+    const [accountName, setAccountName] = useState('');
+    const [initialAccountName, setInitialAccountName] = useState('');
     const [contactForm, setContactForm] = useState<AgendaPublicContactForm>({
         publicEmail: '',
         publicPhone: '',
@@ -80,22 +89,32 @@ export default function PerfilConfigPage() {
     const [businessLocations, setBusinessLocations] = useState<AgendaLocation[]>([]);
     const [showPrimaryAddress, setShowPrimaryAddress] = useState(false);
     const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
+    const [locationsOpen, setLocationsOpen] = useState(false);
     const formRef = useRef(form);
     formRef.current = form;
 
     useEffect(() => {
         const load = async () => {
-            const [profile, loadedLocations] = await Promise.all([
+            const [profile, loadedLocations, loadedWorkspace] = await Promise.all([
                 fetchAgendaProfile(),
                 fetchAgendaLocations(),
+                fetchAccountWorkspace('agenda'),
             ]);
+            setWorkspaceState(loadedWorkspace);
+            const currentAccountName = loadedWorkspace?.accountName ?? '';
+            setAccountName(currentAccountName);
+            setInitialAccountName(currentAccountName);
             if (profile) {
                 setSlug(profile.slug ?? '');
                 setForm({
                     displayName: profile.displayName ?? '',
                     bio: profile.bio ?? '',
                 });
-                setOperator(resolveAgendaOperatorFields(profile));
+                setOperator(resolveAgendaOperatorFields({
+                    accountKind: loadedWorkspace?.workspace?.accountKind ?? profile.accountKind,
+                    operatorSubtype: loadedWorkspace?.workspace?.operatorSubtype ?? profile.operatorSubtype,
+                    profession: loadedWorkspace?.workspace?.operatorSubtypeCustom ?? profile.profession,
+                }));
                 setContactForm({
                     publicEmail: profile.publicEmail ?? '',
                     publicPhone: profile.publicPhone ?? '',
@@ -119,10 +138,10 @@ export default function PerfilConfigPage() {
                     || profile.tiktokUrl?.trim()
                     || profile.youtubeUrl?.trim()
                     || profile.twitterUrl?.trim()
-                    || loadedLocations.length > 0
                 ));
             }
             setBusinessLocations(loadedLocations);
+            setLocationsOpen(window.location.hash === '#ubicaciones');
             const defaultLocation = loadedLocations.find((item) => item.isDefault) ?? null;
             setShowPrimaryAddress(Boolean(defaultLocation?.isActive));
             if (defaultLocation) {
@@ -230,19 +249,52 @@ export default function PerfilConfigPage() {
             setError('Describe tu negocio si elegiste Otros.');
             return;
         }
+        if (operator.accountKind === 'company' && !accountName.trim()) {
+            setError('Escribe el nombre de tu empresa o equipo.');
+            return;
+        }
         setSaving(true);
         setError('');
+        const customSubtype = operator.operatorSubtype === 'other'
+            ? operator.operatorSubtypeCustom.trim()
+            : '';
+        const workspace = workspaceState?.workspace;
+        const workspaceChanged = workspaceState?.canManage === true && (
+            !workspace?.onboardingCompletedAt
+            || workspace.accountKind !== operator.accountKind
+            || workspace.operatorSubtype !== operator.operatorSubtype
+            || (workspace.operatorSubtypeCustom ?? '') !== customSubtype
+            || (operator.accountKind === 'company' && initialAccountName !== accountName.trim())
+        );
+        if (workspaceChanged) {
+            const workspaceResult = await saveAccountWorkspace('agenda', {
+                accountKind: operator.accountKind,
+                operatorSubtype: operator.operatorSubtype,
+                operatorSubtypeCustom: customSubtype,
+            }, operator.accountKind === 'company' ? accountName.trim() : undefined);
+            if (!workspaceResult.ok || !workspaceResult.workspace) {
+                setSaving(false);
+                setError(workspaceResult.error ?? 'No pudimos actualizar la actividad del espacio.');
+                return;
+            }
+            setWorkspaceState({
+                workspace: workspaceResult.workspace,
+                accountName: workspaceResult.accountName,
+                canManage: workspaceResult.canManage ?? true,
+                memberRole: workspaceResult.memberRole ?? null,
+            });
+            if (operator.accountKind === 'company') {
+                setAccountName(accountName.trim());
+                setInitialAccountName(accountName.trim());
+            }
+            window.dispatchEvent(new Event('simple:workspace-activity-changed'));
+        }
         const defaultLoc = businessLocations.find((item) => item.isDefault) ?? null;
         const result = await saveAgendaProfile({
             ...form,
             ...contactForm,
             ...agendaBusinessLocationToProfilePayload(businessLocation),
             address: showPrimaryAddress && defaultLoc?.isActive ? defaultLoc.addressLine : null,
-            accountKind: operator.accountKind,
-            operatorSubtype: operator.operatorSubtype,
-            ...(operator.operatorSubtype === 'other'
-                ? { profession: operator.operatorSubtypeCustom.trim() }
-                : {}),
             headline: null,
             ...buildSocialPayload(socialLinks),
         });
@@ -261,7 +313,7 @@ export default function PerfilConfigPage() {
     if (loading) {
         return (
             <AgendaMiNegocioLoading
-                activeKey="datos"
+                activeKey="perfil"
                 title={AGENDA_BUSINESS_PERFIL_PAGE.title}
                 description={AGENDA_BUSINESS_PERFIL_PAGE.description}
                 message="Cargando datos comerciales..."
@@ -271,7 +323,7 @@ export default function PerfilConfigPage() {
 
     return (
         <AgendaMiNegocioShell
-            activeKey="datos"
+            activeKey="perfil"
             tabs={businessSectionTabs}
             title={AGENDA_BUSINESS_PERFIL_PAGE.title}
             description={AGENDA_BUSINESS_PERFIL_PAGE.description}
@@ -282,7 +334,7 @@ export default function PerfilConfigPage() {
                 <PanelCard size="lg" className="space-y-5">
                     <PanelBlockHeader
                         title={BUSINESS_PUBLIC_INFO_SECTION.title}
-                        description={BUSINESS_PUBLIC_INFO_SECTION.description}
+                        description="Nombre y presentación visibles en tu ficha. La actividad se define para el espacio de trabajo."
                         className="mb-0"
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -295,6 +347,7 @@ export default function PerfilConfigPage() {
                                 tier={operator.accountKind}
                                 subtype={operator.operatorSubtype}
                                 subtypeCustom={operator.operatorSubtypeCustom}
+                                disabled={workspaceState?.canManage !== true || saving}
                                 onTierChange={(tier) => {
                                     setSaved(false);
                                     setOperator({
@@ -321,6 +374,31 @@ export default function PerfilConfigPage() {
                                 }}
                             />
                         </div>
+                        {workspaceState?.canManage === false ? (
+                            <p className="sm:col-span-2 rounded-xl border px-3 py-2.5 text-sm leading-5" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                La actividad de este espacio la configura quien lo administra. Puedes actualizar tu nombre y presentación personal aquí.
+                            </p>
+                        ) : null}
+                        {workspaceState === null ? (
+                            <p className="sm:col-span-2 rounded-xl border px-3 py-2.5 text-sm leading-5" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                No pudimos revisar los permisos del espacio. Recarga la página para cambiar su actividad.
+                            </p>
+                        ) : null}
+                        {operator.accountKind === 'company' && workspaceState?.canManage === true ? (
+                            <PanelField label="Nombre de la empresa o equipo" hint="Identifica el espacio compartido. Puede ser distinto de tu nombre público." required className="sm:col-span-2">
+                                <input
+                                    type="text"
+                                    value={accountName}
+                                    onChange={(event) => {
+                                        setSaved(false);
+                                        setAccountName(event.target.value);
+                                    }}
+                                    maxLength={160}
+                                    placeholder="Ej. Centro de Atención Norte"
+                                    className="form-input"
+                                />
+                            </PanelField>
+                        ) : null}
                         <PanelField label={`${BUSINESS_DESCRIPTION_FIELD.label} (opcional)`} hint={BUSINESS_DESCRIPTION_FIELD.hint} icon={<IconNotebook size={14} />} className="sm:col-span-2">
                             <textarea
                                 value={form.bio}
@@ -341,9 +419,9 @@ export default function PerfilConfigPage() {
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
                     <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-(--fg) sm:px-5">
-                        Ubicación, contacto y redes (opcional)
+                        Ubicación principal, contacto y redes
                         <span className="mt-1 block text-xs font-normal text-fg-muted">
-                            Agrégalos después, o completa una ubicación si atiendes presencialmente.
+                            Información adicional que aparecerá en tu perfil público.
                         </span>
                     </summary>
                     <div className="grid min-w-0 gap-5 px-4 pb-5 sm:px-5">
@@ -364,6 +442,24 @@ export default function PerfilConfigPage() {
                             saving={saving}
                             contactResetKey={slug}
                         />
+                    </div>
+                </details>
+
+                <details
+                    id="ubicaciones"
+                    open={locationsOpen}
+                    onToggle={(event) => setLocationsOpen(event.currentTarget.open)}
+                    className="scroll-mt-24 rounded-2xl border"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-(--fg) sm:px-5">
+                        Ubicaciones de atención
+                        <span className="mt-1 block text-xs font-normal text-fg-muted">
+                            Administra las direcciones que pueden ver tus clientes.
+                        </span>
+                    </summary>
+                    <div className="px-4 pb-5 sm:px-5">
+                        <AgendaBusinessLocationsContent />
                     </div>
                 </details>
 

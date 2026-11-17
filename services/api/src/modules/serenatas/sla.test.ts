@@ -12,6 +12,12 @@ const mockSelect = vi.fn();
 const mockInsert = vi.fn();
 const mockUpdate = vi.fn();
 
+function eventDateWithinBookingWindow() {
+    const date = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    date.setUTCHours(12, 0, 0, 0);
+    return date;
+}
+
 function selectRows(rows: unknown[]) {
     return {
         from: () => ({
@@ -152,9 +158,8 @@ describe('createMarketplaceSerenata', () => {
                 serviceComunas: [],
                 slaHours: 24,
                 bookingMode: 'auto_if_available',
+                bookingWindowDays: 30,
             })
-            .mockResolvedValueOnce(null)
-            .mockResolvedValueOnce(null)
             .mockResolvedValueOnce({
                 id: 'svc1',
                 providerGroupId: 'g1',
@@ -177,7 +182,7 @@ describe('createMarketplaceSerenata', () => {
                 address: 'Calle 1',
                 comuna: 'Santiago',
                 region: 'RM',
-                eventDate: new Date('2099-06-15T12:00:00.000Z'),
+                eventDate: eventDateWithinBookingWindow(),
                 eventTime: '20:00',
             },
             { ensureClientProfile: async () => ({ id: 'c1', userId: 'u1' }) },
@@ -198,9 +203,8 @@ describe('createMarketplaceSerenata', () => {
                 serviceComunas: [],
                 slaHours: 24,
                 bookingMode: 'manual',
+                bookingWindowDays: 30,
             })
-            .mockResolvedValueOnce(null)
-            .mockResolvedValueOnce(null)
             .mockResolvedValueOnce({
                 id: 'svc1',
                 providerGroupId: 'g1',
@@ -232,7 +236,7 @@ describe('createMarketplaceSerenata', () => {
                 address: 'Calle 1',
                 comuna: 'Santiago',
                 region: 'RM',
-                eventDate: new Date('2099-06-15T12:00:00.000Z'),
+                eventDate: eventDateWithinBookingWindow(),
                 eventTime: '20:00',
             },
             { ensureClientProfile: async () => ({ id: 'c1', userId: 'u1' }) },

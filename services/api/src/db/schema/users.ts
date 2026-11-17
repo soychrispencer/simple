@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, varchar, text, timestamp, jsonb, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, boolean, uniqueIndex, index, check } from 'drizzle-orm/pg-core';
 
 // Users table
 export const users = pgTable('users', {
@@ -14,9 +14,9 @@ export const users = pgTable('users', {
   emailNotifyAccount: boolean('email_notify_account').notNull().default(true),
   inAppNotificationsEnabled: boolean('in_app_notifications_enabled').notNull().default(true),
   lastNotificationEmailAt: timestamp('last_notification_email_at'),
-  role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'musician' | 'client' | 'admin' | 'superadmin'
+  role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'admin' | 'superadmin'; account/product work roles live in their own profile or membership
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'verified' | 'suspended'
-  primaryVertical: varchar('primary_vertical', { length: 20 }), // NULL = platform/superadmin; 'autos' | 'propiedades' | 'agenda'
+  primaryVertical: varchar('primary_vertical', { length: 20 }), // Signup/product context and optional scope for platform admins; not workspace activity
   signupApp: varchar('signup_app', { length: 40 }),
   signupOrigin: varchar('signup_origin', { length: 255 }),
   avatarUrl: varchar('avatar_url', { length: 500 }),
@@ -65,6 +65,16 @@ export const accountUsers = pgTable('account_users', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   uniqueAccountUser: uniqueIndex('account_users_account_user_idx').on(table.accountId, table.userId),
+  uniqueDefaultAccountPerUser: uniqueIndex('account_users_default_user_idx')
+    .on(table.userId)
+    .where(sql`${table.isDefault}`),
+  uniqueOwnerPerAccount: uniqueIndex('account_users_single_owner_idx')
+    .on(table.accountId)
+    .where(sql`${table.role} = 'owner'`),
+  validAccountUserRole: check(
+    'account_users_role_allowed_check',
+    sql`${table.role} IN ('owner', 'admin', 'agent')`,
+  ),
   userIdx: index('account_users_user_idx').on(table.userId),
   accountIdx: index('account_users_account_idx').on(table.accountId),
 }));
@@ -95,7 +105,7 @@ export const userPlatformAccess = pgTable('user_platform_access', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id).notNull(),
   app: varchar('app', { length: 40 }).notNull(),
-  role: varchar('role', { length: 40 }).notNull().default('user'),
+  role: varchar('role', { length: 40 }).notNull().default('user'), // Product access metadata; team permissions live in account_users
   status: varchar('status', { length: 20 }).notNull().default('active'),
   origin: varchar('origin', { length: 255 }),
   firstSeenAt: timestamp('first_seen_at').notNull().defaultNow(),

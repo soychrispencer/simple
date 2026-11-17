@@ -1,6 +1,16 @@
 import type { StorageProvider, StorageUploadInput, StorageUploadResult } from '@simple/config';
 import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { readUploadBuffer } from './file-buffer.js';
+import { createPrivateMediaUrl } from '../modules/listings/media-delivery.js';
+
+function sanitizeFileName(fileName: string): string {
+    return fileName
+        .replace(/[/\\]/g, '-')
+        .replace(/\.\./g, '-')
+        .replace(/[^a-zA-Z0-9._-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^[.-]+|[.-]+$/g, '') || 'file';
+}
 
 /**
  * Cloudflare R2 Storage Provider
@@ -9,6 +19,7 @@ import { readUploadBuffer } from './file-buffer.js';
 export class CloudflareR2Provider implements StorageProvider {
     private client: S3Client;
     private bucketName: string;
+    private privateBucketName: string | null;
     private publicUrl: string;
     private workerUrl: string; // URL del worker de overlays
 
@@ -18,8 +29,15 @@ export class CloudflareR2Provider implements StorageProvider {
         secretAccessKey: string,
         bucketName: string,
         publicUrl: string,
-        workerUrl: string
+        workerUrl: string,
+        privateBucketName?: string,
     ) {
+        this.bucketName = bucketName.trim();
+        this.privateBucketName = privateBucketName?.trim() || null;
+        if (this.privateBucketName && this.privateBucketName === this.bucketName) {
+            throw new Error('CLOUDFLARE_R2_PRIVATE_BUCKET_NAME debe ser distinto de CLOUDFLARE_R2_BUCKET_NAME para proteger los adjuntos privados.');
+        }
+
         // R2 usa endpoint específico por account ID
         const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
         
@@ -31,24 +49,30 @@ export class CloudflareR2Provider implements StorageProvider {
                 secretAccessKey,
             },
         });
-        
-        this.bucketName = bucketName;
-        this.publicUrl = publicUrl.replace(/\/$/, ''); // Remove trailing slash
+
+        this.publicUrl = publicUrl.trim().replace(/\/$/, ''); // Remove trailing slash
         this.workerUrl = workerUrl.replace(/\/$/, '');
     }
 
     async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
         const { file, fileName, mimeType, userId, listingId } = input;
+        if (input.isPrivate && !this.privateBucketName) {
+            throw new Error('Faltan variables de Cloudflare R2: configura CLOUDFLARE_R2_PRIVATE_BUCKET_NAME para adjuntos privados.');
+        }
+        const safeFileName = sanitizeFileName(fileName || 'file');
         
         // Generate storage key
-        const key = listingId 
-            ? `listings/${listingId}/${Date.now()}_${fileName}`
-            : `uploads/${userId}/${Date.now()}_${fileName}`;
+        const key = input.isPrivate
+            ? `attachments/${userId}/${Date.now()}_${safeFileName}`
+            : listingId
+            ? `listings/${listingId}/${Date.now()}_${safeFileName}`
+            : `uploads/${userId}/${Date.now()}_${safeFileName}`;
+        const bucketName = input.isPrivate ? this.privateBucketName! : this.bucketName;
         
         try {
             const buffer = await readUploadBuffer(file);
             const command = new PutObjectCommand({
-                Bucket: this.bucketName,
+                Bucket: bucketName,
                 Key: key,
                 Body: buffer,
                 ContentType: mimeType,
@@ -63,10 +87,10 @@ export class CloudflareR2Provider implements StorageProvider {
             const now = Date.now();
             
             return {
-                fileId: key,
-                url: `${this.publicUrl}/${key}`,
-                publicUrl: `${this.publicUrl}/${key}`,
-                fileName,
+                fileId: input.isPrivate ? `__private_r2__/${key}` : key,
+                url: input.isPrivate ? createPrivateMediaUrl('r2', key) : `${this.publicUrl}/${key}`,
+                publicUrl: input.isPrivate ? createPrivateMediaUrl('r2', key) : `${this.publicUrl}/${key}`,
+                fileName: safeFileName,
                 mimeType,
                 sizeBytes: buffer.length,
                 uploadedAt: now,
@@ -74,21 +98,27 @@ export class CloudflareR2Provider implements StorageProvider {
         } catch (error) {
             console.error('[R2Storage] Upload error:', error);
             const message = error instanceof Error ? error.message : 'Unknown error';
-            throw new Error(`No pudimos subir el archivo a R2: ${message}`);
+            throw new Error(`No pudimos subir el archivo a R2: ${message}`, { cause: error });
         }
     }
 
     async delete(fileId: string): Promise<void> {
         try {
+            const isPrivate = fileId.startsWith('__private_r2__/');
+            if (fileId.startsWith('__private_local__/')) return;
+            if (isPrivate && !this.privateBucketName) {
+                throw new Error('CLOUDFLARE_R2_PRIVATE_BUCKET_NAME no está configurado.');
+            }
+            const key = isPrivate ? fileId.slice('__private_r2__/'.length) : fileId;
             const command = new DeleteObjectCommand({
-                Bucket: this.bucketName,
-                Key: fileId,
+                Bucket: isPrivate ? this.privateBucketName! : this.bucketName,
+                Key: key,
             });
 
             await this.client.send(command);
         } catch (error) {
             console.error('[R2Storage] Delete error:', error);
-            throw new Error(`Failed to delete file from R2: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new Error(`Failed to delete file from R2: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error });
         }
     }
 

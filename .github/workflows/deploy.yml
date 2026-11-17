@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy
+    name: Production build validation
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     
@@ -33,11 +33,5 @@ jobs:
       - name: Build all
         run: pnpm run build
         
-      # Add your deployment steps here
-      # Examples:
-      # - Deploy to Vercel: npx vercel --prod
-      # - Deploy to Coolify: curl -X POST $COOLIFY_WEBHOOK
-      # - Deploy to VPS: rsync + ssh
-      
-      - name: Deploy Notification
-        run: echo "Deployment completed - configure your deployment provider"
+      - name: Report deployment status accurately
+        run: echo "Build completed. This workflow does not deploy to production; use the secured Coolify release procedure."

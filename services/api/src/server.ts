@@ -7,6 +7,7 @@ import { applyPostJournalMigrations } from './db/apply-post-journal-migrations.j
 import { db, pgClient } from './db/index.js';
 import { warmEmailLogoCache } from './lib/email-brand-logo.js';
 import { registerAgendaCronJobs } from './modules/agenda/cron.js';
+import { registerRelationshipTaskReminderCron } from './modules/platform/relationship-task-reminders.js';
 import { registerSerenatasCronJobs } from './modules/serenatas/cron.js';
 import { loadDataFromDB } from './index.js';
 import { refreshValuationFeeds } from './modules/valuation/index.js';
@@ -29,11 +30,13 @@ void refreshVehicleValuationFeeds();
         console.info('[simple-api] DB migrations checked');
     } catch (error) {
         console.error('[simple-api] DB migration failed', error);
-        if (!isProduction) {
-            logger.warn(
-                '[simple-api] En local: ejecuta `pnpm run db:migrate` en services/api y revisa que .env.local y esta app usen la MISMA DATABASE_URL (orden .env→.env.local).'
-            );
+        if (isProduction) {
+            console.error('[simple-api] refusing to start in production with an unapplied database migration');
+            process.exit(1);
         }
+        logger.warn(
+            '[simple-api] En local: ejecuta `pnpm run db:migrate` en services/api y revisa que .env.local y esta app usen la MISMA DATABASE_URL (orden .env→.env.local).'
+        );
     }
 
     try {
@@ -48,10 +51,15 @@ void refreshVehicleValuationFeeds();
             console.info(`[simple-api] post-journal: ${postJournal.appliedNow} migración(es) aplicadas`);
         }
     } catch (error) {
-        console.warn('[simple-api] post-journal migrations skipped or failed (non-blocking)', error);
+        console.error('[simple-api] post-journal migrations failed', error);
+        if (isProduction) {
+            console.error('[simple-api] refusing to start in production with an unapplied post-journal migration');
+            process.exit(1);
+        }
     }
 
     registerAgendaCronJobs();
+    registerRelationshipTaskReminderCron();
     registerSerenatasCronJobs();
 
     try {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { IconHome, IconShoppingBag, IconTool } from '@tabler/icons-react';
+import { IconBuildingCommunity, IconHome2, IconMessageCircle, IconListDetails } from '@tabler/icons-react';
 import { PanelButton, PanelCard } from '@simple/ui/panel';
 
 const STORAGE_KEY = 'simplepropiedades-panel-intent-dismissed-v1';
@@ -15,61 +15,96 @@ type IntentOption = {
     icon: React.ReactNode;
 };
 
-const OPTIONS: IntentOption[] = [
-    {
-        key: 'listings',
-        title: 'Publicar propiedades',
-        description: 'Vende, arrienda o promociona proyectos inmobiliarios.',
-        href: '/panel/publicar',
-        icon: <IconHome size={18} />,
-    },
-    {
-        key: 'products',
-        title: 'Vender productos',
-        description: 'Artículos y suministros para el hogar en tu tienda.',
-        href: '/panel/publicar?op=product',
-        icon: <IconShoppingBag size={18} />,
-    },
-    {
-        key: 'services',
-        title: 'Ofrecer servicios',
-        description: 'Aseo, mudanzas, tasaciones u otros servicios inmobiliarios.',
-        href: '/panel/publicar?op=service',
-        icon: <IconTool size={18} />,
-    },
-];
-
-export function PanelIntentSelector({ hidden }: { hidden?: boolean }) {
+export function PanelIntentSelector({
+    hidden,
+    accountId,
+    operatorSubtype,
+    onDismiss,
+}: {
+    hidden?: boolean;
+    accountId?: string;
+    operatorSubtype?: string | null;
+    onDismiss?: () => void;
+}) {
     const [visible, setVisible] = useState(false);
+    const activityKey = operatorSubtype?.trim() || 'default';
+    const legacyStorageKey = accountId ? `${STORAGE_KEY}:${accountId}` : null;
+    const storageKey = accountId ? `${STORAGE_KEY}:${accountId}:${activityKey}` : null;
 
     useEffect(() => {
-        if (hidden) return;
+        if (hidden || !storageKey) {
+            setVisible(false);
+            return;
+        }
         try {
-            setVisible(localStorage.getItem(STORAGE_KEY) !== '1');
+            let dismissed = localStorage.getItem(storageKey) === '1';
+            if (legacyStorageKey && localStorage.getItem(legacyStorageKey) === '1') {
+                localStorage.setItem(storageKey, '1');
+                localStorage.removeItem(legacyStorageKey);
+                dismissed = true;
+            }
+            setVisible(!dismissed);
         } catch {
             setVisible(true);
         }
-    }, [hidden]);
+    }, [hidden, legacyStorageKey, storageKey]);
 
     function dismiss() {
         try {
-            localStorage.setItem(STORAGE_KEY, '1');
+            if (storageKey) localStorage.setItem(storageKey, '1');
+            if (legacyStorageKey) localStorage.removeItem(legacyStorageKey);
         } catch {
-            // ignore
+            // La elección sigue siendo útil aunque el navegador no guarde la preferencia.
         }
         setVisible(false);
+        onDismiss?.();
     }
 
     if (!visible) return null;
 
+    const projectFirst = operatorSubtype === 'developer';
+    const options: IntentOption[] = [
+        projectFirst
+            ? {
+                key: 'project',
+                title: 'Presentar un proyecto',
+                description: 'Publica el proyecto y organiza el interés por sus unidades.',
+                href: '/panel/publicar?op=project',
+                icon: <IconBuildingCommunity size={18} />,
+            }
+            : {
+                key: 'property',
+                title: 'Publicar una propiedad',
+                description: 'Crea un aviso y atiende las consultas desde Simple.',
+                href: '/panel/publicar',
+                icon: <IconHome2 size={18} />,
+            },
+        {
+            key: 'contacts',
+            title: 'Organizar contactos',
+            description: 'Revisa consultas, responsables y próximos pasos.',
+            href: '/panel/contactos',
+            icon: <IconMessageCircle size={18} />,
+        },
+        {
+            key: 'portfolio',
+            title: 'Ver mi cartera',
+            description: 'Administra las propiedades y publicaciones del espacio.',
+            href: '/panel/publicaciones',
+            icon: <IconListDetails size={18} />,
+        },
+    ];
+
     return (
         <PanelCard size="lg" className="space-y-4 p-4 md:p-6">
             <div className="space-y-1">
-                <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>¿Qué quieres hacer en SimplePropiedades?</p>
-                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Elige tu camino — puedes combinar propiedades, productos y servicios después.</p>
+                <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>¿Qué quieres resolver primero?</p>
+                <p className="text-sm leading-6" style={{ color: 'var(--fg-muted)' }}>
+                    Simple reúne publicaciones, contactos y seguimiento. Elige por dónde partir; puedes combinar las herramientas después.
+                </p>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
-                {OPTIONS.map((option) => (
+                {options.map((option) => (
                     <Link
                         key={option.key}
                         href={option.href}

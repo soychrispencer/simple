@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, uniqueIndex, index, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, check, uniqueIndex, index, primaryKey } from 'drizzle-orm/pg-core';
 
 // Users table
 export const users = pgTable('users', {
@@ -14,9 +14,9 @@ export const users = pgTable('users', {
   emailNotifyAccount: boolean('email_notify_account').notNull().default(true),
   inAppNotificationsEnabled: boolean('in_app_notifications_enabled').notNull().default(true),
   lastNotificationEmailAt: timestamp('last_notification_email_at'),
-  role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'musician' | 'client' | 'admin' | 'superadmin'
+  role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'admin' | 'superadmin'; business work roles live on their own profiles or memberships
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'verified' | 'suspended'
-  primaryVertical: varchar('primary_vertical', { length: 20 }), // NULL = platform/superadmin; 'autos' | 'propiedades' | 'agenda'
+  primaryVertical: varchar('primary_vertical', { length: 20 }), // Signup/product context and optional scope for platform admins; not workspace activity
   signupApp: varchar('signup_app', { length: 40 }),
   signupOrigin: varchar('signup_origin', { length: 255 }),
   avatarUrl: varchar('avatar_url', { length: 500 }),
@@ -65,8 +65,64 @@ export const accountUsers = pgTable('account_users', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   uniqueAccountUser: uniqueIndex('account_users_account_user_idx').on(table.accountId, table.userId),
+  uniqueDefaultAccountPerUser: uniqueIndex('account_users_default_user_idx')
+    .on(table.userId)
+    .where(sql`${table.isDefault}`),
+  uniqueOwnerPerAccount: uniqueIndex('account_users_single_owner_idx')
+    .on(table.accountId)
+    .where(sql`${table.role} = 'owner'`),
+  validAccountUserRole: check(
+    'account_users_role_allowed_check',
+    sql`${table.role} IN ('owner', 'admin', 'agent')`,
+  ),
   userIdx: index('account_users_user_idx').on(table.userId),
   accountIdx: index('account_users_account_idx').on(table.accountId),
+  accountCreatedUserIdx: index('account_users_account_created_user_idx').on(
+    table.accountId,
+    table.createdAt,
+    table.userId,
+  ),
+}));
+
+export const accountInvitations = pgTable('account_invitations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull().default('propiedades'),
+  email: varchar('email', { length: 255 }).notNull(),
+  role: varchar('role', { length: 20 }).notNull().default('agent'),
+  tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+  invitedByUserId: uuid('invited_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  expiresAt: timestamp('expires_at').notNull(),
+  acceptedAt: timestamp('accepted_at'),
+  revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  validInvitationRole: check(
+    'account_invitations_role_allowed_check',
+    sql`${table.role} IN ('admin', 'agent')`,
+  ),
+  tokenIdx: uniqueIndex('account_invitations_token_hash_idx').on(table.tokenHash),
+  accountIdx: index('account_invitations_account_idx').on(table.accountId),
+  emailIdx: index('account_invitations_email_idx').on(table.email),
+  accountPendingCreatedIdx: index('account_invitations_account_pending_created_idx')
+    .on(table.accountId, table.createdAt, table.id)
+    .where(sql`${table.acceptedAt} IS NULL AND ${table.revokedAt} IS NULL`),
+}));
+
+// The business activity belongs to the account and product, not to a login identity.
+export const accountVerticalSettings = pgTable('account_vertical_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  accountKind: varchar('account_kind', { length: 20 }).notNull().default('individual'),
+  operatorSubtype: varchar('operator_subtype', { length: 40 }),
+  operatorSubtypeCustom: varchar('operator_subtype_custom', { length: 160 }),
+  onboardingCompletedAt: timestamp('onboarding_completed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  uniqueAccountVertical: uniqueIndex('account_vertical_settings_account_vertical_idx').on(table.accountId, table.vertical),
+  verticalIdx: index('account_vertical_settings_vertical_idx').on(table.vertical),
 }));
 
 export const passwordResetTokens = pgTable('password_reset_tokens', {
@@ -95,7 +151,7 @@ export const userPlatformAccess = pgTable('user_platform_access', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id).notNull(),
   app: varchar('app', { length: 40 }).notNull(),
-  role: varchar('role', { length: 40 }).notNull().default('user'),
+  role: varchar('role', { length: 40 }).notNull().default('user'), // Product access metadata; team permissions live in account_users
   status: varchar('status', { length: 20 }).notNull().default('active'),
   origin: varchar('origin', { length: 255 }),
   firstSeenAt: timestamp('first_seen_at').notNull().defaultNow(),
@@ -143,12 +199,18 @@ export const savedListings = pgTable('saved_listings', {
 export const listingDrafts = pgTable('listing_drafts', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id).notNull(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
   vertical: varchar('vertical', { length: 20 }).notNull(),
   draftData: jsonb('draft_data').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserVerticalDraft: uniqueIndex('listing_drafts_user_vertical_idx').on(table.userId, table.vertical),
+  uniqueAccountUserVerticalDraft: uniqueIndex('listing_drafts_account_user_vertical_idx')
+    .on(table.userId, table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL`),
+  uniqueLegacyUserVerticalDraft: uniqueIndex('listing_drafts_user_vertical_legacy_idx')
+    .on(table.userId, table.vertical)
+    .where(sql`${table.accountId} IS NULL`),
 }));
 
 // Follows table
@@ -208,7 +270,9 @@ export const instagramAccounts = pgTable('instagram_accounts', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserVertical: uniqueIndex('instagram_accounts_user_vertical_idx').on(table.userId, table.vertical),
+  accountVertical: uniqueIndex('instagram_accounts_account_vertical_idx')
+    .on(table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL`),
 }));
 
 export const socialPublications = pgTable('social_publications', {
@@ -252,7 +316,9 @@ export const tiktokAccounts = pgTable('tiktok_accounts', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserVertical: uniqueIndex('tiktok_accounts_user_vertical_idx').on(table.userId, table.vertical),
+  accountVertical: uniqueIndex('tiktok_accounts_account_vertical_idx')
+    .on(table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL`),
 }));
 
 export const youtubeAccounts = pgTable('youtube_accounts', {
@@ -275,7 +341,9 @@ export const youtubeAccounts = pgTable('youtube_accounts', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserVertical: uniqueIndex('youtube_accounts_user_vertical_idx').on(table.userId, table.vertical),
+  accountVertical: uniqueIndex('youtube_accounts_account_vertical_idx')
+    .on(table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL`),
 }));
 
 export const instagramPublications = pgTable('instagram_publications', {
@@ -364,7 +432,12 @@ export const publicProfiles = pgTable('public_profiles', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  uniqueUserVertical: uniqueIndex('public_profiles_user_vertical_idx').on(table.userId, table.vertical),
+  uniqueAccountVertical: uniqueIndex('public_profiles_account_vertical_idx')
+    .on(table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL`),
+  uniqueLegacyUserVertical: uniqueIndex('public_profiles_user_vertical_legacy_idx')
+    .on(table.userId, table.vertical)
+    .where(sql`${table.accountId} IS NULL`),
   uniqueVerticalSlug: uniqueIndex('public_profiles_vertical_slug_idx').on(table.vertical, table.slug),
 }));
 
@@ -518,7 +591,7 @@ export const messageThreads = pgTable('message_threads', {
 export const messageEntries = pgTable('message_entries', {
   id: uuid('id').primaryKey().defaultRandom(),
   threadId: uuid('thread_id').references(() => messageThreads.id).notNull(),
-  senderUserId: uuid('sender_user_id').references(() => users.id).notNull(),
+  senderUserId: uuid('sender_user_id').references(() => users.id, { onDelete: 'set null' }),
   senderRole: varchar('sender_role', { length: 20 }).notNull(),
   body: text('body').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -557,7 +630,7 @@ export const adCampaigns = pgTable('ad_campaigns', {
 // SimpleAgenda tables
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Professional profile — one per user (the practitioner using SimpleAgenda)
+// Professional profile — one per user and workspace (the practitioner using SimpleAgenda)
 export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
   accountId: uuid('account_id').references(() => accounts.id),
@@ -639,11 +712,17 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   operatorSiteLayout: varchar('operator_site_layout', { length: 20 }).notNull().default('booking'),
   operatorSiteColorMode: varchar('operator_site_color_mode', { length: 10 }).notNull().default('system'),
   operatorSiteAccentColor: varchar('operator_site_accent_color', { length: 20 }).notNull().default('teal'),
+  operatorSiteLandingConfig: jsonb('operator_site_landing_config').$type<Record<string, unknown>>().notNull().default(sql`'{"version":1,"brief":{"audience":"","differentiators":"","credentials":"","tone":"profesional"},"draft":null,"published":null}'::jsonb`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   uniqueSlug: uniqueIndex('agenda_profiles_slug_idx').on(table.slug),
-  uniqueUser: uniqueIndex('agenda_profiles_user_id_idx').on(table.userId),
+  uniqueAccountUser: uniqueIndex('agenda_profiles_account_user_idx')
+    .on(table.accountId, table.userId)
+    .where(sql`${table.accountId} IS NOT NULL`),
+  uniqueLegacyUser: uniqueIndex('agenda_profiles_legacy_user_idx')
+    .on(table.userId)
+    .where(sql`${table.accountId} IS NULL`),
 }));
 
 // Services / session types offered by the professional
@@ -856,6 +935,33 @@ export const agendaAppointments = pgTable('agenda_appointments', {
   clientPackIdx: index('agenda_appointments_client_pack_idx').on(table.clientPackId),
 }));
 
+/** Business appointments for property visits and brokerage meetings. Kept separate from professional appointments so teams never inherit private service bookings. */
+export const agendaAccountVisits = pgTable('agenda_account_visits', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }).notNull(),
+  visitType: varchar('visit_type', { length: 30 }).notNull().default('property_visit'),
+  listingId: uuid('listing_id').references(() => listings.id, { onDelete: 'set null' }),
+  contactUserId: uuid('contact_user_id').references(() => users.id, { onDelete: 'set null' }),
+  contactName: varchar('contact_name', { length: 160 }).notNull(),
+  contactPhone: varchar('contact_phone', { length: 30 }),
+  assignedUserId: uuid('assigned_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdByUserId: uuid('created_by_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  startsAt: timestamp('starts_at').notNull(),
+  durationMinutes: integer('duration_minutes').notNull().default(30),
+  status: varchar('status', { length: 20 }).notNull().default('scheduled'),
+  location: varchar('location', { length: 255 }),
+  internalNotes: text('internal_notes'),
+  googleEventId: varchar('google_event_id', { length: 255 }),
+  googleCalendarOwnerUserId: uuid('google_calendar_owner_user_id').references(() => users.id, { onDelete: 'set null' }),
+  reminderSentAt: timestamp('reminder_sent_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  accountStartsIdx: index('agenda_account_visits_account_starts_idx').on(table.accountId, table.startsAt),
+  assigneeStartsIdx: index('agenda_account_visits_assignee_starts_idx').on(table.assignedUserId, table.startsAt),
+  reminderDueIdx: index('agenda_account_visits_reminder_due_idx').on(table.startsAt, table.reminderSentAt),
+}));
+
 // Session notes (clinical notes per appointment)
 export const agendaSessionNotes = pgTable('agenda_session_notes', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -909,7 +1015,7 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
 // Subscription plans for each vertical
 export const subscriptionPlans = pgTable('subscription_plans', {
   id: uuid('id').primaryKey().defaultRandom(),
-  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda'
+  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda' | 'serenatas'
   planId: varchar('plan_id', { length: 50 }).notNull(), // 'free' | 'pro' | 'enterprise'
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description').notNull(),
@@ -917,7 +1023,6 @@ export const subscriptionPlans = pgTable('subscription_plans', {
   priceYearly: decimal('price_yearly', { precision: 10, scale: 2 }).notNull(),
   currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
   maxListings: integer('max_listings').notNull().default(0),
-  maxFeaturedListings: integer('max_featured_listings').notNull().default(0),
   maxImagesPerListing: integer('max_images_per_listing').notNull().default(0),
   analyticsEnabled: boolean('analytics_enabled').notNull().default(false),
   prioritySupport: boolean('priority_support').notNull().default(false),
@@ -940,6 +1045,7 @@ export const subscriptions = pgTable('subscriptions', {
   userId: uuid('user_id').references(() => users.id).notNull(),
   planId: uuid('plan_id').references(() => subscriptionPlans.id).notNull(),
   vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda'
+  billingProfileType: varchar('billing_profile_type', { length: 20 }), // SimpleSerenatas: 'provider' | 'musician'
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'cancelled' | 'paused' | 'expired'
   provider: varchar('provider', { length: 30 }).notNull().default('mercadopago'), // 'mercadopago'
   providerSubscriptionId: varchar('provider_subscription_id', { length: 255 }), // MercadoPago subscription ID
@@ -951,7 +1057,21 @@ export const subscriptions = pgTable('subscriptions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  userVerticalIdx: uniqueIndex('subscriptions_user_vertical_idx').on(table.userId, table.vertical),
+  billingProfileTypeCheck: check(
+    'subscriptions_billing_profile_type_check',
+    sql`(${table.vertical} = 'serenatas' AND ${table.billingProfileType} IN ('provider', 'musician')) OR (${table.vertical} <> 'serenatas' AND ${table.billingProfileType} IS NULL)`,
+  ),
+  userVerticalIdx: index('subscriptions_user_vertical_idx').on(table.userId, table.vertical),
+  accountVerticalIdx: index('subscriptions_account_vertical_idx').on(table.accountId, table.vertical),
+  accountVerticalUniqueIdx: uniqueIndex('subscriptions_account_vertical_unique_idx')
+    .on(table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL AND ${table.vertical} <> 'serenatas'`),
+  legacyUserVerticalUniqueIdx: uniqueIndex('subscriptions_user_vertical_legacy_unique_idx')
+    .on(table.userId, table.vertical)
+    .where(sql`${table.accountId} IS NULL AND ${table.vertical} <> 'serenatas'`),
+  serenataBillingProfileUniqueIdx: uniqueIndex('subscriptions_serenatas_profile_unique_idx')
+    .on(table.userId, table.billingProfileType)
+    .where(sql`${table.vertical} = 'serenatas' AND ${table.billingProfileType} IS NOT NULL`),
   userIdx: index('subscriptions_user_idx').on(table.userId),
   verticalIdx: index('subscriptions_vertical_idx').on(table.vertical),
   providerSubIdx: index('subscriptions_provider_idx').on(table.providerSubscriptionId),
@@ -983,6 +1103,7 @@ export const paymentOrders = pgTable('payment_orders', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   userIdx: index('payment_orders_user_idx').on(table.userId),
+  accountIdx: index('payment_orders_account_idx').on(table.accountId),
   subscriptionIdx: index('payment_orders_subscription_idx').on(table.subscriptionId),
   providerOrderIdx: index('payment_orders_provider_idx').on(table.providerOrderId),
   statusIdx: index('payment_orders_status_idx').on(table.status),
@@ -1198,6 +1319,9 @@ export const serenataMusicians = pgTable('serenata_musicians', {
   workZones: jsonb('working_comunas').$type<string[]>().notNull().default(sql`'[]'::jsonb`), // DB column: working_comunas (legacy name)
   hasInstrument: boolean('has_instrument').notNull().default(false),
   hasMariachiAttire: boolean('has_mariachi_attire').notNull().default(false),
+  commissionRateBps: integer('commission_rate_bps').notNull().default(0),
+  commissionVatRateBps: integer('commission_vat_rate_bps').notNull().default(1900),
+  trialEndsAt: timestamp('trial_ends_at').notNull().default(sql`now() + interval '30 days'`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
@@ -1230,7 +1354,7 @@ export const serenataOwners = pgTable('serenata_owners', {
   maxPrice: integer('max_price'),
   subscriptionStatus: varchar('subscription_status', { length: 30 }).notNull().default('trialing'),
   subscriptionPrice: integer('subscription_price').notNull().default(9990),
-  commissionRateBps: integer('commission_rate_bps').notNull().default(800),
+  commissionRateBps: integer('commission_rate_bps').notNull().default(0),
   commissionVatRateBps: integer('commission_vat_rate_bps').notNull().default(1900),
   trialEndsAt: timestamp('trial_ends_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -1719,6 +1843,7 @@ export const platformNotifications = pgTable('platform_notifications', {
 /** Relationship Engine — append-only product timeline (not admin audit). */
 export const timelineEvents = pgTable('timeline_events', {
   id: uuid('id').primaryKey().defaultRandom(),
+  idempotencyKey: varchar('idempotency_key', { length: 255 }),
   type: varchar('type', { length: 80 }).notNull(),
   occurredAt: timestamp('occurred_at').notNull().defaultNow(),
   vertical: varchar('vertical', { length: 20 }).notNull(),
@@ -1731,6 +1856,9 @@ export const timelineEvents = pgTable('timeline_events', {
   payload: jsonb('payload').$type<Record<string, unknown> | null>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
+  idempotencyKeyUniqueIdx: uniqueIndex('timeline_events_idempotency_key_idx')
+    .on(table.idempotencyKey)
+    .where(sql`${table.idempotencyKey} IS NOT NULL`),
   businessPersonOccurredIdx: index('timeline_events_business_person_occurred_idx').on(
     table.businessId,
     table.personId,
@@ -1761,6 +1889,79 @@ export const relationshipNotes = pgTable('relationship_notes', {
     table.businessId,
     table.personId,
     table.createdAt,
+  ),
+}));
+
+/** A company account can assign each marketplace contact to one teammate. */
+export const accountRelationshipAssignments = pgTable('account_relationship_assignments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  personId: varchar('person_id', { length: 160 }).notNull(),
+  assignedUserId: uuid('assigned_user_id').references(() => users.id, { onDelete: 'set null' }),
+  assignedByUserId: uuid('assigned_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  stage: varchar('stage', { length: 30 }).notNull().default('new'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  accountPersonUniqueIdx: uniqueIndex('account_relationship_assignments_account_person_idx').on(
+    table.accountId,
+    table.vertical,
+    table.personId,
+  ),
+  assigneeIdx: index('account_relationship_assignments_assignee_idx').on(table.accountId, table.assignedUserId),
+}));
+
+/** Small, account-scoped follow-ups attached to a marketplace contact. */
+export const accountRelationshipTasks = pgTable('account_relationship_tasks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  personId: varchar('person_id', { length: 160 }).notNull(),
+  title: varchar('title', { length: 180 }).notNull(),
+  assignedUserId: uuid('assigned_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdByUserId: uuid('created_by_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  dueAt: timestamp('due_at'),
+  reminderSentAt: timestamp('reminder_sent_at'),
+  status: varchar('status', { length: 20 }).notNull().default('open'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  contactDueIdx: index('account_relationship_tasks_contact_due_idx').on(
+    table.accountId,
+    table.vertical,
+    table.personId,
+    table.dueAt,
+  ),
+  assigneeStatusIdx: index('account_relationship_tasks_assignee_status_idx').on(
+    table.accountId,
+    table.assignedUserId,
+    table.status,
+    table.dueAt,
+  ),
+}));
+
+/** A team member can own the next actions on a shared property listing. */
+export const accountListingAssignments = pgTable('account_listing_assignments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  listingId: uuid('listing_id').references(() => listings.id, { onDelete: 'cascade' }).notNull(),
+  assignedUserId: uuid('assigned_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  assignedByUserId: uuid('assigned_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  listingMemberUniqueIdx: uniqueIndex('account_listing_assignments_listing_member_idx').on(
+    table.accountId,
+    table.listingId,
+    table.assignedUserId,
+  ),
+  memberIdx: index('account_listing_assignments_member_idx').on(
+    table.accountId,
+    table.assignedUserId,
+    table.vertical,
   ),
 }));
 

@@ -1,6 +1,7 @@
 import type { Hono } from 'hono';
 import type { Context } from 'hono';
 import { cleanupReplacedMediaUrl } from '../media/stored-object.js';
+import { runAccountManagerWrite } from '../accounts/write-access.js';
 
 type Vertical = 'autos' | 'propiedades';
 
@@ -65,31 +66,37 @@ export type OperatorProductsDeps = {
         publicProfiles: any;
         marketplaceOperatorProducts: any;
     };
-    getPublicProfileRecord: (userId: string, vertical: Vertical) => { id: string } | null;
-    ensureMarketplaceDraftProfileForUser?: (user: { id: string; name?: string; email?: string }, vertical: Vertical) => Promise<void>;
+    getPublicProfileRecord: (userId: string, vertical: Vertical, accountId?: string | null) => { id: string } | null;
+    canManageActiveAccountProfile: (userId: string) => Promise<boolean>;
+    getAccountMembershipFromDb?: (userId: string) => Promise<{ accountId: string; role: string } | null>;
+    ensureMarketplaceDraftProfileForUser?: (user: { id: string; name?: string; email?: string }, vertical: Vertical, accountId?: string | null) => Promise<void>;
 };
 
 async function resolveProfileId(deps: OperatorProductsDeps, user: { id: string; name?: string; email?: string }, vertical: Vertical) {
+    const accountId = deps.getAccountMembershipFromDb
+        ? (await deps.getAccountMembershipFromDb(user.id))?.accountId ?? null
+        : undefined;
     if (deps.ensureMarketplaceDraftProfileForUser) {
-        await deps.ensureMarketplaceDraftProfileForUser(user as { id: string; name: string; email: string }, vertical);
+        await deps.ensureMarketplaceDraftProfileForUser(user as { id: string; name: string; email: string }, vertical, accountId);
     }
-    const profile = deps.getPublicProfileRecord(user.id, vertical);
-    return profile?.id ?? null;
+    const profile = deps.getPublicProfileRecord(user.id, vertical, accountId);
+    return { profileId: profile?.id ?? null, accountId: accountId ?? null };
 }
 
 async function ensureProfilePublishedForCatalog(
     deps: OperatorProductsDeps,
     profileId: string,
+    query: any = deps.db,
 ) {
-    const { db, dbHelpers: { eq }, tables } = deps;
-    const [profile] = await db.select().from(tables.publicProfiles)
+    const { dbHelpers: { eq }, tables } = deps;
+    const [profile] = await query.select().from(tables.publicProfiles)
         .where(eq(tables.publicProfiles.id, profileId))
         .limit(1);
     if (!profile || profile.isPublished) return;
     const displayName = typeof profile.displayName === 'string' && profile.displayName.trim()
         ? profile.displayName.trim()
         : 'Mi tienda';
-    await db.update(tables.publicProfiles)
+    await query.update(tables.publicProfiles)
         .set({ isPublished: true, displayName, updatedAt: new Date() })
         .where(eq(tables.publicProfiles.id, profileId));
 }
@@ -193,9 +200,12 @@ export function mountOperatorProductsRoutes(app: Hono, deps: OperatorProductsDep
     async function requireProfile(c: Context, vertical: Vertical) {
         const user = await authUser(c);
         if (!user) return { error: c.json({ ok: false, error: 'No autenticado' }, 401) };
-        const profileId = await resolveProfileId(deps, user, vertical);
-        if (!profileId) return { error: c.json({ ok: false, error: 'Perfil no encontrado' }, 404) };
-        return { user, profileId };
+        if (!await deps.canManageActiveAccountProfile(user.id)) {
+            return { error: c.json({ ok: false, error: 'Solo quien administra este espacio puede gestionar el catálogo.' }, 403) };
+        }
+        const profile = await resolveProfileId(deps, user, vertical);
+        if (!profile.profileId) return { error: c.json({ ok: false, error: 'Perfil no encontrado' }, 404) };
+        return { user, profileId: profile.profileId, accountId: profile.accountId };
     }
 
     app.get('/operator-products', async (c) => {
@@ -223,24 +233,33 @@ export function mountOperatorProductsRoutes(app: Hono, deps: OperatorProductsDep
         const promoError = validatePromoPriceAgainstBase(price, promoPrice);
         if (promoError) return c.json({ ok: false, error: promoError }, 400);
         const stock = asNumber(body.stock);
-        const [row] = await db.insert(marketplaceOperatorProducts).values({
-            publicProfileId: ctx.profileId,
-            vertical,
-            name,
-            description: asString(body.description),
-            imageUrl: asString(body.imageUrl),
-            category: asString(body.category) ?? 'other',
-            price,
-            promoPrice,
-            currency: asString(body.currency) ?? 'CLP',
-            stock: stock != null && stock >= 0 ? stock : null,
-            sku: asString(body.sku),
-            isActive: body.isActive !== false,
-            position: asNumber(body.position) ?? 0,
-        }).returning();
-        if (body.isActive !== false) {
-            await ensureProfilePublishedForCatalog(deps, ctx.profileId);
-        }
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            async (tx) => {
+                const [row] = await tx.insert(marketplaceOperatorProducts).values({
+                    publicProfileId: ctx.profileId,
+                    vertical,
+                    name,
+                    description: asString(body.description),
+                    imageUrl: asString(body.imageUrl),
+                    category: asString(body.category) ?? 'other',
+                    price,
+                    promoPrice,
+                    currency: asString(body.currency) ?? 'CLP',
+                    stock: stock != null && stock >= 0 ? stock : null,
+                    sku: asString(body.sku),
+                    isActive: body.isActive !== false,
+                    position: asNumber(body.position) ?? 0,
+                }).returning();
+                if (body.isActive !== false) {
+                    await ensureProfilePublishedForCatalog(deps, ctx.profileId, tx);
+                }
+                return row;
+            },
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
+        const row = write.value;
         return c.json({ ok: true, item: mapProductRow(row) });
     });
 
@@ -272,14 +291,22 @@ export function mountOperatorProductsRoutes(app: Hono, deps: OperatorProductsDep
         const nextPromoPrice = 'promoPrice' in patch ? (patch.promoPrice as number | null) : (existing.promoPrice != null ? Number(existing.promoPrice) : null);
         const promoError = validatePromoPriceAgainstBase(nextPrice, nextPromoPrice);
         if (promoError) return c.json({ ok: false, error: promoError }, 400);
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            async (tx) => {
+                const [row] = await tx.update(marketplaceOperatorProducts).set(patch)
+                    .where(and(eq(marketplaceOperatorProducts.id, id), eq(marketplaceOperatorProducts.publicProfileId, ctx.profileId)))
+                    .returning();
+                return row ?? null;
+            },
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
+        const row = write.value;
+        if (!row) return c.json({ ok: false, error: 'Producto no encontrado' }, 404);
         if ('imageUrl' in patch) {
             await cleanupReplacedMediaUrl(existing.imageUrl ? String(existing.imageUrl) : null, patch.imageUrl as string | null);
         }
-
-        const [row] = await db.update(marketplaceOperatorProducts).set(patch)
-            .where(and(eq(marketplaceOperatorProducts.id, id), eq(marketplaceOperatorProducts.publicProfileId, ctx.profileId)))
-            .returning();
-        if (!row) return c.json({ ok: false, error: 'Producto no encontrado' }, 404);
         return c.json({ ok: true, item: mapProductRow(row) });
     });
 
@@ -289,8 +316,15 @@ export function mountOperatorProductsRoutes(app: Hono, deps: OperatorProductsDep
         const ctx = await requireProfile(c, vertical);
         if ('error' in ctx) return ctx.error;
         const id = c.req.param('id') ?? '';
-        await db.update(marketplaceOperatorProducts).set({ isActive: false, updatedAt: new Date() })
-            .where(and(eq(marketplaceOperatorProducts.id, id), eq(marketplaceOperatorProducts.publicProfileId, ctx.profileId)));
+        const write = await runAccountManagerWrite(
+            db,
+            { userId: ctx.user.id, accountId: ctx.accountId },
+            (tx) => tx.update(marketplaceOperatorProducts).set({ isActive: false, updatedAt: new Date() })
+                .where(and(eq(marketplaceOperatorProducts.id, id), eq(marketplaceOperatorProducts.publicProfileId, ctx.profileId)))
+                .returning({ id: marketplaceOperatorProducts.id })
+                .then((rows: Array<{ id: string }>) => rows.length),
+        );
+        if (!write.ok) return c.json({ ok: false, error: 'Tus permisos cambiaron. Actualiza el panel e inténtalo nuevamente.' }, 403);
         return c.json({ ok: true });
     });
 }

@@ -155,47 +155,140 @@ export function EmailUserDialog({ user, userIds, onClose, onCompleted }: DialogP
     );
 }
 
-type SubscriptionForm = Record<AdminVertical, { plan: string; status: string; expiresAt: string; trialEndsAt?: string }>;
+type SubscriptionFields = { plan: string; status: string; expiresAt: string; trialEndsAt: string };
+type SubscriptionForm = {
+    agenda: { plan: string; status: string; expiresAt: string };
+    autos: { plan: string; status: string; expiresAt: string };
+    propiedades: { plan: string; status: string; expiresAt: string };
+    serenatas: { provider: SubscriptionFields; musician: SubscriptionFields };
+};
+
+function subscriptionFormFor(user: AdminUserSnapshot, accountId: string): SubscriptionForm {
+    const account = user.accounts.find((item) => item.id === accountId);
+    const subscriptions = account?.subscriptions ?? (user.accounts.length === 0 ? user.subscriptions : undefined);
+    const personalSubscriptions = user.accounts.find((item) => item.isPersonal)?.subscriptions;
+    const serenatasProviderSubscription = personalSubscriptions?.serenatasProvider
+        ?? user.subscriptions?.serenatasProvider
+        ?? personalSubscriptions?.serenatas
+        ?? user.subscriptions?.serenatas;
+    const serenatasMusicianSubscription = personalSubscriptions?.serenatasMusician
+        ?? user.subscriptions?.serenatasMusician;
+    const serenatasFields = (
+        subscription: typeof serenatasProviderSubscription,
+        trialEndsAt?: string | null,
+    ): SubscriptionFields => ({
+        plan: subscription?.planId ?? 'free',
+        status: subscription?.status ?? 'cancelled',
+        expiresAt: toDateInputValue(subscription?.expiresAt),
+        trialEndsAt: toDateInputValue(trialEndsAt),
+    });
+    return {
+        agenda: {
+            plan: subscriptions?.agenda?.plan ?? 'free',
+            status: subscriptions?.agenda?.status ?? 'free',
+            expiresAt: toDateInputValue(subscriptions?.agenda?.expiresAt),
+        },
+        autos: { plan: subscriptions?.autos?.planId ?? 'free', status: subscriptions?.autos?.status ?? 'cancelled', expiresAt: toDateInputValue(subscriptions?.autos?.expiresAt) },
+        propiedades: { plan: subscriptions?.propiedades?.planId ?? 'free', status: subscriptions?.propiedades?.status ?? 'cancelled', expiresAt: toDateInputValue(subscriptions?.propiedades?.expiresAt) },
+        serenatas: {
+            provider: serenatasFields(serenatasProviderSubscription, user.serenatas?.trialEndsAt),
+            musician: serenatasFields(serenatasMusicianSubscription, user.serenatas?.musicianTrialEndsAt),
+        },
+    };
+}
 
 export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps & { user: AdminUserSnapshot }) {
-    const [form, setForm] = useState<SubscriptionForm>(() => ({
-        agenda: {
-            plan: user.subscriptions?.agenda?.plan ?? 'free',
-            status: 'cancelled',
-            expiresAt: toDateInputValue(user.subscriptions?.agenda?.expiresAt),
-        },
-        autos: { plan: user.subscriptions?.autos?.planId ?? 'free', status: user.subscriptions?.autos?.status ?? 'cancelled', expiresAt: toDateInputValue(user.subscriptions?.autos?.expiresAt) },
-        propiedades: { plan: user.subscriptions?.propiedades?.planId ?? 'free', status: user.subscriptions?.propiedades?.status ?? 'cancelled', expiresAt: toDateInputValue(user.subscriptions?.propiedades?.expiresAt) },
-        serenatas: { plan: user.subscriptions?.serenatas?.planId ?? 'free', status: user.subscriptions?.serenatas?.status ?? 'cancelled', expiresAt: toDateInputValue(user.subscriptions?.serenatas?.expiresAt), trialEndsAt: toDateInputValue(user.serenatas?.trialEndsAt) },
-    }));
+    const [accountId, setAccountId] = useState(user.accounts.find((item) => item.isDefault)?.id ?? user.accounts[0]?.id ?? '');
+    const [form, setForm] = useState<SubscriptionForm>(() => subscriptionFormFor(user, user.accounts.find((item) => item.isDefault)?.id ?? user.accounts[0]?.id ?? ''));
+    const [dirtyVerticals, setDirtyVerticals] = useState<Set<'agenda' | 'autos' | 'propiedades'>>(() => new Set());
+    const [dirtySerenatasProfiles, setDirtySerenatasProfiles] = useState<Set<'provider' | 'musician'>>(() => new Set());
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const selectedAccount = user.accounts.find((item) => item.id === accountId) ?? null;
+    const personalSubscriptions = user.accounts.find((item) => item.isPersonal)?.subscriptions;
+    const serenatasProviderSubscription = personalSubscriptions?.serenatasProvider
+        ?? user.subscriptions?.serenatasProvider
+        ?? personalSubscriptions?.serenatas
+        ?? user.subscriptions?.serenatas;
+    const serenatasMusicianSubscription = personalSubscriptions?.serenatasMusician
+        ?? user.subscriptions?.serenatasMusician;
+    const selectedSubscriptions = selectedAccount?.subscriptions ?? (user.accounts.length === 0 ? user.subscriptions : undefined);
+    const summaryUser = {
+        ...user,
+        subscriptions: selectedSubscriptions || serenatasProviderSubscription || serenatasMusicianSubscription
+            ? {
+                ...selectedSubscriptions,
+                serenatas: serenatasProviderSubscription,
+                serenatasProvider: serenatasProviderSubscription,
+                serenatasMusician: serenatasMusicianSubscription,
+            }
+            : undefined,
+    };
 
-    const setField = (vertical: AdminVertical, field: string, value: string) => setForm((current) => {
-        const resetAgendaExpiration = vertical === 'agenda'
-            && field === 'plan'
-            && (value === 'pro' || value === 'pro_plus')
-            && current.agenda.plan !== value;
-        return {
+    const changeAccount = (nextAccountId: string) => {
+        setAccountId(nextAccountId);
+        setForm(subscriptionFormFor(user, nextAccountId));
+        setDirtyVerticals(new Set());
+        setDirtySerenatasProfiles(new Set());
+        setError('');
+    };
+
+    const setField = (vertical: 'agenda' | 'autos' | 'propiedades', field: string, value: string) => {
+        setForm((current) => {
+            const resetAgendaExpiration = vertical === 'agenda'
+                && field === 'plan'
+                && (value === 'pro' || value === 'pro_plus')
+                && current.agenda.plan !== value;
+            return {
+                ...current,
+                [vertical]: {
+                    ...current[vertical],
+                    [field]: value,
+                    ...(resetAgendaExpiration ? { expiresAt: '' } : {}),
+                },
+            };
+        });
+        setDirtyVerticals((current) => new Set(current).add(vertical));
+    };
+
+    const setSerenatasField = (profileType: 'provider' | 'musician', field: keyof SubscriptionFields, value: string) => {
+        setForm((current) => ({
             ...current,
-            [vertical]: {
-                ...current[vertical],
-                [field]: value,
-                ...(resetAgendaExpiration ? { expiresAt: '' } : {}),
+            serenatas: {
+                ...current.serenatas,
+                [profileType]: { ...current.serenatas[profileType], [field]: value },
             },
-        };
-    });
+        }));
+        setDirtySerenatasProfiles((current) => new Set(current).add(profileType));
+    };
 
     const save = async () => {
         setSaving(true);
         setError('');
         try {
-            await updateAdminUserSubscriptions(user.id, {
-                agenda: { plan: form.agenda.plan, expiresAt: dateInputToIso(form.agenda.expiresAt) },
-                autos: { planId: form.autos.plan, status: form.autos.plan === 'free' ? 'cancelled' : form.autos.status, expiresAt: dateInputToIso(form.autos.expiresAt) },
-                propiedades: { planId: form.propiedades.plan, status: form.propiedades.plan === 'free' ? 'cancelled' : form.propiedades.status, expiresAt: dateInputToIso(form.propiedades.expiresAt) },
-                serenatas: { planId: form.serenatas.plan, status: form.serenatas.plan === 'free' ? 'cancelled' : form.serenatas.status, expiresAt: dateInputToIso(form.serenatas.expiresAt), trialEndsAt: dateInputToIso(form.serenatas.trialEndsAt ?? '') },
-            });
+            const changes: Record<string, unknown> = {};
+            for (const vertical of dirtyVerticals) {
+                if (vertical === 'agenda') {
+                    changes.agenda = { plan: form.agenda.plan, expiresAt: dateInputToIso(form.agenda.expiresAt) };
+                } else {
+                    changes[vertical] = {
+                        planId: form[vertical].plan,
+                        status: form[vertical].plan === 'free' ? 'cancelled' : form[vertical].status,
+                        expiresAt: dateInputToIso(form[vertical].expiresAt),
+                    };
+                }
+            }
+            for (const profileType of dirtySerenatasProfiles) {
+                const fields = form.serenatas[profileType];
+                const key = profileType === 'provider' ? 'serenatasProvider' : 'serenatasMusician';
+                changes[key] = {
+                    planId: fields.plan,
+                    status: fields.plan === 'free' ? 'cancelled' : fields.status,
+                    expiresAt: dateInputToIso(fields.expiresAt),
+                    trialEndsAt: dateInputToIso(fields.trialEndsAt),
+                };
+            }
+            await updateAdminUserSubscriptions(user.id, accountId || null, changes);
             onCompleted();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'No se pudieron guardar las suscripciones.');
@@ -214,34 +307,87 @@ export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps 
             footer={(
                 <div className="flex justify-end gap-2 px-5 py-4">
                     <PanelButton variant="secondary" onClick={onClose} disabled={saving}>Cancelar</PanelButton>
-                    <PanelButton onClick={() => void save()} loading={saving} disabled={saving}>Guardar</PanelButton>
+                    <PanelButton onClick={() => void save()} loading={saving} disabled={saving || (dirtyVerticals.size === 0 && dirtySerenatasProfiles.size === 0)}>Guardar</PanelButton>
                 </div>
             )}
         >
             <div className="space-y-3 p-5">
-                {(['agenda', 'autos', 'propiedades', 'serenatas'] as const).map((vertical) => (
+                {user.accounts.length > 1 ? (
+                    <Field label="Espacio de trabajo">
+                        <ModernSelect
+                            value={accountId}
+                            onChange={changeAccount}
+                            options={user.accounts.map((account) => ({
+                                value: account.id,
+                                label: `${account.name}${account.isPersonal ? ' · Personal' : ''}${account.isDefault ? ' · Principal' : ''}`,
+                            }))}
+                        />
+                    </Field>
+                ) : selectedAccount ? (
+                    <div className="border-b border-[var(--border)] pb-3">
+                        <p className="text-sm font-medium text-[var(--fg)]">{selectedAccount.name}</p>
+                        <p className="text-xs text-[var(--fg-muted)]">{selectedAccount.isPersonal ? 'Espacio personal' : 'Planes de este espacio de trabajo'}</p>
+                    </div>
+                ) : (
+                    <PanelNotice tone="info">Este usuario aún no tiene un espacio de trabajo. Al asignar un plan, se creará su espacio personal.</PanelNotice>
+                )}
+                {(['agenda', 'autos', 'propiedades'] as const).map((vertical) => (
                     <section key={vertical} className="border-b border-[var(--border)] pb-4 last:border-0">
                         <div className="mb-3">
                             <h3 className="text-sm font-semibold text-[var(--fg)]">{verticalLabel(vertical)}</h3>
-                            <p className="text-xs text-[var(--fg-muted)]">{getSubscriptionSummary(user, vertical)}</p>
+                            <p className="text-xs text-[var(--fg-muted)]">{getSubscriptionSummary(summaryUser, vertical)}</p>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3">
-                            <Field label="Plan"><ModernSelect value={form[vertical].plan} onChange={(value) => setField(vertical, 'plan', value)} options={PLAN_OPTIONS[vertical]} /></Field>
-                            {vertical !== 'agenda' ? <Field label="Estado"><ModernSelect value={form[vertical].status} onChange={(value) => setField(vertical, 'status', value)} options={SUBSCRIPTION_STATUS_OPTIONS} disabled={form[vertical].plan === 'free'} /></Field> : null}
-                            {vertical !== 'agenda' || form.agenda.plan === 'pro' || form.agenda.plan === 'pro_plus' ? (
-                                <Field label="Expiración"><input className="form-input" type="date" value={form[vertical].expiresAt} onChange={(event) => setField(vertical, 'expiresAt', event.target.value)} /></Field>
-                            ) : null}
-                            {vertical === 'serenatas' ? <Field label="Fin prueba dueño" className="sm:col-start-3"><input className="form-input" type="date" value={form.serenatas.trialEndsAt} onChange={(event) => setField('serenatas', 'trialEndsAt', event.target.value)} /></Field> : null}
-                            {vertical === 'agenda' ? (
-                                <div className="sm:col-span-3">
-                                    <PanelNotice tone="info">
-                                        Las cuentas nuevas reciben 30 días de Pro y luego continúan en Gratis. En esta pantalla puedes asignar Gratis, Pro o Pro+; Empresa / Negocios se cotiza según el tamaño del equipo.
-                                    </PanelNotice>
-                                </div>
-                            ) : null}
+                                <Field label="Plan"><ModernSelect value={form[vertical].plan} onChange={(value) => setField(vertical, 'plan', value)} options={PLAN_OPTIONS[vertical]} /></Field>
+                                {vertical !== 'agenda' ? <Field label="Estado"><ModernSelect value={form[vertical].status} onChange={(value) => setField(vertical, 'status', value)} options={SUBSCRIPTION_STATUS_OPTIONS} disabled={form[vertical].plan === 'free'} /></Field> : null}
+                                {vertical !== 'agenda' || form.agenda.plan === 'pro' || form.agenda.plan === 'pro_plus' ? (
+                                    <Field label="Expiración"><input className="form-input" type="date" value={form[vertical].expiresAt} onChange={(event) => setField(vertical, 'expiresAt', event.target.value)} /></Field>
+                                ) : null}
+                                {vertical === 'agenda' ? (
+                                    <div className="sm:col-span-3">
+                                        <PanelNotice tone="info">
+                                            Las cuentas nuevas reciben 30 días de Pro y luego continúan en Gratis. En esta pantalla puedes asignar Gratis, Pro o Pro+; Empresa / Negocios se cotiza según el tamaño del equipo.
+                                        </PanelNotice>
+                                    </div>
+                                ) : null}
                         </div>
                     </section>
                 ))}
+                {user.serenatas?.owner || user.serenatas?.musician ? (
+                    <section className="border-b border-[var(--border)] pb-4 last:border-0">
+                        <div className="mb-3">
+                            <h3 className="text-sm font-semibold text-[var(--fg)]">SimpleSerenatas</h3>
+                            <p className="text-xs text-[var(--fg-muted)]">Cada perfil conserva su propio plan, prueba y comisión.</p>
+                        </div>
+                        <div className="space-y-4">
+                            {(['provider', 'musician'] as const).map((profileType) => {
+                                const profileExists = profileType === 'provider' ? user.serenatas?.owner : user.serenatas?.musician;
+                                if (!profileExists) return null;
+                                const fields = form.serenatas[profileType];
+                                const label = profileType === 'provider' ? 'Proveedor' : 'Músico';
+                                return (
+                                    <div key={profileType} className="rounded-xl border border-[var(--border)] p-3">
+                                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--fg-muted)]">Perfil {label}</h4>
+                                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                            <Field label="Plan">
+                                                <ModernSelect value={fields.plan} onChange={(value) => setSerenatasField(profileType, 'plan', value)} options={PLAN_OPTIONS.serenatas} />
+                                            </Field>
+                                            <Field label="Estado">
+                                                <ModernSelect value={fields.status} onChange={(value) => setSerenatasField(profileType, 'status', value)} options={SUBSCRIPTION_STATUS_OPTIONS} disabled={fields.plan === 'free'} />
+                                            </Field>
+                                            <Field label="Expiración">
+                                                <input className="form-input" type="date" value={fields.expiresAt} onChange={(event) => setSerenatasField(profileType, 'expiresAt', event.target.value)} />
+                                            </Field>
+                                            <Field label="Fin de prueba">
+                                                <input className="form-input" type="date" value={fields.trialEndsAt} onChange={(event) => setSerenatasField(profileType, 'trialEndsAt', event.target.value)} />
+                                            </Field>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+                ) : null}
                 {error ? <PanelNotice tone="error">{error}</PanelNotice> : null}
             </div>
         </PanelScrollModal>

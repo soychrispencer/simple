@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { paymentOrders } from '../../db/schema.js';
 
@@ -123,9 +123,33 @@ export async function findPaymentOrderByIdFromDb(orderId: string): Promise<{
 /** Listado de órdenes del usuario desde PostgreSQL (DB-first). */
 export async function listPaymentOrdersForUserFromDb(
     userId: string,
-    options: { vertical?: string; kind?: string; limit?: number } = {},
+    options: { vertical?: string; kind?: string; accountId?: string | null; limit?: number } = {},
 ): Promise<HydratedPaymentOrder[]> {
     const conditions = [eq(paymentOrders.userId, userId)];
+    if (options.vertical) conditions.push(eq(paymentOrders.vertical, options.vertical));
+    if (options.kind) conditions.push(eq(paymentOrders.kind, options.kind));
+    if (options.accountId !== undefined) {
+        conditions.push(options.accountId
+            ? eq(paymentOrders.accountId, options.accountId)
+            : isNull(paymentOrders.accountId));
+    }
+
+    const rows = await db
+        .select()
+        .from(paymentOrders)
+        .where(and(...conditions))
+        .orderBy(desc(paymentOrders.updatedAt))
+        .limit(options.limit ?? 100);
+
+    return rows.map(mapPaymentOrderRowToHydrated);
+}
+
+/** Listado de órdenes de una cuenta compartida, visible solo tras validar permisos en la ruta. */
+export async function listPaymentOrdersForAccountFromDb(
+    accountId: string,
+    options: { vertical?: string; kind?: string; limit?: number } = {},
+): Promise<HydratedPaymentOrder[]> {
+    const conditions = [eq(paymentOrders.accountId, accountId)];
     if (options.vertical) conditions.push(eq(paymentOrders.vertical, options.vertical));
     if (options.kind) conditions.push(eq(paymentOrders.kind, options.kind));
 

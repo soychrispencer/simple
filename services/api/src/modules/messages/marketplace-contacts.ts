@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 import { follows, listings, savedListings, timelineEvents } from '../../db/schema.js';
 import type { MessageServiceDeps, MessageThreadRecord } from './service.js';
 import { getMessageThreadFolder } from './service.js';
@@ -16,6 +16,12 @@ export type MarketplaceContact = {
     lastListingTitle: string | null;
     lastThreadId: string | null;
     sources: MarketplaceContactSource[];
+};
+
+/** Optional team visibility for agents: only assigned listings and contacts are in scope. */
+export type MarketplaceContactScope = {
+    listingIds: Set<string>;
+    personIds: Set<string>;
 };
 
 export type MarketplaceContactLead = {
@@ -73,12 +79,28 @@ async function loadOwnerListingThreads(
     deps: MessageServiceDeps,
     ownerUserId: string,
     vertical: string,
+    accountId?: string | null,
+    includeLegacyPersonalRecords = false,
 ): Promise<MessageThreadRecord[]> {
+    const ownerCondition = accountId
+        ? includeLegacyPersonalRecords
+            ? or(
+                deps.eq(deps.tables.messageThreads.accountId, accountId),
+                and(
+                    deps.eq(deps.tables.messageThreads.ownerUserId, ownerUserId),
+                    isNull(deps.tables.messageThreads.accountId),
+                ),
+            )!
+            : deps.eq(deps.tables.messageThreads.accountId, accountId)
+        : and(
+            deps.eq(deps.tables.messageThreads.ownerUserId, ownerUserId),
+            isNull(deps.tables.messageThreads.accountId),
+        )!;
     const rows = await deps.db
         .select()
         .from(deps.tables.messageThreads)
         .where(and(
-            deps.eq(deps.tables.messageThreads.ownerUserId, ownerUserId),
+            ownerCondition,
             deps.eq(deps.tables.messageThreads.vertical, vertical),
             or(
                 deps.eq(deps.tables.messageThreads.contextType, 'listing'),
@@ -142,21 +164,35 @@ async function loadEngagementIntoMap(
     ownerUserId: string,
     vertical: 'autos' | 'propiedades',
     map: Map<string, ContactAccumulator>,
+    accountId?: string | null,
+    allowedListingIds?: Set<string>,
+    includeLegacyPersonalRecords = false,
 ): Promise<void> {
-    const savedRows = await deps.db
-        .select({
-            userId: savedListings.userId,
-            listingId: savedListings.listingId,
-            savedAt: savedListings.savedAt,
-            title: listings.title,
-        })
-        .from(savedListings)
-        .innerJoin(listings, eq(listings.id, savedListings.listingId))
-        .where(and(
-            eq(listings.ownerId, ownerUserId),
-            eq(listings.vertical, vertical),
-        ))
-        .orderBy(desc(savedListings.savedAt));
+    const listingOwnerCondition = accountId
+        ? includeLegacyPersonalRecords
+            ? or(
+                eq(listings.accountId, accountId),
+                and(eq(listings.ownerId, ownerUserId), isNull(listings.accountId)),
+            )!
+            : eq(listings.accountId, accountId)
+        : and(eq(listings.ownerId, ownerUserId), isNull(listings.accountId))!;
+    const savedRows = allowedListingIds?.size === 0
+        ? []
+        : await deps.db
+            .select({
+                userId: savedListings.userId,
+                listingId: savedListings.listingId,
+                savedAt: savedListings.savedAt,
+                title: listings.title,
+            })
+            .from(savedListings)
+            .innerJoin(listings, eq(listings.id, savedListings.listingId))
+            .where(and(
+                listingOwnerCondition,
+                eq(listings.vertical, vertical),
+                ...(allowedListingIds ? [inArray(listings.id, [...allowedListingIds])] : []),
+            ))
+            .orderBy(desc(savedListings.savedAt));
 
     for (const row of savedRows) {
         if (!row.userId || row.userId === ownerUserId) continue;
@@ -169,20 +205,27 @@ async function loadEngagementIntoMap(
         }
     }
 
-    const followRows = await deps.db
-        .select({
-            followerId: follows.followerId,
-            followedAt: follows.followedAt,
-        })
-        .from(follows)
-        .where(and(
-            eq(follows.followeeId, ownerUserId),
-            eq(follows.vertical, vertical),
-        ))
-        .orderBy(desc(follows.followedAt));
+    // Follows are attached to a person, not a workspace. Keep this signal in
+    // the verified personal CRM instead of attributing it to a company.
+    const followRows = includeLegacyPersonalRecords
+        ? await deps.db
+            .select({
+                followerId: follows.followerId,
+                followedAt: follows.followedAt,
+            })
+            .from(follows)
+            .where(and(
+                eq(follows.followeeId, ownerUserId),
+                eq(follows.vertical, vertical),
+            ))
+            .orderBy(desc(follows.followedAt))
+        : [];
 
     for (const row of followRows) {
         if (!row.followerId || row.followerId === ownerUserId) continue;
+        // Company followers are not property leads by themselves. For an agent,
+        // show this signal only after the person is visible through their work.
+        if (allowedListingIds && !map.has(row.followerId)) continue;
         const acc = ensureAcc(map, row.followerId);
         acc.sources.add('follow');
         const at = toMs(row.followedAt);
@@ -198,15 +241,21 @@ export async function listMarketplaceContacts(
     ownerUserId: string,
     vertical: 'autos' | 'propiedades',
     q = '',
+    accountId?: string | null,
+    scope?: MarketplaceContactScope,
+    includeLegacyPersonalRecords = false,
 ): Promise<MarketplaceContact[]> {
     const map = new Map<string, ContactAccumulator>();
-    const threads = await loadOwnerListingThreads(deps, ownerUserId, vertical);
+    const threads = (await loadOwnerListingThreads(deps, ownerUserId, vertical, accountId, includeLegacyPersonalRecords))
+        .filter((thread) => !scope
+            || scope.personIds.has(thread.buyerUserId)
+            || Boolean(thread.listingId && scope.listingIds.has(thread.listingId)));
 
     for (const thread of threads) {
         const acc = ensureAcc(map, thread.buyerUserId);
         acc.threads.push(thread);
         acc.sources.add('message');
-        if (getMessageThreadFolder(thread, ownerUserId) === 'inbox') {
+        if (getMessageThreadFolder(thread, ownerUserId, Boolean(accountId && thread.accountId === accountId && thread.ownerUserId !== ownerUserId)) === 'inbox') {
             acc.unreadCount += Math.max(0, thread.ownerUnreadCount);
         }
         if (thread.lastMessageAt >= acc.lastActivityAt) {
@@ -216,7 +265,8 @@ export async function listMarketplaceContacts(
         }
     }
 
-    await loadEngagementIntoMap(deps, ownerUserId, vertical, map);
+    for (const personId of scope?.personIds ?? []) ensureAcc(map, personId);
+    await loadEngagementIntoMap(deps, ownerUserId, vertical, map, accountId, scope?.listingIds, includeLegacyPersonalRecords);
 
     let items = Array.from(map.values()).map((acc) => toContact(deps, acc));
     items.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
@@ -242,25 +292,39 @@ async function engagementTableEvents(
     ownerUserId: string,
     vertical: 'autos' | 'propiedades',
     buyerUserId: string,
+    accountId?: string | null,
+    allowedListingIds?: Set<string>,
+    includeLegacyPersonalRecords = false,
 ): Promise<MarketplaceContactTimelineEvent[]> {
     const events: MarketplaceContactTimelineEvent[] = [];
+    const listingOwnerCondition = accountId
+        ? includeLegacyPersonalRecords
+            ? or(
+                eq(listings.accountId, accountId),
+                and(eq(listings.ownerId, ownerUserId), isNull(listings.accountId)),
+            )!
+            : eq(listings.accountId, accountId)
+        : and(eq(listings.ownerId, ownerUserId), isNull(listings.accountId))!;
 
-    const savedRows = await deps.db
-        .select({
-            id: savedListings.id,
-            listingId: savedListings.listingId,
-            savedAt: savedListings.savedAt,
-            title: listings.title,
-        })
-        .from(savedListings)
-        .innerJoin(listings, eq(listings.id, savedListings.listingId))
-        .where(and(
-            eq(listings.ownerId, ownerUserId),
-            eq(listings.vertical, vertical),
-            eq(savedListings.userId, buyerUserId),
-        ))
-        .orderBy(desc(savedListings.savedAt))
-        .limit(50);
+    const savedRows = allowedListingIds?.size === 0
+        ? []
+        : await deps.db
+            .select({
+                id: savedListings.id,
+                listingId: savedListings.listingId,
+                savedAt: savedListings.savedAt,
+                title: listings.title,
+            })
+            .from(savedListings)
+            .innerJoin(listings, eq(listings.id, savedListings.listingId))
+            .where(and(
+                listingOwnerCondition,
+                eq(listings.vertical, vertical),
+                eq(savedListings.userId, buyerUserId),
+                ...(allowedListingIds ? [inArray(listings.id, [...allowedListingIds])] : []),
+            ))
+            .orderBy(desc(savedListings.savedAt))
+            .limit(50);
 
     for (const row of savedRows) {
         events.push({
@@ -307,19 +371,24 @@ export async function getMarketplaceContactDetail(
     ownerUserId: string,
     vertical: 'autos' | 'propiedades',
     buyerUserId: string,
+    accountId?: string | null,
+    scope?: MarketplaceContactScope,
+    includeLegacyPersonalRecords = false,
 ): Promise<MarketplaceContactDetail | null> {
     const id = decodeURIComponent(buyerUserId).trim();
     if (!id) return null;
 
     const map = new Map<string, ContactAccumulator>();
-    const threads = (await loadOwnerListingThreads(deps, ownerUserId, vertical))
-        .filter((thread) => thread.buyerUserId === id);
+    const threads = (await loadOwnerListingThreads(deps, ownerUserId, vertical, accountId, includeLegacyPersonalRecords))
+        .filter((thread) => thread.buyerUserId === id && (!scope
+            || scope.personIds.has(id)
+            || Boolean(thread.listingId && scope.listingIds.has(thread.listingId))));
 
     for (const thread of threads) {
         const acc = ensureAcc(map, id);
         acc.threads.push(thread);
         acc.sources.add('message');
-        if (getMessageThreadFolder(thread, ownerUserId) === 'inbox') {
+        if (getMessageThreadFolder(thread, ownerUserId, Boolean(accountId && thread.accountId === accountId && thread.ownerUserId !== ownerUserId)) === 'inbox') {
             acc.unreadCount += Math.max(0, thread.ownerUnreadCount);
         }
         if (thread.lastMessageAt >= acc.lastActivityAt) {
@@ -329,7 +398,8 @@ export async function getMarketplaceContactDetail(
         }
     }
 
-    await loadEngagementIntoMap(deps, ownerUserId, vertical, map);
+    if (scope?.personIds.has(id)) ensureAcc(map, id);
+    await loadEngagementIntoMap(deps, ownerUserId, vertical, map, accountId, scope?.listingIds, includeLegacyPersonalRecords);
     const acc = map.get(id);
     if (!acc) return null;
 
@@ -352,7 +422,7 @@ export async function getMarketplaceContactDetail(
             unreadCount: Math.max(0, thread.ownerUnreadCount),
             lastMessageAt: thread.lastMessageAt ?? null,
             lastMessagePreview: last?.body?.slice(0, 140) ?? null,
-            folder: getMessageThreadFolder(thread, ownerUserId),
+            folder: getMessageThreadFolder(thread, ownerUserId, Boolean(accountId && thread.accountId === accountId && thread.ownerUserId !== ownerUserId)),
         });
     }
 
@@ -364,17 +434,37 @@ export async function getMarketplaceContactDetail(
             inArray(timelineEvents.subjectId, threadIds),
         )
         : null;
-    const personFilter = and(
-        eq(timelineEvents.vertical, vertical),
-        eq(timelineEvents.personId, id),
-    );
+    const personConditions = accountId
+        ? [
+            eq(timelineEvents.vertical, vertical),
+            eq(timelineEvents.businessId, accountId),
+            eq(timelineEvents.personId, id),
+        ]
+        : null;
+    const personFilter = personConditions
+        ? and(...personConditions)
+        : null;
+    const scopedPersonFilter = personFilter && scope && !scope.personIds.has(id)
+        ? scope.listingIds.size > 0
+            ? and(
+                personFilter,
+                eq(timelineEvents.subjectKind, 'listing'),
+                inArray(timelineEvents.subjectId, [...scope.listingIds]),
+            )
+            : null
+        : personFilter;
 
-    const eventRows = await deps.db
-        .select()
-        .from(timelineEvents)
-        .where(subjectFilter ? or(subjectFilter, personFilter)! : personFilter!)
-        .orderBy(desc(timelineEvents.occurredAt))
-        .limit(100);
+    let eventRows: typeof timelineEvents.$inferSelect[] = [];
+    if (subjectFilter || scopedPersonFilter) {
+        eventRows = await deps.db
+            .select()
+            .from(timelineEvents)
+            .where(subjectFilter && scopedPersonFilter
+                ? or(subjectFilter, scopedPersonFilter)!
+                : (subjectFilter ?? scopedPersonFilter)!)
+            .orderBy(desc(timelineEvents.occurredAt))
+            .limit(100);
+    }
 
     const seen = new Set<string>();
     const events: MarketplaceContactTimelineEvent[] = [];
@@ -395,7 +485,7 @@ export async function getMarketplaceContactDetail(
     }
 
     // Table-backed engagement fills historial even before timeline emits existed.
-    for (const event of await engagementTableEvents(deps, ownerUserId, vertical, id)) {
+    for (const event of await engagementTableEvents(deps, ownerUserId, vertical, id, accountId, scope?.listingIds, includeLegacyPersonalRecords)) {
         const dedupeKey = `${event.type}:${event.subjectId}:${event.occurredAt.slice(0, 16)}`;
         if (seen.has(dedupeKey) || seen.has(event.id)) continue;
         // Skip table row if a real timeline event of same type+subject already exists

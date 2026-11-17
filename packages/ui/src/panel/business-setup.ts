@@ -7,11 +7,13 @@ export type BusinessSetupStep = {
 };
 
 export type PanelBillingStatus = 'pro' | 'trial' | 'free' | 'expired';
+export type PanelAccountKind = 'individual' | 'independent' | 'company';
 
 export type PanelBillingAccess = {
     status: PanelBillingStatus;
     daysRemaining: number | null;
     subscriptionHref: string;
+    accountKind?: PanelAccountKind | null;
 };
 
 export const PANEL_BILLING_TRIAL_DAYS = 30;
@@ -76,27 +78,35 @@ export function resolvePanelBillingFromCatalog(
             planExpiresAt: number | null;
             providerStatus?: string | null;
         } | null;
+        accountContext?: { accountKind: PanelAccountKind } | null;
     } | null,
     subscriptionHref: string,
 ): PanelBillingAccess {
     const sub = catalog?.currentSubscription;
+    const accountKind = catalog?.accountContext?.accountKind ?? null;
     if (!sub) {
-        return { status: 'free', daysRemaining: null, subscriptionHref };
+        return { status: 'free', daysRemaining: null, subscriptionHref, accountKind };
     }
 
     if (sub.providerStatus === 'trial' && sub.planId === 'free') {
-        return resolvePanelBillingAccess({
-            planId: 'free',
-            planExpiresAt: sub.planExpiresAt,
-            subscriptionHref,
-        });
+        return {
+            ...resolvePanelBillingAccess({
+                planId: 'free',
+                planExpiresAt: sub.planExpiresAt,
+                subscriptionHref,
+            }),
+            accountKind,
+        };
     }
 
-    return resolvePanelBillingAccess({
-        planId: sub.planId,
-        planExpiresAt: sub.planExpiresAt,
-        subscriptionHref,
-    });
+    return {
+        ...resolvePanelBillingAccess({
+            planId: sub.planId,
+            planExpiresAt: sub.planExpiresAt,
+            subscriptionHref,
+        }),
+        accountKind,
+    };
 }
 
 export function businessSetupProgress(steps: BusinessSetupStep[]): { completed: number; total: number; percent: number } {

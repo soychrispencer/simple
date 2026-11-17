@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { serenataOwners } from '../../db/schema.js';
 import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
+import type { SerenataBillingProfileType } from '../../lib/domain-types.js';
 import {
     APP_COMMISSION_FREE_BPS,
     APP_COMMISSION_PRO_BPS,
@@ -18,24 +19,28 @@ import {
 } from './plan-config.js';
 import { isPlatformLaunchActive } from '@simple/utils';
 
-export async function resolveActiveSerenataBillingPlan(userId: string): Promise<SerenataBillingPlanId> {
-    const dbSub = await loadCurrentSubscriptionFromDb(userId, 'serenatas');
+export async function resolveActiveSerenataBillingPlan(
+    userId: string,
+    billingProfileType: SerenataBillingProfileType = 'provider',
+): Promise<SerenataBillingPlanId> {
+    const dbSub = await loadCurrentSubscriptionFromDb(userId, 'serenatas', undefined, { billingProfileType });
     if (dbSub && (dbSub.planSlug === 'pro' || dbSub.planSlug === 'enterprise') && dbSub.status === 'active') {
         return 'pro';
     }
 
-    const owner = await db.query.serenataOwners.findFirst({
-        where: eq(serenataOwners.userId, userId),
-        columns: { subscriptionStatus: true },
-    });
-    if (owner?.subscriptionStatus === 'active') {
-        return 'pro';
+    if (billingProfileType === 'provider') {
+        const owner = await db.query.serenataOwners.findFirst({
+            where: eq(serenataOwners.userId, userId),
+            columns: { subscriptionStatus: true },
+        });
+        if (owner?.subscriptionStatus === 'active') return 'pro';
     }
 
     return 'free';
 }
 
 export type SerenataMePlanResponse = {
+    billingProfileType: SerenataBillingProfileType;
     plan: SerenataBillingPlanId;
     planLabel: string;
     /** @deprecated Legacy: el modelo actual es prueba gratis por tiempo limitado + Pro. */
@@ -73,6 +78,7 @@ export type SerenataMePlanResponse = {
 export function buildSerenataMePlanResponse(
     plan: SerenataBillingPlanId,
     options: {
+        billingProfileType?: SerenataBillingProfileType;
         proCheckoutAvailable: boolean;
         exampleGrossClp?: number;
         trialEndsAt?: Date | string | null;
@@ -103,6 +109,7 @@ export function buildSerenataMePlanResponse(
     }
 
     return {
+        billingProfileType: options.billingProfileType ?? 'provider',
         plan,
         planLabel: resolvedPlanLabel,
         alwaysFreeMonthly: true,
@@ -114,7 +121,7 @@ export function buildSerenataMePlanResponse(
         proPriceMonthly: SERENATA_PRO_PRICE_MONTHLY_CLP,
         proPriceMonthlyNet: SERENATA_PRO_PRICE_MONTHLY_CLP,
         proPriceMonthlyWithVat: serenataProMonthlyChargeClp(),
-        proCheckoutAvailable: proCheckoutAvailable,
+        proCheckoutAvailable,
         trialDays: SERENATA_TRIAL_DAYS,
         trialEndsAt: trialEndsAt && !Number.isNaN(trialEndsAt.getTime()) ? trialEndsAt.toISOString() : null,
         trialActive,

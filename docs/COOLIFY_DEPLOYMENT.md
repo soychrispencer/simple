@@ -22,14 +22,14 @@ Los valores reales de cada secreto están en el gestor de secretos de Coolify o 
 
 Acceso Coolify (solo en vault / variables de entorno del operador, no en git):
 
-- `COOLIFY_URL` — URL del panel (ej. `http://<servidor>:8000/login`)
+- `COOLIFY_URL` — URL del panel; preferir HTTPS.
 - `COOLIFY_EMAIL` — usuario del panel
 - `COOLIFY_PASSWORD` — contraseña (set in vault)
 - `COOLIFY_API_TOKEN` — token de API (set in vault)
 
 ### Despliegue automatizado (Cursor / CLI)
 
-1. Copiar `.env.deploy.example` → `.env.deploy` y pegar `COOLIFY_URL` + `COOLIFY_API_TOKEN` (archivo gitignored).
+1. Copiar `.env.deploy.example` → `.env.deploy` y configurar `COOLIFY_URL` + `COOLIFY_API_TOKEN` (archivo gitignored). HTTPS es el valor predeterminado; para autorizar el panel HTTP público en esta máquina, agregar `COOLIFY_ALLOW_INSECURE_HTTP=true`.
 2. Tras `git push` a `main`: `pnpm run coolify:deploy` (todos los `simple*`) o `pnpm run coolify:deploy -- --app simple-api`.
 3. Auditar variables: `pnpm run coolify:env-audit` · corregir automáticamente: `pnpm run coolify:env-fix`.
 4. Regla Cursor: `.cursor/rules/coolify-deploy.mdc` (`alwaysApply`) para que el agente despliegue sin pedir credenciales de nuevo.
@@ -37,8 +37,20 @@ Acceso Coolify (solo en vault / variables de entorno del operador, no en git):
 Opcional en Windows (variables de usuario persistentes):
 
 ```powershell
-[System.Environment]::SetEnvironmentVariable('COOLIFY_URL', 'http://<servidor>:8000', 'User')
+[System.Environment]::SetEnvironmentVariable('COOLIFY_URL', 'https://<dominio-coolify>', 'User')
 [System.Environment]::SetEnvironmentVariable('COOLIFY_API_TOKEN', '<token>', 'User')
+```
+
+Si Coolify solo escucha por HTTP, se puede acceder mediante un túnel SSH local. Usa una llave dedicada en `authorized_keys`, limitada al forward de Coolify y sin shell:
+
+```text
+restrict,port-forwarding,permitopen="127.0.0.1:8000",command="/bin/false" ssh-ed25519 <llave-publica>
+```
+
+El túnel SSH sigue disponible como alternativa para transportar la API por loopback. El repositorio incluye `scripts/coolify-tunnel.ps1`; con el túnel activo, `.env.deploy` usa `COOLIFY_URL=http://127.0.0.1:18000`. Ejecuta:
+
+```powershell
+.\scripts\coolify-tunnel.ps1 -SshUser <usuario> -SshPort 22
 ```
 
 ```env
@@ -73,8 +85,14 @@ CLOUDFLARE_R2_ACCESS_KEY_ID=         # ver .env local → CLOUDFLARE_R2_ACCESS_K
 CLOUDFLARE_R2_SECRET_ACCESS_KEY=     # ver .env local → CLOUDFLARE_R2_SECRET_ACCESS_KEY
 CLOUDFLARE_R2_BUCKET_NAME=simple-media
 CLOUDFLARE_R2_PUBLIC_URL=            # ver .env local → CLOUDFLARE_R2_PUBLIC_URL
+CLOUDFLARE_R2_PRIVATE_BUCKET_NAME=simple-private-media  # bucket privado, sin dominio público; adjuntos y documentos
 # CLOUDFLARE_WORKER_URL=             # opcional — overlays Instagram
 # No usar Backblaze: si quedan BACKBLAZE_* / B2_* en Coolify, eliminarlas (`pnpm coolify:env-fix`).
+
+# Adjuntos privados ya existentes: primero crea el bucket privado y configura CLOUDFLARE_R2_PRIVATE_BUCKET_NAME.
+# Ejecuta un dry-run y revisa el conteo antes de aplicar la copia/actualización:
+# pnpm --filter @simple/api run db:migrate:private-media
+# pnpm --filter @simple/api run db:migrate:private-media -- --apply
 
 GOOGLE_MAPS_API_KEY=                 # ver .env local → GOOGLE_MAPS_API_KEY
 
@@ -101,6 +119,12 @@ SERENATAS_APP_URL=https://simpleserenatas.app
 MP_AGENDA_APP_ID=                    # ver .env local → MP_AGENDA_APP_ID
 MP_AGENDA_APP_SECRET=                # ver .env local → MP_AGENDA_APP_SECRET
 AGENDA_APP_URL=https://simpleagenda.app
+# OAuth del flujo actual de integraciones. Puede reutilizar la app anterior de Agenda.
+MP_OPERATOR_APP_ID=                  # si está vacío, usa MP_AGENDA_APP_ID
+MP_OPERATOR_APP_SECRET=              # si está vacío, usa MP_AGENDA_APP_SECRET
+MP_OPERATOR_REDIRECT_URI=https://api.simpleplataforma.app/api/integrations/mercadopago/callback
+# Mantener registrada también la ruta antigua mientras existan conexiones que la usen:
+# https://api.simpleplataforma.app/api/agenda/mercadopago/callback
 
 INSTAGRAM_APP_ID=1220805133562499
 INSTAGRAM_APP_SECRET=                # ver .env local → INSTAGRAM_APP_SECRET
@@ -271,13 +295,14 @@ En `simple-api`:
 ```env
 TICKETS_APP_URL=https://simpletickets.app
 MERCADO_PAGO_PUBLIC_ORIGIN_TICKETS=https://simpletickets.app
-MP_OPERATOR_APP_ID=                 # app OAuth de Mercado Pago
-MP_OPERATOR_APP_SECRET=
 TICKETS_QR_SECRET=                  # secreto aleatorio estable y respaldado
 ```
 
-El callback OAuth de Mercado Pago es
-`https://api.simpleplataforma.app/api/integrations/mercadopago/callback`.
+En la aplicación OAuth que usa el flujo nuevo (`MP_OPERATOR_APP_ID` / `MP_OPERATOR_APP_SECRET`, o `MP_AGENDA_*` si se usa ese respaldo), registra la URL nueva exactamente como aparece en el bloque compartido de la API. SimpleAgenda inicia el flujo nuevo en
+`/api/integrations/mercadopago/callback`; el callback anterior
+`https://api.simpleplataforma.app/api/agenda/mercadopago/callback` permanece activo para conexiones iniciadas desde el flujo antiguo.
+Si ambos flujos usan la misma aplicación OAuth, agrega la URL nueva sin reemplazar ni quitar la anterior. Si usan aplicaciones distintas, conserva la URL antigua en la aplicación heredada. Así no se afectan conexiones en curso ni clientes que todavía usan esa ruta.
+`MP_OPERATOR_REDIRECT_URI` en la configuración compartida de la API es opcional si `API_BASE_URL` ya genera la URL registrada; cuando se define, Simple utiliza exactamente el mismo valor al iniciar autorización y al intercambiar el código por tokens.
 
 Desarrollo local: `http://localhost:3006`.
 
@@ -316,7 +341,7 @@ En `simple-api`:
 
 ```env
 RESTO_APP_URL=https://simpleresto.app
-# GOOGLE_AI_API_KEY ya compartido si otras apps lo usan (sugerencias Carta T10)
+GOOGLE_AI_API_KEY=                   # secreto de servidor para funciones Gemini; mantenerlo fuera de NEXT_PUBLIC_*
 ```
 
 Google OAuth redirect a registrar:

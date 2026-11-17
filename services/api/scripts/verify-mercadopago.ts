@@ -13,6 +13,7 @@ import {
 } from '../src/modules/mercadopago/service.js';
 
 function loadEnvLocal(): void {
+    if (process.env.NODE_ENV === 'production') return;
     const envPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.env.local');
     if (!fs.existsSync(envPath)) return;
     for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {

@@ -138,8 +138,19 @@ export async function confirmPaymentFromProvider(
                 return { ok: false, error: 'Pago aprobado, pero el plan ya no está disponible.', status: 409 };
             }
 
+            const boostAccountId = nextOrder.accountId
+                ?? target.accountId
+                ?? (deps.getPersonalAccountIdForUser
+                    ? await deps.getPersonalAccountIdForUser(input.userId)
+                    : await deps.getPrimaryAccountIdForUser(input.userId));
+            const legacyPersonalOwnerUserId = boostAccountId
+                && deps.isPersonalAccountForUser?.(input.userId, boostAccountId)
+                ? input.userId
+                : undefined;
             const created = deps.createBoostOrderRecord({
                 userId: input.userId,
+                accountId: boostAccountId,
+                legacyPersonalOwnerUserId,
                 vertical: nextOrder.vertical,
                 target,
                 section: boostMeta.section,
@@ -152,7 +163,7 @@ export async function confirmPaymentFromProvider(
             if (deps.insertBoostOrderRow) {
                 await deps.insertBoostOrderRow(
                     created.order,
-                    await deps.getPrimaryAccountIdForUser(input.userId),
+                    boostAccountId,
                 );
             }
 
@@ -186,7 +197,16 @@ export async function confirmPaymentFromProvider(
                 return { ok: false, error: 'La orden no tiene metadata de publicidad válida.', status: 409 };
             }
 
-            const campaign = await deps.getAdCampaignRecordForUser(input.userId, advertisingMeta.campaignId);
+            const accountId = order.accountId ?? null;
+            const includeLegacyPersonal = Boolean(
+                accountId && deps.isPersonalAccountForUser?.(input.userId, accountId),
+            );
+            const campaign = await deps.getAdCampaignRecordForUser(
+                input.userId,
+                advertisingMeta.campaignId,
+                accountId,
+                includeLegacyPersonal,
+            );
             if (!campaign) {
                 return { ok: false, error: 'Pago aprobado, pero la campaña ya no existe.', status: 409 };
             }
@@ -197,7 +217,12 @@ export async function confirmPaymentFromProvider(
                 updatedAt: new Date(),
             }).where(deps.dbHelpers.and(
                 deps.dbHelpers.eq(deps.tables.adCampaigns.id, campaign.id),
-                deps.dbHelpers.eq(deps.tables.adCampaigns.userId, input.userId),
+                campaign.accountId
+                    ? deps.dbHelpers.eq(deps.tables.adCampaigns.accountId, campaign.accountId)
+                    : deps.dbHelpers.and(
+                        deps.dbHelpers.eq(deps.tables.adCampaigns.userId, input.userId),
+                        deps.dbHelpers.isNull(deps.tables.adCampaigns.accountId),
+                    ),
             )).returning();
 
             const normalizedCampaign = deps.normalizeAdCampaigns([deps.mapAdCampaignRow(rows[0])])[0];
@@ -233,13 +258,30 @@ export async function confirmPaymentFromProvider(
     if (nextOrder.kind === 'advertising') {
         const advertisingMeta = nextOrder.metadata.kind === 'advertising' ? nextOrder.metadata : null;
         if (advertisingMeta) {
-            await deps.db.update(deps.tables.adCampaigns).set({
-                paymentStatus: deps.getAdPaymentStatusFromOrderStatus(nextOrder.status),
-                updatedAt: new Date(),
-            }).where(deps.dbHelpers.and(
-                deps.dbHelpers.eq(deps.tables.adCampaigns.id, advertisingMeta.campaignId),
-                deps.dbHelpers.eq(deps.tables.adCampaigns.userId, input.userId),
-            ));
+            const accountId = nextOrder.accountId ?? null;
+            const includeLegacyPersonal = Boolean(
+                accountId && deps.isPersonalAccountForUser?.(input.userId, accountId),
+            );
+            const campaign = await deps.getAdCampaignRecordForUser(
+                input.userId,
+                advertisingMeta.campaignId,
+                accountId,
+                includeLegacyPersonal,
+            );
+            if (campaign) {
+                await deps.db.update(deps.tables.adCampaigns).set({
+                    paymentStatus: deps.getAdPaymentStatusFromOrderStatus(nextOrder.status),
+                    updatedAt: new Date(),
+                }).where(deps.dbHelpers.and(
+                    deps.dbHelpers.eq(deps.tables.adCampaigns.id, campaign.id),
+                    campaign.accountId
+                        ? deps.dbHelpers.eq(deps.tables.adCampaigns.accountId, campaign.accountId)
+                        : deps.dbHelpers.and(
+                            deps.dbHelpers.eq(deps.tables.adCampaigns.userId, input.userId),
+                            deps.dbHelpers.isNull(deps.tables.adCampaigns.accountId),
+                        ),
+                ));
+            }
         }
     }
 

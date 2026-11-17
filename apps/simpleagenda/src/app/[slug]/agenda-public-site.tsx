@@ -19,9 +19,11 @@ import {
     type OperatorSiteSchedule,
     type OperatorSiteSocialLink,
 } from '@simple/ui/operator-site';
+import type { OperatorSiteLandingContent } from '@simple/utils';
 import BookingFlow, { type BookingFlowHandle } from './BookingFlow';
 
 export type AgendaPublicProfile = AgendaOperatorSiteProfile & {
+    landingPage?: OperatorSiteLandingContent | null;
     accountKind?: string | null;
     operatorSubtype?: string | null;
     operatorSubtypeCustom?: string | null;
@@ -104,7 +106,30 @@ function buildSocialLinks(profile: AgendaPublicProfile): OperatorSiteSocialLink[
     ].filter(Boolean) as OperatorSiteSocialLink[];
 }
 
-export function AgendaPublicSite({ profile }: { profile: AgendaPublicProfile }) {
+function PreviewBookingBlock() {
+    return (
+        <div
+            id="agenda-preview-booking"
+            className="rounded-2xl border p-4"
+            style={{ borderColor: 'var(--os-border, var(--border))', background: 'var(--os-surface, var(--surface))' }}
+        >
+            <p className="text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: 'var(--os-muted, var(--fg-muted))' }}>Próximas horas disponibles</p>
+            <div className="mt-3 grid grid-cols-3 gap-2" aria-hidden="true">
+                {['Mar · 10:30', 'Mar · 12:00', 'Mié · 16:00'].map((time) => (
+                    <span key={time} className="rounded-xl border px-2 py-2 text-center text-xs font-medium" style={{ borderColor: 'var(--os-border, var(--border))', color: 'var(--os-fg, var(--fg))' }}>
+                        {time}
+                    </span>
+                ))}
+            </div>
+            <button type="button" disabled className="mt-3 min-h-11 w-full cursor-not-allowed rounded-xl px-4 text-sm font-semibold opacity-90" style={{ background: 'var(--os-accent, var(--accent))', color: 'var(--os-accent-contrast, var(--accent-contrast))' }}>
+                Reservar una hora
+            </button>
+            <p className="mt-2 text-center text-xs" style={{ color: 'var(--os-muted, var(--fg-muted))' }}>Vista previa: no se crean reservas.</p>
+        </div>
+    );
+}
+
+export function AgendaPublicSite({ profile, previewMode = false }: { profile: AgendaPublicProfile; previewMode?: boolean }) {
     const bookingRef = useRef<BookingFlowHandle>(null);
     const operator = resolveAgendaOperatorFields(profile);
     const typeLabel = resolveOperatorTierLabel('agenda', operator.accountKind);
@@ -115,12 +140,13 @@ export function AgendaPublicSite({ profile }: { profile: AgendaPublicProfile }) 
         operator.operatorSubtypeCustom,
     );
 
-    const siteProfile: AgendaOperatorSiteProfile = {
+    const siteProfile: AgendaOperatorSiteProfile & { landingPage?: OperatorSiteLandingContent | null } = {
         slug: profile.slug,
         displayName: profile.displayName,
         profession: profile.profession,
         headline: profile.headline,
         bio: profile.bio,
+        landingPage: profile.landingPage ?? null,
         avatarUrl: profile.avatarUrl,
         coverUrl: profile.coverUrl,
         city: profile.city,
@@ -188,6 +214,10 @@ export function AgendaPublicSite({ profile }: { profile: AgendaPublicProfile }) 
         }
         : undefined;
 
+    const previewBooking = () => {
+        document.getElementById('agenda-preview-booking')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
     return (
         <AgendaOperatorSite
             profile={siteProfile}
@@ -196,9 +226,11 @@ export function AgendaPublicSite({ profile }: { profile: AgendaPublicProfile }) 
             socialLinks={buildSocialLinks(profile)}
             schedule={schedule}
             catalog={catalog}
-            onServiceBook={(serviceId) => bookingRef.current?.openService(serviceId)}
+            onServiceBook={previewMode ? previewBooking : (serviceId) => bookingRef.current?.openService(serviceId)}
             appearance={appearance}
-            booking={<BookingFlow ref={bookingRef} profile={profile} hasCustomAccent={hasCustomAccent} embedded />}
+            booking={previewMode
+                ? <PreviewBookingBlock />
+                : <BookingFlow ref={bookingRef} profile={profile} hasCustomAccent={hasCustomAccent} embedded />}
         />
     );
 }

@@ -7,6 +7,10 @@ export function integrationAccountKey(userId: string, vertical: VerticalType): s
     return `${userId}:${vertical}`;
 }
 
+export function integrationWorkspaceKey(accountId: string, vertical: VerticalType): string {
+    return `workspace:${accountId}:${vertical}`;
+}
+
 export function setIntegrationOAuthCookie(
     c: Context,
     cookieName: string,

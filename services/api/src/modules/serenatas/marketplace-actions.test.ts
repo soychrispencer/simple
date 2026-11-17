@@ -51,7 +51,7 @@ describe('acceptMarketplaceSerenata', () => {
         mockClientFindFirst.mockResolvedValue({ id: 'client-1', userId: 'user-1' });
         mockUserFindFirst.mockResolvedValue({ id: 'user-1', inAppNotificationsEnabled: true });
         mockSelectRows.mockResolvedValue([{ id: 'user-1', inAppNotificationsEnabled: true }]);
-        mockInsertValues.mockResolvedValue(undefined);
+        mockInsertValues.mockReturnValue({ returning: async () => [{ id: 'notification-1' }] });
     });
 
     it('acepta solicitud con providerGroupId y notifica al cliente', async () => {
@@ -88,7 +88,7 @@ describe('rejectMarketplaceSerenata', () => {
         mockClientFindFirst.mockResolvedValue({ id: 'client-1', userId: 'user-1' });
         mockUserFindFirst.mockResolvedValue({ id: 'user-1', inAppNotificationsEnabled: true });
         mockSelectRows.mockResolvedValue([{ id: 'user-1', inAppNotificationsEnabled: true }]);
-        mockInsertValues.mockResolvedValue(undefined);
+        mockInsertValues.mockReturnValue({ returning: async () => [{ id: 'notification-1' }] });
     });
 
     it('rechaza solicitud marketplace con providerGroupId', async () => {

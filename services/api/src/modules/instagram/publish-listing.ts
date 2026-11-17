@@ -23,6 +23,7 @@ export type PublishListingUser = {
 
 export type PublishListingRecord = {
     id: string;
+    accountId?: string | null;
     vertical: VerticalType;
     status: string;
     title: string;
@@ -31,13 +32,14 @@ export type PublishListingRecord = {
 };
 
 export type PublishListingToInstagramDeps = {
-    getInstagramAccount: (userId: string, vertical: VerticalType) => InstagramAccountRecord | null;
-    userCanUseInstagram: (user: PublishListingUser, vertical: VerticalType) => boolean;
+    getInstagramAccount: (userId: string, vertical: VerticalType, accountId?: string | null) => InstagramAccountRecord | null;
+    userCanUseInstagram: (user: PublishListingUser, vertical: VerticalType, accountId?: string | null) => boolean;
     getLatestInstagramPublicationForListing: (
         userId: string,
         vertical: VerticalType,
         listingId: string,
         contentType?: InstagramPublicationContentType,
+        accountId?: string | null,
     ) => InstagramPublicationRecord | null;
     instagramPublicationToResponse: (record: InstagramPublicationRecord) => unknown;
     refreshInstagramAccountIfNeeded: (account: InstagramAccountRecord) => Promise<InstagramAccountRecord>;
@@ -62,12 +64,13 @@ export type PublishListingToInstagramDeps = {
     ) => string;
     logDebug: (message: string) => void;
     createInstagramPublicationRecord: (
-        input: Omit<InstagramPublicationRecord, 'id' | 'createdAt' | 'updatedAt' | 'accountId'>,
+        input: Omit<InstagramPublicationRecord, 'id' | 'createdAt' | 'updatedAt'>,
     ) => Promise<InstagramPublicationRecord>;
     updateInstagramAccountSettings: (
         userId: string,
         vertical: VerticalType,
         patch: Partial<InstagramAccountRecord>,
+        accountId?: string | null,
     ) => Promise<InstagramAccountRecord | null>;
     resolvePublishTemplate?: (
         account: InstagramAccountRecord,
@@ -101,12 +104,12 @@ export function createPublishListingToInstagram(deps: PublishListingToInstagramD
             mediaFormat?: InstagramMediaFormat;
         } = {},
     ) {
-        const account = deps.getInstagramAccount(user.id, listing.vertical);
+        const account = deps.getInstagramAccount(user.id, listing.vertical, listing.accountId ?? null);
         if (!account || account.status === 'disconnected') {
             throw new Error('Primero conecta una cuenta de Instagram.');
         }
 
-        if (!deps.userCanUseInstagram(user, listing.vertical)) {
+        if (!deps.userCanUseInstagram(user, listing.vertical, listing.accountId ?? null)) {
             throw new Error('Instagram está disponible solo para planes Pro y Empresa.');
         }
         if (listing.status !== 'active') {
@@ -119,6 +122,7 @@ export function createPublishListingToInstagram(deps: PublishListingToInstagramD
             listing.vertical,
             listing.id,
             contentType,
+            listing.accountId ?? null,
         );
         if (options.auto && latest?.status === 'published' && latest.sourceUpdatedAt === listing.updatedAt) {
             return deps.instagramPublicationToResponse(latest);
@@ -184,6 +188,7 @@ async function publishListingReel(
 
         const publication = await deps.createInstagramPublicationRecord({
             userId: user.id,
+            accountId: listing.accountId ?? refreshedAccount.accountId ?? null,
             instagramAccountId: refreshedAccount.id,
             vertical: listing.vertical,
             listingId: listing.id,
@@ -204,13 +209,14 @@ async function publishListingReel(
             lastSyncedAt: Date.now(),
             lastError: null,
             status: 'connected',
-        });
+        }, listing.accountId ?? refreshedAccount.accountId ?? null);
 
         return deps.instagramPublicationToResponse(publication);
     } catch (error) {
         const message = error instanceof Error ? error.message : 'No se pudo publicar el Reel en Instagram.';
         await deps.createInstagramPublicationRecord({
             userId: user.id,
+            accountId: listing.accountId ?? refreshedAccount.accountId ?? null,
             instagramAccountId: refreshedAccount.id,
             vertical: listing.vertical,
             listingId: listing.id,
@@ -229,7 +235,7 @@ async function publishListingReel(
             lastSyncedAt: Date.now(),
             lastError: message,
             status: 'error',
-        });
+        }, listing.accountId ?? refreshedAccount.accountId ?? null);
         throw error;
     }
 }
@@ -284,6 +290,7 @@ async function publishListingImages(
         if (options.template && options.template.overlayVariant !== 'essential-watermark') {
             throw new Error(
                 'No se pudo aplicar el diseño de Instagram a la portada. Revisa las fotos del aviso e inténtalo de nuevo.',
+                { cause: e },
             );
         }
     }
@@ -371,6 +378,7 @@ async function publishListingImages(
 
         const publication = await deps.createInstagramPublicationRecord({
             userId: user.id,
+            accountId: listing.accountId ?? refreshedAccount.accountId ?? null,
             instagramAccountId: refreshedAccount.id,
             vertical: listing.vertical,
             listingId: listing.id,
@@ -391,13 +399,14 @@ async function publishListingImages(
             lastSyncedAt: Date.now(),
             lastError: null,
             status: 'connected',
-        });
+        }, listing.accountId ?? refreshedAccount.accountId ?? null);
 
         return deps.instagramPublicationToResponse(publication);
     } catch (error) {
         const message = error instanceof Error ? error.message : 'No se pudo publicar en Instagram.';
         await deps.createInstagramPublicationRecord({
             userId: user.id,
+            accountId: listing.accountId ?? refreshedAccount.accountId ?? null,
             instagramAccountId: refreshedAccount.id,
             vertical: listing.vertical,
             listingId: listing.id,
@@ -416,7 +425,7 @@ async function publishListingImages(
             lastSyncedAt: Date.now(),
             lastError: message,
             status: 'error',
-        });
+        }, listing.accountId ?? refreshedAccount.accountId ?? null);
         throw error;
     }
 }
@@ -430,9 +439,9 @@ export function createMaybeAutoPublishListing(
         user: PublishListingUser,
         listing: PublishListingRecord,
     ): Promise<void> {
-        const account = deps.getInstagramAccount(user.id, listing.vertical);
+        const account = deps.getInstagramAccount(user.id, listing.vertical, listing.accountId ?? null);
         if (!account?.autoPublishEnabled) return;
-        if (!deps.userCanUseInstagram(user, listing.vertical)) return;
+        if (!deps.userCanUseInstagram(user, listing.vertical, listing.accountId ?? null)) return;
         if (listing.status !== 'active') return;
 
         const imageCount = deps.extractListingMediaUrls(listing).length;
@@ -442,6 +451,7 @@ export function createMaybeAutoPublishListing(
             listing.vertical,
             listing.id,
             contentType,
+            listing.accountId ?? null,
         );
         if (latest?.status === 'published' && latest.sourceUpdatedAt === listing.updatedAt) return;
 
@@ -468,6 +478,6 @@ export async function refreshInstagramAccountIfNeeded(
             lastSyncedAt: Date.now(),
             lastError: null,
             status: 'connected',
-        })) ?? account
+        }, account.accountId)) ?? account
     );
 }

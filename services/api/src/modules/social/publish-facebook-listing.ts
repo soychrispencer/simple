@@ -10,6 +10,7 @@ export type PublishFacebookListingUser = {
 
 export type PublishFacebookListingRecord = {
     id: string;
+    accountId?: string | null;
     vertical: VerticalType;
     status: string;
     title: string;
@@ -18,14 +19,15 @@ export type PublishFacebookListingRecord = {
 };
 
 export type PublishListingToFacebookPageDeps = {
-    getInstagramAccount: (userId: string, vertical: VerticalType) => InstagramAccountRecord | null;
-    userCanUseInstagram: (user: PublishFacebookListingUser, vertical: VerticalType) => boolean;
+    getInstagramAccount: (userId: string, vertical: VerticalType, accountId?: string | null) => InstagramAccountRecord | null;
+    userCanUseInstagram: (user: PublishFacebookListingUser, vertical: VerticalType, accountId?: string | null) => boolean;
     getLatestSocialPublicationForListing: (
         userId: string,
         vertical: VerticalType,
         listingId: string,
         platform: 'facebook',
         contentType?: SocialPublicationContentType,
+        accountId?: string | null,
     ) => SocialPublicationRecord | null;
     socialPublicationToResponse: (record: SocialPublicationRecord) => unknown;
     buildListingPublicUrl: (listing: PublishFacebookListingRecord) => string;
@@ -38,12 +40,13 @@ export type PublishListingToFacebookPageDeps = {
         override: string | null,
     ) => string;
     createSocialPublicationRecord: (
-        input: Omit<SocialPublicationRecord, 'id' | 'createdAt' | 'updatedAt' | 'accountId'>,
+        input: Omit<SocialPublicationRecord, 'id' | 'createdAt' | 'updatedAt'>,
     ) => Promise<SocialPublicationRecord>;
     updateInstagramAccountSettings: (
         userId: string,
         vertical: VerticalType,
         patch: Partial<InstagramAccountRecord>,
+        accountId?: string | null,
     ) => Promise<InstagramAccountRecord | null>;
 };
 
@@ -56,11 +59,11 @@ export function createPublishListingToFacebookPage(deps: PublishListingToFaceboo
             auto?: boolean;
         } = {},
     ) {
-        const account = deps.getInstagramAccount(user.id, listing.vertical);
+        const account = deps.getInstagramAccount(user.id, listing.vertical, listing.accountId ?? null);
         if (!account || account.status === 'disconnected') {
             throw new Error('Primero conecta tu cuenta Meta en Integraciones.');
         }
-        if (!deps.userCanUseInstagram(user, listing.vertical)) {
+        if (!deps.userCanUseInstagram(user, listing.vertical, listing.accountId ?? null)) {
             throw new Error('La publicación en Facebook está disponible solo para planes Pro y Empresa.');
         }
         if (listing.status !== 'active') {
@@ -78,6 +81,7 @@ export function createPublishListingToFacebookPage(deps: PublishListingToFaceboo
             listing.id,
             'facebook',
             contentType,
+            listing.accountId ?? null,
         );
         if (options.auto && latest?.status === 'published' && latest.sourceUpdatedAt === listing.updatedAt) {
             return deps.socialPublicationToResponse(latest);
@@ -110,6 +114,7 @@ export function createPublishListingToFacebookPage(deps: PublishListingToFaceboo
 
             const publication = await deps.createSocialPublicationRecord({
                 userId: user.id,
+                accountId: listing.accountId ?? account.accountId ?? null,
                 vertical: listing.vertical,
                 listingId: listing.id,
                 listingTitle: listing.title,
@@ -128,13 +133,14 @@ export function createPublishListingToFacebookPage(deps: PublishListingToFaceboo
             await deps.updateInstagramAccountSettings(user.id, listing.vertical, {
                 lastPublishedAt: Date.now(),
                 lastError: null,
-            });
+            }, listing.accountId ?? account.accountId ?? null);
 
             return deps.socialPublicationToResponse(publication);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'No se pudo publicar en Facebook.';
             await deps.createSocialPublicationRecord({
                 userId: user.id,
+                accountId: listing.accountId ?? account.accountId ?? null,
                 vertical: listing.vertical,
                 listingId: listing.id,
                 listingTitle: listing.title,
@@ -151,8 +157,8 @@ export function createPublishListingToFacebookPage(deps: PublishListingToFaceboo
             });
             await deps.updateInstagramAccountSettings(user.id, listing.vertical, {
                 lastError: message,
-            });
-            throw new Error(message);
+            }, listing.accountId ?? account.accountId ?? null);
+            throw new Error(message, { cause: error });
         }
     };
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { API_BASE } from '@simple/config';
 
 import type { VerticalType } from '@simple/types';
@@ -66,11 +66,12 @@ type AuthActionResult = {
 
 type AuthContextType = {
     user: User;
+    currentApp: SimplePlatformApp | null;
     isLoggedIn: boolean;
     authLoading: boolean;
     refreshSession: () => Promise<User>;
     login: (email: string, password: string) => Promise<AuthActionResult>;
-    register: (input: { name: string; phone: string; email: string; password: string; termsAccepted: boolean; captchaToken?: string | null }) => Promise<AuthActionResult>;
+    register: (input: { name: string; phone: string; email: string; password: string; termsAccepted: boolean; captchaToken?: string | null; returnTo?: string }) => Promise<AuthActionResult>;
     activatePlatform: (app?: SimplePlatformApp) => Promise<AuthActionResult>;
     logout: () => Promise<void>;
     requireAuth: (callback?: () => void) => boolean;
@@ -162,6 +163,14 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
     const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
     const [authLoading, setAuthLoading] = useState(true);
     const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
+    const sessionRequestId = useRef(0);
+    const sessionUser = useRef<User>(null);
+    const currentApp = appId ?? resolveAppFromBrowser();
+
+    const commitUser = useCallback((nextUser: User) => {
+        sessionUser.current = nextUser;
+        setUser(nextUser);
+    }, []);
 
     const consumePendingCallback = useCallback(() => {
         if (!pendingCallback) return;
@@ -170,20 +179,27 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
     }, [pendingCallback]);
 
     const refreshSession = useCallback(async (): Promise<User> => {
+        const requestId = ++sessionRequestId.current;
         const { data } = await authRequest('/api/auth/me', { method: 'GET' }, appId);
         const nextUser = data?.user ?? null;
-        setUser((current) => (sameUser(current, nextUser) ? current : nextUser));
-        return nextUser;
-    }, [appId]);
+        if (sessionRequestId.current !== requestId) return sessionUser.current;
+        const currentUser = sessionUser.current;
+        const resolvedUser = sameUser(currentUser, nextUser) ? currentUser : nextUser;
+        commitUser(resolvedUser);
+        setAuthLoading(false);
+        return resolvedUser;
+    }, [appId, commitUser]);
 
     useEffect(() => {
         let mounted = true;
+        const requestId = ++sessionRequestId.current;
 
         const bootstrapSession = async () => {
             const { data } = await authRequest('/api/auth/me', { method: 'GET' }, appId);
-            if (!mounted) return;
+            if (!mounted || sessionRequestId.current !== requestId) return;
             const nextUser = data?.user ?? null;
-            setUser((current) => (sameUser(current, nextUser) ? current : nextUser));
+            const currentUser = sessionUser.current;
+            commitUser(sameUser(currentUser, nextUser) ? currentUser : nextUser);
             setAuthLoading(false);
         };
 
@@ -192,67 +208,89 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
         return () => {
             mounted = false;
         };
-    }, [appId]);
+    }, [appId, commitUser]);
 
     const login = useCallback(
         async (email: string, password: string): Promise<AuthActionResult> => {
+            const requestId = ++sessionRequestId.current;
             const { status, data } = await authRequest('/api/auth/login', {
                 method: 'POST',
                 body: JSON.stringify({ email, password }),
             }, appId);
 
+            if (sessionRequestId.current !== requestId) {
+                return { ok: false, error: 'La sesión cambió mientras iniciabas sesión. Inténtalo nuevamente.', status };
+            }
             if (!data?.user) {
+                setAuthLoading(false);
                 const errorMsg = data?.error || (status === 0 ? 'Error de conexión con el servidor' : 'Error de inicio de sesión');
                 return { ok: false, error: errorMsg, code: data?.code, status };
             }
-            setUser(data.user);
+            commitUser(data.user);
+            setAuthLoading(false);
             if (data.user.status === 'verified') {
                 setAuthOpen(false);
                 consumePendingCallback();
             }
             return { ok: true, user: data.user, status };
         },
-        [appId, consumePendingCallback]
+        [appId, commitUser, consumePendingCallback]
     );
 
     const register = useCallback(
-        async (input: { name: string; phone: string; email: string; password: string; termsAccepted: boolean; captchaToken?: string | null }): Promise<AuthActionResult> => {
+        async (input: { name: string; phone: string; email: string; password: string; termsAccepted: boolean; captchaToken?: string | null; returnTo?: string }): Promise<AuthActionResult> => {
+            const requestId = ++sessionRequestId.current;
             const { status, data } = await authRequest('/api/auth/register', {
                 method: 'POST',
                 body: JSON.stringify(input),
             }, appId);
 
+            if (sessionRequestId.current !== requestId) {
+                return { ok: false, error: 'La sesión cambió mientras creabas tu cuenta. Inténtalo nuevamente.', status };
+            }
             if (!data?.user) {
+                setAuthLoading(false);
                 return { ok: false, error: data?.error, status };
             }
-            setUser(data.user);
+            commitUser(data.user);
+            setAuthLoading(false);
             return { ok: true, user: data.user, status };
         },
-        [appId]
+        [appId, commitUser]
     );
 
     const activatePlatform = useCallback(async (app?: SimplePlatformApp): Promise<AuthActionResult> => {
+        const requestId = ++sessionRequestId.current;
         const targetApp = app ?? appId ?? resolveAppFromBrowser();
         const { status, data } = await authRequest('/api/auth/platform-access/activate', {
             method: 'POST',
             body: JSON.stringify(targetApp ? { app: targetApp } : {}),
         }, appId);
 
+        if (sessionRequestId.current !== requestId) {
+            return { ok: false, error: 'La sesión cambió durante la activación. Inténtalo nuevamente.', status };
+        }
         if (!data?.user) {
+            setAuthLoading(false);
             return {
                 ok: false,
                 error: data?.error || (status === 0 ? 'Error de conexión con el servidor' : 'No pudimos activar esta plataforma.'),
                 status,
             };
         }
-        setUser(data.user);
+        commitUser(data.user);
+        setAuthLoading(false);
         return { ok: true, user: data.user, status };
-    }, [appId]);
+    }, [appId, commitUser]);
 
     const logout = useCallback(async () => {
+        ++sessionRequestId.current;
+        commitUser(null);
+        setAuthLoading(false);
+        setAuthOpen(false);
+        setPendingCallback(null);
         await authRequest('/api/auth/logout', { method: 'POST' }, appId);
-        setUser(null);
-    }, [appId]);
+    }, [appId, commitUser]);
 
     const requireAuth = useCallback(
         (callback?: () => void): boolean => {
@@ -276,6 +314,7 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
     const value = useMemo<AuthContextType>(
         () => ({
             user,
+            currentApp,
             isLoggedIn: !!user,
             authLoading,
             refreshSession,
@@ -289,7 +328,7 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
             authOpen,
             authInitialMode,
         }),
-        [activatePlatform, authInitialMode, authLoading, authOpen, closeAuth, login, logout, openAuth, refreshSession, register, requireAuth, user]
+        [activatePlatform, authInitialMode, authLoading, authOpen, closeAuth, currentApp, login, logout, openAuth, refreshSession, register, requireAuth, user]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

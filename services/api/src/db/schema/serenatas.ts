@@ -18,6 +18,9 @@ export const serenataMusicians = pgTable('serenata_musicians', {
   workZones: jsonb('working_comunas').$type<string[]>().notNull().default(sql`'[]'::jsonb`), // DB column: working_comunas (legacy name)
   hasInstrument: boolean('has_instrument').notNull().default(false),
   hasMariachiAttire: boolean('has_mariachi_attire').notNull().default(false),
+  commissionRateBps: integer('commission_rate_bps').notNull().default(0),
+  commissionVatRateBps: integer('commission_vat_rate_bps').notNull().default(1900),
+  trialEndsAt: timestamp('trial_ends_at').notNull().default(sql`now() + interval '30 days'`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
@@ -50,7 +53,7 @@ export const serenataOwners = pgTable('serenata_owners', {
   maxPrice: integer('max_price'),
   subscriptionStatus: varchar('subscription_status', { length: 30 }).notNull().default('trialing'),
   subscriptionPrice: integer('subscription_price').notNull().default(9990),
-  commissionRateBps: integer('commission_rate_bps').notNull().default(800),
+  commissionRateBps: integer('commission_rate_bps').notNull().default(0),
   commissionVatRateBps: integer('commission_vat_rate_bps').notNull().default(1900),
   trialEndsAt: timestamp('trial_ends_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),

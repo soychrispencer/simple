@@ -33,6 +33,7 @@ import {
     capabilitiesFor,
     platformSummary,
     roleLabel,
+    SERENATAS_PROFILE_OPTIONS,
     STATUS_OPTIONS,
     statusLabel,
     statusTone,
@@ -117,7 +118,7 @@ export function AdminUsersDashboard({ currentUser }: { currentUser: AdminSession
         await loadUsers();
     };
 
-    const confirmDestructiveAction = async () => {
+    const confirmAdminAction = async () => {
         if (!modal || (modal.type !== 'delete' && modal.type !== 'serenatas')) return;
         setConfirming(true);
         setError('');
@@ -238,16 +239,18 @@ export function AdminUsersDashboard({ currentUser }: { currentUser: AdminSession
                 tone="danger"
                 busy={confirming}
                 onClose={() => setModal(null)}
-                onConfirm={() => void confirmDestructiveAction()}
+                onConfirm={() => void confirmAdminAction()}
             />
             <PanelConfirmDialog
                 open={modal?.type === 'serenatas'}
-                title="Cambiar perfil de Serenatas"
-                message={modal?.type === 'serenatas' ? `Cambiarás el perfil de ${modal.user.name} a ${modal.profile}.` : ''}
-                confirmLabel="Confirmar"
+                title="Agregar perfil de SimpleSerenatas"
+                message={modal?.type === 'serenatas'
+                    ? `Agregarás el perfil ${SERENATAS_PROFILE_OPTIONS.find((option) => option.value === modal.profile)?.label ?? modal.profile} a ${modal.user.name}. Se conservarán sus perfiles existentes.`
+                    : ''}
+                confirmLabel="Agregar perfil"
                 busy={confirming}
                 onClose={() => setModal(null)}
-                onConfirm={() => void confirmDestructiveAction()}
+                onConfirm={() => void confirmAdminAction()}
             />
         </div>
     );

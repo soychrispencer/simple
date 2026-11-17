@@ -40,8 +40,21 @@ function buildPasswordResetUrl(origin: string, token: string): string {
     return `${origin}/auth/reset-password?token=${encodeURIComponent(token)}`;
 }
 
-function buildEmailVerificationUrl(origin: string, token: string): string {
-    const returnTo = defaultEmailVerificationReturnTo(origin);
+function resolveEmailVerificationReturnTo(origin: string, requestedReturnTo?: string | null): string {
+    const fallback = defaultEmailVerificationReturnTo(origin);
+    if (!requestedReturnTo) return fallback;
+    try {
+        const base = new URL(origin);
+        const target = new URL(requestedReturnTo, base);
+        if (target.origin !== base.origin) return fallback;
+        return `${target.pathname}${target.search}${target.hash}`;
+    } catch {
+        return fallback;
+    }
+}
+
+function buildEmailVerificationUrl(origin: string, token: string, requestedReturnTo?: string | null): string {
+    const returnTo = resolveEmailVerificationReturnTo(origin, requestedReturnTo);
     const params = new URLSearchParams({
         token,
         returnTo,
@@ -328,6 +341,62 @@ async function sendWelcomeEmail(email: string, name: string, origin: string, use
     logAuthEmailDelivery('welcome', brand, info);
 }
 
+async function sendAccountInvitationEmail(input: {
+    email: string;
+    inviteUrl: string;
+    inviterName: string;
+    accountName: string;
+    role: 'admin' | 'agent';
+    expiresAt: Date;
+    origin: string;
+}): Promise<boolean> {
+    const transporter = getAuthMailerTransporter();
+    if (!transporter) return false;
+
+    const brand = await brandForAuthEmail(input.origin);
+    const roleLabel = input.role === 'admin' ? 'administrador' : 'agente';
+    const inviterName = input.inviterName.trim() || 'Una persona de tu equipo';
+    const headline = `${inviterName} te invitó a ${input.accountName}`;
+    const body = `${inviterName} quiere que te unas al espacio de trabajo ${input.accountName} en Simple como ${roleLabel}. La invitación está dirigida a ${input.email} y podrás aceptarla al iniciar sesión con ese correo.`;
+    const expiresLabel = input.expiresAt.toLocaleDateString('es-CL', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'America/Santiago',
+    });
+    const footnote = `Este enlace es personal, está dirigido a ${input.email} y vence el ${expiresLabel}. Si no esperabas esta invitación, puedes ignorar este correo.`;
+    const mail = buildAuthActionMail(brand, {
+        preheader: `Invitación al espacio de trabajo ${input.accountName}`,
+        eyebrow: 'Invitación al equipo',
+        headline,
+        bodyHtml: `<p style="margin:0;">Hola,</p><p style="margin:12px 0 0;">${escapeHtml(inviterName)} te invita a trabajar en <strong>${escapeHtml(input.accountName)}</strong> como <strong>${roleLabel}</strong>.</p><p style="margin:12px 0 0;">Inicia sesión con <strong>${escapeHtml(input.email)}</strong> para revisar y aceptar la invitación.</p>`,
+        buttonLabel: 'Revisar invitación',
+        actionUrl: input.inviteUrl,
+        footnote,
+    });
+    const info = await transporter.sendMail({
+        from: formatAuthFromAddress(brand),
+        to: input.email,
+        subject: `${brand.appName}: invitación a ${input.accountName}`,
+        text: buildActionEmailText({
+            appName: brand.appName,
+            headline,
+            body,
+            buttonLabel: 'Revisar invitación',
+            actionUrl: input.inviteUrl,
+            footnote,
+            supportEmail: brand.supportEmail,
+        }),
+        html: mail.html,
+        attachments: mail.attachments,
+    });
+    logAuthEmailDelivery('account invitation', brand, info);
+    const acceptedRecipients = Array.isArray(info?.accepted)
+        ? info.accepted.map((recipient: unknown) => String(recipient).trim().toLowerCase())
+        : [];
+    return acceptedRecipients.includes(input.email.trim().toLowerCase());
+}
+
 async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEmailData & { cancelUrl: string; appUrl: string }): Promise<void> {
     if (await skipAgendaEmail(clientEmail, 'booking-confirmation')) return;
     const transporter = getAuthMailerTransporter();
@@ -429,7 +498,7 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
     });
 }
 
-async function issueEmailVerification(userId: string, email: string, origin: string): Promise<void> {
+async function issueEmailVerification(userId: string, email: string, origin: string, returnTo?: string | null): Promise<void> {
     const rawToken = randomBytes(32).toString('hex');
     const now = new Date();
     const expiresAt = new Date(now.getTime() + EMAIL_VERIFICATION_TOKEN_TTL_MS);
@@ -446,7 +515,7 @@ async function issueEmailVerification(userId: string, email: string, origin: str
     try {
         await sendEmailVerificationEmail(
             email,
-            buildEmailVerificationUrl(origin, rawToken),
+            buildEmailVerificationUrl(origin, rawToken, returnTo),
             origin,
             userId,
         );
@@ -467,6 +536,7 @@ export {
     sendEmailVerificationEmail,
     sendPasswordChangedEmail,
     sendWelcomeEmail,
+    sendAccountInvitationEmail,
     sendBookingConfirmationEmail,
     sendAppointmentReminderEmail,
     issueEmailVerification,

@@ -6,11 +6,90 @@
 @import "../../../../packages/ui/src/theme-base.css";
 @import "leaflet/dist/leaflet.css";
 
-/* El feed conserva formato reel en móvil y usa tarjeta de marketplace en escritorio. */
+/* Paleta de ruta SimpleAutos: papel cálido, grafito y naranja vial. */
+@layer base {
+    :root {
+        --ink: #201c18;
+        --ink-soft: #302a24;
+        --paper: #f5efe7;
+        --white: #fcf9f4;
+        --mute: #756b61;
+        --mute-light: #51483f;
+        --line: #e3d9cd;
+        --line-strong: #cbbdaf;
+        --field: #f1eae1;
+        --bg-muted: #eee7de;
+    }
+
+    .dark,
+    [data-theme="dark"] {
+        --ink: #f4f4f5;
+        --ink-soft: #fafafa;
+        --paper: #0e0e10;
+        --white: #161618;
+        --mute: #6b6b76;
+        --mute-light: #a0a0ab;
+        --line: rgba(255, 255, 255, 0.08);
+        --line-strong: rgba(255, 255, 255, 0.38);
+        --field: #161618;
+        --bg-muted: #222226;
+    }
+}
+
+/* El feed conserva sus tarjetas editoriales 3:4 en escritorio. */
 @media (min-width: 768px) {
     .simpleautos-integrated-feed-card {
         aspect-ratio: 3 / 4 !important;
     }
+}
+
+body:has(.simpleautos-explore-page) {
+    background-color: var(--bg);
+    background-image: url("/images/simpleautos-route-paper.png");
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-attachment: fixed;
+}
+
+@media (min-width: 1024px) {
+    .simpleautos-feed-lanes {
+        max-width: 1000px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: clamp(2rem, 5vw, 5rem);
+    }
+
+    .simpleautos-feed-lane {
+        display: flex;
+        height: clamp(28rem, calc(100vh - 18rem), 55rem);
+        min-height: 28rem;
+        flex-direction: column;
+        gap: 1.25rem;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        padding: 0.25rem 0.5rem 1rem;
+        scrollbar-color: color-mix(in srgb, var(--fg-muted) 58%, transparent) transparent;
+        scrollbar-width: thin;
+    }
+
+    .simpleautos-feed-lane::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .simpleautos-feed-lane::-webkit-scrollbar-track {
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--fg) 8%, transparent);
+    }
+
+    .simpleautos-feed-lane::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--fg-muted) 58%, transparent);
+    }
+}
+
+html.dark body:has(.simpleautos-explore-page),
+html[data-theme="dark"] body:has(.simpleautos-explore-page) {
+    background-image: none;
 }
 
 /* SimpleAutos — Spencer base + accent vertical #E84A1F */

@@ -1,6 +1,6 @@
 import type { SerenatasUser } from '@/lib/serenatas-api';
 import type { Profiles } from '@/lib/serenatas-api';
-import { isMusicianAccount } from '@/lib/serenata-profile';
+import type { SerenataRole } from '@/lib/app-mode';
 
 /** Modo de panel: cliente contrata serenatas; trabajo = músico o dueño. */
 export type NotificationPrefsAppMode = 'client' | 'work';
@@ -103,10 +103,12 @@ export function getOwnerBusinessNotificationRows(): NotificationCategoryRowConfi
 export function getNotificationCategoryRowsForContext(
     mode: NotificationPrefsAppMode,
     profiles: Profiles,
+    activeRole?: SerenataRole,
 ): NotificationCategoryRowConfig[] {
     const rows: NotificationCategoryRowConfig[] = [];
+    const role = activeRole ?? (profiles.owner ? 'owner' : profiles.musician ? 'musician' : 'client');
 
-    if (mode === 'work' && isMusicianAccount(profiles)) {
+    if (mode === 'work' && role === 'musician' && profiles.musician) {
         rows.push({
             key: 'invitations',
             label: 'Invitaciones a grupos',
@@ -126,8 +128,9 @@ function categoryLabelForContext(
     category: NotificationCategory,
     mode: NotificationPrefsAppMode,
     profiles: Profiles,
+    activeRole?: SerenataRole,
 ): string {
-    const row = getNotificationCategoryRowsForContext(mode, profiles).find((r) => r.key === category);
+    const row = getNotificationCategoryRowsForContext(mode, profiles, activeRole).find((r) => r.key === category);
     if (row) return row.label;
     if (category === 'invitations') return 'Invitaciones a grupos';
     if (category === 'requests') return 'Solicitudes';
@@ -139,16 +142,16 @@ function categoryLabelForContext(
 export function buildNotificationSaveMessage(
     before: NotificationPrefsSnapshot,
     after: NotificationPrefsSnapshot,
-    context?: { mode: NotificationPrefsAppMode; profiles: Profiles },
+    context?: { mode: NotificationPrefsAppMode; profiles: Profiles; activeRole?: SerenataRole },
 ): string {
     const parts: string[] = [];
     const categories: NotificationCategory[] = context
-        ? getNotificationCategoryRowsForContext(context.mode, context.profiles).map((r) => r.key)
+        ? getNotificationCategoryRowsForContext(context.mode, context.profiles, context.activeRole).map((r) => r.key)
         : ['invitations', 'requests', 'agenda', 'account'];
 
     for (const key of categories) {
         const label = context
-            ? categoryLabelForContext(key, context.mode, context.profiles)
+            ? categoryLabelForContext(key, context.mode, context.profiles, context.activeRole)
             : key;
         if (before.categoryPrefs[key].email !== after.categoryPrefs[key].email) {
             parts.push(

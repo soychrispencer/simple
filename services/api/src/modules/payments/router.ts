@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { canManageAccountRole } from '../accounts/permissions.js';
 import {
     buildMercadoPagoCheckoutBackUrls,
     isDevMercadoPagoPreapprovalId,
@@ -6,17 +7,18 @@ import {
     mercadoPagoDevCheckoutFallbackEnabled,
     resolveMercadoPagoPreferenceCheckoutUrl,
 } from '../mercadopago/checkout-helpers.js';
-import { getPaymentById, getPreapprovalById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
+import { cancelPreapproval, getPaymentById, getPreapprovalById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
 import { serenataPlanMonthlyChargeClp, defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import {
-    catalogPaidPlans,
     filterCatalogPlans,
+    isMarketplacePlanAvailableForAccount,
     normalizeCatalogSubscription,
+    type MarketplaceAccountKind,
 } from '../billing/plan-catalog.js';
-import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
+import { loadCurrentSubscriptionFromDb, persistUserSubscription } from '../subscriptions/persist-db.js';
 import { normalizeTrialEndsAtForDisplay } from '../billing/trial-config.js';
 import { db } from '../../db/index.js';
-import { serenataOwners } from '../../db/schema.js';
+import { serenataMusicians, serenataOwners } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { confirmPaymentFromProvider, findPaymentOrderByExternalReference } from './confirm-from-provider.js';
 import { confirmSubscriptionFromPreapproval } from './confirm-subscription.js';
@@ -27,7 +29,12 @@ import {
     getSubscriptionBillingCharge,
     localizePaidPlansForBilling,
 } from '../billing/subscription-billing.js';
-import { isMarketplacePaidPromotionEnabled, isPlatformLaunchActive } from '@simple/utils';
+import {
+    CHILE_VAT_RATE_BPS,
+    isMarketplacePaidPromotionEnabled,
+    isPlatformLaunchActive,
+    type MarketplaceSubscriptionEntitlements,
+} from '@simple/utils';
 
 export type PaymentsRouterDeps = {
     authUser: (c: any) => Promise<any | null>;
@@ -38,7 +45,8 @@ export type PaymentsRouterDeps = {
     // Subscription helpers
     getSubscriptionPlans: (vertical: any) => any[];
     getPaidSubscriptionPlan: (vertical: any, planId: any) => any | null;
-    getCurrentSubscription: (userId: string, vertical: any) => any | null;
+    getCurrentSubscription: (userId: string, vertical: any, accountId?: string | null, billingProfileType?: 'provider' | 'musician') => any | null;
+    getSubscriptionForAccount?: (accountId: string, vertical: any) => any | null;
     getActiveSubscriptionsForUser?: (userId: string, vertical: any) => any[];
     activeSubscriptionToResponse: (sub: any | null) => any;
     upsertActiveSubscription: (sub: any) => any;
@@ -50,6 +58,10 @@ export type PaymentsRouterDeps = {
     updatePaymentOrder: (userId: string, orderId: string, updater: (o: any) => any) => Promise<any>;
     listPaymentOrdersForUserFromDb?: (
         userId: string,
+        options?: { vertical?: string; kind?: string; accountId?: string | null; limit?: number },
+    ) => Promise<any[]>;
+    listPaymentOrdersForAccountFromDb?: (
+        accountId: string,
         options?: { vertical?: string; kind?: string; limit?: number },
     ) => Promise<any[]>;
     paymentOrderToResponse: (order: any) => any;
@@ -74,6 +86,7 @@ export type PaymentsRouterDeps = {
     getBoostTargetById?: (vertical: any, targetType: import('../boost/types.js').BoostTargetType, targetId: string) => Promise<any | null>;
     inferBoostTargetType?: (vertical: any) => string;
     getBoostOrdersForUser: (userId: string) => any[];
+    getBoostOrdersForAccount?: (accountId: string, vertical?: any, legacyPersonalOwnerUserId?: string) => any[];
     getBoostPlans: (vertical: any, section: any) => any[];
     parseBoostSection: (raw: any, vertical: any) => any;
     isBoostSectionAllowed: (vertical: any, section: any) => boolean;
@@ -83,7 +96,7 @@ export type PaymentsRouterDeps = {
     sectionLabel: (section: any) => string;
     MAX_BOOST_SLOTS_PER_SECTION: number;
     // Advertising helpers
-    getAdCampaignRecordForUser: (userId: string, id: string) => Promise<any | null>;
+    getAdCampaignRecordForUser: (userId: string, id: string, accountId?: string | null, includeLegacyPersonal?: boolean) => Promise<any | null>;
     getAdvertisingPrice: (vertical: any, format: any, durationDays: any) => number;
     getAdPaymentStatusFromOrderStatus: (status: any) => any;
     normalizeAdCampaigns: (items: any[]) => any[];
@@ -92,7 +105,7 @@ export type PaymentsRouterDeps = {
     AD_FORMAT_LABELS: Record<string, string>;
     db: any;
     tables: { adCampaigns: any };
-    dbHelpers: { eq: any; and: any };
+    dbHelpers: { eq: any; and: any; isNull: any };
     // Admin
     listAdminUsersSnapshot: () => Promise<any[]>;
     // DB helpers for agenda subscriptions
@@ -113,11 +126,50 @@ export type PaymentsRouterDeps = {
     processedMercadoPagoWebhookPaymentIds?: Set<string>;
     processedMercadoPagoWebhookPreapprovalIds?: Set<string>;
     getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
-    cancelActiveSubscriptionForUser?: (userId: string, vertical: any) => void;
+    getPersonalAccountIdForUser?: (userId: string) => Promise<string | null>;
+    getAccountMembershipsForUser: (userId: string) => any[];
+    /** Membresía de DB, sin depender de la caché local de cuenta/roles. Sin accountId devuelve la membresía predeterminada actual. */
+    getAccountMembershipFromDb?: (userId: string, accountId?: string) => Promise<{ accountId: string; role: string } | null>;
+    isPersonalAccountForUser?: (userId: string, accountId: string) => boolean;
+    getMarketplaceAccountBillingContext: (userId: string, vertical: 'autos' | 'propiedades', accountId?: string | null) => Promise<{
+        accountId: string | null;
+        accountName: string | null;
+        isPersonal?: boolean;
+        accountKind: MarketplaceAccountKind;
+        role: string | null;
+        memberCount: number;
+        canManageBilling: boolean;
+    }>;
+    getAgendaAccountBillingContext: (userId: string, accountId?: string | null) => Promise<{
+        accountId: string | null;
+        accountName: string | null;
+        isPersonal: boolean;
+        accountKind: 'individual' | 'independent' | 'company';
+        role: string | null;
+        memberCount: number;
+        canManageBilling: boolean;
+    } | null>;
+    getMarketplaceEntitlements: (
+        user: { id: string; role?: string },
+        vertical: 'autos' | 'propiedades',
+        accountId: string | null,
+        planId?: string,
+    ) => Promise<MarketplaceSubscriptionEntitlements | null>;
+    cancelActiveSubscriptionForUser: (userId: string, vertical: any, accountId?: string | null, billingProfileType?: 'provider' | 'musician') => void;
 };
 
 export function createPaymentsRouter(deps: PaymentsRouterDeps) {
     const app = new Hono();
+
+    async function getAccountMembership(userId: string, accountId?: string) {
+        if (deps.getAccountMembershipFromDb) {
+            return deps.getAccountMembershipFromDb(userId, accountId);
+        }
+        const resolvedAccountId = accountId ?? await deps.getPrimaryAccountIdForUser(userId);
+        return resolvedAccountId
+            ? deps.getAccountMembershipsForUser(userId).find((item: any) => item.accountId === resolvedAccountId) ?? null
+            : null;
+    }
 
     async function createHostedCheckout(input: {
         orderId: string;
@@ -165,7 +217,9 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             upsertActiveSubscription: deps.upsertActiveSubscription,
             makeSubscriptionId: deps.makeSubscriptionId,
             updatePaymentOrder: deps.updatePaymentOrder,
+            getCurrentSubscription: deps.getCurrentSubscription,
             getPrimaryAccountIdForUser: deps.getPrimaryAccountIdForUser,
+            getPersonalAccountIdForUser: deps.getPersonalAccountIdForUser,
             parseMercadoPagoPreapprovalStatus: deps.parseMercadoPagoPreapprovalStatus,
             cancelActiveSubscriptionForUser: deps.cancelActiveSubscriptionForUser,
         };
@@ -179,20 +233,95 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
 
         const rawVertical = c.req.query('vertical');
         const vertical = rawVertical === 'serenatas' ? 'serenatas' : deps.parseVertical(rawVertical);
+        const requestedBillingProfileType = c.req.query('billingProfileType');
+        if (vertical === 'serenatas' && requestedBillingProfileType && requestedBillingProfileType !== 'provider' && requestedBillingProfileType !== 'musician') {
+            return c.json({ ok: false, error: 'Perfil de facturación no válido.' }, 400);
+        }
+        const serenataBillingProfileType = vertical === 'serenatas'
+            ? requestedBillingProfileType === 'musician' ? 'musician' : 'provider'
+            : undefined;
         const allPlans = deps.getSubscriptionPlans(vertical);
-        const plans = filterCatalogPlans(vertical, allPlans);
-        const freePlan = plans.find((plan: any) => plan.id === 'free') ?? null;
-        const paidPlans = catalogPaidPlans(vertical, allPlans);
-        const orders = deps.getPaymentOrdersForUser(user.id, { vertical, kind: 'subscription' }).map((order: any) => deps.paymentOrderToResponse(order));
+        const accountContext = (vertical === 'autos' || vertical === 'propiedades')
+            ? await deps.getMarketplaceAccountBillingContext(user.id, vertical)
+            : vertical === 'agenda'
+                ? await deps.getAgendaAccountBillingContext(user.id)
+            : null;
+        const accountKind = accountContext?.accountKind ?? (vertical === 'autos' || vertical === 'propiedades' ? 'individual' : undefined);
+        let plans = filterCatalogPlans(vertical, allPlans, accountKind);
+        const subscriptionAccountId = vertical === 'serenatas'
+            ? await deps.getPersonalAccountIdForUser?.(user.id) ?? null
+            : await deps.getPrimaryAccountIdForUser(user.id);
+        const accountBilledVertical = vertical === 'autos' || vertical === 'propiedades' || vertical === 'agenda';
+        const canManageBilling = accountBilledVertical
+            ? Boolean(accountContext?.canManageBilling)
+            : true;
+        let orderRecords: any[] = [];
+        if (accountBilledVertical) {
+            if (accountContext?.accountId && canManageBilling) {
+                orderRecords = deps.getPaymentOrdersForUser(user.id, {
+                    vertical,
+                    kind: 'subscription',
+                    accountId: accountContext.accountId,
+                });
+                try {
+                    const fromDb = await deps.listPaymentOrdersForAccountFromDb?.(
+                        accountContext.accountId,
+                        { vertical, kind: 'subscription', limit: 100 },
+                    ) ?? [];
+                    const byId = new Map<string, any>();
+                    for (const order of fromDb) byId.set(order.id, order);
+                    for (const orderList of deps.paymentOrdersByUser.values()) {
+                        for (const order of orderList) {
+                            if (order.accountId !== accountContext.accountId || order.vertical !== vertical || order.kind !== 'subscription') continue;
+                            const existing = byId.get(order.id);
+                            if (!existing || order.updatedAt >= existing.updatedAt) byId.set(order.id, order);
+                        }
+                    }
+                    orderRecords = [...byId.values()]
+                        .sort((a, b) => b.createdAt - a.createdAt)
+                        .slice(0, 100);
+                } catch (error) {
+                    console.warn('[subscriptions/catalog] no se pudo cargar el historial de pagos de la cuenta', {
+                        accountId: accountContext.accountId,
+                        vertical,
+                        error: error instanceof Error ? error.message : String(error),
+                    });
+                }
+            }
+        } else if (vertical === 'serenatas') {
+            // Provider billing history is owned by the person and may include
+            // legacy orders recorded against an older workspace.
+            orderRecords = await listUserPaymentOrdersMerged(deps, user.id, {
+                vertical,
+                kind: 'subscription',
+                limit: 100,
+            });
+            orderRecords = orderRecords.filter((order: any) => (
+                ((order.metadata as Record<string, unknown> | undefined)?.billingProfileType ?? 'provider')
+                    === serenataBillingProfileType
+            ));
+        } else {
+            orderRecords = deps.getPaymentOrdersForUser(user.id, {
+                vertical,
+                kind: 'subscription',
+                accountId: subscriptionAccountId,
+            });
+        }
+        const orders = orderRecords.map((order: any) => deps.paymentOrderToResponse(order));
 
         let currentSubscription: any = null;
 
         if (vertical === 'agenda') {
             try {
-                const profile = await deps.dbQuery.agendaProfessionalProfiles.findFirst({
-                    where: deps.dbHelpers.eq(deps.tables2.agendaProfessionalProfiles.userId, user.id),
-                });
-                const dbSub = await loadCurrentSubscriptionFromDb(user.id, 'agenda');
+                const scopedProfile = accountContext?.accountId
+                    ? await deps.dbQuery.agendaProfessionalProfiles.findFirst({
+                        where: deps.dbHelpers.and(
+                            deps.dbHelpers.eq(deps.tables2.agendaProfessionalProfiles.userId, user.id),
+                            deps.dbHelpers.eq(deps.tables2.agendaProfessionalProfiles.accountId, accountContext.accountId),
+                        ),
+                    })
+                    : null;
+                const dbSub = await loadCurrentSubscriptionFromDb(user.id, 'agenda', accountContext?.accountId);
                 if (dbSub && (dbSub.planSlug === 'pro' || dbSub.planSlug === 'pro_plus' || dbSub.planSlug === 'enterprise') && dbSub.status === 'active') {
                     const matchedPlan = plans.find((p: any) => p.id === dbSub.planSlug) ?? plans.find((p: any) => p.id === 'pro');
                     currentSubscription = {
@@ -211,7 +340,8 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         updatedAt: dbSub.updatedAt.getTime(),
                         planExpiresAt: dbSub.expiresAt?.getTime() ?? null,
                     };
-                } else if (profile) {
+                } else if (scopedProfile) {
+                    const profile = scopedProfile;
                     const hasActivePro = (profile.plan === 'pro' || profile.plan === 'pro_plus')
                         && (!profile.planExpiresAt || profile.planExpiresAt >= new Date());
                     if (hasActivePro) {
@@ -260,13 +390,19 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             }
         } else if (vertical === 'serenatas') {
             try {
-                const dbSub = await loadCurrentSubscriptionFromDb(user.id, 'serenatas');
+                const dbSub = await loadCurrentSubscriptionFromDb(
+                    user.id,
+                    'serenatas',
+                    subscriptionAccountId,
+                    { billingProfileType: serenataBillingProfileType },
+                );
                 if (dbSub && (dbSub.planSlug === 'pro' || dbSub.planSlug === 'enterprise') && dbSub.status === 'active') {
                     const matchedPlan = plans.find((p: any) => p.id === 'pro');
                     currentSubscription = {
                         id: dbSub.id,
                         accountId: dbSub.accountId,
                         vertical: 'serenatas' as const,
+                        billingProfileType: serenataBillingProfileType,
                         planId: 'pro',
                         planName: matchedPlan?.name ?? dbSub.planName ?? 'Pro',
                         priceMonthly: dbSub.priceMonthly,
@@ -280,46 +416,57 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     };
                 }
 
-                const owner = await deps.dbQuery.serenataOwners.findFirst({
-                    where: deps.dbHelpers.eq(deps.tables2.serenataOwners.userId, user.id),
-                });
+                const billingProfile = serenataBillingProfileType === 'provider'
+                    ? await deps.dbQuery.serenataOwners.findFirst({
+                        where: deps.dbHelpers.eq(deps.tables2.serenataOwners.userId, user.id),
+                    })
+                    : await db.query.serenataMusicians.findFirst({
+                        where: eq(serenataMusicians.userId, user.id),
+                    });
 
-                if (!currentSubscription && owner && owner.subscriptionStatus === 'active') {
+                if (!currentSubscription && serenataBillingProfileType === 'provider' && billingProfile?.subscriptionStatus === 'active') {
                     const planId = 'pro';
                     const matchedPlan = plans.find((p: any) => p.id === planId);
                     currentSubscription = {
-                        id: `serenatas-${owner.id}`,
+                        id: `serenatas-${billingProfile.id}`,
                         accountId: null,
+                        billingProfileType: serenataBillingProfileType,
                         vertical: 'serenatas' as const,
                         planId,
                         planName: matchedPlan?.name ?? 'Pro',
-                        priceMonthly: owner.subscriptionPrice,
+                        priceMonthly: billingProfile.subscriptionPrice,
                         currency: 'CLP',
                         features: matchedPlan?.features ?? [],
                         status: 'active' as const,
                         providerStatus: 'manual',
-                        startedAt: owner.createdAt.getTime(),
-                        updatedAt: owner.updatedAt.getTime(),
+                        startedAt: billingProfile.createdAt.getTime(),
+                        updatedAt: billingProfile.updatedAt.getTime(),
                         planExpiresAt: null,
                     };
-                } else if (!currentSubscription && owner && owner.subscriptionStatus !== 'active') {
-                    let trialEndsAt = owner.trialEndsAt;
+                } else if (!currentSubscription && billingProfile) {
+                    let trialEndsAt = billingProfile.trialEndsAt;
                     if (!trialEndsAt) {
-                        trialEndsAt = defaultSerenataTrialEndsAt(owner.createdAt ?? new Date());
-                        await db
-                            .update(serenataOwners)
-                            .set({ trialEndsAt, updatedAt: new Date() })
-                            .where(eq(serenataOwners.id, owner.id));
+                        trialEndsAt = defaultSerenataTrialEndsAt(billingProfile.createdAt ?? new Date());
+                        if (serenataBillingProfileType === 'provider') {
+                            await db.update(serenataOwners)
+                                .set({ trialEndsAt, updatedAt: new Date() })
+                                .where(eq(serenataOwners.id, billingProfile.id));
+                        } else {
+                            await db.update(serenataMusicians)
+                                .set({ trialEndsAt, updatedAt: new Date() })
+                                .where(eq(serenataMusicians.id, billingProfile.id));
+                        }
                     }
                     const matchedPlan = plans.find((p: any) => p.id === 'free');
                     const effectiveTrialEndsAt = normalizeTrialEndsAtForDisplay(
                         trialEndsAt,
-                        owner.createdAt,
+                        billingProfile.createdAt,
                     );
                     const isExpired = effectiveTrialEndsAt < new Date();
                     currentSubscription = {
-                        id: `serenatas-${owner.id}`,
+                        id: `serenatas-${billingProfile.id}`,
                         accountId: null,
+                        billingProfileType: serenataBillingProfileType,
                         vertical: 'serenatas' as const,
                         planId: 'free',
                         planName: matchedPlan?.name ?? 'Prueba gratis',
@@ -328,18 +475,21 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         features: matchedPlan?.features ?? [],
                         status: isExpired ? 'expired' as const : 'active' as const,
                         providerStatus: 'trial',
-                        startedAt: owner.createdAt.getTime(),
-                        updatedAt: owner.updatedAt.getTime(),
+                        startedAt: billingProfile.createdAt.getTime(),
+                        updatedAt: billingProfile.updatedAt.getTime(),
                         planExpiresAt: effectiveTrialEndsAt.getTime(),
                     };
                 }
             } catch (dbErr) {
                 console.error('[subscriptions/catalog] serenatas DB error:', dbErr);
-                currentSubscription = deps.activeSubscriptionToResponse(deps.getCurrentSubscription(user.id, vertical));
+                currentSubscription = deps.activeSubscriptionToResponse(
+                    deps.getCurrentSubscription(user.id, vertical, subscriptionAccountId, serenataBillingProfileType),
+                );
             }
         } else if (vertical === 'autos' || vertical === 'propiedades') {
             try {
-                const dbSub = await loadCurrentSubscriptionFromDb(user.id, vertical);
+                const accountId = accountContext?.accountId ?? null;
+                const dbSub = await loadCurrentSubscriptionFromDb(user.id, vertical, accountId);
                 if (dbSub && (dbSub.planSlug === 'pro' || dbSub.planSlug === 'enterprise') && dbSub.status === 'active') {
                     const matchedPlan = plans.find((p: any) => p.id === dbSub.planSlug) ?? plans.find((p: any) => p.id === 'pro');
                     currentSubscription = {
@@ -360,21 +510,29 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     };
                 } else {
                     currentSubscription = deps.activeSubscriptionToResponse(
-                        deps.getCurrentSubscription(user.id, vertical),
+                        deps.getCurrentSubscription(user.id, vertical, accountId),
                     );
                 }
             } catch (dbErr) {
                 console.error('[subscriptions/catalog] marketplace DB error:', dbErr);
-                currentSubscription = deps.activeSubscriptionToResponse(deps.getCurrentSubscription(user.id, vertical));
+                currentSubscription = deps.activeSubscriptionToResponse(
+                    deps.getCurrentSubscription(user.id, vertical, accountContext?.accountId ?? null),
+                );
             }
         } else {
             try {
-                const dbSub = await loadCurrentSubscriptionFromDb(user.id, vertical);
+                const dbSub = await loadCurrentSubscriptionFromDb(
+                    user.id,
+                    vertical,
+                    subscriptionAccountId,
+                    vertical === 'serenatas' ? { billingProfileType: serenataBillingProfileType } : undefined,
+                );
                 if (dbSub) {
                     currentSubscription = {
                         id: dbSub.id,
                         accountId: dbSub.accountId,
                         vertical: dbSub.vertical,
+                        billingProfileType: dbSub.billingProfileType,
                         planId: dbSub.planSlug,
                         billingCycle: dbSub.billingCycle,
                         planName: dbSub.planName,
@@ -388,19 +546,36 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     };
                 } else {
                     currentSubscription = deps.activeSubscriptionToResponse(
-                        deps.getCurrentSubscription(user.id, vertical),
+                        deps.getCurrentSubscription(user.id, vertical, subscriptionAccountId, serenataBillingProfileType),
                     );
                 }
             } catch (dbErr) {
                 console.error('[subscriptions/catalog] DB error for', vertical, ':', dbErr);
-                currentSubscription = deps.activeSubscriptionToResponse(deps.getCurrentSubscription(user.id, vertical));
+                currentSubscription = deps.activeSubscriptionToResponse(
+                    deps.getCurrentSubscription(user.id, vertical, subscriptionAccountId, serenataBillingProfileType),
+                );
             }
         }
 
-        currentSubscription = normalizeCatalogSubscription(vertical, currentSubscription, plans);
+        currentSubscription = normalizeCatalogSubscription(vertical, currentSubscription, allPlans);
+        const activePlanId = currentSubscription?.planId;
+        if (activePlanId && !plans.some((plan: any) => plan.id === activePlanId)) {
+            const activePlan = allPlans.find((plan: any) => plan.id === activePlanId);
+            if (activePlan) plans = [...plans, activePlan];
+        }
+        const freePlan = plans.find((plan: any) => plan.id === 'free') ?? null;
+        const paidPlans = plans.filter((plan: any) => plan.id !== 'free');
 
         const paymentProvider = resolvePaymentProvider(user.residenceCountryCode);
         const launchMode = isPlatformLaunchActive(vertical);
+        const entitlements = (vertical === 'autos' || vertical === 'propiedades')
+            ? await deps.getMarketplaceEntitlements(
+                user,
+                vertical,
+                accountContext?.accountId ?? null,
+                currentSubscription?.planId,
+            ) ?? null
+            : null;
         const checkoutEnabled = !launchMode && (
             deps.isMercadoPagoConfigured()
             || (process.env.NODE_ENV !== 'production' && mercadoPagoDevCheckoutFallbackEnabled())
@@ -414,6 +589,8 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             checkoutEnabled,
             launchMode,
             mercadoPagoEnabled: deps.isMercadoPagoConfigured(),
+            accountContext,
+            entitlements,
             plans: localizePaidPlansForBilling(
                 paymentProvider,
                 vertical as import('../../lib/domain-types.js').PaymentVerticalType,
@@ -421,7 +598,82 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             ),
             freePlan,
             currentSubscription,
-            orders,
+            orders: accountContext && !accountContext.canManageBilling ? [] : orders,
+        });
+    });
+
+    app.post('/subscriptions/cancel', deps.requireVerifiedSession, async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const payload = await c.req.json().catch(() => null);
+        const parsedVertical = deps.parseVertical(payload?.vertical);
+        if (parsedVertical !== 'autos' && parsedVertical !== 'propiedades') {
+            return c.json({ ok: false, error: 'Producto no válido para esta cancelación.' }, 400);
+        }
+        const vertical: 'autos' | 'propiedades' = parsedVertical;
+        const membership = await getAccountMembership(user.id);
+        const accountId = membership?.accountId ?? null;
+        if (!accountId || !canManageAccountRole(membership?.role)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede cambiar su plan.' }, 403);
+        }
+
+        const billingContext = await deps.getMarketplaceAccountBillingContext(user.id, vertical, accountId);
+        if (!billingContext?.canManageBilling || billingContext.accountId !== accountId) {
+            return c.json({ ok: false, error: 'No tienes permiso para administrar el plan de este espacio.' }, 403);
+        }
+
+        let subscription;
+        try {
+            subscription = await loadCurrentSubscriptionFromDb(user.id, vertical, accountId);
+        } catch (error) {
+            console.error('[subscriptions/cancel] no se pudo cargar la suscripción:', error);
+            return c.json({ ok: false, error: 'No pudimos consultar el plan de este espacio.' }, 500);
+        }
+        if (!subscription || !['pro', 'pro_plus', 'enterprise'].includes(subscription.planSlug)) {
+            return c.json({ ok: false, error: 'Este espacio no tiene una suscripción pagada activa para cancelar.' }, 400);
+        }
+
+        const providerSubscriptionId = subscription.providerSubscriptionId;
+        const isManualSubscription = providerSubscriptionId?.startsWith('admin-manual-') ?? false;
+        const isPreviouslyCancelled = providerSubscriptionId?.startsWith('cancelled-') ?? false;
+        if (
+            providerSubscriptionId
+            && !isDevMercadoPagoPreapprovalId(providerSubscriptionId)
+            && !isManualSubscription
+            && !isPreviouslyCancelled
+        ) {
+            try {
+                await cancelPreapproval(providerSubscriptionId);
+            } catch (error) {
+                console.warn('[subscriptions/cancel] no se pudo cancelar el cobro en Mercado Pago:', error);
+                return c.json({
+                    ok: false,
+                    error: 'No pudimos cancelar el cobro en Mercado Pago. Intenta de nuevo o contacta soporte.',
+                }, 502);
+            }
+        }
+
+        try {
+            await persistUserSubscription({
+                userId: user.id,
+                accountId: subscription.accountId ?? accountId,
+                vertical,
+                planSlug: subscription.planSlug as 'pro' | 'pro_plus' | 'enterprise',
+                billingCycle: subscription.billingCycle,
+                providerSubscriptionId: providerSubscriptionId ?? `cancelled-${subscription.id}`,
+                providerStatus: 'cancelled',
+                status: 'cancelled',
+            });
+            deps.cancelActiveSubscriptionForUser(user.id, vertical, subscription.accountId ?? accountId);
+        } catch (error) {
+            console.error('[subscriptions/cancel] no se pudo guardar la cancelación:', error);
+            return c.json({ ok: false, error: 'No pudimos actualizar el plan de este espacio.' }, 500);
+        }
+
+        return c.json({
+            ok: true,
+            message: 'El plan quedó cancelado y no se generarán nuevos cobros. Las publicaciones, los contactos y la configuración del espacio siguen guardados.',
         });
     });
 
@@ -476,8 +728,48 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         const kind = c.req.query('kind')?.trim() || undefined;
         const limitRaw = Number(c.req.query('limit') ?? '50');
         const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 50;
+        let orders: any[];
+        const accountBilledVertical = vertical === 'autos' || vertical === 'propiedades' || vertical === 'agenda';
+        if (accountBilledVertical) {
+            const membership = await getAccountMembership(user.id);
+            const accountId = membership?.accountId ?? null;
+            if (!accountId || !canManageAccountRole(membership?.role)) {
+                return c.json({ ok: true, orders: [] });
+            }
 
-        const orders = await listUserPaymentOrdersMerged(deps, user.id, { vertical, kind, limit });
+            const byId = new Map<string, any>();
+            const fromDb = await deps.listPaymentOrdersForAccountFromDb?.(accountId, {
+                vertical,
+                kind,
+                limit,
+            }) ?? [];
+            for (const order of fromDb) byId.set(order.id, order);
+            if (deps.isPersonalAccountForUser?.(user.id, accountId)) {
+                const legacyPersonalOrders = await listUserPaymentOrdersMerged(deps, user.id, {
+                    vertical,
+                    kind,
+                    accountId: null,
+                    limit,
+                });
+                for (const order of legacyPersonalOrders) byId.set(order.id, order);
+            }
+            for (const orderList of deps.paymentOrdersByUser.values()) {
+                for (const order of orderList) {
+                    if (order.accountId !== accountId || (vertical && order.vertical !== vertical) || (kind && order.kind !== kind)) continue;
+                    const existing = byId.get(order.id);
+                    if (!existing || order.updatedAt >= existing.updatedAt) byId.set(order.id, order);
+                }
+            }
+            orders = [...byId.values()]
+                .sort((a, b) => b.createdAt - a.createdAt)
+                .slice(0, limit);
+        } else {
+            orders = await listUserPaymentOrdersMerged(deps, user.id, {
+                vertical,
+                kind,
+                limit,
+            });
+        }
 
         return c.json({
             ok: true,
@@ -495,12 +787,31 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         let order = deps.getPaymentOrdersForUser(user.id).find((item: any) => item.id === orderId);
         if (!order && deps.loadPaymentOrderFromDb) {
             const loaded = await deps.loadPaymentOrderFromDb(orderId);
-            if (loaded && loaded.userId === user.id) {
+            const loadedAccountId = typeof loaded?.accountId === 'string' ? loaded.accountId : null;
+            const accountMembership = loadedAccountId
+                ? await getAccountMembership(user.id, loadedAccountId)
+                : null;
+            const canManageAccountOrder = Boolean(
+                canManageAccountRole(accountMembership?.role),
+            );
+            const individualSerenatasOrder = loaded?.vertical === 'serenatas';
+            if (loaded && (loaded.userId === user.id || (!individualSerenatasOrder && canManageAccountOrder))) {
                 order = deps.upsertPaymentOrder(loaded);
             }
         }
         if (!order) {
             return c.json({ ok: false, error: 'Orden no encontrada' }, 404);
+        }
+
+        if (order.vertical === 'serenatas' && order.userId !== user.id) {
+            return c.json({ ok: false, error: 'Orden no encontrada' }, 404);
+        }
+
+        if (order.accountId && !(order.vertical === 'serenatas' && order.userId === user.id)) {
+            const accountMembership = await getAccountMembership(user.id, order.accountId);
+            if (!canManageAccountRole(accountMembership?.role)) {
+                return c.json({ ok: false, error: 'Solo quien administra este espacio puede revisar sus pagos.' }, 403);
+            }
         }
 
         return c.json({ ok: true, status: order.status, order: deps.paymentOrderToResponse(order) });
@@ -514,6 +825,59 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         const parsed = deps.schemas.createCheckoutSchema.safeParse(payload);
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
         const checkoutData = parsed.data;
+        let marketplaceBillingContext: Awaited<ReturnType<NonNullable<PaymentsRouterDeps['getMarketplaceAccountBillingContext']>>> | null = null;
+        let agendaBillingContext: Awaited<ReturnType<NonNullable<PaymentsRouterDeps['getAgendaAccountBillingContext']>>> | null = null;
+        let subscriptionAccountId: string | null = null;
+        let subscriptionBillingProfileType: 'provider' | 'musician' | undefined;
+        if (checkoutData.kind === 'subscription') {
+            if (checkoutData.vertical === 'serenatas') {
+                const [ownerProfile, musicianProfile] = await Promise.all([
+                    db.query.serenataOwners.findFirst({ where: eq(serenataOwners.userId, user.id) }),
+                    db.query.serenataMusicians.findFirst({ where: eq(serenataMusicians.userId, user.id) }),
+                ]);
+                subscriptionBillingProfileType = checkoutData.billingProfileType
+                    ?? (ownerProfile ? 'provider' : musicianProfile ? 'musician' : 'provider');
+                const selectedProfile = subscriptionBillingProfileType === 'provider' ? ownerProfile : musicianProfile;
+                if (!selectedProfile) {
+                    return c.json({
+                        ok: false,
+                        error: subscriptionBillingProfileType === 'provider'
+                            ? 'Activa tu perfil de proveedor antes de contratar este plan.'
+                            : 'Activa tu perfil de músico antes de contratar este plan.',
+                    }, 403);
+                }
+                subscriptionAccountId = await deps.getPersonalAccountIdForUser?.(user.id) ?? null;
+                if (!subscriptionAccountId) {
+                    return c.json({ ok: false, error: 'No encontramos tu espacio personal para asociar el plan de SimpleSerenatas.' }, 409);
+                }
+            } else {
+                const membership = await getAccountMembership(user.id);
+                const accountId = membership?.accountId ?? null;
+                subscriptionAccountId = accountId;
+                if (!canManageAccountRole(membership?.role)) {
+                    return c.json({ ok: false, error: 'Solo quien administra este espacio puede cambiar su plan.' }, 403);
+                }
+                if (checkoutData.vertical === 'autos' || checkoutData.vertical === 'propiedades') {
+                    marketplaceBillingContext = await deps.getMarketplaceAccountBillingContext(user.id, checkoutData.vertical, accountId);
+                    if (
+                        !marketplaceBillingContext
+                        || marketplaceBillingContext.accountId !== accountId
+                        || !marketplaceBillingContext.canManageBilling
+                    ) {
+                        return c.json({ ok: false, error: 'No tienes permiso para administrar el plan de este espacio.' }, 403);
+                    }
+                } else if (checkoutData.vertical === 'agenda') {
+                    agendaBillingContext = await deps.getAgendaAccountBillingContext(user.id, accountId);
+                    if (
+                        !agendaBillingContext
+                        || agendaBillingContext.accountId !== accountId
+                        || !agendaBillingContext.canManageBilling
+                    ) {
+                        return c.json({ ok: false, error: 'No tienes permiso para administrar el plan de este espacio.' }, 403);
+                    }
+                }
+            }
+        }
         const mercadoPagoConfigured = deps.isMercadoPagoConfigured();
         const allowDevCheckoutFallback = mercadoPagoDevCheckoutFallbackAllowedForKind(checkoutData.kind);
         if (!mercadoPagoConfigured && !allowDevCheckoutFallback) {
@@ -628,7 +992,22 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 if (!target) {
                     return c.json({ ok: false, error: 'Recurso no encontrado' }, 404);
                 }
-                if (target.ownerId !== user.id && user.role !== 'superadmin') {
+                let boostAccountId: string | null = null;
+                if (vertical === 'autos' || vertical === 'propiedades') {
+                    const membership = await getAccountMembership(user.id);
+                    const activeAccountId = membership?.accountId ?? null;
+                    const canManageAccount = canManageAccountRole(membership?.role);
+                    const isPersonalAccount = Boolean(
+                        activeAccountId && deps.isPersonalAccountForUser?.(user.id, activeAccountId),
+                    );
+                    const targetBelongsToAccount = target.accountId
+                        ? target.accountId === activeAccountId
+                        : Boolean(isPersonalAccount && target.ownerId === user.id);
+                    if (!activeAccountId || !membership || !canManageAccount || !targetBelongsToAccount) {
+                        return c.json({ ok: false, error: 'Solo quien administra este espacio puede contratar una promoción para sus publicaciones.' }, 403);
+                    }
+                    boostAccountId = target.accountId ?? activeAccountId;
+                } else if (target.ownerId !== user.id) {
                     return c.json({ ok: false, error: 'No tienes permisos sobre este recurso' }, 403);
                 }
 
@@ -644,16 +1023,26 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     return c.json({ ok: false, error: 'Plan no disponible' }, 400);
                 }
 
-                const existingBoost = deps.getBoostOrdersForUser(user.id).some((order: any) => {
+                const includeLegacyPersonalBoosts = Boolean(
+                    boostAccountId && deps.isPersonalAccountForUser?.(user.id, boostAccountId),
+                );
+                const existingBoostOrders = boostAccountId
+                    ? deps.getBoostOrdersForAccount?.(
+                        boostAccountId,
+                        vertical,
+                        includeLegacyPersonalBoosts ? user.id : undefined,
+                    ) ?? []
+                    : deps.getBoostOrdersForUser(user.id);
+                const existingBoost = existingBoostOrders.some((order: any) => {
                     const orderTargetId = order.targetId ?? order.listingId;
                     if (order.vertical !== vertical || orderTargetId !== target.id) return false;
                     return order.status === 'active' || order.status === 'scheduled' || order.status === 'paused';
                 });
-                if (existingBoost && user.role !== 'superadmin') {
+                if (existingBoost) {
                     return c.json({ ok: false, error: 'Ya tienes un boost vigente para este recurso' }, 409);
                 }
 
-                if (deps.countReservedSlots(vertical, section) >= deps.MAX_BOOST_SLOTS_PER_SECTION && user.role !== 'superadmin') {
+                if (deps.countReservedSlots(vertical, section) >= deps.MAX_BOOST_SLOTS_PER_SECTION) {
                     return c.json({ ok: false, error: 'No quedan cupos en esta sección para el periodo seleccionado' }, 409);
                 }
 
@@ -674,6 +1063,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
 
                 const order = deps.upsertPaymentOrder({
                     id: orderId,
+                    accountId: boostAccountId,
                     userId: user.id,
                     vertical,
                     kind: 'boost',
@@ -698,7 +1088,18 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             if (checkoutData.kind === 'advertising') {
                 const vertical = checkoutData.vertical;
                 const advertisingInput = checkoutData.advertising;
-                const campaign = await deps.getAdCampaignRecordForUser(user.id, advertisingInput.campaignId);
+                const membership = await getAccountMembership(user.id);
+                const accountId = membership?.accountId ?? null;
+                if (!accountId || !canManageAccountRole(membership?.role)) {
+                    return c.json({ ok: false, error: 'Solo quien administra este espacio puede contratar campañas.' }, 403);
+                }
+                const includeLegacyPersonal = Boolean(deps.isPersonalAccountForUser?.(user.id, accountId));
+                const campaign = await deps.getAdCampaignRecordForUser(
+                    user.id,
+                    advertisingInput.campaignId,
+                    accountId,
+                    includeLegacyPersonal,
+                );
                 if (!campaign || campaign.vertical !== vertical) {
                     return c.json({ ok: false, error: 'La campaña no existe o no pertenece a tu cuenta.' }, 404);
                 }
@@ -725,10 +1126,19 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 await deps.db.update(deps.tables.adCampaigns).set({
                     paymentStatus: 'pending',
                     updatedAt: new Date(),
-                }).where(deps.dbHelpers.eq(deps.tables.adCampaigns.id, campaign.id));
+                }).where(deps.dbHelpers.and(
+                    deps.dbHelpers.eq(deps.tables.adCampaigns.id, campaign.id),
+                    campaign.accountId
+                        ? deps.dbHelpers.eq(deps.tables.adCampaigns.accountId, campaign.accountId)
+                        : deps.dbHelpers.and(
+                            deps.dbHelpers.eq(deps.tables.adCampaigns.userId, user.id),
+                            deps.dbHelpers.isNull(deps.tables.adCampaigns.accountId),
+                        ),
+                ));
 
                 const order = deps.upsertPaymentOrder({
                     id: orderId,
+                    accountId,
                     userId: user.id,
                     vertical,
                     kind: 'advertising',
@@ -761,12 +1171,28 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             if (!plan) {
                 return c.json({ ok: false, error: 'Plan no disponible' }, 400);
             }
+            if (
+                marketplaceBillingContext
+                && !isMarketplacePlanAvailableForAccount(marketplaceBillingContext.accountKind, plan.id)
+            ) {
+                return c.json({
+                    ok: false,
+                    error: marketplaceBillingContext.accountKind === 'individual'
+                        ? 'Este espacio está configurado para uso particular y conserva el plan gratuito. Cambia la actividad a profesional o empresa desde Mi negocio para contratar un plan de trabajo.'
+                        : 'El plan Empresa está disponible para espacios configurados como inmobiliaria o empresa.',
+                }, 403);
+            }
             if (billingCycle === 'annual' && (vertical !== 'agenda' || (plan.id !== 'pro' && plan.id !== 'pro_plus'))) {
                 return c.json({ ok: false, error: 'La facturación anual solo está disponible para Pro y Pro+ de SimpleAgenda.' }, 400);
             }
             let subscriptionAlreadyActive = false;
             try {
-                const dbSub = await loadCurrentSubscriptionFromDb(user.id, vertical);
+                const dbSub = await loadCurrentSubscriptionFromDb(
+                    user.id,
+                    vertical,
+                    subscriptionAccountId,
+                    vertical === 'serenatas' ? { billingProfileType: subscriptionBillingProfileType } : undefined,
+                );
                 if (dbSub?.status === 'active') {
                     const currentBillingCycle = dbSub.billingCycle ?? 'monthly';
                     if (dbSub.planSlug === plan.id && currentBillingCycle === billingCycle) {
@@ -778,7 +1204,12 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         }, 409);
                     }
                 } else {
-                    const memorySub = deps.getCurrentSubscription(user.id, vertical);
+                    const memorySub = deps.getCurrentSubscription(
+                        user.id,
+                        vertical,
+                        subscriptionAccountId,
+                        subscriptionBillingProfileType,
+                    );
                     if (memorySub?.status === 'active') {
                         const currentBillingCycle = memorySub.billingCycle ?? 'monthly';
                         if (memorySub.planId === plan.id && currentBillingCycle === billingCycle) {
@@ -790,12 +1221,19 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                             }, 409);
                         }
                     } else if (vertical === 'agenda') {
-                        const profile = await deps.dbQuery.agendaProfessionalProfiles.findFirst({
-                            where: deps.dbHelpers.eq(deps.tables2.agendaProfessionalProfiles.userId, user.id),
-                        });
+                        const profile = agendaBillingContext?.accountId
+                            ? await deps.dbQuery.agendaProfessionalProfiles.findFirst({
+                                where: deps.dbHelpers.and(
+                                    deps.dbHelpers.eq(deps.tables2.agendaProfessionalProfiles.userId, user.id),
+                                    deps.dbHelpers.eq(deps.tables2.agendaProfessionalProfiles.accountId, agendaBillingContext.accountId),
+                                ),
+                            })
+                            : null;
                         const profilePlan = profile?.plan;
                         const profilePlanExpiresAt = profile?.planExpiresAt;
                         const profileHasPaidPlan =
+                            Boolean(profile)
+                            &&
                             (profilePlan === 'pro' || profilePlan === 'pro_plus')
                             && (!profilePlanExpiresAt || profilePlanExpiresAt >= new Date());
 
@@ -889,6 +1327,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
 
             const order = deps.upsertPaymentOrder({
                 id: orderId,
+                accountId: marketplaceBillingContext?.accountId ?? subscriptionAccountId,
                 userId: user.id,
                 vertical,
                 kind: 'subscription',
@@ -909,7 +1348,10 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     planId: plan.id,
                     planName: plan.name,
                     billingCycle,
+                    ...(subscriptionBillingProfileType ? { billingProfileType: subscriptionBillingProfileType } : {}),
                     chargeAmountClp: subscriptionCurrency === 'CLP' ? subscriptionChargeAmount : undefined,
+                    vatIncluded: subscriptionCurrency === 'CLP',
+                    vatRateBps: subscriptionCurrency === 'CLP' ? CHILE_VAT_RATE_BPS : undefined,
                     promotion: vertical === 'agenda' && plan.promotion ? {
                         promoPriceMonthly: plan.promotion.priceMonthly,
                         regularPriceMonthly: plan.priceMonthly,
@@ -922,10 +1364,9 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             });
 
             try {
-                const accountId = await deps.getPrimaryAccountIdForUser(user.id);
                 await persistPaymentOrderToDb({
                     id: String(order.id),
-                    accountId,
+                    accountId: order.accountId ?? null,
                     userId: user.id,
                     vertical,
                     kind: 'subscription',
@@ -945,6 +1386,35 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 });
             } catch (dbErr) {
                 console.error('[payments/checkout] subscription order persist failed:', dbErr);
+                let providerCheckoutCancelled = isDevMercadoPagoPreapprovalId(providerReferenceId);
+                if (providerReferenceId && !providerCheckoutCancelled) {
+                    try {
+                        await cancelPreapproval(providerReferenceId);
+                        providerCheckoutCancelled = true;
+                    } catch (cancelErr) {
+                        console.error('[payments/checkout] failed to cancel unpersisted subscription:', cancelErr);
+                    }
+                }
+
+                try {
+                    await deps.updatePaymentOrder(user.id, String(order.id), (current: Record<string, unknown>) => ({
+                        ...current,
+                        ...(providerCheckoutCancelled
+                            ? { status: 'cancelled', providerStatus: 'cancelled_after_order_persist_failure' }
+                            : { providerStatus: 'order_persist_failed_cancellation_unconfirmed' }),
+                        checkoutUrl: null,
+                        updatedAt: Date.now(),
+                    }));
+                } catch (updateErr) {
+                    console.error('[payments/checkout] failed to mark unavailable subscription order:', updateErr);
+                }
+
+                return c.json({
+                    ok: false,
+                    error: providerCheckoutCancelled
+                        ? 'No pudimos guardar la orden y cancelamos el checkout. Intenta nuevamente en unos minutos.'
+                        : 'No pudimos guardar la orden ni confirmar la cancelación del checkout. No vuelvas a iniciar el pago; contacta a soporte para revisar el estado.',
+                }, 503);
             }
 
             return c.json({ ok: true, orderId: order.id, checkoutUrl: order.checkoutUrl, order: deps.paymentOrderToResponse(order) });
@@ -1020,7 +1490,9 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
 
                 const memorySub = confirmed.applied
                     ? (confirmed.subscription as Record<string, unknown>)
-                    : deps.getCurrentSubscription(user.id, order.vertical);
+                    : (typeof order.accountId === 'string'
+                        ? deps.getCurrentSubscription(user.id, order.vertical, order.accountId)
+                        : deps.getCurrentSubscription(user.id, order.vertical, null));
                 return c.json({
                     ok: true,
                     status: confirmed.order.status,
@@ -1118,7 +1590,9 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         upsertActiveSubscription: deps.upsertActiveSubscription,
                         makeSubscriptionId: deps.makeSubscriptionId,
                         updatePaymentOrder: deps.updatePaymentOrder,
+                        getCurrentSubscription: deps.getCurrentSubscription,
                         getPrimaryAccountIdForUser: deps.getPrimaryAccountIdForUser,
+                        getPersonalAccountIdForUser: deps.getPersonalAccountIdForUser,
                         parseMercadoPagoPreapprovalStatus: deps.parseMercadoPagoPreapprovalStatus,
                         cancelActiveSubscriptionForUser: deps.cancelActiveSubscriptionForUser,
                     },

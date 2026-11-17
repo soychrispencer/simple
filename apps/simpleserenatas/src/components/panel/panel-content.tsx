@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import {
     type Profiles, type Serenata, type SerenataGroup, type SerenataPackage, type MusicianDirectoryItem, type Invitation, type SerenatasUser,
 } from '@/lib/serenatas-api';
-import type { AppMode } from '@/lib/app-mode';
+import type { AppMode, SerenataRole } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { appearsInOwnerSolicitudes } from '@/lib/serenata-pending';
 import { isMiNegocioPanelSection, miNegocioTabFromPanelPath } from '@/lib/panel-routes';
@@ -50,6 +50,7 @@ const PanelMessagesInbox = dynamic(() =>
 export type PanelContentProps = {
     section: Section;
     mode: AppMode;
+    activeRole: SerenataRole;
     ownerFeaturesEnabled: boolean;
     profiles: Profiles;
     accountUser: SerenatasUser | null;
@@ -85,6 +86,7 @@ export function PanelContent(props: PanelContentProps) {
             <ProfileView
                 profiles={props.profiles}
                 mode={props.mode}
+                profile={props.activeRole}
                 accountUser={props.accountUser}
                 refresh={props.refresh}
                 setSection={props.setSection}
@@ -197,7 +199,12 @@ export function PanelContent(props: PanelContentProps) {
     if (props.section === 'invitations') {
         return props.mode === 'work' ? (
             <PanelSectionPage title="Invitaciones" description="Acepta o rechaza invitaciones de grupos.">
-                <InvitationsView profiles={props.profiles} invitations={props.invitations} refresh={props.refresh} />
+                <InvitationsView
+                    profiles={props.profiles}
+                    activeRole={props.activeRole}
+                    invitations={props.invitations}
+                    refresh={props.refresh}
+                />
             </PanelSectionPage>
         ) : (
             <PanelHomePage {...props} />

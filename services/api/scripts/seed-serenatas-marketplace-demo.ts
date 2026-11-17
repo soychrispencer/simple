@@ -22,16 +22,18 @@ import {
 } from '../src/db/schema.js';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-for (const candidate of [path.resolve(scriptDir, '../.env'), path.resolve(scriptDir, '../.env.local')]) {
-    if (!existsSync(candidate)) continue;
-    for (const line of readFileSync(candidate, 'utf8').split(/\r?\n/)) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const separatorIndex = trimmed.indexOf('=');
-        if (separatorIndex <= 0) continue;
-        const key = trimmed.slice(0, separatorIndex).trim();
-        if (!key || process.env[key]) continue;
-        process.env[key] = trimmed.slice(separatorIndex + 1).trim();
+if (process.env.NODE_ENV !== 'production') {
+    for (const candidate of [path.resolve(scriptDir, '../.env'), path.resolve(scriptDir, '../.env.local')]) {
+        if (!existsSync(candidate)) continue;
+        for (const line of readFileSync(candidate, 'utf8').split(/\r?\n/)) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const separatorIndex = trimmed.indexOf('=');
+            if (separatorIndex <= 0) continue;
+            const key = trimmed.slice(0, separatorIndex).trim();
+            if (!key || process.env[key]) continue;
+            process.env[key] = trimmed.slice(separatorIndex + 1).trim();
+        }
     }
 }
 

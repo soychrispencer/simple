@@ -28,11 +28,12 @@ export function createMessageRuntimeBindings(deps: MessageServiceDeps) {
             thread: MessageThreadRecord,
             viewerUserId: string,
             entries: MessageEntryRecord[] = [],
-        ) => messageThreadToResponseFromMessages(deps, thread, viewerUserId, entries),
+            sellerOverride = false,
+        ) => messageThreadToResponseFromMessages(deps, thread, viewerUserId, entries, sellerOverride),
         messageEntryToResponse: (entry: MessageEntryRecord, viewerUserId: string) =>
             messageEntryToResponseFromMessages(deps, entry, viewerUserId),
-        buildMessageThreadNotification: (thread: MessageThreadRecord, viewerUserId: string) =>
-            buildMessageThreadNotificationFromMessages(deps, thread, viewerUserId),
+        buildMessageThreadNotification: (thread: MessageThreadRecord, viewerUserId: string, sellerOverride = false) =>
+            buildMessageThreadNotificationFromMessages(deps, thread, viewerUserId, sellerOverride),
         getMessageThreadById: (id: string) => getMessageThreadByIdFromMessages(deps, id),
         getMessageThreadByListingAndBuyer: (listingId: string, buyerUserId: string) =>
             getMessageThreadByListingAndBuyerFromMessages(deps, listingId, buyerUserId),
@@ -40,7 +41,8 @@ export function createMessageRuntimeBindings(deps: MessageServiceDeps) {
             userId: string,
             vertical?: string,
             folder: MessageFolder = 'inbox',
-        ) => listMessageThreadsForUserFromMessages(deps, userId, vertical, folder),
+            accountId?: string | null,
+        ) => listMessageThreadsForUserFromMessages(deps, userId, vertical, folder, accountId),
         listMessageEntries: (threadId: string) => listMessageEntriesFromMessages(deps, threadId),
         createMessageThread: (input: Parameters<typeof createMessageThreadFromMessages>[1]) =>
             createMessageThreadFromMessages(deps, input),

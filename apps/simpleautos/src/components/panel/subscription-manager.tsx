@@ -2,6 +2,7 @@
 
 import { SubscriptionManager } from '@simple/ui/panel';
 import {
+    cancelSubscription,
     confirmCheckout,
     fetchSubscriptionCatalog,
     startSubscriptionCheckout,
@@ -15,6 +16,7 @@ export default function AppSubscriptionManager() {
             marketplaceVertical="autos"
             fetchSubscriptionCatalog={fetchSubscriptionCatalog}
             confirmCheckout={confirmCheckout}
+            cancelSubscription={cancelSubscription}
             startSubscriptionCheckout={(input) =>
                 startSubscriptionCheckout({
                     returnUrl: input.returnUrl,

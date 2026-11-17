@@ -43,7 +43,7 @@ import {
 import { MarketplacePublishProfileCta, MarketplaceOperatorPublishHint, MarketplacePropiedadesRentAdminHint, MarketplaceListingCopyFields } from '@simple/ui/publish';
 import { SimplePublishLayout, SimplePublishCtaCard, SimplePublishSuccessScreen, SimplePublishPageFrame, SimplePublishScreenHeader, SimplePublishPreviewCard, SimplePublishMediaScreen, SimplePublishVideoBlock, SimplePublishMediaUploadNotice, SimplePublishPhotoProcessNotice, SimplePublishSection, SimplePublishOptionalSection, SimplePublishField, SimplePublishPriceBlock, resolveOfferPriceValue, getOfferPriceValidationError, scrollToFirstPublishError, formatClPriceInput, parseDigits, type SimplePublishPhotoProcessProgress, type SimplePublishPreviewCardProps } from '@simple/ui/simple-publish';
 import { ShareToSocialPanel } from '@/components/panel/share-to-social-panel';
-import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress, PROPERTY_CONDITION_OPTIONS, showsPropertyCondition, normalizePropertyCondition, buildPropertyCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, validateBusinessServiceModality, type PublishType } from '@simple/utils';
+import { generatePropertyListingDescription, generatePropertyListingTitle, isSupportedExternalVideoUrl, listingHasPublishVideo, validatePublishVideoFile, createListingDraftEnvelope, draftPersistableUrl, persistDraftMediaUrl, type DraftMediaUploadProgress, PROPERTY_CONDITION_OPTIONS, showsPropertyCondition, normalizePropertyCondition, buildPropertyCardSummaryTags, getVerticalConfig, getPublishTypeDefinitions, PUBLISH_SELECTOR_TITLE, isCatalogPublishType, createOperatorService, createOperatorProduct, operatorServiceToPublication, operatorProductToPublication, getOperatorServiceCategories, getOperatorProductCategories, validateBusinessServiceModality, fetchSubscriptionCatalog, type PublishType } from '@simple/utils';
 import type { PropiedadesOperatorPublishContext } from '@simple/utils';
 import { ModernSelect } from '@simple/ui/forms';
 import { abbreviateListingSpecLabel, propertySpecIconForLabel } from '@simple/ui/listings';
@@ -2653,8 +2653,22 @@ function StepMedia(props: {
     const videoGalleryInputRef = useRef<HTMLInputElement>(null);
     const videoCameraInputRef = useRef<HTMLInputElement>(null);
     const [processingPhotos, setProcessingPhotos] = useState(false);
+    const [maxPhotos, setMaxPhotos] = useState(MAX_PHOTOS);
     const [photoProcessError, setPhotoProcessError] = useState<string | null>(null);
     const [videoProcessError, setVideoProcessError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let mounted = true;
+        void fetchSubscriptionCatalog('propiedades').then((catalog) => {
+            if (!mounted || !catalog?.entitlements) return;
+            setMaxPhotos(catalog.entitlements.limits.imagesPerListing ?? 50);
+        }).catch(() => {
+            // El límite por defecto permite seguir publicando si no se puede consultar el catálogo.
+        });
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const reportPhotoProgress = (progress: SimplePublishPhotoProcessProgress | null) => {
         onPhotoProcessProgressChange?.(progress);
@@ -2662,11 +2676,15 @@ function StepMedia(props: {
 
     const handleFiles = async (files: FileList) => {
         if (processingPhotos) return;
-        const toAdd = Array.from(files).slice(0, MAX_PHOTOS - data.media.photos.length);
+        const selectedFiles = Array.from(files);
+        const availableSlots = Math.max(maxPhotos - data.media.photos.length, 0);
+        const toAdd = selectedFiles.slice(0, availableSlots);
+        setPhotoProcessError(selectedFiles.length > availableSlots
+            ? 'Tu plan permite hasta ' + maxPhotos + ' fotos por publicación. Puedes agregar ' + availableSlots + ' más.'
+            : null);
         if (toAdd.length === 0) return;
 
         setProcessingPhotos(true);
-        setPhotoProcessError(null);
         reportPhotoProgress({ current: 0, total: toAdd.length });
 
         try {
@@ -2780,8 +2798,8 @@ function StepMedia(props: {
                     previewUrl: photo.previewUrl || photo.dataUrl,
                     isCover: photo.isCover,
                 }))}
-                maxPhotos={MAX_PHOTOS}
-                recommendedPhotos={8}
+                maxPhotos={maxPhotos}
+                recommendedPhotos={Math.min(8, maxPhotos)}
                 photoError={photoProcessError || undefined}
                 photoInvalid={Object.prototype.hasOwnProperty.call(errors, 'media.photos')}
                 photosBusy={processingPhotos}
@@ -3608,7 +3626,7 @@ export default function PublishWizardPage() {
 
     useEffect(() => {
         const op = searchParams.get('op');
-        if (op !== 'service' && op !== 'product') return;
+        if (op !== 'service' && op !== 'product' && op !== 'project') return;
         setData((current) => ({
             ...current,
             setup: {

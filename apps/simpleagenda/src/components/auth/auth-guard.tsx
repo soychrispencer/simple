@@ -4,7 +4,7 @@ import { PanelAuthGuard } from '@simple/auth';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
-        <PanelAuthGuard appLabel="SimpleAgenda" allowUnverifiedSuperadmin>
+        <PanelAuthGuard appLabel="SimpleAgenda" brandAppId="simpleagenda" allowUnverifiedSuperadmin>
             {children}
         </PanelAuthGuard>
     );

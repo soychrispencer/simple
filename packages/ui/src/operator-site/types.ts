@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { OperatorSiteColorMode, OperatorSiteLayout } from '@simple/utils';
+import type { OperatorSiteLandingContent } from '@simple/utils';
 
 export type { OperatorSiteLayout } from '@simple/utils';
 
@@ -43,6 +44,7 @@ export type AgendaOperatorSiteProfile = {
     profession: string | null;
     headline: string | null;
     bio: string | null;
+    landingPage?: OperatorSiteLandingContent | null;
     avatarUrl: string | null;
     coverUrl: string | null;
     city: string | null;

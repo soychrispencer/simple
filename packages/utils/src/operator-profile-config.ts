@@ -93,6 +93,7 @@ const SUBTYPES_BASE: Record<OperatorProfileVertical, Record<OperatorTier, Operat
         independent: [
             { id: 'advisor', label: 'Asesor inmobiliario', description: 'Asesoras compra, venta o arriendo sin ser corredor.' },
             { id: 'broker', label: 'Corredor de propiedades', description: 'Intermedias operaciones con cartera propia o de terceros.' },
+            { id: 'rental_administrator', label: 'Administrador independiente', description: 'Gestionas propiedades en arriendo para terceros con tu marca profesional.' },
             { id: 'appraiser', label: 'Tasador', description: 'Ofreces tasaciones comerciales o hipotecarias.' },
             { id: 'auctioneer', label: 'Martillero / remates', description: 'Remates judiciales o comerciales de propiedades.' },
         ],
@@ -252,6 +253,7 @@ const SUBTYPE_SUGGESTED_TAGS: Record<
         appraiser: ['appraisal'],
         real_estate_agency: ['sale', 'rent'],
         property_manager: ['rent', 'administration'],
+        rental_administrator: ['rent', 'administration'],
         developer: ['project', 'sale'],
     },
     autos: {

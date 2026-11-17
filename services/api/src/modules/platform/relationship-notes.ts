@@ -2,7 +2,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../../db/index.js';
 import { relationshipNotes, serenataOwners, timelineEvents } from '../../db/schema.js';
-import { emitTimelineEvent } from './timeline-events.js';
+import { emitTimelineEvent, recordTimelineEvent } from './timeline-events.js';
 import type { TimelineVertical } from '@simple/utils';
 
 export const relationshipNoteVerticalSchema = z.enum(['autos', 'propiedades', 'serenatas']);
@@ -23,8 +23,9 @@ export type RelationshipNoteRecord = {
 export async function resolveRelationshipBusinessId(
     userId: string,
     vertical: RelationshipNoteVertical,
+    accountId?: string | null,
 ): Promise<string | null> {
-    if (vertical === 'autos' || vertical === 'propiedades') return userId;
+    if (vertical === 'autos' || vertical === 'propiedades') return accountId ?? userId;
     const owner = await db.query.serenataOwners.findFirst({
         where: eq(serenataOwners.userId, userId),
     });
@@ -49,8 +50,10 @@ export async function listRelationshipNotes(input: {
     vertical: RelationshipNoteVertical;
     businessId: string;
     personId: string;
+    executor?: any;
 }): Promise<RelationshipNoteRecord[]> {
-    const rows = await db
+    const executor = input.executor ?? db;
+    const rows = await executor
         .select()
         .from(relationshipNotes)
         .where(and(
@@ -63,16 +66,37 @@ export async function listRelationshipNotes(input: {
     return rows.map(mapNote);
 }
 
+export async function getRelationshipNotePersonId(input: {
+    noteId: string;
+    vertical: RelationshipNoteVertical;
+    businessId: string;
+    executor?: any;
+}): Promise<string | null> {
+    const executor = input.executor ?? db;
+    const [row] = await executor
+        .select({ personId: relationshipNotes.personId })
+        .from(relationshipNotes)
+        .where(and(
+            eq(relationshipNotes.id, input.noteId),
+            eq(relationshipNotes.vertical, input.vertical),
+            eq(relationshipNotes.businessId, input.businessId),
+        ))
+        .limit(1);
+    return row?.personId ?? null;
+}
+
 export async function createRelationshipNote(input: {
     vertical: RelationshipNoteVertical;
     businessId: string;
     personId: string;
     body: string;
     authorUserId: string;
-}): Promise<RelationshipNoteRecord> {
+    actor?: import('@simple/utils').TimelineEventInput['actor'];
+}, options?: { executor?: any }): Promise<RelationshipNoteRecord> {
     const body = input.body.trim();
     const personId = input.personId.trim().slice(0, 160);
-    const [row] = await db.insert(relationshipNotes).values({
+    const executor = options?.executor ?? db;
+    const [row] = await executor.insert(relationshipNotes).values({
         vertical: input.vertical,
         businessId: input.businessId,
         personKind: 'opaque',
@@ -81,14 +105,23 @@ export async function createRelationshipNote(input: {
         authorUserId: input.authorUserId,
     }).returning();
 
-    emitTimelineEvent(db, timelineEvents, {
+    const timelineInput = {
         type: 'note.written',
         business: { vertical: input.vertical as TimelineVertical, id: input.businessId },
         person: { id: personId.slice(0, 80), kind: 'opaque' },
         subject: { kind: 'relationship_note', id: row.id },
-        actor: 'owner',
+        actor: input.actor ?? 'owner',
         payload: { preview: body.slice(0, 120) },
-    });
+    } satisfies import('@simple/utils').TimelineEventInput;
+    if (options?.executor) {
+        try {
+            await recordTimelineEvent(executor, timelineEvents, timelineInput);
+        } catch (error) {
+            console.error('[timeline] emit failed', timelineInput.type, error);
+        }
+    } else {
+        emitTimelineEvent(db, timelineEvents, timelineInput);
+    }
 
     return mapNote(row);
 }
@@ -97,8 +130,9 @@ export async function deleteRelationshipNote(input: {
     noteId: string;
     businessId: string;
     authorUserId: string;
-}): Promise<boolean> {
-    const [deleted] = await db
+}, options?: { executor?: any }): Promise<boolean> {
+    const executor = options?.executor ?? db;
+    const [deleted] = await executor
         .delete(relationshipNotes)
         .where(and(
             eq(relationshipNotes.id, input.noteId),

@@ -3,18 +3,24 @@
 import Link from 'next/link';
 import { PanelNotice } from '@simple/ui/panel';
 import type { Profiles } from '@/lib/serenatas-api';
-import type { AppMode } from '@/lib/app-mode';
-import { ownerFeaturesEnabled } from '@/lib/app-mode';
+import type { AppMode, SerenataRole } from '@/lib/app-mode';
+import { resolveActiveSerenataRole } from '@/lib/app-mode';
 import { panelMiNegocioHref } from '@/lib/panel-routes';
 
-export function isProfileIncomplete(mode: AppMode, profiles: Profiles): boolean {
+function isOwnerRole(mode: AppMode, profiles: Profiles, activeRole?: SerenataRole): boolean {
+    return mode === 'work'
+        && (activeRole ?? resolveActiveSerenataRole(profiles)) === 'owner'
+        && Boolean(profiles.owner);
+}
+
+export function isProfileIncomplete(mode: AppMode, profiles: Profiles, activeRole?: SerenataRole): boolean {
     if (mode === 'client') {
         const client = profiles.client;
         if (!client) return true;
         return !client.phone?.trim();
     }
 
-    if (ownerFeaturesEnabled(profiles)) {
+    if (isOwnerRole(mode, profiles, activeRole)) {
         const ownerComunas = profiles.owner?.workingComunas ?? [];
         return ownerComunas.length === 0;
     }
@@ -29,7 +35,7 @@ export function isProfileIncomplete(mode: AppMode, profiles: Profiles): boolean 
     return !hasInstrumentName;
 }
 
-function profileMissingLabels(mode: AppMode, profiles: Profiles): string[] {
+function profileMissingLabels(mode: AppMode, profiles: Profiles, activeRole?: SerenataRole): string[] {
     if (mode === 'client') {
         const client = profiles.client;
         const missing: string[] = [];
@@ -38,7 +44,7 @@ function profileMissingLabels(mode: AppMode, profiles: Profiles): string[] {
     }
 
     const missing: string[] = [];
-    if (ownerFeaturesEnabled(profiles)) {
+    if (isOwnerRole(mode, profiles, activeRole)) {
         const comunas = profiles.owner?.workingComunas ?? [];
         if (comunas.length === 0) missing.push('zonas de trabajo en Mi negocio');
         return missing;
@@ -54,23 +60,23 @@ function profileMissingLabels(mode: AppMode, profiles: Profiles): string[] {
     return missing;
 }
 
-function profileCompleteHref(mode: AppMode, profiles: Profiles): string {
+function profileCompleteHref(mode: AppMode, profiles: Profiles, activeRole?: SerenataRole): string {
     if (mode === 'client') return '/panel/mi-cuenta?account_tab=data';
-    if (ownerFeaturesEnabled(profiles)) return panelMiNegocioHref('datos');
+    if (isOwnerRole(mode, profiles, activeRole)) return panelMiNegocioHref('datos');
     return '/panel/mi-cuenta?account_tab=musician';
 }
 
-function profileCompleteLinkLabel(mode: AppMode, profiles: Profiles): string {
-    if (ownerFeaturesEnabled(profiles) && mode === 'work') return 'Ir a Mi negocio';
+function profileCompleteLinkLabel(mode: AppMode, profiles: Profiles, activeRole?: SerenataRole): string {
+    if (isOwnerRole(mode, profiles, activeRole)) return 'Ir a Mi negocio';
     return 'Ir a Mi cuenta';
 }
 
-export function ProfileIncompleteNotice({ mode, profiles }: { mode: AppMode; profiles: Profiles }) {
-    if (!isProfileIncomplete(mode, profiles)) return null;
+export function ProfileIncompleteNotice({ mode, profiles, activeRole }: { mode: AppMode; profiles: Profiles; activeRole?: SerenataRole }) {
+    if (!isProfileIncomplete(mode, profiles, activeRole)) return null;
 
-    const href = profileCompleteHref(mode, profiles);
-    const linkLabel = profileCompleteLinkLabel(mode, profiles);
-    const missing = profileMissingLabels(mode, profiles);
+    const href = profileCompleteHref(mode, profiles, activeRole);
+    const linkLabel = profileCompleteLinkLabel(mode, profiles, activeRole);
+    const missing = profileMissingLabels(mode, profiles, activeRole);
 
     return (
         <PanelNotice tone="warning" className="!px-5 !py-4">

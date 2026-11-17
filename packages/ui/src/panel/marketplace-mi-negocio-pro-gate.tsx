@@ -6,14 +6,13 @@ import { IconLock } from '@tabler/icons-react';
 import type { SubscriptionCatalogResponse } from '@simple/utils';
 import { MARKETPLACE_MI_NEGOCIO_PRO_GATE } from './business-copy.js';
 import { resolvePanelBillingFromCatalog } from './business-setup.js';
-import { marketplaceMiNegocioHasProAccess, type MarketplacePanelRole } from './marketplace-mi-negocio-access.js';
+import { marketplaceMiNegocioHasProAccess } from './marketplace-mi-negocio-access.js';
 import { isMarketplaceLaunchActive } from '@simple/utils';
 import { PanelButton } from './panel-button.js';
 
 export type MarketplaceMiNegocioProGateProps = {
     subscriptionHref: string;
     fetchCatalog: () => Promise<SubscriptionCatalogResponse | null>;
-    role?: MarketplacePanelRole;
     vertical?: 'autos' | 'propiedades';
     children: React.ReactNode;
 };
@@ -21,7 +20,6 @@ export type MarketplaceMiNegocioProGateProps = {
 export function MarketplaceMiNegocioProGate({
     subscriptionHref,
     fetchCatalog,
-    role = 'user',
     vertical = 'autos',
     children,
 }: MarketplaceMiNegocioProGateProps) {
@@ -40,13 +38,13 @@ export function MarketplaceMiNegocioProGate({
         void fetchCatalog().then((catalog) => {
             if (cancelled) return;
             const billing = resolvePanelBillingFromCatalog(catalog, subscriptionHref);
-            setLocked(!marketplaceMiNegocioHasProAccess(billing, role, vertical));
+            setLocked(!marketplaceMiNegocioHasProAccess(billing, vertical));
             setLoading(false);
         });
         return () => {
             cancelled = true;
         };
-    }, [fetchCatalog, launchActive, role, subscriptionHref, vertical]);
+    }, [fetchCatalog, launchActive, subscriptionHref, vertical]);
 
     if (launchActive) {
         return <>{children}</>;

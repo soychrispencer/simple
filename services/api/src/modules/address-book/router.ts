@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { isKindValidForScope, resolveAddressBookScope } from '@simple/utils';
 import type { AddressBookBusinessVertical, AddressBookScope } from '../../lib/domain-types.js';
+import { AddressBookWriteAccessError } from '../accounts/address-book-service.js';
 
 export type AddressBookRouterDeps = {
     authUser: (c: any) => Promise<any | null>;
@@ -9,6 +10,7 @@ export type AddressBookRouterDeps = {
         scope?: AddressBookScope,
         vertical?: AddressBookBusinessVertical,
     ) => Promise<any[]>;
+    canManageActiveAccountProfile: (userId: string) => Promise<boolean>;
     upsertAddressBookEntry: (userId: string, input: any, existingId?: string) => Promise<any[]>;
     deleteAddressBookEntry: (userId: string, addressId: string) => Promise<any[]>;
     schemas: {
@@ -27,6 +29,9 @@ function parseVerticalParam(raw: string | undefined): AddressBookBusinessVertica
 }
 
 function createAddressBookHandlers(deps: AddressBookRouterDeps) {
+    const canManageBusinessAddress = (userId: string) =>
+        deps.canManageActiveAccountProfile(userId);
+
     const getHandler = async (c: any) => {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -51,6 +56,9 @@ function createAddressBookHandlers(deps: AddressBookRouterDeps) {
         if (!isKindValidForScope(parsed.data.kind, scope)) {
             return c.json({ ok: false, error: 'El tipo de dirección no es compatible con el ámbito seleccionado.' }, 400);
         }
+        if (scope === 'business' && !await canManageBusinessAddress(user.id)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede cambiar sus direcciones comerciales.' }, 403);
+        }
 
         if (!parsed.data.regionId || !parsed.data.communeId) {
             return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
@@ -60,6 +68,9 @@ function createAddressBookHandlers(deps: AddressBookRouterDeps) {
             const items = await deps.upsertAddressBookEntry(user.id, { ...parsed.data, scope });
             return c.json({ ok: true, items }, 201);
         } catch (error) {
+            if (error instanceof AddressBookWriteAccessError) {
+                return c.json({ ok: false, error: error.message }, error.status);
+            }
             return c.json({
                 ok: false,
                 error: error instanceof Error ? error.message : 'No se pudo guardar la dirección.',
@@ -86,6 +97,9 @@ function createAddressBookHandlers(deps: AddressBookRouterDeps) {
         if (!isKindValidForScope(parsed.data.kind, scope)) {
             return c.json({ ok: false, error: 'El tipo de dirección no es compatible con el ámbito seleccionado.' }, 400);
         }
+        if ((existing.scope === 'business' || scope === 'business') && !await canManageBusinessAddress(user.id)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede cambiar sus direcciones comerciales.' }, 403);
+        }
 
         if (!parsed.data.regionId || !parsed.data.communeId) {
             return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
@@ -95,6 +109,9 @@ function createAddressBookHandlers(deps: AddressBookRouterDeps) {
             const items = await deps.upsertAddressBookEntry(user.id, { ...parsed.data, scope }, addressId);
             return c.json({ ok: true, items });
         } catch (error) {
+            if (error instanceof AddressBookWriteAccessError) {
+                return c.json({ ok: false, error: error.message }, error.status);
+            }
             return c.json({
                 ok: false,
                 error: error instanceof Error ? error.message : 'No se pudo guardar la dirección.',
@@ -108,12 +125,26 @@ function createAddressBookHandlers(deps: AddressBookRouterDeps) {
 
         const addressId = c.req.param('id') ?? '';
         const current = await deps.getAddressBookEntries(user.id);
-        if (!current.some((item: any) => item.id === addressId)) {
+        const existing = current.find((item: any) => item.id === addressId);
+        if (!existing) {
             return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
         }
+        if (existing.scope === 'business' && !await canManageBusinessAddress(user.id)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede eliminar sus direcciones comerciales.' }, 403);
+        }
 
-        const items = await deps.deleteAddressBookEntry(user.id, addressId);
-        return c.json({ ok: true, items });
+        try {
+            const items = await deps.deleteAddressBookEntry(user.id, addressId);
+            return c.json({ ok: true, items });
+        } catch (error) {
+            if (error instanceof AddressBookWriteAccessError) {
+                return c.json({ ok: false, error: error.message }, error.status);
+            }
+            return c.json({
+                ok: false,
+                error: error instanceof Error ? error.message : 'No se pudo eliminar la dirección.',
+            }, 400);
+        }
     };
 
     return { getHandler, postHandler, patchHandler, deleteHandler };

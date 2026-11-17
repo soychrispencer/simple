@@ -6,6 +6,7 @@ export type SocialFeedListingSection = BoostSection;
 /** Clip de Descubre: solo publicaciones con video (formato Reel). */
 export type SocialFeedClip = {
     id: string;
+    accountId?: string | null;
     vertical: string;
     section: 'ventas' | 'arriendos' | 'subastas' | 'proyectos';
     href: string;
@@ -29,6 +30,7 @@ export type SocialFeedClip = {
 
 export type SocialFeedListingRecord = {
     id: string;
+    accountId?: string | null;
     vertical: string;
     section: SocialFeedListingSection;
     href: string;
@@ -131,6 +133,7 @@ export function buildSocialFeedClips(
 
             return [{
                 id: record.id,
+                accountId: record.accountId ?? null,
                 vertical: record.vertical,
                 section: socialSection,
                 href: record.href,

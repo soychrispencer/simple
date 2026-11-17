@@ -9,6 +9,7 @@ export type InstagramOAuthStateDeps = {
 type InstagramOAuthStateRecord = {
     nonce: string;
     userId: string;
+    accountId: string | null;
     vertical: VerticalType;
     returnTo: string;
 };
@@ -38,6 +39,7 @@ export function makeInstagramStatePayload(
     input: {
         nonce: string;
         userId: string;
+        accountId?: string | null;
         vertical: VerticalType;
         returnTo?: string;
     },
@@ -45,6 +47,7 @@ export function makeInstagramStatePayload(
     return Buffer.from(JSON.stringify({
         n: input.nonce,
         u: input.userId,
+        a: input.accountId ?? null,
         v: input.vertical,
     })).toString('base64url');
 }
@@ -58,9 +61,10 @@ export function parseInstagramStatePayload(
 
     const nonce = deps.asString(decoded.n ?? decoded.nonce);
     const userId = deps.asString(decoded.u ?? decoded.userId);
+    const accountId = deps.asString(decoded.a ?? decoded.accountId) || null;
     const vertical = deps.parseVertical(deps.asString(decoded.v ?? decoded.vertical));
     if (!nonce || !userId) return null;
 
     const returnTo = deps.asString(decoded.returnTo) || getIntegrationFallbackReturn(vertical);
-    return { nonce, userId, vertical, returnTo };
+    return { nonce, userId, accountId, vertical, returnTo };
 }

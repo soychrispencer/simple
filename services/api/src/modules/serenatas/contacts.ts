@@ -244,9 +244,11 @@ export async function getOwnerContactDetail(
         eq(timelineEvents.subjectKind, 'serenata'),
         inArray(timelineEvents.subjectId, serenataIds),
     );
+    // Phone and user identifiers are global; never mix this person's events from another provider.
     const personFilter = personIds.length > 0
         ? and(
             eq(timelineEvents.vertical, 'serenatas'),
+            eq(timelineEvents.businessId, ownerId),
             inArray(timelineEvents.personId, personIds),
         )
         : null;

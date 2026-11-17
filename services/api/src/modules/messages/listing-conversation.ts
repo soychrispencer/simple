@@ -1,5 +1,5 @@
 import type { ListingVerticalType } from '@simple/types';
-import { insertPlatformNotifications } from '../platform/notifications-service.js';
+import { notifyMessageThreadActivity } from './thread-notifications.js';
 import type { MessageEntryRecord, MessageThreadRecord } from './row-mappers.js';
 import type { MessageServiceDeps } from './service.js';
 import {
@@ -11,6 +11,7 @@ import {
 
 type ListingRef = {
     id: string;
+    accountId?: string | null;
     ownerId: string;
     vertical: ListingVerticalType;
     title: string;
@@ -57,6 +58,7 @@ export async function createOrAppendListingConversation(
     const thread = await createMessageThread(deps, {
         vertical: input.listing.vertical,
         listingId: input.listing.id,
+        accountId: input.listing.accountId,
         ownerUserId: input.listing.ownerId,
         buyerUserId: input.buyer.id,
         ownerUnreadCount: 1,
@@ -80,18 +82,14 @@ async function notifyListingMessage(
     message: string,
     isNew: boolean,
 ) {
-    const preview = message.slice(0, 120);
-    const threadUrl = `/panel/mensajes?thread=${encodeURIComponent(thread.id)}`;
-    await insertPlatformNotifications({
-        userId: input.listing.ownerId,
+    await notifyMessageThreadActivity({
+        recipientUserId: input.listing.ownerId,
         vertical: input.listing.vertical,
-        type: isNew ? 'message_thread.created' : 'message_thread.message',
-        title: isNew
-            ? `${input.buyer.name} inició una conversación por ${input.listing.title}.`
-            : `${input.buyer.name} escribió por ${input.listing.title}.`,
-        body: preview,
-        actionUrl: threadUrl,
-        entityType: 'message_thread',
-        entityId: thread.id,
+        threadId: thread.id,
+        senderUserId: input.buyer.id,
+        contextTitle: input.listing.title,
+        preview: message,
+        isNewThread: isNew,
+        accountId: input.listing.accountId ?? null,
     });
 }

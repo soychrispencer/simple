@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, check, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users, accounts } from './users.js';
 
 // Mortgage rates table - for automatic updates
@@ -55,7 +55,7 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
 // Subscription plans for each vertical
 export const subscriptionPlans = pgTable('subscription_plans', {
   id: uuid('id').primaryKey().defaultRandom(),
-  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda'
+  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda' | 'serenatas'
   planId: varchar('plan_id', { length: 50 }).notNull(), // 'free' | 'pro' | 'enterprise'
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description').notNull(),
@@ -63,7 +63,6 @@ export const subscriptionPlans = pgTable('subscription_plans', {
   priceYearly: decimal('price_yearly', { precision: 10, scale: 2 }).notNull(),
   currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
   maxListings: integer('max_listings').notNull().default(0),
-  maxFeaturedListings: integer('max_featured_listings').notNull().default(0),
   maxImagesPerListing: integer('max_images_per_listing').notNull().default(0),
   analyticsEnabled: boolean('analytics_enabled').notNull().default(false),
   prioritySupport: boolean('priority_support').notNull().default(false),
@@ -79,13 +78,15 @@ export const subscriptionPlans = pgTable('subscription_plans', {
   verticalIdx: index('subscription_plans_vertical_idx').on(table.vertical),
 }));
 
-// User subscriptions
+// Marketplace and Agenda subscriptions belong to a workspace. SimpleSerenatas
+// plans belong to the individual provider and use their personal account scope.
 export const subscriptions = pgTable('subscriptions', {
   id: uuid('id').primaryKey().defaultRandom(),
   accountId: uuid('account_id').references(() => accounts.id),
   userId: uuid('user_id').references(() => users.id).notNull(),
   planId: uuid('plan_id').references(() => subscriptionPlans.id).notNull(),
-  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda'
+  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda' | 'serenatas'
+  billingProfileType: varchar('billing_profile_type', { length: 20 }), // SimpleSerenatas: 'provider' | 'musician'
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'cancelled' | 'paused' | 'expired'
   provider: varchar('provider', { length: 30 }).notNull().default('mercadopago'), // 'mercadopago'
   providerSubscriptionId: varchar('provider_subscription_id', { length: 255 }), // MercadoPago subscription ID
@@ -96,20 +97,34 @@ export const subscriptions = pgTable('subscriptions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  userVerticalIdx: uniqueIndex('subscriptions_user_vertical_idx').on(table.userId, table.vertical),
+  billingProfileTypeCheck: check(
+    'subscriptions_billing_profile_type_check',
+    sql`(${table.vertical} = 'serenatas' AND ${table.billingProfileType} IN ('provider', 'musician')) OR (${table.vertical} <> 'serenatas' AND ${table.billingProfileType} IS NULL)`,
+  ),
+  userVerticalIdx: index('subscriptions_user_vertical_idx').on(table.userId, table.vertical),
+  accountVerticalIdx: index('subscriptions_account_vertical_idx').on(table.accountId, table.vertical),
+  accountVerticalUniqueIdx: uniqueIndex('subscriptions_account_vertical_unique_idx')
+    .on(table.accountId, table.vertical)
+    .where(sql`${table.accountId} IS NOT NULL AND ${table.vertical} <> 'serenatas'`),
+  legacyUserVerticalUniqueIdx: uniqueIndex('subscriptions_user_vertical_legacy_unique_idx')
+    .on(table.userId, table.vertical)
+    .where(sql`${table.accountId} IS NULL AND ${table.vertical} <> 'serenatas'`),
+  serenataBillingProfileUniqueIdx: uniqueIndex('subscriptions_serenatas_profile_unique_idx')
+    .on(table.userId, table.billingProfileType)
+    .where(sql`${table.vertical} = 'serenatas' AND ${table.billingProfileType} IS NOT NULL`),
   userIdx: index('subscriptions_user_idx').on(table.userId),
   verticalIdx: index('subscriptions_vertical_idx').on(table.vertical),
   providerSubIdx: index('subscriptions_provider_idx').on(table.providerSubscriptionId),
 }));
 
-// Payment orders for subscriptions, boosts, and advertising
+// Payment orders for subscriptions, boosts, advertising, and Serenatas bookings.
 export const paymentOrders = pgTable('payment_orders', {
   id: uuid('id').primaryKey().defaultRandom(),
   accountId: uuid('account_id').references(() => accounts.id),
   userId: uuid('user_id').references(() => users.id).notNull(),
   subscriptionId: uuid('subscription_id').references(() => subscriptions.id),
-  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda'
-  kind: varchar('kind', { length: 30 }).notNull(), // 'subscription' | 'boost' | 'advertising'
+  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda' | 'serenatas'
+  kind: varchar('kind', { length: 30 }).notNull(), // 'subscription' | 'boost' | 'advertising' | 'serenata_booking'
   title: varchar('title', { length: 255 }).notNull(),
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
   currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
@@ -128,6 +143,7 @@ export const paymentOrders = pgTable('payment_orders', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   userIdx: index('payment_orders_user_idx').on(table.userId),
+  accountIdx: index('payment_orders_account_idx').on(table.accountId),
   subscriptionIdx: index('payment_orders_subscription_idx').on(table.subscriptionId),
   providerOrderIdx: index('payment_orders_provider_idx').on(table.providerOrderId),
   statusIdx: index('payment_orders_status_idx').on(table.status),

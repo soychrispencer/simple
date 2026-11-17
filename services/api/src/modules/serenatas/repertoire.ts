@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
+import { isOwnedStorageUrl, toProtectedMediaUrl, unwrapProtectedMediaUrl } from '../media/stored-object.js';
 import {
     serenataClients,
     serenataGroupServices,
@@ -122,7 +123,7 @@ export function mapSongScore(row: typeof serenataSongScores.$inferSelect) {
         repertoireSongId: row.repertoireSongId,
         instrument: row.instrument,
         format: row.format,
-        storageUrl: row.storageUrl,
+        storageUrl: isOwnedStorageUrl(row.storageUrl) ? toProtectedMediaUrl(row.storageUrl) : row.storageUrl,
         originalFilename: row.originalFilename,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -605,7 +606,7 @@ export function registerRepertoireRoutes(app: Hono, deps: RepertoireDeps) {
         });
         if (!song) return deps.jsonError(c, 'Canción no encontrada', 404);
         const body = await c.req.json().catch(() => null) as { storageUrl?: string; originalFilename?: string } | null;
-        const storageUrl = body?.storageUrl?.trim();
+        const storageUrl = body?.storageUrl ? unwrapProtectedMediaUrl(body.storageUrl) : '';
         if (!storageUrl) return deps.jsonError(c, 'Falta la URL del archivo.');
         const existing = await db.query.serenataSongScores.findFirst({
             where: and(

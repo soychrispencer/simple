@@ -4,7 +4,11 @@ import { z } from 'zod';
 
 const apiRootDir = path.resolve(__dirname, '..');
 
-function applyEnvFile(filePath: string, override: boolean): void {
+function applyEnvFile(
+    filePath: string,
+    override: boolean,
+    protectedKeys?: ReadonlySet<string>,
+): void {
     if (!existsSync(filePath)) return;
     const raw = readFileSync(filePath, 'utf8');
     for (const line of raw.split(/\r?\n/)) {
@@ -13,6 +17,7 @@ function applyEnvFile(filePath: string, override: boolean): void {
         const eq = trimmed.indexOf('=');
         if (eq <= 0) continue;
         const key = trimmed.slice(0, eq).trim();
+        if (protectedKeys?.has(key)) continue;
         let value = trimmed.slice(eq + 1).trim();
         if (
             (value.startsWith('"') && value.endsWith('"'))
@@ -25,25 +30,29 @@ function applyEnvFile(filePath: string, override: boolean): void {
     }
 }
 
-// .env base; .env.local gana en desarrollo (STORAGE_PROVIDER, etc.).
-for (const candidate of [
-    path.join(apiRootDir, '.env'),
-    path.resolve(process.cwd(), '.env'),
-]) {
-    try {
-        applyEnvFile(candidate, false);
-    } catch {
-        // Local development can run without every env file.
+if (process.env.NODE_ENV !== 'production') {
+    // Dotenv files are a local development convenience. Production must be
+    // configured explicitly by its runtime (for example, Coolify).
+    const processEnvironmentKeys = new Set(Object.keys(process.env));
+    for (const candidate of [
+        path.join(apiRootDir, '.env'),
+        path.resolve(process.cwd(), '.env'),
+    ]) {
+        try {
+            applyEnvFile(candidate, false);
+        } catch {
+            // Local development can run without every env file.
+        }
     }
-}
-for (const candidate of [
-    path.join(apiRootDir, '.env.local'),
-    path.resolve(process.cwd(), '.env.local'),
-]) {
-    try {
-        applyEnvFile(candidate, true);
-    } catch {
-        // Local development can run without every env file.
+    for (const candidate of [
+        path.join(apiRootDir, '.env.local'),
+        path.resolve(process.cwd(), '.env.local'),
+    ]) {
+        try {
+            applyEnvFile(candidate, true, processEnvironmentKeys);
+        } catch {
+            // Local development can run without every env file.
+        }
     }
 }
 

@@ -1,10 +1,23 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { IconArrowRight, IconLink, IconRotateClockwise, IconShieldCheck } from '@tabler/icons-react';
+import {
+    IconApple,
+    IconArrowRight,
+    IconBrain,
+    IconCheck,
+    IconHeartHandshake,
+    IconLink,
+    IconRotateClockwise,
+    IconScissors,
+    IconShieldCheck,
+    IconSparkles,
+    IconStretching,
+} from '@tabler/icons-react';
 import { BookingConfirmation } from './booking-confirmation';
 import { track } from '@/lib/analytics';
 import { useAgendaSignup } from './use-agenda-signup';
+import { INDUSTRY_SITE_DEMOS } from '@/lib/industry-site-demos';
 
 type ServiceOption = {
     id: string;
@@ -14,29 +27,52 @@ type ServiceOption = {
     category: string;
 };
 
-const DEMO_SERVICES: ServiceOption[] = [
-    {
-        id: '1',
-        name: 'Atención individual',
-        duration: '50 min',
-        price: '$35.000',
-        category: 'Online o presencial',
-    },
-    {
-        id: '2',
-        name: 'Primera atención',
-        duration: '60 min',
-        price: '$40.000',
-        category: 'Evaluación inicial',
-    },
-    {
-        id: '3',
-        name: 'Sesión de seguimiento',
-        duration: '45 min',
-        price: '$30.000',
-        category: 'Atención de seguimiento',
-    },
-];
+type DemoIndustry = {
+    id: string;
+    label: string;
+    detail: string;
+    showcase: (typeof INDUSTRY_SITE_DEMOS)[number]['showcase'];
+    icon: typeof IconBrain;
+    slug: string;
+    professional: string;
+    initials: string;
+    profession: string;
+    services: ServiceOption[];
+};
+
+const INDUSTRY_ICONS = {
+    psychology: IconBrain,
+    barber: IconScissors,
+    aesthetics: IconSparkles,
+    kinesiology: IconStretching,
+    nutrition: IconApple,
+    therapy: IconHeartHandshake,
+} as const;
+
+const currencyFormatter = new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    maximumFractionDigits: 0,
+});
+
+const DEMO_INDUSTRIES: DemoIndustry[] = INDUSTRY_SITE_DEMOS.map((industry) => ({
+    id: industry.id,
+    label: industry.label,
+    detail: industry.detail,
+    showcase: industry.showcase,
+    icon: INDUSTRY_ICONS[industry.id as keyof typeof INDUSTRY_ICONS],
+    slug: industry.slug,
+    professional: industry.professional,
+    initials: industry.initials,
+    profession: industry.profession,
+    services: industry.catalog.services.map((service) => ({
+        id: service.id,
+        name: service.name,
+        duration: `${service.durationMinutes} min`,
+        price: service.price ? currencyFormatter.format(Number(service.price)) : 'A consultar',
+        category: service.category,
+    })),
+}));
 
 type DemoDay = {
     label: string;
@@ -85,7 +121,11 @@ function getDemoDays(): DemoDay[] {
 
 export function InteractiveBookingDemo() {
     const { label: actionLabel, start } = useAgendaSignup();
-    const [selectedService, setSelectedService] = useState<ServiceOption>(DEMO_SERVICES[0]!);
+    const [selectedIndustryId, setSelectedIndustryId] = useState(DEMO_INDUSTRIES[0]!.id);
+    const selectedIndustry = DEMO_INDUSTRIES.find((industry) => industry.id === selectedIndustryId) ?? DEMO_INDUSTRIES[0]!;
+    const [viewMode, setViewMode] = useState<'site' | 'booking'>('site');
+    const [selectedServiceId, setSelectedServiceId] = useState(DEMO_INDUSTRIES[0]!.services[0]!.id);
+    const selectedService = selectedIndustry.services.find((service) => service.id === selectedServiceId) ?? selectedIndustry.services[0]!;
     const [demoDays, setDemoDays] = useState<DemoDay[]>(DEMO_DAYS);
     const [selectedDay, setSelectedDay] = useState(DEMO_DAYS[0]!);
     const [selectedTime, setSelectedTime] = useState(DEMO_TIMES[DEMO_DAYS[0]!.weekday]![1]!);
@@ -122,7 +162,7 @@ export function InteractiveBookingDemo() {
     };
 
     const handleConfirm = () => {
-        track('demo_confirm', { day: selectedDay.dayNum, time: selectedTime });
+        track('demo_confirm', { industry: selectedIndustry.id, service: selectedService.id, day: selectedDay.dayNum, time: selectedTime });
         setIsConfirmed(true);
     };
 
@@ -132,12 +172,98 @@ export function InteractiveBookingDemo() {
 
     return (
         <section id="demo-interactiva" aria-labelledby="demo-title" className="scroll-mt-20">
-            <div className="agenda-demo-layout container-app grid gap-8 py-14 sm:gap-10 sm:py-14 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-14 lg:py-20">
+            <div className="container-app py-12 sm:py-14 lg:py-20">
+                <div className="agenda-demo-intro">
+                    <p className="agenda-eyebrow mb-3">Una agenda para tu rubro</p>
+                    <h2 id="demo-title" className="agenda-heading agenda-demo-title">Tu página pública, pensada para <span>tu rubro.</span></h2>
+                    <p className="agenda-demo-description mt-3 max-w-2xl text-base leading-relaxed sm:text-lg">
+                        Explora cómo se presentan los servicios, horarios y estilo de distintos negocios. En Pro puedes generar y editar una página con la información de tu negocio.
+                    </p>
+                </div>
+
+                <div className="agenda-industry-picker" role="group" aria-label="Elige un rubro para ver un ejemplo">
+                    {DEMO_INDUSTRIES.map((industry) => {
+                        const IndustryIcon = industry.icon;
+                        const selected = selectedIndustry.id === industry.id;
+                        return (
+                            <button
+                                key={industry.id}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => {
+                                    setSelectedIndustryId(industry.id);
+                                    setSelectedServiceId(industry.services[0]!.id);
+                                    setIsConfirmed(false);
+                                    setViewMode('site');
+                                }}
+                                className="agenda-industry-choice"
+                            >
+                                <span className="agenda-industry-choice__icon" aria-hidden="true">
+                                    <IndustryIcon size={21} stroke={1.8} />
+                                </span>
+                                <span className="agenda-industry-choice__copy">
+                                    <span className="agenda-industry-choice__label">{industry.label}</span>
+                                    <span className="agenda-industry-choice__detail">{industry.detail}</span>
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div className="agenda-industry-story mt-6" key={selectedIndustry.id}>
+                    <div className="agenda-industry-story__copy">
+                        <p className="agenda-industry-story__eyebrow">Una página para {selectedIndustry.label.toLowerCase()}</p>
+                        <h3>{selectedIndustry.showcase.headline}</h3>
+                        <p className="agenda-industry-story__description">{selectedIndustry.showcase.description}</p>
+                        <button type="button" className="agenda-industry-story__cta" onClick={() => start('demo')}>
+                            Crear mi agenda gratis
+                            <IconArrowRight size={17} aria-hidden="true" />
+                        </button>
+                    </div>
+                    <ul className="agenda-industry-story__highlights" aria-label={`Qué incluye el ejemplo de ${selectedIndustry.label}`}>
+                        {selectedIndustry.showcase.highlights.map((highlight) => (
+                            <li key={highlight}>
+                                <span className="agenda-industry-story__check"><IconCheck size={15} stroke={2.5} aria-hidden="true" /></span>
+                                <span>{highlight}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                <div className="agenda-preview-heading mt-8 sm:mt-10">
+                    <div>
+                        <p className="agenda-eyebrow mb-2">Ejemplo · {selectedIndustry.label}</p>
+                        <h3 className="agenda-preview-heading__title">Así podría verse tu página</h3>
+                        <p className="agenda-preview-heading__description">Explora la vista completa o prueba el flujo de reserva.</p>
+                    </div>
+                    <div className="agenda-preview-tabs" role="group" aria-label="Elige una vista de ejemplo">
+                        <button type="button" aria-pressed={viewMode === 'site'} onClick={() => setViewMode('site')}>Página completa</button>
+                        <button type="button" aria-pressed={viewMode === 'booking'} onClick={() => setViewMode('booking')}>Probar reserva</button>
+                    </div>
+                </div>
+
+                {viewMode === 'site' ? (
+                    <div className="agenda-fullpage-preview mt-4">
+                        <div className="agenda-fullpage-preview__toolbar" aria-hidden="true">
+                            <span className="agenda-fullpage-preview__lights"><i /><i /><i /></span>
+                            <span className="agenda-fullpage-preview__address">simpleagenda.app/ejemplo/{selectedIndustry.slug}</span>
+                            <span className="agenda-fullpage-preview__badge">Vista de ejemplo</span>
+                        </div>
+                        <iframe
+                            key={selectedIndustry.id}
+                            className="agenda-fullpage-preview__frame"
+                            title={`Página completa de ejemplo para ${selectedIndustry.label}`}
+                            src={`/demo-rubros/${selectedIndustry.id}`}
+                            loading="lazy"
+                        />
+                    </div>
+                ) : (
+                <div className="agenda-demo-layout mt-6 grid gap-8 sm:gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-14">
                 <div className="agenda-demo-copy max-w-md">
-                    <p className="agenda-eyebrow mb-3">Del link a la cita</p>
-                    <h2 id="demo-title" className="agenda-heading agenda-demo-title">Elige una hora. <span>Y queda confirmada.</span></h2>
+                    <p className="agenda-eyebrow mb-3">Del link a la cita · {selectedIndustry.label}</p>
+                    <h3 className="agenda-demo-step-title agenda-demo-title">Elige una hora. <span>Y queda confirmada.</span></h3>
                     <p className="agenda-demo-description mt-4 max-w-sm text-base leading-relaxed sm:text-lg">
-                        Prueba el recorrido: elige un servicio, una hora disponible y confirma. Tus clientes reservan sin crear una cuenta.
+                        Prueba el recorrido como lo vería un cliente de {selectedIndustry.label.toLowerCase()}: elige un servicio, un horario disponible y confirma. No necesita crear una cuenta.
                     </p>
                     <p className="agenda-demo-assurance mt-5 flex items-center gap-2 text-sm sm:mt-7">
                         <IconShieldCheck size={17} stroke={1.8} aria-hidden="true" />
@@ -149,17 +275,17 @@ export function InteractiveBookingDemo() {
                     <div className="agenda-demo-header flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 text-xs sm:px-6">
                         <span className="inline-flex min-w-0 items-center gap-2 font-semibold text-[var(--fg)]">
                             <IconLink className="shrink-0" size={15} aria-hidden="true" />
-                            <span className="break-all">simpleagenda.app/valentina</span>
+                            <span className="break-all">simpleagenda.app/{selectedIndustry.slug}</span>
                         </span>
                         <span className="rounded-full border border-[var(--border-strong)] px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.09em] text-[var(--fg-secondary)]">Perfil de ejemplo</span>
                     </div>
 
                     <div className="agenda-demo-body p-4 sm:p-6">
                         <div className="agenda-demo-profile flex items-center gap-3 px-3 py-3 sm:px-4">
-                            <div className="agenda-demo-profile__avatar flex size-10 shrink-0 items-center justify-center rounded-[var(--agenda-radius-control)] text-sm font-bold" aria-hidden="true">VM</div>
+                            <div className="agenda-demo-profile__avatar flex size-10 shrink-0 items-center justify-center rounded-[var(--agenda-radius-control)] text-sm font-bold" aria-hidden="true">{selectedIndustry.initials}</div>
                             <div>
-                                <h3 className="text-lg font-bold">Valentina Muñoz</h3>
-                                <p className="agenda-demo-profile__meta text-xs">Profesional independiente · Online y presencial</p>
+                                <h3 className="text-lg font-bold">{selectedIndustry.professional}</h3>
+                                <p className="agenda-demo-profile__meta text-xs">{selectedIndustry.profession}</p>
                             </div>
                         </div>
 
@@ -169,14 +295,13 @@ export function InteractiveBookingDemo() {
                                     <label htmlFor="demo-servicio" className="mb-2 block text-sm font-semibold"><span aria-hidden="true" className="mr-2 text-xs tabular-nums text-[var(--fg-muted)]">01</span>Servicio</label>
                                     <select
                                         id="demo-servicio"
-                                        value={selectedService.id}
+                                        value={selectedServiceId}
                                         onChange={(event) => {
-                                            const service = DEMO_SERVICES.find((option) => option.id === event.target.value);
-                                            if (service) setSelectedService(service);
+                                            setSelectedServiceId(event.target.value);
                                         }}
                                         className="min-h-11 w-full min-w-0 rounded-[var(--agenda-radius-control)] border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)]"
                                     >
-                                        {DEMO_SERVICES.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
+                                        {selectedIndustry.services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
                                     </select>
                                     <p className="mt-1.5 text-xs text-[var(--fg-secondary)]">
                                         {selectedService.duration} · {selectedService.category} · {selectedService.price}
@@ -245,6 +370,9 @@ export function InteractiveBookingDemo() {
                         )}
                     </div>
                 </div>
+                </div>
+                )}
+                <p className="agenda-demo-example-note mt-4 text-center text-xs">Perfiles, horarios y valores ilustrativos. La página real muestra la información que cada profesional configura; aquí no se generan reservas.</p>
             </div>
         </section>
     );

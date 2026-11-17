@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelNotice } from '@simple/ui/panel';
-import { useAuth, completeGoogleOAuthCallback, resolveSafeInternalPath } from '@simple/auth';
+import { useAuth, completeGoogleOAuthCallback, resolveNewUserReturnTo, resolveSafeInternalPath } from '@simple/auth';
 
 export default function GoogleCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -19,8 +19,6 @@ export default function GoogleCallback() {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         const state = urlParams.get('state');
-        const nextReturnTo = resolveSafeInternalPath(urlParams.get('returnTo') || sessionStorage.getItem('auth.returnTo'), '/');
-        setReturnTo(nextReturnTo);
 
         if (!code || !state) {
           throw new Error('No authorization code received');
@@ -31,6 +29,11 @@ export default function GoogleCallback() {
           throw new Error(result.error || 'Authentication failed');
         }
 
+        const requestedReturnTo = urlParams.get('returnTo') || sessionStorage.getItem('auth.returnTo');
+        const nextReturnTo = result.isNewUser
+          ? resolveNewUserReturnTo(requestedReturnTo)
+          : resolveSafeInternalPath(requestedReturnTo, '/');
+        setReturnTo(nextReturnTo);
         await refreshSession();
         setStatus('success');
 

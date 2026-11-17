@@ -24,6 +24,8 @@ export type StorageUploadInput = {
     fileType: StorageFileType;
     userId: string;
     listingId?: string;
+    /** Store documents/attachments outside the public media bucket or upload directory. */
+    isPrivate?: boolean;
 };
 
 export type StorageUploadResult = {

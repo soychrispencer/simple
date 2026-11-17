@@ -70,7 +70,7 @@ export type FeaturedBoostItem = {
     boostEndsAt: number | null;
     owner?: {
         id: string;
-        email: string;
+        email?: string | null;
         name: string;
         username?: string;
         profileHref?: string | null;
@@ -92,6 +92,8 @@ export type FreeBoostQuota = {
 export type BoostCatalogResponse = {
     ok: boolean;
     vertical: BoostVertical;
+    canManageAccount?: boolean;
+    accountIsShared?: boolean;
     sections: BoostSection[];
     listings: BoostListing[];
     plansBySection: Partial<Record<BoostSection, BoostPlan[]>>;

@@ -13,6 +13,6 @@ describe('user domain', () => {
     it('provides concise labels and typed subscription summaries', () => {
         expect(statusLabel('verified')).toBe('Verificado');
         expect(verticalLabel('serenatas')).toBe('SimpleSerenatas');
-        expect(getSubscriptionSummary({ subscriptions: { agenda: { plan: 'pro', status: 'active', expiresAt: null } } } as never, 'agenda')).toBe('pro · active');
+        expect(getSubscriptionSummary({ subscriptions: { agenda: { plan: 'pro', status: 'active', expiresAt: null } } } as never, 'agenda')).toBe('Pro activo');
     });
 });

@@ -1,5 +1,6 @@
 import {
     confirmCheckout,
+    cancelSubscription as cancelSubscriptionForVertical,
     fetchSubscriptionCatalog as fetchSubscriptionCatalogForVertical,
     startAdvertisingCheckout as startAdvertisingCheckoutForVertical,
     startBoostCheckout as startBoostCheckoutForVertical,
@@ -52,6 +53,10 @@ export function startSubscriptionCheckout(
 }
 
 export { confirmCheckout };
+
+export function cancelSubscription(): ReturnType<typeof cancelSubscriptionForVertical> {
+    return cancelSubscriptionForVertical(VERTICAL);
+}
 
 export function fetchSubscriptionCatalog(): Promise<SubscriptionCatalogResponse | null> {
     return fetchSubscriptionCatalogForVertical(VERTICAL);

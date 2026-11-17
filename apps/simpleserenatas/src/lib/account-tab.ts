@@ -1,6 +1,5 @@
-import type { AppMode } from '@/lib/app-mode';
+import type { AppMode, SerenataRole } from '@/lib/app-mode';
 import type { Profiles } from '@/lib/serenatas-api';
-import { isMusicianAccount } from '@/lib/serenata-profile';
 
 function ownerFeaturesEnabled(profiles: Profiles): boolean {
     return Boolean(profiles.owner);
@@ -19,6 +18,8 @@ export const ACCOUNT_TAB_VALUES = [
 ] as const;
 
 export type AccountTab = (typeof ACCOUNT_TAB_VALUES)[number];
+
+const ACCOUNT_TAB_STORAGE_KEY = 'simple-serenatas:account-tab';
 
 const LEGACY_ACCOUNT_TAB_ALIASES: Record<string, AccountTab> = {
     plan: 'subscription',
@@ -50,25 +51,54 @@ export function isAccountTab(value: string | null | undefined): value is Account
     return Boolean(value && (ACCOUNT_TAB_VALUES as readonly string[]).includes(value));
 }
 
-export function readStoredAccountTab(): AccountTab | null {
-    if (typeof window === 'undefined') return null;
-    const stored = window.localStorage.getItem('account_tab');
-    return normalizeAccountTab(stored);
+function accountTabStorageKey(userId: string | null | undefined, role: SerenataRole | undefined): string | null {
+    return userId ? `${ACCOUNT_TAB_STORAGE_KEY}:${userId}:${role ?? 'client'}` : null;
 }
 
-export function resolveAccountTab(urlTab: string | null | undefined): AccountTab {
-    return normalizeAccountTab(urlTab) ?? readStoredAccountTab() ?? 'data';
+export function readStoredAccountTab(userId?: string | null, role?: SerenataRole): AccountTab | null {
+    if (typeof window === 'undefined') return null;
+    const key = accountTabStorageKey(userId, role);
+    if (!key) return null;
+    try {
+        return normalizeAccountTab(window.localStorage.getItem(key));
+    } catch {
+        return null;
+    }
+}
+
+export function storeAccountTab(tab: AccountTab, userId?: string | null, role?: SerenataRole): void {
+    if (typeof window === 'undefined') return;
+    const key = accountTabStorageKey(userId, role);
+    if (!key) return;
+    try {
+        window.localStorage.setItem(key, tab);
+    } catch {
+        // La preferencia no debe bloquear la navegación.
+    }
+}
+
+export function resolveAccountTab(
+    urlTab: string | null | undefined,
+    userId?: string | null,
+    role?: SerenataRole,
+): AccountTab {
+    return normalizeAccountTab(urlTab) ?? readStoredAccountTab(userId, role) ?? 'data';
 }
 
 export function profileSectionHref(accountTab?: AccountTab): string {
     return profilePanelHref(accountTab);
 }
 
-/** Pestañas visibles según modo y perfiles. La suscripción solo aplica a dueños. */
-export function getAccountPillItems(mode: AppMode, profiles: Profiles): { key: AccountTab; label: string }[] {
+/** Pestañas visibles según el perfil de trabajo activo y las capacidades disponibles. */
+export function getAccountPillItems(
+    mode: AppMode,
+    profiles: Profiles,
+    activeRole?: SerenataRole,
+): { key: AccountTab; label: string }[] {
+    const role = activeRole ?? (profiles.owner ? 'owner' : profiles.musician ? 'musician' : 'client');
     const items: { key: AccountTab; label: string }[] = [
         { key: 'data', label: 'Datos personales' },
-        ...(mode === 'work' && isMusicianAccount(profiles)
+        ...(mode === 'work' && role === 'musician' && Boolean(profiles.musician)
             ? [{ key: 'musician' as const, label: 'Perfil público' }]
             : []),
         { key: 'ubicacion', label: 'Ubicación' },
@@ -76,15 +106,23 @@ export function getAccountPillItems(mode: AppMode, profiles: Profiles): { key: A
         { key: 'appearance', label: 'Apariencia' },
         { key: 'integrations', label: 'Integraciones' },
     ];
-    if (mode === 'work' && ownerFeaturesEnabled(profiles)) {
+    if (mode === 'work' && (
+        (role === 'owner' && ownerFeaturesEnabled(profiles))
+        || (role === 'musician' && Boolean(profiles.musician))
+    )) {
         items.push({ key: 'subscription', label: 'Suscripción' });
     }
     items.push({ key: 'security', label: 'Seguridad' });
     return items;
 }
 
-export function isAccountTabVisible(tab: AccountTab, mode: AppMode, profiles: Profiles): boolean {
-    return getAccountPillItems(mode, profiles).some((item) => item.key === tab);
+export function isAccountTabVisible(
+    tab: AccountTab,
+    mode: AppMode,
+    profiles: Profiles,
+    activeRole?: SerenataRole,
+): boolean {
+    return getAccountPillItems(mode, profiles, activeRole).some((item) => item.key === tab);
 }
 
 /** Rutas legacy /panel/mi-negocio/* → pestaña de Mi cuenta */

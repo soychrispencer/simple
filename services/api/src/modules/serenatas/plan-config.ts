@@ -1,8 +1,10 @@
+import { addChileVat, CHILE_VAT_RATE_BPS } from '@simple/utils';
+
 /** @deprecated Compatibilidad legacy. SimpleSerenatas ya no cobra comisión por serenata. */
 export const APP_COMMISSION_FREE_BPS = 0;
 /** @deprecated Compatibilidad legacy. SimpleSerenatas ya no cobra comisión por serenata. */
 export const APP_COMMISSION_PRO_BPS = 0;
-export const COMMISSION_VAT_BPS = 1900;
+export const COMMISSION_VAT_BPS = CHILE_VAT_RATE_BPS;
 export const SERENATA_PRO_PRICE_MONTHLY_CLP = 19_990;
 export const SERENATA_TRIAL_DAYS = 30;
 
@@ -10,7 +12,7 @@ export { BILLING_TRIAL_DAYS, defaultTrialEndsAt as defaultSerenataTrialEndsAt } 
 
 /** Monto mensual cobrado en checkout (neto + IVA 19 %). */
 export function serenataPlanMonthlyChargeClp(plan: Extract<SerenataBillingPlanId, 'pro'> = 'pro'): number {
-    return Math.round(SERENATA_PRO_PRICE_MONTHLY_CLP * (1 + COMMISSION_VAT_BPS / 10_000));
+    return addChileVat(SERENATA_PRO_PRICE_MONTHLY_CLP);
 }
 
 /** @deprecated Usar `serenataPlanMonthlyChargeClp('pro')`. */

@@ -28,8 +28,21 @@ function asString(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-function getAccessToken(): string {
+function getRawAccessToken(): string {
     return asString(process.env.MERCADO_PAGO_ACCESS_TOKEN);
+}
+
+function isProductionTokenBlockedInDevelopment(): boolean {
+    const token = getRawAccessToken();
+    return process.env.NODE_ENV !== 'production'
+        && token.length > 0
+        && !token.startsWith('TEST-')
+        && process.env.MERCADO_PAGO_ALLOW_PRODUCTION_TOKEN_IN_DEV !== 'true';
+}
+
+function getAccessToken(): string {
+    if (isProductionTokenBlockedInDevelopment()) return '';
+    return getRawAccessToken();
 }
 
 function getHeaders(idempotencyKey?: string): HeadersInit {
@@ -94,7 +107,7 @@ export function isMercadoPagoConfigured(): boolean {
 export type MercadoPagoAccessTokenMode = 'production' | 'test' | 'missing';
 
 export function getMercadoPagoAccessTokenMode(): MercadoPagoAccessTokenMode {
-    const token = getAccessToken();
+    const token = getRawAccessToken();
     if (!token) return 'missing';
     if (token.startsWith('TEST-')) return 'test';
     if (token.startsWith('APP_USR-')) return 'production';
@@ -337,6 +350,18 @@ export function verifyMercadoPagoWebhookSignatureWithSecret(
 }
 
 export function warnMercadoPagoWebhookSecretAtStartup(): void {
+    if (isProductionTokenBlockedInDevelopment()) {
+        const fallbackEnabled = process.env.MERCADO_PAGO_DEV_CHECKOUT_FALLBACK !== 'false';
+        console.warn(
+            '[mercadopago] Token de producción ignorado en desarrollo. '
+            + (fallbackEnabled
+                ? 'Se usará el checkout local simulado. '
+                : 'Checkout deshabilitado por MERCADO_PAGO_DEV_CHECKOUT_FALLBACK=false. ')
+            + 'Para permitir uso real desde desarrollo, define MERCADO_PAGO_ALLOW_PRODUCTION_TOKEN_IN_DEV=true.',
+        );
+        return;
+    }
+
     const tokenMode = getMercadoPagoAccessTokenMode();
     if (!isMercadoPagoConfigured()) {
         console.warn('[mercadopago] Sin MERCADO_PAGO_ACCESS_TOKEN. Checkout deshabilitado.');

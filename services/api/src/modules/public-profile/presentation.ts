@@ -34,6 +34,7 @@ type ProfileUser = {
 };
 
 type ProfileListing = {
+    accountId?: string | null;
     ownerId: string;
     vertical: VerticalType;
     updatedAt: number;
@@ -45,17 +46,17 @@ type ProfileListing = {
 
 export type PublicProfilePresentationDeps = {
     usernameFromName: (name: string) => string;
-    getDefaultPublicProfileAccountKind: (user: ProfileUser, vertical: VerticalType) => PublicProfileAccountKind;
-    getDefaultPublicProfileAddress: (userId: string) => {
+    getDefaultPublicProfileAccountKind: (user: ProfileUser, vertical: VerticalType, accountId?: string | null) => PublicProfileAccountKind;
+    getDefaultPublicProfileAddress: (userId: string, vertical: VerticalType, accountId?: string | null) => {
         addressLine1?: string | null;
         communeName?: string | null;
         regionName?: string | null;
     } | null;
-    getAddressBookEntryById: (userId: string, addressId: string) => AddressBookEntry | null;
-    getPublicProfileRecord: (userId: string, vertical: VerticalType) => PublicProfileRecord | null;
-    getEffectivePlanId: (user: ProfileUser, vertical: VerticalType) => string;
-    getCurrentPlanLabel: (user: ProfileUser, vertical: VerticalType) => string;
-    userCanUsePublicProfile: (user: ProfileUser, vertical: VerticalType) => boolean;
+    getAddressBookEntryById: (userId: string, addressId: string, accountId?: string | null) => AddressBookEntry | null;
+    getPublicProfileRecord: (userId: string, vertical: VerticalType, accountId?: string | null) => PublicProfileRecord | null;
+    getEffectivePlanId: (user: ProfileUser, vertical: VerticalType, accountId?: string | null) => string;
+    getCurrentPlanLabel: (user: ProfileUser, vertical: VerticalType, accountId?: string | null) => string;
+    userCanUsePublicProfile: (user: ProfileUser, vertical: VerticalType, accountId?: string | null) => boolean;
     countFollowers: (followeeUserId: string, vertical: VerticalType) => number;
     extractListingMediaUrls: (listing: ProfileListing) => string[];
     isPublicListingVisible: (listing: ProfileListing) => boolean;
@@ -90,15 +91,16 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
     function getPublicProfileDefaultValues(
         user: ProfileUser,
         vertical: VerticalType,
+        accountId?: string | null,
     ): Omit<PublicProfileRecord, 'id' | 'createdAt' | 'updatedAt'> {
-        const address = getDefaultPublicProfileAddress(user.id);
+        const address = getDefaultPublicProfileAddress(user.id, vertical, accountId);
         const defaultSlug = normalizePublicProfileSlug(usernameFromName(user.name));
         return {
             userId: user.id,
             vertical,
             slug: defaultSlug || `cuenta-${user.id.slice(0, 8)}`,
             isPublished: false,
-            accountKind: getDefaultPublicProfileAccountKind(user, vertical),
+            accountKind: getDefaultPublicProfileAccountKind(user, vertical, accountId),
             operatorSubtype: null,
             operatorSubtypeCustom: null,
             displayName: user.name,
@@ -145,14 +147,14 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
 
     function resolveStoredProfileAddress(profile: PublicProfileRecord, userId: string) {
         const primaryEntry = profile.primaryAddressId
-            ? getAddressBookEntryById(userId, profile.primaryAddressId)
+            ? getAddressBookEntryById(userId, profile.primaryAddressId, profile.accountId)
             : null;
         return resolvePublicProfileAddressFields(profile, primaryEntry);
     }
 
-    function buildEditablePublicProfile(user: ProfileUser, vertical: VerticalType) {
-        const stored = getPublicProfileRecord(user.id, vertical);
-        const defaults = getPublicProfileDefaultValues(user, vertical);
+    function buildEditablePublicProfile(user: ProfileUser, vertical: VerticalType, accountId?: string | null) {
+        const stored = getPublicProfileRecord(user.id, vertical, accountId);
+        const defaults = getPublicProfileDefaultValues(user, vertical, accountId);
         const base = stored ? {
             ...defaults,
             ...stored,
@@ -208,8 +210,8 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
         };
     }
 
-    function getPublishedSellerProfile(userId: string, vertical: VerticalType): PublicProfileRecord | null {
-        const record = getPublicProfileRecord(userId, vertical);
+    function getPublishedSellerProfile(userId: string, vertical: VerticalType, accountId?: string | null): PublicProfileRecord | null {
+        const record = getPublicProfileRecord(userId, vertical, accountId);
         if (!record || !record.isPublished) return null;
         return record;
     }
@@ -220,7 +222,9 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
         profile: PublicProfileRecord,
     ) {
         const listings = Array.from(listingsById.values())
-            .filter((listing) => listing.ownerId === user.id)
+            .filter((listing) => profile.accountId
+                ? listing.accountId === profile.accountId
+                : listing.ownerId === profile.userId)
             .filter((listing) => listing.vertical === vertical)
             .filter((listing) => isPublicListingVisible(listing))
             .sort((a, b) => b.updatedAt - a.updatedAt);
@@ -239,7 +243,7 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
         return {
             profile: {
                 id: profile.id,
-                ownerUserId: user.id,
+                ownerUserId: profile.userId,
                 name: displayName,
                 username: profile.slug,
                 vertical,
@@ -252,8 +256,8 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
                 ),
                 operatorSubtype: profile.operatorSubtype,
                 operatorSubtypeCustom: profile.operatorSubtypeCustom,
-                subscriptionPlanId: getEffectivePlanId(user, vertical),
-                subscriptionPlanName: getCurrentPlanLabel(user, vertical),
+                subscriptionPlanId: getEffectivePlanId(user, vertical, profile.accountId),
+                subscriptionPlanName: getCurrentPlanLabel(user, vertical, profile.accountId),
                 headline: null,
                 bio: profile.bio,
                 companyName: null,
@@ -278,7 +282,7 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
                 activeListings: listings.length,
                 totalViews: listings.reduce((sum, listing) => sum + listing.views, 0),
                 totalFavorites: listings.reduce((sum, listing) => sum + listing.favs, 0),
-                followers: countFollowers(user.id, vertical),
+                followers: countFollowers(profile.userId, vertical),
                 paymentMethods: buildPublicBusinessPaymentMethods({
                     requiresAdvancePayment: profile.requiresAdvancePayment,
                     advancePaymentInstructions: profile.advancePaymentInstructions,
@@ -298,14 +302,14 @@ export function createPublicProfilePresentation(deps: PublicProfilePresentationD
         };
     }
 
-    function buildAccountPublicProfileResponse(user: ProfileUser, vertical: VerticalType) {
-        const paidPlanId = getEffectivePlanId(user, vertical);
+    function buildAccountPublicProfileResponse(user: ProfileUser, vertical: VerticalType, accountId?: string | null) {
+        const paidPlanId = getEffectivePlanId(user, vertical, accountId);
         return {
             ok: true,
-            featureEnabled: userCanUsePublicProfile(user, vertical),
+            featureEnabled: userCanUsePublicProfile(user, vertical, accountId),
             currentPlanId: paidPlanId,
-            currentPlanName: getCurrentPlanLabel(user, vertical),
-            profile: buildEditablePublicProfile(user, vertical),
+            currentPlanName: getCurrentPlanLabel(user, vertical, accountId),
+            profile: buildEditablePublicProfile(user, vertical, accountId),
         };
     }
 

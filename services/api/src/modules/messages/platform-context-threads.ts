@@ -42,6 +42,7 @@ async function notifyContextThreadMessage(
         contextTitle,
         preview,
         isNewThread,
+        accountId: recipientUserId === thread.ownerUserId ? thread.accountId : null,
     });
 }
 

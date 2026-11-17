@@ -52,11 +52,15 @@ export type BoostTargetRecord = {
     vertical: VerticalType;
     section: BoostSection;
     ownerId: string;
+    accountId?: string | null;
     href: string;
     title: string;
     subtitle: string;
     price: string;
     location: string;
+    publicEmail?: string | null;
+    publicPhone?: string | null;
+    publicWhatsapp?: string | null;
     imageUrl?: string;
     imageUrls?: string[];
 };

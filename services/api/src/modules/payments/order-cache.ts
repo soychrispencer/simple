@@ -16,12 +16,13 @@ export function makePaymentOrderId(kind: string): string {
 export function createPaymentOrderStore(deps: PaymentOrderStoreDeps) {
     function getPaymentOrdersForUser(
         userId: string,
-        options: { vertical?: string; kind?: string } = {},
+        options: { vertical?: string; kind?: string; accountId?: string | null } = {},
     ): PaymentOrderRecord[] {
         const current = deps.paymentOrdersByUser.get(userId) ?? [];
         return current
             .filter((item) => (options.vertical ? item.vertical === options.vertical : true))
             .filter((item) => (options.kind ? item.kind === options.kind : true))
+            .filter((item) => (options.accountId !== undefined ? (item.accountId ?? null) === options.accountId : true))
             .sort((a, b) => b.createdAt - a.createdAt);
     }
 

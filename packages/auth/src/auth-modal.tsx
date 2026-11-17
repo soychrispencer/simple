@@ -41,6 +41,15 @@ const LABEL_STYLE: CSSProperties = { color: 'var(--fg-muted)' };
 const BTN_CLASS = 'h-11 w-full';
 const FORM_STACK_STYLE: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '16px' };
 
+function getPanelReturnTo(currentApp?: string | null): string | undefined {
+    if (typeof window === 'undefined') return undefined;
+    const { pathname, search, hash } = window.location;
+    if (pathname === '/panel' || pathname.startsWith('/panel/')) return `${pathname}${search}${hash}`;
+    if (currentApp === 'simplepropiedades') return '/panel';
+    if (['simpleagenda', 'simpleautos', 'simpleserenatas'].includes(currentApp ?? '')) return '/panel';
+    return undefined;
+}
+
 function Field({ label, htmlFor, icon, children }: { label: string; htmlFor: string; icon: ReactNode; children: ReactNode }) {
     return (
         <div className="grid gap-1.5">
@@ -63,7 +72,7 @@ export function AuthModal({
     canSubmitRegister = true,
     registerDisabledMessage = 'Completa los datos requeridos para crear tu cuenta.',
 }: AuthModalProps = {}) {
-    const { authOpen, authInitialMode, closeAuth, login, register, logout } = useAuth();
+    const { authOpen, authInitialMode, closeAuth, currentApp, login, register, logout } = useAuth();
     const [portalElement, setPortalElement] = useState<HTMLDivElement | null>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
     const [mode, setMode] = useState<Mode>('login');
@@ -293,6 +302,7 @@ export function AuthModal({
             return;
         }
         setSubmitting(true);
+        const returnTo = getPanelReturnTo(currentApp);
         const captchaToken = await getCaptchaToken();
         const result = await register({
             name,
@@ -301,6 +311,7 @@ export function AuthModal({
             password,
             termsAccepted,
             captchaToken,
+            returnTo,
         });
         setSubmitting(false);
         if (!result.ok || !result.user) {
@@ -308,6 +319,7 @@ export function AuthModal({
         } else {
             if (result.user.status === 'verified') {
                 handleClose();
+                if (returnTo) window.location.assign(returnTo);
                 return;
             }
             setRegisteredEmail(result.user.email);
@@ -361,7 +373,7 @@ export function AuthModal({
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: registeredEmail }),
+                body: JSON.stringify({ email: registeredEmail, returnTo: getPanelReturnTo(currentApp) }),
             });
             const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
             if (!response.ok || !data?.ok) {
@@ -507,7 +519,7 @@ export function AuthModal({
                                 Crear tu cuenta
                             </h2>
                             <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                                Completa tus datos para crear tu cuenta.
+                                Primero creas tu cuenta. Después eliges cómo vas a trabajar y preparamos las herramientas que necesitas.
                             </p>
                         </div>
                         {error ? (
@@ -671,7 +683,7 @@ export function AuthModal({
                                 <strong>¿Qué hacer ahora?</strong><br />
                                 1. Revisa tu bandeja de entrada (y Spam / Promociones)<br />
                                 2. Abre el correo de Simple y pulsa «Confirmar correo»<br />
-                                3. ¡Listo! Tu cuenta quedará verificada
+                                3. Volverás a Simple para continuar donde empezaste
                             </p>
                         </div>
 

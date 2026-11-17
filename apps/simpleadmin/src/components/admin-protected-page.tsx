@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { Fragment, useEffect, useMemo } from 'react';
 import { IconLock, IconShieldCheck } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
 import { PanelButton, PanelCard, PanelNotice } from '@simple/ui/panel';
@@ -72,5 +72,9 @@ export function AdminProtectedPage(props: { children: (user: AdminSessionUser) =
         );
     }
 
-    return <AdminShell user={user as AdminSessionUser}>{props.children(user as AdminSessionUser)}</AdminShell>;
+    return (
+        <Fragment key={user.id}>
+            <AdminShell user={user as AdminSessionUser}>{props.children(user as AdminSessionUser)}</AdminShell>
+        </Fragment>
+    );
 }

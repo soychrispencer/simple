@@ -1,9 +1,10 @@
 'use client';
 
 import useSWR from 'swr';
+import { useAuth } from '@simple/auth';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
 
-const SWR_KEY = 'serenatas-provider-groups';
+const SWR_KEY_PREFIX = 'serenatas-provider-groups';
 
 type ProviderGroupsCache = {
     groups: ProviderGroup[];
@@ -20,9 +21,10 @@ async function fetchProviderGroups(): Promise<ProviderGroupsCache> {
 
 /** Cache compartida de grupos del mariachi (Mi Negocio). */
 export function useProviderGroups(options?: { enabled?: boolean }) {
+    const { user } = useAuth();
     const enabled = options?.enabled !== false;
     const { data, error, isLoading, mutate } = useSWR(
-        enabled ? SWR_KEY : null,
+        enabled && user?.id ? providerGroupsSwrKey(user.id) : null,
         fetchProviderGroups,
         { revalidateOnFocus: false, dedupingInterval: 30_000 },
     );
@@ -38,6 +40,6 @@ export function useProviderGroups(options?: { enabled?: boolean }) {
     };
 }
 
-export function providerGroupsSwrKey() {
-    return SWR_KEY;
+export function providerGroupsSwrKey(userId: string) {
+    return `${SWR_KEY_PREFIX}-${userId}`;
 }

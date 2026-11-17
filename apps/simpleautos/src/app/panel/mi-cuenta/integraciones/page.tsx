@@ -6,7 +6,7 @@ import {
     PanelAccountShell,
     accountIntegrationsDescription,
 } from '@simple/ui/panel';
-import { MercadoPagoIntegrationCard, MarketplaceGoogleCalendarIntegrationCard } from '@simple/ui/integrations';
+import { MercadoPagoIntegrationCard } from '@simple/ui/integrations';
 import InstagramIntegrationCard from '@/components/panel/instagram-integration-card';
 import TikTokIntegrationCard from '@/components/panel/tiktok-integration-card';
 import YouTubeIntegrationCard from '@/components/panel/youtube-integration-card';
@@ -24,7 +24,6 @@ export default function IntegracionesCuentaPage() {
                     vertical="autos"
                     lockedHint="MercadoPago requiere plan Pro o Empresa en Simple Autos."
                 />
-                <MarketplaceGoogleCalendarIntegrationCard vertical="autos" />
                 <InstagramIntegrationCard />
                 <TikTokIntegrationCard />
                 <YouTubeIntegrationCard />

@@ -5,7 +5,11 @@ import { usePathname } from 'next/navigation';
 import { MarketplaceHeader } from '@simple/marketplace-header';
 import { useAuth } from '@simple/auth';
 import { serenatasApi, type Profiles } from '@/lib/serenatas-api';
-import { type AppMode, resolveAppModeFromProfiles } from '@/lib/app-mode';
+import {
+    type AppMode,
+    resolveActiveSerenataRole,
+    resolveAppModeFromProfiles,
+} from '@/lib/app-mode';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 import { fetchNotifications, getMarketplaceNavItems, getPrimaryActionConfig, isPanelNavActive, markAllPanelNotificationsRead, markNotificationReadAndRefresh } from '@/components/panel/panel-nav-config';
 import { fetchPanelNotifications as fetchMessagePanelNotifications } from '@/lib/panel-notifications';
@@ -46,6 +50,8 @@ export function SerenatasChromeHeader({
 
     const resolvedProfiles = profilesProp ?? serenataCtx?.profiles ?? profiles;
     const modeReady = modeProp ?? serenataCtx?.mode ?? mode;
+    const activeRoleReady = serenataCtx?.activeRole
+        ?? resolveActiveSerenataRole(resolvedProfiles, modeReady === 'client' ? 'client' : undefined);
 
     useEffect(() => {
         if (profilesProp) setProfiles(profilesProp);
@@ -86,8 +92,8 @@ export function SerenatasChromeHeader({
         if (!resolvedProfiles) {
             return { label: '', href: '/', icon: undefined, show: false } as const;
         }
-        return getPrimaryActionConfig(modeReady, resolvedProfiles, pathname);
-    }, [modeReady, pathname, resolvedProfiles]);
+        return getPrimaryActionConfig(modeReady, resolvedProfiles, pathname, activeRoleReady);
+    }, [activeRoleReady, modeReady, pathname, resolvedProfiles]);
 
     const savedMariachis = useMemo(
         () => ({ clearCache: clearSavedMariachisCache, syncFromApi: syncSavedMariachisFromApi }),
@@ -126,7 +132,7 @@ export function SerenatasChromeHeader({
             homeHref={homeHref}
             onLogout={logoutAndGoHome}
             publicLinks={publicLinks}
-            getPanelNavItems={() => getMarketplaceNavItems(modeReady, resolvedProfiles)}
+            getPanelNavItems={() => getMarketplaceNavItems(modeReady, resolvedProfiles, activeRoleReady)}
             isPanelNavActive={panelNavActive}
             fetchPanelNotifications={async () => {
                 const [messageItems, serenataItems] = await Promise.all([

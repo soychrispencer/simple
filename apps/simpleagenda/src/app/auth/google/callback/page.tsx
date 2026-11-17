@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { IconX, IconCheck } from '@tabler/icons-react';
-import { resolveSafeInternalPath } from '@simple/auth';
+import { resolveNewUserReturnTo, resolveSafeInternalPath } from '@simple/auth';
 import { PanelButton } from '@simple/ui/panel';
 
 export default function GoogleCallback() {
@@ -42,8 +42,11 @@ export default function GoogleCallback() {
                 throw new Error(data.error || 'Error al iniciar sesión con Google');
             }
 
-            const returnTo = resolveSafeInternalPath(sessionStorage.getItem('auth.returnTo'), '/panel');
+            const requestedReturnTo = resolveSafeInternalPath(sessionStorage.getItem('auth.returnTo'), '/panel');
             sessionStorage.removeItem('auth.returnTo');
+            const returnTo = data.isNewUser
+                ? resolveNewUserReturnTo(requestedReturnTo)
+                : resolveSafeInternalPath(requestedReturnTo, '/panel');
 
             if (data.isNewUser) {
                 setWelcome(true);

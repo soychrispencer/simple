@@ -107,6 +107,42 @@ export const POST_JOURNAL_TAGS = [
     '0140_relationship_notes',
     '0141_agenda_existing_accounts_to_free',
     '0142_agenda_subscription_billing_cycle',
+    '0143_account_vertical_settings',
+    '0144_account_subscription_scope',
+    '0145_account_invitations',
+    '0146_team_marketplace_threads',
+    '0147_relationship_notes_account_scope',
+    '0148_account_relationship_assignments',
+    '0149_agenda_account_property_visits',
+    '0150_account_relationship_stage',
+    '0151_account_relationship_tasks',
+    '0152_account_listing_assignments',
+    '0153_account_relationship_task_reminders',
+    '0154_account_public_profiles',
+    '0155_agenda_account_visit_reminders',
+    '0156_agenda_account_visit_google_calendar',
+    '0157_agenda_ai_landing_page',
+    '0158_agenda_account_visit_type',
+    '0159_payment_orders_account_idx',
+    '0160_listing_drafts_account_scope',
+    '0161_agenda_profile_account_scope',
+    '0162_account_invitation_vertical',
+    '0163_social_workspace_integrations',
+    '0164_instagram_workspace_integration',
+    '0165_timeline_event_idempotency_key',
+    '0166_shared_message_history',
+    '0167_account_users_single_default',
+    '0167a_social_workspace_unique_preflight',
+    '0168_social_workspace_integration_uniqueness',
+    '0169_serenatas_individual_billing',
+    '0170_serenatas_commission_zero_default',
+    '0171_serenatas_musician_billing_profile',
+    '0172_serenatas_profile_billing_scope',
+    '0173_remove_legacy_featured_listing_limit',
+    '0174_account_single_owner_membership',
+    '0175_account_membership_role_check',
+    '0176_account_invitation_role_check',
+    '0177_account_team_list_indexes',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];
@@ -125,40 +161,61 @@ function splitStatements(sql: string): string[] {
 export type ApplyPostJournalOptions = {
     migrationsFolder: string;
     dryRun?: boolean;
-    continueOnError?: boolean;
     log?: (message: string) => void;
 };
 
 export type ApplyPostJournalResult = {
     appliedNow: number;
-    failed: number;
     dryRun: boolean;
 };
+
+const POST_JOURNAL_ADVISORY_LOCK_KEY = '7102611047561';
 
 export async function applyPostJournalMigrations(
     sql: postgres.Sql,
     options: ApplyPostJournalOptions
 ): Promise<ApplyPostJournalResult> {
+    return applyPostJournalMigrationsUnlocked(sql, options);
+}
+
+async function applyPostJournalMigrationsUnlocked(
+    sql: postgres.Sql,
+    options: ApplyPostJournalOptions
+): Promise<ApplyPostJournalResult> {
     const dryRun = options.dryRun ?? false;
-    const continueOnError = options.continueOnError ?? false;
     const log = options.log ?? console.info;
 
-    await sql`CREATE SCHEMA IF NOT EXISTS drizzle`;
-    await sql`
-        CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
-            id SERIAL PRIMARY KEY,
-            hash text NOT NULL,
-            created_at bigint
-        )
-    `;
+    let appliedRows: { hash: string }[] = [];
+    if (dryRun) {
+        const [migrationTable] = await sql<{ exists: boolean }[]>`
+            SELECT to_regclass('drizzle.__drizzle_migrations') IS NOT NULL AS exists
+        `;
+        if (migrationTable?.exists) {
+            appliedRows = await sql<{ hash: string }[]>`
+                SELECT hash FROM drizzle.__drizzle_migrations
+            `;
+        }
+    } else {
+        // Serialize concurrent startup without reserving a second connection.
+        await sql.begin(async (tx) => {
+            await tx`SELECT pg_advisory_xact_lock(${POST_JOURNAL_ADVISORY_LOCK_KEY}::bigint)`;
+            await tx`CREATE SCHEMA IF NOT EXISTS drizzle`;
+            await tx`
+                CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
+                    id SERIAL PRIMARY KEY,
+                    hash text NOT NULL,
+                    created_at bigint
+                )
+            `;
+        });
+        appliedRows = await sql<{ hash: string }[]>`
+            SELECT hash FROM drizzle.__drizzle_migrations
+        `;
+    }
 
-    const appliedRows = await sql<{ hash: string }[]>`
-        SELECT hash FROM drizzle.__drizzle_migrations
-    `;
     const appliedHashes = new Set(appliedRows.map((row) => row.hash));
 
     let appliedNow = 0;
-    let failed = 0;
     for (const tag of POST_JOURNAL_TAGS) {
         const filePath = path.join(options.migrationsFolder, `${tag}.sql`);
         if (!existsSync(filePath)) {
@@ -180,34 +237,40 @@ export async function applyPostJournalMigrations(
 
         const statements = splitStatements(body);
         log(`  aplicando ${tag} (${statements.length} statements)…`);
-        let failedStatements = 0;
-        for (const statement of statements) {
-            try {
-                await sql.unsafe(statement);
-            } catch (error) {
-                failedStatements += 1;
-                log(`  ERROR ${tag}: ${error instanceof Error ? error.message : String(error)}`);
-                if (!continueOnError) {
-                    throw error;
-                }
-            }
-        }
+        try {
+            // Keep schema changes and the migration marker in one transaction.
+            // A failed statement must not leave a migration half-applied.
+            const applied = await sql.begin(async (tx) => {
+                await tx`SELECT pg_advisory_xact_lock(${POST_JOURNAL_ADVISORY_LOCK_KEY}::bigint)`;
+                const [existing] = await tx<{ hash: string }[]>`
+                    SELECT hash FROM drizzle.__drizzle_migrations WHERE hash = ${hash} LIMIT 1
+                `;
+                if (existing) return false;
 
-        if (failedStatements === 0) {
-            await sql`
-                INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
-                VALUES (${hash}, ${Date.now()})
-            `;
+                for (const statement of statements) {
+                    await tx.unsafe(statement);
+                }
+                await tx`
+                    INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
+                    VALUES (${hash}, ${Date.now()})
+                `;
+                return true;
+            });
+            if (!applied) {
+                appliedHashes.add(hash);
+                log(`  ya aplicado en otro proceso: ${tag}`);
+                continue;
+            }
             appliedHashes.add(hash);
             appliedNow += 1;
             log(`  OK ${tag}`);
-        } else {
-            failed += 1;
-            log(`  parcial ${tag}: ${failedStatements} statement(s) fallaron/omitidos`);
+        } catch (error) {
+            log(`  ERROR ${tag}; se revirtió la migración: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
         }
     }
 
-    return { appliedNow, failed, dryRun };
+    return { appliedNow, dryRun };
 }
 
 /** Resuelve `services/api/drizzle` desde el cwd del proceso (pnpm dev / scripts). */

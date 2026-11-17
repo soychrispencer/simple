@@ -6,6 +6,9 @@ import {
     type AgendaGroupAttendeeStatus,
     type AgendaPreconsultField,
     type AgendaPreconsultFieldType,
+    type OperatorSiteLandingBrief,
+    type OperatorSiteLandingConfig,
+    type OperatorSiteLandingContent,
 } from '@simple/utils';
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -151,6 +154,7 @@ export type AgendaProfile = {
     operatorSiteLayout?: string | null;
     operatorSiteColorMode?: string | null;
     operatorSiteAccentColor?: string | null;
+    operatorSiteLandingConfig?: OperatorSiteLandingConfig | null;
     createdAt: string;
     updatedAt: string;
 };
@@ -169,6 +173,36 @@ export async function fetchAgendaProfile(): Promise<AgendaProfile | null> {
 
 export async function saveAgendaProfile(body: Partial<AgendaProfile>): Promise<{ ok: boolean; profile?: AgendaProfile; error?: string }> {
     return apiFetch('/api/agenda/profile', { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export async function generateAgendaLandingPage(brief: OperatorSiteLandingBrief): Promise<{
+    ok: boolean;
+    config?: OperatorSiteLandingConfig;
+    error?: string;
+}> {
+    return agendaMutation('/api/agenda/site-page/generate', {
+        method: 'POST',
+        body: JSON.stringify({ brief }),
+    });
+}
+
+export async function saveAgendaLandingDraft(
+    brief: OperatorSiteLandingBrief,
+    content: OperatorSiteLandingContent,
+): Promise<{ ok: boolean; config?: OperatorSiteLandingConfig; error?: string }> {
+    return agendaMutation('/api/agenda/site-page/draft', {
+        method: 'PATCH',
+        body: JSON.stringify({ brief, content }),
+    });
+}
+
+export async function publishAgendaLandingDraft(): Promise<{
+    ok: boolean;
+    config?: OperatorSiteLandingConfig;
+    isPublished?: boolean;
+    error?: string;
+}> {
+    return agendaMutation('/api/agenda/site-page/publish', { method: 'POST' });
 }
 
 export async function checkSlugAvailable(slug: string): Promise<{ available: boolean; error?: string }> {
@@ -486,6 +520,7 @@ export async function uploadClientFile(file: File, fileType: 'image' | 'document
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileType', fileType);
+    formData.append('purpose', 'private_attachment');
     const res = await fetch(`${API_BASE}/api/media/upload`, {
         method: 'POST',
         credentials: 'include',

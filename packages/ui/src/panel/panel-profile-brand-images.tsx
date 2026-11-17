@@ -56,6 +56,8 @@ export type PanelProfileBrandImagesProps = {
     logoLabel?: string;
     hint?: ReactNode;
     previewHref?: string | null;
+    /** Renderiza solo los controles de imagen, sin una ficha de perfil duplicada. */
+    compactControls?: boolean;
     className?: string;
     disabled?: boolean;
 };
@@ -78,6 +80,7 @@ export function PanelProfileBrandImages({
     logoLabel = 'logo',
     hint,
     previewHref,
+    compactControls = false,
     className,
     disabled = false,
 }: PanelProfileBrandImagesProps) {
@@ -359,35 +362,72 @@ export function PanelProfileBrandImages({
 
     return (
         <div className={className ? `grid gap-3 ${className}` : 'grid gap-3'}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <p
-                    className="text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    style={{ color: 'var(--fg-muted)' }}
-                >
-                    {previewLabel}
-                </p>
-                {previewHref ? (
-                    <a
-                        href={previewHref}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-80"
-                        style={{ color: 'var(--accent-ink)' }}
+            {compactControls ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <button
+                        type="button"
+                        onClick={() => coverUploadRef.current?.openPicker()}
+                        disabled={imageUploading}
+                        className="flex min-h-[5.5rem] items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-left transition-colors hover:border-[var(--accent-border)] disabled:opacity-60"
                     >
-                        {previewLinkLabel}
-                        <IconExternalLink size={13} aria-hidden />
-                    </a>
-                ) : null}
-            </div>
+                        <span className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-lg bg-[var(--bg-subtle)] text-[10px] font-medium text-fg-muted">
+                            {resolvedCoverUrl ? <img src={resolvedCoverUrl} alt="" className="h-full w-full object-cover" /> : 'Sin portada'}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-fg">Portada</span>
+                            <span className="mt-0.5 block text-xs text-fg-muted">{coverUrl ? 'Cambiar imagen' : 'Agregar imagen'}</span>
+                        </span>
+                        <IconPlus size={17} className="shrink-0 text-fg-muted" aria-hidden />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => logoUploadRef.current?.openPicker()}
+                        disabled={imageUploading}
+                        className="flex min-h-[5.5rem] items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-left transition-colors hover:border-[var(--accent-border)] disabled:opacity-60"
+                    >
+                        <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-[var(--bg-subtle)] text-[10px] font-medium text-fg-muted">
+                            {hasLogo ? <img src={resolvedLogoUrl!} alt="" className="h-full w-full object-cover" /> : 'Sin logo'}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-fg">Logo o foto</span>
+                            <span className="mt-0.5 block text-xs text-fg-muted">{hasLogo ? 'Cambiar imagen' : 'Agregar imagen'}</span>
+                        </span>
+                        <IconPlus size={17} className="shrink-0 text-fg-muted" aria-hidden />
+                    </button>
+                </div>
+            ) : (
+                <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p
+                            className="text-[10px] font-semibold uppercase tracking-[0.14em]"
+                            style={{ color: 'var(--fg-muted)' }}
+                        >
+                            {previewLabel}
+                        </p>
+                        {previewHref ? (
+                            <a
+                                href={previewHref}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-80"
+                                style={{ color: 'var(--accent-ink)' }}
+                            >
+                                {previewLinkLabel}
+                                <IconExternalLink size={13} aria-hidden />
+                            </a>
+                        ) : null}
+                    </div>
 
-            {isProfilePage ? profilePagePreview : marketplaceCardPreview}
+                    {isProfilePage ? profilePagePreview : marketplaceCardPreview}
 
-            <p
-                className="text-center text-xs leading-relaxed"
-                style={{ color: 'var(--fg-muted)' }}
-            >
-                {hint ?? DEFAULT_BRAND_HINT}
-            </p>
+                    <p
+                        className="text-center text-xs leading-relaxed"
+                        style={{ color: 'var(--fg-muted)' }}
+                    >
+                        {hint ?? DEFAULT_BRAND_HINT}
+                    </p>
+                </>
+            )}
 
             <AvatarUpload
                 ref={logoUploadRef}

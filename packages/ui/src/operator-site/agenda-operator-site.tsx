@@ -19,8 +19,10 @@ import {
     DEFAULT_OPERATOR_SITE_LAYOUT,
     normalizeOperatorSiteColorMode,
     normalizeOperatorSiteLayout,
+    resolveOperatorSiteIndustry,
     resolveAppMediaUrl,
     type OperatorSiteLayout,
+    type OperatorSiteIndustryGuide,
 } from '@simple/utils';
 import { OperatorSiteAboutSection } from './operator-site-about.js';
 import { OperatorSiteBookingHeroCard } from './operator-site-booking-hero-card.js';
@@ -299,10 +301,13 @@ function HeroIntro({
                         ))}
                     </div>
                     <h1 className="os-hero__title">{profile.displayName}</h1>
-                    {profile.headline ? (
-                        <p className="os-hero__headline">{profile.headline}</p>
+                    {profile.landingPage?.heroHeadline || profile.headline ? (
+                        <p className="os-hero__headline">{profile.landingPage?.heroHeadline || profile.headline}</p>
                     ) : profile.profession ? (
                         <p className="os-hero__headline">{profile.profession}</p>
+                    ) : null}
+                    {profile.landingPage?.heroSubheadline ? (
+                        <p className="os-hero__description">{profile.landingPage.heroSubheadline}</p>
                     ) : null}
                     <p className="os-hero__subtitle">{businessLabel}</p>
                     {signals.length > 0 ? (
@@ -351,6 +356,38 @@ function HeroIntro({
                 </div>
             </div>
         </div>
+    );
+}
+
+function LandingHighlightsSection({
+    title,
+    items,
+}: {
+    title?: string;
+    items: NonNullable<AgendaOperatorSiteProps['profile']['landingPage']>['highlights'];
+}) {
+    if (!items.length) return null;
+    return (
+        <OperatorSiteReveal variant="fade-up">
+            <section className="os-section">
+                <div className="os-section__inner">
+                    <p className="os-section__label">Lo que puedes esperar</p>
+                    <h2 className="os-section__title">{title || 'Puntos clave de tu atención'}</h2>
+                    <div className="os-grid-2">
+                        {items.map((item, index) => (
+                            <article
+                                key={`${item.title}-${index}`}
+                                className="os-glass"
+                                style={{ padding: '1.25rem 1.35rem', borderTop: '2px solid var(--accent)' }}
+                            >
+                                <h3 style={{ margin: 0, color: 'var(--fg)', fontSize: '1.05rem', fontWeight: 700 }}>{item.title}</h3>
+                                <p style={{ margin: '0.55rem 0 0', color: 'var(--fg-secondary)', lineHeight: 1.65 }}>{item.description}</p>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            </section>
+        </OperatorSiteReveal>
     );
 }
 
@@ -480,6 +517,7 @@ function HeroSection({
 
 function ServicesSection({
     layout,
+    industryGuide,
     catalog,
     hasServices,
     hasOffers,
@@ -489,6 +527,7 @@ function ServicesSection({
     showInlineBooking,
 }: {
     layout: OperatorSiteLayout;
+    industryGuide: OperatorSiteIndustryGuide;
     catalog: NonNullable<AgendaOperatorSiteProps['catalog']>;
     hasServices: boolean;
     hasOffers: boolean;
@@ -498,11 +537,12 @@ function ServicesSection({
     showInlineBooking: boolean;
 }) {
     const serviceVariant = layout === 'portfolio' ? 'carousel' : 'grid';
-    const lead = layout === 'portfolio'
+    const copy = industryGuide.services;
+    const lead = layout === 'portfolio' && industryGuide.id === 'services'
         ? 'Explora mis servicios y reserva la experiencia que buscas.'
-        : layout === 'studio'
+        : layout === 'studio' && industryGuide.id === 'services'
             ? 'Servicios disponibles con reserva en línea.'
-            : 'Conoce mis servicios y reserva en línea en pocos pasos.';
+            : copy.lead;
 
     const revealVariant = layout === 'portfolio' ? 'fade-left' as const : 'fade-up' as const;
 
@@ -511,9 +551,9 @@ function ServicesSection({
             <section id={BOOKING_SECTION_ID} className={`os-section os-section--flush os-section--services os-section--services-${layout}`}>
                 <div className="os-section__inner os-section__inner--flush">
                     <div className="os-section__header">
-                        <p className="os-section__label">Servicios</p>
+                        <p className="os-section__label">{copy.label}</p>
                         <h2 className="os-section__title">
-                            {layout === 'portfolio' ? 'Mi trabajo' : 'Qué ofrezco'}
+                            {layout === 'portfolio' && industryGuide.id === 'services' ? 'Mi trabajo' : copy.title}
                         </h2>
                         <p className="os-section__lead">{lead}</p>
                     </div>
@@ -578,7 +618,8 @@ export function AgendaOperatorSite({
     const hasContact = Boolean(
         profile.publicEmail || profile.publicPhone || whatsappHref || profile.websiteUrl || socialLinks.length > 0,
     );
-    const hasBio = Boolean(profile.bio);
+    const landingBio = profile.landingPage?.aboutText || profile.bio;
+    const hasBio = Boolean(landingBio);
     const hasSchedule = Boolean(schedule && (schedule.alwaysOpen || schedule.days.some((day) => day.isActive)));
     const hasServices = Boolean(catalog && catalog.services.length > 0);
     const hasOffers = Boolean(
@@ -592,6 +633,9 @@ export function AgendaOperatorSite({
     );
 
     const layout = normalizeOperatorSiteLayout(appearance?.layout ?? DEFAULT_OPERATOR_SITE_LAYOUT);
+    const industryGuide = resolveOperatorSiteIndustry(`${businessLabel} ${profile.profession ?? ''}`);
+    const industry = industryGuide.id;
+    const catalogFirst = industry === 'beauty' || industry === 'fitness' || industry === 'education' || industry === 'pets';
     const colorMode = normalizeOperatorSiteColorMode(appearance?.colorMode ?? DEFAULT_OPERATOR_SITE_COLOR_MODE);
     const isStudio = layout === 'studio';
     const isPortfolio = layout === 'portfolio';
@@ -668,6 +712,7 @@ export function AgendaOperatorSite({
     const servicesBlock = catalog ? (
         <ServicesSection
             layout={layout}
+            industryGuide={industryGuide}
             catalog={catalog}
             hasServices={hasServices}
             hasOffers={hasOffers}
@@ -701,6 +746,7 @@ export function AgendaOperatorSite({
         <OperatorSiteThemeShell
             slug={profile.slug}
             layout={layout}
+            industry={industry}
             defaultColorMode={colorMode}
             accentColor={accentChoice}
             accentFallback={AGENDA_SITE_ACCENT}
@@ -732,12 +778,17 @@ export function AgendaOperatorSite({
             ) : null}
 
             <main className="os-main">
-                {hasBio && !isStudio ? (
+                {!catalogFirst && hasBio && !isStudio ? (
                     <OperatorSiteAboutSection
-                        bio={profile.bio!}
+                        bio={landingBio!}
+                        title={profile.landingPage?.aboutTitle}
                         variant={isPortfolio ? 'editorial' : 'standard'}
                         revealVariant={isPortfolio ? 'fade-left' : 'fade-up'}
                     />
+                ) : null}
+
+                {!catalogFirst && profile.landingPage?.highlights?.length ? (
+                    <LandingHighlightsSection title={profile.landingPage.highlightsTitle} items={profile.landingPage.highlights} />
                 ) : null}
 
                 {useContentLayout ? (
@@ -753,6 +804,19 @@ export function AgendaOperatorSite({
                         ) : null}
 
                         <div className="os-content-layout__rest">
+                            {catalogFirst && hasBio ? (
+                                <OperatorSiteAboutSection
+                                    bio={landingBio!}
+                                    title={profile.landingPage?.aboutTitle}
+                                    variant={isPortfolio ? 'editorial' : 'standard'}
+                                    revealVariant={isPortfolio ? 'fade-left' : 'fade-up'}
+                                />
+                            ) : null}
+
+                            {catalogFirst && profile.landingPage?.highlights?.length ? (
+                                <LandingHighlightsSection title={profile.landingPage.highlightsTitle} items={profile.landingPage.highlights} />
+                            ) : null}
+
                             {isPortfolio && hasSchedule && schedule ? (
                                 <OperatorSiteReveal delayMs={60}>
                                     <OperatorSiteScheduleSection schedule={schedule} />
@@ -774,9 +838,13 @@ export function AgendaOperatorSite({
                 ) : (
                     <>
                         {servicesBlock}
+                        {catalogFirst && profile.landingPage?.highlights?.length ? (
+                            <LandingHighlightsSection title={profile.landingPage.highlightsTitle} items={profile.landingPage.highlights} />
+                        ) : null}
                         <OperatorSiteStudioBento
                             profile={profile}
-                            bio={profile.bio}
+                            bio={landingBio}
+                            aboutTitle={profile.landingPage?.aboutTitle}
                             schedule={schedule ?? null}
                             socialLinks={socialLinks}
                             hasLocation={hasLocation}

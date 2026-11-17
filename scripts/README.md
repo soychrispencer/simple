@@ -9,6 +9,7 @@ Scripts de mantenimiento y soporte para desarrollo local y deploy.
 - `free-dev-ports.mjs` — Liberar puertos de desarrollo
 - `wait-for-api.mjs` — Esperar a que el API esté listo
 - `coolify-deploy.mjs` — Deploy a Coolify
+- `coolify-tunnel.ps1` — Abrir túnel SSH restringido al panel de Coolify; exige llave instalada y host verificado
 - `coolify-env-audit.mjs` — Auditar env vars de Coolify
 - `coolify-env-set.mjs` — Configurar env vars en Coolify
 

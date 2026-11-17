@@ -284,7 +284,7 @@ export async function publishInstagramCarousel(input: {
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Imagen no accesible para Instagram.';
             igLogger.error(`item carrusel ${index + 1} no accesible`, error);
-            if (index < 2) throw new Error(message);
+            if (index < 2) throw new Error(message, { cause: error });
             continue;
         }
 

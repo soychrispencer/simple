@@ -5,6 +5,7 @@ export type ListingSeedSyncInput = {
     vertical: BoostListingRecord['vertical'];
     section: BoostListingRecord['section'];
     ownerId: string;
+    accountId?: string | null;
     href: string;
     title: string;
     price: string;
@@ -29,6 +30,7 @@ export function createBoostListingSeedSync(deps: {
             existing.price = listing.price;
             existing.location = listing.location || existing.location;
             existing.section = listing.section;
+            existing.accountId = listing.accountId ?? null;
             existing.href = listing.href;
             existing.imageUrl = imageUrls[0] || existing.imageUrl;
             existing.imageUrls = imageUrls;
@@ -41,6 +43,7 @@ export function createBoostListingSeedSync(deps: {
             vertical: listing.vertical,
             section: listing.section,
             ownerId: listing.ownerId,
+            accountId: listing.accountId ?? null,
             href: listing.href,
             title: listing.title,
             subtitle,

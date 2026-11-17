@@ -1,4 +1,4 @@
-import { and, desc, eq, or } from 'drizzle-orm';
+import { and, desc, eq, isNull, or } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { listings } from '../../db/schema.js';
 import type { PublicListingSearchQuery } from '../public/listing-search.js';
@@ -20,11 +20,23 @@ export async function fetchListingRowById(listingId: string) {
 export async function fetchListingRowsForPanel(input: {
     vertical: string;
     ownerId: string;
+    accountId?: string | null;
+    /** Permite mostrar publicaciones legacy solo dentro de la cuenta personal del titular. */
+    includeLegacyPersonalListings?: boolean;
     includeAllInVertical: boolean;
 }) {
     const conditions = [eq(listings.vertical, input.vertical)];
     if (!input.includeAllInVertical) {
-        conditions.push(eq(listings.ownerId, input.ownerId));
+        if (input.accountId) {
+            conditions.push(input.includeLegacyPersonalListings
+                ? or(
+                    eq(listings.accountId, input.accountId),
+                    and(eq(listings.ownerId, input.ownerId), isNull(listings.accountId)),
+                )!
+                : eq(listings.accountId, input.accountId));
+        } else {
+            conditions.push(and(eq(listings.ownerId, input.ownerId), isNull(listings.accountId))!);
+        }
     }
     return db
         .select()

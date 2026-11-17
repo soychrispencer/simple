@@ -23,6 +23,9 @@ export function isMercadoPagoOperatorOAuthConfigured(): boolean {
 }
 
 export function getMercadoPagoOperatorOAuthCallbackUrl(): string {
+    const configuredRedirectUri = asString(process.env.MP_OPERATOR_REDIRECT_URI);
+    if (configuredRedirectUri) return configuredRedirectUri;
+
     const apiBase = asString(process.env.API_BASE_URL) || 'http://localhost:4000';
     return `${apiBase.replace(/\/$/, '')}/api/integrations/mercadopago/callback`;
 }
@@ -45,9 +48,13 @@ export function buildMercadoPagoOperatorAuthorizationUrl(state: string): string 
     if (!appId) {
         throw new Error('MercadoPago OAuth no está configurado.');
     }
-    const redirectUri = encodeURIComponent(getMercadoPagoOperatorOAuthCallbackUrl());
-    const encodedState = encodeURIComponent(state);
-    return `https://auth.mercadopago.cl/authorization?client_id=${appId}&response_type=code&platform_id=mp&state=${encodedState}&redirect_uri=${redirectUri}`;
+    const authorizationUrl = new URL('https://auth.mercadopago.cl/authorization');
+    authorizationUrl.searchParams.set('client_id', appId);
+    authorizationUrl.searchParams.set('response_type', 'code');
+    authorizationUrl.searchParams.set('platform_id', 'mp');
+    authorizationUrl.searchParams.set('state', state);
+    authorizationUrl.searchParams.set('redirect_uri', getMercadoPagoOperatorOAuthCallbackUrl());
+    return authorizationUrl.toString();
 }
 
 export async function exchangeMercadoPagoOperatorOAuthCode(code: string): Promise<MercadoPagoOperatorTokens> {
@@ -72,7 +79,15 @@ export async function exchangeMercadoPagoOperatorOAuthCode(code: string): Promis
     });
 
     if (!response.ok) {
-        throw new Error('No pudimos autorizar tu cuenta de MercadoPago.');
+        const providerError = await response.json().catch(() => null) as { error?: unknown } | null;
+        const providerCode = asString(providerError?.error);
+        const safeProviderCode = /^[a-z0-9_.-]{1,64}$/i.test(providerCode) ? providerCode : null;
+        const diagnostic = safeProviderCode
+            ? `${safeProviderCode}, HTTP ${response.status}`
+            : `HTTP ${response.status}`;
+        throw new Error(
+            `No pudimos autorizar tu cuenta de Mercado Pago (${diagnostic}). Verifica que la aplicación OAuth y el callback registrado coincidan con la configuración de Simple.`,
+        );
     }
 
     const tokens = await response.json() as {

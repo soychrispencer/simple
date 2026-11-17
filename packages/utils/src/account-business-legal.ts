@@ -4,6 +4,7 @@ export type AccountBusinessLegal = {
     businessLegalName: string | null;
     businessTaxId: string | null;
     billingAddressId: string | null;
+    isPersonal: boolean;
 };
 
 export async function fetchAccountBusinessLegal(): Promise<AccountBusinessLegal | null> {
@@ -17,6 +18,7 @@ export async function fetchAccountBusinessLegal(): Promise<AccountBusinessLegal 
         businessLegalName: data.account.businessLegalName ?? null,
         businessTaxId: data.account.businessTaxId ?? null,
         billingAddressId: data.account.billingAddressId ?? null,
+        isPersonal: Boolean(data.account.isPersonal),
     };
 }
 
@@ -40,6 +42,7 @@ export async function updateAccountBusinessLegal(input: {
             businessLegalName: data.account.businessLegalName ?? null,
             businessTaxId: data.account.businessTaxId ?? null,
             billingAddressId: data.account.billingAddressId ?? null,
+            isPersonal: Boolean(data.account.isPersonal),
         },
     };
 }
@@ -65,6 +68,7 @@ export async function updateAccountBillingAddress(billingAddressId: string | nul
             businessLegalName: data.account.businessLegalName ?? null,
             businessTaxId: data.account.businessTaxId ?? null,
             billingAddressId: data.account.billingAddressId ?? null,
+            isPersonal: Boolean(data.account.isPersonal),
         },
     };
 }
@@ -74,15 +78,23 @@ export async function updateAccountBusinessBilling(input: {
     businessTaxId: string;
     billingAddressId: string | null;
 }): Promise<{ ok: boolean; error?: string; account?: AccountBusinessLegal }> {
-    const legal = await updateAccountBusinessLegal({
-        businessLegalName: input.businessLegalName,
-        businessTaxId: input.businessTaxId,
+    const response = await fetch(`${API_BASE}/api/accounts/current/business-billing`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
     });
-    if (!legal.ok) return legal;
-    const billing = await updateAccountBillingAddress(input.billingAddressId);
-    if (!billing.ok) return billing;
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.ok) {
+        return { ok: false, error: data?.error ?? 'No pudimos guardar los datos de facturación.' };
+    }
     return {
         ok: true,
-        account: billing.account ?? legal.account,
+        account: {
+            businessLegalName: data.account.businessLegalName ?? null,
+            businessTaxId: data.account.businessTaxId ?? null,
+            billingAddressId: data.account.billingAddressId ?? null,
+            isPersonal: Boolean(data.account.isPersonal),
+        },
     };
 }

@@ -2,6 +2,7 @@ import type { BoostSection } from './types.js';
 
 export type ListFeaturedBoostedDeps = {
     getAllBoostOrdersNormalized: () => Array<{
+        accountId?: string | null;
         vertical: string;
         section: BoostSection;
         status: string;
@@ -19,17 +20,22 @@ export type ListFeaturedBoostedDeps = {
         targetId: string,
     ) => Promise<{
         id: string;
+        ownerId: string;
         href: string;
         title: string;
         subtitle: string;
         price: string;
         location: string;
+        publicEmail?: string | null;
+        publicPhone?: string | null;
+        publicWhatsapp?: string | null;
         imageUrl?: string;
         imageUrls?: string[];
         section: BoostSection;
         targetType?: string;
+        accountId?: string | null;
     } | null>;
-    getUserById: (id: string) => Promise<{ id: string } | null>;
+    getUserById: (id: string) => Promise<{ id: string; name?: string | null } | null>;
     listingsById: Map<string, { id: string; rawData?: unknown; locationData?: unknown; location?: string; vertical?: string; section?: string }>;
     extractListingMediaUrls: (record: { rawData?: unknown }) => string[];
     extractListingSummary?: (record: { id: string; rawData?: unknown; vertical?: string; section?: string }) => string[];
@@ -40,26 +46,55 @@ export type ListFeaturedBoostedDeps = {
     };
     buildLocationPublicLabel: (locationData: unknown) => string;
     humanizePublicLocationFallback: (location: string) => string;
-    sanitizeUser: (user: { id: string }) => unknown;
-    usersById: Map<string, { id: string }>;
     toPublicMediaUrl: (value: unknown) => string;
     getPublishedSellerProfile: (
         userId: string,
         vertical: string,
-    ) => { avatarImageUrl?: string | null } | null;
+        accountId?: string | null,
+    ) => {
+        displayName?: string | null;
+        slug?: string | null;
+        publicEmail?: string | null;
+        publicPhone?: string | null;
+        publicWhatsapp?: string | null;
+        avatarImageUrl?: string | null;
+    } | null;
 };
 
 export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
-    function resolveOwnerAvatar(owner: { id: string; avatar?: string }, vertical: string): string | undefined {
-        const profile = deps.getPublishedSellerProfile(owner.id, vertical);
+    function resolveOwnerAvatar(
+        vertical: string,
+        accountId?: string | null,
+        ownerId?: string,
+    ): string | undefined {
+        if (!ownerId) return undefined;
+        const profile = deps.getPublishedSellerProfile(ownerId, vertical, accountId);
         // Solo logo del negocio/perfil público; sin fallback a avatar personal.
         return deps.toPublicMediaUrl(profile?.avatarImageUrl) || undefined;
     }
 
-    function buildOwnerPayload(owner: { id: string; avatar?: string }, vertical: string) {
-        const sanitized = deps.sanitizeUser(owner) as { avatar?: string } & Record<string, unknown>;
-        const avatar = resolveOwnerAvatar(owner, vertical);
-        return { ...sanitized, avatar };
+    function buildOwnerPayload(
+        owner: { id: string; name?: string | null },
+        target: { targetType?: string; title: string; href: string; publicEmail?: string | null; publicPhone?: string | null; publicWhatsapp?: string | null },
+        vertical: string,
+        accountId?: string | null,
+    ) {
+        const profile = deps.getPublishedSellerProfile(owner.id, vertical, accountId);
+        const contactEmail = target.publicEmail?.trim() || profile?.publicEmail?.trim() || undefined;
+        const contactPhone = target.publicPhone?.trim()
+            || target.publicWhatsapp?.trim()
+            || profile?.publicPhone?.trim()
+            || profile?.publicWhatsapp?.trim()
+            || undefined;
+        return {
+            id: owner.id,
+            name: profile?.displayName?.trim() || (target.targetType === 'serenata_group' ? target.title : owner.name?.trim()) || target.title,
+            username: profile?.slug ?? undefined,
+            profileHref: profile?.slug ? `/perfil/${profile.slug}` : undefined,
+            email: contactEmail,
+            phone: contactPhone,
+            avatar: resolveOwnerAvatar(vertical, accountId, owner.id),
+        };
     }
 
     return async function listFeaturedBoosted(
@@ -79,7 +114,7 @@ export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
                     const targetId = order.targetId ?? order.listingId;
                     const target = await deps.getBoostTargetById(order.vertical, targetType, targetId);
                     if (!target) return null;
-                    const owner = await deps.getUserById(order.userId);
+                    const owner = await deps.getUserById(target.ownerId);
                     const sourceListing = targetType === 'listing' ? deps.listingsById.get(target.id) : null;
                     const listingImageUrls = sourceListing
                         ? deps.extractListingMediaUrls(sourceListing)
@@ -122,7 +157,14 @@ export function createListFeaturedBoosted(deps: ListFeaturedBoostedDeps) {
                         boosted: true,
                         planName: order.planName,
                         boostEndsAt: order.endAt,
-                        owner: owner ? buildOwnerPayload(owner as { id: string; avatar?: string }, order.vertical) : null,
+                        owner: owner
+                            ? buildOwnerPayload(
+                                owner,
+                                target,
+                                order.vertical,
+                                target.accountId ?? order.accountId ?? null,
+                            )
+                            : null,
                     };
                 }),
             )

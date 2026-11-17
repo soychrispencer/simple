@@ -74,7 +74,7 @@ export const PLAN_OPTIONS: Record<AdminVertical, Array<{ value: string; label: s
 export const SERENATAS_PROFILE_OPTIONS: Array<{ value: SerenatasProfile; label: string }> = [
     { value: 'client', label: 'Cliente' },
     { value: 'musician', label: 'Músico' },
-    { value: 'owner', label: 'Dueño' },
+    { value: 'owner', label: 'Proveedor' },
 ];
 
 export function formatDateTime(value: number | null): string {
@@ -119,6 +119,15 @@ export function statusTone(status: AdminUserStatus): 'success' | 'warning' | 'da
 }
 
 export function getSubscriptionSummary(user: AdminUserSnapshot, vertical: AdminVertical): string {
+    if (vertical === 'serenatas') {
+        const provider = user.subscriptions?.serenatasProvider ?? user.subscriptions?.serenatas;
+        const musician = user.subscriptions?.serenatasMusician;
+        const summary = (label: string, item: typeof provider) => item
+            ? `${label}: ${item.planId || 'free'} · ${item.status}`
+            : null;
+        const profiles = [summary('Proveedor', provider), summary('Músico', musician)].filter(Boolean);
+        return profiles.length ? profiles.join(' | ') : 'Sin plan';
+    }
     const item = user.subscriptions?.[vertical];
     if (!item) return 'Sin plan';
     const plan = vertical === 'agenda' && 'plan' in item ? item.plan : 'planId' in item ? item.planId : null;

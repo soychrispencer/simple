@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { StorageProvider, StorageUploadInput, StorageUploadResult } from '@simple/config';
 import { readUploadBuffer } from './file-buffer.js';
+import { createPrivateMediaUrl } from '../modules/listings/media-delivery.js';
 
 const DEFAULT_UPLOAD_DIR = path.resolve(process.cwd(), 'uploads');
 const DEFAULT_BASE_URL = process.env.LOCAL_STORAGE_URL?.replace(/\/+$/, '') || 'http://localhost:4000/uploads';
@@ -33,7 +34,9 @@ export class LocalStorageProvider implements StorageProvider {
         const now = Date.now();
         const userId = sanitizePathSegment(input.userId);
         const listingId = input.listingId ? sanitizePathSegment(input.listingId) : 'temp';
-        const folder = path.join(this.uploadDir, userId, listingId);
+        const privateUploadDir = path.resolve(process.cwd(), 'private-uploads');
+        const uploadRoot = input.isPrivate ? privateUploadDir : this.uploadDir;
+        const folder = path.join(uploadRoot, userId, listingId);
         await fs.mkdir(folder, { recursive: true });
 
         const fileName = `${now}-${sanitizeFileName(input.fileName || 'file')}`;
@@ -43,11 +46,13 @@ export class LocalStorageProvider implements StorageProvider {
 
         await fs.writeFile(storagePath, buffer);
 
-        const relativePath = path.relative(this.uploadDir, storagePath).split(path.sep).join('/');
-        const fileUrl = `${this.baseUrl}/${relativePath}`;
+        const relativePath = path.relative(uploadRoot, storagePath).split(path.sep).join('/');
+        const fileUrl = input.isPrivate
+            ? createPrivateMediaUrl('local', relativePath)
+            : `${this.baseUrl}/${relativePath}`;
 
         return {
-            fileId: relativePath,
+            fileId: input.isPrivate ? `__private_local__/${relativePath}` : relativePath,
             url: fileUrl,
             publicUrl: fileUrl,
             fileName: input.fileName,
@@ -58,7 +63,12 @@ export class LocalStorageProvider implements StorageProvider {
     }
 
     async delete(fileId: string): Promise<void> {
-        const fullPath = path.join(this.uploadDir, fileId);
+        const isPrivateLocal = fileId.startsWith('__private_local__/');
+        if (fileId.startsWith('__private_r2__/')) return;
+        const uploadRoot = isPrivateLocal ? path.resolve(process.cwd(), 'private-uploads') : this.uploadDir;
+        const relativePath = isPrivateLocal ? fileId.slice('__private_local__/'.length) : fileId;
+        const fullPath = path.resolve(uploadRoot, ...relativePath.split(/[\\/]+/));
+        if (!fullPath.startsWith(`${uploadRoot}${path.sep}`)) return;
         await fs.unlink(fullPath).catch(() => undefined);
     }
 

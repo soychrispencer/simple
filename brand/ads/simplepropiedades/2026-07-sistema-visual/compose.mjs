@@ -7,7 +7,7 @@
 import sharp from 'sharp';
 import { Resvg } from '@resvg/resvg-js';
 import { createRequire } from 'node:module';
-import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -201,7 +201,7 @@ async function logoPng(size) {
     return Buffer.from(resvg.render().asPng());
 }
 
-function defsBlock(W, H) {
+function defsBlock(_W, _H) {
     const T = TOKENS;
     return `
       <defs>

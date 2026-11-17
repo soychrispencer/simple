@@ -356,8 +356,8 @@ export const MARKETPLACE_BUSINESS_CONFIGURACIONES_PAGE = {
 } as const;
 
 export const AGENDA_BUSINESS_PERFIL_PAGE = {
-    title: 'Perfil público',
-    description: 'Datos visibles en tu página y el directorio.',
+    title: 'Perfil y ubicaciones',
+    description: 'Define cómo te presentas y dónde atiendes.',
 } as const;
 
 export const AGENDA_BUSINESS_CONTACTO_PAGE = {
@@ -372,8 +372,8 @@ export const AGENDA_BUSINESS_PAGINA_PAGE = AGENDA_BUSINESS_PERFIL_PAGE;
 export const AGENDA_BUSINESS_DATOS_PAGE = AGENDA_BUSINESS_PERFIL_PAGE;
 
 export const AGENDA_BUSINESS_SERVICIOS_PAGE = {
-    title: 'Mis servicios',
-    description: 'Administra sesiones, packs y promociones. Aquí editas; el perfil se configura en Mi negocio.',
+    title: 'Servicios',
+    description: 'Administra los servicios, packs y promociones que pueden reservar tus clientes.',
 } as const;
 
 export const AGENDA_BUSINESS_HORARIOS_PAGE = {
@@ -403,12 +403,12 @@ export const AGENDA_BUSINESS_PROMOCIONES_PAGE = {
 
 export const AGENDA_BUSINESS_DOMINIO_PAGE = {
     title: 'Dominio personalizado',
-    description: 'Tu dominio para reservas.',
+    description: 'Tu link activo y el estado de los dominios propios.',
 } as const;
 
 export const AGENDA_BUSINESS_APARIENCIA_PAGE = {
-    title: 'Apariencia',
-    description: 'Estilo visual de tu página pública y modo claro/oscuro.',
+    title: 'Tu página pública',
+    description: 'Personaliza la página donde tus clientes reservan.',
 } as const;
 
 export const SERENATAS_BUSINESS_DATOS_PAGE = {

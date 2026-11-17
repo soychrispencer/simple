@@ -6,12 +6,17 @@ import {
     fetchAgendaServices,
     hasAgendaFullAccess,
 } from '@/lib/agenda-api';
-import { resolveAgendaOperatorFields } from '@simple/utils';
+import {
+    fetchAgendaAccountVisitContext,
+    fetchAgendaAccountVisits,
+    resolveAgendaOperatorFields,
+} from '@simple/utils';
 import { buildAgendaVocabFromSubtype } from '@/lib/vocabulary';
 
 export type AgendaBusinessSetupStatus = {
     steps: BusinessSetupStep[];
     billing: PanelBillingAccess;
+    propertyVisitsEnabled: boolean;
     /** Perfil ya público: se puede mostrar el banner “listo para recibir citas”. */
     isPublished: boolean;
     publicUrl: string | null;
@@ -25,6 +30,34 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://simpleagenda.app').
  * Medios de pago quedan fuera del onboarding crítico (se configuran después).
  */
 export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSetupStatus> {
+    const propertyVisitContext = await fetchAgendaAccountVisitContext();
+    if (!propertyVisitContext) {
+        throw new Error('No pudimos comprobar tu espacio de trabajo. Intenta nuevamente.');
+    }
+    if (propertyVisitContext.enabled) {
+        const propertyVisits = await fetchAgendaAccountVisits();
+        if (!propertyVisits) {
+            throw new Error('No pudimos cargar las visitas de este espacio. Intenta nuevamente.');
+        }
+        return {
+            steps: [{
+                id: 'primera_visita',
+                label: 'Coordina tu primera visita',
+                description: 'Agenda una visita o reunión desde la cartera de tu espacio inmobiliario.',
+                href: '/panel/visitas-equipo?nueva=1',
+                complete: Boolean(propertyVisits.visits.some((visit) => visit.status !== 'cancelled')),
+            }],
+            billing: resolvePanelBillingAccess({
+                planId: 'free',
+                subscriptionHref: '/panel/mi-cuenta/suscripcion',
+            }),
+            propertyVisitsEnabled: true,
+            isPublished: false,
+            publicUrl: null,
+            displayName: null,
+        };
+    }
+
     const [profile, services, availability] = await Promise.all([
         fetchAgendaProfile(),
         fetchAgendaServices(),
@@ -57,7 +90,7 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
     const slug = profile?.slug?.trim() || null;
     const publicUrl = slug ? `${APP_URL}/${slug}` : null;
 
-    const steps: BusinessSetupStep[] = [
+    const appointmentSteps: BusinessSetupStep[] = [
         {
             id: 'perfil',
             label: 'Perfil público',
@@ -87,10 +120,10 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
             complete: isPublished,
         },
     ];
-
     return {
-        steps,
+        steps: appointmentSteps,
         billing: billingForSetup,
+        propertyVisitsEnabled: false,
         isPublished,
         publicUrl,
         displayName: profile?.displayName?.trim() || null,

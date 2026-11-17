@@ -8,6 +8,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireSecureCoolifyUrl } from './coolify-url.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -33,7 +34,13 @@ function loadEnvDeploy() {
 
 loadEnvDeploy();
 
-const COOLIFY_URL = process.env.COOLIFY_URL?.replace(/\/$/, '');
+let COOLIFY_URL;
+try {
+  COOLIFY_URL = requireSecureCoolifyUrl(process.env.COOLIFY_URL);
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 const COOLIFY_API_TOKEN = process.env.COOLIFY_API_TOKEN;
 const apply = process.argv.includes('--apply');
 
@@ -53,6 +60,11 @@ const API_PUBLIC = 'https://api.simpleplataforma.app';
 const INSTAGRAM_CALLBACK = `${API_PUBLIC}/api/integrations/instagram/callback`;
 
 const LOCALHOST_PATTERN = /localhost|127\.0\.0\.1/i;
+const BUILD_AND_RUNTIME_KEYS = new Set([
+  'API_INTERNAL_URL',
+  'NEXT_PUBLIC_API_URL',
+  'NEXT_PUBLIC_APP_URL',
+]);
 
 const OBSOLETE_EXACT = new Set([
   'GOOGLE_REDIRECT_URI',
@@ -82,6 +94,7 @@ const EXPECTED = {
       { key: 'RESTO_APP_URL', expected: 'https://simpleresto.app' },
       { key: 'INSTAGRAM_REDIRECT_URI', expected: INSTAGRAM_CALLBACK },
       { key: 'GOOGLE_REDIRECT_URI', expected: null, forbidden: true },
+      { key: 'GOOGLE_AI_API_KEY', expected: '__SET__' },
       { key: 'MERCADO_PAGO_WEBHOOK_SECRET', expected: '__SET__' },
     ],
     rejectLocalhost: [
@@ -100,6 +113,7 @@ const EXPECTED = {
       { key: 'NEXT_PUBLIC_API_URL', expected: '' },
       { key: 'API_INTERNAL_URL', expected: API_INTERNAL },
       { key: 'NEXT_PUBLIC_APP_URL', expected: 'https://simpleautos.app' },
+      { key: 'GOOGLE_AI_API_KEY', expected: '__SET__' },
     ],
   },
   simplepropiedades: {
@@ -185,6 +199,14 @@ function statusFor(check, envMap) {
   return { ok: true, current: current || '(vacía)', action: null };
 }
 
+function environmentFlagIssue(key, row) {
+  if (!BUILD_AND_RUNTIME_KEYS.has(key) || !row) return null;
+  const missing = [];
+  if (row.is_buildtime !== true && row.is_buildtime !== 'true') missing.push('build');
+  if (row.is_runtime !== true && row.is_runtime !== 'true') missing.push('runtime');
+  return missing.length ? `no está habilitada en ${missing.join(' y ')}` : null;
+}
+
 async function listApps() {
   const res = await fetch(`${COOLIFY_URL}/api/v1/applications`, { headers });
   if (!res.ok) throw new Error(`List apps: ${res.status} ${await res.text()}`);
@@ -219,8 +241,8 @@ async function updateEnv(uuid, key, value, envRow) {
     body: JSON.stringify({
       key,
       value,
-      is_buildtime: envRow?.is_buildtime ?? true,
-      is_runtime: envRow?.is_runtime ?? true,
+      is_buildtime: BUILD_AND_RUNTIME_KEYS.has(key) ? true : envRow?.is_buildtime ?? true,
+      is_runtime: BUILD_AND_RUNTIME_KEYS.has(key) ? true : envRow?.is_runtime ?? true,
       is_literal: envRow?.is_literal ?? false,
     }),
   });
@@ -305,7 +327,8 @@ async function main() {
       const targetValue = check.forbidden ? null : check.expected ?? null;
       let keeper = rows[0];
       if (targetValue !== null) {
-        keeper = rows.find((r) => normalizeValue(r.real_value ?? r.value) === normalizeValue(targetValue)) ?? keeper;
+        const matching = rows.filter((r) => normalizeValue(r.real_value ?? r.value) === normalizeValue(targetValue));
+        keeper = matching.find((r) => !environmentFlagIssue(check.key, r)) ?? matching[0] ?? keeper;
       } else if (check.key === 'NEXT_PUBLIC_API_URL') {
         keeper = rows.find((r) => normalizeValue(r.real_value ?? r.value) === '') ?? keeper;
       }
@@ -322,7 +345,18 @@ async function main() {
     }
 
     for (const check of spec.checks) {
-      let { ok, current, action } = statusFor(check, envMap);
+      const status = statusFor(check, envMap);
+      const current = status.current;
+      let { ok, action } = status;
+      const checkRows = byKey.get(check.key) ?? [];
+      const checkTarget = check.expected === '__SET__' ? current : normalizeValue(check.expected ?? '');
+      const selectedRow = checkRows.find((row) => normalizeValue(row.real_value ?? row.value) === checkTarget)
+        ?? checkRows[0];
+      const flagIssue = environmentFlagIssue(check.key, selectedRow);
+      if (flagIssue) {
+        ok = false;
+        action = action ?? 'update';
+      }
       const localhostAction = localhostIssueFor(spec, check.key, current);
       if (localhostAction) {
         ok = false;
@@ -346,6 +380,9 @@ async function main() {
       if (localhostAction) {
         console.log('       motivo: valor contiene localhost');
       }
+      if (flagIssue) {
+        console.log(`       motivo: ${flagIssue}`);
+      }
 
       if (!apply || action === 'warn') {
         if (action === 'warn') console.log('       acción: agregar manualmente en Coolify (secreto)');
@@ -365,7 +402,8 @@ async function main() {
         appChanged = true;
       } else if (action === 'update') {
         const rows = byKey.get(check.key) ?? [];
-        const row = rows[0];
+        const row = rows.find((item) => normalizeValue(item.real_value ?? item.value) === normalizeValue(check.expected ?? ''))
+          ?? rows[0];
         if (row) {
           await updateEnv(app.uuid, check.key, check.expected ?? '', row);
         } else {

@@ -7,6 +7,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireSecureCoolifyUrl } from './coolify-url.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -37,7 +38,13 @@ const deploy = process.argv.includes('--deploy');
 const [appName, envKey] = args;
 const value = process.env.COOLIFY_SET_VALUE ?? '';
 
-const COOLIFY_URL = process.env.COOLIFY_URL?.replace(/\/$/, '');
+let COOLIFY_URL;
+try {
+  COOLIFY_URL = requireSecureCoolifyUrl(process.env.COOLIFY_URL);
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 const COOLIFY_API_TOKEN = process.env.COOLIFY_API_TOKEN;
 
 if (!COOLIFY_URL || !COOLIFY_API_TOKEN) {

@@ -12,17 +12,18 @@ import {
 } from '@/components/panel/panel-nav-config';
 import { sectionFromPanelPath } from '@/lib/panel-routes';
 import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
+import { SerenataRoleSwitcher } from '@/components/panel/serenata-role-switcher';
 
 const STORAGE_COLLAPSED = 'simpleserenatas:panel:collapsed';
 
 export function PanelShell({ children }: { children: ReactNode }) {
     const pathname = usePathname() ?? '';
-    const { user, accountUser, mode, profiles, solicitudesPendingCount } = useSerenata();
+    const { user, accountUser, mode, activeRole, profiles, solicitudesPendingCount } = useSerenata();
     const section = sectionFromPanelPath(pathname);
 
     const navItems = useMemo(
         () =>
-            getPanelNavItems(mode, profiles).map(({ href, label, icon, badge, id }) => ({
+            getPanelNavItems(mode, profiles, activeRole).map(({ href, label, icon, badge, id }) => ({
                 href,
                 label,
                 icon,
@@ -30,7 +31,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
                     ? String(solicitudesPendingCount)
                     : badge,
             })),
-        [mode, profiles, solicitudesPendingCount],
+        [activeRole, mode, profiles, solicitudesPendingCount],
     );
 
     const activeHref = useMemo(
@@ -39,7 +40,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
     );
 
     const userName = accountUser?.name?.trim() || user?.name?.trim() || 'Usuario';
-    const accountTypeLabel = useMemo(() => panelAccountTypeLabel(profiles), [profiles]);
+    const accountTypeLabel = useMemo(() => panelAccountTypeLabel(profiles, activeRole), [activeRole, profiles]);
 
     return (
         <SharedPanelShell
@@ -55,7 +56,10 @@ export function PanelShell({ children }: { children: ReactNode }) {
             isVerified={user?.status === 'verified'}
             activeHref={activeHref}
         >
-            {children}
+            <>
+                <SerenataRoleSwitcher />
+                {children}
+            </>
         </SharedPanelShell>
     );
 }

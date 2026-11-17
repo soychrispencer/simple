@@ -7,7 +7,7 @@ import type {
     AppUser,
 } from '../../lib/domain-types.js';
 import { db } from '../../db/index.js';
-import { accounts, accountUsers } from '../../db/schema.js';
+import { accounts, accountUsers, users } from '../../db/schema.js';
 
 export type AccountCacheMaps = {
     accountsById: Map<string, AccountRecord>;
@@ -72,23 +72,62 @@ export function createAccountCache(maps: AccountCacheMaps) {
         return [...(accountUsersByUserId.get(userId) ?? [])];
     }
 
+    function setDefaultAccountForUser(userId: string, accountId: string): void {
+        const memberships = accountUsersByUserId.get(userId) ?? [];
+        accountUsersByUserId.set(userId, memberships.map((membership) => ({
+            ...membership,
+            isDefault: membership.accountId === accountId,
+        })));
+        defaultAccountIdByUserId.set(userId, accountId);
+        const existingUser = usersById.get(userId);
+        if (existingUser) {
+            usersById.set(userId, { ...existingUser, primaryAccountId: accountId });
+        }
+    }
+
+    function removeAccountUserCache(userId: string, membershipId: string): void {
+        const current = accountUsersByUserId.get(userId) ?? [];
+        const removed = current.find((item) => item.id === membershipId);
+        const remaining = current.filter((item) => item.id !== membershipId);
+        accountUsersByUserId.set(userId, remaining);
+        if (removed?.isDefault) {
+            const nextDefault = remaining.find((item) => item.isDefault) ?? remaining[0] ?? null;
+            if (nextDefault) setDefaultAccountForUser(userId, nextDefault.accountId);
+            else {
+                defaultAccountIdByUserId.delete(userId);
+                const existingUser = usersById.get(userId);
+                if (existingUser) usersById.set(userId, { ...existingUser, primaryAccountId: null });
+            }
+        }
+    }
+
     function getPrimaryAccountIdForUserSync(userId: string): string | null {
         return defaultAccountIdByUserId.get(userId) ?? null;
     }
 
     async function getPrimaryAccountIdForUser(userId: string): Promise<string | null> {
-        const cached = getPrimaryAccountIdForUserSync(userId);
-        if (cached) return cached;
-
         const membershipRows = await db
             .select()
             .from(accountUsers)
             .where(eq(accountUsers.userId, userId))
             .orderBy(desc(accountUsers.isDefault), asc(accountUsers.createdAt))
-            .limit(1);
+        const memberships = membershipRows.map(mapAccountUserRow);
+        accountUsersByUserId.set(userId, memberships);
 
-        const membership = membershipRows[0] ? upsertAccountUserCache(mapAccountUserRow(membershipRows[0])) : null;
-        return membership?.accountId ?? null;
+        const defaultMembership = memberships.find((membership) => membership.isDefault) ?? null;
+        if (defaultMembership) {
+            defaultAccountIdByUserId.set(userId, defaultMembership.accountId);
+        } else {
+            defaultAccountIdByUserId.delete(userId);
+        }
+        const existingUser = usersById.get(userId);
+        if (existingUser) {
+            usersById.set(userId, {
+                ...existingUser,
+                primaryAccountId: defaultMembership?.accountId ?? null,
+            });
+        }
+        return defaultMembership?.accountId ?? null;
     }
 
     function buildPersonalAccountName(user: Pick<AppUser, 'name' | 'email'>): string {
@@ -107,27 +146,60 @@ export function createAccountCache(maps: AccountCacheMaps) {
             }
         }
 
-        const now = new Date();
-        const [accountRow] = await db.insert(accounts).values({
-            name: buildPersonalAccountName(user),
-            type: accountType,
-            ownerUserId: user.id,
-            isPersonal: true,
-            createdAt: now,
-            updatedAt: now,
-        }).returning();
-        const account = upsertAccountCache(mapAccountRow(accountRow));
+        const ensured = await db.transaction(async (tx) => {
+            await tx.select({ id: users.id })
+                .from(users)
+                .where(eq(users.id, user.id))
+                .for('update');
 
-        const [membershipRow] = await db.insert(accountUsers).values({
-            accountId: account.id,
-            userId: user.id,
-            role: 'owner',
-            isDefault: true,
-            createdAt: now,
-            updatedAt: now,
-        }).returning();
-        upsertAccountUserCache(mapAccountUserRow(membershipRow));
+            // Another request may have created or selected an account while we waited for the lock.
+            const membershipRows = await tx.select()
+                .from(accountUsers)
+                .where(eq(accountUsers.userId, user.id))
+                .orderBy(desc(accountUsers.isDefault), asc(accountUsers.createdAt))
+                .limit(1);
+            if (membershipRows[0]) {
+                let membershipRow = membershipRows[0];
+                if (!membershipRow.isDefault) {
+                    const now = new Date();
+                    await tx.update(accountUsers)
+                        .set({ isDefault: false, updatedAt: now })
+                        .where(eq(accountUsers.userId, user.id));
+                    const [selected] = await tx.update(accountUsers)
+                        .set({ isDefault: true, updatedAt: now })
+                        .where(eq(accountUsers.id, membershipRow.id))
+                        .returning();
+                    membershipRow = selected;
+                }
+                const accountRows = await tx.select()
+                    .from(accounts)
+                    .where(eq(accounts.id, membershipRow.accountId))
+                    .limit(1);
+                if (accountRows[0]) return { accountRow: accountRows[0], membershipRow };
+            }
 
+            const now = new Date();
+            const [accountRow] = await tx.insert(accounts).values({
+                name: buildPersonalAccountName(user),
+                type: accountType,
+                ownerUserId: user.id,
+                isPersonal: true,
+                createdAt: now,
+                updatedAt: now,
+            }).returning();
+            const [membershipRow] = await tx.insert(accountUsers).values({
+                accountId: accountRow.id,
+                userId: user.id,
+                role: 'owner',
+                isDefault: true,
+                createdAt: now,
+                updatedAt: now,
+            }).returning();
+            return { accountRow, membershipRow };
+        });
+
+        const account = upsertAccountCache(mapAccountRow(ensured.accountRow));
+        upsertAccountUserCache(mapAccountUserRow(ensured.membershipRow));
         return account;
     }
 
@@ -137,6 +209,8 @@ export function createAccountCache(maps: AccountCacheMaps) {
         upsertAccountCache,
         upsertAccountUserCache,
         getAccountMembershipsForUser,
+        setDefaultAccountForUser,
+        removeAccountUserCache,
         getPrimaryAccountIdForUserSync,
         getPrimaryAccountIdForUser,
         buildPersonalAccountName,

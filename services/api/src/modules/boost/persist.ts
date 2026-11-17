@@ -47,9 +47,11 @@ export function upsertBoostOrderInCache(order: BoostOrder): void {
 export async function insertBoostOrderRow(
     order: BoostOrder,
     accountId?: string | null,
+    query: any = db,
+    updateCache = true,
 ): Promise<void> {
     const now = new Date();
-    await db.insert(boostOrders).values({
+    await query.insert(boostOrders).values({
         id: order.id,
         accountId: accountId ?? null,
         userId: order.userId,
@@ -67,7 +69,7 @@ export async function insertBoostOrderRow(
         createdAt: new Date(order.createdAt || now.getTime()),
         updatedAt: new Date(order.updatedAt || now.getTime()),
     });
-    upsertBoostOrderInCache(order);
+    if (updateCache) upsertBoostOrderInCache(order);
 }
 
 export async function updateBoostOrderRow(order: BoostOrder): Promise<void> {

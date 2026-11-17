@@ -1,17 +1,19 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { VerticalType } from '@simple/types';
 import { db } from '../../db/index.js';
 import { tiktokAccounts } from '../../db/schema.js';
 import type { TikTokAccountRecord, TikTokAccountStatus } from '../../lib/domain-types.js';
 import { asString } from '../shared/index.js';
-import { integrationAccountKey } from '../integrations/oauth-cookie.js';
+import { integrationAccountKey, integrationWorkspaceKey } from '../integrations/oauth-cookie.js';
+import { lockSocialIntegrationWriteAccess, requireSocialIntegrationAccountId } from '../integrations/social-write-access.js';
 
 export type TikTokAccountStoreMaps = {
     tiktokAccountByUserVertical: Map<string, TikTokAccountRecord>;
 };
 
 export type TikTokAccountStoreDeps = TikTokAccountStoreMaps & {
-    getPrimaryAccountIdForUser: (userId: string) => Promise<string>;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
+    getPersonalAccountIdForUser: (userId: string) => string | null;
 };
 
 export function mapTikTokAccountRow(row: typeof tiktokAccounts.$inferSelect): TikTokAccountRecord {
@@ -38,8 +40,26 @@ export function mapTikTokAccountRow(row: typeof tiktokAccounts.$inferSelect): Ti
 }
 
 export function createTikTokAccountStore(deps: TikTokAccountStoreDeps) {
-    function getTikTokAccount(userId: string, vertical: VerticalType): TikTokAccountRecord | null {
-        return deps.tiktokAccountByUserVertical.get(integrationAccountKey(userId, vertical)) ?? null;
+    function getTikTokAccount(userId: string, vertical: VerticalType, accountId?: string | null): TikTokAccountRecord | null {
+        const legacyRecord = deps.tiktokAccountByUserVertical.get(integrationAccountKey(userId, vertical));
+        if (accountId === undefined) return legacyRecord?.accountId == null ? legacyRecord ?? null : null;
+
+        const personalAccountId = deps.getPersonalAccountIdForUser(userId);
+        const scopedAccountId = accountId ?? personalAccountId;
+        if (!scopedAccountId) return null;
+        const workspaceRecord = deps.tiktokAccountByUserVertical.get(integrationWorkspaceKey(scopedAccountId, vertical));
+        if (workspaceRecord) return workspaceRecord;
+        if (legacyRecord?.accountId === scopedAccountId) return legacyRecord;
+        if (scopedAccountId === personalAccountId && legacyRecord?.accountId == null) return legacyRecord ?? null;
+        return null;
+    }
+
+    function cacheTikTokAccount(account: TikTokAccountRecord): void {
+        if (account.accountId) {
+            deps.tiktokAccountByUserVertical.set(integrationWorkspaceKey(account.accountId, account.vertical), account);
+        } else {
+            deps.tiktokAccountByUserVertical.set(integrationAccountKey(account.userId, account.vertical), account);
+        }
     }
 
     function tiktokAccountToResponse(account: TikTokAccountRecord | null) {
@@ -73,55 +93,64 @@ export function createTikTokAccountStore(deps: TikTokAccountStoreDeps) {
         tokenExpiresAt: number | null;
         scopes: string[];
         status?: TikTokAccountStatus;
+        accountId?: string | null;
         lastSyncedAt?: number | null;
         lastPublishedAt?: number | null;
         lastError?: string | null;
     }): Promise<TikTokAccountRecord> {
-        const existing = getTikTokAccount(input.userId, input.vertical);
+        const accountId = requireSocialIntegrationAccountId(
+            input.accountId === undefined
+                ? await deps.getPrimaryAccountIdForUser(input.userId)
+                : input.accountId ?? deps.getPersonalAccountIdForUser(input.userId),
+        );
         const now = new Date();
-        const accountId = await deps.getPrimaryAccountIdForUser(input.userId);
+        const mapped = await db.transaction(async (tx: any) => {
+            await lockSocialIntegrationWriteAccess(tx, { userId: input.userId, accountId });
+            const [existing] = await tx.select().from(tiktokAccounts).where(and(
+                eq(tiktokAccounts.accountId, accountId),
+                eq(tiktokAccounts.vertical, input.vertical),
+            )).limit(1).for('update');
 
-        if (existing) {
-            const [row] = await db.update(tiktokAccounts).set({
+            if (existing) {
+                const [row] = await tx.update(tiktokAccounts).set({
+                    openId: input.openId,
+                    username: input.username,
+                    displayName: input.displayName,
+                    avatarUrl: input.avatarUrl,
+                    accessToken: input.accessToken,
+                    refreshToken: input.refreshToken ?? existing.refreshToken,
+                    tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
+                    scopes: input.scopes,
+                    status: input.status ?? 'connected',
+                    lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
+                    lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : existing.lastPublishedAt ? new Date(existing.lastPublishedAt) : null,
+                    lastError: input.lastError ?? null,
+                    updatedAt: now,
+                }).where(eq(tiktokAccounts.id, existing.id)).returning();
+                return mapTikTokAccountRow(row);
+            }
+
+            const [row] = await tx.insert(tiktokAccounts).values({
+                accountId,
+                userId: input.userId,
+                vertical: input.vertical,
                 openId: input.openId,
                 username: input.username,
                 displayName: input.displayName,
                 avatarUrl: input.avatarUrl,
                 accessToken: input.accessToken,
-                refreshToken: input.refreshToken ?? existing.refreshToken,
+                refreshToken: input.refreshToken,
                 tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
                 scopes: input.scopes,
                 status: input.status ?? 'connected',
                 lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
-                lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : existing.lastPublishedAt ? new Date(existing.lastPublishedAt) : null,
+                lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : null,
                 lastError: input.lastError ?? null,
-                updatedAt: now,
-            }).where(eq(tiktokAccounts.id, existing.id)).returning();
-            const mapped = mapTikTokAccountRow(row);
-            deps.tiktokAccountByUserVertical.set(integrationAccountKey(mapped.userId, mapped.vertical), mapped);
-            return mapped;
-        }
+            }).returning();
+            return mapTikTokAccountRow(row);
+        });
 
-        const [row] = await db.insert(tiktokAccounts).values({
-            accountId,
-            userId: input.userId,
-            vertical: input.vertical,
-            openId: input.openId,
-            username: input.username,
-            displayName: input.displayName,
-            avatarUrl: input.avatarUrl,
-            accessToken: input.accessToken,
-            refreshToken: input.refreshToken,
-            tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
-            scopes: input.scopes,
-            status: input.status ?? 'connected',
-            lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
-            lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : null,
-            lastError: input.lastError ?? null,
-        }).returning();
-
-        const mapped = mapTikTokAccountRow(row);
-        deps.tiktokAccountByUserVertical.set(integrationAccountKey(mapped.userId, mapped.vertical), mapped);
+        cacheTikTokAccount(mapped);
         return mapped;
     }
 
@@ -129,8 +158,9 @@ export function createTikTokAccountStore(deps: TikTokAccountStoreDeps) {
         userId: string,
         vertical: VerticalType,
         patch: Partial<Pick<TikTokAccountRecord, 'accessToken' | 'refreshToken' | 'tokenExpiresAt' | 'status' | 'lastPublishedAt' | 'lastSyncedAt' | 'lastError' | 'scopes'>>,
+        accountId?: string | null,
     ): Promise<TikTokAccountRecord | null> {
-        const existing = getTikTokAccount(userId, vertical);
+        const existing = getTikTokAccount(userId, vertical, accountId);
         if (!existing) return null;
 
         const [row] = await db.update(tiktokAccounts).set({
@@ -152,15 +182,22 @@ export function createTikTokAccountStore(deps: TikTokAccountStoreDeps) {
         }).where(eq(tiktokAccounts.id, existing.id)).returning();
 
         const mapped = mapTikTokAccountRow(row);
-        deps.tiktokAccountByUserVertical.set(integrationAccountKey(mapped.userId, mapped.vertical), mapped);
+        cacheTikTokAccount(mapped);
         return mapped;
     }
 
-    async function disconnectTikTokAccount(userId: string, vertical: VerticalType): Promise<void> {
-        const existing = getTikTokAccount(userId, vertical);
-        if (!existing) return;
-        await db.delete(tiktokAccounts).where(eq(tiktokAccounts.id, existing.id));
-        deps.tiktokAccountByUserVertical.delete(integrationAccountKey(userId, vertical));
+    async function disconnectTikTokAccount(userId: string, vertical: VerticalType, accountId?: string | null): Promise<void> {
+        const workspaceId = requireSocialIntegrationAccountId(accountId);
+        await db.transaction(async (tx: any) => {
+            await lockSocialIntegrationWriteAccess(tx, { userId, accountId: workspaceId });
+            await tx.delete(tiktokAccounts).where(and(
+                eq(tiktokAccounts.accountId, workspaceId),
+                eq(tiktokAccounts.vertical, vertical),
+            ));
+        });
+        for (const [key, account] of deps.tiktokAccountByUserVertical.entries()) {
+            if (account.accountId === workspaceId && account.vertical === vertical) deps.tiktokAccountByUserVertical.delete(key);
+        }
     }
 
     return {

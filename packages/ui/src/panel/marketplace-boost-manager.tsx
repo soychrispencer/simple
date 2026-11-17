@@ -117,6 +117,8 @@ export function MarketplaceBoostManager({
     const [listings, setListings] = useState<Array<{ id: string; title: string; subtitle: string; section: BoostSection; href: string; targetType?: BoostTargetType }>>([]);
     const [plansBySection, setPlansBySection] = useState<Partial<Record<BoostSection, BoostPlan[]>>>({});
     const [reserved, setReserved] = useState<Partial<Record<BoostSection, { used: number; max: number }>>>({});
+    const [canManageAccount, setCanManageAccount] = useState(false);
+    const [accountIsShared, setAccountIsShared] = useState(false);
     const [freeBoostQuota, setFreeBoostQuota] = useState<FreeBoostQuota>({
         max: 0,
         used: 0,
@@ -146,6 +148,8 @@ export function MarketplaceBoostManager({
     const plans = plansBySection[section] ?? [];
     const selectedPlan = plans.find((item) => item.id === selectedPlanId) ?? plans[0] ?? null;
     const sectionSlots = reserved[section];
+    const hasBoostSlot = !sectionSlots || sectionSlots.used < sectionSlots.max;
+    const canManagePaidPromotion = paidBoostsEnabled && (!accountIsShared || canManageAccount);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -159,8 +163,12 @@ export function MarketplaceBoostManager({
             setPlansBySection(catalog.plansBySection);
             setReserved(catalog.reserved);
             setFreeBoostQuota(catalog.freeBoostQuota);
+            setCanManageAccount(Boolean(catalog.canManageAccount));
+            setAccountIsShared(Boolean(catalog.accountIsShared));
         } else {
             setListings([]);
+            setCanManageAccount(false);
+            setAccountIsShared(false);
         }
 
         setOrders(nextOrders);
@@ -312,7 +320,7 @@ export function MarketplaceBoostManager({
 
     return (
         <div className="space-y-6">
-            <div className={`grid grid-cols-2 ${paidBoostsEnabled ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-3`}>
+            <div className={`grid grid-cols-2 ${canManagePaidPromotion ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-3`}>
                 <div className={`${theme}-stat-tile`}>
                     <p className="type-caption text-[var(--fg-muted)]">Boosts activos</p>
                     <p className="text-xl font-semibold">{orders.filter((item) => item.status === 'active').length}</p>
@@ -330,7 +338,7 @@ export function MarketplaceBoostManager({
                         {sectionSlots ? `${sectionSlots.used}/${sectionSlots.max}` : '—'}
                     </p>
                 </div>
-                {paidBoostsEnabled ? (
+                {canManagePaidPromotion ? (
                     <div className={`${theme}-stat-tile`}>
                         <p className="type-caption text-[var(--fg-muted)]">Boost de pago</p>
                         <p className="text-xl font-semibold">{selectedPlan ? formatClCurrency(selectedPlan.price) : '—'}</p>
@@ -343,6 +351,11 @@ export function MarketplaceBoostManager({
             {!paidBoostsEnabled ? (
                 <PanelNotice tone="neutral">
                     Los impulsos pagados están pausados mientras ampliamos las publicaciones y visitas de SimplePropiedades. Publicar sigue siendo gratis.
+                </PanelNotice>
+            ) : null}
+            {accountIsShared && !canManageAccount ? (
+                <PanelNotice tone="neutral">
+                    Aquí aparecen tus publicaciones y las que tienes asignadas. Para contratar impulsos pagados del espacio, coordínalo con su administrador.
                 </PanelNotice>
             ) : null}
 
@@ -408,7 +421,7 @@ export function MarketplaceBoostManager({
 
                         {sectionSlots && sectionSlots.used >= sectionSlots.max ? (
                             <PanelNotice tone="warning">
-                                No quedan cupos disponibles en {sectionMeta[section]?.label ?? 'esta sección'}. Prueba otra sección o espera a que finalice un boost.
+                                No quedan cupos disponibles en {sectionMeta[section]?.label ?? 'esta sección'}. Podrás activar otro impulso cuando se libere un cupo.
                             </PanelNotice>
                         ) : null}
 
@@ -428,7 +441,7 @@ export function MarketplaceBoostManager({
                                             <p className="text-sm font-semibold">{plan.name}</p>
                                         </div>
                                         <p className="type-caption text-[var(--fg-muted)]">{plan.days} días · hasta {plan.visibilityLift} visibilidad</p>
-                                        {paidBoostsEnabled ? (
+                                        {canManagePaidPromotion ? (
                                             <p className="text-base font-semibold mt-2">{formatClCurrency(plan.price)}</p>
                                         ) : null}
                                     </PanelChoiceCard>
@@ -436,7 +449,7 @@ export function MarketplaceBoostManager({
                             </div>
                         </div>
 
-                        {freeBoostQuota.max === 0 && !freeBoostQuota.unlimited && paidBoostsEnabled ? (
+                        {freeBoostQuota.max === 0 && !freeBoostQuota.unlimited && canManagePaidPromotion ? (
                             <PanelNotice tone="neutral">
                                 Tu plan {freeBoostQuota.planName ?? 'Gratuito'} no incluye boosts gratis este mes.
                                 Puedes activar un boost de pago o mejorar a Profesional (3 gratis/mes).
@@ -448,13 +461,13 @@ export function MarketplaceBoostManager({
                                 <PanelButton
                                     onClick={() => void activateFree()}
                                     variant="secondary"
-                                    disabled={submitting || !selectedListing}
+                                    disabled={submitting || !selectedListing || !hasBoostSlot}
                                     className="sm:flex-1"
                                 >
                                     {freeBoostButtonLabel(freeBoostQuota)}
                                 </PanelButton>
                             ) : null}
-                            {paidBoostsEnabled ? (
+                            {canManagePaidPromotion ? (
                                 <PanelButton
                                     onClick={() => void startPaidCheckout()}
                                     variant="primary"
@@ -470,7 +483,10 @@ export function MarketplaceBoostManager({
             </PanelCard>
 
             <PanelCard size="md">
-                <PanelBlockHeader title="Tus boosts" description="Pausa, reanuda o finaliza boosts activos." />
+                <PanelBlockHeader
+                    title={accountIsShared && canManageAccount ? 'Boosts del espacio' : 'Tus boosts'}
+                    description="Revisa y administra los impulsos activos."
+                />
 
                 {orders.length === 0 ? (
                     <PanelNotice tone="neutral">Aún no tienes boosts activados.</PanelNotice>

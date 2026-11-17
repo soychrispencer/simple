@@ -26,6 +26,9 @@ export type IntegrationConnectRowProps = {
     busy?: boolean;
     locked?: boolean;
     lockedHint?: string;
+    readOnly?: boolean;
+    readOnlyHint?: string;
+    canManagePlan?: boolean;
     subscriptionsHref?: string;
     ariaLabel?: string;
     onConnect: () => void;
@@ -43,6 +46,9 @@ export function IntegrationConnectRow({
     busy = false,
     locked = false,
     lockedHint,
+    readOnly = false,
+    readOnlyHint,
+    canManagePlan = true,
     subscriptionsHref = '/panel/mi-cuenta/suscripcion',
     ariaLabel,
     onConnect,
@@ -55,7 +61,7 @@ export function IntegrationConnectRow({
         : (!connected ? description : undefined);
 
     const handleToggle = (next: boolean) => {
-        if (loading || busy || locked) return;
+        if (loading || busy || locked || readOnly) return;
         if (next) {
             onConnect();
             return;
@@ -79,6 +85,9 @@ export function IntegrationConnectRow({
                             {!loading && locked ? (
                                 <PanelStatusBadge label="Requiere plan" tone="warning" size="sm" />
                             ) : null}
+                            {!loading && readOnly && !locked ? (
+                                <PanelStatusBadge label="Solo administración" tone="neutral" size="sm" />
+                            ) : null}
                         </div>
                         {subtitle ? (
                             <p className="mt-0.5 text-xs leading-relaxed text-(--fg-muted)">{subtitle}</p>
@@ -92,7 +101,7 @@ export function IntegrationConnectRow({
                     <PanelSwitch
                         checked={connected}
                         onChange={handleToggle}
-                        disabled={loading || busy || locked}
+                        disabled={loading || busy || locked || readOnly}
                         ariaLabel={switchLabel}
                         size="sm"
                     />
@@ -101,10 +110,17 @@ export function IntegrationConnectRow({
             {locked && lockedHint ? (
                 <div className="flex flex-col gap-3 rounded-xl border border-(--border) bg-(--bg-subtle) p-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-(--fg-secondary)">{lockedHint}</p>
-                    <Link href={subscriptionsHref} className="shrink-0">
-                        <PanelButton variant="accent" size="sm">Ver planes</PanelButton>
-                    </Link>
+                    {canManagePlan ? (
+                        <Link href={subscriptionsHref} className="shrink-0">
+                            <PanelButton variant="accent" size="sm">Ver planes</PanelButton>
+                        </Link>
+                    ) : (
+                        <p className="text-xs text-(--fg-muted)">Pide a quien administra este espacio que revise el plan.</p>
+                    )}
                 </div>
+            ) : null}
+            {readOnly && readOnlyHint ? (
+                <p className="text-xs leading-relaxed text-(--fg-muted)">{readOnlyHint}</p>
             ) : null}
             {footer}
         </div>

@@ -15,7 +15,7 @@ export interface PublicRouterDeps {
     listingToPublicResponse: (listing: any) => any;
     usersById: Map<string, any>;
     getPublishedPublicProfileBySlug: (vertical: any, slug: string) => any;
-    userCanUsePublicProfile: (user: any, vertical: any) => boolean;
+    userCanUsePublicProfile: (user: any, vertical: any, accountId?: string | null) => boolean;
     getListingBySlug: (slugLike: string) => Promise<any | null>;
     fetchActivePublicListingRowsForMarketplace: (input: {
         vertical: string;
@@ -181,7 +181,7 @@ export function createPublicRouter(deps: PublicRouterDeps) {
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
 
         const user = usersById.get(profile.userId) ?? null;
-        if (!user || !userCanUsePublicProfile(user, vertical)) {
+        if (!user || !userCanUsePublicProfile(user, vertical, profile.accountId ?? null)) {
             return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
         }
 

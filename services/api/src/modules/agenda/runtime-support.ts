@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { google } from 'googleapis';
 import { getGoogleOAuth2Client } from '../../lib/google-auth.js';
 
@@ -138,6 +138,154 @@ export function createAgendaGoogleCalendarSync(deps: { db: any; agendaAppointmen
             return { eventId, meetingUrl };
         } catch {
             return null;
+        }
+    };
+}
+
+export function createAgendaPropertyVisitCalendarSync(deps: {
+    db: any;
+    agendaProfessionalProfiles: any;
+}) {
+    const { db, agendaProfessionalProfiles } = deps;
+
+    async function calendarForUser(userId: string, accountId: string) {
+        const profile = await db.query.agendaProfessionalProfiles.findFirst({
+            where: and(
+                eq(agendaProfessionalProfiles.userId, userId),
+                eq(agendaProfessionalProfiles.accountId, accountId),
+            ),
+        });
+        if (!profile?.googleAccessToken || !profile.googleCalendarId) return null;
+
+        const oauth2Client = getGoogleOAuth2Client('/api/agenda/google-calendar/callback');
+        oauth2Client.setCredentials({
+            access_token: profile.googleAccessToken,
+            refresh_token: profile.googleRefreshToken ?? undefined,
+            expiry_date: profile.googleTokenExpiry?.getTime(),
+        });
+        return {
+            calendarId: profile.googleCalendarId as string,
+            api: google.calendar({ version: 'v3', auth: oauth2Client }),
+        };
+    }
+
+    async function deleteEvent(eventId: string, ownerUserId: string, accountId: string): Promise<boolean> {
+        const calendar = await calendarForUser(ownerUserId, accountId);
+        if (!calendar) return false;
+        try {
+            await calendar.api.events.delete({ calendarId: calendar.calendarId, eventId });
+            return true;
+        } catch (error) {
+            const code = error && typeof error === 'object'
+                ? Number((error as { code?: unknown; status?: unknown }).code ?? (error as { status?: unknown }).status)
+                : 0;
+            return code === 404 || code === 410;
+        }
+    }
+
+    return async function syncPropertyVisitCalendar(input: {
+        visit: {
+            id: string;
+            accountId: string;
+            visitType: string;
+            startsAt: Date;
+            durationMinutes: number;
+            contactName: string;
+            location: string | null;
+            googleEventId: string | null;
+            googleCalendarOwnerUserId: string | null;
+        };
+        listingTitle: string | null;
+        targetUserId: string | null;
+        action: 'upsert' | 'delete';
+    }): Promise<{
+        ok: boolean;
+        eventId: string | null;
+        ownerUserId: string | null;
+        connected: boolean;
+    }> {
+        const oldEventId = input.visit.googleEventId ?? null;
+        const oldOwnerUserId = input.visit.googleCalendarOwnerUserId ?? null;
+        const deleteOldEvent = async () => {
+            if (!oldEventId || !oldOwnerUserId) return true;
+            return deleteEvent(oldEventId, oldOwnerUserId, input.visit.accountId);
+        };
+
+        if (input.action === 'delete' || !input.targetUserId) {
+            const deleted = await deleteOldEvent();
+            return {
+                ok: deleted,
+                eventId: deleted ? null : oldEventId,
+                ownerUserId: deleted ? null : oldOwnerUserId,
+                connected: false,
+            };
+        }
+
+        const targetCalendar = await calendarForUser(input.targetUserId, input.visit.accountId);
+        if (!targetCalendar) {
+            const deleted = await deleteOldEvent();
+            return {
+                ok: deleted,
+                eventId: deleted ? null : oldEventId,
+                ownerUserId: deleted ? null : oldOwnerUserId,
+                connected: false,
+            };
+        }
+
+        let eventId = oldEventId;
+        if (oldEventId && oldOwnerUserId !== input.targetUserId) {
+            const deleted = await deleteOldEvent();
+            if (!deleted) {
+                return { ok: false, eventId: oldEventId, ownerUserId: oldOwnerUserId, connected: true };
+            }
+            eventId = null;
+        }
+
+        const endsAt = new Date(input.visit.startsAt.getTime() + input.visit.durationMinutes * 60_000);
+        const eventTypeLabel = input.visit.visitType === 'brokerage_meeting'
+            ? 'Reunión comercial'
+            : 'Visita inmobiliaria';
+        const resource = {
+            summary: `${eventTypeLabel} · ${input.listingTitle || input.visit.contactName}`,
+            description: 'Contacto: ' + input.visit.contactName,
+            start: { dateTime: input.visit.startsAt.toISOString() },
+            end: { dateTime: endsAt.toISOString() },
+            ...(input.visit.location ? { location: input.visit.location } : {}),
+            transparency: 'opaque',
+        };
+
+        try {
+            if (eventId) {
+                try {
+                    await targetCalendar.api.events.update({
+                        calendarId: targetCalendar.calendarId,
+                        eventId,
+                        requestBody: resource,
+                        sendUpdates: 'none',
+                    });
+                    return { ok: true, eventId, ownerUserId: input.targetUserId, connected: true };
+                } catch (error) {
+                    const code = error && typeof error === 'object'
+                        ? Number((error as { code?: unknown; status?: unknown }).code ?? (error as { status?: unknown }).status)
+                        : 0;
+                    if (code !== 404 && code !== 410) throw error;
+                }
+            }
+
+            const created = await targetCalendar.api.events.insert({
+                calendarId: targetCalendar.calendarId,
+                requestBody: resource,
+                sendUpdates: 'none',
+            });
+            const createdEventId = created.data.id ?? null;
+            return {
+                ok: Boolean(createdEventId),
+                eventId: createdEventId,
+                ownerUserId: createdEventId ? input.targetUserId : null,
+                connected: true,
+            };
+        } catch {
+            return { ok: false, eventId: oldEventId, ownerUserId: oldOwnerUserId, connected: true };
         }
     };
 }

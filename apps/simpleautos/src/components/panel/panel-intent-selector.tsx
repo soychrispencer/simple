@@ -39,21 +39,25 @@ const OPTIONS: IntentOption[] = [
     },
 ];
 
-export function PanelIntentSelector({ hidden }: { hidden?: boolean }) {
+export function PanelIntentSelector({ hidden, accountId }: { hidden?: boolean; accountId?: string }) {
     const [visible, setVisible] = useState(false);
+    const storageKey = accountId ? `${STORAGE_KEY}:${accountId}` : null;
 
     useEffect(() => {
-        if (hidden) return;
+        if (hidden || !storageKey) {
+            setVisible(false);
+            return;
+        }
         try {
-            setVisible(localStorage.getItem(STORAGE_KEY) !== '1');
+            setVisible(localStorage.getItem(storageKey) !== '1');
         } catch {
             setVisible(true);
         }
-    }, [hidden]);
+    }, [hidden, storageKey]);
 
     function dismiss() {
         try {
-            localStorage.setItem(STORAGE_KEY, '1');
+            if (storageKey) localStorage.setItem(storageKey, '1');
         } catch {
             // ignore
         }

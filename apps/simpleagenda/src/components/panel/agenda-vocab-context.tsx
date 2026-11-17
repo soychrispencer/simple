@@ -9,7 +9,7 @@ import {
     useState,
     type ReactNode,
 } from 'react';
-import { resolveAgendaOperatorFields } from '@simple/utils';
+import { fetchAccountWorkspace, resolveAgendaOperatorFields } from '@simple/utils';
 import { fetchAgendaProfile } from '@/lib/agenda-api';
 import {
     buildAgendaVocab,
@@ -23,12 +23,16 @@ export function AgendaVocabProvider({ children }: { children: ReactNode }) {
     const [vocab, setVocab] = useState<AgendaVocab>(() => buildAgendaVocab('cliente'));
 
     const refresh = useCallback(async () => {
-        const profile = await fetchAgendaProfile();
-        if (!profile) return;
+        const [profile, workspaceState] = await Promise.all([
+            fetchAgendaProfile(),
+            fetchAccountWorkspace('agenda'),
+        ]);
+        const workspace = workspaceState?.workspace;
+        if (!profile && !workspace) return;
         const operator = resolveAgendaOperatorFields({
-            accountKind: profile.accountKind,
-            operatorSubtype: profile.operatorSubtype,
-            profession: profile.profession,
+            accountKind: workspace?.accountKind ?? profile?.accountKind,
+            operatorSubtype: workspace?.operatorSubtype ?? profile?.operatorSubtype,
+            profession: workspace?.operatorSubtypeCustom ?? profile?.profession,
         });
         setVocab(buildAgendaVocabFromSubtype(operator.operatorSubtype));
     }, []);
@@ -39,7 +43,11 @@ export function AgendaVocabProvider({ children }: { children: ReactNode }) {
             void refresh();
         };
         window.addEventListener('simple:agenda-profile-changed', onChange);
-        return () => window.removeEventListener('simple:agenda-profile-changed', onChange);
+        window.addEventListener('simple:workspace-activity-changed', onChange);
+        return () => {
+            window.removeEventListener('simple:agenda-profile-changed', onChange);
+            window.removeEventListener('simple:workspace-activity-changed', onChange);
+        };
     }, [refresh]);
 
     const value = useMemo(() => vocab, [vocab]);

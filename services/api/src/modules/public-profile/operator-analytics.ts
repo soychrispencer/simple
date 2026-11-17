@@ -5,6 +5,7 @@ import type { PublicProfileRecord } from './types.js';
 
 type ListingLike = {
     id: string;
+    accountId?: string | null;
     ownerId: string;
     vertical: string;
     section: string;
@@ -81,7 +82,8 @@ export type MarketplaceOperatorAnalytics = {
 export type BuildMarketplaceOperatorAnalyticsDeps = {
     listingsById: Map<string, ListingLike>;
     listingIdsByUser: Map<string, string[]>;
-    getPublicProfileRecord: (userId: string, vertical: VerticalType) => PublicProfileRecord | null;
+    getAccountScopeForUser?: (userId: string, accountId?: string | null) => { accountId: string | null; isPersonal: boolean };
+    getPublicProfileRecord: (userId: string, vertical: VerticalType, accountId?: string | null) => PublicProfileRecord | null;
     countFollowers: (followeeUserId: string, vertical: VerticalType) => number;
     getDefaultDisplayName: (userId: string) => string;
 };
@@ -90,13 +92,23 @@ export function buildMarketplaceOperatorAnalytics(
     userId: string,
     vertical: VerticalType,
     deps: BuildMarketplaceOperatorAnalyticsDeps,
+    accountId?: string | null,
 ): MarketplaceOperatorAnalytics {
+    const accountScope = deps.getAccountScopeForUser?.(userId, accountId);
     const listingIds = deps.listingIdsByUser.get(userId) ?? [];
-    const listings = listingIds
-        .map((id) => deps.listingsById.get(id))
-        .filter((item): item is ListingLike => Boolean(item && item.vertical === vertical));
+    const listings = accountScope?.accountId
+        ? Array.from(deps.listingsById.values()).filter((item) => (
+            item.vertical === vertical
+            && (
+                item.accountId === accountScope.accountId
+                || (accountScope.isPersonal && !item.accountId && item.ownerId === userId)
+            )
+        ))
+        : listingIds
+            .map((id) => deps.listingsById.get(id))
+            .filter((item): item is ListingLike => Boolean(item && item.vertical === vertical));
 
-    const profile = deps.getPublicProfileRecord(userId, vertical);
+    const profile = deps.getPublicProfileRecord(userId, vertical, accountId);
     const accountKind = profile?.accountKind ?? 'individual';
     const operatorSubtype = profile?.operatorSubtype ?? null;
     const displayName = profile?.displayName ?? deps.getDefaultDisplayName(userId);

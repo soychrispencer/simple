@@ -1,5 +1,6 @@
 'use client';
 
+import { Fragment } from 'react';
 import { useAuth, EmailVerificationGate } from '@simple/auth';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 import { IconLock } from '@tabler/icons-react';
@@ -45,5 +46,5 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         );
     }
 
-    return <>{children}</>;
+    return <Fragment key={user?.id ?? 'authenticated'}>{children}</Fragment>;
 }

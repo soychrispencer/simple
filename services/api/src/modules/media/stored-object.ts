@@ -5,6 +5,7 @@ import {
     extractR2ObjectKey,
     isCloudflareR2Url,
     isOwnedStorageUrl,
+    parsePrivateMediaUrl,
 } from '../listings/media-delivery.js';
 
 function extractLocalStorageKey(url: string): string | null {
@@ -33,10 +34,25 @@ function extractLocalStorageKey(url: string): string | null {
     return null;
 }
 
+export function toProtectedMediaUrl(storageUrl: string): string {
+    return `/api/media/proxy?src=${encodeURIComponent(storageUrl)}`;
+}
+
+export function unwrapProtectedMediaUrl(value: string): string {
+    try {
+        const parsed = new URL(value.trim(), 'http://simple.local');
+        if (parsed.pathname !== '/api/media/proxy') return value.trim();
+        return parsed.searchParams.get('src')?.trim() || value.trim();
+    } catch {
+        return value.trim();
+    }
+}
+
 /** Devuelve la URL solo si el archivo existe (local) o es externa/R2. Si falta en disco, null. */
 export function resolveAccessibleStoredMediaUrl(url: string | null | undefined): string | null {
     const value = url?.trim();
     if (!value) return null;
+    if (parsePrivateMediaUrl(value)) return toProtectedMediaUrl(value);
     if (!isOwnedStorageUrl(value)) return value;
     if (isCloudflareR2Url(value)) return value;
 
@@ -55,6 +71,10 @@ export function resolveAccessibleStoredMediaUrl(url: string | null | undefined):
 /** Clave de objeto en nuestro storage (R2 o local). Ignora URLs externas. */
 export function extractOwnedMediaKey(url: string): string | null {
     if (!isOwnedStorageUrl(url)) return null;
+    const privateMedia = parsePrivateMediaUrl(url);
+    if (privateMedia) {
+        return `${privateMedia.storage === 'local' ? '__private_local__' : '__private_r2__'}/${privateMedia.key}`;
+    }
     if (isCloudflareR2Url(url)) {
         const key = extractR2ObjectKey(url);
         return key || null;

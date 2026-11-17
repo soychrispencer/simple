@@ -108,6 +108,7 @@ export function resolveInstagramOAuthState(
     parseState: (value: string) => {
         nonce: string;
         userId: string;
+        accountId?: string | null;
         vertical: VerticalType;
         returnTo: string;
     } | null,
@@ -115,14 +116,22 @@ export function resolveInstagramOAuthState(
 ) {
     const decodedStateParam = decodeOAuthStateParam(stateParam);
     const fromQuery = parseState(decodedStateParam);
-    if (fromQuery) return fromQuery;
-
     const fromCookie = parseState(cookieRaw);
-    if (fromCookie && decodedStateParam && safeEqualStrings(fromCookie.nonce, decodedStateParam)) {
+
+    if (
+        fromQuery
+        && fromCookie
+        && safeEqualStrings(fromQuery.nonce, fromCookie.nonce)
+        && fromQuery.userId === fromCookie.userId
+        && fromQuery.vertical === fromCookie.vertical
+        && (fromQuery.accountId ?? null) === (fromCookie.accountId ?? null)
+    ) {
         return fromCookie;
     }
 
-    return fromCookie;
+    if (fromCookie && decodedStateParam && safeEqualStrings(fromCookie.nonce, decodedStateParam)) return fromCookie;
+
+    return null;
 }
 
 export function resolveIntegrationRequestHost(headers: {

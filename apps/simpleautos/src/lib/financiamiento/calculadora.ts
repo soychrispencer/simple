@@ -103,10 +103,10 @@ export function estimarPieYPlazoSugeridos(input: {
       ? Math.max(anioActual - input.anioVehiculo, 0)
       : 0;
 
-  let pieMinimoSugeridoPct: number = LIMITES.pieMinNuevoPct;
+  let pieMinimoSugeridoPct: number;
   let plazoMaxSugerido: number = LIMITES.plazoMaxMeses;
-  let nivelAcceso: NivelAccesoPie = 'estandar';
-  let resumenPerfil = 'Pie habitual de mercado (~20%).';
+  let nivelAcceso: NivelAccesoPie;
+  let resumenPerfil: string;
 
   if (input.tipoVehiculo === 'nuevo') {
     pieMinimoSugeridoPct = LIMITES.pieMinNuevoPct;

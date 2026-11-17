@@ -1,17 +1,19 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { VerticalType } from '@simple/types';
 import { db } from '../../db/index.js';
 import { youtubeAccounts } from '../../db/schema.js';
 import type { YouTubeAccountRecord, YouTubeAccountStatus } from '../../lib/domain-types.js';
 import { asString } from '../shared/index.js';
-import { integrationAccountKey } from '../integrations/oauth-cookie.js';
+import { integrationAccountKey, integrationWorkspaceKey } from '../integrations/oauth-cookie.js';
+import { lockSocialIntegrationWriteAccess, requireSocialIntegrationAccountId } from '../integrations/social-write-access.js';
 
 export type YouTubeAccountStoreMaps = {
     youtubeAccountByUserVertical: Map<string, YouTubeAccountRecord>;
 };
 
 export type YouTubeAccountStoreDeps = YouTubeAccountStoreMaps & {
-    getPrimaryAccountIdForUser: (userId: string) => Promise<string>;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
+    getPersonalAccountIdForUser: (userId: string) => string | null;
 };
 
 export function mapYouTubeAccountRow(row: typeof youtubeAccounts.$inferSelect): YouTubeAccountRecord {
@@ -38,8 +40,26 @@ export function mapYouTubeAccountRow(row: typeof youtubeAccounts.$inferSelect): 
 }
 
 export function createYouTubeAccountStore(deps: YouTubeAccountStoreDeps) {
-    function getYouTubeAccount(userId: string, vertical: VerticalType): YouTubeAccountRecord | null {
-        return deps.youtubeAccountByUserVertical.get(integrationAccountKey(userId, vertical)) ?? null;
+    function getYouTubeAccount(userId: string, vertical: VerticalType, accountId?: string | null): YouTubeAccountRecord | null {
+        const legacyRecord = deps.youtubeAccountByUserVertical.get(integrationAccountKey(userId, vertical));
+        if (accountId === undefined) return legacyRecord?.accountId == null ? legacyRecord ?? null : null;
+
+        const personalAccountId = deps.getPersonalAccountIdForUser(userId);
+        const scopedAccountId = accountId ?? personalAccountId;
+        if (!scopedAccountId) return null;
+        const workspaceRecord = deps.youtubeAccountByUserVertical.get(integrationWorkspaceKey(scopedAccountId, vertical));
+        if (workspaceRecord) return workspaceRecord;
+        if (legacyRecord?.accountId === scopedAccountId) return legacyRecord;
+        if (scopedAccountId === personalAccountId && legacyRecord?.accountId == null) return legacyRecord ?? null;
+        return null;
+    }
+
+    function cacheYouTubeAccount(account: YouTubeAccountRecord): void {
+        if (account.accountId) {
+            deps.youtubeAccountByUserVertical.set(integrationWorkspaceKey(account.accountId, account.vertical), account);
+        } else {
+            deps.youtubeAccountByUserVertical.set(integrationAccountKey(account.userId, account.vertical), account);
+        }
     }
 
     function youtubeAccountToResponse(account: YouTubeAccountRecord | null) {
@@ -73,55 +93,64 @@ export function createYouTubeAccountStore(deps: YouTubeAccountStoreDeps) {
         tokenExpiresAt: number | null;
         scopes: string[];
         status?: YouTubeAccountStatus;
+        accountId?: string | null;
         lastSyncedAt?: number | null;
         lastPublishedAt?: number | null;
         lastError?: string | null;
     }): Promise<YouTubeAccountRecord> {
-        const existing = getYouTubeAccount(input.userId, input.vertical);
+        const accountId = requireSocialIntegrationAccountId(
+            input.accountId === undefined
+                ? await deps.getPrimaryAccountIdForUser(input.userId)
+                : input.accountId ?? deps.getPersonalAccountIdForUser(input.userId),
+        );
         const now = new Date();
-        const accountId = await deps.getPrimaryAccountIdForUser(input.userId);
+        const mapped = await db.transaction(async (tx: any) => {
+            await lockSocialIntegrationWriteAccess(tx, { userId: input.userId, accountId });
+            const [existing] = await tx.select().from(youtubeAccounts).where(and(
+                eq(youtubeAccounts.accountId, accountId),
+                eq(youtubeAccounts.vertical, input.vertical),
+            )).limit(1).for('update');
 
-        if (existing) {
-            const [row] = await db.update(youtubeAccounts).set({
+            if (existing) {
+                const [row] = await tx.update(youtubeAccounts).set({
+                    channelId: input.channelId,
+                    channelTitle: input.channelTitle,
+                    channelHandle: input.channelHandle,
+                    avatarUrl: input.avatarUrl,
+                    accessToken: input.accessToken,
+                    refreshToken: input.refreshToken ?? existing.refreshToken,
+                    tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
+                    scopes: input.scopes,
+                    status: input.status ?? 'connected',
+                    lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
+                    lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : existing.lastPublishedAt ? new Date(existing.lastPublishedAt) : null,
+                    lastError: input.lastError ?? null,
+                    updatedAt: now,
+                }).where(eq(youtubeAccounts.id, existing.id)).returning();
+                return mapYouTubeAccountRow(row);
+            }
+
+            const [row] = await tx.insert(youtubeAccounts).values({
+                accountId,
+                userId: input.userId,
+                vertical: input.vertical,
                 channelId: input.channelId,
                 channelTitle: input.channelTitle,
                 channelHandle: input.channelHandle,
                 avatarUrl: input.avatarUrl,
                 accessToken: input.accessToken,
-                refreshToken: input.refreshToken ?? existing.refreshToken,
+                refreshToken: input.refreshToken,
                 tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
                 scopes: input.scopes,
                 status: input.status ?? 'connected',
                 lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
-                lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : existing.lastPublishedAt ? new Date(existing.lastPublishedAt) : null,
+                lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : null,
                 lastError: input.lastError ?? null,
-                updatedAt: now,
-            }).where(eq(youtubeAccounts.id, existing.id)).returning();
-            const mapped = mapYouTubeAccountRow(row);
-            deps.youtubeAccountByUserVertical.set(integrationAccountKey(mapped.userId, mapped.vertical), mapped);
-            return mapped;
-        }
+            }).returning();
+            return mapYouTubeAccountRow(row);
+        });
 
-        const [row] = await db.insert(youtubeAccounts).values({
-            accountId,
-            userId: input.userId,
-            vertical: input.vertical,
-            channelId: input.channelId,
-            channelTitle: input.channelTitle,
-            channelHandle: input.channelHandle,
-            avatarUrl: input.avatarUrl,
-            accessToken: input.accessToken,
-            refreshToken: input.refreshToken,
-            tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
-            scopes: input.scopes,
-            status: input.status ?? 'connected',
-            lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : now,
-            lastPublishedAt: input.lastPublishedAt ? new Date(input.lastPublishedAt) : null,
-            lastError: input.lastError ?? null,
-        }).returning();
-
-        const mapped = mapYouTubeAccountRow(row);
-        deps.youtubeAccountByUserVertical.set(integrationAccountKey(mapped.userId, mapped.vertical), mapped);
+        cacheYouTubeAccount(mapped);
         return mapped;
     }
 
@@ -129,8 +158,9 @@ export function createYouTubeAccountStore(deps: YouTubeAccountStoreDeps) {
         userId: string,
         vertical: VerticalType,
         patch: Partial<Pick<YouTubeAccountRecord, 'accessToken' | 'refreshToken' | 'tokenExpiresAt' | 'status' | 'lastPublishedAt' | 'lastSyncedAt' | 'lastError' | 'scopes'>>,
+        accountId?: string | null,
     ): Promise<YouTubeAccountRecord | null> {
-        const existing = getYouTubeAccount(userId, vertical);
+        const existing = getYouTubeAccount(userId, vertical, accountId);
         if (!existing) return null;
 
         const [row] = await db.update(youtubeAccounts).set({
@@ -152,15 +182,22 @@ export function createYouTubeAccountStore(deps: YouTubeAccountStoreDeps) {
         }).where(eq(youtubeAccounts.id, existing.id)).returning();
 
         const mapped = mapYouTubeAccountRow(row);
-        deps.youtubeAccountByUserVertical.set(integrationAccountKey(mapped.userId, mapped.vertical), mapped);
+        cacheYouTubeAccount(mapped);
         return mapped;
     }
 
-    async function disconnectYouTubeAccount(userId: string, vertical: VerticalType): Promise<void> {
-        const existing = getYouTubeAccount(userId, vertical);
-        if (!existing) return;
-        await db.delete(youtubeAccounts).where(eq(youtubeAccounts.id, existing.id));
-        deps.youtubeAccountByUserVertical.delete(integrationAccountKey(userId, vertical));
+    async function disconnectYouTubeAccount(userId: string, vertical: VerticalType, accountId?: string | null): Promise<void> {
+        const workspaceId = requireSocialIntegrationAccountId(accountId);
+        await db.transaction(async (tx: any) => {
+            await lockSocialIntegrationWriteAccess(tx, { userId, accountId: workspaceId });
+            await tx.delete(youtubeAccounts).where(and(
+                eq(youtubeAccounts.accountId, workspaceId),
+                eq(youtubeAccounts.vertical, vertical),
+            ));
+        });
+        for (const [key, account] of deps.youtubeAccountByUserVertical.entries()) {
+            if (account.accountId === workspaceId && account.vertical === vertical) deps.youtubeAccountByUserVertical.delete(key);
+        }
     }
 
     return {

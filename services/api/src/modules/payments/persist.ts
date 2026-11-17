@@ -68,21 +68,28 @@ export async function persistPaymentOrderToDb(order: PaymentOrderPersistInput): 
         updatedAt: new Date(order.updatedAt),
     };
 
-    const existing = await db
-        .select({ id: paymentOrders.id })
-        .from(paymentOrders)
-        .where(sql`(${paymentOrders.metadata}->>'orderExternalId') = ${order.id}`)
-        .limit(1);
+    await db.transaction(async (tx) => {
+        // The cache writes asynchronously while some checkout/confirmation routes
+        // also persist the same order synchronously. Serialize by external order
+        // id so concurrent writers cannot both miss the row and create duplicates.
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${order.id}))`);
 
-    const existingId = existing[0]?.id;
-    if (existingId) {
-        await db.update(paymentOrders).set(rowValues).where(eq(paymentOrders.id, existingId));
-        return;
-    }
+        const existing = await tx
+            .select({ id: paymentOrders.id })
+            .from(paymentOrders)
+            .where(sql`(${paymentOrders.metadata}->>'orderExternalId') = ${order.id}`)
+            .limit(1);
 
-    await db.insert(paymentOrders).values({
-        id: randomUUID(),
-        ...rowValues,
-        createdAt: new Date(order.createdAt),
+        const existingId = existing[0]?.id;
+        if (existingId) {
+            await tx.update(paymentOrders).set(rowValues).where(eq(paymentOrders.id, existingId));
+            return;
+        }
+
+        await tx.insert(paymentOrders).values({
+            id: randomUUID(),
+            ...rowValues,
+            createdAt: new Date(order.createdAt),
+        });
     });
 }

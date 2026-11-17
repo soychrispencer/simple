@@ -75,7 +75,7 @@ import {
     toggleSavedMariachiSchema,
 } from './saved-provider-groups.js';
 import { listProviderGroupReviews, recomputeProviderGroupRatings } from './provider-group-ratings.js';
-import { defaultSerenataTrialEndsAt } from './plan-config.js';
+import { APP_COMMISSION_FREE_BPS, COMMISSION_VAT_BPS, defaultSerenataTrialEndsAt } from './plan-config.js';
 
 function resolvedSerenataGroupLocation(input: {
     countryCode?: string | null;
@@ -1241,12 +1241,10 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
                 workingComunas: application.serviceComunas,
                 subscriptionStatus: 'trialing',
                 subscriptionPrice: 0,
+                commissionRateBps: APP_COMMISSION_FREE_BPS,
+                commissionVatRateBps: COMMISSION_VAT_BPS,
                 trialEndsAt: defaultSerenataTrialEndsAt(),
             }).returning())[0];
-            if (!existingOwner) {
-                await tx.delete(serenataMusicians).where(eq(serenataMusicians.userId, application.userId));
-                await tx.delete(serenataClients).where(eq(serenataClients.userId, application.userId));
-            }
             const slug = await uniqueSlug(application.name);
             const location = resolvedSerenataGroupLocation({
                 region: application.region,
@@ -1419,12 +1417,6 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
                 return deps.jsonError(c, publishBlockersErrorMessage(missing), 400);
             }
         }
-        if (patch.logoUrl !== undefined) {
-            await cleanupReplacedMediaUrl(group.logoUrl, patch.logoUrl);
-        }
-        if (patch.coverUrl !== undefined) {
-            await cleanupReplacedMediaUrl(group.coverUrl, patch.coverUrl);
-        }
         let nextSlug: string | undefined;
         if (patch.slug !== undefined && patch.slug !== group.slug) {
             const existingSlug = await db.query.serenataProviderGroups.findFirst({
@@ -1499,6 +1491,13 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             ...(nextSlug === undefined && patch.name !== undefined ? { slug: await uniqueSlug(patch.name, access.group.id) } : {}),
             updatedAt: new Date(),
         }).where(eq(serenataProviderGroups.id, access.group.id)).returning();
+        if (!item) return deps.jsonError(c, 'Grupo no encontrado', 404);
+        if (patch.logoUrl !== undefined) {
+            await cleanupReplacedMediaUrl(group.logoUrl, patch.logoUrl);
+        }
+        if (patch.coverUrl !== undefined) {
+            await cleanupReplacedMediaUrl(group.coverUrl, patch.coverUrl);
+        }
         if (access.owner) {
             await syncOwnerOperatingZonesFromGroup(access.owner.id, {
                 ...(patch.serviceComunas !== undefined ? { serviceComunas: item.serviceComunas ?? [] } : {}),
@@ -1922,9 +1921,6 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
         if (nextPromoPrice != null && nextPromoPrice >= nextPrice) {
             return deps.jsonError(c, 'El precio oferta debe ser menor al precio normal.', 400);
         }
-        if (patch.imageUrl !== undefined) {
-            await cleanupReplacedMediaUrl(existing.imageUrl, patch.imageUrl);
-        }
         const nextOnline = patch.isOnline ?? existing.isOnline;
         const nextPresential = patch.isPresential ?? existing.isPresential;
         if (!nextOnline && !nextPresential) {
@@ -1949,6 +1945,10 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             ...(patch.sortOrder !== undefined ? { sortOrder: patch.sortOrder } : {}),
             updatedAt: new Date(),
         }).where(eq(serenataGroupServices.id, serviceId)).returning();
+        if (!item) return deps.jsonError(c, 'Servicio no encontrado', 404);
+        if (patch.imageUrl !== undefined) {
+            await cleanupReplacedMediaUrl(existing.imageUrl, patch.imageUrl);
+        }
         if (curatedSongIds !== undefined || patch.repertoirePolicy === 'curated_only') {
             await syncServiceCuratedSongs(item.id, access.group.id, curatedSongIds);
         }
@@ -2035,9 +2035,6 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             return deps.jsonError(c, 'Debe incluir al menos 1 serenata', 400);
         }
         const patch = parsed.data;
-        if (patch.imageUrl !== undefined) {
-            await cleanupReplacedMediaUrl(existing.imageUrl, patch.imageUrl);
-        }
         const [item] = await db.update(serenataGroupServicePacks).set({
             ...(patch.name !== undefined ? { name: patch.name } : {}),
             ...(patch.description !== undefined ? { description: patch.description } : {}),
@@ -2053,6 +2050,10 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             ...(patch.sortOrder !== undefined ? { sortOrder: patch.sortOrder } : {}),
             updatedAt: new Date(),
         }).where(eq(serenataGroupServicePacks.id, packId)).returning();
+        if (!item) return deps.jsonError(c, 'Pack no encontrado', 404);
+        if (patch.imageUrl !== undefined) {
+            await cleanupReplacedMediaUrl(existing.imageUrl, patch.imageUrl);
+        }
         return c.json({ ok: true, item: mapGroupServicePack(item) });
     });
 

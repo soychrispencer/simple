@@ -50,7 +50,7 @@ export type AuthRouterDeps = {
     clearRateLimit: (key: string) => void;
     resolveBrowserOrigin: (c: any) => string | null;
     isAuthEmailConfigured: () => boolean;
-    issueEmailVerification: (userId: string, email: string, origin: string) => Promise<void>;
+    issueEmailVerification: (userId: string, email: string, origin: string, returnTo?: string | null) => Promise<void>;
     sendPasswordResetEmail: (email: string, url: string, origin: string, userId?: string) => Promise<void>;
     sendPasswordChangedEmail: (email: string, origin: string, userId?: string) => Promise<void>;
     sendWelcomeEmail: (email: string, name: string, origin: string, userId?: string) => Promise<void>;
@@ -111,7 +111,8 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         simpleserenatas: 'SimpleSerenatas',
     };
 
-    const defaultAppRoles: Record<SimpleUserApp, string> = {
+    // Product-access labels only; business permissions come from profiles and account memberships.
+    const defaultPlatformAccessRoles: Record<SimpleUserApp, string> = {
         simpleagenda: 'professional',
         simpleautos: 'publisher',
         simplepropiedades: 'publisher',
@@ -120,7 +121,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
     function resolveSignupSource(origin: string | null): SignupSource {
         if (!origin) return { app: 'unknown', primaryVertical: null };
-        let hostname = '';
+        let hostname: string;
         try {
             hostname = new URL(origin).hostname.toLowerCase();
         } catch {
@@ -147,20 +148,20 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         userId: string;
         app: SimpleUserApp | null;
         origin: string | null;
-        role?: string;
+        platformAccessRole?: string;
         markLogin?: boolean;
         activate?: boolean;
     }): Promise<void> {
         if (!input.app) return;
         const now = new Date();
-        const role = input.role || defaultAppRoles[input.app] || 'user';
+        const platformAccessRole = input.platformAccessRole || defaultPlatformAccessRoles[input.app] || 'user';
         const table = deps.tables.userPlatformAccess;
         await deps.db
             .insert(table)
             .values({
                 userId: input.userId,
                 app: input.app,
-                role,
+                role: platformAccessRole,
                 status: 'active',
                 origin: input.origin,
                 activatedAt: input.activate === false ? null : now,
@@ -196,7 +197,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 app,
                 label: appLabels[app],
                 status: row?.status ?? 'inactive',
-                role: row?.role ?? defaultAppRoles[app],
+                role: row?.role ?? defaultPlatformAccessRoles[app],
                 origin: row?.origin ?? null,
                 firstSeenAt: row?.firstSeenAt ?? null,
                 activatedAt: row?.activatedAt ?? null,
@@ -517,7 +518,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 const passwordMatches = await deps.bcrypt.compare(parsed.data.password, existing.passwordHash);
                 if (passwordMatches) {
                     try {
-                        await deps.issueEmailVerification(existing.id, normalizedEmail, origin);
+                        await deps.issueEmailVerification(existing.id, normalizedEmail, origin, parsed.data.returnTo);
                     } catch (error) {
                         console.error('Email verification resend on register error:', error);
                         return c.json({
@@ -624,7 +625,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const shouldSendVerificationEmail = process.env.NODE_ENV === 'production' || deps.isAuthEmailConfigured();
         if (shouldSendVerificationEmail) {
             try {
-                await deps.issueEmailVerification(newUser.id, normalizedEmail, origin);
+                await deps.issueEmailVerification(newUser.id, normalizedEmail, origin, parsed.data.returnTo);
             } catch (error) {
                 console.error('Email verification delivery error:', error);
                 try {
@@ -734,6 +735,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             }
         }
 
+        let replacedAvatarUrl: { previous: string | null; next: string | null } | null = null;
         if ('avatarUrl' in payload) {
             const raw = payload.avatarUrl;
             const nextAvatarUrl =
@@ -742,7 +744,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                     : typeof raw === 'string'
                       ? raw.trim() || null
                       : user.avatar ?? null;
-            await cleanupReplacedMediaUrl(user.avatar ?? null, nextAvatarUrl);
+            replacedAvatarUrl = { previous: user.avatar ?? null, next: nextAvatarUrl };
             updates.avatarUrl = nextAvatarUrl;
         }
 
@@ -789,6 +791,9 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 })
                 .where(deps.eq(deps.tables.users.id, user.id));
 
+            if (replacedAvatarUrl) {
+                await cleanupReplacedMediaUrl(replacedAvatarUrl.previous, replacedAvatarUrl.next);
+            }
             if (residenceTouched) {
                 await syncUserTimezoneFromResidence(user.id);
             }
@@ -1111,7 +1116,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (user.status === 'verified') return c.json({ ok: true, alreadyVerified: true });
 
         try {
-            await deps.issueEmailVerification(user.id, normalizedEmail, origin);
+            await deps.issueEmailVerification(user.id, normalizedEmail, origin, parsed.data.returnTo);
         } catch (error) {
             console.error('Email verification request error:', error);
             return c.json({ ok: false, error: 'No pudimos enviar el correo de confirmación. Inténtalo nuevamente.' }, 502);

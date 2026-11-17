@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { platformNotifications } from '../../db/schema.js';
+import { accountUsers, platformNotifications } from '../../db/schema.js';
 import {
     getUserNotificationPrefsBatch,
     shouldCreateInAppNotification,
@@ -22,16 +22,54 @@ export type PlatformNotificationInsert = {
 
 type DbExecutor = Pick<typeof db, 'insert'>;
 
+export function createAccountNotificationRecipientResolver(tx: any) {
+    return function resolveRecipient(
+        accountId: string,
+        preferredUserIds: Array<string | null | undefined>,
+    ): Promise<string | null> {
+        return resolveActiveAccountNotificationRecipient(tx, accountId, preferredUserIds);
+    };
+}
+
+/** Resolve an account alert recipient while serializing against membership removal. */
+export async function resolveActiveAccountNotificationRecipient(
+    tx: any,
+    accountId: string,
+    preferredUserIds: Array<string | null | undefined>,
+): Promise<string | null> {
+    for (const userId of [...new Set(preferredUserIds.filter((id): id is string => Boolean(id)))]) {
+        const [membership] = await tx.select({ userId: accountUsers.userId })
+            .from(accountUsers)
+            .where(and(
+                eq(accountUsers.accountId, accountId),
+                eq(accountUsers.userId, userId),
+            ))
+            .limit(1)
+            .for('update');
+        if (membership) return membership.userId;
+    }
+
+    const [owner] = await tx.select({ userId: accountUsers.userId })
+        .from(accountUsers)
+        .where(and(
+            eq(accountUsers.accountId, accountId),
+            eq(accountUsers.role, 'owner'),
+        ))
+        .limit(1)
+        .for('update');
+    return owner?.userId ?? null;
+}
+
 export async function insertPlatformNotifications(
     values: PlatformNotificationInsert | PlatformNotificationInsert[],
     options?: { onConflictDoNothing?: boolean; tx?: DbExecutor },
-): Promise<void> {
+): Promise<number> {
     const list = Array.isArray(values) ? values : [values];
-    if (list.length === 0) return;
+    if (list.length === 0) return 0;
 
     const prefsMap = await getUserNotificationPrefsBatch(list.map((row) => row.userId));
     const allowed = list.filter((row) => shouldCreateInAppNotification(prefsMap.get(row.userId)));
-    if (allowed.length === 0) return;
+    if (allowed.length === 0) return 0;
 
     const executor = options?.tx ?? db;
     const query = executor.insert(platformNotifications).values(
@@ -48,11 +86,10 @@ export async function insertPlatformNotifications(
         })),
     );
 
-    if (options?.onConflictDoNothing) {
-        await query.onConflictDoNothing();
-    } else {
-        await query;
-    }
+    const inserted = options?.onConflictDoNothing
+        ? await query.onConflictDoNothing().returning({ id: platformNotifications.id })
+        : await query.returning({ id: platformNotifications.id });
+    return inserted.length;
 }
 
 export async function listPlatformNotificationsForUser(

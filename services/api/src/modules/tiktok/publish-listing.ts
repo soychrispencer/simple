@@ -6,6 +6,7 @@ export type PublishTikTokListingUser = { id: string; role?: string };
 
 export type PublishTikTokListingRecord = {
     id: string;
+    accountId?: string | null;
     vertical: VerticalType;
     status: string;
     title: string;
@@ -14,14 +15,15 @@ export type PublishTikTokListingRecord = {
 };
 
 export type PublishListingToTikTokDeps = {
-    getTikTokAccount: (userId: string, vertical: VerticalType) => TikTokAccountRecord | null;
-    userCanUseInstagram: (user: PublishTikTokListingUser, vertical: VerticalType) => boolean;
+    getTikTokAccount: (userId: string, vertical: VerticalType, accountId?: string | null) => TikTokAccountRecord | null;
+    userCanUseInstagram: (user: PublishTikTokListingUser, vertical: VerticalType, accountId?: string | null) => boolean;
     getLatestSocialPublicationForListing: (
         userId: string,
         vertical: VerticalType,
         listingId: string,
         platform: 'tiktok',
         contentType?: SocialPublicationContentType,
+        accountId?: string | null,
     ) => SocialPublicationRecord | null;
     socialPublicationToResponse: (record: SocialPublicationRecord) => unknown;
     buildListingPublicUrl: (listing: PublishTikTokListingRecord) => string;
@@ -33,12 +35,13 @@ export type PublishListingToTikTokDeps = {
         override: string | null,
     ) => string;
     createSocialPublicationRecord: (
-        input: Omit<SocialPublicationRecord, 'id' | 'createdAt' | 'updatedAt' | 'accountId'>,
+        input: Omit<SocialPublicationRecord, 'id' | 'createdAt' | 'updatedAt'>,
     ) => Promise<SocialPublicationRecord>;
     updateTikTokAccountRecord: (
         userId: string,
         vertical: VerticalType,
         patch: Partial<TikTokAccountRecord>,
+        accountId?: string | null,
     ) => Promise<TikTokAccountRecord | null>;
 };
 
@@ -49,14 +52,14 @@ async function refreshTikTokAccountIfNeeded(
     const expiresSoon = account.tokenExpiresAt && account.tokenExpiresAt < Date.now() + 60_000;
     if (!expiresSoon || !account.refreshToken) return account;
     const refreshed = await refreshTikTokAccessToken(account.refreshToken);
-    const updated = await update(account.userId, account.vertical, {
+        const updated = await update(account.userId, account.vertical, {
         accessToken: refreshed.accessToken,
         refreshToken: refreshed.refreshToken ?? account.refreshToken,
         tokenExpiresAt: refreshed.expiresInSeconds ? Date.now() + refreshed.expiresInSeconds * 1000 : null,
         scopes: refreshed.scopes,
         lastSyncedAt: Date.now(),
         lastError: null,
-    });
+    }, account.accountId);
     return updated ?? account;
 }
 
@@ -66,11 +69,11 @@ export function createPublishListingToTikTok(deps: PublishListingToTikTokDeps) {
         listing: PublishTikTokListingRecord,
         options: { captionOverride?: string | null } = {},
     ) {
-        const account = deps.getTikTokAccount(user.id, listing.vertical);
+        const account = deps.getTikTokAccount(user.id, listing.vertical, listing.accountId ?? null);
         if (!account || account.status === 'disconnected') {
             throw new Error('Primero conecta tu cuenta de TikTok.');
         }
-        if (!deps.userCanUseInstagram(user, listing.vertical)) {
+        if (!deps.userCanUseInstagram(user, listing.vertical, listing.accountId ?? null)) {
             throw new Error('TikTok está disponible solo para planes Pro y Empresa.');
         }
         if (listing.status !== 'active') {
@@ -82,7 +85,7 @@ export function createPublishListingToTikTok(deps: PublishListingToTikTokDeps) {
             throw new Error('Sube o genera un video en el aviso antes de publicar en TikTok.');
         }
 
-        const latest = deps.getLatestSocialPublicationForListing(user.id, listing.vertical, listing.id, 'tiktok', 'video');
+        const latest = deps.getLatestSocialPublicationForListing(user.id, listing.vertical, listing.id, 'tiktok', 'video', listing.accountId ?? null);
         if (latest?.status === 'published' && latest.sourceUpdatedAt === listing.updatedAt) {
             return deps.socialPublicationToResponse(latest);
         }
@@ -100,6 +103,7 @@ export function createPublishListingToTikTok(deps: PublishListingToTikTokDeps) {
 
             const publication = await deps.createSocialPublicationRecord({
                 userId: user.id,
+                accountId: listing.accountId ?? account.accountId ?? null,
                 vertical: listing.vertical,
                 listingId: listing.id,
                 listingTitle: listing.title,
@@ -118,13 +122,14 @@ export function createPublishListingToTikTok(deps: PublishListingToTikTokDeps) {
             await deps.updateTikTokAccountRecord(user.id, listing.vertical, {
                 lastPublishedAt: Date.now(),
                 lastError: null,
-            });
+            }, listing.accountId ?? account.accountId ?? null);
 
             return deps.socialPublicationToResponse(publication);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'No se pudo publicar en TikTok.';
             await deps.createSocialPublicationRecord({
                 userId: user.id,
+                accountId: listing.accountId ?? account.accountId ?? null,
                 vertical: listing.vertical,
                 listingId: listing.id,
                 listingTitle: listing.title,
@@ -139,8 +144,8 @@ export function createPublishListingToTikTok(deps: PublishListingToTikTokDeps) {
                 sourceUpdatedAt: listing.updatedAt,
                 publishedAt: null,
             });
-            await deps.updateTikTokAccountRecord(user.id, listing.vertical, { lastError: message });
-            throw new Error(message);
+            await deps.updateTikTokAccountRecord(user.id, listing.vertical, { lastError: message }, listing.accountId ?? account.accountId ?? null);
+            throw new Error(message, { cause: error });
         }
     };
 }

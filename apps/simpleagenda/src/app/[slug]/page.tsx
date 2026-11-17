@@ -54,10 +54,12 @@ export async function generateMetadata({
     const professionOrHeadline = profile.profession || profile.headline || 'Atención profesional';
     const locationCity = profile.city ? ` en ${profile.city}` : '';
     const ogTitle = `${profile.displayName} · Reserva tu hora online`;
-    const seoTitle = `${profile.displayName} — ${professionOrHeadline}${locationCity} | SimpleAgenda`;
+    const seoTitle = profile.landingPage?.seoTitle
+        || `${profile.displayName} — ${professionOrHeadline}${locationCity} | SimpleAgenda`;
 
-    const description = profile.bio?.slice(0, 160)
-        ?? `Reserva tu cita online con ${profile.displayName} (${professionOrHeadline}${locationCity}). Elige fecha y hora según disponibilidad en tiempo real.`;
+    const description = profile.landingPage?.seoDescription
+        || profile.bio?.slice(0, 160)
+        || `Reserva tu cita online con ${profile.displayName} (${professionOrHeadline}${locationCity}). Elige fecha y hora según disponibilidad en tiempo real.`;
 
     const rawImage = profile.coverUrl || profile.avatarUrl;
     const absoluteImage = rawImage

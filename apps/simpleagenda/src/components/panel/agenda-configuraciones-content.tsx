@@ -189,36 +189,13 @@ export function AgendaConfiguracionesContent() {
     const automaticSelected = bookingForm.confirmationMode === 'auto';
 
     return (
-        <div className="flex w-full min-w-0 flex-col gap-6">
-            <div className="space-y-4">
+        <div className="flex w-full min-w-0 flex-col gap-7">
+            <section className="space-y-4">
                 <PanelBlockHeader
-                    title={BUSINESS_PAYMENT_METHODS_PAGE.title}
-                    description={BUSINESS_PAYMENT_METHODS_PAGE.description}
+                    title="Condiciones de reserva"
+                    description="Define cómo se confirman las citas y las condiciones que aceptan tus clientes."
                     className="mb-0"
                 />
-                <BusinessPaymentMethodsEditor
-                    value={paymentForm}
-                    onChange={(next) => {
-                        setSaved(false);
-                        setPaymentForm(next);
-                    }}
-                    onSave={handleSave}
-                    hideSaveButton
-                    showSubscriptionNotice={false}
-                    mercadoPago={{
-                        mode: 'oauth',
-                        connected: mpConnected,
-                        integrationsHref: '/panel/mi-cuenta/integraciones',
-                    }}
-                    copy={{
-                        advancePaymentDescription: `Aplica a cualquier método activo. El ${vocab.client} verá las instrucciones antes de confirmar.`,
-                        advancePaymentInstructionsHint: `Se muestran al ${vocab.client} en la pantalla de confirmación.`,
-                        transferDescription: `El ${vocab.client} recibirá tus datos para transferirte.`,
-                    }}
-                />
-            </div>
-
-            <div className="w-full space-y-4">
                 <BusinessBookingResponseModeCard
                     title="Confirmación de citas"
                     description="Elige si las citas se confirman al instante o quedan pendientes de tu aprobación."
@@ -248,13 +225,49 @@ export function AgendaConfiguracionesContent() {
                     generating={generatingPolicies}
                     onGenerate={handleGeneratePolicies}
                 />
+            </section>
 
-                <AgendaOperationalAlertsSettings
-                    prefs={notificationPrefs.prefs}
-                    onPrefsChange={notificationPrefs.updatePrefs}
-                    disabled={saving}
+            <section className="space-y-4 border-t border-[var(--border)] pt-6">
+                <PanelBlockHeader
+                    title="Cobros"
+                    description={BUSINESS_PAYMENT_METHODS_PAGE.description}
+                    className="mb-0"
                 />
-            </div>
+                <BusinessPaymentMethodsEditor
+                    value={paymentForm}
+                    onChange={(next) => {
+                        setSaved(false);
+                        setPaymentForm(next);
+                    }}
+                    onSave={handleSave}
+                    hideSaveButton
+                    showSubscriptionNotice={false}
+                    mercadoPago={{
+                        mode: 'oauth',
+                        connected: mpConnected,
+                        integrationsHref: '/panel/mi-cuenta/integraciones',
+                    }}
+                    copy={{
+                        advancePaymentDescription: `Aplica a cualquier método activo. El ${vocab.client} verá las instrucciones antes de confirmar.`,
+                        advancePaymentInstructionsHint: `Se muestran al ${vocab.client} en la pantalla de confirmación.`,
+                        transferDescription: `El ${vocab.client} recibirá tus datos para transferirte.`,
+                    }}
+                />
+            </section>
+
+            <details className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+                <summary className="cursor-pointer list-none text-sm font-semibold text-fg">
+                    Avisos operativos
+                    <span className="mt-1 block text-xs font-normal text-fg-muted">Configura qué notificaciones recibes sobre tus citas.</span>
+                </summary>
+                <div className="mt-4 border-t border-[var(--border)] pt-4">
+                    <AgendaOperationalAlertsSettings
+                        prefs={notificationPrefs.prefs}
+                        onPrefsChange={notificationPrefs.updatePrefs}
+                        disabled={saving}
+                    />
+                </div>
+            </details>
 
             <PanelSectionSaveFooter
                 saving={saving}

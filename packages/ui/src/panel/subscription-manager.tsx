@@ -15,6 +15,8 @@ import type {
 import {
     AGENDA_PLAN_CATALOG,
     AGENDA_PRICING,
+    CHILE_VAT_RATE_BPS,
+    addChileVat,
     fetchAccountBusinessLegal,
     fetchAccountPublicProfile,
     isPlatformLaunchActive,
@@ -41,10 +43,6 @@ function formatMoney(value: number, currency: 'CLP' | 'USD' = 'CLP'): string {
 
 function paymentProviderLabel(): string {
     return 'Mercado Pago';
-}
-
-function monthlyTotalWithVat(netMonthly: number): number {
-    return Math.round(netMonthly * 1.19);
 }
 
 function trialMeta(catalog: SubscriptionCatalogResponse | null, currentPlanId: string) {
@@ -169,13 +167,23 @@ export function SubscriptionManager({
         setCurrentPlanName(
             catalogData.currentSubscription?.planName ?? catalogData.freePlan?.name ?? 'Gratuito',
         );
-        await loadCompanyBillingContext();
+        if (!catalogData.accountContext || catalogData.accountContext.canManageBilling) {
+            await loadCompanyBillingContext(catalogData.accountContext);
+        } else {
+            setCompanyBillingComplete(false);
+            setIsCompanyOperator(catalogData.accountContext?.accountKind === 'company');
+        }
         setLoading(false);
     };
 
-    const loadCompanyBillingContext = async () => {
+    const loadCompanyBillingContext = async (accountContext = catalog?.accountContext) => {
         const legal = await fetchAccountBusinessLegal();
         setCompanyBillingComplete(isCompanyBillingComplete(legal));
+
+        if (accountContext) {
+            setIsCompanyOperator(accountContext.accountKind === 'company');
+            return;
+        }
 
         if (fetchCompanyBillingContext) {
             const context = await fetchCompanyBillingContext();
@@ -242,14 +250,19 @@ export function SubscriptionManager({
 
     const agendaBilling = launchVertical === 'agenda';
     const paidPlans = useMemo(
-        () => plans.filter((plan) => plan.id === 'pro' || (agendaBilling && plan.id === 'pro_plus')),
-        [agendaBilling, plans],
+        () => plans.filter((plan) => (
+            plan.id === 'pro'
+            || (agendaBilling && plan.id === 'pro_plus')
+            || (marketplaceMode && !agendaBilling && plan.id === 'enterprise')
+        )),
+        [agendaBilling, marketplaceMode, plans],
     );
 
     const trial = useMemo(() => trialMeta(catalog, currentPlanId), [catalog, currentPlanId]);
     const proPlan = paidPlans.find((plan) => plan.id === 'pro') ?? null;
     const currentPaidPlan = paidPlans.find((plan) => plan.id === currentPlanId) ?? proPlan;
     const proPlusPlan = paidPlans.find((plan) => plan.id === 'pro_plus') ?? null;
+    const enterprisePlan = paidPlans.find((plan) => plan.id === 'enterprise') ?? null;
     const selectedBillingCycle = agendaBilling ? billingCycle : 'monthly';
     const isAnnualBilling = selectedBillingCycle === 'annual';
     const subscriptionPromotion = currentPlanId === 'free' && !isAnnualBilling ? proPlan?.promotion ?? null : null;
@@ -260,9 +273,19 @@ export function SubscriptionManager({
     const selectedProPlusPrice = isAnnualBilling
         ? AGENDA_PRICING.proPlusAnnualTotalNetClp
         : proPlusPlan?.priceMonthly ?? 0;
-    const summaryBillingPrice = currentPlanId === 'pro_plus' ? selectedProPlusPrice : selectedProPrice;
+    const summaryBillingPrice = currentPlanId === 'pro_plus'
+        ? selectedProPlusPrice
+        : currentPlanId === 'enterprise'
+            ? enterprisePlan?.priceMonthly ?? selectedProPrice
+            : selectedProPrice;
     const currentCycleLabel = currentBillingCycle === 'annual' ? 'anual' : 'mensual';
     const selectedCycleLabel = isAnnualBilling ? 'anual' : 'mensual';
+    const canManageBilling = catalog?.accountContext
+        ? Boolean(catalog.accountContext.canManageBilling)
+        : !marketplaceMode;
+    const marketplaceIndividual = marketplaceMode && catalog?.accountContext?.accountKind === 'individual';
+    const canSelfServeEnterprise = marketplaceMode && catalog?.accountContext?.accountKind === 'company';
+    const marketplaceEntitlements = marketplaceMode ? catalog?.entitlements ?? null : null;
 
     const startCheckout = async (planId: Exclude<SubscriptionPlanId, 'free'>) => {
         setBusyPlanId(planId);
@@ -309,7 +332,12 @@ export function SubscriptionManager({
     };
 
     const handleCancelSubscription = async () => {
-        if (!cancelSubscription || (currentPlanId !== 'pro' && currentPlanId !== 'pro_plus') || cancelling) return;
+        if (
+            !cancelSubscription
+            || currentPlanId === 'free'
+            || !plans.some((plan) => plan.id === currentPlanId && plan.id !== 'free')
+            || cancelling
+        ) return;
         const confirmed = window.confirm(
             agendaBilling
                 ? `¿Cancelar tu plan ${currentPlanName}? Dejarás de renovar el cobro y tu cuenta pasará a Gratis. Mantendrás tus datos, tu perfil público y hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes; las canceladas también cuentan.`
@@ -335,8 +363,6 @@ export function SubscriptionManager({
         }
     };
 
-    const freeListingLimit = catalog?.freePlan?.maxListings ?? 3;
-
     const effectiveLaunchVertical: PlatformLaunchVertical | null =
         launchVertical
         ?? (marketplaceVertical === 'autos' || marketplaceVertical === 'propiedades'
@@ -353,9 +379,11 @@ export function SubscriptionManager({
 
     return (
         <div className="space-y-6">
-            {marketplaceMode && !loading ? (
+            {catalog?.accountContext && !loading && !canManageBilling ? (
                 <PanelNotice tone="neutral">
-                    Pro aumenta tu cupo de avisos activos y permite activar tu perfil público. El plan gratuito incluye hasta {freeListingLimit} avisos. Particular, profesional o empresa se elige en Mi negocio.
+                    {marketplaceMode
+                        ? 'Puedes revisar el plan del espacio. Solo quienes lo administran pueden gestionar pagos o suscripciones.'
+                        : `El plan de ${catalog.accountContext.accountName || 'este espacio'} se gestiona desde la cuenta. Pide a su dueño o administrador que haga cambios de plan o facturación.`}
                 </PanelNotice>
             ) : null}
             {message ? <PanelNotice tone="success">{message}</PanelNotice> : null}
@@ -369,6 +397,31 @@ export function SubscriptionManager({
                 <PanelNotice tone="info">
                     Modo desarrollo: al suscribirte se simula el pago y el plan queda activo sin ir a Mercado Pago. En producción el cobro es real.
                 </PanelNotice>
+            ) : null}
+            {marketplaceEntitlements ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-(--border) bg-(--bg-subtle) px-4 py-3 text-sm">
+                    <span className="text-(--fg-secondary)">Publicaciones en uso</span>
+                    <strong className="text-(--fg)">
+                        {marketplaceEntitlements.usage.activeListings}
+                        {marketplaceEntitlements.limits.activeListings === null
+                            ? ' · sin límite'
+                            : ' de ' + marketplaceEntitlements.limits.activeListings}
+                    </strong>
+                    {marketplaceEntitlements.listingLimitReason ? (
+                        <span className="basis-full text-xs text-(--fg-muted)">{marketplaceEntitlements.listingLimitReason}</span>
+                    ) : null}
+                </div>
+            ) : null}
+            {marketplaceEntitlements && catalog?.accountContext?.accountKind === 'company' ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-(--border) bg-(--bg-subtle) px-4 py-3 text-sm">
+                    <span className="text-(--fg-secondary)">Equipo en uso</span>
+                    <strong className="text-(--fg)">
+                        {marketplaceEntitlements.usage.teamMembers} integrantes · sin tope por ahora
+                    </strong>
+                    <span className="basis-full text-xs text-(--fg-muted)">
+                        Incluye integrantes activos e invitaciones vigentes. Cada persona conserva los permisos de su rol.
+                    </span>
+                </div>
             ) : null}
 
             {!loading && trial ? (
@@ -403,15 +456,36 @@ export function SubscriptionManager({
 
             <PanelCard size="lg">
                 <PanelBlockHeader
-                    title={currentPlanId === 'pro' ? 'Tu plan Pro' : currentPlanId === 'pro_plus' ? 'Tu plan Pro+' : 'Elige tu plan'}
+                    title={currentPlanId === 'pro'
+                        ? 'Tu plan Pro'
+                        : currentPlanId === 'pro_plus'
+                            ? 'Tu plan Pro+'
+                            : currentPlanId === 'enterprise'
+                                ? 'Tu plan Enterprise'
+                                : marketplaceIndividual ? 'Plan particular' : 'Elige tu plan'}
                     description={
-                        currentPlanId === 'pro' || currentPlanId === 'pro_plus'
+                        currentPlanId === 'pro' || currentPlanId === 'pro_plus' || currentPlanId === 'enterprise'
                             ? `Suscripción ${currentCycleLabel} activa. El cobro se gestiona con ${paymentProviderLabel()}.`
-                            : agendaBilling
+                            : marketplaceIndividual
+                                ? 'Tu cuenta puede seguir publicando en el plan gratuito. La oferta profesional se muestra al configurar otro tipo de actividad.'
+                                : canSelfServeEnterprise
+                                    ? 'Elige la capacidad que necesita la cartera y el equipo de este espacio. El plan se comparte entre sus integrantes.'
+                                : agendaBilling
                                 ? 'Elige Pro o Pro+ con pago mensual o anual y cancela cuando quieras.'
-                                : 'Un solo plan con todo incluido. Facturación mensual y cancelación cuando quieras.'
+                                : marketplaceMode
+                                    ? 'Pro reúne las herramientas profesionales para administrar tus publicaciones y oportunidades en un solo espacio.'
+                                    : 'Un plan con todo incluido. Facturación mensual y cancelación cuando quieras.'
                     }
                 />
+
+                {marketplaceMode ? (
+                    <p className="mt-3 max-w-3xl text-sm leading-relaxed text-(--fg-secondary)">
+                        Simple también reúne las consultas y su seguimiento en el CRM del mismo espacio
+                        {marketplaceVertical === 'propiedades'
+                            ? ', y conecta las visitas con tus propiedades mediante SimpleAgenda.'
+                            : '.'}
+                    </p>
+                ) : null}
 
                 {agendaBilling ? (
                     <div className="mt-5 flex flex-col gap-3 rounded-xl border border-(--border) bg-(--bg-subtle) p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -444,9 +518,14 @@ export function SubscriptionManager({
                     </div>
                 ) : null}
 
-                {loading ? null : proPlan ? (
-                    <div className="grid gap-5 lg:grid-cols-2 lg:items-stretch xl:grid-cols-3">
-                        <article
+                {loading ? null : proPlan || enterprisePlan ? (
+                    <div className={`grid gap-5 lg:items-stretch ${
+                        marketplaceMode
+                            ? proPlan && enterprisePlan ? 'lg:grid-cols-2' : 'lg:grid-cols-1'
+                            : 'lg:grid-cols-2 xl:grid-cols-3'
+                    }`}>
+                        {proPlan ? (
+                            <article
                             className={`flex h-full flex-col rounded-card border p-5 sm:p-6 ${
                                         currentPlanId === 'pro' ? 'border-(--accent-border) bg-(--accent-subtle)' : 'border-(--border) bg-(--surface)'
                             }`}
@@ -459,6 +538,8 @@ export function SubscriptionManager({
                                 </div>
                                 {currentPlanId === 'pro' ? (
                                     <PanelStatusBadge label="Activo" tone="success" />
+                                ) : currentPlanId === 'enterprise' ? (
+                                    <PanelStatusBadge label="Incluido en Enterprise" tone="neutral" size="sm" />
                                 ) : (
                                     <PanelStatusBadge label="Recomendado" tone="info" size="sm" />
                                 )}
@@ -474,17 +555,17 @@ export function SubscriptionManager({
                                 </p>
                                 {agendaBilling && isAnnualBilling ? (
                                     <p className="mt-1 text-sm leading-relaxed text-(--fg-secondary)">
-                                        Equivale a ${formatMoney(AGENDA_PRICING.proAnnualMonthlyEquivalentNetClp)} + IVA / mes. Total anual estimado: ${formatMoney(monthlyTotalWithVat(selectedProPrice))}. Ahorras {AGENDA_PRICING.proAnnualDiscountPct}%.
+                                        Equivale a ${formatMoney(AGENDA_PRICING.proAnnualMonthlyEquivalentNetClp)} + IVA / mes. Total anual estimado: ${formatMoney(addChileVat(selectedProPrice))}. Ahorras {AGENDA_PRICING.proAnnualDiscountPct}%.
                                     </p>
                                 ) : proPlan.currency === 'CLP' && subscriptionPromotion ? (
                                     <p className="mt-1 text-sm leading-relaxed text-(--fg-secondary)">
                                         Precio promocional por {subscriptionPromotion.durationMonths} meses. Luego, ${formatMoney(proPlan.priceMonthly, 'CLP')} + IVA / mes.
                                         <br />
-                                        Total estimado: ${formatMoney(monthlyTotalWithVat(subscriptionPromotion.priceMonthly), 'CLP')} / mes durante la promoción; después, ${formatMoney(monthlyTotalWithVat(proPlan.priceMonthly), 'CLP')} / mes.
+                                        Total estimado: ${formatMoney(addChileVat(subscriptionPromotion.priceMonthly), 'CLP')} / mes durante la promoción; después, ${formatMoney(addChileVat(proPlan.priceMonthly), 'CLP')} / mes.
                                     </p>
                                 ) : proPlan.currency === 'CLP' ? (
                                     <p className="mt-1 text-sm text-(--fg-secondary)">
-                                        Total estimado: ${formatMoney(monthlyTotalWithVat(selectedProPrice), 'CLP')} / mes
+                                        {marketplaceMode ? 'Total mensual con IVA:' : 'Total estimado:'} ${formatMoney(addChileVat(selectedProPrice), 'CLP')} / mes
                                     </p>
                                 ) : (
                                     <p className="mt-1 text-sm text-(--fg-secondary)">
@@ -510,6 +591,7 @@ export function SubscriptionManager({
                                         currentPlanId !== 'free'
                                         || busyPlanId === proPlan.id
                                         || !checkoutEnabled
+                                        || !canManageBilling
                                         || cancelling
                                     }
                                         onClick={() => void startCheckout('pro')}
@@ -525,13 +607,15 @@ export function SubscriptionManager({
                                             ? `Cancela tu Pro ${currentCycleLabel} para cambiar a ${selectedCycleLabel}`
                                         : currentPlanId === 'pro_plus'
                                             ? 'Cancela Pro+ para cambiar'
+                                            : currentPlanId === 'enterprise'
+                                                ? 'Incluido en Enterprise'
                                             : `Contratar Pro ${selectedCycleLabel} con ${paymentProviderLabel()}`}
                                 </PanelButton>
                                 {currentPlanId === 'pro' && cancelSubscription ? (
                                     <PanelButton
                                         className="w-full"
                                         variant="danger"
-                                        disabled={cancelling || busyPlanId !== null}
+                                        disabled={cancelling || busyPlanId !== null || !canManageBilling}
                                         loading={cancelling}
                                         onClick={() => void handleCancelSubscription()}
                                     >
@@ -539,7 +623,8 @@ export function SubscriptionManager({
                                     </PanelButton>
                                 ) : null}
                             </div>
-                        </article>
+                            </article>
+                        ) : null}
 
                         {proPlusPlan ? (
                             <article
@@ -567,8 +652,8 @@ export function SubscriptionManager({
                                     </p>
                                     <p className="mt-1 text-sm text-(--fg-secondary)">
                                         {isAnnualBilling
-                                            ? <>Equivale a ${formatMoney(AGENDA_PRICING.proPlusAnnualMonthlyEquivalentNetClp)} + IVA / mes. Total anual estimado: ${formatMoney(monthlyTotalWithVat(selectedProPlusPrice))}. Ahorras {AGENDA_PRICING.proAnnualDiscountPct}%.</>
-                                            : <>Total estimado: ${formatMoney(monthlyTotalWithVat(selectedProPlusPrice), 'CLP')} / mes</>}
+                                            ? <>Equivale a ${formatMoney(AGENDA_PRICING.proPlusAnnualMonthlyEquivalentNetClp)} + IVA / mes. Total anual estimado: ${formatMoney(addChileVat(selectedProPlusPrice))}. Ahorras {AGENDA_PRICING.proAnnualDiscountPct}%.</>
+                                            : <>Total estimado: ${formatMoney(addChileVat(selectedProPlusPrice), 'CLP')} / mes</>}
                                     </p>
                                 </div>
 
@@ -589,6 +674,7 @@ export function SubscriptionManager({
                                             currentPlanId !== 'free'
                                             || busyPlanId === proPlusPlan.id
                                             || !checkoutEnabled
+                                            || !canManageBilling
                                             || cancelling
                                         }
                                         onClick={() => void startCheckout('pro_plus')}
@@ -610,7 +696,7 @@ export function SubscriptionManager({
                                         <PanelButton
                                             className="w-full"
                                             variant="danger"
-                                            disabled={cancelling || busyPlanId !== null}
+                                            disabled={cancelling || busyPlanId !== null || !canManageBilling}
                                             loading={cancelling}
                                             onClick={() => void handleCancelSubscription()}
                                         >
@@ -621,11 +707,98 @@ export function SubscriptionManager({
                             </article>
                         ) : null}
 
-                        <aside className="flex h-full flex-col gap-4 rounded-card border border-(--border) bg-(--bg-subtle) p-5 sm:p-6">
+                        {enterprisePlan ? (
+                            <article
+                                className={`flex h-full flex-col rounded-card border p-5 sm:p-6 ${
+                                    currentPlanId === 'enterprise' ? 'border-(--accent-border) bg-(--accent-subtle)' : 'border-(--border) bg-(--surface)'
+                                }`}
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-(--fg-muted)">Para operaciones de mayor escala</p>
+                                        <h3 className="mt-1 text-2xl font-semibold text-(--fg)">{enterprisePlan.name}</h3>
+                                        <p className="mt-2 text-sm leading-relaxed text-(--fg-secondary)">{enterprisePlan.description}</p>
+                                    </div>
+                                    {currentPlanId === 'enterprise' ? (
+                                        <PanelStatusBadge label="Activo" tone="success" />
+                                    ) : (
+                                        <PanelStatusBadge label="Más capacidad" tone="info" size="sm" />
+                                    )}
+                                </div>
+
+                                <div className="mt-6 rounded-xl border border-(--border) bg-(--bg-subtle) p-4">
+                                    <p className="text-3xl font-bold tracking-tight text-(--fg)">
+                                        {enterprisePlan.currency === 'USD' ? 'US$' : '$'}{formatMoney(enterprisePlan.priceMonthly, enterprisePlan.currency)}
+                                        <span className="ml-1 text-base font-medium text-(--fg-muted)">
+                                            {enterprisePlan.currency === 'CLP' ? '+ IVA / mes' : '/ mes'}
+                                        </span>
+                                    </p>
+                                    {enterprisePlan.currency === 'CLP' ? (
+                                        <p className="mt-1 text-sm text-(--fg-secondary)">
+                                        {marketplaceMode ? 'Total mensual con IVA:' : 'Total estimado:'} ${formatMoney(addChileVat(enterprisePlan.priceMonthly), 'CLP')} / mes
+                                        </p>
+                                    ) : null}
+                                </div>
+
+                                <div className="mt-5 grid flex-1 gap-2 sm:grid-cols-2">
+                                    {enterprisePlan.features.map((feature) => (
+                                        <div key={feature} className="flex items-start gap-2 text-sm">
+                                            <IconCheck size={14} className="mt-0.5 shrink-0 text-accent-ink" />
+                                            <span className="text-(--fg-secondary)">{feature}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mt-6 space-y-2 pt-2">
+                                    <PanelButton
+                                        className="w-full"
+                                        variant={currentPlanId === 'enterprise' ? 'secondary' : 'primary'}
+                                        disabled={
+                                            currentPlanId !== 'free'
+                                            || !canSelfServeEnterprise
+                                            || busyPlanId === enterprisePlan.id
+                                            || !checkoutEnabled
+                                            || !canManageBilling
+                                            || cancelling
+                                        }
+                                        onClick={() => void startCheckout('enterprise')}
+                                    >
+                                        {busyPlanId === enterprisePlan.id ? (
+                                            <IconLoader2 size={14} className="animate-spin" />
+                                        ) : (
+                                            <IconCreditCard size={14} />
+                                        )}
+                                        {currentPlanId === 'enterprise'
+                                            ? 'Plan Enterprise mensual activo'
+                                            : currentPlanId === 'pro'
+                                                ? 'Cancela Pro para cambiar a Enterprise'
+                                                : currentPlanId === 'pro_plus'
+                                                    ? 'Cancela Pro+ para cambiar a Enterprise'
+                                                    : !canSelfServeEnterprise
+                                                        ? 'Disponible para cuentas de empresa'
+                                                        : `Contratar Enterprise mensual con ${paymentProviderLabel()}`}
+                                    </PanelButton>
+                                    {currentPlanId === 'enterprise' && cancelSubscription ? (
+                                        <PanelButton
+                                            className="w-full"
+                                            variant="danger"
+                                            disabled={cancelling || busyPlanId !== null || !canManageBilling}
+                                            loading={cancelling}
+                                            onClick={() => void handleCancelSubscription()}
+                                        >
+                                            Cancelar Enterprise
+                                        </PanelButton>
+                                    ) : null}
+                                </div>
+                            </article>
+                        ) : null}
+
+                        {!marketplaceMode ? (
+                            <aside className="flex h-full flex-col gap-4 rounded-card border border-(--border) bg-(--bg-subtle) p-5 sm:p-6">
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-wide text-(--fg-muted)">Resumen</p>
                                 <h4 className="mt-1 text-lg font-semibold text-(--fg)">
-                                    {currentPlanId === 'pro' || currentPlanId === 'pro_plus' ? 'Tu suscripción' : 'Antes de activar'}
+                                    {currentPlanId === 'pro' || currentPlanId === 'pro_plus' || currentPlanId === 'enterprise' ? 'Tu suscripción' : 'Antes de activar'}
                                 </h4>
                             </div>
 
@@ -672,11 +845,11 @@ export function SubscriptionManager({
                                         <p className="text-sm font-medium text-(--fg)">Cobro transparente</p>
                                         <p className="text-xs leading-relaxed text-(--fg-muted)">
                                             {subscriptionPromotion ? (
-                                                <>Neto ${formatMoney(subscriptionPromotion.priceMonthly)} + IVA 19% por {subscriptionPromotion.durationMonths} meses; luego ${formatMoney(summaryPlanPrice)} + IVA al mes.</>
+                                                <>Neto ${formatMoney(subscriptionPromotion.priceMonthly)} + IVA {CHILE_VAT_RATE_BPS / 100}% por {subscriptionPromotion.durationMonths} meses; luego ${formatMoney(summaryPlanPrice)} + IVA al mes.</>
                                             ) : agendaBilling && isAnnualBilling ? (
-                                                <>Neto anual ${formatMoney(summaryBillingPrice)} + IVA 19% (${formatMoney(monthlyTotalWithVat(summaryBillingPrice) - summaryBillingPrice)}). El cobro se renueva cada 12 meses.</>
+                                                <>Neto anual ${formatMoney(summaryBillingPrice)} + IVA {CHILE_VAT_RATE_BPS / 100}% (${formatMoney(addChileVat(summaryBillingPrice) - summaryBillingPrice)}). El cobro se renueva cada 12 meses.</>
                                             ) : (
-                                                <>Neto mensual ${formatMoney(summaryBillingPrice)} + IVA 19% (${formatMoney(monthlyTotalWithVat(summaryBillingPrice) - summaryBillingPrice)}).</>
+                                                <>Neto mensual ${formatMoney(summaryBillingPrice)} + IVA {CHILE_VAT_RATE_BPS / 100}% (${formatMoney(addChileVat(summaryBillingPrice) - summaryBillingPrice)}).</>
                                             )}
                                             {' '}El checkout de Mercado Pago muestra el monto final.
                                         </p>
@@ -685,7 +858,7 @@ export function SubscriptionManager({
                             </div>
 
                             <div className="mt-auto rounded-xl border border-dashed border-(--border) p-4 text-xs leading-relaxed text-(--fg-muted)">
-                                {currentPlanId === 'pro' || currentPlanId === 'pro_plus' ? (
+                                {currentPlanId === 'pro' || currentPlanId === 'pro_plus' || currentPlanId === 'enterprise' ? (
                                     <>
                                         Estás en <strong className="text-(--fg)">{currentPlanName}</strong> con pago {currentCycleLabel}.
                                         {' '}El historial de órdenes aparece abajo.
@@ -699,11 +872,17 @@ export function SubscriptionManager({
                                     </>
                                 )}
                             </div>
-                        </aside>
+                            </aside>
+                        ) : null}
                     </div>
-                ) : (
+                ) : marketplaceIndividual ? null : (
                     <PanelNotice tone="neutral">No hay planes de pago disponibles en este momento.</PanelNotice>
                 )}
+                {marketplaceMode && !marketplaceIndividual && !loading ? (
+                    <p className="mt-5 text-sm leading-relaxed text-(--fg-muted)">
+                        El plan pertenece a este espacio y sus capacidades se comparten con el equipo. Su dueño o administrador gestiona los cobros y cambios.
+                    </p>
+                ) : null}
             </PanelCard>
 
             {agendaBilling ? (
@@ -730,47 +909,51 @@ export function SubscriptionManager({
                 </PanelCard>
             ) : null}
 
-            <PanelCard size="lg">
-                <PanelBlockHeader
-                    title={SUBSCRIPTION_BILLING_HISTORY.title}
-                    description={SUBSCRIPTION_BILLING_HISTORY.description}
-                    actions={(
-                        <PanelButton variant="secondary" size="sm" onClick={() => setBillingModalOpen(true)}>
-                            {ACCOUNT_SUBSCRIPTION_BILLING_BUTTON}
-                        </PanelButton>
+            {canManageBilling ? (
+                <PanelCard size="lg">
+                    <PanelBlockHeader
+                        title={SUBSCRIPTION_BILLING_HISTORY.title}
+                        description={SUBSCRIPTION_BILLING_HISTORY.description}
+                        actions={(
+                            <PanelButton variant="secondary" size="sm" onClick={() => setBillingModalOpen(true)}>
+                                {ACCOUNT_SUBSCRIPTION_BILLING_BUTTON}
+                            </PanelButton>
+                        )}
+                    />
+
+                    {isCompanyOperator && !companyBillingComplete && !loading ? (
+                        <PanelNotice tone="warning" className="mb-4">
+                            Operas como empresa: completa tus datos de facturación para boletas o facturas de tu suscripción.
+                        </PanelNotice>
+                    ) : null}
+
+                    {loading ? null : orders.length === 0 ? (
+                        <PanelNotice tone="neutral">Aún no tienes órdenes de suscripción.</PanelNotice>
+                    ) : (
+                        <div className="space-y-3">
+                            {orders.map((order) => (
+                                <article
+                                    key={order.id}
+                                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-(--border) bg-(--bg-subtle) p-4"
+                                >
+                                    <div>
+                                        <p className="font-medium text-(--fg)">{order.title}</p>
+                                        <p className="mt-1 text-xs text-(--fg-secondary)">
+                                            {order.currency === 'USD' ? 'US$' : '$'}{formatMoney(order.amount, order.currency)}
+                                            {order.currency === 'CLP' && order.metadata?.vatIncluded === true ? ' (IVA incluido)' : ' · Total cobrado'}
+                                            {' · '}{new Date(order.createdAt).toLocaleString('es-CL')}
+                                        </p>
+                                    </div>
+                                    <PanelStatusBadge label={subscriptionLabel(order.status)} tone={subscriptionTone(order.status)} />
+                                </article>
+                            ))}
+                        </div>
                     )}
-                />
-
-                {isCompanyOperator && !companyBillingComplete && !loading ? (
-                    <PanelNotice tone="warning" className="mb-4">
-                        Operas como empresa: completa tus datos de facturación para boletas o facturas de tu suscripción.
-                    </PanelNotice>
-                ) : null}
-
-                {loading ? null : orders.length === 0 ? (
-                    <PanelNotice tone="neutral">Aún no tienes órdenes de suscripción.</PanelNotice>
-                ) : (
-                    <div className="space-y-3">
-                        {orders.map((order) => (
-                            <article
-                                key={order.id}
-                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-(--border) bg-(--bg-subtle) p-4"
-                            >
-                                <div>
-                                    <p className="font-medium text-(--fg)">{order.title}</p>
-                                    <p className="mt-1 text-xs text-(--fg-secondary)">
-                                        ${formatMoney(order.amount)}{agendaBilling && order.currency === 'CLP' ? ' (IVA incluido)' : ' + IVA'} · {new Date(order.createdAt).toLocaleString('es-CL')}
-                                    </p>
-                                </div>
-                                <PanelStatusBadge label={subscriptionLabel(order.status)} tone={subscriptionTone(order.status)} />
-                            </article>
-                        ))}
-                    </div>
-                )}
-            </PanelCard>
+                </PanelCard>
+            ) : null}
 
             <AccountSubscriptionBillingModal
-                open={billingModalOpen}
+                open={billingModalOpen && canManageBilling}
                 onClose={() => setBillingModalOpen(false)}
                 onSaved={() => void loadCompanyBillingContext()}
             />

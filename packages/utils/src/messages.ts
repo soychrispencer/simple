@@ -205,6 +205,49 @@ export type MarketplaceContactDetail = {
     events: MarketplaceContactTimelineEvent[];
 };
 
+export type MarketplaceContactAssignmentMember = {
+    userId: string;
+    name: string;
+    email: string | null;
+    role: string;
+};
+
+export type MarketplaceContactStage = 'new' | 'contacted' | 'visit_scheduled' | 'negotiation' | 'won' | 'lost';
+
+export type MarketplaceContactAssignmentContext = {
+    workspaceEnabled: boolean;
+    teamEnabled: boolean;
+    canManage: boolean;
+    canUpdateStage: boolean;
+    assignedUserId: string | null;
+    stage: MarketplaceContactStage;
+    members: MarketplaceContactAssignmentMember[];
+};
+
+export type MarketplaceContactTaskStatus = 'open' | 'done' | 'cancelled';
+
+export type MarketplaceContactTask = {
+    id: string;
+    title: string;
+    dueAt: string | null;
+    status: MarketplaceContactTaskStatus;
+    assignedUserId: string | null;
+    assignedName: string | null;
+    createdByUserId: string;
+    createdAt: string;
+    completedAt: string | null;
+    canUpdate: boolean;
+};
+
+export type MarketplaceContactTasksContext = {
+    workspaceEnabled: boolean;
+    teamEnabled: boolean;
+    canManage: boolean;
+    viewerUserId: string | null;
+    members: MarketplaceContactAssignmentMember[];
+    tasks: MarketplaceContactTask[];
+};
+
 export async function fetchMarketplaceContacts(
     vertical: Extract<MessageVertical, 'autos' | 'propiedades'>,
     q = '',
@@ -236,6 +279,94 @@ export async function fetchMarketplaceContactDetail(
         leads: data.leads ?? [],
         events: data.events ?? [],
     };
+}
+
+export async function fetchMarketplaceContactAssignment(
+    vertical: Extract<MessageVertical, 'autos' | 'propiedades'>,
+    personId: string,
+): Promise<MarketplaceContactAssignmentContext | null> {
+    const params = new URLSearchParams({ vertical, personId });
+    const { ok, data } = await apiFetch<ApiResponse<Partial<MarketplaceContactAssignmentContext>>>(
+        `/api/messages/contacts/assignment?${params.toString()}`,
+        { method: 'GET' },
+    );
+    if (!ok || !data?.ok) return null;
+    return {
+        workspaceEnabled: Boolean(data.workspaceEnabled),
+        teamEnabled: Boolean(data.teamEnabled),
+        canManage: Boolean(data.canManage),
+        canUpdateStage: Boolean(data.canUpdateStage),
+        assignedUserId: data.assignedUserId ?? null,
+        stage: data.stage ?? 'new',
+        members: Array.isArray(data.members) ? data.members : [],
+    };
+}
+
+export async function updateMarketplaceContactAssignment(input: {
+    vertical: Extract<MessageVertical, 'autos' | 'propiedades'>;
+    personId: string;
+    assignedUserId?: string | null;
+    stage?: MarketplaceContactStage;
+}): Promise<{ ok: boolean; error?: string }> {
+    const { ok, data } = await apiFetch<ApiResponse<{ error?: string }>>(
+        '/api/messages/contacts/assignment',
+        {
+            method: 'PATCH',
+            body: JSON.stringify(input),
+        },
+    );
+    return ok && data?.ok
+        ? { ok: true }
+        : { ok: false, error: data?.error ?? 'No pudimos cambiar a la persona responsable.' };
+}
+
+export async function fetchMarketplaceContactTasks(
+    vertical: Extract<MessageVertical, 'autos' | 'propiedades'>,
+    personId: string,
+): Promise<MarketplaceContactTasksContext | null> {
+    const params = new URLSearchParams({ vertical, personId });
+    const { ok, data } = await apiFetch<ApiResponse<Partial<MarketplaceContactTasksContext>>>(
+        `/api/messages/contacts/tasks?${params.toString()}`,
+        { method: 'GET' },
+    );
+    if (!ok || !data?.ok) return null;
+    return {
+        workspaceEnabled: Boolean(data.workspaceEnabled),
+        teamEnabled: Boolean(data.teamEnabled),
+        canManage: Boolean(data.canManage),
+        viewerUserId: data.viewerUserId ?? null,
+        members: Array.isArray(data.members) ? data.members : [],
+        tasks: Array.isArray(data.tasks) ? data.tasks : [],
+    };
+}
+
+export async function createMarketplaceContactTask(input: {
+    vertical: Extract<MessageVertical, 'autos' | 'propiedades'>;
+    personId: string;
+    title: string;
+    dueAt?: string | null;
+    assignedUserId?: string | null;
+}): Promise<{ ok: boolean; error?: string; task?: MarketplaceContactTask }> {
+    const { ok, data } = await apiFetch<ApiResponse<{ error?: string; task?: MarketplaceContactTask }>>(
+        '/api/messages/contacts/tasks',
+        { method: 'POST', body: JSON.stringify(input) },
+    );
+    return ok && data?.ok && data.task
+        ? { ok: true, task: data.task }
+        : { ok: false, error: data?.error ?? 'No pudimos guardar el seguimiento.' };
+}
+
+export async function updateMarketplaceContactTask(
+    taskId: string,
+    patch: Partial<Pick<MarketplaceContactTask, 'title' | 'dueAt' | 'status' | 'assignedUserId'>>,
+): Promise<{ ok: boolean; error?: string }> {
+    const { ok, data } = await apiFetch<ApiResponse<{ error?: string }>>(
+        `/api/messages/contacts/tasks/${encodeURIComponent(taskId)}`,
+        { method: 'PATCH', body: JSON.stringify(patch) },
+    );
+    return ok && data?.ok
+        ? { ok: true }
+        : { ok: false, error: data?.error ?? 'No pudimos actualizar el seguimiento.' };
 }
 
 export function notifyPanelMessagesChanged(): void {

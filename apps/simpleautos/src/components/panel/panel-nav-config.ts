@@ -13,9 +13,9 @@ import {
     IconAddressBook,
 } from '@tabler/icons-react';
 import { isMarketplaceLaunchMode } from '@simple/utils';
+import type { PanelAccountKind } from '@simple/ui/panel';
 
-export type PanelRole = 'user' | 'admin' | 'superadmin';
-export type PanelVisibility = 'all' | 'admin_plus';
+export type PanelVisibility = 'all' | 'admin_plus' | 'professional_plus';
 
 export type PanelNavItem = {
     href: string;
@@ -33,31 +33,53 @@ const PANEL_NAV_ITEMS: PanelNavItem[] = [
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
     { href: '/panel/publicidad', label: 'Publicidad', icon: IconRocket },
     { href: '/panel/finanzas', label: 'Finanzas', icon: IconCash, visibility: 'admin_plus' },
-    { href: '/panel/estadisticas', label: 'Estadísticas', icon: IconChartBar, visibility: 'admin_plus' },
+    { href: '/panel/estadisticas', label: 'Estadísticas', icon: IconChartBar, visibility: 'professional_plus' },
     { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBuildingStore },
     { href: '/panel/mi-cuenta', label: 'Mi cuenta', icon: IconUser },
 ];
 
-function canSee(itemVisibility: PanelVisibility | undefined, role: PanelRole): boolean {
-    if (isMarketplaceLaunchMode() && itemVisibility === 'admin_plus') return true;
+function canSee(
+    itemVisibility: PanelVisibility | undefined,
+    accountRole: string | null,
+    isPersonalAccount: boolean,
+    accountKind: PanelAccountKind | null,
+): boolean {
+    const isCompanyAgent = !isPersonalAccount && accountRole === 'agent';
     if (!itemVisibility || itemVisibility === 'all') return true;
-    return role === 'admin' || role === 'superadmin';
+    if (isCompanyAgent) return false;
+    if (isMarketplaceLaunchMode()) return true;
+
+    if (itemVisibility === 'admin_plus') {
+        return !isPersonalAccount && (accountRole === 'owner' || accountRole === 'admin');
+    }
+
+    return (isPersonalAccount && accountKind === 'independent')
+        || (!isPersonalAccount && (accountRole === 'owner' || accountRole === 'admin'));
 }
 
-export function getPanelNavItems(role: PanelRole): PanelNavItem[] {
-    return PANEL_NAV_ITEMS.filter((item) => canSee(item.visibility, role));
-}
+export function getPanelNavItems(
+    accountRole: string | null = null,
+    isPersonalAccount = true,
+    accountKind: PanelAccountKind | null = null,
+): PanelNavItem[] {
+    const isCompanyAgent = !isPersonalAccount && accountRole === 'agent';
+    const agentWorkItems = new Set([
+        '/panel',
+        '/panel/publicaciones',
+        '/panel/contactos',
+        '/panel/mensajes',
+        '/panel/mi-cuenta',
+    ]);
+    const visibleItems = isCompanyAgent
+        ? PANEL_NAV_ITEMS.filter((item) => agentWorkItems.has(item.href))
+        : PANEL_NAV_ITEMS;
 
-export function panelRoleLabel(role: PanelRole): string {
-    if (role === 'superadmin') return 'Superadmin';
-    if (role === 'admin') return 'Admin';
-    return 'Usuario';
-}
-
-export function panelPlanLabel(role: PanelRole): string {
-    if (role === 'superadmin') return 'Empresa';
-    if (role === 'admin') return 'Pro';
-    return 'Gratis';
+    return visibleItems.filter((item) => canSee(
+        item.visibility,
+        accountRole,
+        isPersonalAccount,
+        accountKind,
+    ));
 }
 
 function cleanPanelHref(href: string): string {

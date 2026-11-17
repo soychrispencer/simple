@@ -13,6 +13,8 @@ import {
     resolvePublishTemplateForListing,
     type InstagramTemplateId,
 } from './publish-preferences.js';
+import { isSocialIntegrationAccessError } from '../integrations/social-write-access.js';
+import { canManageAccountRole } from '../accounts/permissions.js';
 
 export interface InstagramRouterDeps {
     authUser: (c: Context) => Promise<any>;
@@ -23,15 +25,18 @@ export interface InstagramRouterDeps {
     logDebug: (msg: string) => void;
     listingsById: Map<string, any>;
     getListingById: (id: string) => Promise<any>;
-    getInstagramAccount: (userId: string, vertical: any) => any;
-    getInstagramAccountByVertical: (vertical: any) => Promise<any>;
+    canManageListing: (user: any, listing: any) => Promise<boolean>;
+    getInstagramAccount: (userId: string, vertical: any, accountId?: string | null) => any;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
+    getAccountMembershipFromDb?: (userId: string, accountId?: string) => Promise<{ accountId: string; role: string } | null>;
+    canManageIntegration: (userId: string, accountId: string | null) => boolean;
     resolveBrowserOrigin: (c: Context) => string | null;
     isInstagramConfigured: () => boolean;
-    userCanUseInstagram: (user: any, vertical: any) => boolean;
-    getEffectivePlanId: (user: any, vertical: any) => string;
+    userCanUseInstagram: (user: any, vertical: any, accountId?: string | null) => boolean;
+    getEffectivePlanId: (user: any, vertical: any, accountId?: string | null) => string;
     getInstagramRequiredPlanIds: () => string[];
     instagramAccountToResponse: (account: any) => any;
-    getInstagramPublicationsForUser: (userId: string, vertical: any) => any[];
+    getInstagramPublicationsForUser: (userId: string, vertical: any, accountId?: string | null) => any[];
     instagramPublicationToResponse: (item: any) => any;
     sanitizeBrowserReturnUrl: (url: string, fallback: string) => string;
     randomBytes: (size: number) => Buffer;
@@ -50,8 +55,9 @@ export interface InstagramRouterDeps {
     upsertInstagramAccountRecord: (opts: any) => Promise<any>;
     instagramSettingsSchema: any;
     instagramPublishPreferencesSchema: any;
-    updateInstagramAccountSettings: (userId: string, vertical: any, settings: any) => Promise<any>;
-    disconnectInstagramAccount: (userId: string, vertical: any) => Promise<void>;
+    updateInstagramAccountSettings: (userId: string, vertical: any, settings: any, accountId?: string | null) => Promise<any>;
+    updateInstagramAccountSettingsForManager: (userId: string, vertical: any, settings: any, accountId?: string | null) => Promise<any>;
+    disconnectInstagramAccount: (userId: string, vertical: any, accountId?: string | null) => Promise<void>;
     instagramPublishSchema: any;
     publishListingToInstagram: (user: any, listing: any, opts: any) => Promise<any>;
     extractListingMediaUrls: (listing: any) => string[];
@@ -67,19 +73,6 @@ export interface InstagramRouterDeps {
     getSchedulingInsights: (history: any[], posts: any[]) => any;
     optimizeInstagramContent: (instagramUserId: string, accessToken: string, publicationId: string, currentContent: any, listing: any) => Promise<any>;
     InstagramSchedulerService: { getUpcomingPosts: (posts: any[], hoursAhead: number) => any[] };
-    tables: {
-        instagramAccounts: any;
-        instagramPublications: any;
-        listings: any;
-    };
-    db: {
-        query: {
-            listings: { findFirst: (opts: any) => Promise<any> };
-        };
-    };
-    dbHelpers: {
-        eq: any;
-    };
 }
 
 export function createInstagramRouter(deps: InstagramRouterDeps) {
@@ -91,7 +84,10 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         logDebug,
         listingsById,
         getListingById,
+        canManageListing,
         getInstagramAccount,
+        getPrimaryAccountIdForUser,
+        canManageIntegration,
         resolveBrowserOrigin,
         isInstagramConfigured,
         userCanUseInstagram,
@@ -118,6 +114,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         instagramSettingsSchema,
         instagramPublishPreferencesSchema,
         updateInstagramAccountSettings,
+        updateInstagramAccountSettingsForManager,
         disconnectInstagramAccount,
         instagramPublishSchema,
         publishListingToInstagram,
@@ -130,12 +127,29 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
     const app = new Hono();
 
+    async function getCurrentAccountId(userId: string) {
+        if (deps.getAccountMembershipFromDb) {
+            return (await deps.getAccountMembershipFromDb(userId))?.accountId ?? null;
+        }
+        return getPrimaryAccountIdForUser(userId);
+    }
+
+    async function canManageCurrentIntegration(userId: string, accountId: string | null) {
+        if (deps.getAccountMembershipFromDb) {
+            if (!accountId) return false;
+            return canManageAccountRole((await deps.getAccountMembershipFromDb(userId, accountId))?.role);
+        }
+        return canManageIntegration(userId, accountId);
+    }
+
     app.get('/', async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const vertical = parseVertical(c.req.query('vertical'));
-        const account = getInstagramAccount(user.id, vertical);
+        const accountId = await getCurrentAccountId(user.id);
+        const canManage = await canManageCurrentIntegration(user.id, accountId);
+        const account = getInstagramAccount(user.id, vertical, accountId);
         const origin = resolveBrowserOrigin(c);
         const fallbackReturn = origin ? `${origin}/panel/mi-cuenta/integraciones` : null;
 
@@ -143,14 +157,15 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             ok: true,
             vertical,
             configured: isInstagramConfigured(),
-            eligible: userCanUseInstagram(user, vertical),
-            currentPlanId: getEffectivePlanId(user, vertical),
+            eligible: userCanUseInstagram(user, vertical, accountId),
+            currentPlanId: getEffectivePlanId(user, vertical, accountId),
             requiredPlanIds: getInstagramRequiredPlanIds(),
-            connectUrl: fallbackReturn
+            canManageIntegration: canManage,
+            connectUrl: fallbackReturn && canManage && userCanUseInstagram(user, vertical, accountId)
                 ? `/api/integrations/instagram/connect?vertical=${encodeURIComponent(vertical)}&returnTo=${encodeURIComponent(fallbackReturn)}`
                 : null,
             account: instagramAccountToResponse(account),
-            recentPublications: getInstagramPublicationsForUser(user.id, vertical)
+            recentPublications: getInstagramPublicationsForUser(user.id, vertical, accountId)
                 .slice(0, 8)
                 .map((item: any) => instagramPublicationToResponse(item)),
         });
@@ -161,7 +176,11 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const vertical = parseVertical(c.req.query('vertical'));
-        if (!userCanUseInstagram(user, vertical)) {
+        const accountId = await getCurrentAccountId(user.id);
+        if (!await canManageCurrentIntegration(user.id, accountId)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede conectar Instagram.' }, 403);
+        }
+        if (!userCanUseInstagram(user, vertical, accountId)) {
             return c.json({ ok: false, error: 'Instagram está disponible solo para planes Pro y Empresa.' }, 403);
         }
         if (!isInstagramConfigured()) {
@@ -173,6 +192,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         const statePayload = makeInstagramStatePayload({
             nonce,
             userId: user.id,
+            accountId,
             vertical,
         });
         setInstagramState(c, statePayload);
@@ -231,7 +251,11 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         if (!user || !canAuthenticateUser(user)) {
             return redirectWithStatus('error', 'No pudimos validar tu sesión para conectar Instagram.');
         }
-        if (!userCanUseInstagram(user, statePayload.vertical)) {
+        const accountId = statePayload.accountId ?? await getCurrentAccountId(user.id);
+        if (!accountId || !await canManageCurrentIntegration(user.id, accountId)) {
+            return redirectWithStatus('error', 'Solo quien administra este espacio puede conectar Instagram.');
+        }
+        if (!userCanUseInstagram(user, statePayload.vertical, accountId)) {
             return redirectWithStatus('error', 'Instagram está disponible solo para planes Pro y Empresa.');
         }
         if (!isInstagramConfigured()) {
@@ -258,6 +282,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             const profile = selected.instagram;
             await upsertInstagramAccountRecord({
                 userId: user.id,
+                accountId,
                 vertical: statePayload.vertical,
                 instagramUserId: profile.instagramUserId,
                 username: profile.username,
@@ -291,17 +316,29 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
 
         const vertical = parsed.data.vertical;
-        if (!userCanUseInstagram(user, vertical)) {
+        const accountId = await getCurrentAccountId(user.id);
+        if (!await canManageCurrentIntegration(user.id, accountId)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede cambiar Instagram.' }, 403);
+        }
+        if (!userCanUseInstagram(user, vertical, accountId)) {
             return c.json({ ok: false, error: 'Instagram está disponible solo para planes Pro y Empresa.' }, 403);
         }
 
-        const updated = await updateInstagramAccountSettings(user.id, vertical, {
-            autoPublishEnabled: parsed.data.autoPublishEnabled,
-            captionTemplate: parsed.data.captionTemplate === undefined ? undefined : (parsed.data.captionTemplate || null),
-            lastSyncedAt: Date.now(),
-            lastError: null,
-            status: 'connected',
-        });
+        let updated;
+        try {
+            updated = await updateInstagramAccountSettingsForManager(user.id, vertical, {
+                autoPublishEnabled: parsed.data.autoPublishEnabled,
+                captionTemplate: parsed.data.captionTemplate === undefined ? undefined : (parsed.data.captionTemplate || null),
+                lastSyncedAt: Date.now(),
+                lastError: null,
+                status: 'connected',
+            }, accountId);
+        } catch (error) {
+            if (isSocialIntegrationAccessError(error)) {
+                return c.json({ ok: false, error: error.message }, 403);
+            }
+            throw error;
+        }
 
         if (!updated) {
             return c.json({ ok: false, error: 'Primero conecta una cuenta de Instagram.' }, 404);
@@ -319,11 +356,15 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
 
         const vertical = parsed.data.vertical;
-        const account = getInstagramAccount(user.id, vertical);
+        const accountId = await getCurrentAccountId(user.id);
+        if (!await canManageCurrentIntegration(user.id, accountId)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede cambiar las preferencias de Instagram.' }, 403);
+        }
+        const account = getInstagramAccount(user.id, vertical, accountId);
         if (!account || account.status === 'disconnected') {
             return c.json({ ok: false, error: 'Primero conecta una cuenta de Instagram.' }, 404);
         }
-        if (!userCanUseInstagram(user, vertical)) {
+        if (!userCanUseInstagram(user, vertical, accountId)) {
             return c.json({ ok: false, error: 'Instagram está disponible solo para planes Pro y Empresa.' }, 403);
         }
 
@@ -339,15 +380,23 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             ...(parsed.data.useAI !== undefined ? { useAI: parsed.data.useAI } : {}),
         };
 
-        const updated = await updateInstagramAccountSettings(user.id, vertical, {
-            captionTemplate: parsed.data.captionTemplate === undefined
-                ? undefined
-                : (parsed.data.captionTemplate || null),
-            publishStyle,
-            lastSyncedAt: Date.now(),
-            lastError: null,
-            status: 'connected',
-        });
+        let updated;
+        try {
+            updated = await updateInstagramAccountSettingsForManager(user.id, vertical, {
+                captionTemplate: parsed.data.captionTemplate === undefined
+                    ? undefined
+                    : (parsed.data.captionTemplate || null),
+                publishStyle,
+                lastSyncedAt: Date.now(),
+                lastError: null,
+                status: 'connected',
+            }, accountId);
+        } catch (error) {
+            if (isSocialIntegrationAccessError(error)) {
+                return c.json({ ok: false, error: error.message }, 403);
+            }
+            throw error;
+        }
 
         if (!updated) {
             return c.json({ ok: false, error: 'No se pudieron guardar las preferencias.' }, 404);
@@ -361,7 +410,18 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const vertical = parseVertical(asString(asObject(await c.req.json().catch(() => null)).vertical) || c.req.query('vertical'));
-        await disconnectInstagramAccount(user.id, vertical);
+        const accountId = await getCurrentAccountId(user.id);
+        if (!await canManageCurrentIntegration(user.id, accountId)) {
+            return c.json({ ok: false, error: 'Solo quien administra este espacio puede desconectar Instagram.' }, 403);
+        }
+        try {
+            await disconnectInstagramAccount(user.id, vertical, accountId);
+        } catch (error) {
+            if (isSocialIntegrationAccessError(error)) {
+                return c.json({ ok: false, error: error.message }, 403);
+            }
+            throw error;
+        }
         return c.json({ ok: true });
     });
 
@@ -386,7 +446,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
         if (listing.vertical !== parsed.data.vertical) {
             return c.json({ ok: false, error: 'La publicación no corresponde a esta vertical.' }, 409);
         }
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        if (!await canManageListing(user, listing)) {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
         }
 
@@ -428,12 +488,12 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             if (listing.vertical !== parsed.data.vertical) {
                 return c.json({ ok: false, error: 'La publicacion no corresponde a esta vertical.' }, 409);
             }
-            if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+            if (!await canManageListing(user, listing)) {
                 return c.json({ ok: false, error: 'No tienes permisos sobre esta publicacion' }, 403);
             }
 
             const listingData = buildInstagramListingData(listing);
-            const account = getInstagramAccount(user.id, parsed.data.vertical);
+            const account = getInstagramAccount(user.id, parsed.data.vertical, listing.accountId ?? null);
             const savedStyle = resolveInstagramPublishStyle(account?.publishStyle ?? null);
             const requestTemplateId = parsed.data.templateId;
             const validRequestTemplate = requestTemplateId === 'essential-watermark'
@@ -491,7 +551,7 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             if (listing.vertical !== vertical) {
                 return c.json({ ok: false, error: 'La publicacion no corresponde a esta vertical.' }, 409);
             }
-            if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+            if (!await canManageListing(user, listing)) {
                 return c.json({ ok: false, error: 'No tienes permisos sobre esta publicacion' }, 403);
             }
 
@@ -511,12 +571,25 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
     app.get('/insights', async (c) => {
         try {
+            const user = await authUser(c);
+            if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
             const { listingId, from, to } = c.req.query();
             const vertical = parseVertical(c.req.query('vertical'));
+            const accountId = await getCurrentAccountId(user.id);
 
-            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
+            const instagramAccount = getInstagramAccount(user.id, vertical, accountId);
             if (!instagramAccount) {
                 return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            }
+
+            if (!userCanUseInstagram(user, vertical, accountId)) {
+                return c.json({ ok: false, error: 'Tu plan no incluye las estadísticas de Instagram.' }, 403);
+            }
+            if (listingId) {
+                const listing = await getListingById(listingId);
+                if (!listing || listing.vertical !== vertical || !await canManageListing(user, listing)) {
+                    return c.json({ ok: false, error: 'No tienes acceso a esta publicación.' }, 404);
+                }
             }
 
             const insights = await deps.getInstagramInsights(
@@ -547,23 +620,29 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
     app.post('/ab-test/create', async (c) => {
         try {
-            const { vertical, listingId, baseContent, variations } = await c.req.json();
+            const user = await authUser(c);
+            if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+            const { vertical: rawVertical, listingId, baseContent, variations } = await c.req.json();
+            const vertical = parseVertical(asString(rawVertical));
 
             if (!listingId || !baseContent) {
                 return c.json({ ok: false, error: 'listingId y baseContent son requeridos' }, 400);
             }
 
-            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
-            if (!instagramAccount) {
-                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            const listing = await getListingById(asString(listingId));
+            if (!listing || listing.vertical !== vertical) {
+                return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+            }
+            if (!await canManageListing(user, listing)) {
+                return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación.' }, 403);
+            }
+            if (!userCanUseInstagram(user, vertical, listing.accountId ?? null)) {
+                return c.json({ ok: false, error: 'Tu plan no incluye las herramientas de Instagram.' }, 403);
             }
 
-            const listing = await deps.db.query.listings.findFirst({
-                where: deps.dbHelpers.eq(deps.tables.listings.id, listingId)
-            });
-
-            if (!listing) {
-                return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
+            const instagramAccount = getInstagramAccount(user.id, vertical, listing.accountId ?? null);
+            if (!instagramAccount) {
+                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
             }
 
             const listingData = deps.buildInstagramListingData(listing);
@@ -581,6 +660,8 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
     app.post('/ab-test/:campaignId/analyze', async (c) => {
         try {
+            const user = await authUser(c);
+            if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
             const campaignId = c.req.param('campaignId');
             const results = await deps.analyzeABTestResults(campaignId);
             return c.json({ ok: true, ...results });
@@ -595,23 +676,29 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
     app.post('/schedule', async (c) => {
         try {
-            const { vertical, listingId, content, options = {} } = await c.req.json();
+            const user = await authUser(c);
+            if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+            const { vertical: rawVertical, listingId, content, options = {} } = await c.req.json();
+            const vertical = parseVertical(asString(rawVertical));
 
             if (!listingId || !content) {
                 return c.json({ ok: false, error: 'listingId y content son requeridos' }, 400);
             }
 
-            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
-            if (!instagramAccount) {
-                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            const listing = await getListingById(asString(listingId));
+            if (!listing || listing.vertical !== vertical) {
+                return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+            }
+            if (!await canManageListing(user, listing)) {
+                return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación.' }, 403);
+            }
+            if (!userCanUseInstagram(user, vertical, listing.accountId ?? null)) {
+                return c.json({ ok: false, error: 'Tu plan no incluye las herramientas de Instagram.' }, 403);
             }
 
-            const listing = await deps.db.query.listings.findFirst({
-                where: deps.dbHelpers.eq(deps.tables.listings.id, listingId)
-            });
-
-            if (!listing) {
-                return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
+            const instagramAccount = getInstagramAccount(user.id, vertical, listing.accountId ?? null);
+            if (!instagramAccount) {
+                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
             }
 
             const listingData = deps.buildInstagramListingData(listing);
@@ -629,11 +716,17 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
     app.get('/scheduling-insights', async (c) => {
         try {
+            const user = await authUser(c);
+            if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
             const vertical = parseVertical(c.req.query('vertical'));
-            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
+            const accountId = await getCurrentAccountId(user.id);
+            const instagramAccount = getInstagramAccount(user.id, vertical, accountId);
 
             if (!instagramAccount) {
                 return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            }
+            if (!userCanUseInstagram(user, vertical, accountId)) {
+                return c.json({ ok: false, error: 'Tu plan no incluye las herramientas de Instagram.' }, 403);
             }
 
             const insights = deps.getSchedulingInsights([], []);
@@ -649,12 +742,18 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
     app.get('/scheduled', async (c) => {
         try {
+            const user = await authUser(c);
+            if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
             const hoursAhead = deps.asNumber(c.req.query('hoursAhead'), 24);
             const vertical = parseVertical(c.req.query('vertical'));
+            const accountId = await getCurrentAccountId(user.id);
 
-            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
+            const instagramAccount = getInstagramAccount(user.id, vertical, accountId);
             if (!instagramAccount) {
                 return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            }
+            if (!userCanUseInstagram(user, vertical, accountId)) {
+                return c.json({ ok: false, error: 'Tu plan no incluye las herramientas de Instagram.' }, 403);
             }
 
             const posts = deps.InstagramSchedulerService.getUpcomingPosts([], hoursAhead);
@@ -670,23 +769,29 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
 
     app.post('/optimize', async (c) => {
         try {
-            const { vertical, publicationId, currentContent, listingId } = await c.req.json();
+            const user = await authUser(c);
+            if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+            const { vertical: rawVertical, publicationId, currentContent, listingId } = await c.req.json();
+            const vertical = parseVertical(asString(rawVertical));
 
             if (!publicationId || !currentContent || !listingId) {
                 return c.json({ ok: false, error: 'publicationId, currentContent y listingId son requeridos' }, 400);
             }
 
-            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
-            if (!instagramAccount) {
-                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            const listing = await getListingById(asString(listingId));
+            if (!listing || listing.vertical !== vertical) {
+                return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+            }
+            if (!await canManageListing(user, listing)) {
+                return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación.' }, 403);
+            }
+            if (!userCanUseInstagram(user, vertical, listing.accountId ?? null)) {
+                return c.json({ ok: false, error: 'Tu plan no incluye las herramientas de Instagram.' }, 403);
             }
 
-            const listing = await deps.db.query.listings.findFirst({
-                where: deps.dbHelpers.eq(deps.tables.listings.id, listingId)
-            });
-
-            if (!listing) {
-                return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
+            const instagramAccount = getInstagramAccount(user.id, vertical, listing.accountId ?? null);
+            if (!instagramAccount) {
+                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
             }
 
             const listingData = deps.buildInstagramListingData(listing);

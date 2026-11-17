@@ -8,6 +8,7 @@ import {
     operatorSiteVisitorColorMode,
     type OperatorSiteAccentEditorValue,
     type OperatorSiteColorMode,
+    type OperatorSiteIndustry,
 } from '@simple/utils';
 
 type OperatorSiteThemeContextValue = {
@@ -41,6 +42,7 @@ export type OperatorSiteAccentFallback = {
 type OperatorSiteThemeShellProps = {
     slug: string;
     layout: string;
+    industry?: OperatorSiteIndustry;
     defaultColorMode: OperatorSiteColorMode;
     accentColor?: string | OperatorSiteAccentEditorValue;
     accentFallback?: OperatorSiteAccentFallback;
@@ -61,6 +63,7 @@ function hasOperatorAccent(accentColor: OperatorSiteThemeShellProps['accentColor
 export function OperatorSiteThemeShell({
     slug,
     layout,
+    industry = 'services',
     defaultColorMode,
     accentColor,
     accentFallback,
@@ -111,6 +114,7 @@ export function OperatorSiteThemeShell({
         '--accent': resolvedAccent,
         '--accent-ink': resolvedAccentInk,
         ...(resolvedAccentContrast ? { '--accent-contrast': resolvedAccentContrast } : {}),
+        ...(hasOperatorAccent(accentColor) ? resolvedPaletteStyle(resolvedAccent, resolvedColor) : {}),
     } as React.CSSProperties;
 
     return (
@@ -118,6 +122,7 @@ export function OperatorSiteThemeShell({
             <div
                 className="os-page"
                 data-os-layout={layout}
+                data-os-industry={industry}
                 data-os-color={resolvedColor}
                 style={accentStyle}
                 suppressHydrationWarning
@@ -126,4 +131,33 @@ export function OperatorSiteThemeShell({
             </div>
         </OperatorSiteThemeContext.Provider>
     );
+}
+
+/** Tinte suave en superficies para que la elección de marca abarque la página completa. */
+function resolvedPaletteStyle(accent: string, color: 'light' | 'dark') {
+    if (color === 'dark') {
+        return {
+            '--paper': `color-mix(in srgb, ${accent} 5%, #0e0e10)`,
+            '--field': `color-mix(in srgb, ${accent} 8%, #161618)`,
+            '--bg': `color-mix(in srgb, ${accent} 5%, #0e0e10)`,
+            '--bg-subtle': `color-mix(in srgb, ${accent} 8%, #161618)`,
+            '--bg-muted': `color-mix(in srgb, ${accent} 11%, #222226)`,
+            '--bg-elevated': `color-mix(in srgb, ${accent} 8%, #161618)`,
+            '--surface': `color-mix(in srgb, ${accent} 7%, #161618)`,
+            '--border': `color-mix(in srgb, ${accent} 11%, rgba(255,255,255,0.08))`,
+            '--border-strong': `color-mix(in srgb, ${accent} 18%, rgba(255,255,255,0.38))`,
+        };
+    }
+
+    return {
+        '--paper': `color-mix(in srgb, ${accent} 2%, #fafafa)`,
+        '--field': `color-mix(in srgb, ${accent} 4%, #f5f5f5)`,
+        '--bg': `color-mix(in srgb, ${accent} 2%, #fafafa)`,
+        '--bg-subtle': `color-mix(in srgb, ${accent} 4%, #f5f5f5)`,
+        '--bg-muted': `color-mix(in srgb, ${accent} 6%, #eeeeee)`,
+        '--bg-elevated': `color-mix(in srgb, ${accent} 1%, #ffffff)`,
+        '--surface': `color-mix(in srgb, ${accent} 1%, #ffffff)`,
+        '--border': `color-mix(in srgb, ${accent} 8%, #e5e5e5)`,
+        '--border-strong': `color-mix(in srgb, ${accent} 18%, #111111)`,
+    };
 }

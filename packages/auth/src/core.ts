@@ -63,3 +63,14 @@ export function resolveSafeInternalPath(path: string | null | undefined, fallbac
   if (cleaned.length > 1 && (cleaned[1] === '/' || cleaned[1] === '\\')) return fallback;
   return cleaned;
 }
+
+/**
+ * Conserva un destino de trabajo del panel para cuentas nuevas, pero siempre
+ * evita devolverlas a páginas públicas o a destinos externos después del alta.
+ */
+export function resolveNewUserReturnTo(path: string | null | undefined, fallback = '/panel'): string {
+  const safePath = resolveSafeInternalPath(path, fallback);
+  return safePath === '/panel' || safePath.startsWith('/panel/') || safePath.startsWith('/panel?') || safePath.startsWith('/panel#')
+    ? safePath
+    : fallback;
+}

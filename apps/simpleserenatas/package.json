@@ -13,6 +13,9 @@
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:e2e:ci": "node scripts/run-e2e-ci.mjs",
     "test:e2e:real": "node scripts/run-e2e-ci.mjs",
+    "test:e2e:role-coexistence": "playwright test e2e/role-coexistence.spec.ts",
+    "e2e:seed:dual-profile": "pnpm --filter @simple/api run db:seed:serenatas-dual-profile-e2e",
+    "e2e:clean:dual-profile": "pnpm --filter @simple/api run db:clean:serenatas-dual-profile-e2e",
     "e2e:seed": "pnpm --filter @simple/api run db:seed:serenatas-e2e"
   },
   "dependencies": {

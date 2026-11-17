@@ -121,6 +121,7 @@ export type InstagramIntegrationStatus = {
     currentPlanId: InstagramPlanId;
     requiredPlanIds: Array<'pro' | 'enterprise'>;
     connectUrl: string | null;
+    canManageIntegration?: boolean;
     account: InstagramAccountView | null;
     recentPublications: InstagramPublicationView[];
     error?: string;

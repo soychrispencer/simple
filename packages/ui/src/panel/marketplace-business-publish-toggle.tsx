@@ -215,7 +215,16 @@ export function MarketplaceBusinessPublishToggle({ vertical }: { vertical: Publi
         const previous = isPublished;
         setIsPublished(next);
 
-        const { id: _id, userId: _userId, vertical: _vertical, publicUrl: _publicUrl, ...payload } = profile;
+        const {
+            id: _id,
+            userId: _userId,
+            vertical: _vertical,
+            publicUrl: _publicUrl,
+            accountKind: _accountKind,
+            operatorSubtype: _operatorSubtype,
+            operatorSubtypeCustom: _operatorSubtypeCustom,
+            ...payload
+        } = profile;
         const response = await updateAccountPublicProfile(vertical, {
             ...payload,
             isPublished: next,
