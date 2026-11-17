@@ -78,6 +78,9 @@ GOOGLE_CLIENT_SECRET=                # ver .env local → GOOGLE_CLIENT_SECRET
 #   https://admin.simpleplataforma.app/auth/google/callback
 #   https://simpleplataforma.app/auth/google/callback
 
+# Google Calendar OAuth de SimpleAgenda (callback API, distinto del acceso con Google):
+#   https://api.simpleplataforma.app/api/agenda/google-calendar/callback
+
 # Storage: ver docs/STORAGE_SETUP.md (fuente única). Producción: cloudflare-r2.
 STORAGE_PROVIDER=cloudflare-r2
 CLOUDFLARE_R2_ACCOUNT_ID=            # ver .env local → CLOUDFLARE_R2_ACCOUNT_ID
@@ -115,6 +118,8 @@ MERCADO_PAGO_PUBLIC_ORIGIN_AGENDA=https://simpleagenda.app
 SERENATAS_APP_URL=https://simpleserenatas.app
 # Google Calendar OAuth redirect (registrar en GCP → OAuth client):
 # https://simpleserenatas.app/api/serenatas/google-calendar/callback
+# SimpleAgenda utiliza el callback de la API:
+# https://api.simpleplataforma.app/api/agenda/google-calendar/callback
 
 MP_AGENDA_APP_ID=                    # ver .env local → MP_AGENDA_APP_ID
 MP_AGENDA_APP_SECRET=                # ver .env local → MP_AGENDA_APP_SECRET
