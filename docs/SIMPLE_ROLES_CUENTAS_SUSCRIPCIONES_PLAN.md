@@ -487,6 +487,8 @@ Aplicar cada migración de producción solo después de comparar accesos y cobro
 
 **Verificación local de perfiles simultáneos en SimpleSerenatas (17 de noviembre de 2026):** el recorrido autenticado confirmó en una misma cuenta los perfiles de proveedor y músico, sus comisiones separadas (700 y 300 puntos base), planes Pro y Gratis independientes, cambio de perfil persistido tras recargar y el texto de pertenencia del plan correcto. `test:e2e:role-coexistence` pasó con Chrome local; el typecheck y la verificación de terminología también pasaron. La fixture sintética fue eliminada correctamente al terminar. Esta prueba no contrata ni cancela planes reales.
 
+**Acceso de despliegue a Coolify (17 de noviembre de 2026):** `.env.deploy` apunta a `http://127.0.0.1:18000` con `COOLIFY_ALLOW_INSECURE_HTTP=false`; el token permanece local y el archivo está ignorado por Git. La huella ED25519 verificada está en `known_hosts`. Tras autorización del usuario, se instaló la llave dedicada en `authorized_keys` con `restrict`, `port-forwarding`, `permitopen="127.0.0.1:8000"` y comando forzado `/bin/false`; no permite una shell. El túnel SSH está activo en `127.0.0.1:18000`, responde `200 OK` y la API autenticada lista las siete aplicaciones Simple. El respaldo de `simple-postgres` figura como `success`, mide 372.691 bytes y permanece local en el VPS porque no hay destino S3 configurado; `pg_restore --list` leyó el archivo y enumeró el catálogo. Aún no se ha hecho una restauración de prueba, por lo que su recuperabilidad completa no está demostrada y las migraciones `0178`–`0179` siguen sin desplegar.
+
 ## Archivos y documentos de referencia
 
 - [Lenguaje común de Simple](./SIMPLE_PLATFORM_LANGUAGE.md)
