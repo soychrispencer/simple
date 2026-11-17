@@ -21,29 +21,47 @@ CREATE INDEX IF NOT EXISTS "platform_notifications_user_created_idx"
 CREATE INDEX IF NOT EXISTS "platform_notifications_user_unread_idx"
   ON "platform_notifications" ("user_id", "is_read");
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'serenata_notifications'
-  ) THEN
-    INSERT INTO "platform_notifications" (
-      "id", "user_id", "vertical", "type", "title", "body", "action_url", "metadata", "is_read", "created_at"
-    )
-    SELECT
-      "id",
-      "user_id",
-      'serenatas',
-      "type",
-      "title",
-      "message",
-      NULL,
-      "metadata",
-      "is_read",
-      "created_at"
-    FROM "serenata_notifications";
+ALTER TABLE "platform_notifications" ADD COLUMN IF NOT EXISTS "metadata" jsonb;
 
-    DROP TABLE "serenata_notifications";
+DO $$
+DECLARE
+  legacy_oid oid;
+  legacy_schema name;
+  legacy_table name;
+  legacy_kind "char";
+  metadata_expression text := 'NULL::jsonb';
+BEGIN
+  legacy_oid := to_regclass('serenata_notifications');
+
+  IF legacy_oid IS NOT NULL THEN
+    SELECT n.nspname, c.relname, c.relkind
+      INTO legacy_schema, legacy_table, legacy_kind
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE c.oid = legacy_oid;
+
+    IF legacy_kind IN ('r', 'p') THEN
+      IF EXISTS (
+        SELECT 1
+          FROM information_schema.columns
+         WHERE table_schema = legacy_schema
+           AND table_name = legacy_table
+           AND column_name = 'metadata'
+      ) THEN
+        metadata_expression := '"metadata"';
+      END IF;
+
+      EXECUTE format(
+        'INSERT INTO "platform_notifications" ("id", "user_id", "vertical", "type", "title", "body", "action_url", "metadata", "is_read", "created_at")
+         SELECT "id", "user_id", ''serenatas'', "type", "title", "message", NULL, %s, "is_read", "created_at"
+           FROM %s
+         ON CONFLICT ("id") DO NOTHING',
+        metadata_expression,
+        legacy_oid::regclass
+      );
+
+      EXECUTE format('DROP TABLE %s', legacy_oid::regclass);
+    END IF;
   END IF;
 END $$;
 
