@@ -1,10 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@simple/auth';
 import { MarketplaceHeader, type MarketplacePublicLink } from '@simple/marketplace-header';
 import { getPanelNavItems, isPanelNavActive } from '@/components/panel/panel-nav-config';
 import { fetchPanelNotifications } from '@/lib/panel-notifications';
-import { clearSavedListingsCache, syncSavedListingsFromApi } from '@simple/utils';
+import { fetchSubscriptionCatalog } from '@/lib/payments';
+import { clearSavedListingsCache, fetchCurrentAccountContext, syncSavedListingsFromApi } from '@simple/utils';
+import { useMarketplacePanelBilling } from '@simple/ui/panel';
 
 const publicLinks: MarketplacePublicLink[] = [
     {
@@ -38,16 +41,53 @@ const publicLinks: MarketplacePublicLink[] = [
 ];
 
 export function Header() {
+    const { user } = useAuth();
+    const [panelAccountContext, setPanelAccountContext] = useState<{
+        userId: string;
+        role: string | null;
+        isPersonal: boolean;
+    } | null>(null);
+    const { billing } = useMarketplacePanelBilling('/panel/mi-cuenta/suscripcion', fetchSubscriptionCatalog, user?.id);
     const savedListings = useMemo(
         () => ({ clearCache: clearSavedListingsCache, syncFromApi: syncSavedListingsFromApi }),
         []
     );
+    useEffect(() => {
+        if (!user?.id) {
+            setPanelAccountContext(null);
+            return;
+        }
+        const requestedUserId = user.id;
+        let cancelled = false;
+        setPanelAccountContext(null);
+        void fetchCurrentAccountContext().then((context) => {
+            if (cancelled || !context) return;
+            const activeMembership = context.memberships.find((membership) => membership.isDefault);
+            if (!activeMembership) return;
+            setPanelAccountContext({
+                userId: requestedUserId,
+                role: activeMembership.role,
+                isPersonal: context.account?.isPersonal ?? true,
+            });
+        }).catch(() => undefined);
+        return () => { cancelled = true; };
+    }, [user?.id]);
+    const getRoleAwarePanelNavItems = useCallback(() => {
+        if (!user?.id || panelAccountContext?.userId !== user.id) {
+            return getPanelNavItems('agent', false, null);
+        }
+        return getPanelNavItems(
+            panelAccountContext.role,
+            panelAccountContext.isPersonal,
+            billing?.accountKind ?? null,
+        );
+    }, [billing?.accountKind, panelAccountContext, user?.id]);
 
     return (
         <MarketplaceHeader
             brandAppId="simpleautos"
             publicLinks={publicLinks}
-            getPanelNavItems={getPanelNavItems}
+            getPanelNavItems={getRoleAwarePanelNavItems}
             isPanelNavActive={isPanelNavActive}
             fetchPanelNotifications={fetchPanelNotifications}
             savedListings={savedListings}

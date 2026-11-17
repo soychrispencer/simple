@@ -462,6 +462,7 @@ export function AuthModal({
                         </div>
                         <form onSubmit={handleLogin} style={FORM_STACK_STYLE} aria-label="Formulario de inicio de sesión">
                             <div className="relative w-full">
+                                <label htmlFor="auth-login-email" className="sr-only">Correo electrónico</label>
                                 <IconMail size={16} className="pointer-events-none absolute" style={ICON_STYLE} />
                                 <input
                                     id="auth-login-email"
@@ -475,6 +476,7 @@ export function AuthModal({
                                     style={INPUT_STYLE}
                                 />
                             </div>
+                            <label htmlFor="auth-login-password" className="sr-only">Contraseña</label>
                             <PasswordInput
                                 id="auth-login-password"
                                 value={password}
