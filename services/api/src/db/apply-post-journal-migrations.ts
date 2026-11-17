@@ -142,6 +142,8 @@ export const POST_JOURNAL_TAGS = [
     '0175_account_membership_role_check',
     '0176_account_invitation_role_check',
     '0177_account_team_list_indexes',
+    '0178_account_personal_workspace_invariant',
+    '0179_personal_account_owner_membership',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

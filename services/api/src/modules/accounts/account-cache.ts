@@ -1,4 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, ne } from 'drizzle-orm';
 import type {
     AccountRecord,
     AccountRole,
@@ -136,7 +136,19 @@ export function createAccountCache(maps: AccountCacheMaps) {
 
     async function ensurePrimaryAccountForUser(user: AppUser, accountType: AccountType = 'general'): Promise<AccountRecord> {
         const existingId = await getPrimaryAccountIdForUser(user.id);
-        if (existingId) {
+        const [personalAccount] = await db.select()
+            .from(accounts)
+            .where(and(eq(accounts.ownerUserId, user.id), eq(accounts.isPersonal, true)))
+            .orderBy(asc(accounts.createdAt))
+            .limit(1);
+        const personalMembershipRows = personalAccount
+            ? await db.select()
+                .from(accountUsers)
+                .where(and(eq(accountUsers.accountId, personalAccount.id), eq(accountUsers.userId, user.id)))
+                .limit(1)
+            : [];
+
+        if (existingId && personalAccount && personalMembershipRows[0]?.role === 'owner') {
             const existing = accountsById.get(existingId);
             if (existing) return existing;
 
@@ -152,52 +164,103 @@ export function createAccountCache(maps: AccountCacheMaps) {
                 .where(eq(users.id, user.id))
                 .for('update');
 
-            // Another request may have created or selected an account while we waited for the lock.
+            // Another request may have created an account or membership while we waited for the lock.
             const membershipRows = await tx.select()
                 .from(accountUsers)
                 .where(eq(accountUsers.userId, user.id))
-                .orderBy(desc(accountUsers.isDefault), asc(accountUsers.createdAt))
+                .orderBy(desc(accountUsers.isDefault), asc(accountUsers.createdAt));
+
+            const personalAccountRows = await tx.select()
+                .from(accounts)
+                .where(and(eq(accounts.ownerUserId, user.id), eq(accounts.isPersonal, true)))
+                .orderBy(asc(accounts.createdAt))
                 .limit(1);
-            if (membershipRows[0]) {
-                let membershipRow = membershipRows[0];
-                if (!membershipRow.isDefault) {
-                    const now = new Date();
-                    await tx.update(accountUsers)
-                        .set({ isDefault: false, updatedAt: now })
-                        .where(eq(accountUsers.userId, user.id));
-                    const [selected] = await tx.update(accountUsers)
-                        .set({ isDefault: true, updatedAt: now })
-                        .where(eq(accountUsers.id, membershipRow.id))
-                        .returning();
-                    membershipRow = selected;
-                }
-                const accountRows = await tx.select()
-                    .from(accounts)
-                    .where(eq(accounts.id, membershipRow.accountId))
-                    .limit(1);
-                if (accountRows[0]) return { accountRow: accountRows[0], membershipRow };
-            }
+            let personalAccountRow = personalAccountRows[0];
 
             const now = new Date();
-            const [accountRow] = await tx.insert(accounts).values({
-                name: buildPersonalAccountName(user),
-                type: accountType,
-                ownerUserId: user.id,
-                isPersonal: true,
-                createdAt: now,
-                updatedAt: now,
-            }).returning();
-            const [membershipRow] = await tx.insert(accountUsers).values({
-                accountId: accountRow.id,
-                userId: user.id,
-                role: 'owner',
-                isDefault: true,
-                createdAt: now,
-                updatedAt: now,
-            }).returning();
-            return { accountRow, membershipRow };
+            if (!personalAccountRow) {
+                const [createdPersonalAccount] = await tx.insert(accounts).values({
+                    name: buildPersonalAccountName(user),
+                    type: accountType,
+                    ownerUserId: user.id,
+                    isPersonal: true,
+                    createdAt: now,
+                    updatedAt: now,
+                }).returning();
+                personalAccountRow = createdPersonalAccount;
+            }
+
+            let personalMembershipRow = membershipRows.find((membership) => membership.accountId === personalAccountRow.id) ?? null;
+            if (!personalMembershipRow) {
+                const [createdPersonalMembership] = await tx.insert(accountUsers).values({
+                    accountId: personalAccountRow.id,
+                    userId: user.id,
+                    role: 'owner',
+                    isDefault: false,
+                    createdAt: now,
+                    updatedAt: now,
+                }).returning();
+                personalMembershipRow = createdPersonalMembership;
+                membershipRows.push(createdPersonalMembership);
+            } else if (personalMembershipRow.role !== 'owner') {
+                const [differentOwner] = await tx.select({ id: accountUsers.id })
+                    .from(accountUsers)
+                    .where(and(
+                        eq(accountUsers.accountId, personalAccountRow.id),
+                        eq(accountUsers.role, 'owner'),
+                        ne(accountUsers.userId, user.id),
+                    ))
+                    .limit(1);
+
+                if (differentOwner) {
+                    throw new Error('La cuenta personal tiene un dueño distinto a su titular y requiere revisión.');
+                }
+
+                const [correctedMembership] = await tx.update(accountUsers)
+                    .set({ role: 'owner', updatedAt: now })
+                    .where(eq(accountUsers.id, personalMembershipRow.id))
+                    .returning();
+
+                if (!correctedMembership) {
+                    throw new Error('No se pudo corregir el rol del titular de su cuenta personal.');
+                }
+                personalMembershipRow = correctedMembership;
+                const membershipIndex = membershipRows.findIndex((membership) => membership.id === correctedMembership.id);
+                if (membershipIndex >= 0) membershipRows[membershipIndex] = correctedMembership;
+            }
+
+            let membershipRow = membershipRows.find((membership) => membership.isDefault) ?? null;
+            if (!membershipRow) {
+                const membershipToSelect = personalMembershipRow ?? membershipRows[0];
+                if (!membershipToSelect) throw new Error('No se pudo crear la membresía personal del usuario.');
+
+                await tx.update(accountUsers)
+                    .set({ isDefault: false, updatedAt: now })
+                    .where(eq(accountUsers.userId, user.id));
+                const [selected] = await tx.update(accountUsers)
+                    .set({ isDefault: true, updatedAt: now })
+                    .where(eq(accountUsers.id, membershipToSelect.id))
+                    .returning();
+                membershipRow = selected;
+                if (membershipRow.id === personalMembershipRow.id) personalMembershipRow = selected;
+            }
+
+            const accountRows = await tx.select()
+                .from(accounts)
+                .where(eq(accounts.id, membershipRow.accountId))
+                .limit(1);
+            if (!accountRows[0]) throw new Error('No se encontró el espacio predeterminado del usuario.');
+
+            return {
+                accountRow: accountRows[0],
+                membershipRow,
+                personalAccountRow,
+                personalMembershipRow,
+            };
         });
 
+        upsertAccountCache(mapAccountRow(ensured.personalAccountRow));
+        upsertAccountUserCache(mapAccountUserRow(ensured.personalMembershipRow));
         const account = upsertAccountCache(mapAccountRow(ensured.accountRow));
         upsertAccountUserCache(mapAccountUserRow(ensured.membershipRow));
         return account;

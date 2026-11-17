@@ -72,6 +72,7 @@ async function main() {
             unique_membership_index_present: boolean;
             unique_default_index_present: boolean;
             unique_owner_index_present: boolean;
+            unique_personal_account_index_present: boolean;
             account_team_member_pagination_index_present: boolean;
             account_team_invitation_pagination_index_present: boolean;
             account_membership_role_check_present: boolean;
@@ -133,6 +134,28 @@ async function main() {
                       AND index_record.indpred IS NOT NULL
                       AND pg_get_expr(index_record.indpred, index_record.indrelid) ~* 'role.*=.*owner'
                 ) AS unique_owner_index_present,
+                EXISTS (
+                    SELECT 1
+                    FROM pg_index AS index_record
+                    JOIN pg_class AS index_table ON index_table.oid = index_record.indexrelid
+                    JOIN pg_class AS source_table ON source_table.oid = index_record.indrelid
+                    JOIN pg_namespace AS source_schema ON source_schema.oid = source_table.relnamespace
+                    WHERE source_schema.nspname = current_schema()
+                      AND source_table.relname = 'accounts'
+                      AND index_table.relname = 'accounts_single_personal_owner_idx'
+                      AND index_record.indisunique
+                      AND index_record.indisvalid
+                      AND index_record.indisready
+                      AND index_record.indnkeyatts = 1
+                      AND pg_get_indexdef(index_record.indexrelid, 1, true) = 'owner_user_id'
+                      AND index_record.indpred IS NOT NULL
+                      AND lower(regexp_replace(
+                          pg_get_expr(index_record.indpred, index_record.indrelid),
+                          '[()[:space:]]',
+                          '',
+                          'g'
+                      )) IN ('is_personal', 'is_personal=true', 'is_personalistrue')
+                ) AS unique_personal_account_index_present,
                 EXISTS (
                     SELECT 1
                     FROM pg_index AS index_record
@@ -205,6 +228,7 @@ async function main() {
             uniqueMembershipIndexPresent: accountUserIndexes?.unique_membership_index_present === true,
             uniqueDefaultIndexPresent: accountUserIndexes?.unique_default_index_present === true,
             uniqueOwnerMembershipIndexPresent: accountUserIndexes?.unique_owner_index_present === true,
+            uniquePersonalAccountIndexPresent: accountUserIndexes?.unique_personal_account_index_present === true,
             accountTeamMemberPaginationIndexPresent: accountUserIndexes?.account_team_member_pagination_index_present === true,
             accountTeamInvitationPaginationIndexPresent: accountUserIndexes?.account_team_invitation_pagination_index_present === true,
             accountMembershipRoleConstraintPresent: accountUserIndexes?.account_membership_role_check_present === true,
@@ -213,6 +237,7 @@ async function main() {
         if (!schema.uniqueMembershipIndexPresent) anomalies.missing_unique_membership_index = 1;
         if (!schema.uniqueDefaultIndexPresent) anomalies.missing_unique_default_index = 1;
         if (!schema.uniqueOwnerMembershipIndexPresent) anomalies.missing_unique_owner_index = 1;
+        if (!schema.uniquePersonalAccountIndexPresent) anomalies.missing_unique_personal_account_index = 1;
         if (!schema.accountTeamMemberPaginationIndexPresent) anomalies.missing_account_team_member_pagination_index = 1;
         if (!schema.accountTeamInvitationPaginationIndexPresent) anomalies.missing_account_team_invitation_pagination_index = 1;
         if (!schema.accountMembershipRoleConstraintPresent) anomalies.missing_account_membership_role_constraint = 1;

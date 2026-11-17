@@ -53,6 +53,9 @@ export const accounts = pgTable('accounts', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   ownerIdx: index('accounts_owner_idx').on(table.ownerUserId),
+  uniquePersonalOwner: uniqueIndex('accounts_single_personal_owner_idx')
+    .on(table.ownerUserId)
+    .where(sql`${table.isPersonal}`),
 }));
 
 export const accountUsers = pgTable('account_users', {
