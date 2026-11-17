@@ -3,11 +3,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type postgres from 'postgres';
 
+// The Drizzle journal owns migrations through 0045. Keep this runner on the
+// post-journal range so it never replays historical journal DDL against an
+// already-migrated production schema.
 export const POST_JOURNAL_TAGS = [
-    '0042_nasty_radioactive_man',
-    '0043_serenata_offers',
-    '0044_serenata_client_requests',
-    '0045_serenata_booking_payments',
     '0046_serenata_musician_working_comunas',
     '0047_user_pending_email',
     '0048_serenata_package_logistics',
