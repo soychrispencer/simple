@@ -94,9 +94,8 @@ const EXPECTED = {
       // SimpleResto is not active: the owner deferred its unregistered domain.
       // Keep the API from redirecting users to a domain Simple does not own.
       { key: 'RESTO_APP_URL', expected: null, forbidden: true },
-      // Keep operator OAuth singular. The app ID is only checked for presence
-      // until it is matched against the SimplePlataforma developer app.
-      { key: 'MP_OPERATOR_APP_ID', expected: '__SET__' },
+      // Keep operator OAuth pinned to the verified business SimpleApp app.
+      { key: 'MP_OPERATOR_APP_ID', expected: '8375914545951141' },
       { key: 'MP_OPERATOR_APP_SECRET', expected: '__SET__' },
       { key: 'MP_OPERATOR_REDIRECT_URI', expected: `${API_PUBLIC}/api/integrations/mercadopago/callback` },
       { key: 'INSTAGRAM_REDIRECT_URI', expected: INSTAGRAM_CALLBACK },
