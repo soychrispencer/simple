@@ -2,6 +2,7 @@ import type { StorageProvider } from '@simple/config';
 import { logger } from '@simple/logger';
 import { CloudflareR2Provider } from './cloudflare-r2.js';
 import { LocalStorageProvider } from './local';
+import { readR2Credentials } from './r2-config.js';
 
 function isDev(): boolean {
     return process.env.NODE_ENV !== 'production';
@@ -31,14 +32,14 @@ export function createStorageProvider(): StorageProvider {
 
     if (storageType === 'cloudflare-r2' || storageType === 'r2') {
         const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID;
-        const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
-        const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+        const publicCredentials = readR2Credentials('public');
+        const privateCredentials = readR2Credentials('private');
         const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME;
         const privateBucketName = process.env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME;
         const publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL;
         const workerUrl = process.env.CLOUDFLARE_WORKER_URL || '';
 
-        if (!accountId || !accessKeyId || !secretAccessKey || !bucketName || !publicUrl) {
+        if (!accountId || !publicCredentials || !bucketName || !publicUrl) {
             if (isDev()) {
                 return useLocalDevFallback('CLOUDFLARE_R2 sin credenciales completas');
             }
@@ -49,7 +50,18 @@ export function createStorageProvider(): StorageProvider {
             );
         }
 
-        return new CloudflareR2Provider(accountId, accessKeyId, secretAccessKey, bucketName, publicUrl, workerUrl, privateBucketName);
+        return new CloudflareR2Provider(
+            accountId,
+            publicCredentials.accessKeyId,
+            publicCredentials.secretAccessKey,
+            bucketName,
+            publicUrl,
+            workerUrl,
+            privateBucketName,
+            privateCredentials?.accessKeyId,
+            privateCredentials?.secretAccessKey,
+            Boolean(process.env.CLOUDFLARE_R2_PRIVATE_ACCESS_KEY_ID?.trim() || process.env.CLOUDFLARE_R2_PRIVATE_SECRET_ACCESS_KEY?.trim()),
+        );
     }
 
     throw new Error(

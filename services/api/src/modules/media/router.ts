@@ -98,7 +98,7 @@ export function createMediaRouter(deps: MediaRouterDeps) {
         if (!key) {
             return c.json({ ok: false, error: 'No pudimos resolver el archivo.' }, 404);
         }
-        if (privateMedia?.storage === 'r2' && !env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME) {
+        if (privateMedia?.storage === 'r2' && (!env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME || !client)) {
             return c.json({ ok: false, error: 'El almacenamiento privado no está configurado en este servidor.' }, 503);
         }
         if (!await canAccessProxyMedia(user, src)) {

@@ -89,10 +89,14 @@ CLOUDFLARE_R2_SECRET_ACCESS_KEY=     # ver .env local → CLOUDFLARE_R2_SECRET_A
 CLOUDFLARE_R2_BUCKET_NAME=simple-media
 CLOUDFLARE_R2_PUBLIC_URL=            # ver .env local → CLOUDFLARE_R2_PUBLIC_URL
 CLOUDFLARE_R2_PRIVATE_BUCKET_NAME=simple-private-media  # bucket privado, sin dominio público; adjuntos y documentos
+CLOUDFLARE_R2_PRIVATE_ACCESS_KEY_ID=   # token R2 acotado a simple-private-media
+CLOUDFLARE_R2_PRIVATE_SECRET_ACCESS_KEY=
 # CLOUDFLARE_WORKER_URL=             # opcional — overlays Instagram
 # No usar Backblaze: si quedan BACKBLAZE_* / B2_* en Coolify, eliminarlas (`pnpm coolify:env-fix`).
 
-# Adjuntos privados ya existentes: primero crea el bucket privado y configura CLOUDFLARE_R2_PRIVATE_BUCKET_NAME.
+# Adjuntos privados: crea el bucket sin dominio público y configura un token R2 de lectura/escritura limitado a ese bucket.
+# El par CLOUDFLARE_R2_PRIVATE_* separado evita reutilizar el token público con alcance exclusivo a simple-media.
+# Para adjuntos existentes, confirma el alcance de producción y ejecuta un dry-run antes de copiar o actualizar referencias:
 # Ejecuta un dry-run y revisa el conteo antes de aplicar la copia/actualización:
 # pnpm --filter @simple/api run db:migrate:private-media
 # pnpm --filter @simple/api run db:migrate:private-media -- --apply

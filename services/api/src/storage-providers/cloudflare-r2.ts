@@ -17,7 +17,8 @@ function sanitizeFileName(fileName: string): string {
  * Compatible con S3 API, más barato y mejor integración con Cloudflare Workers/Images
  */
 export class CloudflareR2Provider implements StorageProvider {
-    private client: S3Client;
+    private publicClient: S3Client;
+    private privateClient: S3Client | null;
     private bucketName: string;
     private privateBucketName: string | null;
     private publicUrl: string;
@@ -31,6 +32,9 @@ export class CloudflareR2Provider implements StorageProvider {
         publicUrl: string,
         workerUrl: string,
         privateBucketName?: string,
+        privateAccessKeyId?: string,
+        privateSecretAccessKey?: string,
+        privateCredentialsConfigured = Boolean(privateAccessKeyId || privateSecretAccessKey),
     ) {
         this.bucketName = bucketName.trim();
         this.privateBucketName = privateBucketName?.trim() || null;
@@ -38,10 +42,9 @@ export class CloudflareR2Provider implements StorageProvider {
             throw new Error('CLOUDFLARE_R2_PRIVATE_BUCKET_NAME debe ser distinto de CLOUDFLARE_R2_BUCKET_NAME para proteger los adjuntos privados.');
         }
 
-        // R2 usa endpoint específico por account ID
         const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
-        
-        this.client = new S3Client({
+
+        this.publicClient = new S3Client({
             region: 'auto', // R2 no usa regiones
             endpoint,
             credentials: {
@@ -50,14 +53,29 @@ export class CloudflareR2Provider implements StorageProvider {
             },
         });
 
+        const privateAccess = privateAccessKeyId?.trim() || '';
+        const privateSecret = privateSecretAccessKey?.trim() || '';
+        if (privateCredentialsConfigured) {
+            this.privateClient = privateAccess && privateSecret
+                ? new S3Client({
+                    region: 'auto',
+                    endpoint,
+                    credentials: { accessKeyId: privateAccess, secretAccessKey: privateSecret },
+                })
+                : null;
+        } else {
+            // Backward-compatible fallback for existing deployments.
+            this.privateClient = this.publicClient;
+        }
+
         this.publicUrl = publicUrl.trim().replace(/\/$/, ''); // Remove trailing slash
         this.workerUrl = workerUrl.replace(/\/$/, '');
     }
 
     async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
         const { file, fileName, mimeType, userId, listingId } = input;
-        if (input.isPrivate && !this.privateBucketName) {
-            throw new Error('Faltan variables de Cloudflare R2: configura CLOUDFLARE_R2_PRIVATE_BUCKET_NAME para adjuntos privados.');
+        if (input.isPrivate && (!this.privateBucketName || !this.privateClient)) {
+            throw new Error('Faltan la configuración del bucket o las credenciales R2 privadas para guardar adjuntos.');
         }
         const safeFileName = sanitizeFileName(fileName || 'file');
         
@@ -82,7 +100,7 @@ export class CloudflareR2Provider implements StorageProvider {
                 },
             });
 
-            await this.client.send(command);
+            await (input.isPrivate ? this.privateClient! : this.publicClient).send(command);
 
             const now = Date.now();
             
@@ -106,8 +124,8 @@ export class CloudflareR2Provider implements StorageProvider {
         try {
             const isPrivate = fileId.startsWith('__private_r2__/');
             if (fileId.startsWith('__private_local__/')) return;
-            if (isPrivate && !this.privateBucketName) {
-                throw new Error('CLOUDFLARE_R2_PRIVATE_BUCKET_NAME no está configurado.');
+            if (isPrivate && (!this.privateBucketName || !this.privateClient)) {
+                throw new Error('Falta la configuración R2 privada para eliminar este adjunto.');
             }
             const key = isPrivate ? fileId.slice('__private_r2__/'.length) : fileId;
             const command = new DeleteObjectCommand({
@@ -115,7 +133,7 @@ export class CloudflareR2Provider implements StorageProvider {
                 Key: key,
             });
 
-            await this.client.send(command);
+            await (isPrivate ? this.privateClient! : this.publicClient).send(command);
         } catch (error) {
             console.error('[R2Storage] Delete error:', error);
             throw new Error(`Failed to delete file from R2: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error });
@@ -139,7 +157,7 @@ export class CloudflareR2Provider implements StorageProvider {
                 Bucket: this.bucketName,
                 Key: '.health-check', // Try to head a non-existent object
             });
-            await this.client.send(command);
+            await this.publicClient.send(command);
             return true;
         } catch (error: any) {
             // 404 is expected (object doesn't exist), but connection worked

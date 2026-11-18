@@ -12,8 +12,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import postgres from 'postgres';
+import { createR2S3Client, readR2Credentials, type R2Credentials } from '../src/storage-providers/r2-config.js';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const apiRoot = path.resolve(scriptDir, '..');
@@ -46,8 +47,8 @@ if (!databaseUrl) {
 
 type R2MigrationConfig = {
     accountId: string;
-    accessKeyId: string;
-    secretAccessKey: string;
+    publicCredentials: R2Credentials;
+    privateCredentials: R2Credentials;
     publicBucket: string;
     privateBucket: string;
     publicHost: string;
@@ -55,20 +56,20 @@ type R2MigrationConfig = {
 
 function getR2MigrationConfig(): R2MigrationConfig {
     const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID?.trim();
-    const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID?.trim();
-    const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY?.trim();
+    const publicCredentials = readR2Credentials('public');
+    const privateCredentials = readR2Credentials('private');
     const publicBucket = process.env.CLOUDFLARE_R2_BUCKET_NAME?.trim();
     const privateBucket = process.env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME?.trim();
     const publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL?.trim().replace(/\/+$/, '');
     const requiredVariables = [
         'CLOUDFLARE_R2_ACCOUNT_ID',
-        'CLOUDFLARE_R2_ACCESS_KEY_ID',
-        'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
         'CLOUDFLARE_R2_BUCKET_NAME',
         'CLOUDFLARE_R2_PRIVATE_BUCKET_NAME',
         'CLOUDFLARE_R2_PUBLIC_URL',
     ] as const;
-    const missingVariables = requiredVariables.filter((name) => !process.env[name]?.trim());
+    const missingVariables: string[] = requiredVariables.filter((name) => !process.env[name]?.trim());
+    if (!publicCredentials) missingVariables.push('CLOUDFLARE_R2_ACCESS_KEY_ID/CLOUDFLARE_R2_SECRET_ACCESS_KEY');
+    if (!privateCredentials) missingVariables.push('CLOUDFLARE_R2_PRIVATE_ACCESS_KEY_ID/CLOUDFLARE_R2_PRIVATE_SECRET_ACCESS_KEY');
 
     if (missingVariables.length > 0) {
         throw new Error(`Falta configurar estas variables para migrar archivos: ${missingVariables.join(', ')}.`);
@@ -89,21 +90,23 @@ function getR2MigrationConfig(): R2MigrationConfig {
         throw new Error('CLOUDFLARE_R2_PUBLIC_URL debe ser una URL HTTPS válida en la raíz del dominio, sin credenciales, parámetros ni fragmento.');
     }
 
-    return { accountId: accountId!, accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey!, publicBucket: publicBucket!, privateBucket: privateBucket!, publicHost };
+    return { accountId: accountId!, publicCredentials: publicCredentials!, privateCredentials: privateCredentials!, publicBucket: publicBucket!, privateBucket: privateBucket!, publicHost };
 }
 
-let publicHost = '';
-
-function sourceObjectKey(value: string): string | null {
+function sourceObjectKey(value: string, config: R2MigrationConfig): string | null {
     try {
         const parsed = new URL(value);
+        if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) return null;
         let encodedKey = '';
-        if (parsed.hostname === publicHost) {
+        const endpointHost = `${config.accountId}.r2.cloudflarestorage.com`;
+        if (parsed.hostname === config.publicHost) {
             encodedKey = parsed.pathname.replace(/^\//, '');
-        } else if (parsed.hostname.endsWith('.r2.cloudflarestorage.com')) {
-            const prefix = `/${publicBucket}/`;
+        } else if (parsed.hostname === endpointHost) {
+            const prefix = `/${config.publicBucket}/`;
             if (!parsed.pathname.startsWith(prefix)) return null;
             encodedKey = parsed.pathname.slice(prefix.length);
+        } else if (parsed.hostname === `${config.publicBucket}.${endpointHost}`) {
+            encodedKey = parsed.pathname.replace(/^\//, '');
         } else {
             return null;
         }
@@ -120,7 +123,8 @@ function privateStorageUrl(key: string): string {
 
 async function main() {
     const sql = postgres(databaseUrl!, { max: 1 });
-    let client: S3Client | null = null;
+    let publicClient: S3Client | null = null;
+    let privateClient: S3Client | null = null;
 
     try {
         const [attachments, scores] = await Promise.all([
@@ -145,15 +149,11 @@ async function main() {
         }
 
         const config = getR2MigrationConfig();
-        publicHost = config.publicHost;
-        client = new S3Client({
-            region: 'auto',
-            endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
-            credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
-        });
+        publicClient = createR2S3Client(config.accountId, config.publicCredentials);
+        privateClient = createR2S3Client(config.accountId, config.privateCredentials);
 
         const candidates = records.flatMap((record) => {
-            const sourceKey = sourceObjectKey(record.url);
+            const sourceKey = sourceObjectKey(record.url, config);
             if (!sourceKey) return [];
             const hash = createHash('sha256').update(record.url).digest('hex');
             const extension = path.posix.extname(sourceKey).replace(/[^.a-zA-Z0-9]/g, '').slice(0, 12);
@@ -174,7 +174,7 @@ async function main() {
         let unverifiedSources = 0;
         for (const source of uniqueSources.values()) {
             try {
-                await client.send(new HeadObjectCommand({ Bucket: config.publicBucket, Key: source.sourceKey }));
+                await publicClient.send(new HeadObjectCommand({ Bucket: config.publicBucket, Key: source.sourceKey }));
                 verifiedSources++;
             } catch {
                 unverifiedSources++;
@@ -191,15 +191,21 @@ async function main() {
             return;
         }
 
+        try {
+            await privateClient.send(new ListObjectsV2Command({ Bucket: config.privateBucket, MaxKeys: 1 }));
+        } catch {
+            throw new Error('No se pudo verificar el acceso al bucket privado. No se copiaron objetos ni se modificó la base.');
+        }
+
         let updatedReferences = 0;
         let staleReferences = 0;
         let failedObjects = 0;
         for (const source of uniqueSources.values()) {
             try {
-                const object = await client.send(new GetObjectCommand({ Bucket: config.publicBucket, Key: source.sourceKey }));
+                const object = await publicClient.send(new GetObjectCommand({ Bucket: config.publicBucket, Key: source.sourceKey }));
                 if (!object.Body) throw new Error('R2 devolvió el objeto sin contenido.');
                 const body = await object.Body.transformToByteArray();
-                await client.send(new PutObjectCommand({
+                await privateClient.send(new PutObjectCommand({
                     Bucket: config.privateBucket,
                     Key: source.privateKey,
                     Body: body,
@@ -226,7 +232,8 @@ async function main() {
         console.log('Los originales del bucket público no se borraron. Elimínalos solo después de comprobar que no tienen otras referencias públicas.');
         if (failedObjects > 0 || staleReferences > 0) process.exitCode = 1;
     } finally {
-        client?.destroy();
+        publicClient?.destroy();
+        privateClient?.destroy();
         await sql.end();
     }
 }
