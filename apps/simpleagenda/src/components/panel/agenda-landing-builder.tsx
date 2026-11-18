@@ -213,6 +213,24 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
         setContentNotice({ tone: 'success', message: 'Guardamos la propuesta como borrador. Revisa el contenido antes de publicarlo.' });
     }
 
+    function prepareFromProfile() {
+        const name = profile.displayName?.trim();
+        if (!name) return;
+        const activity = profile.profession?.trim() ?? '';
+        const intro = [activity, profile.city?.trim()].filter(Boolean).join(' · ');
+        setContent((current) => ({
+            ...current,
+            heroHeadline: current.heroHeadline || (profile.headline?.trim() || name).slice(0, 90),
+            heroSubheadline: current.heroSubheadline || intro.slice(0, 180),
+            aboutTitle: current.aboutTitle || (profile.bio ? 'Presentación' : ''),
+            aboutText: current.aboutText || (profile.bio?.trim() ?? '').slice(0, 900),
+            seoTitle: current.seoTitle || [name, activity].filter(Boolean).join(' · ').slice(0, 65),
+            seoDescription: current.seoDescription || (profile.bio?.trim() || intro).slice(0, 170),
+        }));
+        setNotice(null);
+        setContentNotice({ tone: 'success', message: 'Completamos los campos vacíos con los datos de tu perfil. Revisa y guarda el borrador.' });
+    }
+
     async function save() {
         if (operation) return;
         setOperation('save');
@@ -327,6 +345,11 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                     </div>
                 ) : null}
                 {contentNotice ? <PanelNotice tone={contentNotice.tone}>{contentNotice.message}</PanelNotice> : null}
+                {hasIdentity && (!hasSomeCopy || contentNotice?.tone === 'error') && (
+                    <button type="button" className={actionClassName} disabled={!!operation} onClick={prepareFromProfile}>
+                        Completar con los datos de mi perfil
+                    </button>
+                )}
                 <fieldset disabled={!!operation} className="space-y-4">
                     <Field label="Titular" value={content.heroHeadline} onChange={(value) => changeContent('heroHeadline', value)} maxLength={90} placeholder={profile.headline ?? 'Describe tu forma de atender en una frase'} />
                     <Field label="Bajada" value={content.heroSubheadline} onChange={(value) => changeContent('heroSubheadline', value)} maxLength={180} rows={2} />
