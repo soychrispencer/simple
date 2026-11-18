@@ -94,6 +94,11 @@ const EXPECTED = {
       // SimpleResto is not active: the owner deferred its unregistered domain.
       // Keep the API from redirecting users to a domain Simple does not own.
       { key: 'RESTO_APP_URL', expected: null, forbidden: true },
+      // Keep operator OAuth singular. The app ID is only checked for presence
+      // until it is matched against the SimplePlataforma developer app.
+      { key: 'MP_OPERATOR_APP_ID', expected: '__SET__' },
+      { key: 'MP_OPERATOR_APP_SECRET', expected: '__SET__' },
+      { key: 'MP_OPERATOR_REDIRECT_URI', expected: `${API_PUBLIC}/api/integrations/mercadopago/callback` },
       { key: 'INSTAGRAM_REDIRECT_URI', expected: INSTAGRAM_CALLBACK },
       { key: 'GOOGLE_REDIRECT_URI', expected: null, forbidden: true },
       { key: 'GOOGLE_AI_API_KEY', expected: '__SET__' },
@@ -164,6 +169,11 @@ const EXPECTED = {
 function normalizeValue(value) {
   if (value == null) return '';
   return String(value).trim();
+}
+
+function envRowValue(row) {
+  const isLiteral = row?.is_literal === true || row?.is_literal === 'true';
+  return isLiteral ? row?.value ?? '' : row?.real_value ?? row?.value ?? '';
 }
 
 function statusFor(check, envMap) {
@@ -307,8 +317,8 @@ async function main() {
 
     const envMap = new Map();
     for (const [key, rows] of byKey) {
-      const preferred = rows.find((r) => normalizeValue(r.real_value ?? r.value) === '') ?? rows[rows.length - 1];
-      envMap.set(key, preferred.real_value ?? preferred.value ?? '');
+      const preferred = rows.find((r) => normalizeValue(envRowValue(r)) === '') ?? rows[rows.length - 1];
+      envMap.set(key, envRowValue(preferred));
     }
 
     console.log(`\n## ${app.name}`);
@@ -321,10 +331,10 @@ async function main() {
       const targetValue = check.forbidden ? null : check.expected ?? null;
       let keeper = rows[0];
       if (targetValue !== null) {
-        const matching = rows.filter((r) => normalizeValue(r.real_value ?? r.value) === normalizeValue(targetValue));
+        const matching = rows.filter((r) => normalizeValue(envRowValue(r)) === normalizeValue(targetValue));
         keeper = matching.find((r) => !environmentFlagIssue(check.key, r)) ?? matching[0] ?? keeper;
       } else if (check.key === 'NEXT_PUBLIC_API_URL') {
-        keeper = rows.find((r) => normalizeValue(r.real_value ?? r.value) === '') ?? keeper;
+        keeper = rows.find((r) => normalizeValue(envRowValue(r)) === '') ?? keeper;
       }
       for (const row of rows) {
         if (row.uuid === keeper.uuid) continue;
@@ -335,7 +345,7 @@ async function main() {
           appChanged = true;
         }
       }
-      envMap.set(check.key, keeper.real_value ?? keeper.value ?? '');
+      envMap.set(check.key, envRowValue(keeper));
     }
 
     for (const check of spec.checks) {
@@ -344,7 +354,7 @@ async function main() {
       let { ok, action } = status;
       const checkRows = byKey.get(check.key) ?? [];
       const checkTarget = check.expected === '__SET__' ? current : normalizeValue(check.expected ?? '');
-      const selectedRow = checkRows.find((row) => normalizeValue(row.real_value ?? row.value) === checkTarget)
+      const selectedRow = checkRows.find((row) => normalizeValue(envRowValue(row)) === checkTarget)
         ?? checkRows[0];
       const flagIssue = environmentFlagIssue(check.key, selectedRow);
       if (flagIssue) {
@@ -396,7 +406,7 @@ async function main() {
         appChanged = true;
       } else if (action === 'update') {
         const rows = byKey.get(check.key) ?? [];
-        const row = rows.find((item) => normalizeValue(item.real_value ?? item.value) === normalizeValue(check.expected ?? ''))
+        const row = rows.find((item) => normalizeValue(envRowValue(item)) === normalizeValue(check.expected ?? ''))
           ?? rows[0];
         if (row) {
           await updateEnv(app.uuid, check.key, check.expected ?? '', row);
