@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { getCookie } from 'hono/cookie';
+import { isAllowedBrowserOrigin } from '../../lib/cors.js';
 import { canManageAccountRole } from '../accounts/permissions.js';
 import { isSocialIntegrationAccessError } from '../integrations/social-write-access.js';
 import {
@@ -19,13 +21,15 @@ import {
     userHasMercadoPagoOperatorTarget,
 } from './operator-store.js';
 import {
-    makeMercadoPagoOAuthStatePayload,
-    parseMercadoPagoOAuthStatePayload,
+    createMercadoPagoOAuthAttempt,
     parseMercadoPagoOperatorVertical,
+    readMercadoPagoOAuthAttempt,
+    verifyMercadoPagoOAuthState,
     type MercadoPagoOperatorVertical,
 } from './oauth-state.js';
 
 export const MERCADOPAGO_STATE_COOKIE = 'mp_oauth_state';
+const MERCADOPAGO_COMPLETE_PATH = '/api/integrations/mercadopago/complete';
 
 export type MercadoPagoIntegrationRouterDeps = {
     authUser: (c: Context) => Promise<{ id: string; role?: string } | null>;
@@ -33,9 +37,7 @@ export type MercadoPagoIntegrationRouterDeps = {
     resolveBrowserOrigin: (c: Context) => string | null;
     sanitizeBrowserReturnUrl: (url: string, fallback: string) => string;
     randomBytes: (size: number) => Buffer;
-    safeEqualStrings: (a: string, b: string) => boolean;
-    getUserById: (id: string) => Promise<{ id: string } | null>;
-    canAuthenticateUser: (user: { id: string }) => boolean;
+    sessionSecret: string;
     userCanConnectMercadoPago: (user: { id: string; role?: string }, vertical: MercadoPagoOperatorVertical, accountId?: string | null) => boolean | Promise<boolean>;
     getCurrentPlanId: (user: { id: string; role?: string }, vertical: MercadoPagoOperatorVertical, accountId?: string | null) => string | Promise<string>;
     getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
@@ -145,30 +147,49 @@ export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationR
             deps.asString(c.req.query('returnTo')) || fallbackReturn,
             fallbackReturn,
         );
-        const nonce = deps.randomBytes(24).toString('hex');
+        const { cookie, state } = createMercadoPagoOAuthAttempt(deps.sessionSecret, origin, {
+            nonce: deps.randomBytes(24).toString('hex'),
+            userId: user.id,
+            vertical,
+            returnTo,
+            accountId: vertical === 'serenatas' ? null : accountId,
+        });
         setIntegrationOAuthCookie(
             c,
             MERCADOPAGO_STATE_COOKIE,
-            makeMercadoPagoOAuthStatePayload({
-                nonce,
-                userId: user.id,
-                vertical,
-                returnTo,
-                accountId: vertical === 'serenatas' ? null : accountId,
-            }),
+            cookie,
             { sameSite: deps.authCookieSameSite, secure: deps.authCookieSecure },
         );
 
-        return c.redirect(buildMercadoPagoOperatorAuthorizationUrl(nonce));
+        c.header('Cache-Control', 'no-store');
+        return c.redirect(buildMercadoPagoOperatorAuthorizationUrl(state));
     });
 
-    app.get('/callback', async (c) => {
-        const statePayload = parseMercadoPagoOAuthStatePayload(
-            consumeIntegrationOAuthCookie(c, MERCADOPAGO_STATE_COOKIE),
-        );
-        const vertical = statePayload?.vertical ?? 'agenda';
-        const fallbackReturn = `${getMercadoPagoOperatorAppOrigin(vertical)}/panel/mi-cuenta/integraciones`;
-        const returnTo = statePayload?.returnTo || fallbackReturn;
+    // The panel's same-origin proxy owns its cookies. Mercado Pago returns to the
+    // shared API host, which relays the result back to the browser that started it.
+    async function handleOAuthReturn(c: Context, relayToPanel: boolean) {
+        c.header('Cache-Control', 'no-store');
+        c.header('Referrer-Policy', 'no-referrer');
+
+        const stateValue = deps.asString(c.req.query('state'));
+        const verified = verifyMercadoPagoOAuthState(deps.sessionSecret, stateValue);
+        const state = verified && isAllowedBrowserOrigin(verified.origin) ? verified : null;
+        const attempt = readMercadoPagoOAuthAttempt(state, getCookie(c, MERCADOPAGO_STATE_COOKIE));
+        const code = deps.asString(c.req.query('code'));
+        const providerError = Boolean(c.req.query('error') || c.req.query('error_description'));
+
+        if (relayToPanel && state && !attempt) {
+            const target = new URL(MERCADOPAGO_COMPLETE_PATH, state.origin);
+            target.searchParams.set('state', stateValue);
+            if (providerError) target.searchParams.set('error', 'access_denied');
+            else if (code) target.searchParams.set('code', code);
+            return c.redirect(target.toString());
+        }
+
+        const vertical = attempt?.vertical ?? state?.vertical ?? 'agenda';
+        const fallbackOrigin = state?.origin ?? getMercadoPagoOperatorAppOrigin(vertical);
+        const fallbackReturn = new URL('/panel/mi-cuenta/integraciones', fallbackOrigin).toString();
+        const returnTo = attempt?.returnTo ?? fallbackReturn;
 
         const redirectWithStatus = (status: 'connected' | 'error' | 'upgrade', message?: string) => {
             const target = new URL(deps.sanitizeBrowserReturnUrl(returnTo, fallbackReturn));
@@ -177,44 +198,44 @@ export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationR
             return c.redirect(target.toString());
         };
 
-        const code = deps.asString(c.req.query('code'));
-        const state = deps.asString(c.req.query('state'));
-        const errorReason = deps.asString(c.req.query('error_description')) || deps.asString(c.req.query('error'));
-
-        if (errorReason) return redirectWithStatus('error', errorReason);
-        if (!statePayload || !state || !deps.safeEqualStrings(statePayload.nonce, state)) {
+        if (!attempt) {
             return redirectWithStatus('error', 'La sesión de conexión con MercadoPago expiró. Intenta nuevamente.');
         }
+        consumeIntegrationOAuthCookie(c, MERCADOPAGO_STATE_COOKIE);
+        if (providerError) return redirectWithStatus('error', 'Mercado Pago no autorizó la conexión. Intenta nuevamente.');
         if (!code) return redirectWithStatus('error', 'MercadoPago no devolvió un código de autorización válido.');
 
-        const user = await deps.getUserById(statePayload.userId);
-        if (!user || !deps.canAuthenticateUser(user)) {
+        const user = await deps.authUser(c);
+        if (!user || user.id !== attempt.userId) {
             return redirectWithStatus('error', 'No pudimos validar tu sesión para conectar MercadoPago.');
         }
-        if (statePayload.accountId && !(deps.getAccountMembershipFromDb
-            ? await deps.getAccountMembershipFromDb(user.id, statePayload.accountId)
-            : deps.getAccountMembershipsForUser(user.id).some((membership) => membership.accountId === statePayload.accountId))) {
+        if (attempt.accountId && !(deps.getAccountMembershipFromDb
+            ? await deps.getAccountMembershipFromDb(user.id, attempt.accountId)
+            : deps.getAccountMembershipsForUser(user.id).some((membership) => membership.accountId === attempt.accountId))) {
             return redirectWithStatus('error', 'Ya no tienes acceso al espacio desde el que iniciaste la conexión.');
         }
-        if (!await canManageIntegration(user, statePayload.vertical, statePayload.accountId)) {
+        if (!await canManageIntegration(user, vertical, attempt.accountId)) {
             return redirectWithStatus('error', 'Solo dueños y administradores pueden conectar MercadoPago para este espacio.');
         }
 
-        const eligible = await deps.userCanConnectMercadoPago(user, statePayload.vertical, statePayload.accountId);
+        const eligible = await deps.userCanConnectMercadoPago(user, vertical, attempt.accountId);
         if (!eligible) return redirectWithStatus('upgrade');
 
         try {
             const tokens = await exchangeMercadoPagoOperatorOAuthCode(code);
-            await saveMercadoPagoOperatorTokens(user.id, statePayload.vertical, tokens, statePayload.accountId);
+            await saveMercadoPagoOperatorTokens(user.id, vertical, tokens, attempt.accountId);
             if (deps.onMercadoPagoOperatorConnected) {
-                await deps.onMercadoPagoOperatorConnected(user.id, statePayload.vertical, statePayload.accountId);
+                await deps.onMercadoPagoOperatorConnected(user.id, vertical, attempt.accountId);
             }
             return redirectWithStatus('connected', 'MercadoPago conectado correctamente.');
         } catch (error) {
             const message = error instanceof Error ? error.message : 'No se pudo conectar con MercadoPago.';
             return redirectWithStatus('error', message);
         }
-    });
+    }
+
+    app.get('/callback', (c) => handleOAuthReturn(c, true));
+    app.get('/complete', (c) => handleOAuthReturn(c, false));
 
     app.post('/disconnect', async (c) => {
         const user = await deps.authUser(c);

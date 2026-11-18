@@ -310,6 +310,8 @@ En la aplicación OAuth que usa el flujo nuevo (`MP_OPERATOR_APP_ID` / `MP_OPERA
 Si ambos flujos usan la misma aplicación OAuth, agrega la URL nueva sin reemplazar ni quitar la anterior. Si usan aplicaciones distintas, conserva la URL antigua en la aplicación heredada. Así no se afectan conexiones en curso ni clientes que todavía usan esa ruta.
 `MP_OPERATOR_REDIRECT_URI` en la configuración compartida de la API es opcional si `API_BASE_URL` ya genera la URL registrada; cuando se define, Simple utiliza exactamente el mismo valor al iniciar autorización y al intercambiar el código por tokens.
 
+Verifica el Client ID en la misma aplicación de Mercado Pago donde está guardada esa URL. Solo reutiliza el par existente si coincide. Cuando el panel usa el proxy del mismo dominio, el retorno en la API vuelve a `/api/integrations/mercadopago/complete` en el dominio del panel. Allí se comprueban la sesión y la membresía del espacio original antes de guardar la conexión.
+
 Desarrollo local: `http://localhost:3006`.
 
 ### Validación pagada
