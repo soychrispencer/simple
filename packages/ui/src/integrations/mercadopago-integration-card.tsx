@@ -35,7 +35,6 @@ export function MercadoPagoIntegrationCard({
         setLoading(true);
         const nextStatus = await fetchMercadoPagoIntegrationStatus(vertical);
         setStatus(nextStatus);
-        setError(nextStatus ? null : 'No pudimos cargar la integración de MercadoPago.');
         setLoading(false);
     };
 
@@ -69,6 +68,7 @@ export function MercadoPagoIntegrationCard({
     };
 
     const onDisconnect = async () => {
+        setError(null);
         setDisconnecting(true);
         setError(null);
         const result = await disconnectMercadoPagoIntegration(vertical);
