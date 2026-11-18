@@ -493,6 +493,8 @@ Aplicar cada migración de producción solo después de comparar accesos y cobro
 
 **Prueba de restauración del respaldo de producción (17 de noviembre de 2026):** el archivo de 372.691 bytes se restauró en un contenedor efímero `postgres:16-alpine`, sin red (`--network none`), con `tmpfs` para los datos y un montaje de solo lectura del respaldo. `pg_restore --exit-on-error --no-owner --no-acl` terminó con éxito; una consulta agregada devolvió `29|28|28` para usuarios, cuentas y membresías. El contenedor se eliminó al finalizar y la verificación posterior encontró solo la base productiva en ejecución. Esto comprueba que el archivo es restaurable; no crea una copia fuera del VPS. Sigue pendiente configurar y verificar un destino externo antes de iniciar el piloto autenticado.
 
+**Callback OAuth de SimplePlataforma verificado (17 de noviembre de 2026):** el dueño confirmó el registro del callback `https://api.simpleplataforma.app/api/integrations/mercadopago/callback` en la app `SimplePlataforma`. La lectura de vuelta muestra esa URL y PKCE en “No”; `Guardar cambios` aparece desactivado, confirmando que no quedan cambios pendientes. El código actual no implementa PKCE. La app heredada `MPAPP` y su flujo se dejaron intactos; no se inició una autorización de cuenta. Coolify aún requiere `MP_OPERATOR_APP_ID`, `MP_OPERATOR_APP_SECRET` y `MP_OPERATOR_REDIRECT_URI` para usar la app separada; `MP_OPERATOR_APP_ID` y `MP_OPERATOR_APP_SECRET` deben configurarse juntos, porque el código no mezcla valores de aplicaciones distintas. El titular debe rotar las credenciales expuestas e introducir el secreto directamente en Coolify antes de la prueba OAuth.
+
 ## Archivos y documentos de referencia
 
 - [Lenguaje común de Simple](./SIMPLE_PLATFORM_LANGUAGE.md)

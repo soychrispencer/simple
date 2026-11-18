@@ -12,8 +12,15 @@ function asString(value: unknown): string {
 }
 
 export function getMercadoPagoOperatorAppCredentials() {
-    const appId = asString(process.env.MP_OPERATOR_APP_ID) || asString(process.env.MP_AGENDA_APP_ID);
-    const appSecret = asString(process.env.MP_OPERATOR_APP_SECRET) || asString(process.env.MP_AGENDA_APP_SECRET);
+    const operatorAppId = asString(process.env.MP_OPERATOR_APP_ID);
+    const operatorAppSecret = asString(process.env.MP_OPERATOR_APP_SECRET);
+
+    if (operatorAppId || operatorAppSecret) {
+        return { appId: operatorAppId, appSecret: operatorAppSecret };
+    }
+
+    const appId = asString(process.env.MP_AGENDA_APP_ID);
+    const appSecret = asString(process.env.MP_AGENDA_APP_SECRET);
     return { appId, appSecret };
 }
 

@@ -124,9 +124,10 @@ SERENATAS_APP_URL=https://simpleserenatas.app
 MP_AGENDA_APP_ID=                    # ver .env local → MP_AGENDA_APP_ID
 MP_AGENDA_APP_SECRET=                # ver .env local → MP_AGENDA_APP_SECRET
 AGENDA_APP_URL=https://simpleagenda.app
-# OAuth del flujo actual de integraciones. Puede reutilizar la app anterior de Agenda.
-MP_OPERATOR_APP_ID=                  # si está vacío, usa MP_AGENDA_APP_ID
-MP_OPERATOR_APP_SECRET=              # si está vacío, usa MP_AGENDA_APP_SECRET
+# OAuth del flujo actual de integraciones. Para una app separada, definir ID y secreto juntos.
+# Si ambos quedan vacíos, se usa el par MP_AGENDA_* legado; no definir un override parcial.
+MP_OPERATOR_APP_ID=
+MP_OPERATOR_APP_SECRET=
 MP_OPERATOR_REDIRECT_URI=https://api.simpleplataforma.app/api/integrations/mercadopago/callback
 # Mantener registrada también la ruta antigua mientras existan conexiones que la usen:
 # https://api.simpleplataforma.app/api/agenda/mercadopago/callback
@@ -303,7 +304,7 @@ MERCADO_PAGO_PUBLIC_ORIGIN_TICKETS=https://simpletickets.app
 TICKETS_QR_SECRET=                  # secreto aleatorio estable y respaldado
 ```
 
-En la aplicación OAuth que usa el flujo nuevo (`MP_OPERATOR_APP_ID` / `MP_OPERATOR_APP_SECRET`, o `MP_AGENDA_*` si se usa ese respaldo), registra la URL nueva exactamente como aparece en el bloque compartido de la API. SimpleAgenda inicia el flujo nuevo en
+En la aplicación OAuth que usa el flujo nuevo (`MP_OPERATOR_APP_ID` / `MP_OPERATOR_APP_SECRET`, o `MP_AGENDA_*` si ambos overrides están vacíos), registra la URL nueva exactamente como aparece en el bloque compartido de la API. Configura `MP_OPERATOR_APP_ID` y `MP_OPERATOR_APP_SECRET` como un par: si se define uno, el código no completa el otro desde la app heredada. SimpleAgenda inicia el flujo nuevo en
 `/api/integrations/mercadopago/callback`; el callback anterior
 `https://api.simpleplataforma.app/api/agenda/mercadopago/callback` permanece activo para conexiones iniciadas desde el flujo antiguo.
 Si ambos flujos usan la misma aplicación OAuth, agrega la URL nueva sin reemplazar ni quitar la anterior. Si usan aplicaciones distintas, conserva la URL antigua en la aplicación heredada. Así no se afectan conexiones en curso ni clientes que todavía usan esa ruta.
