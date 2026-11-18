@@ -60,7 +60,7 @@ API_BASE_URL=https://api.simpleplataforma.app
 
 DATABASE_URL=                        # ver .env local → DATABASE_URL
 
-CORS_ORIGINS=https://simpleautos.app,https://www.simpleautos.app,https://simplepropiedades.app,https://www.simplepropiedades.app,https://simpleplataforma.app,https://www.simpleplataforma.app,https://simpleagenda.app,https://www.simpleagenda.app,https://simpleserenatas.app,https://www.simpleserenatas.app,https://simpletickets.app,https://www.simpletickets.app,https://simpleresto.app,https://www.simpleresto.app,https://admin.simpleplataforma.app
+CORS_ORIGINS=https://simpleautos.app,https://www.simpleautos.app,https://simplepropiedades.app,https://www.simplepropiedades.app,https://simpleplataforma.app,https://www.simpleplataforma.app,https://simpleagenda.app,https://www.simpleagenda.app,https://simpleserenatas.app,https://www.simpleserenatas.app,https://simpletickets.app,https://www.simpletickets.app,https://admin.simpleplataforma.app
 
 SESSION_SECRET=                      # ver .env local → SESSION_SECRET
 AUTH_COOKIE_SAMESITE=none
@@ -74,7 +74,6 @@ GOOGLE_CLIENT_SECRET=                # ver .env local → GOOGLE_CLIENT_SECRET
 #   https://simpleserenatas.app/auth/google/callback
 #   https://simpleagenda.app/auth/google/callback
 #   https://simpletickets.app/auth/google/callback
-#   https://simpleresto.app/auth/google/callback
 #   https://admin.simpleplataforma.app/auth/google/callback
 #   https://simpleplataforma.app/auth/google/callback
 
@@ -335,6 +334,8 @@ Resumen mínimo en `simple-api`:
 
 ## 9. SimpleResto (`simpleresto.app`)
 
+**Registro diferido (18 de noviembre de 2026):** la búsqueda de SAV mostró `simpleresto.app` disponible por US$4,99 el primer año y US$14,76 por año de renovación ([página .app de SAV](https://sav.com/domains/app)). RDAP de Google Registry devuelve 404 y no hay NS, SOA ni A. La sesión autenticada de SAV mostró el dominio, pero “Add to Cart” falló con un error genérico en tres intentos y el carrito permaneció vacío. No se compró ni se aceptaron términos. El dueño decidió no comprarlo ahora y cerré la búsqueda. No registrar ni configurar DNS/HTTPS hasta que vuelva a decidirlo.
+
 ### Setup del servicio
 
 - **Build Pack**: `Dockerfile`
@@ -471,10 +472,6 @@ Acciones manuales en Coolify → **Settings → Environment Variables** de cada 
 | **simpleagenda** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
 | **simpletickets** | `NEXT_PUBLIC_API_URL` | Vacío (`""`) |
 | **simpletickets** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
-| **simpleresto** | `NEXT_PUBLIC_API_URL` | Vacío (`""`) |
-| **simpleresto** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
-| **simpleresto** | `NEXT_PUBLIC_APP_URL` | `https://simpleresto.app` |
-| **simple-api** | `RESTO_APP_URL` | `https://simpleresto.app` |
 | **simple-api** | `TICKETS_APP_URL` | `https://simpletickets.app` |
 | **simpleadmin** | `NEXT_PUBLIC_API_URL` | Vacío (`""`) |
 | **simpleadmin** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
@@ -483,6 +480,8 @@ Acciones manuales en Coolify → **Settings → Environment Variables** de cada 
 | **simpleplataforma** | `API_INTERNAL_URL` | `https://api.simpleplataforma.app` |
 
 Tras cambiar `NEXT_PUBLIC_*` o `API_INTERNAL_URL` en cualquier frontend: **Redeploy** (no Restart).
+
+SimpleResto no aparece en las variables activas mientras su dominio siga diferido. Si el dueño decide registrarlo, seguir la sección 9 y agregar sus orígenes solo después de verificar el dominio.
 
 **Credenciales expuestas en chat o logs:** rotar de inmediato en Coolify y en el proveedor (Google OAuth, Mercado Pago, SMTP, `COOLIFY_API_TOKEN`, contraseñas de cuenta). Guardar solo en vault / Secrets del Cloud Agent — nunca en git.
 

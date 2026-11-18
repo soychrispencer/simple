@@ -145,6 +145,7 @@ export default function PanelHomePage() {
                     hidden={loading || workspaceLoading || items.length > 0 || !workspaceReady}
                     accountId={workspaceAccountId}
                     operatorSubtype={workspaceState?.workspace?.operatorSubtype}
+                    memberRole={workspaceState?.memberRole}
                     onDismiss={() => setWorkspaceIntentDismissed(true)}
                 />
                 {!workspaceLoading && (

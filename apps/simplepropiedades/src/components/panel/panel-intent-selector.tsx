@@ -19,11 +19,13 @@ export function PanelIntentSelector({
     hidden,
     accountId,
     operatorSubtype,
+    memberRole,
     onDismiss,
 }: {
     hidden?: boolean;
     accountId?: string;
     operatorSubtype?: string | null;
+    memberRole?: string | null;
     onDismiss?: () => void;
 }) {
     const [visible, setVisible] = useState(false);
@@ -89,7 +91,9 @@ export function PanelIntentSelector({
         {
             key: 'portfolio',
             title: 'Ver mi cartera',
-            description: 'Administra las propiedades y publicaciones del espacio.',
+            description: memberRole === 'agent'
+                ? 'Revisa las propiedades y publicaciones que tienes asignadas.'
+                : 'Administra las propiedades y publicaciones del espacio.',
             href: '/panel/publicaciones',
             icon: <IconListDetails size={18} />,
         },

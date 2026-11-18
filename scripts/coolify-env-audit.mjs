@@ -91,7 +91,9 @@ const EXPECTED = {
       { key: 'AGENDA_APP_URL', expected: 'https://simpleagenda.app' },
       { key: 'SERENATAS_APP_URL', expected: 'https://simpleserenatas.app' },
       { key: 'TICKETS_APP_URL', expected: 'https://simpletickets.app' },
-      { key: 'RESTO_APP_URL', expected: 'https://simpleresto.app' },
+      // SimpleResto is not active: the owner deferred its unregistered domain.
+      // Keep the API from redirecting users to a domain Simple does not own.
+      { key: 'RESTO_APP_URL', expected: null, forbidden: true },
       { key: 'INSTAGRAM_REDIRECT_URI', expected: INSTAGRAM_CALLBACK },
       { key: 'GOOGLE_REDIRECT_URI', expected: null, forbidden: true },
       { key: 'GOOGLE_AI_API_KEY', expected: '__SET__' },
@@ -103,7 +105,6 @@ const EXPECTED = {
       'AGENDA_APP_URL',
       'SERENATAS_APP_URL',
       'TICKETS_APP_URL',
-      'RESTO_APP_URL',
       'INSTAGRAM_REDIRECT_URI',
       'API_BASE_URL',
     ],
@@ -142,13 +143,6 @@ const EXPECTED = {
       { key: 'NEXT_PUBLIC_API_URL', expected: '' },
       { key: 'API_INTERNAL_URL', expected: API_INTERNAL },
       { key: 'NEXT_PUBLIC_APP_URL', expected: 'https://simpletickets.app' },
-    ],
-  },
-  simpleresto: {
-    checks: [
-      { key: 'NEXT_PUBLIC_API_URL', expected: '' },
-      { key: 'API_INTERNAL_URL', expected: API_INTERNAL },
-      { key: 'NEXT_PUBLIC_APP_URL', expected: 'https://simpleresto.app' },
     ],
   },
   simpleadmin: {
