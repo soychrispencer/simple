@@ -25,7 +25,11 @@ export function AgendaPricingPlans() {
             annualDetail: null,
             description: 'Para empezar a recibir citas sin costo.',
             lead: AGENDA_PLAN_CATALOG.free.features[0],
-            features: AGENDA_PLAN_CATALOG.free.features.slice(1),
+            features: [
+                AGENDA_PLAN_CATALOG.free.features[1],
+                'Enlace de reservas, agenda y ficha de clientes',
+                'Confirmaciones y recordatorios por correo',
+            ],
             action: 'gratis' as const,
         },
         {
@@ -33,10 +37,14 @@ export function AgendaPricingPlans() {
             name: AGENDA_PLAN_CATALOG.pro.name,
             price: annual ? `$${AGENDA_PRICING.proAnnualTotalNetClp.toLocaleString('es-CL')}` : `$${AGENDA_PLAN_CATALOG.pro.priceMonthlyNetClp.toLocaleString('es-CL')}`,
             priceDetail: annual ? '+ IVA / año' : '+ IVA / mes',
-            annualDetail: annual ? `Equivale a ${formatAgendaProAnnualMonthlyPrice()}. Ahorra ${AGENDA_PRICING.proAnnualDiscountPct}% al pagar el año.` : null,
-            description: 'Para profesionales que quieren una agenda completa y más tiempo para atender.',
+            annualDetail: annual ? `Equivale a aprox. ${formatAgendaProAnnualMonthlyPrice()}` : null,
+            description: 'Para profesionales que quieren una página con su propia marca.',
             lead: 'Citas, servicios y ubicaciones sin límites de uso',
-            features: AGENDA_PLAN_CATALOG.pro.features.slice(1),
+            features: [
+                'Página con fotos, colores y contenido asistido por IA',
+                'Conexión con Mercado Pago y Google Calendar',
+                'Finanzas, packs, promociones y estadísticas',
+            ],
             action: 'pro' as const,
         },
         {
@@ -44,10 +52,14 @@ export function AgendaPricingPlans() {
             name: AGENDA_PLAN_CATALOG.proPlus.name,
             price: annual ? `$${AGENDA_PRICING.proPlusAnnualTotalNetClp.toLocaleString('es-CL')}` : `$${AGENDA_PRICING.proPlusMonthlyNetClp.toLocaleString('es-CL')}`,
             priceDetail: annual ? '+ IVA / año' : '+ IVA / mes',
-            annualDetail: annual ? `Equivale a ${formatAgendaProPlusAnnualMonthlyPrice()}. Ahorra ${AGENDA_PRICING.proAnnualDiscountPct}% al pagar el año.` : null,
-            description: 'Para profesionales que quieren recuperar clientes y volver a llenar su agenda.',
+            annualDetail: annual ? `Equivale a aprox. ${formatAgendaProPlusAnnualMonthlyPrice()}` : null,
+            description: 'Para retomar el contacto con clientes y conseguir nuevas citas.',
             lead: AGENDA_PLAN_CATALOG.proPlus.features[0],
-            features: AGENDA_PLAN_CATALOG.proPlus.features.slice(1),
+            features: [
+                'Detecta clientes sin atención en 30, 60 o 90 días',
+                'Prepara mensajes individuales para WhatsApp o correo',
+                'Revisa y envía cada mensaje',
+            ],
             action: 'pro_plus' as const,
         },
     ];
@@ -71,15 +83,15 @@ export function AgendaPricingPlans() {
                         onClick={() => setBillingCycle('annual')}
                         className={`min-h-10 flex-1 rounded-lg px-4 text-sm font-semibold transition-colors sm:flex-none ${annual ? 'bg-[var(--bg)] text-[var(--fg)] shadow-sm' : 'text-[var(--fg-secondary)]'}`}
                     >
-                        Anual <span className="ml-1 text-[var(--agenda-lime)]">· Ahorra 20%</span>
+                        Anual <span className="ml-1 text-[var(--fg-secondary)]">· Ahorra {AGENDA_PRICING.proAnnualDiscountPct}%</span>
                     </button>
                 </div>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-[var(--fg-muted)]">
+            <p className="mt-2 text-xs leading-relaxed text-[var(--fg-muted)]" aria-live="polite">
                 {annual ? 'El total anual se cobra por adelantado y se renueva cada 12 meses. Los precios son netos + IVA.' : 'Los planes pagados se renuevan según el ciclo elegido. Los precios son netos + IVA.'}
             </p>
 
-            <div className="mt-4 grid items-stretch gap-5 sm:mt-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+            <div className="mt-4 grid items-stretch gap-4 sm:mt-5 lg:grid-cols-3 lg:gap-5">
                 {plans.map((plan) => {
                     const isPro = plan.action === 'pro';
                     return (
@@ -110,7 +122,7 @@ export function AgendaPricingPlans() {
 
                             <div className="mt-5 flex-1 border-t border-[var(--border)] pt-5">
                                 <p className="agenda-plan-feature-lead mb-3 text-sm font-bold">{plan.lead}</p>
-                                <ul className="mb-7 space-y-4 text-sm leading-relaxed text-[var(--fg-secondary)]">
+                                <ul className="mb-6 space-y-3 text-sm leading-relaxed text-[var(--fg-secondary)]">
                                     {plan.features.map((feature) => (
                                         <li key={feature} className="flex items-start gap-2.5">
                                             <IconCheck

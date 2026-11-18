@@ -3,7 +3,6 @@ import {
     IconCalendarEvent,
     IconUsers,
     IconUser,
-    IconChartBar,
     IconBriefcase,
     IconMessageCircle,
     IconCash,
@@ -21,13 +20,12 @@ export type PanelNavItem = {
 /** Orden: panel → operación → mensajes → crecer → números → configuración del negocio y la cuenta */
 function buildBaseItems(clientsLabel: string): PanelNavItem[] {
     return [
-        { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
+        { href: '/panel', label: 'Hoy', icon: IconLayoutDashboard },
         { href: '/panel/agenda', label: 'Agenda', icon: IconCalendarEvent },
         { href: '/panel/clientes', label: clientsLabel, icon: IconUsers },
         { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
-        { href: '/panel/publicidad', label: 'Publicidad', icon: IconRocket },
+        { href: '/panel/crecimiento', label: 'Crecimiento', icon: IconRocket },
         { href: '/panel/finanzas', label: 'Finanzas', icon: IconCash },
-        { href: '/panel/analytics', label: 'Estadísticas', icon: IconChartBar },
         { href: '/panel/mi-negocio', label: 'Mi negocio', icon: IconBriefcase },
         { href: '/panel/mi-cuenta', label: 'Mi cuenta', icon: IconUser },
     ];
@@ -53,6 +51,10 @@ export function getPanelNavItems(
 
 export function isPanelNavActive(pathname: string, href: string): boolean {
     if (href === '/panel') return pathname === '/panel';
+    if (href === '/panel/crecimiento') {
+        return ['/panel/crecimiento', '/panel/publicidad', '/panel/analytics', '/panel/mi-cuenta/referidos']
+            .some((path) => pathname === path || pathname.startsWith(`${path}/`));
+    }
     if (href === '/panel/mi-cuenta') {
         return pathname === href || pathname.startsWith('/panel/mi-cuenta/');
     }

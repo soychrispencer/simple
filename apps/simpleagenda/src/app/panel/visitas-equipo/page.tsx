@@ -318,10 +318,10 @@ export default function TeamVisitsPage() {
             <PanelPageHeader
                 title={showTeamOverview ? 'Visitas del equipo' : 'Mis visitas'}
                 description={showTeamOverview
-                    ? <>Gestiona las visitas y reuniones de {state?.accountName || 'tu equipo'} desde la cartera de SimplePropiedades. Cada integrante ve sus actividades y, si conecta Google Calendar en <a href="/panel/mi-cuenta/integraciones" className="font-medium underline underline-offset-2">Integraciones</a>, también las verá allí.</>
+                    ? <>Gestiona las visitas y reuniones de {state?.accountName || 'tu equipo'} desde la cartera de SimplePropiedades. Cada integrante ve sus actividades y, si conecta Google Calendar en <a href="/panel/agenda/calendarios" className="font-medium underline underline-offset-2">Calendarios</a>, también las verá allí.</>
                     : state?.teamMode
-                        ? <>Revisa las visitas y reuniones que te asignaron en {state?.accountName || 'tu equipo'}. Si conectas Google Calendar en <a href="/panel/mi-cuenta/integraciones" className="font-medium underline underline-offset-2">Integraciones</a>, también las verás allí.</>
-                        : <>Organiza visitas a tus propiedades y reuniones con clientes. Si conectas Google Calendar desde <a href="/panel/mi-cuenta/integraciones" className="font-medium underline underline-offset-2">Integraciones</a>, también verás allí tus actividades.</>}
+                        ? <>Revisa las visitas y reuniones que te asignaron en {state?.accountName || 'tu equipo'}. Si conectas Google Calendar en <a href="/panel/agenda/calendarios" className="font-medium underline underline-offset-2">Calendarios</a>, también las verás allí.</>
+                        : <>Organiza visitas a tus propiedades y reuniones con clientes. Si conectas Google Calendar desde <a href="/panel/agenda/calendarios" className="font-medium underline underline-offset-2">Calendarios</a>, también verás allí tus actividades.</>}
                 actions={state?.enabled ? (
                     <PanelButton type="button" onClick={startCreate} disabled={loading}>
                         <IconPlus size={16} /> Agendar

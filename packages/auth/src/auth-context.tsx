@@ -64,6 +64,11 @@ type AuthActionResult = {
     status?: number;
 };
 
+type AuthOpenOptions = {
+    returnTo?: string;
+    contextLabel?: string;
+};
+
 type AuthContextType = {
     user: User;
     currentApp: SimplePlatformApp | null;
@@ -75,10 +80,11 @@ type AuthContextType = {
     activatePlatform: (app?: SimplePlatformApp) => Promise<AuthActionResult>;
     logout: () => Promise<void>;
     requireAuth: (callback?: () => void) => boolean;
-    openAuth: (mode?: 'login' | 'register') => void;
+    openAuth: (mode?: 'login' | 'register', options?: AuthOpenOptions) => void;
     closeAuth: () => void;
     authOpen: boolean;
     authInitialMode: 'login' | 'register';
+    authOpenOptions: AuthOpenOptions | null;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -161,6 +167,7 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
     const [user, setUser] = useState<User>(null);
     const [authOpen, setAuthOpen] = useState(false);
     const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
+    const [authOpenOptions, setAuthOpenOptions] = useState<AuthOpenOptions | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
     const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
     const sessionRequestId = useRef(0);
@@ -230,6 +237,7 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
             setAuthLoading(false);
             if (data.user.status === 'verified') {
                 setAuthOpen(false);
+                setAuthOpenOptions(null);
                 consumePendingCallback();
             }
             return { ok: true, user: data.user, status };
@@ -288,6 +296,7 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
         commitUser(null);
         setAuthLoading(false);
         setAuthOpen(false);
+        setAuthOpenOptions(null);
         setPendingCallback(null);
         await authRequest('/api/auth/logout', { method: 'POST' }, appId);
     }, [appId, commitUser]);
@@ -296,18 +305,21 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
         (callback?: () => void): boolean => {
             if (user) return true;
             if (callback) setPendingCallback(() => callback);
+            setAuthOpenOptions(null);
             setAuthOpen(true);
             return false;
         },
         [user]
     );
 
-    const openAuth = useCallback((mode: 'login' | 'register' = 'login') => {
+    const openAuth = useCallback((mode: 'login' | 'register' = 'login', options?: AuthOpenOptions) => {
         setAuthInitialMode(mode);
+        setAuthOpenOptions(options ?? null);
         setAuthOpen(true);
     }, []);
     const closeAuth = useCallback(() => {
         setAuthOpen(false);
+        setAuthOpenOptions(null);
         setPendingCallback(null);
     }, []);
 
@@ -327,8 +339,9 @@ export function AuthProvider({ children, appId }: { children: ReactNode; appId?:
             closeAuth,
             authOpen,
             authInitialMode,
+            authOpenOptions,
         }),
-        [activatePlatform, authInitialMode, authLoading, authOpen, closeAuth, currentApp, login, logout, openAuth, refreshSession, register, requireAuth, user]
+        [activatePlatform, authInitialMode, authLoading, authOpen, authOpenOptions, closeAuth, currentApp, login, logout, openAuth, refreshSession, register, requireAuth, user]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -8,7 +8,8 @@
  * Para conectarlo: cargar el script del proveedor (GTM, GA4, PostHog…) en el
  * layout. Los nombres y propiedades de abajo ya son estables.
  */
-export type AgendaEventName = 'landing_cta_click' | 'demo_confirm';
+export type AgendaEventName = 'landing_cta_click' | 'demo_start' | 'demo_confirm'
+    | 'public_booking_start' | 'public_booking_submitted' | 'subscription_checkout_started';
 
 export type AgendaEventProps = Record<string, string | number | boolean | undefined>;
 

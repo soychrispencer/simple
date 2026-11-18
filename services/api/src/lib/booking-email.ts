@@ -24,6 +24,8 @@ export type BookingEmailData = {
     location?: string | null;
     timezone: string;
     status: string;
+    paymentStatus?: string;
+    rescheduled?: boolean;
     seriesDates?: Date[] | null;
     seriesFrequency?: 'weekly' | 'biweekly' | 'monthly' | null;
     paymentMethods?: {
@@ -32,6 +34,7 @@ export type BookingEmailData = {
         paymentLinkUrl: string | null;
         bankTransferData: Record<string, string> | null;
         checkoutUrl?: string | null;
+        instructions?: string | null;
     } | null;
 };
 
@@ -48,16 +51,38 @@ export function fmtBookingDateTime(date: Date, timezone: string): string {
     });
 }
 
+export function getBookingEmailState(data: BookingEmailData) {
+    if (data.paymentStatus === 'pending') return 'payment_pending';
+    if (data.status === 'pending') return 'approval_pending';
+    return 'confirmed';
+}
+
+export function bookingEmailActionUrl(data: BookingEmailData & { appUrl: string }) {
+    if (getBookingEmailState(data) !== 'payment_pending' || !data.slug) return data.appUrl;
+    const url = new URL(encodeURIComponent(data.slug), `${data.appUrl.replace(/\/$/, '')}/`);
+    url.searchParams.set('payment', 'pending');
+    url.searchParams.set('appt', data.appointmentId);
+    return url.href;
+}
+
 export function buildBookingEmailPackage(
     data: BookingEmailData & { cancelUrl: string; appUrl: string },
 ): ActionEmailPackage {
     const brand = getAgendaEmailBrand();
-    const isPending = data.status === 'pending';
+    const state = getBookingEmailState(data);
+    const isConfirmed = state === 'confirmed';
+    const label = state === 'payment_pending' ? 'Pendiente de pago'
+        : state === 'approval_pending' ? 'Pendiente de aprobación'
+        : 'Confirmada';
+    const text = state === 'payment_pending' ? 'Tu cita está pendiente de pago. Completa el anticipo para continuar.'
+        : state === 'approval_pending' ? 'Recibimos tu solicitud y el profesional la revisará pronto.'
+        : 'Tu cita está confirmada. Te esperamos.';
     const dateStr = fmtBookingDateTime(data.startsAt, data.timezone);
     const durationStr = data.durationMinutes >= 60
         ? `${Math.floor(data.durationMinutes / 60)}h${data.durationMinutes % 60 ? ` ${data.durationMinutes % 60}min` : ''}`
         : `${data.durationMinutes} min`;
-    const modalityStr = data.modality === 'presencial' ? 'Presencial' : 'Online (videollamada)';
+    const isInPerson = data.modality === 'presential' || data.modality === 'presencial';
+    const modalityStr = isInPerson ? 'Presencial' : 'Online (videollamada)';
     const priceStr = data.price && parseFloat(data.price) > 0
         ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: data.currency || 'CLP', maximumFractionDigits: 0 }).format(parseFloat(data.price))
         : null;
@@ -74,10 +99,10 @@ export function buildBookingEmailPackage(
         ...(priceStr ? [{ label: 'Precio', value: priceStr }] : []),
     ];
 
-    let extraHtml = `<div style="margin-bottom:16px;">${buildStatusPillHtml(isPending ? 'Pendiente de confirmación' : 'Confirmada', isPending ? 'warning' : 'success')}</div>`;
+    let extraHtml = `<div style="margin-bottom:16px;">${buildStatusPillHtml(label, isConfirmed ? 'success' : 'warning')}</div>`;
     extraHtml += buildDetailTableHtml(detailRows);
 
-    if (data.modality !== 'presencial' && data.meetingUrl) {
+    if (!isInPerson && data.meetingUrl && isConfirmed) {
         extraHtml += buildInfoBoxHtml({
             title: 'Enlace de videollamada',
             tone: 'blue',
@@ -101,12 +126,12 @@ export function buildBookingEmailPackage(
         });
     }
 
-    if (data.paymentMethods?.requiresAdvancePayment && priceStr) {
+    if (state === 'payment_pending' && data.paymentMethods && priceStr) {
         if (data.paymentMethods.checkoutUrl) {
             extraHtml += buildInfoBoxHtml({
                 title: 'Pago anticipado requerido',
                 tone: 'amber',
-                bodyHtml: `Para confirmar tu cita debes pagar <strong>${escapeHtml(priceStr)}</strong>.<br/><br/><a href="${escapeHtml(data.paymentMethods.checkoutUrl)}" style="display:inline-block;padding:10px 16px;border-radius:10px;background:${brand.accent};color:#fff;text-decoration:none;font-weight:700;">Pagar ahora</a>`,
+                bodyHtml: `El anticipo es de <strong>${escapeHtml(priceStr)}</strong>.<br/><br/><a href="${escapeHtml(data.paymentMethods.checkoutUrl)}" style="display:inline-block;padding:10px 16px;border-radius:10px;background:${brand.accent};color:#fff;text-decoration:none;font-weight:700;">Pagar ahora</a>`,
             });
         } else if (data.paymentMethods.bankTransferData) {
             const bt = data.paymentMethods.bankTransferData;
@@ -121,19 +146,25 @@ export function buildBookingEmailPackage(
                 tone: 'amber',
                 bodyHtml: `Monto: <strong>${escapeHtml(priceStr)}</strong><br/><br/><a href="${escapeHtml(data.paymentMethods.paymentLinkUrl)}" style="display:inline-block;padding:10px 16px;border-radius:10px;background:${brand.accent};color:#fff;text-decoration:none;font-weight:700;">Ir al link de pago</a>`,
             });
+        } else if (data.paymentMethods.instructions) {
+            extraHtml += buildInfoBoxHtml({
+                title: 'Instrucciones de pago',
+                tone: 'amber',
+                bodyHtml: escapeHtml(data.paymentMethods.instructions),
+            });
         }
     }
 
-    extraHtml += `<p style="margin:20px 0 0;font-size:13px;color:#64748b;">¿Necesitas cancelar? <a href="${escapeHtml(data.cancelUrl)}" style="color:${brand.accent};font-weight:600;">Cancelar cita</a></p>`;
+    extraHtml += `<p style="margin:20px 0 0;font-size:13px;color:#64748b;"><a href="${escapeHtml(data.cancelUrl)}" style="color:${brand.accent};font-weight:600;">Reprogramar o cancelar cita</a></p>`;
 
     return buildActionEmailPackage({
         brand,
-        preheader: isPending ? 'Solicitud de cita recibida' : 'Tu cita está confirmada',
+        preheader: data.rescheduled ? 'Nuevo horario de tu cita' : label,
         eyebrow: 'Agenda',
-        headline: `Tu cita con ${data.professionalName}`,
-        bodyHtml: `<p style="margin:0 0 16px;">${escapeHtml(isPending ? 'Recibimos tu solicitud y el profesional la revisará pronto.' : 'Tu cita está confirmada. Te esperamos.')}</p>`,
-        buttonLabel: 'Ver en SimpleAgenda',
-        actionUrl: data.appUrl,
+        headline: data.rescheduled ? `Reprogramaste tu cita con ${data.professionalName}` : `Tu cita con ${data.professionalName}`,
+        bodyHtml: `<p style="margin:0 0 16px;">${escapeHtml(text)}</p>`,
+        buttonLabel: state === 'payment_pending' ? 'Ver estado del pago' : 'Ver en SimpleAgenda',
+        actionUrl: bookingEmailActionUrl(data),
         footnote: `Dudas sobre la cita: contacta a ${data.professionalName}.`,
         extraHtml,
     });

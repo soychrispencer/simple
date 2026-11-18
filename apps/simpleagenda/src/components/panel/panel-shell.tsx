@@ -80,7 +80,8 @@ export function PanelShell({ children }: { children: ReactNode }) {
             const items = getPanelNavItems(vocab.Clients, accountRole, isPersonalAccount)
                 .map(({ href, label, icon, badge }) => ({
                     href: teamVisitsEnabled && href === '/panel/clientes' ? '/panel/contactos' : href,
-                    label: teamVisitsEnabled && href === '/panel/clientes' ? 'Contactos' : label,
+                    label: teamVisitsEnabled && href === '/panel/clientes' ? 'Contactos'
+                        : teamVisitsEnabled && href === '/panel' ? 'Mi panel' : label,
                     icon,
                     badge,
                 }));

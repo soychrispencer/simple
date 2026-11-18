@@ -10,7 +10,8 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app').
 type ProfileResult =
     | { status: 'found'; profile: AgendaPublicProfile }
     | { status: 'not_published'; displayName: string }
-    | { status: 'not_found' };
+    | { status: 'not_found' }
+    | { status: 'unavailable' };
 
 async function getProfessionalProfile(slug: string): Promise<ProfileResult> {
     if (slug.includes('.')) return { status: 'not_found' };
@@ -28,11 +29,12 @@ async function getProfessionalProfile(slug: string): Promise<ProfileResult> {
                 return { status: 'not_published', displayName: body.displayName ?? '' };
             }
         }
+        if (res.status >= 500 || res.status === 429) return { status: 'unavailable' };
         if (!res.ok) return { status: 'not_found' };
         const data = await res.json() as { ok: boolean; profile: AgendaPublicProfile };
         return data.ok ? { status: 'found', profile: data.profile } : { status: 'not_found' };
     } catch {
-        return { status: 'not_found' };
+        return { status: 'unavailable' };
     }
 }
 
@@ -48,6 +50,9 @@ export async function generateMetadata({
     }
     if (result.status === 'not_found') {
         return { title: 'Perfil no encontrado | SimpleAgenda' };
+    }
+    if (result.status === 'unavailable') {
+        return { title: 'Agenda temporalmente no disponible | SimpleAgenda' };
     }
 
     const { profile } = result;
@@ -106,6 +111,7 @@ export default async function PublicBookingPage({ params }: { params: Promise<{ 
     if (result.status === 'not_published') {
         return <NotPublishedPage displayName={result.displayName} />;
     }
+    if (result.status === 'unavailable') throw new Error('No se pudo cargar la agenda pública.');
 
     return <AgendaPublicSite profile={result.profile} />;
 }

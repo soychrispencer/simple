@@ -1,18 +1,14 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import SubscriptionWrapper from './subscription-wrapper';
-import { PanelAccountShell, ACCOUNT_SUBSCRIPTION_PAGE, accountSubscriptionDescription } from '@simple/ui/panel';
-import { accountSectionTabs } from '@/components/panel/panel-section-tabs';
-
-export default function SuscripcionesPage() {
-    return (
-        <PanelAccountShell
-            activeKey="suscripcion"
-            tabs={accountSectionTabs}
-            title={ACCOUNT_SUBSCRIPTION_PAGE.title}
-            description={accountSubscriptionDescription('Simple Agenda')}
-        >
-            <SubscriptionWrapper />
-        </PanelAccountShell>
-    );
+export default async function LegacySuscripcionesPage({
+    searchParams,
+}: {
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(await searchParams)) {
+        if (typeof value === 'string') query.append(key, value);
+        else value?.forEach((item) => query.append(key, item));
+    }
+    redirect(`/panel/mi-negocio/plan${query.size ? `?${query}` : ''}`);
 }

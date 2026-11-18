@@ -145,6 +145,7 @@ export async function createCheckoutPreference(input: {
     accessToken?: string; // professional's own MP token
     /** URL que Mercado Pago notifica cuando cambia el estado del pago (IPN). Debe ser HTTPS en producción. */
     notificationUrl?: string;
+    signal?: AbortSignal;
 }): Promise<{ id: string; initPoint: string | null; sandboxInitPoint: string | null }> {
     const idempotencyKey = input.externalReference;
     const headers: HeadersInit = input.accessToken
@@ -153,6 +154,7 @@ export async function createCheckoutPreference(input: {
 
     const response = await fetch(`${MERCADO_PAGO_API_BASE}/checkout/preferences`, {
         method: 'POST',
+        signal: input.signal,
         headers,
         body: JSON.stringify({
             items: [

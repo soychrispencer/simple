@@ -12,6 +12,7 @@ type GoogleLoginButtonProps = {
     children: ReactElement<GoogleLoginChildProps>;
     disabled?: boolean;
     highlighted?: boolean;
+    returnTo?: string;
     onError?: (message: string) => void;
 };
 
@@ -19,6 +20,7 @@ export default function GoogleLoginButton({
     children,
     disabled = false,
     highlighted = false,
+    returnTo,
     onError,
 }: GoogleLoginButtonProps) {
     const [loading, setLoading] = useState(false);
@@ -28,7 +30,7 @@ export default function GoogleLoginButton({
 
         try {
             setLoading(true);
-            await startGoogleOAuthLogin();
+            await startGoogleOAuthLogin(returnTo);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'No pudimos iniciar el acceso con Google.';
             onError?.(message);

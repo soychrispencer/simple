@@ -68,9 +68,9 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Diseño de la página pública',
-                description: 'Opciones para presentar tu negocio con una portada y una identidad visual propia.',
+                description: 'Publica un enlace básico en Gratis o presenta tu negocio con una página completa en Pro.',
                 free: 'Página básica de reservas',
-                pro: 'Portada, estilos y colores personalizables',
+                pro: 'Portada, estilos, colores y contenido asistido por IA',
                 proPlus: 'Incluido en Pro',
             },
             {
@@ -95,9 +95,9 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 proPlus: true,
             },
             {
-                name: 'Sincronización con Google Calendar',
-                description: 'Conecta tu calendario personal para evitar topes de horario.',
-                free: true,
+                name: 'Envía tus citas a Google Calendar',
+                description: 'Muestra las citas de SimpleAgenda en el calendario que conectaste.',
+                free: false,
                 pro: true,
                 proPlus: true,
             },
@@ -113,8 +113,8 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
         title: 'Comunicación y recordatorios',
         items: [
             {
-                name: 'Confirmación inmediata por email',
-                description: 'Comprobante automático con los detalles de la hora.',
+                name: 'Estado de la cita por correo',
+                description: 'Mensaje con los detalles y el estado al reservar, cuando el cliente deja su correo.',
                 free: true,
                 pro: true,
                 proPlus: true,
@@ -153,9 +153,16 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
         title: 'Cobros y control financiero',
         items: [
             {
-                name: 'Pagos online por anticipado',
-                description: 'Cobra vía Mercado Pago o transferencia bancaria al agendar.',
+                name: 'Instrucciones para pagar',
+                description: 'Comparte los datos de transferencia o tu enlace de pago para que el cliente pueda completar su anticipo.',
                 free: true,
+                pro: true,
+                proPlus: true,
+            },
+            {
+                name: 'Conexión con Mercado Pago',
+                description: 'Conecta tu cuenta de Mercado Pago para cobrar al agendar.',
+                free: false,
                 pro: true,
                 proPlus: true,
             },

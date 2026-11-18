@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     fetchAgendaLocations,
     fetchAgendaProfile,
@@ -19,7 +19,6 @@ import {
     requiresOperatorSubtype,
     requiresOperatorSubtypeCustom,
     resolveAgendaOperatorFields,
-    resolveOperatorDisplayLabel,
     normalizeStructuredLocation,
     AGENDA_LOCATIONS_CHANGED_EVENT,
     type OperatorTier,
@@ -53,8 +52,6 @@ import {
     type AccountWorkspaceState,
 } from '@simple/utils';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app';
-
 export default function PerfilConfigPage() {
     const vocab = useAgendaVocab();
     const [loading, setLoading] = useState(true);
@@ -75,6 +72,9 @@ export default function PerfilConfigPage() {
     const [workspaceState, setWorkspaceState] = useState<AccountWorkspaceState | null>(null);
     const [accountName, setAccountName] = useState('');
     const [initialAccountName, setInitialAccountName] = useState('');
+    const [workspaceSaving, setWorkspaceSaving] = useState(false);
+    const [workspaceSaved, setWorkspaceSaved] = useState(false);
+    const [workspaceError, setWorkspaceError] = useState<string | null>(null);
     const [contactForm, setContactForm] = useState<AgendaPublicContactForm>({
         publicEmail: '',
         publicPhone: '',
@@ -90,8 +90,6 @@ export default function PerfilConfigPage() {
     const [showPrimaryAddress, setShowPrimaryAddress] = useState(false);
     const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
     const [locationsOpen, setLocationsOpen] = useState(false);
-    const formRef = useRef(form);
-    formRef.current = form;
 
     useEffect(() => {
         const load = async () => {
@@ -155,21 +153,6 @@ export default function PerfilConfigPage() {
         };
         void load();
     }, []);
-
-    const publicPreviewHref = useMemo(
-        () => (slug ? `${APP_URL}/${slug}` : null),
-        [slug],
-    );
-
-    const businessLabel = useMemo(
-        () => resolveOperatorDisplayLabel(
-            'agenda',
-            operator.accountKind,
-            operator.operatorSubtype,
-            operator.operatorSubtypeCustom,
-        ),
-        [operator.accountKind, operator.operatorSubtype, operator.operatorSubtypeCustom],
-    );
 
     const set = (key: keyof typeof form, value: string) => {
         setSaved(false);
@@ -235,46 +218,46 @@ export default function PerfilConfigPage() {
         });
     };
 
-    const handleSave = async () => {
-        if (!form.displayName.trim()) {
-            setError('El nombre visible es requerido.');
-            return;
-        }
+    const workspace = workspaceState?.workspace;
+    const customSubtype = operator.operatorSubtype === 'other' ? operator.operatorSubtypeCustom.trim() : '';
+    const workspaceChanged = workspaceState?.canManage === true && (
+        !workspace?.onboardingCompletedAt
+        || workspace.accountKind !== operator.accountKind
+        || workspace.operatorSubtype !== operator.operatorSubtype
+        || (workspace.operatorSubtypeCustom ?? '') !== customSubtype
+        || (operator.accountKind === 'company' && initialAccountName !== accountName.trim())
+    );
+
+    const handleSaveWorkspace = async () => {
+        if (workspaceSaving || !workspaceChanged) return;
         const subtypes = getOperatorSubtypes('agenda', operator.accountKind);
         if (requiresOperatorSubtype(operator.accountKind, subtypes) && !operator.operatorSubtype) {
-            setError('Selecciona tu negocio.');
+            setWorkspaceError('Selecciona tu rubro.');
             return;
         }
         if (requiresOperatorSubtypeCustom(operator.operatorSubtype) && !operator.operatorSubtypeCustom.trim()) {
-            setError('Describe tu negocio si elegiste Otros.');
+            setWorkspaceError('Describe tu negocio si elegiste Otros.');
             return;
         }
         if (operator.accountKind === 'company' && !accountName.trim()) {
-            setError('Escribe el nombre de tu empresa o equipo.');
+            setWorkspaceError('Escribe el nombre de tu empresa o equipo.');
             return;
         }
-        setSaving(true);
-        setError('');
-        const customSubtype = operator.operatorSubtype === 'other'
-            ? operator.operatorSubtypeCustom.trim()
-            : '';
-        const workspace = workspaceState?.workspace;
-        const workspaceChanged = workspaceState?.canManage === true && (
-            !workspace?.onboardingCompletedAt
-            || workspace.accountKind !== operator.accountKind
-            || workspace.operatorSubtype !== operator.operatorSubtype
-            || (workspace.operatorSubtypeCustom ?? '') !== customSubtype
-            || (operator.accountKind === 'company' && initialAccountName !== accountName.trim())
-        );
-        if (workspaceChanged) {
+        setWorkspaceSaving(true);
+        setWorkspaceError(null);
+        setWorkspaceSaved(false);
+        try {
             const workspaceResult = await saveAccountWorkspace('agenda', {
                 accountKind: operator.accountKind,
                 operatorSubtype: operator.operatorSubtype,
                 operatorSubtypeCustom: customSubtype,
             }, operator.accountKind === 'company' ? accountName.trim() : undefined);
             if (!workspaceResult.ok || !workspaceResult.workspace) {
-                setSaving(false);
-                setError(workspaceResult.error ?? 'No pudimos actualizar la actividad del espacio.');
+                setWorkspaceError(workspaceResult.error ?? 'No pudimos actualizar la actividad del espacio.');
+                return;
+            }
+            if (workspaceResult.accountChanged) {
+                window.location.reload();
                 return;
             }
             setWorkspaceState({
@@ -287,27 +270,43 @@ export default function PerfilConfigPage() {
                 setAccountName(accountName.trim());
                 setInitialAccountName(accountName.trim());
             }
+            setWorkspaceSaved(true);
             window.dispatchEvent(new Event('simple:workspace-activity-changed'));
+        } catch {
+            setWorkspaceError('No pudimos comprobar el guardado. Recarga la página para ver el estado.');
+        } finally {
+            setWorkspaceSaving(false);
         }
-        const defaultLoc = businessLocations.find((item) => item.isDefault) ?? null;
-        const result = await saveAgendaProfile({
-            ...form,
-            ...contactForm,
-            ...agendaBusinessLocationToProfilePayload(businessLocation),
-            address: showPrimaryAddress && defaultLoc?.isActive ? defaultLoc.addressLine : null,
-            headline: null,
-            ...buildSocialPayload(socialLinks),
-        });
-        if (!result.ok) {
-            setSaving(false);
-            setError(result.error ?? 'Error al guardar.');
+    };
+
+    const handleSave = async () => {
+        if (saving || workspaceSaving) return;
+        if (!form.displayName.trim()) {
+            setError('Escribe el nombre que verán tus clientes.');
             return;
         }
-
-        setSaving(false);
-        setSaved(true);
-        window.dispatchEvent(new CustomEvent('simple:agenda-profile-changed'));
-        window.setTimeout(() => setSaved(false), 3000);
+        setSaving(true);
+        setSaved(false);
+        setError('');
+        try {
+            const result = await saveAgendaProfile({
+                ...form,
+                ...contactForm,
+                ...agendaBusinessLocationToProfilePayload(businessLocation),
+                address: showPrimaryAddress && defaultLocation?.isActive ? defaultLocation.addressLine : null,
+                ...buildSocialPayload(socialLinks),
+            });
+            if (!result.ok) {
+                setError(result.error ?? 'No pudimos guardar el perfil.');
+                return;
+            }
+            setSaved(true);
+            window.dispatchEvent(new CustomEvent('simple:agenda-profile-changed'));
+        } catch {
+            setError('No pudimos comprobar el guardado. Revisa tu conexión e inténtalo de nuevo.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (loading) {
@@ -330,26 +329,21 @@ export default function PerfilConfigPage() {
         >
             <div className="grid min-w-0 gap-5">
                 <AgendaSetupTip focusStepId={['perfil', 'publicar']} />
-                <div id="agenda-public-profile" className="scroll-mt-24">
-                <PanelCard size="lg" className="space-y-5">
+                <PanelCard size="lg" className="space-y-4">
                     <PanelBlockHeader
-                        title={BUSINESS_PUBLIC_INFO_SECTION.title}
-                        description="Nombre y presentación visibles en tu ficha. La actividad se define para el espacio de trabajo."
-                        className="mb-0"
+                        title="Actividad del espacio"
+                        description="El rubro se usa para recomendar diseños y configurar los servicios de tu negocio."
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <PanelField label={BUSINESS_PUBLIC_NAME_FIELD.label} required icon={<IconUser size={14} />} className="sm:col-span-2">
-                            <input type="text" value={form.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="Ej: Dra. Maria Gonzalez" className="form-input" />
-                        </PanelField>
                         <div className="sm:col-span-2">
                             <OperatorProfileFields
                                 vertical="agenda"
                                 tier={operator.accountKind}
                                 subtype={operator.operatorSubtype}
                                 subtypeCustom={operator.operatorSubtypeCustom}
-                                disabled={workspaceState?.canManage !== true || saving}
+                                disabled={workspaceState?.canManage !== true || workspaceSaving || saving}
                                 onTierChange={(tier) => {
-                                    setSaved(false);
+                                    setWorkspaceSaved(false);
                                     setOperator({
                                         accountKind: tier,
                                         operatorSubtype: null,
@@ -357,7 +351,7 @@ export default function PerfilConfigPage() {
                                     });
                                 }}
                                 onSubtypeChange={(subtype) => {
-                                    setSaved(false);
+                                    setWorkspaceSaved(false);
                                     setOperator((current) => ({
                                         ...current,
                                         operatorSubtype: subtype,
@@ -366,7 +360,7 @@ export default function PerfilConfigPage() {
                                     }));
                                 }}
                                 onSubtypeCustomChange={(value) => {
-                                    setSaved(false);
+                                    setWorkspaceSaved(false);
                                     setOperator((current) => ({
                                         ...current,
                                         operatorSubtypeCustom: value,
@@ -389,8 +383,9 @@ export default function PerfilConfigPage() {
                                 <input
                                     type="text"
                                     value={accountName}
+                                    disabled={workspaceSaving}
                                     onChange={(event) => {
-                                        setSaved(false);
+                                        setWorkspaceSaved(false);
                                         setAccountName(event.target.value);
                                     }}
                                     maxLength={160}
@@ -399,6 +394,30 @@ export default function PerfilConfigPage() {
                                 />
                             </PanelField>
                         ) : null}
+                    </div>
+                    {workspaceState?.canManage && (
+                        <PanelSectionSaveFooter
+                            saving={workspaceSaving}
+                            saved={workspaceSaved}
+                            saveError={workspaceError}
+                            disabled={!workspaceChanged || saving}
+                            onSave={handleSaveWorkspace}
+                            saveLabel="Guardar actividad"
+                            savedMessage="Actividad guardada."
+                        />
+                    )}
+                </PanelCard>
+                <div id="agenda-public-profile" className="scroll-mt-24">
+                <PanelCard size="lg" className="space-y-5">
+                    <PanelBlockHeader
+                        title={BUSINESS_PUBLIC_INFO_SECTION.title}
+                        description="El nombre y la presentación que verán tus clientes."
+                        className="mb-0"
+                    />
+                    <div className="grid gap-4">
+                        <PanelField label={BUSINESS_PUBLIC_NAME_FIELD.label} required icon={<IconUser size={14} />}>
+                            <input type="text" value={form.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="Ej. Daniela Morales" className="form-input" />
+                        </PanelField>
                         <PanelField label={`${BUSINESS_DESCRIPTION_FIELD.label} (opcional)`} hint={BUSINESS_DESCRIPTION_FIELD.hint} icon={<IconNotebook size={14} />} className="sm:col-span-2">
                             <textarea
                                 value={form.bio}
@@ -453,7 +472,7 @@ export default function PerfilConfigPage() {
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
                     <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-(--fg) sm:px-5">
-                        Ubicaciones de atención
+                        Lugares de atención
                         <span className="mt-1 block text-xs font-normal text-fg-muted">
                             Administra las direcciones que pueden ver tus clientes.
                         </span>
@@ -465,6 +484,7 @@ export default function PerfilConfigPage() {
 
                 <PanelSectionSaveFooter
                     saving={saving}
+                    disabled={workspaceSaving}
                     saved={saved}
                     saveError={error || null}
                     onSave={handleSave}

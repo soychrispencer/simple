@@ -2,15 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-    IconCalendar, IconUsers, IconCreditCard, IconClockHour4, IconTrendingUp, IconTrendingDown, IconMinus, IconChevronRight, IconMapPin, IconBuilding, } from '@tabler/icons-react';
+    IconCalendar, IconUsers, IconCreditCard, IconClockHour4, IconTrendingUp, IconTrendingDown, IconMinus, IconChevronRight, IconMapPin, IconBuilding, IconPlus, } from '@tabler/icons-react';
 import Link from 'next/link';
-import { fetchAgendaStats, fetchAgendaProfile, hasAgendaFullAccess, type AgendaStats, type AgendaProfile, type AgendaWeekDay } from '@/lib/agenda-api';
+import { fetchAgendaAppointments, fetchAgendaStats, fetchAgendaProfile, hasAgendaFullAccess, type AgendaAppointment, type AgendaStats, type AgendaProfile, type AgendaWeekDay } from '@/lib/agenda-api';
 import { AGENDA_PRICING, fetchAgendaAccountVisitContext, fetchAgendaAccountVisits, fmtCLP, fmtTodayLabel, type AgendaAccountVisitsState } from '@simple/utils';
 import { usePanelFormatters } from '@simple/auth';
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
-import { PanelButton, PanelCard, PanelPageHeader, PanelStatCard } from '@simple/ui/panel';
+import { PanelButton, PanelButtonLink, PanelPageHeader, PanelStatCard } from '@simple/ui/panel';
 import { AgendaOnboardingRail } from '@/components/panel/agenda-onboarding-rail';
-import { ReservationTicket } from '@/components/agenda/reservation-ticket';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,6 +135,7 @@ export default function PanelHomePage() {
     const [propertyVisits, setPropertyVisits] = useState<AgendaAccountVisitsState | null>(null);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
+    const [upcoming, setUpcoming] = useState<AgendaAppointment[] | null>(null);
     const fmt = usePanelFormatters();
 
     const load = useCallback(async () => {
@@ -153,14 +153,22 @@ export default function PanelHomePage() {
                 }
                 setStats(null);
                 setProfile(null);
+                setUpcoming(null);
                 setPropertyVisitsEnabled(true);
                 setPropertyVisits(visitState);
                 return;
             }
 
-            const [s, p] = await Promise.all([fetchAgendaStats(), fetchAgendaProfile()]);
+            const start = new Date();
+            const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+            const [s, p, appointments] = await Promise.all([
+                fetchAgendaStats(),
+                fetchAgendaProfile(),
+                fetchAgendaAppointments(start.toISOString(), end.toISOString()).catch(() => null),
+            ]);
             setStats(s);
             setProfile(p);
+            setUpcoming(appointments?.filter((item) => ['pending', 'scheduled', 'confirmed'].includes(item.status)).slice(0, 4) ?? null);
             setPropertyVisitsEnabled(false);
             setPropertyVisits(null);
         } catch (error) {
@@ -179,8 +187,6 @@ export default function PanelHomePage() {
     const hasProAccess = profile ? hasAgendaFullAccess(profile) : false;
     const monthlyBookingsUsed = profile?.monthlyBookingsUsed ?? 0;
     const monthlyBookingsLimit = profile?.monthlyBookingsLimit ?? AGENDA_PRICING.free.monthlyBookings;
-    const nextAppointment = loading ? null : stats?.nextAppointment;
-    const confirmedNext = nextAppointment?.status === 'confirmed' ? nextAppointment : null;
     const activePropertyVisits = (propertyVisits?.visits ?? [])
         .filter((visit) => visit.status === 'scheduled' || visit.status === 'confirmed')
         .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
@@ -206,7 +212,7 @@ export default function PanelHomePage() {
             value: loading ? null : String(stats?.todayCount ?? 0),
             icon: IconCalendar,
             href: '/panel/agenda',
-            accent: !confirmedNext,
+            accent: true,
         },
         {
             label: `${vocab.Clients} activos`,
@@ -250,7 +256,16 @@ export default function PanelHomePage() {
 
     return (
         <div className="panel-page container-app min-w-0 max-w-full py-4 pb-6 lg:py-8 lg:pb-8">
-            <PanelPageHeader title="Mi panel" description={panelDescription} className="min-w-0" />
+            <PanelPageHeader
+                title={propertyVisitsEnabled ? 'Mi panel' : 'Hoy'}
+                description={panelDescription}
+                className="min-w-0"
+                actions={!loading && !loadError && !propertyVisitsEnabled ? (
+                    <PanelButtonLink href="/panel/agenda?nueva=1">
+                        <IconPlus size={17} aria-hidden /> Nueva cita
+                    </PanelButtonLink>
+                ) : undefined}
+            />
 
             {!loadError && <AgendaOnboardingRail className="mb-4" />}
 
@@ -262,7 +277,7 @@ export default function PanelHomePage() {
             )}
 
             {!loadError && <div className="grid gap-4 pb-2">
-                <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-4">
+                <div className={`grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 ${propertyVisitsEnabled ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
                     {statCards.map((stat) => (
                         <Link
                             key={stat.label}
@@ -277,7 +292,7 @@ export default function PanelHomePage() {
                             />
                         </Link>
                     ))}
-                    {propertyVisitsEnabled ? (
+                    {propertyVisitsEnabled && (
                         <Link
                             href="/panel/visitas-equipo"
                             className="agenda-panel-stat-link block min-w-0 rounded-card transition-transform active:scale-[0.98]"
@@ -290,28 +305,43 @@ export default function PanelHomePage() {
                                 icon={<IconClockHour4 size={18} />}
                             />
                         </Link>
-                    ) : (
-                        <Link
-                            href="/panel/agenda"
-                            className="agenda-panel-stat-link block min-w-0 rounded-card transition-transform active:scale-[0.98]"
-                        >
-                            {confirmedNext ? (
-                                <ReservationTicket
-                                    label={`Próxima cita · ${fmt.dateShort(confirmedNext.startsAt)}`}
-                                    time={fmt.time(confirmedNext.startsAt)}
-                                    status="Cita confirmada"
-                                    className="agenda-ticket--compact agenda-ticket--wide agenda-panel-next-ticket"
-                                />
-                            ) : (
-                                <PanelStatCard
-                                    label="Próxima cita"
-                                    value={nextAppointment ? `${fmt.dateShort(nextAppointment.startsAt)} ${fmt.time(nextAppointment.startsAt)}` : '—'}
-                                    icon={<IconClockHour4 size={18} />}
-                                />
-                            )}
-                        </Link>
                     )}
                 </div>
+
+                {!propertyVisitsEnabled && (
+                    <section className="agenda-home-surface min-w-0 rounded-2xl border p-4 sm:p-5" aria-labelledby="upcoming-agenda">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                            <h2 id="upcoming-agenda" className="font-semibold agenda-home-fg">Próximas citas</h2>
+                            <Link href="/panel/agenda" className="inline-flex items-center gap-1 text-sm font-semibold agenda-home-accent">
+                                Ver agenda <IconChevronRight size={15} aria-hidden />
+                            </Link>
+                        </div>
+                        {loading ? (
+                            <p className="py-3 text-sm agenda-home-muted" role="status">Cargando próximas citas…</p>
+                        ) : upcoming === null ? (
+                            <p className="py-3 text-sm agenda-home-muted">No pudimos cargar las próximas citas. Puedes consultarlas en Agenda.</p>
+                        ) : upcoming.length === 0 ? (
+                            <p className="py-3 text-sm agenda-home-muted">No tienes citas programadas para los próximos siete días.</p>
+                        ) : (
+                            <ul>
+                                {upcoming.map((appointment) => (
+                                    <li key={appointment.id} className="border-t border-(--border)">
+                                        <Link
+                                            href={`/panel/agenda?appt=${appointment.id}`}
+                                            className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
+                                        >
+                                            <span className="break-words font-semibold agenda-home-fg">{appointment.clientName || 'Cita'}</span>
+                                            <span className="agenda-home-muted">{fmt.dateShort(appointment.startsAt)} · {fmt.time(appointment.startsAt)}</span>
+                                            <span className="rounded-full bg-(--bg-subtle) px-2.5 py-1 text-xs font-semibold agenda-home-fg">
+                                                {appointment.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}
+                                            </span>
+                                        </Link>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </section>
+                )}
 
                 {propertyVisitsEnabled ? (
                     <section className="rounded-2xl border p-4 sm:p-5 agenda-home-surface min-w-0">
@@ -423,7 +453,7 @@ export default function PanelHomePage() {
                             <div className="mt-3 h-2 overflow-hidden rounded-full bg-(--border)" aria-label={`${monthlyBookingsUsed} de ${monthlyBookingsLimit} citas creadas`}>
                                 <div className="h-full rounded-full bg-(--accent)" style={{ width: `${Math.min(100, monthlyBookingsLimit ? monthlyBookingsUsed / monthlyBookingsLimit * 100 : 0)}%` }} />
                             </div>
-                            <Link href="/panel/mi-cuenta/suscripcion" className="mt-5 inline-flex items-center gap-1 text-xs font-medium agenda-home-accent">
+                            <Link href="/panel/mi-negocio/plan" className="mt-5 inline-flex items-center gap-1 text-xs font-medium agenda-home-accent">
                                 Activar Pro <IconChevronRight size={14} />
                             </Link>
                         </div>

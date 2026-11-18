@@ -27,6 +27,7 @@ export function AgendaGoogleCalendarIntegrationCard() {
         <GoogleCalendarIntegrationCard
             locked={planLocked && !gcConnected}
             lockedHint="Requiere plan Pro o periodo de prueba activo."
+            subscriptionsHref="/panel/mi-negocio/plan"
             fetchStatus={fetchGoogleCalendarStatus}
             getAuthUrl={getGoogleCalendarAuthUrl}
             disconnect={disconnectGoogleCalendar}

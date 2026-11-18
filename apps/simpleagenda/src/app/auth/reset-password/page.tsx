@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelNotice } from '@simple/ui/panel';
-import { PasswordInput } from '@simple/auth';
+import { PasswordInput, resolveSafeInternalPath } from '@simple/auth';
 import { API_BASE } from '@simple/config';
 
 export default function ResetPasswordPage() {
@@ -21,7 +21,7 @@ export default function ResetPasswordPage() {
         const search = new URLSearchParams(window.location.search);
         setToken(search.get('token') ?? '');
         const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/panel';
-        setReturnTo(nextReturnTo);
+        setReturnTo(resolveSafeInternalPath(nextReturnTo, '/panel'));
     }, []);
 
     const handleSubmit = async (event: React.FormEvent) => {

@@ -54,7 +54,7 @@ export type AuthRouterDeps = {
     sendPasswordResetEmail: (email: string, url: string, origin: string, userId?: string) => Promise<void>;
     sendPasswordChangedEmail: (email: string, origin: string, userId?: string) => Promise<void>;
     sendWelcomeEmail: (email: string, name: string, origin: string, userId?: string) => Promise<void>;
-    buildPasswordResetUrl: (origin: string, token: string) => string;
+    buildPasswordResetUrl: (origin: string, token: string, requestedReturnTo?: string) => string;
     hashOpaqueToken: (token: string) => string;
     buildGoogleRedirectUri: (origin: string) => string;
     asString: (v: unknown) => string;
@@ -1021,7 +1021,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         try {
             await deps.sendPasswordResetEmail(
                 normalizedEmail,
-                deps.buildPasswordResetUrl(origin, rawToken),
+                deps.buildPasswordResetUrl(origin, rawToken, parsed.data.returnTo),
                 origin,
                 user.id,
             );

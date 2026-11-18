@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
     IconBrandWhatsapp,
     IconBuildingBank,
@@ -610,16 +610,20 @@ export function AgendaOperatorSite({
     const [navScrolled, setNavScrolled] = useState(false);
     const [hideFloatCta, setHideFloatCta] = useState(true);
 
-    const whatsappHref = profile.publicWhatsapp
+    const landing = profile.landingPage;
+    const sections = landing?.sections;
+    const visibleSocialLinks = sections?.contact === false ? [] : socialLinks;
+    const whatsappHref = sections?.contact !== false && profile.publicWhatsapp
         ? `https://wa.me/${profile.publicWhatsapp.replace(/\D/g, '')}`
         : null;
 
-    const hasLocation = Boolean(profile.city || profile.locations.length > 0);
-    const hasContact = Boolean(
-        profile.publicEmail || profile.publicPhone || whatsappHref || profile.websiteUrl || socialLinks.length > 0,
+    const hasLocation = sections?.location !== false && Boolean(profile.city || profile.locations.length > 0);
+    const hasContact = sections?.contact !== false && Boolean(
+        profile.publicEmail || profile.publicPhone || whatsappHref || profile.websiteUrl || visibleSocialLinks.length > 0,
     );
-    const landingBio = profile.landingPage?.aboutText || profile.bio;
+    const landingBio = sections?.about === false ? null : landing?.aboutText || profile.bio;
     const hasBio = Boolean(landingBio);
+    const highlights = sections?.highlights === false ? [] : landing?.highlights.filter((item) => item.title && item.description) ?? [];
     const hasSchedule = Boolean(schedule && (schedule.alwaysOpen || schedule.days.some((day) => day.isActive)));
     const hasServices = Boolean(catalog && catalog.services.length > 0);
     const hasOffers = Boolean(
@@ -742,6 +746,22 @@ export function AgendaOperatorSite({
     const operatorAccent = appearance?.accentColor;
     const accentChoice = !operatorAccent || operatorAccent === 'teal' ? undefined : operatorAccent;
 
+    const optionalBlocks = {
+        about: landingBio ? (
+            <OperatorSiteAboutSection
+                bio={landingBio}
+                title={landing?.aboutTitle || undefined}
+                variant={isPortfolio ? 'editorial' : 'standard'}
+                revealVariant={isPortfolio ? 'fade-left' : 'fade-up'}
+            />
+        ) : null,
+        highlights: highlights.length ? <LandingHighlightsSection title={landing?.highlightsTitle} items={highlights} /> : null,
+        location: hasLocation ? <LocationSection profile={profile} layout={layout} /> : null,
+        contact: hasContact ? <ContactSection profile={profile} socialLinks={visibleSocialLinks} whatsappHref={whatsappHref} layout={layout} /> : null,
+    };
+    const customOrder = landing?.sectionOrder;
+    const orderedBlocks = customOrder?.map((section) => <Fragment key={section}>{optionalBlocks[section]}</Fragment>);
+
     return (
         <OperatorSiteThemeShell
             slug={profile.slug}
@@ -778,18 +798,8 @@ export function AgendaOperatorSite({
             ) : null}
 
             <main className="os-main">
-                {!catalogFirst && hasBio && !isStudio ? (
-                    <OperatorSiteAboutSection
-                        bio={landingBio!}
-                        title={profile.landingPage?.aboutTitle}
-                        variant={isPortfolio ? 'editorial' : 'standard'}
-                        revealVariant={isPortfolio ? 'fade-left' : 'fade-up'}
-                    />
-                ) : null}
-
-                {!catalogFirst && profile.landingPage?.highlights?.length ? (
-                    <LandingHighlightsSection title={profile.landingPage.highlightsTitle} items={profile.landingPage.highlights} />
-                ) : null}
+                {!customOrder && !catalogFirst && !isStudio ? optionalBlocks.about : null}
+                {!customOrder && !catalogFirst ? optionalBlocks.highlights : null}
 
                 {useContentLayout ? (
                     <div className={`os-content-layout${useScheduleSidebar ? '' : ' os-content-layout--no-sidebar'}`}>
@@ -804,18 +814,8 @@ export function AgendaOperatorSite({
                         ) : null}
 
                         <div className="os-content-layout__rest">
-                            {catalogFirst && hasBio ? (
-                                <OperatorSiteAboutSection
-                                    bio={landingBio!}
-                                    title={profile.landingPage?.aboutTitle}
-                                    variant={isPortfolio ? 'editorial' : 'standard'}
-                                    revealVariant={isPortfolio ? 'fade-left' : 'fade-up'}
-                                />
-                            ) : null}
-
-                            {catalogFirst && profile.landingPage?.highlights?.length ? (
-                                <LandingHighlightsSection title={profile.landingPage.highlightsTitle} items={profile.landingPage.highlights} />
-                            ) : null}
+                            {!customOrder && catalogFirst ? optionalBlocks.about : null}
+                            {!customOrder && catalogFirst ? optionalBlocks.highlights : null}
 
                             {isPortfolio && hasSchedule && schedule ? (
                                 <OperatorSiteReveal delayMs={60}>
@@ -823,35 +823,26 @@ export function AgendaOperatorSite({
                                 </OperatorSiteReveal>
                             ) : null}
 
-                            {hasLocation ? <LocationSection profile={profile} layout={layout} /> : null}
-                            {hasContact ? (
-                                <ContactSection
-                                    profile={profile}
-                                    socialLinks={socialLinks}
-                                    whatsappHref={whatsappHref}
-                                    layout={layout}
-                                />
-                            ) : null}
+                            {customOrder ? orderedBlocks : <>{optionalBlocks.location}{optionalBlocks.contact}</>}
                             <PaymentMethodsBlock pm={profile.paymentMethods} layout={layout} />
                         </div>
                     </div>
                 ) : (
                     <>
                         {servicesBlock}
-                        {catalogFirst && profile.landingPage?.highlights?.length ? (
-                            <LandingHighlightsSection title={profile.landingPage.highlightsTitle} items={profile.landingPage.highlights} />
-                        ) : null}
+                        {!customOrder && catalogFirst ? optionalBlocks.highlights : null}
                         <OperatorSiteStudioBento
                             profile={profile}
-                            bio={landingBio}
-                            aboutTitle={profile.landingPage?.aboutTitle}
+                            bio={customOrder ? null : landingBio}
+                            aboutTitle={landing?.aboutTitle || undefined}
                             schedule={schedule ?? null}
-                            socialLinks={socialLinks}
-                            hasLocation={hasLocation}
-                            hasContact={hasContact}
+                            socialLinks={visibleSocialLinks}
+                            hasLocation={!customOrder && hasLocation}
+                            hasContact={!customOrder && hasContact}
                             hasPayments={hasPayments}
                             whatsappHref={whatsappHref}
                         />
+                        {orderedBlocks}
                     </>
                 )}
             </main>
@@ -862,7 +853,7 @@ export function AgendaOperatorSite({
                 brandName={brandName}
                 brandHref={brandHref}
                 displayName={profile.displayName}
-                socialLinks={socialLinks}
+                socialLinks={visibleSocialLinks}
                 layout={layout}
                 navItems={navItems.map((item) => ({ id: item.id, label: item.label }))}
             />

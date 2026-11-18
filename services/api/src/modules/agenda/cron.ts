@@ -168,6 +168,97 @@ function reminderEntitlementCondition(): SQL {
     )`;
 }
 
+async function sendUpcomingAppointmentReminders(kind: '24h' | '30min', entitlement: SQL) {
+    const upcoming = kind === '24h' ? { from: 23 * 60, until: 25 * 60 } : { from: 15, until: 35 };
+    const now = new Date();
+    const windowStart = new Date(now.getTime() + upcoming.from * 60_000);
+    const windowEnd = new Date(now.getTime() + upcoming.until * 60_000);
+    const reminderColumn = kind === '24h' ? agendaAppointments.reminderSentAt : agendaAppointments.reminder30minSentAt;
+    const eventType = kind === '24h' ? 'reminder_24h' : 'reminder_30min';
+    const confirmedInWindow = and(
+        eq(agendaAppointments.status, 'confirmed'),
+        inArray(agendaAppointments.paymentStatus, ['paid', 'not_required']),
+        gte(agendaAppointments.startsAt, windowStart),
+        lte(agendaAppointments.startsAt, windowEnd),
+        isNull(reminderColumn),
+    );
+    const appointments = await db.select({
+        appointment: agendaAppointments,
+        professional: agendaProfessionalProfiles,
+    }).from(agendaAppointments)
+        .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
+        .where(and(confirmedInWindow, entitlement));
+
+    for (const { appointment, professional } of appointments) {
+        const { dateLabel, timeLabel } = formatReminderLabels(appointment.startsAt, professional.timezone ?? 'America/Santiago');
+        const whenLabel = `${dateLabel} · ${timeLabel}`;
+        let processed: { emailAccepted: boolean } | null = null;
+        try {
+            processed = await db.transaction(async (tx) => {
+                const [current] = await tx.select().from(agendaAppointments).where(and(
+                    eq(agendaAppointments.id, appointment.id),
+                    eq(agendaAppointments.updatedAt, appointment.updatedAt),
+                    confirmedInWindow,
+                )).limit(1).for('update');
+                if (!current) return null;
+                const emailAccepted = current.clientEmail ? await sendAppointmentReminderEmail(current.clientEmail, {
+                    clientName: current.clientName ?? 'Paciente',
+                    professionalName: professional.displayName ?? 'el profesional',
+                    dateLabel: whenLabel,
+                    modality: current.modality,
+                    meetingUrl: current.meetingUrl,
+                    location: current.location,
+                    cancelUrl: buildCancelUrl(current.id, professional.slug),
+                    appUrl: agendaAppBaseUrl(),
+                    kind,
+                }) : false;
+
+                await tx.update(agendaAppointments)
+                    .set(kind === '24h' ? { reminderSentAt: new Date() } : { reminder30minSentAt: new Date() })
+                    .where(eq(agendaAppointments.id, current.id));
+                return { emailAccepted };
+            });
+        } catch (error) {
+            console.error(`[agenda] ${kind} reminder failed for`, appointment.id, ':', error);
+            if (appointment.clientEmail) {
+                await logNotification({
+                    professionalId: professional.id,
+                    appointmentId: appointment.id,
+                    clientId: appointment.clientId,
+                    channel: 'email',
+                    eventType,
+                    recipient: appointment.clientEmail,
+                    status: 'failed',
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                });
+            }
+            continue;
+        }
+        if (!processed) continue;
+        if (processed.emailAccepted && appointment.clientEmail) {
+            await logNotification({
+                professionalId: professional.id,
+                appointmentId: appointment.id,
+                clientId: appointment.clientId,
+                channel: 'email',
+                eventType,
+                recipient: appointment.clientEmail,
+                status: 'sent',
+            });
+        }
+        await insertPlatformNotifications({
+            userId: professional.userId,
+            vertical: 'agenda',
+            type: `appointment.${eventType}`,
+            title: kind === '24h' ? 'Recordatorio de cita mañana' : 'Cita próxima',
+            body: `${appointment.clientName ?? 'Paciente'} · ${whenLabel}`,
+            actionUrl: '/panel/agenda',
+            entityType: 'appointment',
+            entityId: appointment.id,
+        });
+    }
+}
+
 export function registerAgendaCronJobs() {
     const agendaEnabled = process.env.AGENDA_CRON_ENABLED === 'true';
 
@@ -214,195 +305,8 @@ export function registerAgendaCronJobs() {
 
     const entitlement = reminderEntitlementCondition();
 
-    cron.schedule('*/5 * * * *', async () => {
-        await runWithLock(async () => {
-            try {
-                const now = new Date();
-                const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-                const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-
-                const appts = await db.select({
-                    appt: agendaAppointments,
-                    prof: agendaProfessionalProfiles,
-                })
-                    .from(agendaAppointments)
-                    .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
-                    .where(and(
-                        gte(agendaAppointments.startsAt, windowStart),
-                        lte(agendaAppointments.startsAt, windowEnd),
-                        eq(agendaAppointments.status, 'confirmed'),
-                        isNull(agendaAppointments.reminderSentAt),
-                        entitlement,
-                    ));
-
-                for (const { appt, prof } of appts) {
-                    const [claimed] = await db.update(agendaAppointments)
-                        .set({ reminderSentAt: now })
-                        .where(and(
-                            eq(agendaAppointments.id, appt.id),
-                            eq(agendaAppointments.status, 'confirmed'),
-                            eq(agendaAppointments.startsAt, appt.startsAt),
-                            eq(agendaAppointments.updatedAt, appt.updatedAt),
-                            gte(agendaAppointments.startsAt, windowStart),
-                            lte(agendaAppointments.startsAt, windowEnd),
-                            isNull(agendaAppointments.reminderSentAt),
-                        ))
-                        .returning({ id: agendaAppointments.id });
-                    if (!claimed) continue;
-
-                    const tz = prof.timezone ?? 'America/Santiago';
-                    const { dateLabel, timeLabel } = formatReminderLabels(appt.startsAt, tz);
-                    const whenLabel = `${dateLabel} · ${timeLabel}`;
-                    const cancelUrl = buildCancelUrl(appt.id, prof.slug);
-                    try {
-                        if (appt.clientEmail) {
-                            await sendAppointmentReminderEmail(appt.clientEmail, {
-                                clientName: appt.clientName ?? 'Paciente',
-                                professionalName: prof.displayName ?? 'el profesional',
-                                dateLabel: whenLabel,
-                                modality: appt.modality,
-                                meetingUrl: appt.meetingUrl,
-                                location: appt.location,
-                                cancelUrl,
-                                appUrl: agendaAppBaseUrl(),
-                                kind: '24h',
-                            });
-                            await logNotification({
-                                professionalId: prof.id,
-                                appointmentId: appt.id,
-                                clientId: appt.clientId,
-                                channel: 'email',
-                                eventType: 'reminder_24h',
-                                recipient: appt.clientEmail,
-                                status: 'sent',
-                            });
-                        }
-                        await insertPlatformNotifications({
-                            userId: prof.userId,
-                            vertical: 'agenda',
-                            type: 'appointment.reminder_24h',
-                            title: 'Recordatorio de cita mañana',
-                            body: `${appt.clientName ?? 'Paciente'} · ${whenLabel}`,
-                            actionUrl: '/panel/agenda',
-                            entityType: 'appointment',
-                            entityId: appt.id,
-                        });
-                    } catch (err) {
-                        console.error('[agenda] 24h reminder failed for', appt.id, ':', err);
-                        if (appt.clientEmail) {
-                            await logNotification({
-                                professionalId: prof.id,
-                                appointmentId: appt.id,
-                                clientId: appt.clientId,
-                                channel: 'email',
-                                eventType: 'reminder_24h',
-                                recipient: appt.clientEmail,
-                                status: 'failed',
-                                errorMessage: err instanceof Error ? err.message : String(err),
-                            });
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error('[agenda] 24h reminder cron error:', e);
-            }
-        });
-    });
-
-    cron.schedule('*/5 * * * *', async () => {
-        await runWithLock(async () => {
-            try {
-                const now = new Date();
-                const windowStart = new Date(now.getTime() + 25 * 60 * 1000);
-                const windowEnd = new Date(now.getTime() + 35 * 60 * 1000);
-
-                const appts = await db.select({
-                    appt: agendaAppointments,
-                    prof: agendaProfessionalProfiles,
-                })
-                    .from(agendaAppointments)
-                    .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
-                    .where(and(
-                        gte(agendaAppointments.startsAt, windowStart),
-                        lte(agendaAppointments.startsAt, windowEnd),
-                        eq(agendaAppointments.status, 'confirmed'),
-                        isNull(agendaAppointments.reminder30minSentAt),
-                        entitlement,
-                    ));
-
-                for (const { appt, prof } of appts) {
-                    const [claimed] = await db.update(agendaAppointments)
-                        .set({ reminder30minSentAt: now })
-                        .where(and(
-                            eq(agendaAppointments.id, appt.id),
-                            eq(agendaAppointments.status, 'confirmed'),
-                            eq(agendaAppointments.startsAt, appt.startsAt),
-                            eq(agendaAppointments.updatedAt, appt.updatedAt),
-                            gte(agendaAppointments.startsAt, windowStart),
-                            lte(agendaAppointments.startsAt, windowEnd),
-                            isNull(agendaAppointments.reminder30minSentAt),
-                        ))
-                        .returning({ id: agendaAppointments.id });
-                    if (!claimed) continue;
-
-                    const tz = prof.timezone ?? 'America/Santiago';
-                    const { dateLabel, timeLabel } = formatReminderLabels(appt.startsAt, tz);
-                    const whenLabel = `${dateLabel} · ${timeLabel}`;
-                    const cancelUrl = buildCancelUrl(appt.id, prof.slug);
-                    try {
-                        if (appt.clientEmail) {
-                            await sendAppointmentReminderEmail(appt.clientEmail, {
-                                clientName: appt.clientName ?? 'Paciente',
-                                professionalName: prof.displayName ?? 'el profesional',
-                                dateLabel: whenLabel,
-                                modality: appt.modality,
-                                meetingUrl: appt.meetingUrl,
-                                location: appt.location,
-                                cancelUrl,
-                                appUrl: agendaAppBaseUrl(),
-                                kind: '30min',
-                            });
-                            await logNotification({
-                                professionalId: prof.id,
-                                appointmentId: appt.id,
-                                clientId: appt.clientId,
-                                channel: 'email',
-                                eventType: 'reminder_30min',
-                                recipient: appt.clientEmail,
-                                status: 'sent',
-                            });
-                        }
-                        await insertPlatformNotifications({
-                            userId: prof.userId,
-                            vertical: 'agenda',
-                            type: 'appointment.reminder_30min',
-                            title: 'Cita en 30 minutos',
-                            body: `${appt.clientName ?? 'Paciente'} · ${whenLabel}`,
-                            actionUrl: '/panel/agenda',
-                            entityType: 'appointment',
-                            entityId: appt.id,
-                        });
-                    } catch (err) {
-                        console.error('[agenda] 30min reminder failed for', appt.id, ':', err);
-                        if (appt.clientEmail) {
-                            await logNotification({
-                                professionalId: prof.id,
-                                appointmentId: appt.id,
-                                clientId: appt.clientId,
-                                channel: 'email',
-                                eventType: 'reminder_30min',
-                                recipient: appt.clientEmail,
-                                status: 'failed',
-                                errorMessage: err instanceof Error ? err.message : String(err),
-                            });
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error('[agenda] 30min reminder cron error:', e);
-            }
-        });
-    });
+    cron.schedule('*/5 * * * *', () => runWithLock(() => sendUpcomingAppointmentReminders('24h', entitlement)));
+    cron.schedule('*/5 * * * *', () => runWithLock(() => sendUpcomingAppointmentReminders('30min', entitlement)));
 
     // Hora local estable incluso al cambiar el horario de verano.
     cron.schedule('0 9 * * *', async () => {

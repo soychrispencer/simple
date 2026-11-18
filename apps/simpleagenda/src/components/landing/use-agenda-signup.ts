@@ -2,9 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@simple/auth';
+import { formatAgendaProAnnualTotalPrice, formatAgendaProMonthlyPrice, formatAgendaProPlusAnnualTotalPrice, formatAgendaProPlusMonthlyPrice } from '@simple/utils';
 import { track } from '@/lib/analytics';
 
-export type AgendaCtaLocation = 'hero' | 'cierre' | 'demo' | 'sticky' | 'plan_pro' | 'plan_gratis';
+export type AgendaCtaLocation = 'hero' | 'cierre' | 'demo' | 'sticky';
+
+const paidPlans = {
+    pro: { label: 'Pro', monthly: formatAgendaProMonthlyPrice, annual: formatAgendaProAnnualTotalPrice },
+    pro_plus: { label: 'Pro+', monthly: formatAgendaProPlusMonthlyPrice, annual: formatAgendaProPlusAnnualTotalPrice },
+};
 
 /**
  * Estado y acciones de los CTA de la portada.
@@ -27,21 +33,29 @@ export function useAgendaSignup() {
     };
 
     const startPlan = (plan: 'pro' | 'pro_plus' | 'gratis', billingCycle: 'monthly' | 'annual' = 'monthly') => {
-        track('landing_cta_click', { location: `plan_${plan}`, loggedIn: isLoggedIn });
+        track('landing_cta_click', { location: `plan_${plan}`, loggedIn: isLoggedIn, billingCycle: plan === 'gratis' ? undefined : billingCycle });
 
-        if (isLoggedIn) {
-            router.push(plan === 'gratis'
-                ? '/panel'
-                : `/panel/mi-cuenta/suscripcion?plan=${plan}&billingCycle=${billingCycle}`);
+        if (plan === 'gratis') {
+            if (isLoggedIn) router.push('/panel');
+            else openAuth('register');
             return;
         }
 
-        openAuth('register');
+        const returnTo = `/panel/mi-negocio/plan?plan=${plan}&billingCycle=${billingCycle}`;
+        if (isLoggedIn) {
+            router.push(returnTo);
+            return;
+        }
+
+        const choice = paidPlans[plan];
+        openAuth('register', {
+            returnTo,
+            contextLabel: `${choice.label} ${billingCycle === 'annual' ? 'anual' : 'mensual'} · ${choice[billingCycle]()}`,
+        });
     };
 
     return {
-        isLoggedIn,
-        label: isLoggedIn ? 'Abrir mi agenda' : 'Regístrate gratis',
+        label: isLoggedIn ? 'Abrir mi agenda' : 'Crear mi agenda gratis',
         start,
         startPlan,
     };

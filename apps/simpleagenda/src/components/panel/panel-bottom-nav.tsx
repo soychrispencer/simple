@@ -27,7 +27,7 @@ export function PanelBottomNav({
     const primaryRoute = propertyWorkspace ? '/panel/visitas-equipo' : null;
 
     const items = [
-        { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
+        { href: '/panel', label: propertyWorkspace ? 'Mi panel' : 'Hoy', icon: IconLayoutDashboard },
         { href: '/panel/agenda', label: 'Agenda', icon: IconCalendar },
         { href: primaryHref, label: propertyWorkspace ? 'Agendar' : 'Nueva', icon: propertyWorkspace ? IconMapPin : IconPlus },
         { href: propertyWorkspace ? '/panel/contactos' : '/panel/clientes', label: propertyWorkspace ? 'Contactos' : vocab.Clients, icon: IconUsers },

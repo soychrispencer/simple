@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
     PanelBlockHeader,
 } from '@simple/ui/panel';
@@ -23,6 +24,9 @@ export default function AgendaYReservasPage() {
                         description="Define tus días de atención, pausas y fechas en que no recibirás reservas."
                         className="mb-0"
                     />
+                    <Link href="/panel/agenda/calendarios" className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4">
+                        Gestionar Google Calendar
+                    </Link>
                     <AgendaScheduleContent />
                 </section>
 

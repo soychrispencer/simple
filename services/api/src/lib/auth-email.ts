@@ -18,6 +18,8 @@ import {
     buildBookingEmailPackage,
     buildAppointmentReminderEmailPackage,
     fmtBookingDateTime,
+    bookingEmailActionUrl,
+    getBookingEmailState,
     type BookingEmailData,
 } from './booking-email.js';
 import {
@@ -36,8 +38,10 @@ function hashOpaqueToken(token: string): string {
     return createHash('sha256').update(`${SESSION_SECRET}:${token}`).digest('hex');
 }
 
-function buildPasswordResetUrl(origin: string, token: string): string {
-    return `${origin}/auth/reset-password?token=${encodeURIComponent(token)}`;
+function buildPasswordResetUrl(origin: string, token: string, requestedReturnTo?: string): string {
+    const params = new URLSearchParams({ token });
+    if (requestedReturnTo) params.set('returnTo', resolveEmailVerificationReturnTo(origin, requestedReturnTo));
+    return `${origin}/auth/reset-password?${params.toString()}`;
 }
 
 function resolveEmailVerificationReturnTo(origin: string, requestedReturnTo?: string | null): string {
@@ -407,15 +411,19 @@ async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEm
         console.info(`[agenda] Booking confirmation for ${clientEmail}: ${data.cancelUrl}`);
         return;
     }
-    const isPending = data.status === 'pending';
+    const bookingState = getBookingEmailState(data);
     const seriesCount = data.seriesDates && data.seriesDates.length > 1 ? data.seriesDates.length : 0;
-    const subject = seriesCount > 0
-        ? (isPending
-            ? `Tu solicitud de ${seriesCount} sesiones con ${data.professionalName} fue recibida`
-            : `Tus ${seriesCount} sesiones con ${data.professionalName} están confirmadas`)
-        : (isPending
-            ? `Tu solicitud de cita con ${data.professionalName} fue recibida`
-            : `Tu cita con ${data.professionalName} está confirmada`);
+    const subject = data.rescheduled
+        ? `Nuevo horario de tu cita con ${data.professionalName}`
+        : bookingState === 'payment_pending'
+            ? `Tu cita con ${data.professionalName} está pendiente de pago`
+            : seriesCount > 0
+                ? (bookingState === 'approval_pending'
+                    ? `Tu solicitud de ${seriesCount} sesiones con ${data.professionalName} fue recibida`
+                    : `Tus ${seriesCount} sesiones con ${data.professionalName} están confirmadas`)
+                : (bookingState === 'approval_pending'
+                    ? `Tu solicitud de cita con ${data.professionalName} fue recibida`
+                    : `Tu cita con ${data.professionalName} está confirmada`);
 
     const dateStr = fmtBookingDateTime(data.startsAt, data.timezone);
     const seriesLines = seriesCount > 0 && data.seriesDates
@@ -426,10 +434,11 @@ async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEm
         '',
         `Fecha y hora: ${dateStr}`,
         data.serviceName ? `Servicio: ${data.serviceName}` : '',
-        `Modalidad: ${data.modality === 'presencial' ? 'Presencial' : 'Online'}`,
+        `Modalidad: ${['presential', 'presencial'].includes(data.modality) ? 'Presencial' : 'Online'}`,
         ...seriesLines,
+        bookingState === 'payment_pending' ? `Estado y opciones de pago: ${bookingEmailActionUrl(data)}` : '',
         '',
-        `Para cancelar: ${data.cancelUrl}`,
+        `Para reprogramar o cancelar: ${data.cancelUrl}`,
         '',
         'SimpleAgenda',
     ].filter(Boolean).join('\n');
@@ -456,13 +465,13 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
     cancelUrl: string;
     appUrl?: string;
     kind?: '24h' | '30min';
-}): Promise<void> {
-    if (await skipAgendaEmail(clientEmail, 'appointment-reminder')) return;
+}): Promise<boolean> {
+    if (await skipAgendaEmail(clientEmail, 'appointment-reminder')) return false;
     const transporter = getAuthMailerTransporter();
     if (!transporter) {
-        if (isProduction) return;
+        if (isProduction) throw new Error('Appointment reminder delivery is not configured');
         console.info(`[agenda] Reminder for ${clientEmail}: ${data.dateLabel}`);
-        return;
+        return false;
     }
     const appUrl = data.appUrl ?? 'https://simpleagenda.app';
     const kind = data.kind ?? '24h';
@@ -488,7 +497,7 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
     ].filter(Boolean).join('\n');
     await ensureEmailLogoCache();
     const mail = buildAppointmentReminderEmailPackage({ ...data, appUrl, kind });
-    await transporter.sendMail({
+    const delivery = await transporter.sendMail({
         from: formatEmailFromAddress('SimpleAgenda'),
         to: clientEmail,
         subject,
@@ -496,6 +505,14 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
         html: mail.html,
         attachments: mail.attachments,
     });
+    const recipientAccepted = delivery.accepted.some((recipient) => {
+        const address = typeof recipient === 'string' ? recipient : recipient.address;
+        return address.trim().toLowerCase() === clientEmail.trim().toLowerCase();
+    });
+    if (!recipientAccepted) {
+        throw new Error('Appointment reminder recipient was not accepted');
+    }
+    return true;
 }
 
 async function issueEmailVerification(userId: string, email: string, origin: string, returnTo?: string | null): Promise<void> {

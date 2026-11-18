@@ -914,6 +914,8 @@ export const agendaAppointments = pgTable('agenda_appointments', {
   // Google Calendar
   googleEventId: varchar('google_event_id', { length: 255 }),
   // Payment tracking
+  mpCheckoutUrl: varchar('mp_checkout_url', { length: 2000 }),
+  bookingPaymentMethod: varchar('booking_payment_method', { length: 16 }),
   paymentStatus: varchar('payment_status', { length: 20 }).notNull().default('not_required'), // 'not_required' | 'pending' | 'paid' | 'refunded'
   // Recurrence — groups occurrences of the same booked series
   seriesId: uuid('series_id'),

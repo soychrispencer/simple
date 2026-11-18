@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { IconLoader2 } from '@tabler/icons-react';
+import { MercadoPagoIntegrationCard } from '@simple/ui/integrations';
 import {
     BusinessBookingResponseModeCard,
     BusinessBookingRulesFields,
@@ -15,7 +16,6 @@ import {
 import {
     businessPaymentMethodsFromRecord,
     emptyBusinessPaymentMethodsValue,
-    fetchMercadoPagoIntegrationStatus,
     generateBusinessBookingPolicies,
     getBusinessPaymentMethodsSaveError,
     serializeBusinessPaymentMethodsWrite,
@@ -68,6 +68,8 @@ export function AgendaConfiguracionesContent() {
     const [paymentForm, setPaymentForm] = useState<BusinessPaymentMethodsValue>(emptyBusinessPaymentMethodsValue());
     const [mpConnected, setMpConnected] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
+    const [loadAttempt, setLoadAttempt] = useState(0);
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const [saved, setSaved] = useState(false);
@@ -75,30 +77,30 @@ export function AgendaConfiguracionesContent() {
     const notificationPrefs = useAgendaProfessionalNotificationPrefs();
 
     useEffect(() => {
+        let active = true;
         const load = async () => {
-            const [loaded, mpStatus] = await Promise.all([
-                fetchAgendaProfile(),
-                fetchMercadoPagoIntegrationStatus('agenda'),
-            ]);
-            if (loaded) {
+            setLoading(true);
+            setLoadError(false);
+            try {
+                const loaded = await fetchAgendaProfile();
+                if (!active) return;
+                if (!loaded) {
+                    setLoadError(true);
+                    return;
+                }
                 setProfile(loaded);
                 setBookingForm(applyProfileToBookingForm(loaded));
-                const payment = businessPaymentMethodsFromRecord(loaded);
-                setPaymentForm(payment);
-            } else {
-                setBookingForm({
-                    confirmationMode: 'auto',
-                    allowsRecurrentBooking: true,
-                    bookingWindowDays: 30,
-                    cancellationHours: 24,
-                    bookingTermsText: '',
-                });
+                setPaymentForm(businessPaymentMethodsFromRecord(loaded));
+                setMpConnected(Boolean(loaded.mpConnected));
+            } catch {
+                if (active) setLoadError(true);
+            } finally {
+                if (active) setLoading(false);
             }
-            setMpConnected(Boolean(mpStatus?.connected || loaded?.mpAccessToken));
-            setLoading(false);
         };
         void load();
-    }, []);
+        return () => { active = false; };
+    }, [loadAttempt]);
 
     const setBooking = <K extends keyof BookingForm>(key: K, value: BookingForm[K]) => {
         setSaved(false);
@@ -178,6 +180,14 @@ export function AgendaConfiguracionesContent() {
         setTimeout(() => setSaved(false), 2500);
     };
 
+    if (loadError) {
+        return (
+            <PanelNotice tone="error">
+                <p>No pudimos cargar los ajustes de reservas.</p>
+                <button type="button" className="mt-2 font-semibold underline" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Reintentar</button>
+            </PanelNotice>
+        );
+    }
     if (loading || !bookingForm || notificationPrefs.loading) {
         return (
             <div className="flex items-center gap-2 text-sm text-fg-muted">
@@ -227,11 +237,21 @@ export function AgendaConfiguracionesContent() {
                 />
             </section>
 
-            <section className="space-y-4 border-t border-[var(--border)] pt-6">
+            <section id="cobros" className="scroll-mt-24 space-y-4 border-t border-[var(--border)] pt-6">
                 <PanelBlockHeader
                     title="Cobros"
                     description={BUSINESS_PAYMENT_METHODS_PAGE.description}
                     className="mb-0"
+                />
+                <p className="text-sm text-fg-muted">
+                    La conexión de Mercado Pago pertenece al perfil que recibe las citas. Verifica el titular de
+                    Mercado Pago antes de activar un anticipo.
+                </p>
+                <MercadoPagoIntegrationCard
+                    vertical="agenda"
+                    subscriptionHref="/panel/mi-negocio/plan"
+                    lockedHint="Disponible con Pro, Pro+ o una prueba activa."
+                    onConnectionChange={setMpConnected}
                 />
                 <BusinessPaymentMethodsEditor
                     value={paymentForm}
@@ -245,7 +265,6 @@ export function AgendaConfiguracionesContent() {
                     mercadoPago={{
                         mode: 'oauth',
                         connected: mpConnected,
-                        integrationsHref: '/panel/mi-cuenta/integraciones',
                     }}
                     copy={{
                         advancePaymentDescription: `Aplica a cualquier método activo. El ${vocab.client} verá las instrucciones antes de confirmar.`,

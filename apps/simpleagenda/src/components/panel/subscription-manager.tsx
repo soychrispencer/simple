@@ -10,6 +10,7 @@ import {
     type SubscriptionPlanId,
 } from '@/lib/payments';
 import { fetchAgendaProfile } from '@/lib/agenda-api';
+import { track } from '@/lib/analytics';
 
 export default function AppSubscriptionManager() {
     const fetchCompanyBillingContext = useCallback(async () => {
@@ -23,14 +24,15 @@ export default function AppSubscriptionManager() {
             fetchSubscriptionCatalog={fetchSubscriptionCatalog}
             confirmCheckout={confirmCheckout}
             cancelSubscription={cancelSubscription}
-            startSubscriptionCheckout={(input) =>
-                startSubscriptionCheckout({
+            startSubscriptionCheckout={(input) => {
+                track('subscription_checkout_started', { plan: input.planId, billing_cycle: input.billingCycle });
+                return startSubscriptionCheckout({
                     returnUrl: input.returnUrl,
                     planId: input.planId as Extract<SubscriptionPlanId, 'pro' | 'pro_plus'>,
                     billingCycle: input.billingCycle,
-                })
-            }
-            subscriptionsPath="/panel/mi-cuenta/suscripcion"
+                });
+            }}
+            subscriptionsPath="/panel/mi-negocio/plan"
             fetchCompanyBillingContext={fetchCompanyBillingContext}
             launchVertical="agenda"
         />

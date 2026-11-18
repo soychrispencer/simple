@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
     IconCalendar,
@@ -17,8 +17,10 @@ import {
     IconCalendarEvent,
     IconVideo,
     IconBrandWhatsapp,
+    IconMapPin,
 } from '@tabler/icons-react';
-import { fetchPublicSlots, bookAppointment, validatePublicPromo, type TimeSlot, type PaymentMethods, type RecurrenceFrequency } from '@/lib/agenda-api';
+import { fetchPublicSlots, bookAppointment, retryPublicBookingCheckout, fetchPublicBookingPaymentStatus, validatePublicPromo, type TimeSlot, type PaymentMethods, type RecurrenceFrequency } from '@/lib/agenda-api';
+import { track } from '@/lib/analytics';
 import { PanelScrollModal } from '@simple/ui/panel';
 import { ReservationTicket } from '@/components/agenda/reservation-ticket';
 import { detectBrowserTimezone, timezoneShortLabel, resolveBookingModality, bookingTermsFromRecord } from '@simple/utils';
@@ -68,10 +70,52 @@ type PublicProfile = {
     services: Service[];
 };
 
-type Step = 'idle' | 'date' | 'time' | 'info' | 'preconsult' | 'encuadre' | 'payment' | 'confirmed';
+type Step = 'idle' | 'date' | 'info' | 'preconsult' | 'encuadre' | 'payment' | 'confirmed';
+type BookingPaymentMethod = 'mp' | 'link' | 'transfer' | 'manual';
+type BookingResult = {
+    id: string;
+    status: string;
+    paymentStatus: string;
+    modality?: string | null;
+    meetingUrl?: string | null;
+    location?: string | null;
+};
 
 const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DAYS_ES = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+const DEMO_PROFILES = new Set(['dra-valentina', 'esteban-carrasco', 'camila-silva', 'demo-plataforma-agenda']);
+
+function calendarDate(value: string) {
+    return new Date(value).toISOString().replace(/[-:]|\.\d{3}/g, '');
+}
+
+function calendarText(value: string) {
+    return value.replace(/\\/g, '\\\\').replace(/\r\n|\n|\r/g, '\\n').replace(/[,;]/g, '\\$&');
+}
+
+function downloadCalendarEvent(booking: BookingResult, slot: TimeSlot, summary: string) {
+    const event = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//SimpleAgenda//Cita//ES',
+        'BEGIN:VEVENT',
+        `UID:${booking.id}@simpleagenda.app`,
+        `DTSTAMP:${calendarDate(new Date().toISOString())}`,
+        `DTSTART:${calendarDate(slot.startsAt)}`,
+        `DTEND:${calendarDate(slot.endsAt)}`,
+        `SUMMARY:${calendarText(summary)}`,
+        booking.location ? `LOCATION:${calendarText(booking.location)}` : '',
+        booking.meetingUrl ? `DESCRIPTION:${calendarText(booking.meetingUrl)}` : '',
+        'END:VEVENT',
+        'END:VCALENDAR',
+    ].filter(Boolean).join('\r\n') + '\r\n';
+    const fileUrl = URL.createObjectURL(new Blob([event], { type: 'text/calendar;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.download = 'cita-simpleagenda.ics';
+    link.href = fileUrl;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(fileUrl), 2000);
+}
 
 function formatDate(iso: string, tz: string): string {
     return new Date(iso).toLocaleDateString('es-CL', {
@@ -98,7 +142,9 @@ function formattedPrice(price: string | null, currency: string): string {
 
 export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingFlow({ profile, embedded = false, hasCustomAccent = false }, ref) {
     const searchParams = useSearchParams();
-    const isReschedule = searchParams.get('reprogramar') === '1';
+    const returnedPayment = searchParams.get('payment');
+    const returnedAppointmentId = ['success', 'pending', 'failure'].includes(returnedPayment ?? '') ? searchParams.get('appt') : null;
+    const isDemo = DEMO_PROFILES.has(profile.slug);
     const clientTz = useMemo(() => detectBrowserTimezone(), []);
     const professionalTz = profile.timezone;
     const bookingTermsText = bookingTermsFromRecord(profile);
@@ -116,7 +162,11 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     // Time slots
     const [slots, setSlots] = useState<TimeSlot[]>([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
+    const [slotsError, setSlotsError] = useState(false);
+    const [slotsRetry, setSlotsRetry] = useState(0);
     const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+    const slotsHeading = useRef<HTMLHeadingElement>(null);
+    const nameInputId = 'agenda-booking-name';
 
     // Patient info
     const [clientName, setClientName] = useState('');
@@ -154,44 +204,78 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
 
     // Submission
     const [submitting, setSubmitting] = useState(false);
+    const submissionInProgress = useRef(false);
     const [submitError, setSubmitError] = useState('');
-    const [confirmedAppt, setConfirmedAppt] = useState<{
-        id: string;
-        status: string;
-        paymentStatus: string;
-        modality?: string | null;
-        meetingUrl?: string | null;
-        location?: string | null;
-    } | null>(null);
+    const [confirmedAppt, setConfirmedAppt] = useState<BookingResult | null>(null);
     const [confirmedSeries, setConfirmedSeries] = useState<Array<{ id: string; startsAt: string }> | null>(null);
-    const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState<BookingPaymentMethod>();
+    const [checkingPayment, setCheckingPayment] = useState(false);
+    const [paymentError, setPaymentError] = useState('');
+    const [paymentRefresh, setPaymentRefresh] = useState(0);
     const paymentPending = confirmedAppt?.paymentStatus === 'pending';
+    const cancelled = confirmedAppt?.status === 'cancelled';
     const isConfirmed = confirmedAppt?.status === 'confirmed' && !paymentPending;
-    const resultTitle = isConfirmed ? 'Cita confirmada' : paymentPending ? 'Pago pendiente' : 'Solicitud enviada';
-
-    const loadSlots = useCallback(async (date: string, service: Service) => {
-        setLoadingSlots(true);
-        setSlots([]);
-                if (profile.slug === 'dra-valentina' || profile.slug === 'esteban-carrasco' || profile.slug === 'camila-silva' || profile.slug === 'demo-plataforma-agenda') {
-            setSlots([
-                { startsAt: date + 'T10:00:00.000Z', endsAt: date + 'T10:50:00.000Z' },
-                { startsAt: date + 'T11:30:00.000Z', endsAt: date + 'T12:20:00.000Z' },
-                { startsAt: date + 'T15:00:00.000Z', endsAt: date + 'T15:50:00.000Z' },
-                { startsAt: date + 'T16:30:00.000Z', endsAt: date + 'T17:20:00.000Z' },
-            ]);
-            setLoadingSlots(false);
-            return;
-        }
-        const data = await fetchPublicSlots(profile.slug, date, service.id);
-        setSlots(data);
-        setLoadingSlots(false);
-    }, [profile.slug]);
+    const resultTitle = checkingPayment ? 'Verificando pago'
+        : paymentError && !confirmedAppt ? 'Estado del pago'
+            : isConfirmed ? 'Cita confirmada'
+            : cancelled ? 'Cita cancelada'
+                : paymentPending ? 'Pago pendiente' : 'Solicitud enviada';
 
     useEffect(() => {
-        if (selectedDate && selectedService && step === 'time') {
-            void loadSlots(selectedDate, selectedService);
-        }
-    }, [selectedDate, selectedService, step, loadSlots]);
+        if (!selectedDate || !selectedService || step !== 'date') return;
+        let active = true;
+        setLoadingSlots(true);
+        setSlots([]);
+        setSlotsError(false);
+        const date = selectedDate;
+        const request = isDemo
+            ? Promise.resolve([
+                { startsAt: date + 'T14:00:00.000Z', endsAt: date + 'T14:50:00.000Z' },
+                { startsAt: date + 'T15:30:00.000Z', endsAt: date + 'T16:20:00.000Z' },
+                { startsAt: date + 'T18:00:00.000Z', endsAt: date + 'T18:50:00.000Z' },
+            ])
+            : fetchPublicSlots(profile.slug, date, selectedService.id);
+        void request.then((data) => { if (active) setSlots(data); })
+            .catch(() => { if (active) setSlotsError(true); })
+            .finally(() => { if (active) setLoadingSlots(false); });
+        return () => { active = false; };
+    }, [selectedDate, selectedService, step, profile.slug, isDemo, slotsRetry]);
+
+    useEffect(() => {
+        if (isDemo || !returnedAppointmentId) return;
+        let active = true;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const verify = async (attempt: number) => {
+            try {
+                const result = await fetchPublicBookingPaymentStatus(profile.slug, returnedAppointmentId);
+                if (!active) return;
+                if (!result.ok || !result.status || !result.paymentStatus) {
+                    setPaymentError(result.error ?? 'No pudimos verificar tu cita. Inténtalo de nuevo.');
+                } else {
+                    setConfirmedAppt({ id: returnedAppointmentId, status: result.status, paymentStatus: result.paymentStatus });
+                    if (result.startsAt && result.endsAt) {
+                        setSelectedSlot({ startsAt: result.startsAt, endsAt: result.endsAt });
+                    }
+                    if (returnedPayment === 'success' && result.paymentStatus === 'pending' && attempt < 3) {
+                        timer = setTimeout(() => void verify(attempt + 1), 1400);
+                        return;
+                    }
+                }
+            } catch {
+                if (active) setPaymentError('No pudimos verificar el pago. Inténtalo de nuevo.');
+            }
+            if (active) setCheckingPayment(false);
+        };
+        setStep('confirmed');
+        setPaymentMethod('mp');
+        setPaymentError('');
+        setCheckingPayment(true);
+        void verify(0);
+        return () => {
+            active = false;
+            if (timer) clearTimeout(timer);
+        };
+    }, [returnedAppointmentId, returnedPayment, paymentRefresh, profile.slug, isDemo]);
 
     const openBooking = useCallback((service: Service) => {
         setSelectedService(service);
@@ -212,11 +296,16 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
         setSubmitError('');
         setConfirmedAppt(null);
         setConfirmedSeries(null);
-        setCheckoutUrl(null);
+        setPaymentMethod(undefined);
+        setPaymentError('');
+        setPreconsultValues({});
+        setPreconsultError('');
+        setInfoError('');
         setPromoCode('');
         setPromoError(null);
         setAppliedPromo(null);
-    }, []);
+        if (!isDemo) track('public_booking_start');
+    }, [isDemo]);
 
     useImperativeHandle(ref, () => ({
         openService(serviceId: string) {
@@ -225,12 +314,21 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
         },
     }), [openBooking, profile.services]);
 
-    const close = () => setStep('idle');
+    const close = () => {
+        if (submitting) return;
+        if (returnedAppointmentId) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('payment');
+            url.searchParams.delete('appt');
+            window.history.replaceState(null, '', url);
+        }
+        setCheckingPayment(false);
+        setStep('idle');
+    };
 
     const bookingStepTitle = (() => {
         switch (step) {
-            case 'date': return 'Elige una fecha';
-            case 'time': return 'Elige un horario';
+            case 'date': return 'Elige día y hora';
             case 'info': return 'Tus datos';
             case 'preconsult': return 'Antes de tu cita';
             case 'encuadre': return 'Condiciones de atención';
@@ -297,14 +395,18 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     };
 
     const handleDateSelect = (dateStr: string) => {
-        setSelectedDate(dateStr);
-        setSelectedSlot(null);
-        setStep('time');
+        if (dateStr !== selectedDate) {
+            setSelectedDate(dateStr);
+            setSelectedSlot(null);
+            setLoadingSlots(true);
+        }
+        requestAnimationFrame(() => slotsHeading.current?.focus());
     };
 
     const handleSlotSelect = (slot: TimeSlot) => {
         setSelectedSlot(slot);
         setStep('info');
+        requestAnimationFrame(() => document.getElementById(nameInputId)?.focus());
     };
 
     const handleInfoNext = () => {
@@ -322,7 +424,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             return;
         }
         if (!clientEmail.trim() && !clientPhone.trim()) {
-            setInfoError('Ingresa al menos un email o teléfono para enviarte la confirmación.');
+            setInfoError('Ingresa al menos un correo o teléfono de contacto. Si dejas un correo, te enviaremos el estado de tu cita.');
             return;
         }
         const hasPreconsult = (selectedService?.preconsultFields?.length ?? 0) > 0;
@@ -368,10 +470,10 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
         }
     };
 
-    const handleSubmit = async () => {
-                if (!selectedService || !selectedSlot || !clientName.trim() || !clientLastName.trim()) return;
-        if (profile.slug === 'dra-valentina' || profile.slug === 'esteban-carrasco' || profile.slug === 'camila-silva' || profile.slug === 'demo-plataforma-agenda') {
-            setSubmitting(false);
+    const handleSubmit = async (method?: BookingPaymentMethod) => {
+        if (submissionInProgress.current || !selectedService || !selectedSlot || !clientName.trim() || !clientLastName.trim()) return;
+        setPaymentMethod(method);
+        if (isDemo) {
             setConfirmedAppt({
                 id: 'demo-confirmed-appt',
                 status: 'confirmed',
@@ -382,72 +484,64 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             setStep('confirmed');
             return;
         }
+        submissionInProgress.current = true;
         setSubmitting(true);
         setSubmitError('');
-        const result = await bookAppointment(profile.slug, {
-            serviceId: selectedService.id,
-            clientName: `${clientName.trim()} ${clientLastName.trim()}`.trim(),
-            clientEmail: clientEmail || undefined,
-            clientPhone: clientPhone || undefined,
-            clientNotes: clientNotes || undefined,
-            startsAt: selectedSlot.startsAt,
-            policyAgreed: !!bookingTermsText && policyAgreed,
-            recurrenceFrequency: isRecurring ? recurrenceFrequency : undefined,
-            recurrenceCount: isRecurring ? recurrenceCount : undefined,
-            preconsultResponses: (selectedService?.preconsultFields?.length ?? 0) > 0 ? preconsultValues : undefined,
-            promotionCode: appliedPromo?.code,
-            modality: bookingModality,
-        });
-        setSubmitting(false);
-        if (!result.ok) {
-            setSubmitError(result.error ?? 'Error al reservar. Intenta de nuevo.');
-            return;
-        }
-        setConfirmedAppt(result.appointment ?? null);
-        setConfirmedSeries(result.appointments && result.appointments.length > 1 ? result.appointments : null);
-        if (result.checkoutUrl) setCheckoutUrl(result.checkoutUrl);
-        setStep('confirmed');
-    };
-
-    const handleSubmitAndRedirect = async (method: 'mp' | 'link') => {
-                if (!selectedService || !selectedSlot || !clientName.trim() || !clientLastName.trim()) return;
-        if (profile.slug === 'dra-valentina' || profile.slug === 'esteban-carrasco' || profile.slug === 'camila-silva' || profile.slug === 'demo-plataforma-agenda') {
-            setSubmitting(false);
-            setConfirmedAppt({
-                id: 'demo-confirmed-appt',
-                status: 'confirmed',
-                paymentStatus: 'pending',
+        try {
+            const result = await bookAppointment(profile.slug, {
+                serviceId: selectedService.id,
+                clientName: `${clientName.trim()} ${clientLastName.trim()}`,
+                clientEmail: clientEmail.trim() || undefined,
+                clientPhone: clientPhone.trim() || undefined,
+                clientNotes: clientNotes.trim() || undefined,
+                startsAt: selectedSlot.startsAt,
+                policyAgreed: !!bookingTermsText && policyAgreed,
+                recurrenceFrequency: isRecurring ? recurrenceFrequency : undefined,
+                recurrenceCount: isRecurring ? recurrenceCount : undefined,
+                preconsultResponses: selectedService.preconsultFields?.length ? preconsultValues : undefined,
+                promotionCode: appliedPromo?.code,
                 modality: bookingModality,
-                meetingUrl: 'https://meet.google.com/demo-simpleagenda',
+                paymentMethod: method,
+            });
+            if (!result.ok || !result.appointment) {
+                setSubmitError(result.error ?? 'No pudimos registrar la cita. Inténtalo de nuevo.');
+                return;
+            }
+            setConfirmedAppt(result.appointment);
+            setConfirmedSeries(result.appointments && result.appointments.length > 1 ? result.appointments : null);
+            track('public_booking_submitted', {
+                status: result.appointment.status,
+                payment_status: result.appointment.paymentStatus,
             });
             setStep('confirmed');
-            return;
+            if (method === 'mp' && result.checkoutUrl) {
+                window.location.assign(result.checkoutUrl);
+            } else if (method === 'link' && profile.paymentMethods.paymentLinkUrl) {
+                window.location.assign(profile.paymentMethods.paymentLinkUrl);
+            }
+        } catch {
+            setSubmitError('No pudimos comprobar si la cita se registró. Revisa tu correo antes de volver a intentarlo.');
+        } finally {
+            submissionInProgress.current = false;
+            setSubmitting(false);
         }
+    };
+
+    const reopenCheckout = async () => {
+        if (!confirmedAppt || submissionInProgress.current) return;
+        submissionInProgress.current = true;
         setSubmitting(true);
-        setSubmitError('');
-        const result = await bookAppointment(profile.slug, {
-            serviceId: selectedService.id,
-            clientName: `${clientName.trim()} ${clientLastName.trim()}`.trim(),
-            clientEmail: clientEmail || undefined,
-            clientPhone: clientPhone || undefined,
-            clientNotes: clientNotes || undefined,
-            startsAt: selectedSlot.startsAt,
-            policyAgreed: !!bookingTermsText && policyAgreed,
-            recurrenceFrequency: isRecurring ? recurrenceFrequency : undefined,
-            recurrenceCount: isRecurring ? recurrenceCount : undefined,
-            preconsultResponses: (selectedService?.preconsultFields?.length ?? 0) > 0 ? preconsultValues : undefined,
-            promotionCode: appliedPromo?.code,
-            modality: bookingModality,
-        });
-        setSubmitting(false);
-        if (!result.ok) { setSubmitError(result.error ?? 'Error al reservar.'); return; }
-        setConfirmedAppt(result.appointment ?? null);
-        setConfirmedSeries(result.appointments && result.appointments.length > 1 ? result.appointments : null);
-        if (method === 'mp' && result.checkoutUrl) {
-            window.location.href = result.checkoutUrl;
-            return;
+        setPaymentError('');
+        try {
+            const result = await retryPublicBookingCheckout(profile.slug, confirmedAppt.id);
+            if (result.ok && result.checkoutUrl) window.location.assign(result.checkoutUrl);
+            else setPaymentError(result.error ?? 'No pudimos abrir Mercado Pago.');
+        } catch {
+            setPaymentError('No pudimos abrir Mercado Pago. Inténtalo de nuevo.');
+        } finally {
+            submissionInProgress.current = false;
+            setSubmitting(false);
         }
-        setStep('confirmed');
     };
 
     if (step === 'idle') {
@@ -461,20 +555,6 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
 
         return (
             <div className="flex flex-col gap-3">
-                {isReschedule && (
-                    <div
-                        role="status"
-                        className="rounded-2xl border p-4 flex items-center gap-3 booking-accent-banner"
-                    >
-                        <IconCalendarEvent size={18} className="shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold">Estás reprogramando una cita</p>
-                            <p className="text-xs mt-0.5 opacity-90">
-                                Tu cita anterior fue liberada. Elige el servicio y nueva fecha disponibles.
-                            </p>
-                        </div>
-                    </div>
-                )}
                 {profile.services.map((service) => (
                     <div
                         key={service.id}
@@ -532,7 +612,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
 
             <PanelScrollModal
                 onClose={close}
-                size="md"
+                size={step === 'date' ? '3xl' : 'md'}
                 zIndexClass="z-50"
                 overlayClassName="bg-black/40 backdrop-blur-[2px]"
                 panelClassName={hasCustomAccent ? 'booking-modal booking-modal--custom-accent' : 'booking-modal'}
@@ -546,9 +626,9 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                     </>
                 )}
             >
-                        {/* Step: Date picker */}
                         {step === 'date' && (
-                            <div>
+                            <div className="grid gap-6 sm:grid-cols-2">
+                                <div>
                                 <div className="flex items-center justify-between mb-4">
                                     <button type="button" aria-label="Mes anterior" onClick={prevMonth} className="w-8 h-8 rounded-button flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors booking-btn-outline">
                                         <IconChevronLeft size={16} />
@@ -577,39 +657,42 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         return (
                                             <button
                                                 key={d}
+                                                type="button"
                                                 disabled={!available}
+                                                aria-label={formatDate(`${dateStr}T12:00:00`, professionalTz)}
+                                                aria-pressed={isSelected}
                                                 onClick={() => available && handleDateSelect(dateStr)}
-                                                className={`h-9 w-full rounded-xl text-sm transition-colors booking-day ${isSelected ? 'booking-day--selected' : ''} ${!available ? 'booking-day--disabled' : ''}`}
+                                                className={`h-11 w-full rounded-xl text-sm transition-colors booking-day ${isSelected ? 'booking-day--selected' : ''} ${!available ? 'booking-day--disabled' : ''}`}
                                             >
                                                 {d}
                                             </button>
                                         );
                                     })}
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Step: Time slots */}
-                        {step === 'time' && (
-                            <div>
-                                <button
-                                    onClick={() => setStep('date')}
-                                    className="flex items-center gap-1 text-xs mb-4 hover:underline booking-muted"
-                                >
-                                    <IconChevronLeft size={12} />
-                                    {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
-                                </button>
-                                {loadingSlots ? (
-                                    <div className="flex items-center justify-center py-8 gap-2 text-sm booking-muted">
+                                </div>
+                                <div className="min-w-0 border-t border-(--border) pt-4 sm:border-t-0 sm:border-l sm:pl-5 sm:pt-0">
+                                <h3 ref={slotsHeading} tabIndex={-1} className="mb-3 text-sm font-semibold booking-fg">
+                                    {selectedDate
+                                        ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })
+                                        : 'Horarios disponibles'}
+                                </h3>
+                                {!selectedDate ? (
+                                    <p className="text-sm booking-muted">Selecciona un día para ver las horas.</p>
+                                ) : loadingSlots ? (
+                                    <div role="status" className="flex items-center py-5 gap-2 text-sm booking-muted">
                                         <IconLoader2 size={16} className="animate-spin" /> Buscando horarios disponibles...
                                     </div>
+                                ) : slotsError ? (
+                                    <div role="alert" className="py-3 text-sm booking-fg">
+                                        No pudimos consultar los horarios.
+                                        <button type="button" onClick={() => setSlotsRetry((attempt) => attempt + 1)} className="mt-2 block underline underline-offset-4">
+                                            Reintentar
+                                        </button>
+                                    </div>
                                 ) : slots.length === 0 ? (
-                                    <div className="py-8 text-center">
+                                    <div className="py-3" role="status">
                                         <p className="text-sm font-medium mb-1 booking-fg">Sin horarios disponibles</p>
                                         <p className="text-xs booking-muted">Elige otra fecha.</p>
-                                        <button onClick={() => setStep('date')} className="mt-4 px-4 py-2 rounded-button border text-sm transition-colors hover:bg-(--bg-subtle) booking-btn-secondary">
-                                            Volver al calendario
-                                        </button>
                                     </div>
                                 ) : (
                                     <div>
@@ -633,6 +716,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         </div>
                                     </div>
                                 )}
+                                </div>
                             </div>
                         )}
 
@@ -652,16 +736,21 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                                 </span>
                                             ) : null}
                                         </span>
+                                        <button type="button" onClick={() => setStep('date')} className="ml-auto shrink-0 text-xs font-semibold underline underline-offset-4 booking-fg">
+                                            Cambiar hora
+                                        </button>
                                     </div>
                                 )}
                                 <div className="flex flex-col gap-4">
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-xs font-medium block mb-1.5 booking-muted">
+                                            <label htmlFor={nameInputId} className="text-xs font-medium block mb-1.5 booking-muted">
                                                 <IconUser size={11} className="inline mr-1" />Nombre *
                                             </label>
                                             <input
+                                                id={nameInputId}
                                                 type="text"
+                                                autoComplete="given-name"
                                                 value={clientName}
                                                 onChange={(e) => { setClientName(e.target.value); setInfoError(''); }}
                                                 placeholder="Tu nombre"
@@ -820,11 +909,12 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         </p>
                                     )}
                                     <button
+                                        type="button"
                                         onClick={handleInfoNext}
-                                        disabled={!clientName.trim() || !clientLastName.trim()}
+                                        disabled={submitting || !clientName.trim() || !clientLastName.trim()}
                                         className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"
                                     >
-                                        Continuar
+                                        {submitting ? 'Registrando…' : profile.requiresAdvancePayment || bookingTermsText || selectedService?.preconsultFields?.length ? 'Continuar' : 'Confirmar cita'}
                                     </button>
                                 </div>
                             </div>
@@ -947,19 +1037,19 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
 
                                 <div className="flex flex-col gap-3 mb-5">
                                     {/* MercadoPago automatic checkout */}
-                                    {profile.paymentMethods.mpConnected && selectedService?.price && (
+                                    {profile.paymentMethods.mpConnected && Number(selectedService?.price) > 0 && (
                                         <div className="rounded-xl border p-4 booking-subtle">
                                             <p className="text-xs font-semibold mb-1 booking-fg">MercadoPago</p>
                                             <p className="text-xs mb-3 booking-muted">
                                                 Paga de forma segura con tarjeta, débito o efectivo.
                                             </p>
                                             <button
-                                                onClick={() => void handleSubmitAndRedirect('mp')}
+                                                onClick={() => void handleSubmit('mp')}
                                                 disabled={submitting}
                                                 className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 booking-mercadopago"
                                             >
                                                 {submitting ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                                                Pagar con MercadoPago
+                                                Pagar con Mercado Pago
                                             </button>
                                         </div>
                                     )}
@@ -971,15 +1061,14 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                             <p className="text-xs mb-3 booking-muted">
                                                 Paga a través del link del profesional.
                                             </p>
-                                            <a
-                                                href={profile.paymentMethods.paymentLinkUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2 block text-center booking-btn-primary"
-                                                onClick={() => void handleSubmit()}
+                                            <button
+                                                type="button"
+                                                disabled={submitting}
+                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"
+                                                onClick={() => void handleSubmit('link')}
                                             >
                                                 Ir a pagar
-                                            </a>
+                                            </button>
                                         </div>
                                     )}
 
@@ -1004,29 +1093,29 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                                 ))}
                                             </div>
                                             <button
-                                                onClick={() => void handleSubmit()}
+                                                onClick={() => void handleSubmit('transfer')}
                                                 disabled={submitting}
                                                 className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 booking-btn-primary"
                                             >
                                                 {submitting ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                                                Confirmar cita
+                                                Registrar cita pendiente de pago
                                             </button>
                                         </div>
                                     )}
 
                                     {/* Fallback: no methods configured but requiresAdvancePayment */}
-                                    {!profile.paymentMethods.mpConnected && !profile.paymentMethods.paymentLinkUrl && !profile.paymentMethods.bankTransferData && (
+                                    {!(profile.paymentMethods.mpConnected && Number(selectedService?.price) > 0) && !profile.paymentMethods.paymentLinkUrl && !profile.paymentMethods.bankTransferData && (
                                         <div className="rounded-xl border p-4 border-(--border)">
                                             <p className="text-xs mb-3 booking-muted">
                                                 El profesional confirmará los detalles de pago contigo directamente.
                                             </p>
                                             <button
-                                                onClick={() => void handleSubmit()}
+                                                onClick={() => void handleSubmit('manual')}
                                                 disabled={submitting}
                                                 className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 booking-btn-primary"
                                             >
                                                 {submitting ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                                                Confirmar cita
+                                                Enviar solicitud
                                             </button>
                                         </div>
                                     )}
@@ -1049,19 +1138,25 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         label={formatDate(selectedSlot.startsAt, clientTz)}
                                         className="agenda-ticket--wide mb-3 text-left"
                                     />
-                                ) : (
+                                ) : checkingPayment ? (
+                                    <p role="status" className="mb-4 booking-muted">Estamos consultando el estado del pago.</p>
+                                ) : !isConfirmed && confirmedAppt ? (
                                     <div className="mb-4 flex items-start gap-3 rounded-card border border-(--color-warning-border) bg-(--color-warning-subtle) p-4 text-left">
                                         <IconClock size={20} className="mt-0.5 shrink-0 text-(--color-warning)" aria-hidden="true" />
                                         <div>
                                             <h3 className="booking-fg font-bold">{resultTitle}</h3>
                                             <p className="booking-secondary mt-1 text-sm">
-                                                {paymentPending
-                                                    ? 'Tu solicitud quedó registrada. Completa el pago anticipado para asegurar tu cita.'
-                                                    : 'El profesional revisará tu solicitud y te contactará pronto.'}
+                                                {cancelled
+                                                    ? 'La cita fue cancelada. Puedes consultar al profesional si necesitas más detalles.'
+                                                    : paymentPending
+                                                        ? 'Tu cita quedó registrada. Se confirmará cuando se acredite el pago y se cumplan las condiciones de reserva.'
+                                                        : 'El profesional revisará tu solicitud y te contactará pronto.'}
                                             </p>
                                         </div>
                                     </div>
-                                )}
+                                ) : isConfirmed ? (
+                                    <p role="status" className="mb-4 booking-fg">El pago está registrado y tu cita quedó confirmada.</p>
+                                ) : null}
                                 {selectedSlot ? (
                                     <p className="booking-secondary mb-4 text-sm">
                                         {!isConfirmed ? <span className="booking-fg block font-semibold">{formatDate(selectedSlot.startsAt, clientTz)}</span> : null}
@@ -1115,15 +1210,36 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         El profesional te compartirá el enlace de la videollamada por correo.
                                     </div>
                                 )}
-                                {paymentPending && checkoutUrl && (
-                                    <a
-                                        href={checkoutUrl}
-                                        className="block w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-90 mb-3 booking-mercadopago"
-                                    >
-                                        Completar pago en MercadoPago
-                                    </a>
+                                {paymentError && <p role="alert" className="mb-3 rounded-xl px-3 py-2 text-sm booking-error-banner">{paymentError}</p>}
+                                {paymentPending && paymentMethod === 'mp' && !isDemo && !cancelled && !checkingPayment && (
+                                    <button type="button" onClick={() => void reopenCheckout()} disabled={submitting}
+                                        className="mb-3 min-h-11 w-full rounded-xl px-3 py-2 text-sm font-semibold disabled:opacity-50 booking-mercadopago">
+                                        {submitting ? 'Abriendo Mercado Pago…' : 'Completar pago en Mercado Pago'}
+                                    </button>
                                 )}
-                                {confirmedAppt && selectedSlot ? (
+                                {returnedAppointmentId && !checkingPayment && (paymentPending || paymentError) && (
+                                    <button type="button" onClick={() => setPaymentRefresh((attempt) => attempt + 1)}
+                                        className="mb-3 min-h-11 w-full rounded-xl border px-3 py-2 text-sm font-semibold booking-btn-secondary">
+                                        Verificar nuevamente
+                                    </button>
+                                )}
+                                {isConfirmed && confirmedAppt && selectedSlot && !isDemo && (
+                                    <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                                        <button type="button"
+                                            onClick={() => downloadCalendarEvent(confirmedAppt, selectedSlot, selectedService?.name ?? 'Cita de SimpleAgenda')}
+                                            className="flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold booking-btn-secondary">
+                                            <IconCalendarEvent size={16} aria-hidden /> Guardar en calendario
+                                        </button>
+                                        {confirmedAppt.modality === 'presential' && confirmedAppt.location?.trim() && (
+                                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(confirmedAppt.location)}`}
+                                                target="_blank" rel="noopener noreferrer"
+                                                className="flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold booking-btn-secondary">
+                                                <IconMapPin size={16} aria-hidden /> Cómo llegar
+                                            </a>
+                                        )}
+                                    </div>
+                                )}
+                                {confirmedAppt && selectedSlot && !isDemo && !cancelled ? (
                                     <a
                                         href={buildWhatsAppClickUrl(
                                             null,

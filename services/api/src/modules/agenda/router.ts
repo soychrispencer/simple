@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { canManageAccountRole } from '../accounts/permissions.js';
 import { runAccountMemberWrite } from '../accounts/write-access.js';
-import { ilike, type SQL } from 'drizzle-orm';
+import { gt, ilike, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { cleanupReplacedMediaUrl, isOwnedStorageUrl, toProtectedMediaUrl, unwrapProtectedMediaUrl } from '../media/stored-object.js';
 import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
@@ -10,6 +10,17 @@ import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount } from './plan-l
 import { buildAgendaOAuthState, verifyAgendaOAuthState } from './oauth-state.js';
 import { resolveAgendaProfessionalTimezone, syncAgendaProfileTimezoneFromOperatingLocation } from '../../lib/sync-user-timezone.js';
 import { generateAgendaLandingPageContent } from './generate-landing-page.js';
+import { recurringBookingStart } from './recurrence.js';
+import {
+    getPublishedAppearance,
+    landingAppearanceSchema,
+    landingBriefSchema,
+    landingContentSchema,
+    landingGenerationTargetSchema,
+    landingMutationContextSchema,
+    mergeGeneratedLandingContent,
+    normalizeLandingConfig,
+} from './site-page-config.js';
 import { agendaOperatingPatchFromBody, operatingLocationFromAgendaProfile } from '../../lib/structured-location.js';
 import {
     filterAgendaMarketplaceProfiles,
@@ -98,7 +109,7 @@ export interface AgendaRouterDeps {
     RESERVED_SLUGS: Set<string>;
     logAudit: (opts: any) => Promise<void>;
     logNotification: (opts: any) => Promise<void>;
-    syncToGoogleCalendar: (profile: any, appt: any, action: 'create' | 'update' | 'delete') => Promise<any>;
+    syncToGoogleCalendar: (profile: any, appt: any, action: 'create' | 'update' | 'delete', options?: { persistMeetingUrl?: boolean }) => Promise<any>;
     syncPropertyVisitToGoogleCalendar: (input: {
         visit: {
             id: string;
@@ -117,7 +128,7 @@ export interface AgendaRouterDeps {
     }) => Promise<{ ok: boolean; eventId: string | null; ownerUserId: string | null; connected: boolean }>;
     sendPushToUser: (userId: string, payload: any) => Promise<void>;
     sendBookingConfirmationEmail: (email: string, opts: any) => Promise<void>;
-    sendAppointmentReminderEmail: (email: string, opts: any) => Promise<void>;
+    sendAppointmentReminderEmail: (email: string, opts: any) => Promise<boolean>;
     ensureNpsForAppointment: (professionalId: string, appointmentId: string, clientId: string | null) => Promise<{ token: string } | null>;
     createCheckoutPreference: (opts: any) => Promise<{ initPoint: string | null; [key: string]: any }>;
     google: any;
@@ -132,41 +143,31 @@ type PreconsultField = { id: string; label: string; type: PreconsultFieldType; r
 
 const AGENDA_PRO_REQUIRED_MESSAGE = `Esta función está incluida en Pro (${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes).`;
 
-const landingBriefSchema = z.object({
-    audience: z.string().trim().max(500).default(''),
-    differentiators: z.string().trim().max(700).default(''),
-    credentials: z.string().trim().max(500).default(''),
-    tone: z.enum(['cercano', 'profesional', 'sereno', 'premium', 'dinamico']).default('profesional'),
-}).strict();
+function matchesLandingRevision(config: OperatorSiteLandingConfig, revision: string | null | undefined): boolean {
+    return revision === undefined || revision === (config.draftRevision ?? null);
+}
 
-const landingContentSchema = z.object({
-    heroHeadline: z.string().trim().min(8).max(90),
-    heroSubheadline: z.string().trim().min(12).max(180),
-    aboutTitle: z.string().trim().min(4).max(80),
-    aboutText: z.string().trim().min(40).max(900),
-    highlightsTitle: z.string().trim().min(4).max(80),
-    highlights: z.array(z.object({
-        title: z.string().trim().min(3).max(48),
-        description: z.string().trim().min(12).max(150),
-    }).strict()).min(2).max(3),
-    seoTitle: z.string().trim().min(8).max(65),
-    seoDescription: z.string().trim().min(35).max(170),
-}).strict();
+const PAGE_DRAFT_CONFLICT = 'El espacio o el borrador cambió. Actualiza la página para continuar.';
 
-function normalizeLandingConfig(raw: unknown): OperatorSiteLandingConfig {
-    const schema = z.object({
-        version: z.literal(1).default(1),
-        brief: landingBriefSchema.default({ audience: '', differentiators: '', credentials: '', tone: 'profesional' }),
-        draft: landingContentSchema.nullable().default(null),
-        published: landingContentSchema.nullable().default(null),
-    });
-    const parsed = schema.safeParse(raw);
-    if (parsed.success) return parsed.data as OperatorSiteLandingConfig;
+const AGENDA_PROFILE_FIELDS = [
+    'id', 'accountId', 'userId', 'slug', 'isPublished', 'plan', 'planExpiresAt',
+    'profession', 'accountKind', 'operatorSubtype', 'displayName', 'headline', 'bio', 'avatarUrl', 'coverUrl',
+    'publicEmail', 'publicPhone', 'publicWhatsapp', 'city', 'region', 'address',
+    'countryCode', 'regionId', 'localityId', 'serviceLocalities', 'servesOnline', 'servesPresential',
+    'currency', 'timezone', 'bookingWindowDays', 'cancellationHours', 'confirmationMode', 'allowsRecurrentBooking',
+    'alwaysOpen', 'scheduleNote', 'encuadre', 'requiresAdvancePayment', 'advancePaymentInstructions',
+    'acceptsTransfer', 'acceptsMp', 'acceptsPaymentLink', 'paymentLinkUrl', 'bankTransferData',
+    'websiteUrl', 'instagramUrl', 'facebookUrl', 'linkedinUrl', 'tiktokUrl', 'youtubeUrl', 'twitterUrl',
+    'operatorSiteLayout', 'operatorSiteColorMode', 'operatorSiteAccentColor',
+    'notificationsLastSeenAt', 'createdAt', 'updatedAt',
+] as const;
+
+function serializeAgendaProfile(profile: Record<string, unknown>) {
     return {
-        version: 1,
-        brief: { audience: '', differentiators: '', credentials: '', tone: 'profesional' },
-        draft: null,
-        published: null,
+        ...Object.fromEntries(AGENDA_PROFILE_FIELDS.map((field) => [field, profile[field]])),
+        operatorSiteLandingConfig: normalizeLandingConfig(profile.operatorSiteLandingConfig),
+        mpConnected: Boolean(profile.mpAccessToken),
+        googleCalendarConnected: Boolean(profile.googleCalendarId && profile.googleAccessToken),
     };
 }
 
@@ -497,6 +498,39 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         });
         if (!result.ok || !result.value.found) return null;
         return result.value.value;
+    }
+
+    async function getAgendaPublishMissing(
+        executor: typeof db,
+        profile: { id: string; displayName?: string | null; profession?: string | null; slug?: string | null; alwaysOpen?: boolean },
+    ): Promise<string[]> {
+        const missing: string[] = [];
+        if (!profile.displayName?.trim()) missing.push('nombre público');
+        if (!profile.profession?.trim()) missing.push('actividad');
+        if (!profile.slug?.trim()) missing.push('enlace público');
+
+        const [service] = await executor
+            .select({ id: agendaServices.id })
+            .from(agendaServices)
+            .where(and(
+                eq(agendaServices.professionalId, profile.id),
+                eq(agendaServices.isActive, true),
+                eq(agendaServices.kind, 'appointment'),
+            ))
+            .limit(1);
+        if (!service) missing.push('un servicio reservable');
+
+        if (!profile.alwaysOpen) {
+            const rules: Array<{ startTime: string; endTime: string }> = await executor
+                .select({ startTime: agendaAvailabilityRules.startTime, endTime: agendaAvailabilityRules.endTime })
+                .from(agendaAvailabilityRules)
+                .where(and(
+                    eq(agendaAvailabilityRules.professionalId, profile.id),
+                    eq(agendaAvailabilityRules.isActive, true),
+                ));
+            if (!rules.some((rule) => rule.startTime && rule.endTime)) missing.push('un horario');
+        }
+        return missing;
     }
 
     async function getAgendaOAuthProfile(context: {
@@ -1513,7 +1547,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         return c.json({
             ok: true,
             profile: {
-                ...profile,
+                ...serializeAgendaProfile(profile),
                 monthlyBookingsUsed,
                 monthlyBookingsLimit: AGENDA_PRICING.free.monthlyBookings,
                 bookingTermsText: bookingTermsFromRecord(profile),
@@ -1536,15 +1570,28 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         }
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const briefResult = landingBriefSchema.safeParse(body.brief);
-        if (!briefResult.success) return c.json({ ok: false, error: 'Revisa los datos para personalizar tu página.' }, 400);
+        const appearanceResult = landingAppearanceSchema.optional().safeParse(body.appearance);
+        const context = landingMutationContextSchema.safeParse(body);
+        const currentCopy = landingContentSchema.optional().safeParse(body.content);
+        const target = landingGenerationTargetSchema.safeParse(body.target);
+        if (!briefResult.success || !appearanceResult.success || !context.success || !currentCopy.success || !target.success) {
+            return c.json({ ok: false, error: 'Revisa los datos para personalizar tu página.' }, 400);
+        }
+        if (context.data.profileId && context.data.profileId !== profile.id) {
+            return c.json({ ok: false, error: PAGE_DRAFT_CONFLICT }, 409);
+        }
         if (!profile.displayName?.trim() || !profile.profession?.trim()) {
             return c.json({ ok: false, error: 'Completa primero el nombre y la actividad de tu negocio.' }, 400);
         }
 
         const services = await db.select({ name: agendaServices.name, description: agendaServices.description })
             .from(agendaServices)
-            .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true)));
-        if (!services.length) return c.json({ ok: false, error: 'Agrega al menos un servicio activo antes de generar tu página.' }, 400);
+            .where(and(
+                eq(agendaServices.professionalId, profile.id),
+                eq(agendaServices.isActive, true),
+                eq(agendaServices.kind, 'appointment'),
+            ));
+        if (!services.length) return c.json({ ok: false, error: 'Agrega un servicio reservable antes de generar tu página.' }, 400);
 
         const generation = await generateAgendaLandingPageContent({
             displayName: profile.displayName,
@@ -1561,10 +1608,13 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
 
         const nextConfig = await withCurrentAgendaProfileWrite(user.id, profile, async (tx, current) => {
             const config = normalizeLandingConfig(current.operatorSiteLandingConfig);
+            if (isFreePlan(current) || !matchesLandingRevision(config, context.data.revision)) return null;
             const value: OperatorSiteLandingConfig = {
                 ...config,
                 brief: briefResult.data as OperatorSiteLandingBrief,
-                draft: generation.content,
+                draft: mergeGeneratedLandingContent(currentCopy.data ?? config.draft ?? config.published ?? undefined, generation.content, target.data),
+                draftAppearance: appearanceResult.data ?? config.draftAppearance,
+                draftRevision: randomUUID(),
             };
             const [updated] = await tx.update(agendaProfessionalProfiles)
                 .set({ operatorSiteLandingConfig: value, updatedAt: new Date() })
@@ -1576,7 +1626,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                 .returning({ id: agendaProfessionalProfiles.id });
             return updated ? value : null;
         });
-        if (!nextConfig) return c.json({ ok: false, error: 'El espacio activo cambió. Actualiza la página e inténtalo nuevamente.' }, 409);
+        if (!nextConfig) return c.json({ ok: false, error: PAGE_DRAFT_CONFLICT }, 409);
         return c.json({ ok: true, config: nextConfig });
     });
 
@@ -1590,15 +1640,23 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const contentResult = landingContentSchema.safeParse(body.content);
         const briefResult = landingBriefSchema.safeParse(body.brief);
-        if (!contentResult.success || !briefResult.success) {
+        const appearanceResult = landingAppearanceSchema.optional().safeParse(body.appearance);
+        const context = landingMutationContextSchema.safeParse(body);
+        if (!contentResult.success || !briefResult.success || !appearanceResult.success || !context.success) {
             return c.json({ ok: false, error: 'Hay campos de la página que necesitan revisión.' }, 400);
+        }
+        if (context.data.profileId && context.data.profileId !== profile.id) {
+            return c.json({ ok: false, error: PAGE_DRAFT_CONFLICT }, 409);
         }
         const nextConfig = await withCurrentAgendaProfileWrite(user.id, profile, async (tx, current) => {
             const config = normalizeLandingConfig(current.operatorSiteLandingConfig);
+            if (isFreePlan(current) || !matchesLandingRevision(config, context.data.revision)) return null;
             const value: OperatorSiteLandingConfig = {
                 ...config,
                 brief: briefResult.data as OperatorSiteLandingBrief,
                 draft: contentResult.data as OperatorSiteLandingContent,
+                draftAppearance: appearanceResult.data ?? config.draftAppearance,
+                draftRevision: randomUUID(),
             };
             const [updated] = await tx.update(agendaProfessionalProfiles)
                 .set({ operatorSiteLandingConfig: value, updatedAt: new Date() })
@@ -1610,7 +1668,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                 .returning({ id: agendaProfessionalProfiles.id });
             return updated ? value : null;
         });
-        if (!nextConfig) return c.json({ ok: false, error: 'El espacio activo cambió. Actualiza la página e inténtalo nuevamente.' }, 409);
+        if (!nextConfig) return c.json({ ok: false, error: PAGE_DRAFT_CONFLICT }, 409);
         return c.json({ ok: true, config: nextConfig });
     });
 
@@ -1621,22 +1679,60 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (isFreePlan(profile)) {
             return c.json({ ok: false, error: 'La página personalizada está disponible desde Pro.' }, 403);
         }
-        const nextConfig = await withCurrentAgendaProfileWrite(user.id, profile, async (tx, current) => {
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const context = landingMutationContextSchema.safeParse(body);
+        if (!context.success) return c.json({ ok: false, error: 'Revisa el borrador antes de publicar.' }, 400);
+        if (context.data.profileId && context.data.profileId !== profile.id) {
+            return c.json({ ok: false, error: PAGE_DRAFT_CONFLICT }, 409);
+        }
+        const result = await withCurrentAgendaProfileWrite(user.id, profile, async (tx, current) => {
             const config = normalizeLandingConfig(current.operatorSiteLandingConfig);
-            if (!config.draft) return null;
-            const value: OperatorSiteLandingConfig = { ...config, published: config.draft };
+            if (isFreePlan(current) || !matchesLandingRevision(config, context.data.revision)) return null;
+            const publishedAppearance = getPublishedAppearance(current);
+            if (!config.draft) return { error: 'Guarda un borrador antes de publicar.' };
+            if (config.draft.sections?.highlights !== false && config.draft.highlights.some((item) => !item.title || !item.description)) {
+                return { error: 'Completa el título y la descripción de cada punto destacado.' };
+            }
+            const version = { content: config.draft, appearance: config.draftAppearance ?? publishedAppearance };
+            if (!current.isPublished) {
+                const missing = await getAgendaPublishMissing(tx, current);
+                if (missing.length) return { error: `Para publicar tu agenda, completa: ${missing.join(', ')}.` };
+            }
+            const now = new Date();
+            const value: OperatorSiteLandingConfig = {
+                ...config,
+                draft: version.content,
+                draftAppearance: undefined,
+                draftRevision: randomUUID(),
+                published: version.content,
+                previous: current.isPublished || config.publishedAt
+                    ? { content: config.published, appearance: publishedAppearance }
+                    : undefined,
+                publishedAt: now.toISOString(),
+            };
             const [updated] = await tx.update(agendaProfessionalProfiles)
-                .set({ operatorSiteLandingConfig: value, updatedAt: new Date() })
+                .set({
+                    operatorSiteLandingConfig: value,
+                    operatorSiteLayout: version.appearance.layout,
+                    operatorSiteColorMode: version.appearance.colorMode,
+                    operatorSiteAccentColor: version.appearance.accentColor,
+                    avatarUrl: version.appearance.avatarUrl,
+                    coverUrl: version.appearance.coverUrl,
+                    isPublished: true,
+                    updatedAt: now,
+                })
                 .where(and(
                     eq(agendaProfessionalProfiles.id, current.id),
                     eq(agendaProfessionalProfiles.userId, user.id),
                     eq(agendaProfessionalProfiles.accountId, current.accountId),
                 ))
                 .returning({ id: agendaProfessionalProfiles.id });
-            return updated ? value : null;
+            return updated ? { config: value, appearance: version.appearance } : null;
         });
-        if (!nextConfig) return c.json({ ok: false, error: 'El espacio activo cambió o no hay un borrador para publicar.' }, 409);
-        return c.json({ ok: true, config: nextConfig, isPublished: Boolean(profile.isPublished) });
+        if (!result) return c.json({ ok: false, error: PAGE_DRAFT_CONFLICT }, 409);
+        if ('error' in result) return c.json({ ok: false, error: result.error }, 400);
+        await logAudit({ professionalId: profile.id, userId: user.id, entityType: 'profile', entityId: profile.id, action: 'publish', metadata: { source: 'site-page' }, ctx: c });
+        return c.json({ ok: true, config: result.config, appearance: result.appearance, isPublished: true });
     });
 
     app.patch('/profile', requireVerifiedSession, async (c) => {
@@ -1658,43 +1754,11 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             }, 403);
         }
         if ('isPublished' in body && body.isPublished === true) {
-            const missing: string[] = [];
-            const displayName = typeof body.displayName === 'string'
-                ? body.displayName.trim()
-                : profile.displayName?.trim();
-            const profession = profile.profession?.trim();
-            const slug = typeof body.slug === 'string'
-                ? body.slug.trim()
-                : profile.slug?.trim();
-
-            if (!displayName) missing.push('nombre público');
-            if (!profession) missing.push('actividad');
-            if (!slug) missing.push('enlace público');
-
-            const [activeService] = await db
-                .select({ id: agendaServices.id })
-                .from(agendaServices)
-                .where(and(
-                    eq(agendaServices.professionalId, profile.id),
-                    eq(agendaServices.isActive, true),
-                ))
-                .limit(1);
-            if (!activeService) missing.push('un servicio');
-
-            const activeAvailability = await db
-                .select({
-                    startTime: agendaAvailabilityRules.startTime,
-                    endTime: agendaAvailabilityRules.endTime,
-                })
-                .from(agendaAvailabilityRules)
-                .where(and(
-                    eq(agendaAvailabilityRules.professionalId, profile.id),
-                    eq(agendaAvailabilityRules.isActive, true),
-                ));
-            const hasAvailability = activeAvailability.some((rule: { startTime: string; endTime: string }) => (
-                Boolean(rule.startTime && rule.endTime)
-            ));
-            if (!profile.alwaysOpen && !hasAvailability) missing.push('un horario');
+            const missing = await getAgendaPublishMissing(db, {
+                ...profile,
+                displayName: typeof body.displayName === 'string' ? body.displayName : profile.displayName,
+                slug: typeof body.slug === 'string' ? body.slug : profile.slug,
+            });
 
             if (missing.length > 0) {
                 return c.json({
@@ -1792,7 +1856,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         return c.json({
             ok: true,
             profile: {
-                ...synced,
+                ...serializeAgendaProfile(synced),
                 timezone: operationalTz,
                 operatingLocation: operatingLocationFromAgendaProfile(synced),
             },
@@ -3878,6 +3942,45 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         return c.json({ ok: true, payments });
     });
 
+    async function recordSettledAppointmentPayment(tx: any, professionalId: string, payment: any) {
+        if (payment.status !== 'paid' || !payment.appointmentId) return null;
+        const [appointment] = await tx.select().from(agendaAppointments).where(and(
+            eq(agendaAppointments.id, payment.appointmentId),
+            eq(agendaAppointments.professionalId, professionalId),
+            eq(agendaAppointments.paymentStatus, 'pending'),
+        )).limit(1).for('update');
+        if (!appointment || appointment.bookingPaymentMethod === 'mp') return null;
+
+        const [ledger] = await tx.select({ total: sql<string>`coalesce(sum(${agendaPayments.amount}), 0)` })
+            .from(agendaPayments)
+            .where(and(
+                eq(agendaPayments.appointmentId, appointment.id),
+                eq(agendaPayments.professionalId, professionalId),
+                eq(agendaPayments.status, 'paid'),
+                eq(agendaPayments.currency, appointment.currency),
+            ));
+        const due = Number(appointment.price);
+        if (!Number.isFinite(due) || due <= 0 || Number(ledger?.total ?? 0) < due) return null;
+        const [updated] = await tx.update(agendaAppointments)
+            .set({ paymentStatus: 'paid', updatedAt: new Date() })
+            .where(eq(agendaAppointments.id, appointment.id)).returning();
+        return updated;
+    }
+
+    function notifySettledAppointment(profile: any, appointment: any) {
+        if (!appointment?.clientEmail || !['confirmed', 'pending'].includes(appointment.status)) return;
+        const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
+        void sendBookingConfirmationEmail(appointment.clientEmail, {
+            ...appointment,
+            clientName: appointment.clientName ?? 'Cliente',
+            professionalName: profile.displayName ?? 'el profesional',
+            timezone: profile.timezone ?? 'America/Santiago',
+            serviceName: null,
+            cancelUrl: `${agendaAppUrl}/cancelar?appt=${appointment.id}&slug=${profile.slug}`,
+            appUrl: agendaAppUrl,
+        }).catch((error: unknown) => console.error('[agenda] Payment confirmation email error:', error));
+    }
+
     app.post('/payments', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -3891,12 +3994,11 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const result = await withCurrentAgendaProfileWrite(user.id, profile, async (tx, current) => {
             let linkedAppointment: typeof agendaAppointments.$inferSelect | null = null;
             if (requestedAppointmentId) {
-                linkedAppointment = await tx.query.agendaAppointments.findFirst({
-                    where: and(
-                        eq(agendaAppointments.id, requestedAppointmentId),
-                        eq(agendaAppointments.professionalId, current.id),
-                    ),
-                }) ?? null;
+                const [lockedAppointment] = await tx.select().from(agendaAppointments).where(and(
+                    eq(agendaAppointments.id, requestedAppointmentId),
+                    eq(agendaAppointments.professionalId, current.id),
+                )).limit(1).for('update');
+                linkedAppointment = lockedAppointment ?? null;
                 if (!linkedAppointment) return { error: 'Cita no encontrada', status: 404 as const };
             }
             if (requestedClientId) {
@@ -3913,11 +4015,13 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             }
             const paymentClientId = requestedClientId ?? linkedAppointment?.clientId ?? null;
             const [payment] = await tx.insert(agendaPayments).values({ professionalId: current.id, appointmentId: requestedAppointmentId, clientId: paymentClientId, amount: String(body.amount), currency: typeof body.currency === 'string' ? body.currency : current.currency, method: typeof body.method === 'string' ? body.method||null : null, status: typeof body.status === 'string' ? body.status : 'pending', paidAt: body.status === 'paid' ? new Date() : null, notes: typeof body.notes === 'string' ? body.notes||null : null }).returning();
-            return { payment };
+            const settledAppointment = await recordSettledAppointmentPayment(tx, current.id, payment);
+            return { payment, settledAppointment };
         });
         if (!result) return c.json({ ok: false, error: 'El espacio activo cambió. Actualiza la página e inténtalo nuevamente.' }, 409);
         if ('error' in result) return c.json({ ok: false, error: result.error }, result.status);
-        const { payment } = result;
+        const { payment, settledAppointment } = result;
+        notifySettledAppointment(profile, settledAppointment);
         emitTimelineEvent(db, timelineEvents, {
             type: 'payment.recorded',
             business: agendaBusiness(profile.id),
@@ -3952,11 +4056,13 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (body.status === 'paid' && !body.paidAt) patch.paidAt = new Date();
         const result = await withCurrentAgendaProfileWrite(user.id, profile, async (tx, current) => {
             const [updated] = await tx.update(agendaPayments).set(patch).where(and(eq(agendaPayments.id, id), eq(agendaPayments.professionalId, current.id))).returning();
-            return { updated: updated ?? null };
+            const settledAppointment = updated ? await recordSettledAppointmentPayment(tx, current.id, updated) : null;
+            return { updated: updated ?? null, settledAppointment };
         });
         if (!result) return c.json({ ok: false, error: 'El espacio activo cambió. Actualiza la página e inténtalo nuevamente.' }, 409);
-        const { updated } = result;
+        const { updated, settledAppointment } = result;
         if (!updated) return c.json({ ok: false, error: 'Cobro no encontrado' }, 404);
+        notifySettledAppointment(profile, settledAppointment);
         if (body.status === 'paid') {
             emitTimelineEvent(db, timelineEvents, {
                 type: 'payment.paid',
@@ -4133,98 +4239,108 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
             const bodyData = (body.data ?? {}) as Record<string, unknown>;
             const topic = String(c.req.query('topic') ?? c.req.query('type') ?? body.type ?? '');
-            const paymentId = String(c.req.query('id') ?? bodyData.id ?? body.id ?? '');
+            const paymentId = String(c.req.query('data.id') ?? bodyData.id ?? c.req.query('id') ?? body.id ?? '');
 
-            const signatureResult = verifyMercadoPagoWebhookSignature({
+            const signature = verifyMercadoPagoWebhookSignature({
                 xSignature: c.req.header('x-signature'),
                 xRequestId: c.req.header('x-request-id'),
                 dataId: paymentId || null,
             });
-            if (signatureResult === false) {
-                return c.json({ ok: false, error: 'Firma de webhook inválida' }, 401);
+            if (signature === false || (signature === 'unsigned' && process.env.MERCADO_PAGO_WEBHOOK_ALLOW_UNSIGNED !== 'true')) {
+                return c.json({ ok: false, error: 'Firma de webhook inválida o ausente.' }, 401);
             }
-            if (signatureResult === 'unsigned' && process.env.MERCADO_PAGO_WEBHOOK_ALLOW_UNSIGNED !== 'true') {
-                return c.json({ ok: false, error: 'Webhook sin firma no permitido' }, 401);
-            }
+            if ((topic !== 'payment' && body.type !== 'payment') || !paymentId) return c.json({ ok: true });
 
-            const isPayment = topic === 'payment' || String(body.type ?? '') === 'payment';
-            if (!isPayment) return c.json({ ok: true });
-            if (!paymentId) return c.json({ ok: true });
-
-            let paymentPayload: Record<string, unknown> | null = null;
-            try {
-                paymentPayload = (await getPaymentById(paymentId)) as Record<string, unknown>;
-            } catch (err) {
-                console.warn('[agenda] MP webhook: consulta de pago con token global falló:', err);
-            }
-
-            let externalRef = String(paymentPayload?.external_reference ?? '');
-            let paymentStatus = String(paymentPayload?.status ?? '');
-
-            if (!externalRef && signatureResult === 'unsigned') {
-                externalRef = String(body.external_reference ?? bodyData.external_reference ?? '');
-            }
-            if (!externalRef) return c.json({ ok: true });
-
-            const appt = await db.query.agendaAppointments.findFirst({ where: eq(agendaAppointments.id, externalRef) });
-            if (!appt) return c.json({ ok: true });
-
-            const profile = await db.query.agendaProfessionalProfiles.findFirst({
-                where: eq(agendaProfessionalProfiles.id, appt.professionalId),
-            });
-            if (profile?.mpAccessToken && (paymentStatus !== 'approved' || !paymentPayload)) {
+            let payment: Record<string, unknown> | null = null;
+            const appointmentHint = c.req.query('appointment');
+            if (!appointmentHint) {
                 try {
-                    paymentPayload = (await getPaymentById(paymentId, { accessToken: profile.mpAccessToken })) as Record<string, unknown>;
-                    externalRef = String(paymentPayload.external_reference ?? externalRef);
-                    paymentStatus = String(paymentPayload.status ?? '');
-                } catch (err) {
-                    console.error('[agenda] MP webhook: consulta con token del profesional falló:', err);
-                    return c.json({ ok: true });
+                    payment = await getPaymentById(paymentId);
+                } catch {
+                    // En el flujo anterior no siempre está disponible el identificador de la cita.
                 }
             }
 
-            if (paymentStatus !== 'approved') return c.json({ ok: true });
-            if (externalRef !== appt.id) return c.json({ ok: true });
+            const appointmentId = z.string().uuid().safeParse(
+                appointmentHint ?? payment?.external_reference
+                    ?? (signature === 'unsigned' ? body.external_reference ?? bodyData.external_reference : null),
+            );
+            if (!appointmentId.success) return c.json({ ok: true });
+            const initial = await db.query.agendaAppointments.findFirst({ where: eq(agendaAppointments.id, appointmentId.data) });
+            if (!initial) return c.json({ ok: true });
+            const profile = await db.query.agendaProfessionalProfiles.findFirst({
+                where: eq(agendaProfessionalProfiles.id, initial.professionalId),
+            });
+            if (!profile) return c.json({ ok: true });
+            if (profile.mpAccessToken) {
+                payment = await getPaymentById(paymentId, { accessToken: profile.mpAccessToken });
+            }
+            if (!payment || payment.status !== 'approved' || String(payment.external_reference) !== initial.id) {
+                return c.json({ ok: true });
+            }
 
-            await db.update(agendaAppointments).set({ paymentStatus: 'paid', status: 'confirmed', updatedAt: new Date() }).where(eq(agendaAppointments.id, appt.id));
-            const existingPayment = await db.query.agendaPayments.findFirst({ where: and(eq(agendaPayments.appointmentId, appt.id), eq(agendaPayments.status, 'paid')) });
-            if (!existingPayment && appt.price) {
-                const [createdPayment] = await db.insert(agendaPayments).values({
-                    professionalId: appt.professionalId,
-                    appointmentId: appt.id,
-                    clientId: appt.clientId ?? null,
-                    amount: appt.price,
-                    currency: appt.currency,
+            const receivedAmount = Number(payment.transaction_amount);
+            const receivedCurrency = String(payment.currency_id ?? '');
+            if (!Number.isFinite(receivedAmount) || receivedAmount <= 0) return c.json({ ok: true });
+
+            const credited = await db.transaction(async (tx: any) => {
+                const [appointment] = await tx.select().from(agendaAppointments)
+                    .where(and(eq(agendaAppointments.id, initial.id), eq(agendaAppointments.professionalId, profile.id)))
+                    .limit(1).for('update');
+                if (!appointment || appointment.paymentStatus !== 'pending' || !appointment.price
+                    || (appointment.bookingPaymentMethod && appointment.bookingPaymentMethod !== 'mp')
+                    || Number(appointment.price) !== receivedAmount || appointment.currency !== receivedCurrency) {
+                    return null;
+                }
+                const [updated] = await tx.update(agendaAppointments)
+                    .set({ paymentStatus: 'paid', updatedAt: new Date() })
+                    .where(eq(agendaAppointments.id, appointment.id)).returning();
+                const prior = await tx.select({ id: agendaPayments.id }).from(agendaPayments)
+                    .where(and(eq(agendaPayments.appointmentId, appointment.id), eq(agendaPayments.status, 'paid')))
+                    .limit(1);
+                if (prior.length) return { appointment: updated, payment: null };
+                const [record] = await tx.insert(agendaPayments).values({
+                    professionalId: appointment.professionalId,
+                    appointmentId: appointment.id,
+                    clientId: appointment.clientId ?? null,
+                    amount: appointment.price,
+                    currency: appointment.currency,
                     method: 'mercadopago',
                     status: 'paid',
                     paidAt: new Date(),
                     notes: `Pago automático MP ref: ${paymentId}`,
                 }).returning();
-                if (createdPayment) {
-                    emitTimelineEvent(db, timelineEvents, {
-                        idempotencyKey: `agenda:mercadopago:payment-paid:${appt.id}`,
-                        type: 'payment.paid',
-                        business: agendaBusiness(appt.professionalId),
-                        person: agendaClientPerson(appt.clientId),
-                        subject: { kind: 'agenda_payment', id: createdPayment.id },
-                        actor: 'system',
-                        payload: { amount: createdPayment.amount, method: 'mercadopago', source: 'webhook' },
-                    });
-                }
-            }
-            emitTimelineEvent(db, timelineEvents, {
-                idempotencyKey: `agenda:mercadopago:booking-confirmed:${appt.id}`,
-                type: 'booking.confirmed',
-                business: agendaBusiness(appt.professionalId),
-                person: agendaClientPerson(appt.clientId),
-                subject: { kind: 'agenda_appointment', id: appt.id },
-                actor: 'system',
-                payload: { source: 'mercadopago_webhook' },
+                return { appointment: updated, payment: record };
             });
+            if (!credited) return c.json({ ok: true });
+            const appt = credited.appointment;
+            if (credited.payment) {
+                emitTimelineEvent(db, timelineEvents, {
+                    idempotencyKey: `agenda:mercadopago:payment-paid:${appt.id}`,
+                    type: 'payment.paid',
+                    business: agendaBusiness(appt.professionalId),
+                    person: agendaClientPerson(appt.clientId),
+                    subject: { kind: 'agenda_payment', id: credited.payment.id },
+                    actor: 'system',
+                    payload: { amount: credited.payment.amount, method: 'mercadopago', source: 'webhook' },
+                });
+            }
+            if (appt.status === 'confirmed') {
+                emitTimelineEvent(db, timelineEvents, {
+                    idempotencyKey: `agenda:mercadopago:booking-confirmed:${appt.id}`,
+                    type: 'booking.confirmed',
+                    business: agendaBusiness(appt.professionalId),
+                    person: agendaClientPerson(appt.clientId),
+                    subject: { kind: 'agenda_appointment', id: appt.id },
+                    actor: 'system',
+                    payload: { source: 'mercadopago_webhook' },
+                });
+            }
+            notifySettledAppointment(profile, appt);
             return c.json({ ok: true });
-        } catch (e) {
-            console.error('[agenda] MP webhook error:', e);
-            return c.json({ ok: true });
+        } catch (error) {
+            console.error('[agenda] MP webhook error:', error);
+            return c.json({ ok: false, error: 'No se pudo registrar la notificación de pago.' }, 503);
         }
     });
 
@@ -4393,50 +4509,9 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
     return app;
 }
 
-// ── Public Agenda Router ──────────────────────────────────────────────────────
-export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
-    const {
-        db, sql, tables, dbHelpers: { eq, and, or, asc, desc, gte, lte, lt, inArray, isNull },
-        asString, randomUUID,
-        isFreePlan, checkClientLimit, checkAppointmentLimit, generateSlots,
-        logAudit, logNotification, syncToGoogleCalendar, sendPushToUser,
-        sendBookingConfirmationEmail,
-        ensureNpsForAppointment, createCheckoutPreference, rateLimit,
-    } = deps;
-
-    const {
-        agendaProfessionalProfiles, agendaServices, agendaAvailabilityRules, agendaBlockedSlots,
-        agendaLocations, agendaClients, agendaAppointments, agendaPromotions, agendaPacks, agendaNpsResponses, users,
-        pushSubscriptions, timelineEvents,
-    } = tables;
-
-    async function requirePublicBookingProfile(slug: string) {
-        let profile = await db.query.agendaProfessionalProfiles.findFirst({
-            where: eq(agendaProfessionalProfiles.slug, slug),
-        });
-        if (!profile) {
-            return { ok: false as const, status: 404 as const, body: { ok: false, error: 'Perfil no encontrado' } };
-        }
-        profile = await ensureAgendaProfileTrial(profile);
-        if (!profile.isPublished) {
-            return {
-                ok: false as const,
-                status: 403 as const,
-                body: {
-                    ok: false,
-                    error: 'Este perfil aún no está publicado.',
-                    reason: 'not_published',
-                    displayName: profile.displayName,
-                },
-            };
-        }
-        return { ok: true as const, profile };
-    }
-
-    const publicReadLimit = rateLimit({ name: 'agenda-read', limit: 60, windowMs: 60_000 });
-    const publicSlotsLimit = rateLimit({ name: 'agenda-slots', limit: 30, windowMs: 60_000 });
-    const publicBookLimit = rateLimit({ name: 'agenda-book', limit: 5, windowMs: 60_000 });
-    const publicCancelLimit = rateLimit({ name: 'agenda-cancel', limit: 10, windowMs: 60_000 });
+export function createAgendaBookingSchedule(deps: Pick<AgendaRouterDeps, 'db' | 'sql' | 'tables' | 'dbHelpers' | 'generateSlots'>) {
+    const { db, sql, generateSlots, dbHelpers: { eq, and, lt } } = deps;
+    const { agendaAvailabilityRules, agendaBlockedSlots, agendaAppointments } = deps.tables;
 
     function localDateKey(date: Date, timezone: string): string {
         const parts = new Intl.DateTimeFormat('en-US', {
@@ -4495,6 +4570,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         dateStr: string,
         durationMinutes: number,
         queryable: any = db,
+        excludeAppointmentId?: string,
     ) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return [];
         const dateAtNoon = new Date(`${dateStr}T12:00:00Z`);
@@ -4503,7 +4579,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const timezone = profile.timezone ?? 'America/Santiago';
         const dayOfWeek = dateAtNoon.getUTCDay();
         const dayStart = zonedLocalMidnight(dateStr, timezone);
-        const dayEnd = new Date(zonedLocalMidnight(nextLocalDateKey(dateStr), timezone).getTime() - 1);
+        const dayEnd = zonedLocalMidnight(nextLocalDateKey(dateStr), timezone);
         const dayStartParts = new Intl.DateTimeFormat('en-US', {
             timeZone: timezone,
             hour: '2-digit',
@@ -4539,17 +4615,137 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             queryable.select().from(agendaAppointments).where(and(
                 eq(agendaAppointments.professionalId, profile.id),
                 lt(agendaAppointments.startsAt, dayEnd),
-                sql`${agendaAppointments.endsAt} > ${dayStart}`,
+                gt(agendaAppointments.endsAt, dayStart),
                 sql`${agendaAppointments.status} NOT IN ('cancelled','no_show')`,
+                excludeAppointmentId ? sql`${agendaAppointments.id} <> ${excludeAppointmentId}` : undefined,
             )),
             queryable.select().from(agendaBlockedSlots).where(and(
                 eq(agendaBlockedSlots.professionalId, profile.id),
                 lt(agendaBlockedSlots.startsAt, dayEnd),
-                sql`${agendaBlockedSlots.endsAt} > ${dayStart}`,
+                gt(agendaBlockedSlots.endsAt, dayStart),
             )),
         ]);
         return generateSlots(expandedRules, durationMinutes, slotAnchor, existingAppointments, blockedSlots, timezone);
     }
+
+    return { localDateKey, getPublicBookingSlots };
+}
+
+// ── Public Agenda Router ──────────────────────────────────────────────────────
+export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
+    const {
+        db, sql, tables, dbHelpers: { eq, and, or, asc, desc, gte, lte, lt, inArray, isNull },
+        asString, randomUUID,
+        isFreePlan, checkClientLimit, checkAppointmentLimit,
+        logAudit, logNotification, syncToGoogleCalendar, sendPushToUser,
+        sendBookingConfirmationEmail,
+        ensureNpsForAppointment, createCheckoutPreference, rateLimit,
+    } = deps;
+
+    const {
+        agendaProfessionalProfiles, agendaServices, agendaAvailabilityRules, agendaBlockedSlots,
+        agendaLocations, agendaClients, agendaAppointments, agendaPromotions, agendaPacks, agendaNpsResponses, users,
+        pushSubscriptions, timelineEvents,
+    } = tables;
+
+    async function requirePublicBookingProfile(slug: string) {
+        let profile = await db.query.agendaProfessionalProfiles.findFirst({
+            where: eq(agendaProfessionalProfiles.slug, slug),
+        });
+        if (!profile) {
+            return { ok: false as const, status: 404 as const, body: { ok: false, error: 'Perfil no encontrado' } };
+        }
+        profile = await ensureAgendaProfileTrial(profile);
+        if (!profile.isPublished) {
+            return {
+                ok: false as const,
+                status: 403 as const,
+                body: {
+                    ok: false,
+                    error: 'Este perfil aún no está publicado.',
+                    reason: 'not_published',
+                    displayName: profile.displayName,
+                },
+            };
+        }
+        return { ok: true as const, profile };
+    }
+
+    const publicReadLimit = rateLimit({ name: 'agenda-read', limit: 60, windowMs: 60_000 });
+    const publicSlotsLimit = rateLimit({ name: 'agenda-slots', limit: 30, windowMs: 60_000 });
+    const publicBookLimit = rateLimit({ name: 'agenda-book', limit: 5, windowMs: 60_000 });
+    const publicCancelLimit = rateLimit({ name: 'agenda-cancel', limit: 10, windowMs: 60_000 });
+    const publicCheckoutLimit = rateLimit({ name: 'agenda-checkout', limit: 10, windowMs: 60_000 });
+    const bookingIdSchema = z.string().uuid();
+
+    async function syncPublicAppointmentCalendar(profile: any, appointment: any, action: 'create' | 'update') {
+        try {
+            const result = await syncToGoogleCalendar(profile, appointment, action, { persistMeetingUrl: false });
+            if (!result?.eventId) return;
+            const [matched] = await db.update(agendaAppointments).set({
+                googleEventId: result.eventId,
+                ...(result.meetingUrl ? { meetingUrl: result.meetingUrl } : {}),
+            }).where(and(
+                eq(agendaAppointments.id, appointment.id),
+                eq(agendaAppointments.startsAt, appointment.startsAt),
+                inArray(agendaAppointments.status, ['pending', 'confirmed']),
+                appointment.googleEventId
+                    ? eq(agendaAppointments.googleEventId, appointment.googleEventId)
+                    : isNull(agendaAppointments.googleEventId),
+            )).returning({ id: agendaAppointments.id });
+            if (!matched && !appointment.googleEventId) {
+                await syncToGoogleCalendar(profile, { ...appointment, googleEventId: result.eventId }, 'delete');
+            }
+            if (matched && result.meetingUrl) appointment.meetingUrl = result.meetingUrl;
+        } catch (error) {
+            console.error('[agenda] Booking calendar sync error:', error);
+        }
+    }
+
+    async function ensureBookingCheckout(profile: any, appointmentId: string): Promise<string | null> {
+        if (!profile.acceptsMp || !profile.mpAccessToken) return null;
+
+        return db.transaction(async (tx: any) => {
+            const [appointment] = await tx.select().from(agendaAppointments).where(and(
+                eq(agendaAppointments.id, appointmentId),
+                eq(agendaAppointments.professionalId, profile.id),
+                eq(agendaAppointments.paymentStatus, 'pending'),
+                inArray(agendaAppointments.status, ['pending', 'confirmed']),
+                sql`${agendaAppointments.startsAt} > now()`,
+            )).limit(1).for('update');
+            if (!appointment || (appointment.bookingPaymentMethod && appointment.bookingPaymentMethod !== 'mp')) return null;
+            if (appointment.mpCheckoutUrl) return appointment.mpCheckoutUrl;
+            const amount = Number(appointment.price);
+            if (!Number.isFinite(amount) || amount <= 0) return null;
+
+            const appUrl = process.env.AGENDA_APP_URL ?? 'http://localhost:3004';
+            const apiUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
+            const bookingUrl = `${appUrl}/${encodeURIComponent(profile.slug)}`;
+            const pref = await createCheckoutPreference({
+                externalReference: appointment.id,
+                title: `Sesión con ${profile.displayName ?? 'el profesional'}`,
+                amount,
+                currencyId: appointment.currency,
+                payerEmail: appointment.clientEmail ?? 'paciente@simpleagenda.app',
+                payerName: appointment.clientName ?? undefined,
+                backUrls: {
+                    success: `${bookingUrl}?payment=success&appt=${appointment.id}`,
+                    failure: `${bookingUrl}?payment=failure&appt=${appointment.id}`,
+                    pending: `${bookingUrl}?payment=pending&appt=${appointment.id}`,
+                },
+                notificationUrl: `${apiUrl}/api/agenda/mercadopago/webhook?appointment=${appointment.id}`,
+                accessToken: profile.mpAccessToken,
+                signal: AbortSignal.timeout(8_000),
+            });
+            if (!pref.initPoint) return null;
+            await tx.update(agendaAppointments)
+                .set({ mpCheckoutUrl: pref.initPoint })
+                .where(eq(agendaAppointments.id, appointment.id));
+            return pref.initPoint;
+        });
+    }
+
+    const { localDateKey, getPublicBookingSlots } = createAgendaBookingSchedule(deps);
 
     const app = new Hono();
 
@@ -4700,6 +4896,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         if (isFreePlan(profile)) {
             publicProfile.avatarUrl = null;
             publicProfile.coverUrl = null;
+            publicProfile.landingPage = null;
             publicProfile.appearance = {
                 layout: 'booking',
                 colorMode: 'system',
@@ -4738,15 +4935,158 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         return c.json({ ok: true, slots });
     });
 
+    function rescheduleContext(profile: any, appointment: any) {
+        const timezone = profile.timezone ?? 'America/Santiago';
+        const now = Date.now();
+        const minimumAdvance = Math.max(0, Number(profile.cancellationHours ?? 0));
+        const minimumDate = localDateKey(new Date(now), timezone);
+        const maximumDay = new Date(`${minimumDate}T12:00:00Z`);
+        maximumDay.setUTCDate(maximumDay.getUTCDate() + (profile.bookingWindowDays ?? 30));
+        return {
+            timezone,
+            minimumDate,
+            maximumDate: maximumDay.toISOString().slice(0, 10),
+            canChange: ['pending', 'confirmed'].includes(appointment.status)
+                && appointment.startsAt.getTime() > now
+                && appointment.startsAt.getTime() - now >= minimumAdvance * 3_600_000,
+        };
+    }
+
+    app.get('/:slug/bookings/:id/reschedule', publicSlotsLimit, async (c) => {
+        const id = bookingIdSchema.safeParse(c.req.param('id'));
+        if (!id.success) return c.json({ ok: false, error: 'Cita no encontrada.' }, 404);
+        const [entry] = await db.select({
+            profile: agendaProfessionalProfiles,
+            appointment: agendaAppointments,
+        }).from(agendaAppointments)
+            .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
+            .where(and(eq(agendaAppointments.id, id.data), eq(agendaProfessionalProfiles.slug, c.req.param('slug'))))
+            .limit(1);
+        c.header('Cache-Control', 'no-store');
+        if (!entry) return c.json({ ok: false, error: 'Cita no encontrada.' }, 404);
+        const { profile, appointment } = entry;
+        const { timezone, minimumDate, maximumDate, canChange } = rescheduleContext(profile, appointment);
+        if (!canChange) {
+            return c.json({ ok: false, error: 'Contacta al profesional para cambiar esta cita.' }, 409);
+        }
+        const date = c.req.query('date');
+        const slots = date && date >= minimumDate && date <= maximumDate
+            ? await getPublicBookingSlots(profile, date, appointment.durationMinutes, db, appointment.id)
+            : [];
+        return c.json({
+            ok: true,
+            startsAt: appointment.startsAt,
+            timezone,
+            minimumDate,
+            maximumDate,
+            slots: slots.filter((slot: { startsAt: string }) => new Date(slot.startsAt).getTime() !== appointment.startsAt.getTime()),
+        });
+    });
+
+    app.post('/:slug/bookings/:id/reschedule', publicCancelLimit, async (c) => {
+        const id = bookingIdSchema.safeParse(c.req.param('id'));
+        if (!id.success) return c.json({ ok: false, error: 'Cita no encontrada.' }, 404);
+        const parsed = z.object({
+            startsAt: z.string().datetime({ offset: true }),
+            expectedStartsAt: z.string().datetime({ offset: true }),
+        }).safeParse(await c.req.json().catch(() => null));
+        if (!parsed.success) return c.json({ ok: false, error: 'La fecha elegida no es válida.' }, 400);
+        const startsAt = new Date(parsed.data.startsAt);
+        const expectedStartsAt = new Date(parsed.data.expectedStartsAt);
+        const moved = await db.transaction(async (tx: any) => {
+            // Usar el mismo orden de bloqueo que la creación pública para serializar ambas operaciones.
+            const [profile] = await tx.select().from(agendaProfessionalProfiles)
+                .where(eq(agendaProfessionalProfiles.slug, c.req.param('slug'))).limit(1).for('update');
+            if (!profile) return { ok: false as const, status: 404 as const, error: 'Cita no encontrada.' };
+            const [appointment] = await tx.select().from(agendaAppointments)
+                .where(and(eq(agendaAppointments.id, id.data), eq(agendaAppointments.professionalId, profile.id)))
+                .limit(1).for('update');
+            if (!appointment) return { ok: false as const, status: 404 as const, error: 'Cita no encontrada.' };
+            const { timezone, minimumDate, maximumDate, canChange } = rescheduleContext(profile, appointment);
+            if (!canChange) {
+                return { ok: false as const, status: 409 as const, error: 'Contacta al profesional para cambiar esta cita.' };
+            }
+            if (appointment.startsAt.getTime() === startsAt.getTime()) {
+                return { ok: true as const, updated: appointment, original: appointment, profile, unchanged: true };
+            }
+            if (appointment.startsAt.getTime() !== expectedStartsAt.getTime()) {
+                return { ok: false as const, status: 409 as const, error: 'La cita cambió. Vuelve a consultar sus horarios.' };
+            }
+            const date = localDateKey(startsAt, timezone);
+            if (date < minimumDate || date > maximumDate) {
+                return { ok: false as const, status: 400 as const, error: 'La fecha está fuera del período de reserva.' };
+            }
+            const slots = await getPublicBookingSlots(profile, date, appointment.durationMinutes, tx, appointment.id);
+            const nextSlot = slots.find((slot: { startsAt: string; endsAt: string }) =>
+                new Date(slot.startsAt).getTime() === startsAt.getTime());
+            if (!nextSlot) {
+                return { ok: false as const, status: 409 as const, error: 'Esa hora ya no está disponible. Tu cita mantiene el horario original.' };
+            }
+            const [updated] = await tx.update(agendaAppointments).set({
+                startsAt,
+                endsAt: new Date(nextSlot.endsAt),
+                reminderSentAt: null,
+                reminder30minSentAt: null,
+                updatedAt: new Date(),
+            }).where(eq(agendaAppointments.id, appointment.id)).returning();
+            return { ok: true as const, updated, original: appointment, profile, unchanged: false };
+        });
+        if (!moved.ok) return c.json({ ok: false, error: moved.error }, moved.status);
+
+        const { updated, original, profile } = moved;
+        const timezone = profile.timezone ?? 'America/Santiago';
+        if (!moved.unchanged) {
+            await logAudit({
+                professionalId: profile.id, entityType: 'appointment', entityId: updated.id, action: 'reschedule',
+                metadata: { source: 'client_reschedule', from: original.startsAt, to: updated.startsAt }, ctx: c,
+            });
+            if (profile.googleAccessToken && profile.googleCalendarId) {
+                await syncPublicAppointmentCalendar(profile, updated, 'update');
+            }
+            const dateLabel = updated.startsAt.toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short', timeZone: timezone });
+            void sendPushToUser(profile.userId, { title: 'Cita reprogramada', body: `Nuevo horario: ${dateLabel}`, url: '/panel/agenda' });
+            if (updated.clientEmail) {
+                const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
+                void sendBookingConfirmationEmail(updated.clientEmail, {
+                    ...updated,
+                    clientName: updated.clientName ?? 'Cliente',
+                    professionalName: profile.displayName ?? 'el profesional',
+                    timezone,
+                    serviceName: null,
+                    rescheduled: true,
+                    paymentMethods: updated.paymentStatus === 'pending' ? {
+                        requiresAdvancePayment: true,
+                        mpConnected: Boolean(profile.acceptsMp && profile.mpAccessToken),
+                        checkoutUrl: updated.mpCheckoutUrl,
+                        paymentLinkUrl: (!updated.bookingPaymentMethod || updated.bookingPaymentMethod === 'link') && profile.acceptsPaymentLink
+                            ? profile.paymentLinkUrl : null,
+                        bankTransferData: (!updated.bookingPaymentMethod || updated.bookingPaymentMethod === 'transfer') && profile.acceptsTransfer
+                            ? profile.bankTransferData : null,
+                        instructions: profile.advancePaymentInstructions ?? null,
+                    } : null,
+                    cancelUrl: `${agendaAppUrl}/cancelar?appt=${updated.id}&slug=${profile.slug}`,
+                    appUrl: agendaAppUrl,
+                }).catch((error: unknown) => console.error('[agenda] Reschedule confirmation email error:', error));
+            }
+        }
+        return c.json({ ok: true, startsAt: updated.startsAt, timezone });
+    });
+
     app.post('/appointments/:id/cancel', publicCancelLimit, async (c) => {
-        const id = c.req.param('id') ?? '';
+        const parsedId = bookingIdSchema.safeParse(c.req.param('id'));
+        if (!parsedId.success) return c.json({ ok: false, error: 'Cita no encontrada.' }, 404);
+        const id = parsedId.data;
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const appt = await db.query.agendaAppointments.findFirst({ where: eq(agendaAppointments.id, id) });
         if (!appt || appt.status === 'cancelled') return c.json({ ok: false, error: 'Cita no encontrada o ya cancelada.' }, 404);
         if (appt.status === 'completed') return c.json({ ok: false, error: 'No se puede cancelar una cita completada.' }, 400);
         const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: eq(agendaProfessionalProfiles.id, appt.professionalId) });
         if (profile?.cancellationHours) { const hoursUntil = (appt.startsAt.getTime() - Date.now()) / (1000 * 60 * 60); if (hoursUntil < profile.cancellationHours) return c.json({ ok: false, error: `La cancelación debe hacerse con al menos ${profile.cancellationHours} horas de anticipación.` }, 400); }
-        const [updated] = await db.update(agendaAppointments).set({ status: 'cancelled', cancelledAt: new Date(), cancelledBy: 'client', cancellationReason: typeof body.reason === 'string' ? body.reason||null : null, updatedAt: new Date() }).where(eq(agendaAppointments.id, id)).returning();
+        const [updated] = await db.update(agendaAppointments)
+            .set({ status: 'cancelled', cancelledAt: new Date(), cancelledBy: 'client', cancellationReason: typeof body.reason === 'string' ? body.reason || null : null, updatedAt: new Date() })
+            .where(and(eq(agendaAppointments.id, id), eq(agendaAppointments.status, appt.status), eq(agendaAppointments.startsAt, appt.startsAt)))
+            .returning();
+        if (!updated) return c.json({ ok: false, error: 'La cita cambió. Actualiza la página e inténtalo nuevamente.' }, 409);
         await logAudit({ professionalId: updated.professionalId, entityType: 'appointment', entityId: updated.id, action: 'cancel', metadata: { source: 'client_self_cancel', reason: typeof body.reason === 'string' ? body.reason.slice(0,200) : null }, ctx: c });
         if (profile) void syncToGoogleCalendar(profile, updated, 'delete');
         emitTimelineEvent(db, timelineEvents, {
@@ -4774,6 +5114,40 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         return c.json({ ok: true, message: 'Cita cancelada correctamente.' });
     });
 
+    app.get('/:slug/bookings/:id/payment-status', publicReadLimit, async (c) => {
+        const id = bookingIdSchema.safeParse(c.req.param('id'));
+        if (!id.success) return c.json({ ok: false, error: 'Cita no encontrada.' }, 404);
+        const [booking] = await db.select({
+            status: agendaAppointments.status,
+            paymentStatus: agendaAppointments.paymentStatus,
+            startsAt: agendaAppointments.startsAt,
+            endsAt: agendaAppointments.endsAt,
+        }).from(agendaAppointments)
+            .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
+            .where(and(eq(agendaAppointments.id, id.data), eq(agendaProfessionalProfiles.slug, c.req.param('slug'))))
+            .limit(1);
+        c.header('Cache-Control', 'no-store');
+        if (!booking) return c.json({ ok: false, error: 'Cita no encontrada.' }, 404);
+        return c.json({ ok: true, ...booking });
+    });
+
+    app.post('/:slug/bookings/:id/checkout', publicCheckoutLimit, async (c) => {
+        const id = bookingIdSchema.safeParse(c.req.param('id'));
+        if (!id.success) return c.json({ ok: false, error: 'Cita no encontrada.' }, 404);
+        const profile = await db.query.agendaProfessionalProfiles.findFirst({
+            where: eq(agendaProfessionalProfiles.slug, c.req.param('slug')),
+        });
+        if (!profile) return c.json({ ok: false, error: 'Cita no encontrada.' }, 404);
+        try {
+            const checkoutUrl = await ensureBookingCheckout(profile, id.data);
+            if (!checkoutUrl) return c.json({ ok: false, error: 'El pago en línea no está disponible para esta cita.' }, 409);
+            return c.json({ ok: true, checkoutUrl });
+        } catch (error) {
+            console.error('[agenda] MP checkout retry error:', error);
+            return c.json({ ok: false, error: 'No se pudo abrir Mercado Pago. Vuelve a intentarlo.' }, 502);
+        }
+    });
+
     app.post('/:slug/book', publicBookLimit, async (c) => {
         const slug = c.req.param('slug') ?? '';
         const access = await requirePublicBookingProfile(slug);
@@ -4785,6 +5159,8 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const startsAt = new Date(String(body.startsAt));
         if (Number.isNaN(startsAt.getTime())) return c.json({ ok: false, error: 'La fecha seleccionada no es válida.' }, 400);
         const requestedServiceId = typeof body.serviceId === 'string' && body.serviceId ? body.serviceId : null;
+        const paymentMethod = z.enum(['mp', 'link', 'transfer', 'manual']).optional().safeParse(body.paymentMethod);
+        if (!paymentMethod.success) return c.json({ ok: false, error: 'Medio de pago inválido.' }, 400);
         const promoCode = normalizePromoCode(body.promotionCode);
         const rawFreq = typeof body.recurrenceFrequency === 'string' ? body.recurrenceFrequency : null;
         const requestedFrequency: 'weekly'|'biweekly'|'monthly'|null = rawFreq === 'weekly' || rawFreq === 'biweekly' || rawFreq === 'monthly' ? rawFreq : null;
@@ -4798,14 +5174,6 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const nameParts = clientName.split(/\s+/);
         const bookingFirstName = nameParts[0] ?? clientName;
         const bookingLastName = nameParts.slice(1).join(' ') || null;
-        const addOffsetPub = (base: Date, idx: number, freq: string|null): Date => {
-            if (!freq || idx === 0) return new Date(base.getTime());
-            const d = new Date(base.getTime());
-            if (freq === 'weekly') d.setDate(d.getDate() + idx * 7);
-            else if (freq === 'biweekly') d.setDate(d.getDate() + idx * 14);
-            else if (freq === 'monthly') d.setMonth(d.getMonth() + idx);
-            return d;
-        };
         const booking = await db.transaction(async (tx: any) => {
             const [currentProfile] = await tx.select().from(agendaProfessionalProfiles)
                 .where(eq(agendaProfessionalProfiles.id, profile.id))
@@ -4864,12 +5232,32 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 price = String(result.finalPrice);
             }
 
-            const status = currentProfile.confirmationMode === 'auto' ? 'confirmed' : 'pending';
+            const hasAdvance = currentProfile.requiresAdvancePayment && Number(price) > 0;
+            const hasMp = Boolean(currentProfile.acceptsMp && currentProfile.mpAccessToken);
+            const hasLink = Boolean(currentProfile.acceptsPaymentLink && currentProfile.paymentLinkUrl);
+            const hasTransfer = Boolean(currentProfile.acceptsTransfer && currentProfile.bankTransferData);
+            const paymentMethodAllowed = {
+                mp: hasMp,
+                link: hasLink,
+                transfer: hasTransfer,
+                manual: Boolean(currentProfile.advancePaymentInstructions) || !(hasMp || hasLink || hasTransfer),
+            };
+            const chosenMethod = hasAdvance ? paymentMethod.data : undefined;
+            if (chosenMethod && !paymentMethodAllowed[chosenMethod]) {
+                return { ok: false as const, status: 400 as const, error: 'El medio de pago elegido ya no está disponible. Revisa las opciones de la cita.' };
+            }
+            const requiresPayment = hasAdvance && (hasMp || hasLink || hasTransfer || Boolean(currentProfile.advancePaymentInstructions));
+            const status = currentProfile.confirmationMode === 'manual' ? 'pending' : 'confirmed';
             const occurrences: Array<{ startsAt: Date; endsAt: Date }> = [];
             for (let i = 0; i < publicTotalOccurrences; i++) {
+                const timezone = currentProfile.timezone ?? 'America/Santiago';
+                const occurrenceStart = recurringBookingStart(startsAt, i, requestedFrequency, timezone);
+                if (!occurrenceStart) {
+                    return { ok: false as const, status: 409 as const, error: 'Una sesión coincide con un cambio de hora. Elige otro horario.' };
+                }
                 const occurrence = {
-                    startsAt: addOffsetPub(startsAt, i, requestedFrequency),
-                    endsAt: addOffsetPub(endsAt, i, requestedFrequency),
+                    startsAt: occurrenceStart,
+                    endsAt: new Date(occurrenceStart.getTime() + durationMinutes * 60_000),
                 };
                 if (occurrences.some((previous) => (
                     occurrence.startsAt < previous.endsAt && occurrence.endsAt > previous.startsAt
@@ -4880,7 +5268,6 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                         error: 'Los horarios recurrentes se superponen. Reduce la duración o elige otra frecuencia.',
                     };
                 }
-                const timezone = currentProfile.timezone ?? 'America/Santiago';
                 const occurrenceDate = localDateKey(occurrence.startsAt, timezone);
                 const availableSlots = await getPublicBookingSlots(currentProfile, occurrenceDate, durationMinutes, tx);
                 const isAvailable = availableSlots.some((slot: { startsAt: string }) => (
@@ -4954,10 +5341,8 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                     currency: currentProfile.currency,
                     policyAgreed: body.policyAgreed === true,
                     policyAgreedAt: body.policyAgreed === true ? new Date() : null,
-                    paymentStatus: currentProfile.requiresAdvancePayment
-                        && (currentProfile.acceptsTransfer || currentProfile.acceptsMp || currentProfile.acceptsPaymentLink)
-                        ? 'pending'
-                        : 'not_required',
+                    paymentStatus: requiresPayment ? 'pending' : 'not_required',
+                    bookingPaymentMethod: chosenMethod ?? null,
                     seriesId: publicSeriesId,
                     recurrenceFrequency: publicSeriesId ? requestedFrequency : null,
                     preconsultResponses: preconsultResponses ?? null,
@@ -5054,20 +5439,20 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         }
         for (const inserted of insertedAppointments) {
             emitTimelineEvent(db, timelineEvents, {
-                type: status === 'pending' ? 'booking.requested' : 'booking.confirmed',
+                type: status === 'pending' || inserted.paymentStatus === 'pending' ? 'booking.requested' : 'booking.confirmed',
                 business: agendaBusiness(profile.id),
                 person: agendaClientPerson(resolvedClientId),
                 subject: { kind: 'agenda_appointment', id: inserted.id },
                 actor: 'client',
-                payload: { status, source: 'public', startsAt: inserted.startsAt instanceof Date ? inserted.startsAt.toISOString() : inserted.startsAt },
+                payload: { status, paymentStatus: inserted.paymentStatus, source: 'public', startsAt: inserted.startsAt instanceof Date ? inserted.startsAt.toISOString() : inserted.startsAt },
             });
         }
-        const isOnlineBooking = bookingModality === 'online';
-        const gcConnected = !!(profile.googleAccessToken && profile.googleCalendarId);
-        if (isOnlineBooking && gcConnected) {
-            const sr = await syncToGoogleCalendar(profile, { ...appointment, googleEventId: null, modality: appointment.modality }, 'create');
-            if (sr?.eventId) await db.update(agendaAppointments).set({ googleEventId: sr.eventId }).where(eq(agendaAppointments.id, appointment.id));
-            if (sr?.meetingUrl) appointment.meetingUrl = sr.meetingUrl;
+        if (profile.googleAccessToken && profile.googleCalendarId) {
+            if (bookingModality === 'online') await syncPublicAppointmentCalendar(profile, appointment, 'create');
+            const remaining = bookingModality === 'online' ? insertedAppointments.slice(1) : insertedAppointments;
+            void (async () => {
+                for (const entry of remaining) await syncPublicAppointmentCalendar(profile, entry, 'create');
+            })();
         }
         const tz3 = profile.timezone ?? 'America/Santiago';
         const fmtT3 = (d: Date) => d.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:tz3 });
@@ -5083,26 +5468,34 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             entityType: 'appointment',
             entityId: appointment.id,
         });
-        if (!(isOnlineBooking && gcConnected)) void syncToGoogleCalendar(profile, { ...appointment, googleEventId: null, modality: appointment.modality }, 'create').then(async (result: any) => { if (result?.eventId) await db.update(agendaAppointments).set({ googleEventId: result.eventId }).where(eq(agendaAppointments.id, appointment.id)); });
         void sendPushToUser(profile.userId, { title: '📅 Nueva cita agendada', body: `${String(body.clientName)} — ${fmtD3(startsAt)} a las ${fmtT3(startsAt)}`, url: '/panel/agenda' });
         void import('../../lib/agenda-email.js').then(({ sendAgendaProfessionalNewBookingEmailForUser }) =>
             sendAgendaProfessionalNewBookingEmailForUser(profile.userId, {
-                title: status === 'pending' ? 'Nueva cita pendiente de confirmación' : 'Nueva cita online confirmada',
+                title: appointment.paymentStatus === 'pending'
+                    ? 'Nueva cita pendiente de pago'
+                    : status === 'pending' ? 'Nueva cita pendiente de aprobación' : 'Nueva cita online confirmada',
                 message: `${String(body.clientName)} reservó para ${fmtD3(startsAt)} a las ${fmtT3(startsAt)}${serviceName ? ` (${serviceName})` : ''}.`,
             }).catch((err: unknown) => console.error('[agenda] Failed to send professional new booking email:', err)),
         );
         let checkoutUrl: string|null = null;
-        if (profile.requiresAdvancePayment && profile.acceptsMp && profile.mpAccessToken && price) {
+        if (appointment.paymentStatus === 'pending') {
             try {
-                const baseUrl = process.env.AGENDA_APP_URL ?? 'http://localhost:3004';
-                const pref = await createCheckoutPreference({ externalReference: appointment.id, title: `Sesión con ${profile.displayName ?? 'el profesional'}`, amount: parseFloat(price), currencyId: profile.currency, payerEmail: typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : 'paciente@simpleagenda.app', payerName: String(body.clientName), backUrls: { success: `${baseUrl}/${slug}?payment=success&appt=${appointment.id}`, failure: `${baseUrl}/${slug}?payment=failure&appt=${appointment.id}`, pending: `${baseUrl}/${slug}?payment=pending&appt=${appointment.id}` }, accessToken: profile.mpAccessToken });
-                checkoutUrl = pref.initPoint;
-            } catch (e) { console.error('[agenda] MP checkout creation error:', e); }
+                checkoutUrl = await ensureBookingCheckout(profile, appointment.id);
+            } catch (error) {
+                console.error('[agenda] MP checkout creation error:', error);
+            }
         }
         const clientEmail2 = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
         if (clientEmail2) {
             const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
-            void sendBookingConfirmationEmail(clientEmail2, { appointmentId: appointment.id, clientName: String(body.clientName), professionalName: profile.displayName ?? 'el profesional', slug: profile.slug, serviceName, startsAt, endsAt, durationMinutes, modality: bookingModality, price, currency: profile.currency, meetingUrl: appointment.meetingUrl, location: appointment.location, timezone: profile.timezone ?? 'America/Santiago', status, seriesDates: publicSeriesId ? insertedAppointments.map((a: { startsAt: Date }) => a.startsAt) : null, seriesFrequency: publicSeriesId ? requestedFrequency : null, paymentMethods: { requiresAdvancePayment: profile.requiresAdvancePayment, mpConnected: !!(profile.acceptsMp && profile.mpAccessToken), paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null, bankTransferData: profile.acceptsTransfer ? ((profile.bankTransferData ?? null) as Record<string,string>|null) : null, checkoutUrl: checkoutUrl ?? null }, cancelUrl: `${agendaAppUrl}/cancelar?appt=${appointment.id}&slug=${profile.slug}`, appUrl: agendaAppUrl }).catch((err: any) => console.error('[agenda] Failed to send booking confirmation email:', err));
+            void sendBookingConfirmationEmail(clientEmail2, { appointmentId: appointment.id, clientName: String(body.clientName), professionalName: profile.displayName ?? 'el profesional', slug: profile.slug, serviceName, startsAt, endsAt, durationMinutes, modality: bookingModality, price, currency: profile.currency, meetingUrl: appointment.meetingUrl, location: appointment.location, timezone: profile.timezone ?? 'America/Santiago', status, paymentStatus: appointment.paymentStatus, seriesDates: publicSeriesId ? insertedAppointments.map((a: { startsAt: Date }) => a.startsAt) : null, seriesFrequency: publicSeriesId ? requestedFrequency : null, paymentMethods: {
+                requiresAdvancePayment: appointment.paymentStatus === 'pending',
+                mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
+                paymentLinkUrl: (!appointment.bookingPaymentMethod || appointment.bookingPaymentMethod === 'link') && profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
+                bankTransferData: (!appointment.bookingPaymentMethod || appointment.bookingPaymentMethod === 'transfer') && profile.acceptsTransfer ? ((profile.bankTransferData ?? null) as Record<string,string>|null) : null,
+                instructions: profile.advancePaymentInstructions ?? null,
+                checkoutUrl,
+            }, cancelUrl: `${agendaAppUrl}/cancelar?appt=${appointment.id}&slug=${profile.slug}`, appUrl: agendaAppUrl }).catch((err: any) => console.error('[agenda] Failed to send booking confirmation email:', err));
         }
         await logAudit({ professionalId: profile.id, entityType: 'appointment', entityId: appointment.id, action: 'create', metadata: { source: 'public_booking', seriesId: publicSeriesId, occurrences: insertedAppointments.length, serviceId, serviceName, clientName: typeof body.clientName === 'string' ? body.clientName.slice(0,100) : null }, ctx: c });
         void (async () => {
@@ -5122,7 +5515,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 console.error('[agenda] No se pudo crear el hilo de mensajes:', error);
             }
         })();
-        return c.json({ ok: true, appointment, appointments: insertedAppointments, seriesId: publicSeriesId });
+        return c.json({ ok: true, appointment, appointments: insertedAppointments, seriesId: publicSeriesId, checkoutUrl });
     });
 
     return app;

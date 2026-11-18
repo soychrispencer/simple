@@ -26,7 +26,7 @@ type PlanCtaProps = {
 
 /** Botón de cada plan; el texto y el destino dependen de la sesión. */
 export function PlanCta({ plan, billingCycle = 'monthly', className }: PlanCtaProps) {
-    const { isLoggedIn, label, startPlan } = useAgendaSignup();
+    const { label, startPlan } = useAgendaSignup();
     const text = plan === 'pro'
         ? `Contratar Pro${billingCycle === 'annual' ? ' anual' : ''}`
         : plan === 'pro_plus'

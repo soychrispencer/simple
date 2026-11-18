@@ -72,6 +72,7 @@ export function createAgendaGoogleCalendarSync(deps: { db: any; agendaAppointmen
             modality: string | null;
         },
         action: 'create' | 'update' | 'delete',
+        options?: { persistMeetingUrl?: boolean },
     ): Promise<{ eventId: string | null; meetingUrl: string | null } | null> {
         if (!profile.googleAccessToken || !profile.googleCalendarId) return null;
         try {
@@ -131,7 +132,7 @@ export function createAgendaGoogleCalendarSync(deps: { db: any; agendaAppointmen
                 meetingUrl = res.data.conferenceData?.entryPoints?.[0]?.uri ?? null;
             }
 
-            if (isOnline && meetingUrl) {
+            if (isOnline && meetingUrl && options?.persistMeetingUrl !== false) {
                 await db.update(agendaAppointments).set({ meetingUrl }).where(eq(agendaAppointments.id, appointment.id));
             }
 

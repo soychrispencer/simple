@@ -8,6 +8,7 @@ import { PanelButton } from '@simple/ui/panel';
 import { PanelNotice } from '@simple/ui/panel';
 import GoogleLoginButton from './google-login-button';
 import { useAuth } from './auth-context';
+import { resolveSafeInternalPath } from './core';
 import { PasswordInput } from './password-input';
 
 type Mode = 'login' | 'register' | 'recovery' | 'verify-email';
@@ -72,7 +73,9 @@ export function AuthModal({
     canSubmitRegister = true,
     registerDisabledMessage = 'Completa los datos requeridos para crear tu cuenta.',
 }: AuthModalProps = {}) {
-    const { authOpen, authInitialMode, closeAuth, currentApp, login, register, logout } = useAuth();
+    const { authOpen, authInitialMode, authOpenOptions, closeAuth, currentApp, login, register, logout } = useAuth();
+    const continuation = resolveSafeInternalPath(authOpenOptions?.returnTo, '') || undefined;
+    const contextLabel = authOpenOptions?.contextLabel;
     const [portalElement, setPortalElement] = useState<HTMLDivElement | null>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
     const [mode, setMode] = useState<Mode>('login');
@@ -131,6 +134,7 @@ export function AuthModal({
 
     useEffect(() => {
         if (!authOpen) return;
+        const previouslyFocused = document.activeElement;
         setMode(allowRegister ? authInitialMode : 'login');
         try {
             const savedEmail = window.localStorage.getItem('simple:auth:remembered-email') ?? '';
@@ -144,7 +148,12 @@ export function AuthModal({
         const timeoutId = window.setTimeout(() => {
             dialogRef.current?.focus();
         }, 0);
-        return () => window.clearTimeout(timeoutId);
+        return () => {
+            window.clearTimeout(timeoutId);
+            if (previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) {
+                previouslyFocused.focus({ preventScroll: true });
+            }
+        };
     }, [allowRegister, authInitialMode, authOpen]);
 
     useEffect(() => {
@@ -176,7 +185,10 @@ export function AuthModal({
             const first = focusable[0];
             const last = focusable[focusable.length - 1];
             const active = document.activeElement as HTMLElement | null;
-            if (event.shiftKey && active === first) {
+            if ((!active || !root.contains(active) || active === root)) {
+                event.preventDefault();
+                (event.shiftKey ? last : first).focus();
+            } else if (event.shiftKey && active === first) {
                 event.preventDefault();
                 last.focus();
             } else if (!event.shiftKey && active === last) {
@@ -276,6 +288,7 @@ export function AuthModal({
         } catch {
             // ignore storage errors
         }
+        if (result.user.status === 'verified' && continuation) window.location.assign(continuation);
     };
 
     const handleRegister = async (e: React.FormEvent) => {
@@ -302,7 +315,7 @@ export function AuthModal({
             return;
         }
         setSubmitting(true);
-        const returnTo = getPanelReturnTo(currentApp);
+        const returnTo = continuation ?? getPanelReturnTo(currentApp);
         const captchaToken = await getCaptchaToken();
         const result = await register({
             name,
@@ -344,7 +357,7 @@ export function AuthModal({
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email, returnTo: continuation }),
             });
             const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
             if (!response.ok || !data?.ok) {
@@ -373,7 +386,7 @@ export function AuthModal({
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: registeredEmail, returnTo: getPanelReturnTo(currentApp) }),
+                body: JSON.stringify({ email: registeredEmail, returnTo: continuation ?? getPanelReturnTo(currentApp) }),
             });
             const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
             if (!response.ok || !data?.ok) {
@@ -434,6 +447,7 @@ export function AuthModal({
                                 Si ya tienes cuenta en Simple, usa el mismo correo o Google.
                             </p>
                         </div>
+                        {contextLabel ? <PanelNotice tone="info" className="mb-4">{contextLabel}</PanelNotice> : null}
                         {error ? (
                             <PanelNotice tone="error" className="mb-4">
                                 {error}
@@ -442,6 +456,7 @@ export function AuthModal({
                         <GoogleLoginButton
                             disabled={submitting}
                             highlighted={suggestGoogleLogin}
+                            returnTo={continuation}
                             onError={(message) => setError(message)}
                         >
                             <PanelButton variant="primary" className={BTN_CLASS} disabled={submitting}>
@@ -521,9 +536,12 @@ export function AuthModal({
                                 Crear tu cuenta
                             </h2>
                             <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                                Primero creas tu cuenta. Después eliges cómo vas a trabajar y preparamos las herramientas que necesitas.
+                                {contextLabel
+                                    ? 'Crea tu cuenta para continuar a la contratación. Podrás revisar el plan antes de pagar.'
+                                    : 'Primero creas tu cuenta. Después eliges cómo vas a trabajar y preparamos las herramientas que necesitas.'}
                             </p>
                         </div>
+                        {contextLabel ? <PanelNotice tone="info" className="mb-5">{contextLabel}</PanelNotice> : null}
                         {error ? (
                             <PanelNotice tone="error" className="mb-5">
                                 {error}
@@ -612,10 +630,12 @@ export function AuthModal({
                                     <a href="https://simpleplataforma.app/privacidad" target="_blank" rel="noreferrer" className="font-medium underline" style={{ color: 'var(--fg)' }}>Política de privacidad</a>.
                                 </span>
                             </label>
-                            <p className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
-                                <IconShieldCheck size={13} />
-                                Protegido por reCAPTCHA cuando está configurado.
-                            </p>
+                            {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
+                                <p className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                    <IconShieldCheck size={13} aria-hidden="true" />
+                                    Protegido por reCAPTCHA.
+                                </p>
+                            ) : null}
                             <PanelButton type="submit" variant="primary" className={`mt-2 ${BTN_CLASS}`} disabled={submitting || !canSubmitRegister}>
                                 {submitting ? 'Creando...' : 'Crear cuenta'}
                             </PanelButton>
@@ -685,7 +705,7 @@ export function AuthModal({
                                 <strong>¿Qué hacer ahora?</strong><br />
                                 1. Revisa tu bandeja de entrada (y Spam / Promociones)<br />
                                 2. Abre el correo de Simple y pulsa «Confirmar correo»<br />
-                                3. Volverás a Simple para continuar donde empezaste
+                                3. {contextLabel ? `Continuarás con ${contextLabel}.` : 'Volverás a Simple para continuar donde empezaste'}
                             </p>
                         </div>
 

@@ -49,7 +49,7 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
             }],
             billing: resolvePanelBillingAccess({
                 planId: 'free',
-                subscriptionHref: '/panel/mi-cuenta/suscripcion',
+                subscriptionHref: '/panel/mi-negocio/plan',
             }),
             propertyVisitsEnabled: true,
             isPublished: false,
@@ -73,7 +73,7 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
     const billing = resolvePanelBillingAccess({
         planId: profile?.plan ?? 'free',
         planExpiresAt: profile?.planExpiresAt ?? null,
-        subscriptionHref: '/panel/mi-cuenta/suscripcion',
+        subscriptionHref: '/panel/mi-negocio/plan',
     });
     // Con acceso completo (trial/pro), no mostrar expired en el carril de setup.
     const billingForSetup: PanelBillingAccess =
@@ -82,7 +82,7 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
             : billing;
 
     const hasProfile = Boolean(profile?.displayName?.trim() && profile?.profession?.trim());
-    const hasServices = services.some((service) => service.isActive !== false);
+    const hasServices = services.some((service) => service.isActive !== false && (!service.kind || service.kind === 'appointment'));
     const hasAvailability = Boolean(availability.alwaysOpen) || availability.rules.some(
         (rule) => rule.isActive && Boolean(rule.startTime) && Boolean(rule.endTime),
     );
@@ -109,14 +109,14 @@ export async function fetchAgendaBusinessSetupStatus(): Promise<AgendaBusinessSe
             id: 'horarios',
             label: 'Horario de atención',
             description: 'Cuándo pueden reservar contigo.',
-            href: '/panel/mi-negocio/horarios#agenda-availability',
+            href: '/panel/mi-negocio/agenda#horario',
             complete: hasAvailability,
         },
         {
             id: 'publicar',
             label: 'Publicar y compartir',
             description: 'Activa tu link público para recibir citas.',
-            href: '/panel/mi-negocio#agenda-publish-control',
+            href: '/panel/mi-negocio/apariencia',
             complete: isPublished,
         },
     ];

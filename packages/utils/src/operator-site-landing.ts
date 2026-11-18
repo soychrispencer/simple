@@ -1,4 +1,9 @@
+import type { OperatorSiteColorMode, OperatorSiteLayout } from './operator-site-theme.js';
+
 export type OperatorSiteLandingTone = 'cercano' | 'profesional' | 'sereno' | 'premium' | 'dinamico';
+export const OPERATOR_SITE_LANDING_SECTIONS = ['about', 'highlights', 'location', 'contact'] as const;
+export type OperatorSiteLandingSection = (typeof OPERATOR_SITE_LANDING_SECTIONS)[number];
+export type OperatorSiteLandingGenerationTarget = 'all' | 'hero' | 'about' | 'highlights' | 'seo';
 
 export type OperatorSiteLandingBrief = {
     audience: string;
@@ -21,6 +26,21 @@ export type OperatorSiteLandingContent = {
     highlights: OperatorSiteLandingHighlight[];
     seoTitle: string;
     seoDescription: string;
+    sections?: Partial<Record<OperatorSiteLandingSection, boolean>>;
+    sectionOrder?: OperatorSiteLandingSection[];
+};
+
+export type OperatorSiteLandingAppearance = {
+    layout: OperatorSiteLayout;
+    colorMode: OperatorSiteColorMode;
+    accentColor: string;
+    avatarUrl: string | null;
+    coverUrl: string | null;
+};
+
+export type OperatorSiteLandingVersion = {
+    content: OperatorSiteLandingContent | null;
+    appearance: OperatorSiteLandingAppearance;
 };
 
 export type OperatorSiteLandingConfig = {
@@ -28,6 +48,10 @@ export type OperatorSiteLandingConfig = {
     brief: OperatorSiteLandingBrief;
     draft: OperatorSiteLandingContent | null;
     published: OperatorSiteLandingContent | null;
+    draftAppearance?: OperatorSiteLandingAppearance;
+    draftRevision?: string;
+    previous?: OperatorSiteLandingVersion;
+    publishedAt?: string;
 };
 
 export const DEFAULT_OPERATOR_SITE_LANDING_BRIEF: OperatorSiteLandingBrief = {

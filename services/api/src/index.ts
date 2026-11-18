@@ -399,6 +399,7 @@ import {
 import { logAudit, logNotification } from './lib/audit.js';
 import { publicResidenceFromUser } from './lib/sync-user-timezone.js';
 import { createAgendaRouter, createPublicAgendaRouter } from './modules/agenda/router.js';
+import { createAgendaTeamRouter } from './modules/agenda/team-router.js';
 import { registerAgendaCronJobs } from './modules/agenda/cron.js';
 import { registerSerenatasCronJobs } from './modules/serenatas/cron.js';
 import { createAccountRouter } from './modules/public-profile/index.js';
@@ -3237,6 +3238,9 @@ app.route('/api/serenatas', createSerenatasRouter({
         webpush,
         rateLimit,
     };
+    app.route('/api/agenda/team', createAgendaTeamRouter({
+        db, authUser, requireVerifiedSession, syncToGoogleCalendar, sendBookingConfirmationEmail, logAudit: agendaDeps.logAudit, scheduleDeps: agendaDeps,
+    }));
     app.route('/api/agenda', createAgendaRouter(agendaDeps));
     app.route('/api/public/agenda', createPublicAgendaRouter(agendaDeps));
 }

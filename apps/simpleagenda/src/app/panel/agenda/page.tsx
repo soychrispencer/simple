@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -668,6 +669,12 @@ export default function AgendaPage() {
                     </button>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                    <Link
+                        href="/panel/agenda/calendarios"
+                        className="agenda-panel-btn-outline inline-flex min-h-9 items-center gap-1.5 rounded-button border px-3 text-xs font-semibold"
+                    >
+                        <IconCalendarEvent size={14} aria-hidden /> Calendarios
+                    </Link>
                     {/* View toggle — icons only in mobile, icon+label from sm */}
                     <div className="agenda-panel-view-toggle flex rounded-lg border overflow-hidden">
                         <button

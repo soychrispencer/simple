@@ -7,8 +7,10 @@ import {
     type AgendaPreconsultField,
     type AgendaPreconsultFieldType,
     type OperatorSiteLandingBrief,
+    type OperatorSiteLandingAppearance,
     type OperatorSiteLandingConfig,
     type OperatorSiteLandingContent,
+    type OperatorSiteLandingGenerationTarget,
 } from '@simple/utils';
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -138,10 +140,8 @@ export type AgendaProfile = {
     requiresAdvancePayment: boolean;
     advancePaymentInstructions: string | null;
     googleCalendarId: string | null;
-    googleAccessToken: string | null;
-    mpAccessToken: string | null;
-    mpPublicKey: string | null;
-    mpUserId: string | null;
+    googleCalendarConnected?: boolean;
+    mpConnected?: boolean;
     paymentLinkUrl: string | null;
     bankTransferData: BankTransferData | null;
     websiteUrl: string | null;
@@ -175,34 +175,51 @@ export async function saveAgendaProfile(body: Partial<AgendaProfile>): Promise<{
     return apiFetch('/api/agenda/profile', { method: 'PATCH', body: JSON.stringify(body) });
 }
 
-export async function generateAgendaLandingPage(brief: OperatorSiteLandingBrief): Promise<{
+type AgendaLandingMutationContext = {
+    profileId: string;
+    revision: string | null;
+};
+
+export async function generateAgendaLandingPage(
+    brief: OperatorSiteLandingBrief,
+    appearance: OperatorSiteLandingAppearance,
+    context: AgendaLandingMutationContext,
+    content: OperatorSiteLandingContent,
+    target: OperatorSiteLandingGenerationTarget,
+): Promise<{
     ok: boolean;
     config?: OperatorSiteLandingConfig;
     error?: string;
 }> {
     return agendaMutation('/api/agenda/site-page/generate', {
         method: 'POST',
-        body: JSON.stringify({ brief }),
+        body: JSON.stringify({ brief, appearance, content, target, ...context }),
     });
 }
 
 export async function saveAgendaLandingDraft(
     brief: OperatorSiteLandingBrief,
     content: OperatorSiteLandingContent,
+    appearance: OperatorSiteLandingAppearance,
+    context: AgendaLandingMutationContext,
 ): Promise<{ ok: boolean; config?: OperatorSiteLandingConfig; error?: string }> {
     return agendaMutation('/api/agenda/site-page/draft', {
         method: 'PATCH',
-        body: JSON.stringify({ brief, content }),
+        body: JSON.stringify({ brief, content, appearance, ...context }),
     });
 }
 
-export async function publishAgendaLandingDraft(): Promise<{
+export async function publishAgendaLandingDraft(context: AgendaLandingMutationContext): Promise<{
     ok: boolean;
     config?: OperatorSiteLandingConfig;
+    appearance?: OperatorSiteLandingAppearance;
     isPublished?: boolean;
     error?: string;
 }> {
-    return agendaMutation('/api/agenda/site-page/publish', { method: 'POST' });
+    return agendaMutation('/api/agenda/site-page/publish', {
+        method: 'POST',
+        body: JSON.stringify(context),
+    });
 }
 
 export async function checkSlugAvailable(slug: string): Promise<{ available: boolean; error?: string }> {
@@ -801,6 +818,35 @@ export async function fetchPublicSlots(slug: string, date: string, serviceId?: s
     return data.slots ?? [];
 }
 
+export type PublicRescheduleAvailability = {
+    ok: boolean;
+    startsAt?: string;
+    timezone?: string;
+    minimumDate?: string;
+    maximumDate?: string;
+    slots?: TimeSlot[];
+    error?: string;
+};
+
+function publicRescheduleUrl(slug: string, appointmentId: string) {
+    return `${API_BASE}/api/public/agenda/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(appointmentId)}/reschedule`;
+}
+
+export async function fetchPublicRescheduleAvailability(slug: string, appointmentId: string, date?: string): Promise<PublicRescheduleAvailability> {
+    const query = date ? `?${new URLSearchParams({ date })}` : '';
+    const response = await fetch(publicRescheduleUrl(slug, appointmentId) + query, { cache: 'no-store' });
+    return response.json();
+}
+
+export async function reschedulePublicAppointment(slug: string, appointmentId: string, expectedStartsAt: string, startsAt: string): Promise<{ ok: boolean; startsAt?: string; timezone?: string; error?: string }> {
+    const response = await fetch(publicRescheduleUrl(slug, appointmentId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedStartsAt, startsAt }),
+    });
+    return response.json();
+}
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 
 export type AgendaNotification = {
@@ -835,6 +881,7 @@ export async function bookAppointment(slug: string, body: {
     recurrenceCount?: number;
     preconsultResponses?: Record<string, string | boolean>;
     promotionCode?: string;
+    paymentMethod?: 'mp' | 'link' | 'transfer' | 'manual';
 }): Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null }; appointments?: Array<{ id: string; startsAt: string }>; seriesId?: string | null; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }> {
     const res = await fetch(`${API_BASE}/api/public/agenda/${slug}/book`, {
         method: 'POST',
@@ -842,6 +889,27 @@ export async function bookAppointment(slug: string, body: {
         body: JSON.stringify(body),
     });
     return res.json() as Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null }; appointments?: Array<{ id: string; startsAt: string }>; seriesId?: string | null; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }>;
+}
+
+export async function retryPublicBookingCheckout(slug: string, appointmentId: string): Promise<{ ok: boolean; checkoutUrl?: string; error?: string }> {
+    const res = await fetch(`${API_BASE}/api/public/agenda/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(appointmentId)}/checkout`, {
+        method: 'POST',
+    });
+    return res.json();
+}
+
+export async function fetchPublicBookingPaymentStatus(slug: string, appointmentId: string): Promise<{
+    ok: boolean;
+    status?: string;
+    paymentStatus?: string;
+    startsAt?: string;
+    endsAt?: string;
+    error?: string;
+}> {
+    const res = await fetch(`${API_BASE}/api/public/agenda/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(appointmentId)}/payment-status`, {
+        cache: 'no-store',
+    });
+    return res.json();
 }
 
 // ── Analytics ────────────────────────────────────────────────────────────────

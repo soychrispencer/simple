@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { IconCash } from '@tabler/icons-react';
 import type { MercadoPagoIntegrationVertical } from '@simple/utils';
 import {
@@ -18,6 +18,7 @@ export type MercadoPagoIntegrationCardProps = {
     subscriptionHref?: string;
     lockedHint?: string;
     className?: string;
+    onConnectionChange?: (connected: boolean) => void;
 };
 
 export function MercadoPagoIntegrationCard({
@@ -25,22 +26,24 @@ export function MercadoPagoIntegrationCard({
     subscriptionHref = '/panel/mi-cuenta/suscripcion',
     lockedHint,
     className,
+    onConnectionChange,
 }: MercadoPagoIntegrationCardProps) {
     const [status, setStatus] = useState<MercadoPagoIntegrationStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [disconnecting, setDisconnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const loadStatus = async () => {
+    const loadStatus = useCallback(async () => {
         setLoading(true);
         const nextStatus = await fetchMercadoPagoIntegrationStatus(vertical);
         setStatus(nextStatus);
+        if (nextStatus) onConnectionChange?.(nextStatus.connected);
         setLoading(false);
-    };
+    }, [onConnectionChange, vertical]);
 
     useEffect(() => {
         void loadStatus();
-    }, [vertical]);
+    }, [loadStatus]);
 
     useEffect(() => {
         const url = new URL(window.location.href);
@@ -60,7 +63,7 @@ export function MercadoPagoIntegrationCard({
         url.searchParams.delete('mp');
         url.searchParams.delete('mpMessage');
         window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
-    }, [lockedHint, vertical]);
+    }, [loadStatus, lockedHint]);
 
     const onConnect = () => {
         setError(null);

@@ -95,7 +95,7 @@ export function AgendaBusinessPublishToggle() {
                 fetchAgendaAvailability(),
             ]);
             setProfile(loaded);
-            setHasService(services.some((service) => service.isActive !== false));
+            setHasService(services.some((service) => service.isActive !== false && (!service.kind || service.kind === 'appointment')));
             setHasAvailability(Boolean(availability.alwaysOpen) || availability.rules.some(
                 (rule) => rule.isActive && Boolean(rule.startTime) && Boolean(rule.endTime),
             ));

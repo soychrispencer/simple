@@ -116,6 +116,7 @@ export const publicProfilePaymentMethodsWriteSchema = z.object({
 
 export const passwordResetRequestSchema = z.object({
     email: z.string().email(),
+    returnTo: z.string().trim().max(1024).optional(),
 });
 
 export const passwordResetConfirmSchema = z.object({

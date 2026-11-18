@@ -1,7 +1,9 @@
 import Image from 'next/image';
 import { BookingConfirmation } from '@/components/landing/booking-confirmation';
 import {
+    IconArrowRight,
     IconBell,
+    IconBrandWhatsapp,
     IconCalendar,
     IconCheck,
     IconChevronDown,
@@ -16,10 +18,10 @@ import { AgendaCta } from '@/components/landing/agenda-cta';
 import { AgendaPricingPlans } from '@/components/landing/agenda-pricing-plans';
 
 const questions = [
-    ['¿Qué pasa cuando termina la prueba?', `Pasas automáticamente a Gratis, con hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes. Las canceladas también cuentan. Solo pagas si eliges activar Pro.`],
-    ['¿Mis clientes necesitan una cuenta?', 'No. Pueden elegir un horario y reservar directamente desde tu link.'],
-    ['¿Cómo puedo cobrar por una cita?', 'Puedes configurar Mercado Pago, transferencia bancaria o un link de pago personalizado. SimpleAgenda no cobra comisión por cita; el proveedor de pago puede aplicar sus propias tarifas.'],
-    ['¿SimpleAgenda envía WhatsApp automáticamente?', 'Aún no. Pro+ permite encontrar clientes que llevan 30, 60 o 90 días sin una atención y preparar un mensaje individual para WhatsApp o correo. Tú revisas y envías cada mensaje. Los recordatorios automáticos actuales llegan por email.'],
+    ['¿Qué pasa cuando termina la prueba?', `Pasas automáticamente a Gratis, con hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes. Las canceladas también cuentan. Los planes pagados se activan cuando eliges contratarlos.`],
+    ['¿Cómo reservan mis clientes?', 'Abren tu enlace, eligen un servicio y una hora disponible y completan sus datos. Tu agenda confirma automáticamente por defecto. Si pides un anticipo o prefieres aprobar a mano, verán el estado de su cita.'],
+    ['¿Cómo puedo cobrar por una cita?', 'Con Pro o Pro+ puedes conectar Mercado Pago. También puedes compartir instrucciones de transferencia o un enlace de pago desde tu agenda. SimpleAgenda no cobra comisión por cita. El proveedor de pago puede aplicar sus propias tarifas.'],
+    ['¿Cómo se envían los recordatorios?', 'Los recordatorios automáticos llegan por correo cuando tu cliente deja su email. En Agenda puedes abrir un mensaje listo en WhatsApp y enviarlo tú. Con Pro+ puedes además preparar mensajes para clientes que llevan 30, 60 o 90 días sin una atención.'],
 ];
 
 const businessQuoteMessage = 'Hola, quiero cotizar el plan Empresa de SimpleAgenda. Somos ___ profesionales y tenemos ___ sucursales.';
@@ -31,58 +33,62 @@ export default function HomePage() {
     return (
         <div>
             <section id="portada" className="agenda-hero-band">
-                <div className="container-app agenda-hero">
+                <div className="container-app agenda-hero agenda-hero--with-demo">
                     <div className="agenda-hero__copy min-w-0">
                         <p className="agenda-eyebrow agenda-hero__eyebrow">Agenda online para profesionales</p>
                         <h1 className="agenda-display">
                             <span className="agenda-display__lead">Tus clientes reservan.</span>
                             <span className="agenda-display__signal">Tú sigues atendiendo.</span>
                         </h1>
-                        <p className="agenda-hero__description">Comparte tu link y tus clientes eligen una hora disponible. La cita se confirma automáticamente.</p>
-                        <div id="prueba" className="mt-6 scroll-mt-24 sm:mt-8">
+                        <p className="agenda-hero__description">Comparte tu enlace, muestra tus horarios y recibe citas con confirmación automática.</p>
+                        <div id="prueba" className="agenda-hero__actions mt-6 scroll-mt-24 sm:mt-8">
                             <AgendaCta location="hero" className="agenda-button agenda-button--signal" />
-                            <p className="agenda-hero__terms mt-3.5 max-w-sm text-xs leading-relaxed">
-                                {AGENDA_PRICING.trialDays} días de Pro. Después sigues en Gratis. Sin tarjeta.
-                            </p>
+                            <a href="#demo-interactiva" className="agenda-button agenda-button--outline-light">
+                                Probar una reserva <IconArrowRight size={16} aria-hidden="true" />
+                            </a>
                         </div>
+                        <p className="agenda-hero__terms mt-4 max-w-sm text-sm">
+                            Hasta {AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes en Gratis. Sin tarjeta.
+                        </p>
                     </div>
-                    <figure className="agenda-hero-visual">
-                        <Image src="/hero/reserva-online-confirmada.png" alt="Una profesional atiende a un cliente mientras la agenda muestra una cita confirmada en el teléfono" width={1754} height={896} priority sizes="(min-width: 1328px) 640px, (min-width: 1100px) 55vw, 100vw" className="agenda-hero-visual__image" />
-                    </figure>
-                    <ol className="agenda-journey agenda-journey--hero" aria-label="Así funciona SimpleAgenda">
-                        {[
-                            'Comparte tu link',
-                            'Eligen una hora',
-                            'Reciben confirmación',
-                            'Tú atiendes',
-                        ].map((step, index) => (
-                            <li key={step} className="agenda-journey__step">
-                                <div className="agenda-journey__marker" aria-hidden="true">
-                                    <span>{String(index + 1).padStart(2, '0')}</span>
-                                    {index < 3 && <span className="agenda-journey__connector" />}
-                                </div>
-                                <span className="agenda-journey__label">{step}</span>
-                            </li>
-                        ))}
-                    </ol>
+                    <div id="como-funciona" className="min-w-0 scroll-mt-24">
+                        <InteractiveBookingDemo />
+                    </div>
                 </div>
             </section>
 
-            <div id="como-funciona" className="scroll-mt-20">
-                <InteractiveBookingDemo />
-            </div>
-
-            <section id="funciones" className="agenda-function-band scroll-mt-20">
-                <div className="agenda-function-band__inner container-app grid items-center gap-8 px-5 py-10 sm:gap-10 sm:px-8 sm:py-10 md:grid-cols-2 lg:px-12 lg:py-12">
-                    <div>
-                        <p className="agenda-eyebrow mb-3">Todo queda en orden</p>
-                        <h2 className="agenda-heading">La cita se agenda. <span>El resto fluye.</span></h2>
-                        <p className="agenda-function-band__description mt-3 max-w-md text-base leading-relaxed sm:text-lg">
-                            Revisa los datos antes de atender, envía recordatorios por correo y lleva el registro de tus cobros en un solo lugar.
+            <section className="agenda-content-band">
+                <div className="container-app agenda-landing-grid">
+                    <div className="min-w-0">
+                        <p className="agenda-eyebrow mb-3">Tu página de reservas</p>
+                        <h2 className="agenda-heading">Tu marca y tus citas en un solo enlace.</h2>
+                        <p className="agenda-section-description">
+                            Comparte tu enlace de reservas en redes, WhatsApp o con un código QR. Con Pro, genera y personaliza una página completa con tus servicios, fotos y colores.
                         </p>
-                        <div className="agenda-fee-note mt-6 sm:mt-8">
-                            <strong className="agenda-numeral">0%</strong>
-                            <span>de comisión de SimpleAgenda por cita</span>
+                        {showPlans && <a className="agenda-inline-link" href="#planes">Ver planes <IconArrowRight size={16} aria-hidden="true" /></a>}
+                    </div>
+                    <Image
+                        src="/hero/reserva-online-confirmada.png"
+                        alt="Una profesional atiende a un cliente mientras otra persona reserva desde su teléfono"
+                        width={1754}
+                        height={896}
+                        sizes="(min-width: 1120px) 560px, (min-width: 800px) 46vw, 92vw"
+                        className="agenda-showcase-illustration"
+                    />
+                </div>
+            </section>
+
+            <section id="funciones" className="agenda-content-band agenda-content-band--tint scroll-mt-24">
+                <div className="container-app agenda-landing-grid">
+                    <div>
+                        <p className="agenda-eyebrow mb-3">Tu trabajo diario</p>
+                        <h2 className="agenda-heading">Mira qué toca y qué queda pendiente.</h2>
+                        <p className="agenda-section-description">
+                            Consulta la ficha de tu cliente antes de atender, envía recordatorios por correo automáticamente y revisa los cobros desde tu panel.
+                        </p>
+                        <div className="agenda-landing-fee mt-6 sm:mt-7">
+                            <p><strong className="agenda-numeral">0%</strong> de comisión de SimpleAgenda por cita</p>
+                            <p className="mt-1 text-xs text-[var(--fg-secondary)]">Tu proveedor de pago puede aplicar sus propias tarifas.</p>
                         </div>
                     </div>
                     <figure className="agenda-function-snapshot p-4 sm:p-5">
@@ -114,10 +120,10 @@ export default function HomePage() {
             </section>
 
             {showPlans && (
-                <section id="planes" className="container-app scroll-mt-20 py-14 sm:py-16 lg:py-20">
-                    <p className="agenda-eyebrow mb-3">Planes sin enredos</p>
-                    <h2 className="agenda-heading">Empieza gratis. Crece a tu ritmo.</h2>
-                    <p className="mt-3 text-[var(--fg-secondary)]">Prueba Pro por {AGENDA_PRICING.trialDays} días. Después puedes seguir en Gratis.</p>
+                <section id="planes" className="container-app agenda-content-band scroll-mt-24">
+                    <p className="agenda-eyebrow mb-3">Planes</p>
+                    <h2 className="agenda-heading">Parte con tu enlace. Crece con tu marca.</h2>
+                    <p className="agenda-section-description">Al registrarte, prueba Pro durante {AGENDA_PRICING.trialDays} días. Después puedes seguir en Gratis.</p>
                     <AgendaPricingPlans />
                     <details id="plan-comparison" className="agenda-panel group mt-5 min-w-0 p-4 sm:mt-4 sm:p-4">
                         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-1 font-semibold marker:content-none">
@@ -126,15 +132,14 @@ export default function HomePage() {
                         </summary>
                         <div className="mt-4"><PlanComparisonTable /></div>
                     </details>
-                    <section className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--bg-subtle)] p-5 sm:p-6">
+                    <section className="agenda-company mt-6">
                         <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
                             <div>
                                 <p className="agenda-eyebrow mb-2">Para consultas y equipos</p>
                                 <h3 className="text-xl font-bold">{AGENDA_PLAN_CATALOG.business.name}</h3>
                                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--fg-secondary)]">{AGENDA_PLAN_CATALOG.business.description}</p>
-                                <p className="mt-4 text-xs font-semibold text-[var(--fg-muted)]">En la cotización podemos revisar:</p>
-                                <ul className="mt-2 grid gap-2 text-sm text-[var(--fg-secondary)] sm:grid-cols-2">
-                                    {AGENDA_PLAN_CATALOG.business.features.map((feature) => (
+                                <ul className="mt-4 grid gap-2 text-sm text-[var(--fg-secondary)] sm:grid-cols-2">
+                                    {AGENDA_PLAN_CATALOG.business.features.slice(0, 2).map((feature) => (
                                         <li key={feature} className="flex items-start gap-2">
                                             <IconCheck size={15} className="mt-0.5 shrink-0 text-[var(--agenda-lime)]" stroke={2.5} />
                                             <span>{feature}</span>
@@ -144,6 +149,7 @@ export default function HomePage() {
                             </div>
                             <div className="flex flex-col gap-2 sm:flex-row md:flex-col">
                                 <a href={businessWhatsAppHref} target="_blank" rel="noopener noreferrer" className="agenda-button inline-flex min-h-11 items-center justify-center gap-2 px-5">
+                                    <IconBrandWhatsapp size={18} aria-hidden="true" />
                                     Cotizar por WhatsApp
                                 </a>
                             </div>
@@ -152,8 +158,8 @@ export default function HomePage() {
                 </section>
             )}
 
-            <section className="border-y border-[var(--border)]">
-                <div className="container-app grid gap-6 py-14 sm:gap-4 sm:py-16 md:grid-cols-[1fr_1.35fr] md:gap-10">
+            <section className="agenda-content-band agenda-content-band--tint">
+                <div className="container-app grid gap-6 sm:gap-8 md:grid-cols-[1fr_1.35fr] md:gap-10">
                     <h2 className="agenda-heading">Preguntas frecuentes</h2>
                     <div className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
                         {questions.map(([question, answer]) => (
@@ -169,11 +175,10 @@ export default function HomePage() {
                 </div>
             </section>
 
-            <section id="empezar" className="container-app scroll-mt-20 py-14 sm:py-16">
+            <section id="empezar" className="container-app agenda-content-band scroll-mt-24">
                 <div className="agenda-closing">
                     <div>
-                        <p className="agenda-eyebrow mb-2">Empieza hoy</p>
-                        <h2 className="agenda-heading">Publica tu link. Deja que tu agenda trabaje.</h2>
+                        <h2 className="agenda-heading">Comparte tu enlace y recibe tu próxima cita.</h2>
                     </div>
                     <div className="agenda-closing__action">
                         <AgendaCta location="cierre" className="agenda-button agenda-button--signal" />
