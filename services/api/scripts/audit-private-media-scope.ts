@@ -11,7 +11,10 @@ type PrivateMediaScopeRow = {
 
 async function main() {
     try {
-        const rows = await pgClient.unsafe<PrivateMediaScopeRow[]>(`
+        const { rows, globalDistinctObjects } = await pgClient.begin(async (tx) => {
+            await tx.unsafe('SET TRANSACTION READ ONLY');
+
+            const rows = await tx.unsafe<PrivateMediaScopeRow[]>(`
             WITH media_references AS (
                 SELECT 'agenda_client_attachments'::text AS source_table, url AS storage_url
                 FROM agenda_client_attachments
@@ -45,7 +48,7 @@ async function main() {
             ORDER BY source_table.source_table
         `);
 
-        const [globalDistinctObjects] = await pgClient.unsafe<{ distinct_non_private_references: string }[]>(`
+            const [globalDistinctObjects] = await tx.unsafe<{ distinct_non_private_references: string }[]>(`
             SELECT count(DISTINCT storage_url)::text AS distinct_non_private_references
             FROM (
                 SELECT url AS storage_url
@@ -57,6 +60,9 @@ async function main() {
                 WHERE storage_url IS NOT NULL AND storage_url NOT LIKE 'simple-private:%'
             ) AS non_private_references
         `);
+
+            return { rows, globalDistinctObjects };
+        });
 
         const totalsByTable = rows.reduce((sum, row) => ({
             nonPrivateReferences: sum.nonPrivateReferences + Number(row.non_private_references),
@@ -75,7 +81,7 @@ async function main() {
         };
 
         console.log(JSON.stringify({
-            note: 'Auditoría agregada de solo lectura. No devuelve IDs, URLs ni datos personales. Las rutas potenciales solo se clasifican por forma; confirmar el dominio, el bucket y la existencia del objeto con el dry-run de R2 antes de migrar.',
+            note: 'Auditoría agregada en transacción READ ONLY. No devuelve IDs, URLs ni datos personales. Las rutas potenciales solo se clasifican por forma; confirmar el dominio, el bucket y la existencia del objeto con el dry-run de R2 antes de migrar.',
             totals,
             bySourceTable: rows.map((row) => ({
                 sourceTable: row.source_table,

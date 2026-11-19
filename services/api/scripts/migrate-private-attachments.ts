@@ -127,16 +127,22 @@ async function main() {
     let privateClient: S3Client | null = null;
 
     try {
-        const [attachments, scores] = await Promise.all([
-            sql<{ id: string; url: string }[]>`
+        const { attachments, scores } = await sql.begin(async (tx) => {
+            await tx.unsafe('SET TRANSACTION READ ONLY');
+
+            const [attachments, scores] = await Promise.all([
+                tx<{ id: string; url: string }[]>`
                 SELECT id, url FROM agenda_client_attachments
                 WHERE url IS NOT NULL AND url NOT LIKE 'simple-private:%'
             `,
-            sql<{ id: string; storage_url: string }[]>`
+                tx<{ id: string; storage_url: string }[]>`
                 SELECT id, storage_url FROM serenata_song_scores
                 WHERE storage_url IS NOT NULL AND storage_url NOT LIKE 'simple-private:%'
             `,
-        ]);
+            ]);
+
+            return { attachments, scores };
+        });
 
         const records = [
             ...attachments.map((row) => ({ table: 'agenda_client_attachments' as const, id: row.id, column: 'url' as const, url: row.url })),
