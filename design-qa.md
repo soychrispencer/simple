@@ -1,40 +1,61 @@
-# Design QA — SimpleAgenda landing hero
+# Design QA — SimpleAgenda landing visual direction
 
-## Source visual
+## Source visual truth
 
-- Selected direction: option 1 from the latest illustration set.
-- Source image: `C:\Users\Chris\.codex\generated_images\01a1a755-5a27-7db2-aed3-127843a2b1dc\exec-16a6c7e3-c3eb-4c28-b16c-910e179a55f7.png`.
-- Refined artwork: `C:\Users\Chris\.codex\generated_images\01a1a755-5a27-7db2-aed3-127843a2b1dc\exec-6db905ca-6205-4ea0-b306-3b7bc0837abf.png`.
-- Integrated illustration: `apps/simpleagenda/public/hero/reserva-online-confirmada.png` (1754 × 896 px, PNG transparente).
-- Refinement: reduced the phone, emphasized the professional/client interaction, and added a subtle light contour around the hair for contrast on teal.
+- Selected direction: hero with SimpleAgenda's own illustration, then one profession-specific photo inside the live booking-page example.
+- Source image: `C:\Users\Chris\.codex\generated_images\01a1bc8b-6d6a-7972-989f-764fff01427e\exec-ecaac87f-ce9c-454f-8337-f02f3324beaf.png`.
+- Source dimensions: 1024 × 1536 px. This is a full-page concept canvas, not a browser viewport specification.
+- Existing branded illustration: `apps/simpleagenda/public/hero/reserva-online-confirmada.png` (1754 × 896 px, transparent PNG).
+- The live booking example uses the existing profession demo images and data from `industry-site-demos.ts`.
 
 ## Implementation capture
 
 - Route: `http://localhost:3004/`.
-- Screenshot: not captured. The browser's saved permission blocked access to the local origin; no alternate browser route was attempted.
-- Viewport and theme: not observed, so desktop/mobile and light/dark visual comparisons remain pending.
+- Desktop screenshot: CUA in-app browser capture, 1274 × 717 px, emitted in the QA session; not persisted to a local file by the browser capture API.
+- Mobile screenshot: CUA in-app browser capture, 434 × 943 px from a 440 × 956 CSS viewport at devicePixelRatio 2.5; emitted in the QA session, not persisted to a local file by the browser capture API.
+- Mobile content width: 434 CSS px; document scroll width is also 434 px, so the page itself does not overflow horizontally.
+- Light and dark theme states were reviewed. The desktop capture shows the initial Barbería example; the mobile capture shows Psicología and its booking flow.
+- Authentication state: signed in, so the header and primary CTA use their normal signed-in labels. Anonymous visitors keep the existing sign-up flow.
 
 ## Comparison
 
-- Full view: blocked because the rendered landing could not be opened.
-- Focused hero region: blocked for the same reason.
-- TypeScript check passed before the latest copy and artwork updates; no browser-rendered visual check was possible.
+- Opened the source image and the rendered desktop page together in one CUA comparison input.
+- Compared the hero's text/illustration balance and the transition into the profession-specific booking example. The source is a full-page 1024 × 1536 concept while the browser screenshot is a 1274 × 717 viewport; comparison is directional rather than pixel-for-pixel.
+- Focused mobile review covered the stacked hero, the two-column profession selector, the selected profile photo, and the booking panel. The layout stayed within the viewport width.
+- All five fidelity surfaces were checked:
+  - Typography: brand display face remains consistent; heading hierarchy and responsive line breaks are legible at mobile width.
+  - Spacing and rhythm: the hero and interactive example are separate sections with clear breathing room; the feature and pricing sections remain in place.
+  - Colors: paper/teal/lime tokens remain consistent. In dark mode, the hero text now inherits the light foreground correctly.
+  - Imagery: the official SimpleAgenda illustration leads the page; the selected profession's photo stays inside its booking-page example.
+  - Copy and content: the main promise, plan details, conversion CTAs, FAQs, and footer remain present; no landing sections were removed.
+- Primary interactions checked: choose a different profession, choose a service, choose a time, and confirm the no-charge demo. The example reached its confirmation state without creating a real booking.
+- Browser console errors checked: none reported.
+
+## Comparison history
+
+- Earlier review was blocked because the first browser session could not open the local origin. The page was subsequently captured and reviewed in the in-app browser.
+- Post-implementation dark-mode check found the hero foreground was using the dark brand ink over a dark background. Removed the local foreground override so it inherits the landing's theme-aware foreground. Re-captured dark mode at 440 × 956 CSS px; the hero heading rendered as `rgb(250, 250, 250)` over `rgb(14, 14, 16)`.
+- After the fix, light and dark hero states were both visually reviewed. No actionable P0, P1, or P2 findings remain.
 
 ## Findings
 
-- [P1] Browser-rendered visual verification is blocked. The hero copy, responsive line wrapping, illustration scale/transparency, and light/dark presentation cannot be confirmed from the source alone. Review the open local page after access is restored.
+- No remaining P0/P1/P2 issues.
+- Screenshot files were not written to disk because the available browser capture API returned in-memory images only; both captures were visually inspected in the QA session.
+
+## Open questions
+
+- None for this visual direction. The source concept is a directional full-page mockup, not a responsive layout spec.
 
 ## Implementation checklist
 
-- Replaced the hero artwork with a refined professional-and-client booking scene; reduced the phone and improved hair contrast on teal.
-- Clarified that clients choose an available time and receive automatic confirmation; updated the social preview image and description.
-- Kept the existing teal/lime identity and trial CTA.
-- The interactive booking demo now follows the hero; the industry strip follows the demo.
-- The function section keeps the lime accent in the same places across light and dark modes; neutral text and surfaces adapt for contrast.
-- Reviewed the remaining landing sections: eyebrows, plan highlights, comparison-table emphasis, and FAQ controls now keep the same lime accent placement in both themes; neutral text and surfaces adapt for contrast.
-- Included feature marks and profession icons use the same lime surface with teal glyph treatment in both themes.
-- The demo profile and service labels are generalized for multiple professional types.
-- Demo dates now show upcoming weekdays so the example does not go stale.
-- Recheck desktop and mobile in light and dark themes when local browser access is available.
+- Put the official brand illustration in the hero and keep the hero's CTA hierarchy clear.
+- Place the live profession selector and photo-backed booking preview in the following section.
+- Preserve all existing plan, feature, FAQ, and footer content.
+- Keep mobile profession options in a readable two-column grid and stack the booking preview.
+- Use the theme-aware landing foreground in the hero in light and dark themes.
 
-final result: blocked
+## Follow-up polish
+
+- A later review can compare a saved, same-size full-page capture if an exportable screenshot path becomes available. The generated source is a concept canvas, so exact full-page pixel matching is not a product requirement.
+
+final result: passed

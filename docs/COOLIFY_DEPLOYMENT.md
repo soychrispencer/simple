@@ -44,10 +44,10 @@ Opcional en Windows (variables de usuario persistentes):
 Si Coolify solo escucha por HTTP, se puede acceder mediante un túnel SSH local. Usa una llave dedicada en `authorized_keys`, limitada al forward de Coolify y sin shell:
 
 ```text
-restrict,port-forwarding,permitopen="127.0.0.1:8000",command="/bin/false" ssh-ed25519 <llave-publica>
+restrict,port-forwarding,permitopen="127.0.0.1:8000",permitopen="127.0.0.1:6001",permitopen="127.0.0.1:6002",command="/bin/false" ssh-ed25519 <llave-publica>
 ```
 
-El túnel SSH sigue disponible como alternativa para transportar la API por loopback. El repositorio incluye `scripts/coolify-tunnel.ps1`; con el túnel activo, `.env.deploy` usa `COOLIFY_URL=http://127.0.0.1:18000`. Ejecuta:
+El túnel SSH reenvía el panel, las actualizaciones en tiempo real y el Web Terminal únicamente por loopback. El repositorio incluye `scripts/coolify-tunnel.ps1`; con el túnel activo, `.env.deploy` usa `COOLIFY_URL=http://127.0.0.1:18000`. Ejecuta:
 
 ```powershell
 .\scripts\coolify-tunnel.ps1 -SshUser <usuario> -SshPort 22

@@ -180,7 +180,8 @@
     --border-strong: rgba(255, 255, 255, 0.38);
     --fg: #F4F4F5;
     --fg-secondary: #A0A0AB;
-    --fg-muted: #6B6B76;
+    /* Keep muted text readable on the darkest raised surfaces (>= 5:1). */
+    --fg-muted: #92929A;
     --fg-faint: #2E2E34;
     --accent: #ffffff;
     --accent-ink: var(--accent);

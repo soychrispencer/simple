@@ -17,7 +17,11 @@ $serverHost = '142.44.211.73'
 $identityFile = Join-Path $env:USERPROFILE '.ssh\simple-coolify-tunnel'
 $knownHostsFile = Join-Path $env:USERPROFILE '.ssh\known_hosts'
 $knownHostTarget = if ($SshPort -eq 22) { $serverHost } else { "[$serverHost]:$SshPort" }
-$localEndpoint = '127.0.0.1:18000:127.0.0.1:8000'
+$localEndpoints = @(
+    '127.0.0.1:18000:127.0.0.1:8000',
+    '127.0.0.1:6001:127.0.0.1:6001',
+    '127.0.0.1:6002:127.0.0.1:6002'
+)
 $sshCommand = Get-Command ssh.exe -ErrorAction SilentlyContinue
 
 if (-not $sshCommand) {
@@ -48,12 +52,15 @@ $sshArguments = @(
     '-o', 'ExitOnForwardFailure=yes',
     '-o', 'ServerAliveInterval=30',
     '-o', 'ServerAliveCountMax=3',
-    '-N',
-    '-L', $localEndpoint,
-    "$SshUser@$serverHost"
+    '-N'
 )
 
-Write-Host "Abriendo túnel restringido a Coolify en http://127.0.0.1:18000. Presiona Ctrl+C para cerrarlo."
+foreach ($localEndpoint in $localEndpoints) {
+    $sshArguments += @('-L', $localEndpoint)
+}
+$sshArguments += "$SshUser@$serverHost"
+
+Write-Host 'Abriendo túnel restringido para Coolify en 127.0.0.1:18000, 6001 y 6002. Presiona Ctrl+C para cerrarlo.'
 & $sshCommand.Source @sshArguments
 if ($LASTEXITCODE -ne 0) {
     throw "El túnel SSH terminó con código $LASTEXITCODE. Revisa la llave, el usuario y la huella guardada en known_hosts."

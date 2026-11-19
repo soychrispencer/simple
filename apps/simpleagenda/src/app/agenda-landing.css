@@ -1,6 +1,13 @@
 /* Landing SimpleAgenda: comparte los tokens globales teal/lima de la marca. */
 .agenda-landing {
     --agenda-green-hover: var(--brand-green-hover);
+    --agenda-hero-accent: var(--agenda-green);
+    --agenda-header-ink: var(--agenda-ink);
+    --agenda-header-border: color-mix(in srgb, var(--agenda-ink) 28%, transparent);
+    --agenda-intro-paper: #fbf8f3;
+    --agenda-demo-paper: color-mix(in srgb, var(--agenda-green) 4%, var(--agenda-paper));
+    --agenda-hero-emphasis: #587400;
+    --agenda-intro-ink: var(--agenda-green);
     --bg: var(--agenda-paper);
     --surface: var(--agenda-white);
     --bg-subtle: color-mix(in srgb, var(--agenda-ash) 36%, var(--agenda-paper));
@@ -27,7 +34,26 @@
     color: var(--fg);
 }
 
+.agenda-landing .footer-legal-notice {
+    max-width: 42rem;
+    color: var(--fg-secondary);
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+
+.agenda-landing .footer-section-title {
+    color: var(--fg-secondary);
+    font-size: 0.75rem;
+}
+
 :is(.dark, [data-theme="dark"]) .agenda-landing {
+    --agenda-hero-accent: var(--agenda-lime);
+    --agenda-header-ink: var(--agenda-paper);
+    --agenda-intro-paper: var(--bg);
+    --agenda-demo-paper: color-mix(in srgb, var(--agenda-green) 14%, var(--bg));
+    --agenda-hero-emphasis: var(--agenda-lime);
+    --agenda-intro-ink: var(--fg);
+    --agenda-header-border: color-mix(in srgb, var(--agenda-paper) 32%, transparent);
     --bg: var(--agenda-ink);
     --surface: var(--agenda-dark-surface);
     --bg-subtle: color-mix(in srgb, var(--agenda-carbon) 55%, var(--agenda-ink));
@@ -95,18 +121,18 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 }
 
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .container-app > a [role="img"] {
-    --fg: var(--agenda-white);
+    --fg: var(--agenda-header-ink);
     --accent-surface: var(--agenda-lime);
     --accent-surface-fg: var(--agenda-green);
 }
 
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .header-nav-link {
-    color: color-mix(in srgb, var(--agenda-white) 92%, transparent);
+    color: var(--agenda-header-ink);
 }
 
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .header-nav-link:hover,
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .header-nav-link[data-active="true"] {
-    color: var(--agenda-lime);
+    color: var(--agenda-hero-accent);
 }
 
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .header-nav-link[data-active="true"] {
@@ -114,48 +140,47 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 }
 
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .header-icon-chip {
-    border-color: color-mix(in srgb, var(--agenda-white) 34%, transparent);
-    color: var(--agenda-white);
+    border-color: var(--agenda-header-border);
+    color: var(--agenda-header-ink);
 }
 
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .header-icon-chip:hover {
-    border-color: color-mix(in srgb, var(--agenda-white) 58%, transparent);
-    background: color-mix(in srgb, var(--agenda-white) 12%, transparent);
-    color: var(--agenda-lime);
+    border-color: color-mix(in srgb, var(--agenda-header-ink) 58%, transparent);
+    background: color-mix(in srgb, var(--agenda-header-ink) 8%, transparent);
+    color: var(--agenda-hero-accent);
 }
 
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .panel-button {
-    --surface: color-mix(in srgb, var(--agenda-white) 10%, transparent);
-    --bg-subtle: color-mix(in srgb, var(--agenda-white) 16%, transparent);
-    --border: color-mix(in srgb, var(--agenda-white) 34%, transparent);
-    --border-strong: color-mix(in srgb, var(--agenda-white) 58%, transparent);
-    --fg: var(--agenda-white);
-    --fg-secondary: var(--agenda-white);
+    --surface: color-mix(in srgb, var(--agenda-header-ink) 8%, transparent);
+    --bg-subtle: color-mix(in srgb, var(--agenda-header-ink) 12%, transparent);
+    --border: var(--agenda-header-border);
+    --border-strong: color-mix(in srgb, var(--agenda-header-ink) 58%, transparent);
+    --fg: var(--agenda-header-ink);
+    --fg-secondary: var(--agenda-header-ink);
 }
 
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .header-login-button {
-    background: color-mix(in srgb, var(--agenda-white) 10%, transparent) !important;
-    color: var(--agenda-white) !important;
-    border-color: color-mix(in srgb, var(--agenda-white) 36%, transparent) !important;
+    background: color-mix(in srgb, var(--agenda-header-ink) 8%, transparent) !important;
+    color: var(--agenda-header-ink) !important;
+    border-color: var(--agenda-header-border) !important;
     box-shadow: none !important;
 }
 
 .agenda-landing .marketplace-header:not(.marketplace-header--scrolled) .header-login-button:hover {
-    background: color-mix(in srgb, var(--agenda-white) 16%, transparent) !important;
-    color: var(--agenda-white) !important;
-    border-color: color-mix(in srgb, var(--agenda-white) 58%, transparent) !important;
+    background: color-mix(in srgb, var(--agenda-header-ink) 14%, transparent) !important;
+    color: var(--agenda-header-ink) !important;
+    border-color: color-mix(in srgb, var(--agenda-header-ink) 58%, transparent) !important;
 }
 
-/* Portada editorial de alto contraste. */
+/* Portada clara: el arte de marca acompaña el mensaje, no compite con él. */
 .agenda-hero-band {
-    --fg: var(--agenda-white);
-    --focus-ring: var(--agenda-lime);
+    --focus-ring: var(--agenda-green);
     --signal: var(--agenda-lime);
     --signal-contrast: var(--agenda-ink);
     position: relative;
     overflow: hidden;
-    background: var(--agenda-green);
-    color: var(--agenda-white);
+    background: var(--agenda-intro-paper);
+    color: var(--fg);
 }
 
 .agenda-hero {
@@ -173,14 +198,14 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 .agenda-hero__eyebrow,
 .agenda-hero-band .agenda-eyebrow {
     margin-bottom: clamp(0.9rem, 2vw, 1.5rem);
-    color: var(--agenda-lime);
+    color: var(--agenda-hero-accent);
     text-decoration: none;
 }
 
 .agenda-landing h1.agenda-display {
-    max-width: 22ch;
-    color: var(--agenda-white);
-    font-size: clamp(2.45rem, 3.5vw, 3.8rem);
+    max-width: 18ch;
+    color: var(--fg);
+    font-size: clamp(2.5rem, 4.1vw, 4.25rem);
     font-weight: 700;
     letter-spacing: -0.055em;
     line-height: 1.02;
@@ -193,19 +218,19 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 
 .agenda-display__signal {
     display: block;
-    color: var(--agenda-lime);
+    color: var(--agenda-hero-emphasis);
 }
 
 .agenda-hero__description {
     max-width: 40ch;
     margin-top: clamp(1.1rem, 2.4vw, 1.7rem);
-    color: color-mix(in srgb, var(--agenda-white) 84%, var(--agenda-green));
+    color: var(--fg-secondary);
     font-size: clamp(1rem, 1.6vw, 1.2rem);
     line-height: 1.55;
 }
 
 .agenda-hero__terms {
-    color: color-mix(in srgb, var(--agenda-white) 72%, var(--agenda-green));
+    color: var(--fg-secondary);
 }
 
 .agenda-landing h2.agenda-heading {
@@ -306,13 +331,20 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     color: var(--fg);
 }
 
+.agenda-function-snapshot__profession {
+    margin-bottom: 0.75rem;
+    color: var(--fg-secondary);
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
 .agenda-function-snapshot__note,
 .agenda-function-snapshot__detail {
     color: var(--fg-secondary);
 }
 
 .agenda-function-snapshot__list {
-    border-color: var(--border);
+    border-block-start: 1px solid var(--border);
     color: var(--fg);
 }
 
@@ -320,17 +352,26 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     border-color: var(--border);
 }
 
-.agenda-function-snapshot__icon {
-    border: 1px solid var(--agenda-lime);
-    border-radius: 999px;
-    background: var(--agenda-lime);
-    color: var(--agenda-green);
+.agenda-function-snapshot__appointment {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem 0.75rem;
 }
 
 .agenda-function-snapshot__tag {
-    border-color: var(--border);
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
     background: var(--bg-subtle);
     color: var(--fg-secondary);
+    font-size: 0.75rem;
+    font-weight: 650;
+}
+
+.agenda-function-snapshot__tag[data-confirmed="true"] {
+    background: var(--agenda-lime);
+    color: var(--agenda-green);
 }
 
 .agenda-confirmation {
@@ -695,7 +736,7 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     }
 
     .agenda-landing .footer-legal-notice {
-        font-size: 0.75rem;
+        font-size: 0.8125rem;
         line-height: 1.6;
     }
 
@@ -712,18 +753,35 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     }
 }
 
-/* Portada con una reserva de prueba en la misma página del rubro. */
-.agenda-landing .agenda-hero--with-demo {
-    column-gap: clamp(2.25rem, 5vw, 5rem);
-    row-gap: clamp(2.25rem, 5vw, 4rem);
-    padding-block-start: calc(4.5rem + clamp(1.8rem, 5.25vw, 4.8rem));
-    padding-block-end: clamp(2.5rem, 5.5vw, 5.75rem);
+/* Hero ilustrado con la foto reservada para la página de ejemplo. */
+.agenda-landing .agenda-hero--illustrated {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: clamp(1.5rem, 3vw, 3rem);
+    row-gap: clamp(1.25rem, 3vw, 2rem);
+    padding-block-start: calc(4.5rem + clamp(1.5rem, 3vw, 3rem));
+    padding-block-end: clamp(1.5rem, 3vw, 2.75rem);
 }
 
-.agenda-landing .agenda-hero--with-demo .agenda-display {
+.agenda-landing .agenda-hero--illustrated .agenda-display {
     max-width: none;
-    font-size: clamp(2.45rem, 3.55vw, 3.75rem);
+    color: var(--agenda-intro-ink);
+    font-size: clamp(2.55rem, 4vw, 4.1rem);
     line-height: 1.04;
+}
+
+.agenda-hero__visual {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.agenda-hero__illustration {
+    display: block;
+    width: 100%;
+    max-width: 44rem;
+    height: auto;
+    object-fit: contain;
 }
 
 .agenda-hero__actions {
@@ -732,16 +790,51 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     gap: 0.7rem;
 }
 
-.agenda-button--outline-light {
+.agenda-button--outline {
     --agenda-primary-bg: transparent;
-    --agenda-primary-bg-hover: color-mix(in srgb, var(--agenda-white) 12%, transparent);
-    --agenda-primary-fg: var(--agenda-white);
-    border-color: color-mix(in srgb, var(--agenda-white) 55%, transparent);
+    --agenda-primary-bg-hover: var(--agenda-tint);
+    --agenda-primary-fg: var(--fg);
+    border-color: transparent;
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
 }
 
-.agenda-button--outline-light:hover,
-.agenda-button--outline-light:focus-visible {
-    border-color: var(--agenda-white);
+.agenda-button--outline:hover,
+.agenda-button--outline:focus-visible {
+    border-color: var(--agenda-green);
+}
+
+.agenda-demo-band {
+    background: var(--agenda-demo-paper);
+    padding-block: clamp(1.15rem, 2.5vw, 2.25rem) clamp(1.75rem, 4vw, 3rem);
+}
+
+.agenda-experience-cta {
+    display: flex;
+    max-width: 66rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    margin: 1.25rem auto 0;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--agenda-radius-panel);
+    background: var(--bg);
+    box-shadow: var(--agenda-shadow);
+}
+
+.agenda-experience-cta__title {
+    color: var(--fg);
+    font-size: 1rem;
+    font-weight: 740;
+    line-height: 1.35;
+}
+
+.agenda-experience-cta__detail {
+    margin-top: 0.2rem;
+    color: var(--fg-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.5;
 }
 
 .agenda-live-demo {
@@ -754,50 +847,53 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     --focus-ring: #316352;
     --focus-ring-offset: 2px;
     min-width: 0;
-    max-width: 38rem;
-    margin-inline: auto;
-    padding: clamp(0.8rem, 2vw, 1.2rem);
-    border-radius: var(--agenda-radius-panel);
-    background: var(--demo-paper);
+    max-width: 66rem;
+    margin: 0 auto;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
     color: var(--demo-ink);
-    box-shadow: 0 24px 56px #001a1c61;
+    box-shadow: none;
     scroll-margin-top: 5.25rem;
 }
 
-.agenda-live-demo__title {
-    display: flex;
-    gap: 0.55rem;
-    align-items: center;
-    margin-bottom: 0.85rem;
-    font-family: var(--font-sans);
-    font-size: 0.925rem;
-    font-weight: 750;
-    letter-spacing: -0.015em;
-    line-height: 1.25;
+.agenda-live-demo__intro {
+    margin: 0 auto 1.3rem;
+    text-align: center;
 }
 
-.agenda-live-demo__title svg {
-    flex: none;
-    color: var(--demo-tone);
+.agenda-live-demo__title {
+    margin: 0;
+    color: var(--agenda-intro-ink);
+    font-family: var(--font-sans);
+    font-size: clamp(1.85rem, 3.4vw, 2.85rem);
+    font-weight: 740;
+    letter-spacing: -0.045em;
+    line-height: 1.08;
 }
 
 .agenda-live-demo__industries {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem;
-    margin-bottom: 0.8rem;
+    justify-content: center;
+    gap: 0.25rem;
+    width: fit-content;
+    margin: 0 auto 1.4rem;
+    padding: 0.25rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 1.65rem;
 }
 
 .agenda-live-demo__radio,
 .agenda-live-demo__slots button,
-.agenda-live-demo__services button {
-    min-height: 2.65rem;
-    padding: 0.35rem 0.55rem;
+.agenda-live-demo__date select {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.85rem;
     border: 1px solid var(--demo-line);
     border-radius: 0.55rem;
     background: white;
     color: var(--demo-ink);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     font-weight: 650;
     line-height: 1.3;
     cursor: pointer;
@@ -807,14 +903,19 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     position: relative;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    border-color: transparent;
+    border-radius: 1.4rem;
+    background: transparent;
+    color: var(--fg);
 }
 
 .agenda-live-demo__radio:has(input:checked),
+.agenda-live-demo__radio:hover,
 .agenda-live-demo__slots button[aria-pressed="true"] {
-    border-color: var(--demo-tone);
-    background: var(--demo-tint);
-    color: var(--demo-tone);
-    box-shadow: inset 0 0 0 1px var(--demo-tone);
+    border-color: var(--agenda-lime);
+    background: var(--agenda-lime);
+    color: var(--demo-ink);
 }
 
 .agenda-live-demo__radio:has(input:focus-visible) {
@@ -822,44 +923,31 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     outline-offset: var(--focus-ring-offset);
 }
 
-.agenda-live-demo__radio:hover,
-.agenda-live-demo__services button:hover,
-.agenda-live-demo__slots button:hover {
+.agenda-live-demo__slots button:hover:not([aria-pressed="true"]) {
     border-color: var(--demo-tone);
     background: var(--demo-tint);
 }
 
 .agenda-live-demo__sample {
-    overflow: hidden;
+    color-scheme: light;
+    padding: clamp(0.65rem, 1.25vw, 0.9rem);
     border: 1px solid var(--demo-line);
-    border-radius: calc(var(--agenda-radius-panel) - 0.35rem);
+    border-radius: var(--agenda-radius-panel);
     background: white;
+    box-shadow: var(--agenda-shadow);
 }
 
 .agenda-live-demo__profile {
-    isolation: isolate;
     position: relative;
-    display: flex;
-    flex-wrap: wrap;
-    min-height: 8.25rem;
-    align-items: end;
-    justify-content: space-between;
-    gap: 0.7rem;
-    padding: 1rem;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    border-radius: 0.9rem;
     background: var(--demo-tone);
-    color: white;
 }
 
-.agenda-live-demo__profile--photo::after {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    background: color-mix(in srgb, var(--demo-tone) 49%, #0005);
-    content: "";
-}
-
-.agenda-live-demo__profile img {
-    z-index: -2;
+.agenda-live-demo__cover {
+    object-fit: cover;
+    object-position: var(--demo-cover-position-mobile, 50% 50%);
 }
 
 .agenda-live-demo__identity {
@@ -867,7 +955,7 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 }
 
 .agenda-live-demo__identity p {
-    color: var(--demo-paper);
+    color: var(--demo-tone);
     font-size: 0.68rem;
     font-weight: 740;
     text-transform: uppercase;
@@ -887,12 +975,11 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 }
 
 .agenda-live-demo__site-link {
-    --focus-ring: #fff;
     display: inline-flex;
     min-height: 2.65rem;
     align-items: center;
     gap: 0.25rem;
-    color: white;
+    color: var(--demo-tone);
     white-space: nowrap;
     font-size: 0.75rem;
     font-weight: 700;
@@ -901,47 +988,77 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 }
 
 .agenda-live-demo__body {
-    padding: 0.65rem 1rem;
+    padding: clamp(0.8rem, 1.5vw, 1.25rem);
 }
 
-.agenda-live-demo__services li {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding-block: 0.45rem;
-}
-
-.agenda-live-demo__services li + li {
-    border-block-start: 1px solid var(--demo-line);
-}
-
-.agenda-live-demo__services li p,
-.agenda-live-demo__step h4 {
-    font-size: 0.9rem;
-    font-weight: 720;
-}
-
-.agenda-live-demo__services li span,
-.agenda-live-demo__note {
-    color: var(--demo-muted);
-    font-size: 0.75rem;
-}
-
-.agenda-live-demo__services button {
-    min-width: 4.5rem;
-}
-
-.agenda-live-demo__note {
-    margin-top: 0.6rem;
-}
-
-.agenda-live-demo__step {
+.agenda-live-demo__header {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid var(--demo-line);
+}
+
+.agenda-live-demo__service {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 2.75rem;
+    padding-block: 0.45rem;
+    cursor: pointer;
+}
+
+.agenda-live-demo__service + .agenda-live-demo__service {
+    border-block-start: 1px solid var(--demo-line);
+}
+
+.agenda-live-demo__service input {
+    flex: none;
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: var(--demo-tone);
+}
+
+.agenda-live-demo__service strong,
+.agenda-live-demo__service small {
+    display: block;
+    font-size: 0.875rem;
+}
+
+.agenda-live-demo__service small {
+    color: var(--demo-muted);
+    font-size: 0.8125rem;
+}
+
+.agenda-live-demo__confirm {
+    --agenda-primary-bg: var(--demo-tone);
+    --agenda-primary-bg-hover: color-mix(in srgb, var(--demo-tone) 80%, black);
+    --agenda-primary-fg: white;
+}
+
+.agenda-live-demo__note {
+    margin-top: 0.75rem;
+    color: var(--fg-secondary);
+    font-size: 0.8125rem;
+    text-align: center;
+}
+
+.agenda-live-demo__choices {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.agenda-live-demo__date {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.agenda-live-demo__date select {
+    width: 100%;
 }
 
 .agenda-live-demo__back {
@@ -958,12 +1075,14 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 
 .agenda-live-demo__slots {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.35rem;
     margin-top: 0.55rem;
 }
 
-.agenda-live-demo__slots legend {
+.agenda-live-demo__slots legend,
+.agenda-live-demo__services legend,
+.agenda-live-demo__date {
     margin-bottom: 0.35rem;
     font-size: 0.775rem;
     font-weight: 690;
@@ -981,6 +1100,38 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     transform: none;
 }
 
+.agenda-booking-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: clamp(0.75rem, 2vw, 1.5rem);
+    padding-block: 1.1rem;
+    border-block: 1px solid var(--border);
+    font-size: clamp(0.875rem, 1.2vw, 1rem);
+    font-weight: 700;
+}
+
+.agenda-booking-steps li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    line-height: 1.4;
+}
+
+.agenda-booking-step__number {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--agenda-lime);
+    color: var(--agenda-green);
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 760;
+}
+
 .agenda-content-band {
     padding-block: clamp(3.25rem, 6.7vw, 6.75rem);
 }
@@ -990,8 +1141,17 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     background: var(--agenda-tint);
 }
 
+.agenda-content-band--pricing {
+    border-block: 1px solid var(--border);
+    background: color-mix(in srgb, var(--agenda-green) 3%, var(--bg));
+}
+
 :is(.dark, [data-theme="dark"]) .agenda-content-band--tint {
     background: color-mix(in srgb, var(--agenda-green) 16%, var(--bg));
+}
+
+:is(.dark, [data-theme="dark"]) .agenda-content-band--pricing {
+    background: color-mix(in srgb, var(--agenda-green) 9%, var(--bg));
 }
 
 .agenda-landing-grid {
@@ -1010,6 +1170,16 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     color: var(--fg-secondary);
     font-size: clamp(1rem, 1.35vw, 1.125rem);
     line-height: 1.6;
+}
+
+.agenda-function-note {
+    max-width: 48ch;
+    margin-top: 1rem;
+    padding-inline-start: 0.85rem;
+    border-inline-start: 3px solid var(--agenda-lime);
+    color: var(--fg-secondary);
+    font-size: 0.875rem;
+    line-height: 1.55;
 }
 
 .agenda-inline-link {
@@ -1032,16 +1202,6 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
     margin-inline: auto;
 }
 
-.agenda-landing-fee {
-    display: inline-block;
-    padding-inline-start: 0.9rem;
-    border-inline-start: 0.18rem solid var(--agenda-lime);
-}
-
-.agenda-landing-fee strong {
-    font-size: 1.3rem;
-}
-
 .agenda-company {
     padding: clamp(1.15rem, 3vw, 1.75rem);
     border: 1px solid var(--border);
@@ -1056,13 +1216,41 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 }
 
 @media (min-width: 940px) {
-    .agenda-landing .agenda-hero--with-demo {
-        grid-template-columns: minmax(0, 1.09fr) minmax(0, 1fr);
+    .agenda-landing .agenda-hero--illustrated {
+        grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+    }
+
+    .agenda-live-demo__sample {
+        display: grid;
+        grid-template-columns: minmax(0, 0.77fr) minmax(0, 1.23fr);
+    }
+
+    .agenda-live-demo__profile {
+        aspect-ratio: auto;
+    }
+
+    .agenda-live-demo__cover {
+        object-position: var(--demo-cover-position-desktop, 50% 50%);
+    }
+
+    .agenda-live-demo__body {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .agenda-live-demo__choices {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .agenda-live-demo__availability {
+        padding-inline-start: 0.85rem;
+        border-inline-start: 1px solid var(--demo-line);
     }
 }
 
 @media (max-width: 500px) {
-    .agenda-landing .agenda-hero--with-demo .agenda-display {
+    .agenda-landing .agenda-hero--illustrated .agenda-display {
         font-size: clamp(2.1rem, 8.4vw, 2.85rem);
         text-wrap: normal;
     }
@@ -1071,6 +1259,45 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
         min-height: 2.75rem;
         padding-inline: 0.78rem;
         font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 939px) {
+    .agenda-hero__illustration {
+        max-width: 32rem;
+    }
+}
+
+@media (max-width: 799px) {
+    .agenda-booking-steps {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        justify-content: start;
+        gap: 0.65rem;
+        padding-block: 1rem;
+    }
+
+    .agenda-booking-steps li {
+        gap: 0.65rem;
+    }
+}
+
+@media (max-width: 639px) {
+    .agenda-experience-cta {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 1rem;
+    }
+
+    .agenda-live-demo__radio {
+        flex: 1 1 calc(33.33% - 0.25rem);
+        justify-content: center;
+        padding-inline: 0.4rem;
+        text-align: center;
+    }
+
+    .agenda-live-demo__slots {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 

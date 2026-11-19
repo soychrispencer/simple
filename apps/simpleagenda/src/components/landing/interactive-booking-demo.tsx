@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { IconArrowLeft, IconArrowRight, IconArrowUpRight, IconCalendarCheck } from '@tabler/icons-react';
+import { IconArrowRight, IconArrowUpRight } from '@tabler/icons-react';
 import { BookingConfirmation } from './booking-confirmation';
 import { track } from '@/lib/analytics';
 import { useAgendaSignup } from './use-agenda-signup';
@@ -40,58 +40,59 @@ function getDemoDays() {
     return days;
 }
 
-export function InteractiveBookingDemo() {
+type InteractiveBookingDemoProps = {
+    industryId: string;
+    onIndustryChange: (industryId: string) => void;
+};
+
+export function InteractiveBookingDemo({ industryId, onIndustryChange }: InteractiveBookingDemoProps) {
     const { label, start } = useAgendaSignup();
-    const [industryId, setIndustryId] = useState('barber');
     const [serviceId, setServiceId] = useState<string | null>(null);
     const [days, setDays] = useState<ReturnType<typeof getDemoDays>>([]);
     const [dayIndex, setDayIndex] = useState(0);
     const [time, setTime] = useState<string | null>(null);
     const [confirmed, setConfirmed] = useState(false);
-    const stepHeading = useRef<HTMLHeadingElement>(null);
     const confirmation = useRef<HTMLDivElement>(null);
-    const services = useRef<HTMLUListElement>(null);
-    const returnToService = useRef<string | null>(null);
+    const firstService = useRef<HTMLInputElement>(null);
     const industry = INDUSTRY_SITE_DEMOS.find((item) => item.id === industryId) ?? INDUSTRY_SITE_DEMOS[0]!;
     const service = industry.catalog.services.find((item) => item.id === serviceId);
     const day = days[dayIndex];
     const cover = industry.profile.coverUrl;
 
     useEffect(() => {
-        const previousService = returnToService.current;
-        const target = confirmed
-            ? confirmation.current
-            : serviceId
-                ? stepHeading.current
-                : Array.from(services.current?.querySelectorAll('button') ?? [])
-                    .find((button) => button.value === previousService);
-        returnToService.current = null;
-        if (!target) return;
-        target.focus({ preventScroll: true });
-        target.scrollIntoView({ block: 'nearest' });
-    }, [serviceId, confirmed]);
+        setDays(getDemoDays());
+    }, []);
 
-    function reset(focusService = false) {
-        returnToService.current = focusService ? serviceId : null;
+    useEffect(() => {
+        if (confirmed) confirmation.current?.focus();
+    }, [confirmed]);
+
+    function reset() {
         setServiceId(null);
+        setDayIndex(0);
         setTime(null);
         setConfirmed(false);
     }
 
     function selectService(id: string) {
         track('demo_start', { industry: industry.id, service: id });
-        setDays(getDemoDays());
-        setDayIndex(0);
-        setTime(null);
         setServiceId(id);
     }
 
     return (
-        <section id="demo-interactiva" aria-labelledby="demo-title" className="agenda-live-demo" style={{ '--demo-accent': industry.appearance.accentColor } as CSSProperties}>
-            <h2 id="demo-title" className="agenda-live-demo__title">
-                <IconCalendarCheck size={18} aria-hidden="true" />
-                Así pueden reservar tus clientes
-            </h2>
+        <section
+            id="demo-interactiva"
+            aria-labelledby="demo-title"
+            className="agenda-live-demo"
+            style={{
+                '--demo-accent': industry.appearance.accentColor,
+                '--demo-cover-position-mobile': industry.coverPosition.mobile,
+                '--demo-cover-position-desktop': industry.coverPosition.desktop,
+            } as CSSProperties}
+        >
+            <div className="agenda-live-demo__intro">
+                <h2 id="demo-title" className="agenda-live-demo__title">Así se adapta a tu rubro</h2>
+            </div>
             <fieldset className="agenda-live-demo__industries min-w-0">
                 <legend className="sr-only">Elige un rubro</legend>
                 {INDUSTRY_SITE_DEMOS.map((item) => (
@@ -101,7 +102,7 @@ export function InteractiveBookingDemo() {
                             name="demo-industry"
                             checked={item.id === industry.id}
                             onChange={() => {
-                                setIndustryId(item.id);
+                                onIndustryChange(item.id);
                                 reset();
                             }}
                             className="sr-only"
@@ -112,70 +113,85 @@ export function InteractiveBookingDemo() {
             </fieldset>
 
             <div className="agenda-live-demo__sample">
-                <div className={cover ? 'agenda-live-demo__profile agenda-live-demo__profile--photo' : 'agenda-live-demo__profile'}>
+                <div className="agenda-live-demo__profile">
                     {cover ? (
                         <Image
                             src={cover}
                             fill
                             sizes="(min-width: 1120px) 520px, (min-width: 800px) 46vw, 92vw"
                             alt=""
-                            className="object-cover object-center"
+                            className="agenda-live-demo__cover object-cover"
+                            loading="eager"
                         />
                     ) : null}
-                    <div className="agenda-live-demo__identity">
-                        <p>{industry.businessLabel}</p>
-                        <h3>{industry.professional}</h3>
-                        <span>{industry.profession}</span>
-                    </div>
-                    <a
-                        className="agenda-live-demo__site-link"
-                        href={`/demo-rubros/${industry.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Ver página <IconArrowUpRight size={14} aria-hidden="true" />
-                        <span className="sr-only"> de ejemplo en una pestaña nueva</span>
-                    </a>
                 </div>
-
                 <div className="agenda-live-demo__body">
+                    <div className="agenda-live-demo__header">
+                        <div className="agenda-live-demo__identity">
+                            <p>{industry.businessLabel}</p>
+                            <h3>{industry.professional}</h3>
+                            <span>{industry.profession}</span>
+                        </div>
+                        <a
+                            className="agenda-live-demo__site-link"
+                            href={`/demo-rubros/${industry.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Ver página <IconArrowUpRight size={14} aria-hidden="true" />
+                            <span className="sr-only"> de ejemplo en una pestaña nueva</span>
+                        </a>
+                    </div>
                     {confirmed && service && day ? (
                         <div ref={confirmation} role="status" tabIndex={-1} className="scroll-mt-24">
                             <BookingConfirmation time={time!} label={`${day.weekday} ${day.date} · ${service.name}`} variant="ticket" />
                             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                                 <button className="agenda-button agenda-button--signal" type="button" onClick={() => start('demo')}>{label}</button>
-                                <button className="agenda-live-demo__back" type="button" onClick={() => reset(true)}>Volver a probar</button>
+                                <button className="agenda-live-demo__back" type="button" onClick={() => {
+                                    reset();
+                                    requestAnimationFrame(() => firstService.current?.focus());
+                                }}>Volver a probar</button>
                             </div>
                         </div>
-                    ) : service && day ? (
+                    ) : (
                         <div>
-                            <div className="agenda-live-demo__step">
-                                <h4 ref={stepHeading} tabIndex={-1} className="scroll-mt-24">{service.name}</h4>
-                                <button className="agenda-live-demo__back" type="button" onClick={() => reset(true)}><IconArrowLeft size={14} aria-hidden="true" /> Cambiar servicio</button>
+                            <div className="agenda-live-demo__choices">
+                                <fieldset className="agenda-live-demo__services min-w-0">
+                                    <legend>Elige un servicio</legend>
+                                    {industry.catalog.services.map((item, index) => (
+                                        <label key={item.id} className="agenda-live-demo__service">
+                                            <input ref={index === 0 ? firstService : undefined} type="radio" name="demo-service" checked={serviceId === item.id} onChange={() => selectService(item.id)} />
+                                            <span>
+                                                <strong>{item.name}</strong>
+                                                <small>{item.durationMinutes} min{item.price ? ` · ${moneyFormatter.format(Number(item.price))}` : ''}</small>
+                                            </span>
+                                        </label>
+                                    ))}
+                                </fieldset>
+                                <div className="agenda-live-demo__availability">
+                                    <label className="agenda-live-demo__date">
+                                        Elige una fecha
+                                        <select value={dayIndex} disabled={!days.length} onChange={(event) => {
+                                            setDayIndex(Number(event.target.value));
+                                            setTime(null);
+                                        }}>
+                                            {days.map((item, index) => <option key={item.key} value={index}>{item.weekday} {item.date}</option>)}
+                                        </select>
+                                    </label>
+                                    <fieldset className="agenda-live-demo__slots min-w-0">
+                                        <legend>Elige una hora</legend>
+                                        {day?.times.map((item) => (
+                                            <button key={item} type="button" aria-pressed={item === time} onClick={() => setTime(item)}>{item}</button>
+                                        ))}
+                                    </fieldset>
+                                </div>
                             </div>
-                            <fieldset className="agenda-live-demo__slots min-w-0">
-                                <legend>Elige un día</legend>
-                                {days.map((item, index) => (
-                                    <button key={item.key} type="button" aria-pressed={index === dayIndex} onClick={() => {
-                                        setDayIndex(index);
-                                        setTime(null);
-                                    }}>
-                                        {item.weekday} {item.date}
-                                    </button>
-                                ))}
-                            </fieldset>
-                            <fieldset className="agenda-live-demo__slots min-w-0">
-                                <legend>Elige una hora</legend>
-                                {day.times.map((item) => (
-                                    <button key={item} type="button" aria-pressed={item === time} onClick={() => setTime(item)}>{item}</button>
-                                ))}
-                            </fieldset>
                             <button
-                                className="agenda-button agenda-button--signal mt-3 w-full"
+                                className="agenda-button agenda-live-demo__confirm mt-4 w-full"
                                 type="button"
-                                disabled={!time}
+                                disabled={!service || !day || !time}
                                 onClick={() => {
-                                    if (!time) return;
+                                    if (!service || !day || !time) return;
                                     track('demo_confirm', { industry: industry.id, service: service.id, day: day.date, time });
                                     setConfirmed(true);
                                 }}
@@ -183,22 +199,10 @@ export function InteractiveBookingDemo() {
                                 Confirmar cita de prueba <IconArrowRight size={16} aria-hidden="true" />
                             </button>
                         </div>
-                    ) : (
-                        <ul ref={services} className="agenda-live-demo__services" aria-label={`Servicios de ejemplo de ${industry.label}`}>
-                            {industry.catalog.services.map((item) => (
-                                <li key={item.id}>
-                                    <div>
-                                        <p>{item.name}</p>
-                                        <span>{item.durationMinutes} min{item.price ? ` · ${moneyFormatter.format(Number(item.price))}` : ''}</span>
-                                    </div>
-                                    <button type="button" value={item.id} aria-label={`Elegir ${item.name}`} onClick={() => selectService(item.id)}>Elegir</button>
-                                </li>
-                            ))}
-                        </ul>
                     )}
                 </div>
             </div>
-            <p className="agenda-live-demo__note">Demostración sin cobro ni registro.</p>
+            <p className="agenda-live-demo__note">Demostración sin cobro ni registro. Personaliza tu página con Pro.</p>
         </section>
     );
 }

@@ -29,6 +29,10 @@ export type IndustrySiteDemo = {
         colorMode: OperatorSiteColorMode;
         accentColor: string;
     };
+    coverPosition: {
+        mobile: string;
+        desktop: string;
+    };
 };
 
 const weeklySchedule = (days: number[], startTime: string, endTime: string): OperatorSiteSchedule => ({
@@ -102,8 +106,8 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
             profession: 'Psicóloga clínica',
             headline: 'Un espacio tranquilo para cuidar tu bienestar emocional.',
             bio: 'Acompañamiento psicológico para adultos, con atención cercana y objetivos definidos en conjunto. Sesiones presenciales y online.',
-            avatarUrl: '/hero/doctor-profile.jpg',
-            coverUrl: '/hero/consultation-hero.webp',
+            avatarUrl: '/hero/psychologist-profile.webp',
+            coverUrl: '/hero/psychology-session.webp',
             city: 'Providencia',
             region: 'Región Metropolitana',
             publicEmail: null,
@@ -126,6 +130,7 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
         },
         schedule: weeklySchedule([1, 2, 3, 4, 5], '09:00', '18:00'),
         appearance: { layout: 'studio', colorMode: 'light', accentColor: '#557B72' },
+        coverPosition: { mobile: '50% 50%', desktop: '42% 50%' },
     },
     {
         id: 'barber',
@@ -147,8 +152,8 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
             profession: 'Barbero profesional',
             headline: 'Cortes con carácter y tiempo reservado solo para ti.',
             bio: 'Barbería clásica y contemporánea, con atención personalizada y cuidado en cada detalle.',
-            avatarUrl: '/hero/barber-profile.jpg',
-            coverUrl: '/hero/barber-profile.jpg',
+            avatarUrl: '/hero/barber-portrait.webp',
+            coverUrl: '/hero/barber-session.webp',
             city: 'Viña del Mar',
             region: 'Valparaíso',
             publicEmail: null,
@@ -171,6 +176,7 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
         },
         schedule: weeklySchedule([2, 3, 4, 5, 6], '10:30', '20:00'),
         appearance: { layout: 'portfolio', colorMode: 'dark', accentColor: '#AE754B' },
+        coverPosition: { mobile: '50% 50%', desktop: '48% 50%' },
     },
     {
         id: 'aesthetics',
@@ -192,8 +198,8 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
             profession: 'Especialista en estética',
             headline: 'Un momento para ti. Un tratamiento elegido para tu piel.',
             bio: 'Atención personalizada en un espacio diseñado para que puedas pausar, cuidarte y sentirte bien.',
-            avatarUrl: '/hero/mobile-agenda-professional.webp',
-            coverUrl: '/hero/mobile-agenda-professional.webp',
+            avatarUrl: '/hero/esthetician-profile.webp',
+            coverUrl: '/hero/aesthetics-consultation.webp',
             city: 'Las Condes',
             region: 'Región Metropolitana',
             publicEmail: null,
@@ -216,6 +222,7 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
         },
         schedule: weeklySchedule([1, 2, 3, 4, 5, 6], '09:30', '19:00'),
         appearance: { layout: 'portfolio', colorMode: 'light', accentColor: '#A95477' },
+        coverPosition: { mobile: '50% 50%', desktop: '60% 50%' },
     },
     {
         id: 'kinesiology',
@@ -229,16 +236,16 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
         slug: 'daniela',
         initials: 'DF',
         professional: 'Daniela Fuentes',
-        profession: 'Kinesiólogo · Atención presencial',
+        profession: 'Kinesióloga · Atención presencial',
         businessLabel: 'Kinesiología',
         profile: {
             slug: 'demo-kinesiologia',
             displayName: 'Daniela Fuentes',
-            profession: 'Kinesiólogo',
+            profession: 'Kinesióloga',
             headline: 'Recupera movimiento con un plan de atención a tu ritmo.',
             bio: 'Evaluación y acompañamiento kinésico para volver a moverte con confianza. Cada proceso parte con una valoración individual.',
-            avatarUrl: '/hero/doctor-profile.jpg',
-            coverUrl: null,
+            avatarUrl: '/hero/kinesiologist-profile.webp',
+            coverUrl: '/hero/kinesiology-session.webp',
             city: 'Ñuñoa',
             region: 'Región Metropolitana',
             publicEmail: null,
@@ -261,6 +268,7 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
         },
         schedule: weeklySchedule([1, 2, 3, 4, 5], '08:30', '18:30'),
         appearance: { layout: 'booking', colorMode: 'light', accentColor: '#397A91' },
+        coverPosition: { mobile: '50% 50%', desktop: '47% 50%' },
     },
     {
         id: 'nutrition',
@@ -282,8 +290,8 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
             profession: 'Nutricionista',
             headline: 'Alimentación flexible para cuidar tu salud y tus objetivos.',
             bio: 'Acompañamiento nutricional con metas realistas, evaluación personalizada y seguimiento a tu ritmo.',
-            avatarUrl: '/hero/nutrition-profile.jpg',
-            coverUrl: '/hero/nutrition-profile.jpg',
+            avatarUrl: '/hero/nutritionist-profile.webp',
+            coverUrl: '/hero/nutrition-consultation.webp',
             city: 'Las Condes',
             region: 'Región Metropolitana',
             publicEmail: null,
@@ -306,6 +314,7 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
         },
         schedule: weeklySchedule([1, 2, 3, 4], '09:30', '19:00'),
         appearance: { layout: 'studio', colorMode: 'light', accentColor: '#72823A' },
+        coverPosition: { mobile: '50% 50%', desktop: '42% 50%' },
     },
     {
         id: 'therapy',
@@ -327,8 +336,8 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
             profession: 'Terapeuta familiar',
             headline: 'Un espacio de confianza para conversar y avanzar.',
             bio: 'Acompañamiento para personas y familias que buscan nuevas herramientas para sus relaciones y bienestar.',
-            avatarUrl: null,
-            coverUrl: null,
+            avatarUrl: '/hero/therapist-profile.webp',
+            coverUrl: '/hero/therapy-family-session.webp',
             city: 'Santiago',
             region: 'Región Metropolitana',
             publicEmail: null,
@@ -351,6 +360,7 @@ export const INDUSTRY_SITE_DEMOS: IndustrySiteDemo[] = [
         },
         schedule: weeklySchedule([1, 2, 3, 4, 5], '10:00', '19:00'),
         appearance: { layout: 'booking', colorMode: 'light', accentColor: '#746992' },
+        coverPosition: { mobile: '50% 50%', desktop: '50% 50%' },
     },
 ];
 

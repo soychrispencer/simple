@@ -100,6 +100,16 @@ const EXPECTED = {
       { key: 'MP_OPERATOR_REDIRECT_URI', expected: `${API_PUBLIC}/api/integrations/mercadopago/callback` },
       { key: 'INSTAGRAM_REDIRECT_URI', expected: INSTAGRAM_CALLBACK },
       { key: 'GOOGLE_REDIRECT_URI', expected: null, forbidden: true },
+      // Google Calendar uses the API callback built from API_BASE_URL; OAuth
+      // login callbacks are app-specific and GOOGLE_REDIRECT_URI stays absent.
+      { key: 'GOOGLE_CLIENT_ID', expected: '__SET__' },
+      { key: 'GOOGLE_CLIENT_SECRET', expected: '__SET__' },
+      { key: 'SMTP_HOST', expected: 'smtp-relay.brevo.com' },
+      { key: 'SMTP_PORT', expected: '587' },
+      { key: 'SMTP_SECURE', expected: 'false' },
+      { key: 'SMTP_USER', expected: '__SET__' },
+      { key: 'SMTP_PASSWORD', expected: '__SET__' },
+      { key: 'SMTP_FROM', expected: 'Simple <noreply@simpleplataforma.app>' },
       { key: 'GOOGLE_AI_API_KEY', expected: '__SET__' },
       { key: 'MERCADO_PAGO_WEBHOOK_SECRET', expected: '__SET__' },
     ],

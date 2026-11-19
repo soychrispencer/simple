@@ -44,7 +44,6 @@ export function AccountWorkspaceSetup({
     const isProperties = vertical === 'propiedades';
     const businessNoun = isProperties ? 'inmobiliaria o empresa' : 'negocio automotriz o empresa';
     const fieldPlaceholder = isProperties ? 'Ej. Inmobiliaria del Valle' : 'Ej. Automotora del Valle';
-    const sectorLabel = isProperties ? 'inmobiliario' : 'automotriz';
 
     useEffect(() => {
         if (!state?.workspace) return;
@@ -138,37 +137,42 @@ export function AccountWorkspaceSetup({
                     Simple se adapta a ti
                 </p>
                 <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl" style={{ color: 'var(--fg)' }}>
-                    ¿Cómo trabajas en el mundo {sectorLabel}?
+                    Configura tu espacio de trabajo
                 </h2>
                 <p className="mt-2 text-sm leading-6" style={{ color: 'var(--fg-muted)' }}>
                     {preparingCompanySpace
                         ? 'Tu espacio de empresa se mantendrá separado. Tus publicaciones personales seguirán en tu cuenta personal y podrás cambiar entre espacios cuando quieras.'
-                        : 'Esta elección organiza tu espacio y las herramientas que ves primero. Puedes actualizarla cuando lo necesites.'}
+                        : isPersonalAccount === false
+                            ? 'Este espacio ya está definido como Empresa. Aquí puedes ajustar la actividad sin cambiar el equipo ni sus datos.'
+                            : 'Primero eliges entre Particular, Profesional o Empresa. Después defines tu actividad. Los permisos de equipo se asignan por separado.'}
                 </p>
             </div>
 
             {isPersonalAccount === false ? (
                 <PanelNotice tone="info">
-                    Este espacio conserva su tipo. Para cambiar entre Particular, Profesional y Empresa, cambia al espacio personal desde el selector. El equipo y sus datos seguirán aquí.
+                    Para configurar el tipo de tu cuenta personal, cámbiate a ella desde el selector. Este espacio de empresa y su equipo seguirán aquí.
                 </PanelNotice>
             ) : (
-                <div className="grid gap-3 md:grid-cols-3" role="group" aria-label="Cómo trabajas">
-                    {tierOptions.map((option) => (
-                        <PanelChoiceCard
-                            key={option.tier}
-                            selected={accountKind === option.tier}
-                            disabled={saving}
-                            onClick={() => {
-                                setAccountKind(option.tier);
-                                setSubtype(null);
-                                setSubtypeCustom('');
-                            }}
-                            className="min-h-24"
-                        >
-                            <span className="block font-semibold" style={{ color: 'var(--fg)' }}>{option.label}</span>
-                            <span className="mt-1 block text-sm leading-5" style={{ color: 'var(--fg-muted)' }}>{option.description}</span>
-                        </PanelChoiceCard>
-                    ))}
+                <div>
+                    <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg)' }}>Tipo de espacio</p>
+                    <div className="grid gap-3 md:grid-cols-3" role="group" aria-label="Tipo de espacio">
+                        {tierOptions.map((option) => (
+                            <PanelChoiceCard
+                                key={option.tier}
+                                selected={accountKind === option.tier}
+                                disabled={saving}
+                                onClick={() => {
+                                    setAccountKind(option.tier);
+                                    setSubtype(null);
+                                    setSubtypeCustom('');
+                                }}
+                                className="min-h-24"
+                            >
+                                <span className="block font-semibold" style={{ color: 'var(--fg)' }}>{option.label}</span>
+                                <span className="mt-1 block text-sm leading-5" style={{ color: 'var(--fg-muted)' }}>{option.description}</span>
+                            </PanelChoiceCard>
+                        ))}
+                    </div>
                 </div>
             )}
 
