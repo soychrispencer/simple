@@ -15,7 +15,7 @@ import { logoutAdmin, type AdminSessionUser } from '@/lib/api';
 
 const ADMIN_NAV_BASE = [
     { href: '/', label: 'Usuarios', icon: IconUsers },
-    { href: '/conversaciones', label: 'Conversaciones', icon: IconMessageCircle },
+    { href: '/conversaciones', label: 'Contactos', icon: IconMessageCircle },
 ];
 
 function adminRoleLabel(role: AdminSessionUser['role']) {

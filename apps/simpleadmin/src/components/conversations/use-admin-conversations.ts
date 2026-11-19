@@ -3,9 +3,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
     captureAdminConversationResponse,
+    createAdminContact,
     fetchAdminConversations,
+    recordAdminContactActivity,
     recordAdminOutboundMessage,
+    updateAdminContact,
     updateAdminConversationStatus,
+    type AdminContactActivityInput,
+    type AdminContactCreateInput,
+    type AdminContactProfileInput,
     type AdminConversationItem,
     type AdminConversationsSummary,
 } from '@/lib/api';
@@ -14,7 +20,7 @@ export type ConversationStatusFilter = 'pending' | 'done' | 'all';
 
 export function useAdminConversations(status: ConversationStatusFilter, vertical: string) {
     const [items, setItems] = useState<AdminConversationItem[]>([]);
-    const [summary, setSummary] = useState<AdminConversationsSummary>({ pendingCount: 0, overdueCount: 0, doneCount: 0 });
+    const [summary, setSummary] = useState<AdminConversationsSummary>({ pendingCount: 0, overdueCount: 0, doneCount: 0, followUpDueCount: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [busyThreadId, setBusyThreadId] = useState<string | null>(null);
@@ -58,5 +64,21 @@ export function useAdminConversations(status: ConversationStatusFilter, vertical
         await load();
     };
 
-    return { items, summary, loading, error, busyThreadId, load, markDone, capture, recordOutbound };
+    const createContact = async (input: AdminContactCreateInput) => {
+        const result = await createAdminContact(input);
+        await load();
+        return result;
+    };
+
+    const updateContact = async (threadId: string, input: AdminContactProfileInput) => {
+        await updateAdminContact(threadId, input);
+        await load();
+    };
+
+    const logActivity = async (threadId: string, input: AdminContactActivityInput) => {
+        await recordAdminContactActivity(threadId, input);
+        await load();
+    };
+
+    return { items, summary, loading, error, busyThreadId, load, markDone, capture, recordOutbound, createContact, updateContact, logActivity };
 }
