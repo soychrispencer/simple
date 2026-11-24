@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     fetchAgendaLocations,
     fetchAgendaProfile,
+    hasAgendaFullAccess,
     saveAgendaProfile,
+    uploadAvatar,
     type AgendaLocation,
 } from '@/lib/agenda-api';
 import {
@@ -18,25 +20,30 @@ import {
     fetchAccountWorkspace,
     fetchCurrentAccountContext,
     getOperatorSubtypes,
+    getOperatorTierOptions,
     inferTimezoneFromStructuredLocation,
+    isOperatorSubtypeOther,
+    normalizeOperatorSubtype,
     normalizeStructuredLocation,
     normalizeTimezone,
+    OPERATOR_SUBTYPE_OTHER_ID,
+    RAW_IMAGE_MAX_SIZE_KB,
     requiresOperatorSubtype,
     requiresOperatorSubtypeCustom,
     resolveAgendaOperatorFields,
+    resolveAppMediaUrl,
     saveAccountWorkspace,
     timezoneOptionLabel,
     timezoneShortLabel,
     type AccountWorkspaceState,
     type OperatorTier,
 } from '@simple/utils';
+import { AvatarUpload, type AvatarUploadHandle } from '@simple/ui';
 import {
-    AGENDA_BUSINESS_PERFIL_PAGE,
     BUSINESS_DESCRIPTION_FIELD,
     BUSINESS_OPERATING_TIMEZONE_HINT,
     BUSINESS_PUBLIC_NAME_FIELD,
     BusinessPublicContactCard,
-    OperatorProfileFields,
     PanelBlockHeader,
     PanelCard,
     PanelField,
@@ -47,27 +54,49 @@ import {
     type BusinessPublicContactForm,
 } from '@simple/ui/panel';
 import { AgendaMiNegocioLoading, AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
-import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
 import { AgendaBusinessLocationsContent } from '@/components/panel/agenda-consultorios-content';
 import {
     agendaBusinessLocationFromProfile,
     agendaBusinessLocationToProfilePayload,
 } from '@/components/panel/agenda-business-location-fields';
-import { IconClock, IconMapPin, IconNotebook, IconSparkles, IconUser } from '@tabler/icons-react';
+import {
+    IconBriefcase,
+    IconBuildingStore,
+    IconCamera,
+    IconCheck,
+    IconClock,
+    IconLoader2,
+    IconMapPin,
+    IconNotebook,
+    IconSparkles,
+    IconUser,
+    IconVideo,
+} from '@tabler/icons-react';
 import type { StructuredLocation } from '@simple/types';
 
 export default function PerfilConfigPage() {
     const vocab = useAgendaVocab();
+    const avatarUploadRef = useRef<AvatarUploadHandle>(null);
+
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
     const [slug, setSlug] = useState('');
 
+    const [canEditAvatar, setCanEditAvatar] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [initialAvatarUrl, setInitialAvatarUrl] = useState<string | null>(null);
+    const [avatarUploading, setAvatarUploading] = useState(false);
+
     const [form, setForm] = useState({
         displayName: '',
+        headline: '',
         bio: '',
     });
+    const [servesOnline, setServesOnline] = useState(true);
+    const [servesPresential, setServesPresential] = useState(false);
+
     const [operator, setOperator] = useState<{
         accountKind: OperatorTier;
         operatorSubtype: string | null;
@@ -109,10 +138,16 @@ export default function PerfilConfigPage() {
             setInitialAccountName(currentAccountName);
             if (profile) {
                 setSlug(profile.slug ?? '');
+                setCanEditAvatar(hasAgendaFullAccess(profile));
+                setAvatarUrl(profile.avatarUrl ?? null);
+                setInitialAvatarUrl(profile.avatarUrl ?? null);
                 setForm({
                     displayName: profile.displayName ?? '',
+                    headline: profile.headline ?? '',
                     bio: profile.bio ?? '',
                 });
+                setServesOnline(profile.servesOnline ?? true);
+                setServesPresential(profile.servesPresential ?? false);
                 const activity = loadedWorkspace?.workspace;
                 const profileActivity = activity
                     ? {
@@ -187,6 +222,16 @@ export default function PerfilConfigPage() {
             || (workspaceState.canManage && activeAccountIsPersonal !== null)
         )
         && (workspaceState.canManage || Boolean(workspaceState.workspace?.onboardingCompletedAt));
+    const tierLocked = activeAccountIsPersonal === false || (
+        activeAccountIsPersonal === null && workspaceState?.workspace?.accountKind === 'company'
+    );
+    const tierOptions = useMemo(() => getOperatorTierOptions('agenda'), []);
+    const subtypes = useMemo(
+        () => getOperatorSubtypes('agenda', operator.accountKind),
+        [operator.accountKind],
+    );
+    const showCustomSubtype = isOperatorSubtypeOther(operator.operatorSubtype);
+
     const customSubtype = operator.operatorSubtype === 'other' ? operator.operatorSubtypeCustom.trim() : '';
     const workspaceChanged = workspaceState?.canManage === true && (
         !workspace?.onboardingCompletedAt
@@ -215,18 +260,17 @@ export default function PerfilConfigPage() {
     };
 
     const handleSaveAll = async () => {
-        if (saving) return;
+        if (saving || avatarUploading) return;
         setError('');
         setSaved(false);
 
         if (workspaceChanged && workspaceState?.canManage) {
-            const subtypes = getOperatorSubtypes('agenda', operator.accountKind);
             if (requiresOperatorSubtype(operator.accountKind, subtypes) && !operator.operatorSubtype) {
-                setError('Selecciona tu rubro en Identidad y rubro.');
+                setError('Selecciona tu rubro principal.');
                 return;
             }
             if (requiresOperatorSubtypeCustom(operator.operatorSubtype) && !operator.operatorSubtypeCustom.trim()) {
-                setError('Describe tu negocio si elegiste Otros.');
+                setError('Describe tu rubro en el campo personalizado.');
                 return;
             }
             if (operator.accountKind === 'company' && !accountName.trim()) {
@@ -239,6 +283,10 @@ export default function PerfilConfigPage() {
             setError('Escribe el nombre público que verán tus clientes.');
             return;
         }
+        if (!servesOnline && !servesPresential) {
+            setError('Selecciona al menos una modalidad de atención (Online o Presencial).');
+            return;
+        }
 
         setSaving(true);
         try {
@@ -249,7 +297,7 @@ export default function PerfilConfigPage() {
                     operatorSubtypeCustom: customSubtype,
                 }, operator.accountKind === 'company' ? accountName.trim() : undefined);
                 if (!workspaceResult.ok || !workspaceResult.workspace) {
-                    setError(workspaceResult.error ?? 'No pudimos actualizar la actividad del espacio.');
+                    setError(workspaceResult.error ?? 'No pudimos actualizar tu rubro o modalidad de cuenta.');
                     return;
                 }
                 if (workspaceResult.accountChanged) {
@@ -271,9 +319,13 @@ export default function PerfilConfigPage() {
 
             const result = await saveAgendaProfile({
                 ...form,
+                headline: form.headline.trim() || null,
+                servesOnline,
+                servesPresential,
+                ...(canEditAvatar && avatarUrl !== initialAvatarUrl ? { avatarUrl } : {}),
                 ...contactForm,
                 ...agendaBusinessLocationToProfilePayload(businessLocation),
-                address: defaultLocation?.isActive ? defaultLocation.addressLine : null,
+                address: servesPresential && defaultLocation?.isActive ? defaultLocation.addressLine : null,
                 ...buildSocialPayload(socialLinks),
             });
             if (!result.ok) {
@@ -283,6 +335,7 @@ export default function PerfilConfigPage() {
             if (result.profile?.timezone) {
                 setTimezone(result.profile.timezone);
             }
+            setInitialAvatarUrl(avatarUrl);
             setSaved(true);
             window.dispatchEvent(new CustomEvent('simple:agenda-profile-changed'));
         } catch {
@@ -292,13 +345,17 @@ export default function PerfilConfigPage() {
         }
     };
 
+    const resolvedAvatarUrl = resolveAppMediaUrl(avatarUrl);
+    const initials = form.displayName.trim().charAt(0).toUpperCase() || '?';
+    const showLocationsManager = servesPresential || businessLocations.length > 0;
+
     if (loading) {
         return (
             <AgendaMiNegocioLoading
                 activeKey="perfil"
-                title={AGENDA_BUSINESS_PERFIL_PAGE.title}
-                description={AGENDA_BUSINESS_PERFIL_PAGE.description}
-                message="Cargando datos de tu negocio..."
+                title="Perfil"
+                description="Define tu identidad pública, modalidad de atención y canales de contacto."
+                message="Cargando datos de tu perfil..."
             />
         );
     }
@@ -306,135 +363,243 @@ export default function PerfilConfigPage() {
     return (
         <AgendaMiNegocioShell
             activeKey="perfil"
-            title={AGENDA_BUSINESS_PERFIL_PAGE.title}
-            description={AGENDA_BUSINESS_PERFIL_PAGE.description}
+            title="Perfil"
+            description="Define tu identidad pública, modalidad de atención y canales de contacto."
         >
             <div className="grid min-w-0 gap-6">
-                <AgendaSetupTip focusStepId={['perfil', 'publicar']} />
-
-                {/* 1. Identidad, rubro y presentación unificados */}
+                {/* 1. Identidad pública */}
                 <div id="agenda-public-profile" className="scroll-mt-24">
                     <PanelCard size="lg" className="space-y-6">
-                        <div className="flex items-start gap-3">
-                            <span
-                                className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
-                                style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}
-                            >
-                                <IconSparkles size={19} aria-hidden />
-                            </span>
-                            <PanelBlockHeader
-                                title="Identidad y rubro"
-                                description="Define quién eres, qué servicio ofreces y cómo te presentas ante tus clientes."
-                                className="mb-0"
-                            />
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="relative">
+                                    <div
+                                        className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-(--border) bg-(--bg-subtle) text-lg font-bold text-fg"
+                                    >
+                                        {resolvedAvatarUrl ? (
+                                            <img src={resolvedAvatarUrl} alt={form.displayName || 'Foto de perfil'} className="h-full w-full object-cover" />
+                                        ) : (
+                                            initials
+                                        )}
+                                    </div>
+                                    {canEditAvatar ? (
+                                        <button
+                                            type="button"
+                                            disabled={saving || avatarUploading}
+                                            onClick={() => avatarUploadRef.current?.openPicker()}
+                                            aria-label="Cambiar foto o logo"
+                                            className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full border border-(--border) bg-(--surface) text-fg shadow-xs transition hover:bg-(--bg-subtle) disabled:opacity-50"
+                                        >
+                                            {avatarUploading ? (
+                                                <IconLoader2 size={13} className="animate-spin" />
+                                            ) : (
+                                                <IconCamera size={13} />
+                                            )}
+                                        </button>
+                                    ) : null}
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-semibold text-fg">Identidad pública</h2>
+                                    <p className="text-xs text-fg-muted">
+                                        Así te verán tus {vocab.clients} en tu ficha y en tus recordatorios.
+                                    </p>
+                                    {canEditAvatar ? (
+                                        <div className="mt-1.5 flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                disabled={saving || avatarUploading}
+                                                onClick={() => avatarUploadRef.current?.openPicker()}
+                                                className="text-xs font-semibold text-accent-ink hover:underline disabled:opacity-50"
+                                            >
+                                                {resolvedAvatarUrl ? 'Cambiar foto o logo' : 'Subir foto o logo'}
+                                            </button>
+                                            {resolvedAvatarUrl ? (
+                                                <button
+                                                    type="button"
+                                                    disabled={saving || avatarUploading}
+                                                    onClick={() => { setAvatarUrl(null); setSaved(false); }}
+                                                    className="text-xs text-fg-muted hover:text-fg"
+                                                >
+                                                    Quitar
+                                                </button>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </div>
+
+                            {operator.accountKind === 'company' ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-(--border) bg-(--bg-subtle) px-3 py-1 text-xs font-medium text-fg-secondary">
+                                    <IconBuildingStore size={13} aria-hidden />
+                                    Cuenta de equipo
+                                </span>
+                            ) : null}
                         </div>
 
-                        <div className="grid gap-5 sm:grid-cols-2">
+                        {canEditAvatar ? (
+                            <AvatarUpload
+                                ref={avatarUploadRef}
+                                hideTrigger
+                                currentUrl={resolvedAvatarUrl}
+                                config={{
+                                    maxSize: RAW_IMAGE_MAX_SIZE_KB,
+                                    maxWidth: 512,
+                                    maxHeight: 512,
+                                    aspectRatio: 1,
+                                    circular: true,
+                                    shape: 'circle',
+                                    onUpload: async (file, croppedBlob) => {
+                                        setAvatarUploading(true);
+                                        try {
+                                            const uploadFile = croppedBlob === file
+                                                ? file
+                                                : new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
+                                            const res = await uploadAvatar(uploadFile, 'logo');
+                                            if (!res.ok || !res.url) {
+                                                throw new Error(res.error ?? 'No se pudo subir la imagen.');
+                                            }
+                                            return { url: res.url };
+                                        } finally {
+                                            setAvatarUploading(false);
+                                        }
+                                    },
+                                }}
+                                onSuccess={(url) => {
+                                    setAvatarUrl(url);
+                                    setSaved(false);
+                                    setError('');
+                                }}
+                                onError={(msg) => setError(msg)}
+                            />
+                        ) : null}
+
+                        <div className="grid gap-4 sm:grid-cols-2">
                             <PanelField
                                 label={BUSINESS_PUBLIC_NAME_FIELD.label}
                                 required
                                 icon={<IconUser size={14} />}
-                                className={operator.accountKind === 'company' ? '' : 'sm:col-span-2'}
                             >
                                 <input
                                     type="text"
                                     value={form.displayName}
                                     onChange={(e) => set('displayName', e.target.value)}
-                                    placeholder="Ej. Daniela Morales · Psicóloga Clínica"
+                                    placeholder="Ej. Daniela Morales"
                                     className="form-input"
                                     disabled={saving}
                                 />
                             </PanelField>
 
-                            {operator.accountKind === 'company' && workspaceState?.canManage === true ? (
-                                <PanelField
-                                    label="Nombre interno del equipo o centro"
-                                    hint="Identifica el espacio compartido en el panel."
-                                    required
-                                >
-                                    <input
-                                        type="text"
-                                        value={accountName}
-                                        disabled={saving}
-                                        onChange={(event) => {
-                                            setSaved(false);
-                                            setError('');
-                                            setAccountName(event.target.value);
-                                        }}
-                                        maxLength={160}
-                                        placeholder="Ej. Centro de Atención Norte"
-                                        className="form-input"
-                                    />
-                                </PanelField>
-                            ) : null}
+                            <PanelField
+                                label="Especialidad o título corto"
+                                icon={<IconSparkles size={14} />}
+                            >
+                                <input
+                                    type="text"
+                                    value={form.headline}
+                                    onChange={(e) => set('headline', e.target.value)}
+                                    maxLength={120}
+                                    placeholder="Ej. Psicóloga Clínica · Terapia Adultos"
+                                    className="form-input"
+                                    disabled={saving}
+                                />
+                            </PanelField>
 
-                            <div className="sm:col-span-2 rounded-2xl border border-(--border) bg-(--bg-subtle) p-4">
-                                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-fg-muted">
-                                    Actividad y modalidad de operación
-                                </p>
-                                {!canShowActivityEditor && workspaceState === null ? (
-                                    <p className="text-sm text-fg-muted">
-                                        No pudimos revisar los permisos del espacio. Recarga la página para consultar o cambiar su actividad.
-                                    </p>
-                                ) : !canShowActivityEditor && workspaceState?.canManage === false ? (
-                                    <p className="text-sm text-fg-muted">
-                                        Este espacio aún no tiene una actividad configurada. Pide a quien lo administra que la configure.
-                                    </p>
-                                ) : !canShowActivityEditor ? (
-                                    <p className="text-sm text-fg-muted">
-                                        No pudimos confirmar el tipo de este espacio. Recarga la página antes de cambiar su actividad.
-                                    </p>
-                                ) : (
-                                    <>
-                                        <OperatorProfileFields
-                                            vertical="agenda"
-                                            tier={operator.accountKind}
-                                            subtype={operator.operatorSubtype}
-                                            subtypeCustom={operator.operatorSubtypeCustom}
-                                            tierLocked={activeAccountIsPersonal === false || (
-                                                activeAccountIsPersonal === null && workspaceState?.workspace?.accountKind === 'company'
-                                            )}
+                            {/* Rubro / actividad compacto */}
+                            {canShowActivityEditor ? (
+                                <>
+                                    <PanelField
+                                        label="Rubro principal"
+                                        icon={<IconBriefcase size={14} />}
+                                    >
+                                        <select
+                                            className="form-input"
+                                            value={operator.operatorSubtype ?? ''}
                                             disabled={workspaceState?.canManage !== true || saving}
-                                            onTierChange={(tier) => {
+                                            onChange={(event) => {
+                                                const nextVal = normalizeOperatorSubtype('agenda', operator.accountKind, event.target.value);
                                                 setSaved(false);
                                                 setError('');
-                                                setOperator({
-                                                    accountKind: tier,
-                                                    operatorSubtype: null,
-                                                    operatorSubtypeCustom: '',
-                                                });
-                                            }}
-                                            onSubtypeChange={(subtype) => {
-                                                setSaved(false);
-                                                setError('');
-                                                setOperator((current) => ({
-                                                    ...current,
-                                                    operatorSubtype: subtype,
-                                                    operatorSubtypeCustom:
-                                                        subtype === 'other' ? current.operatorSubtypeCustom : '',
+                                                setOperator((curr) => ({
+                                                    ...curr,
+                                                    operatorSubtype: nextVal,
+                                                    operatorSubtypeCustom: nextVal === OPERATOR_SUBTYPE_OTHER_ID ? curr.operatorSubtypeCustom : '',
                                                 }));
                                             }}
-                                            onSubtypeCustomChange={(value) => {
-                                                setSaved(false);
-                                                setError('');
-                                                setOperator((current) => ({
-                                                    ...current,
-                                                    operatorSubtypeCustom: value,
-                                                }));
-                                            }}
-                                        />
-                                        {workspaceState?.canManage === false ? (
-                                            <p className="mt-3 text-xs text-fg-muted">
-                                                La actividad pertenece al espacio. Quien lo administra puede modificarla.
-                                            </p>
-                                        ) : null}
-                                    </>
-                                )}
-                            </div>
+                                        >
+                                            <option value="">Selecciona tu rubro</option>
+                                            {subtypes.map((item) => (
+                                                <option key={item.id} value={item.id}>
+                                                    {item.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </PanelField>
+
+                                    {!tierLocked && workspaceState?.canManage ? (
+                                        <PanelField label="Modalidad de cuenta">
+                                            <select
+                                                className="form-input"
+                                                value={operator.accountKind}
+                                                disabled={saving}
+                                                onChange={(event) => {
+                                                    const nextTier = event.target.value as OperatorTier;
+                                                    setSaved(false);
+                                                    setError('');
+                                                    setOperator({
+                                                        accountKind: nextTier,
+                                                        operatorSubtype: null,
+                                                        operatorSubtypeCustom: '',
+                                                    });
+                                                }}
+                                            >
+                                                {tierOptions.map((opt) => (
+                                                    <option key={opt.tier} value={opt.tier}>
+                                                        {opt.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </PanelField>
+                                    ) : operator.accountKind === 'company' && workspaceState?.canManage ? (
+                                        <PanelField label="Nombre del equipo o centro" required>
+                                            <input
+                                                type="text"
+                                                value={accountName}
+                                                disabled={saving}
+                                                onChange={(event) => {
+                                                    setSaved(false);
+                                                    setError('');
+                                                    setAccountName(event.target.value);
+                                                }}
+                                                maxLength={160}
+                                                placeholder="Ej. Centro Norte"
+                                                className="form-input"
+                                            />
+                                        </PanelField>
+                                    ) : null}
+
+                                    {showCustomSubtype ? (
+                                        <PanelField label="Describe tu rubro" required className="sm:col-span-2">
+                                            <input
+                                                type="text"
+                                                value={operator.operatorSubtypeCustom}
+                                                disabled={workspaceState?.canManage !== true || saving}
+                                                onChange={(event) => {
+                                                    setSaved(false);
+                                                    setError('');
+                                                    setOperator((curr) => ({ ...curr, operatorSubtypeCustom: event.target.value }));
+                                                }}
+                                                maxLength={80}
+                                                placeholder="Ej. Fonoaudiología infantil"
+                                                className="form-input"
+                                            />
+                                        </PanelField>
+                                    ) : null}
+                                </>
+                            ) : null}
 
                             <PanelField
                                 label={`${BUSINESS_DESCRIPTION_FIELD.label} (opcional)`}
-                                hint="Se usará automáticamente en tu ficha pública y en tu página web."
+                                hint="Aparecerá en tu ficha pública y página web."
                                 icon={<IconNotebook size={14} />}
                                 className="sm:col-span-2"
                             >
@@ -451,23 +616,96 @@ export default function PerfilConfigPage() {
                     </PanelCard>
                 </div>
 
-                {/* 2. Ubicación, zona horaria y sedes presenciales en un solo lugar */}
+                {/* 2. Modalidad y ubicación */}
                 <PanelCard size="lg" className="space-y-6">
-                    <div className="flex items-start gap-3">
-                        <span
-                            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
-                            style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}
-                        >
-                            <IconMapPin size={19} aria-hidden />
-                        </span>
-                        <PanelBlockHeader
-                            title="Ubicación y lugares de atención"
-                            description="Define tu región de operación para la zona horaria y administra las direcciones donde atiendes presencialmente."
-                            className="mb-0"
-                        />
+                    <PanelBlockHeader
+                        title="Modalidad y ubicación"
+                        description="Indica cómo atiendes y tu zona horaria para calcular los horarios de reserva."
+                        className="mb-0"
+                    />
+
+                    <div>
+                        <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                            ¿Cómo atiendes a tus {vocab.clients}?
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <button
+                                type="button"
+                                disabled={saving}
+                                aria-pressed={servesOnline}
+                                onClick={() => { setServesOnline((v) => !v); setSaved(false); setError(''); }}
+                                className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                                    servesOnline
+                                        ? 'border-(--accent) bg-(--accent-subtle)/40'
+                                        : 'border-(--border) bg-(--surface) hover:border-(--fg-muted)/40'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span
+                                        className="flex size-9 shrink-0 items-center justify-center rounded-xl"
+                                        style={{
+                                            background: servesOnline ? 'var(--accent-subtle)' : 'var(--bg-subtle)',
+                                            color: servesOnline ? 'var(--accent-ink)' : 'var(--fg-muted)',
+                                        }}
+                                    >
+                                        <IconVideo size={18} />
+                                    </span>
+                                    <div>
+                                        <p className="text-sm font-semibold text-fg">Atención online</p>
+                                        <p className="text-xs text-fg-muted">Videollamada o remoto</p>
+                                    </div>
+                                </div>
+                                <span
+                                    className={`flex size-5 items-center justify-center rounded-full border ${
+                                        servesOnline
+                                            ? 'border-(--accent) bg-(--accent) text-(--accent-contrast)'
+                                            : 'border-(--border)'
+                                    }`}
+                                >
+                                    {servesOnline ? <IconCheck size={12} stroke={2.5} /> : null}
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={saving}
+                                aria-pressed={servesPresential}
+                                onClick={() => { setServesPresential((v) => !v); setSaved(false); setError(''); }}
+                                className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                                    servesPresential
+                                        ? 'border-(--accent) bg-(--accent-subtle)/40'
+                                        : 'border-(--border) bg-(--surface) hover:border-(--fg-muted)/40'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span
+                                        className="flex size-9 shrink-0 items-center justify-center rounded-xl"
+                                        style={{
+                                            background: servesPresential ? 'var(--accent-subtle)' : 'var(--bg-subtle)',
+                                            color: servesPresential ? 'var(--accent-ink)' : 'var(--fg-muted)',
+                                        }}
+                                    >
+                                        <IconMapPin size={18} />
+                                    </span>
+                                    <div>
+                                        <p className="text-sm font-semibold text-fg">Atención presencial</p>
+                                        <p className="text-xs text-fg-muted">En consulta, oficina o local</p>
+                                    </div>
+                                </div>
+                                <span
+                                    className={`flex size-5 items-center justify-center rounded-full border ${
+                                        servesPresential
+                                            ? 'border-(--accent) bg-(--accent) text-(--accent-contrast)'
+                                            : 'border-(--border)'
+                                    }`}
+                                >
+                                    {servesPresential ? <IconCheck size={12} stroke={2.5} /> : null}
+                                </span>
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-4 border-t border-(--border) pt-5">
                         <StructuredLocationFields
                             value={businessLocation}
                             onChange={setBusinessLocationField}
@@ -490,15 +728,17 @@ export default function PerfilConfigPage() {
                         </div>
                     </div>
 
-                    <div id="ubicaciones" className="scroll-mt-24 border-t border-(--border) pt-6">
-                        <div className="mb-4">
-                            <h3 className="text-sm font-semibold text-(--fg)">Direcciones y sedes presenciales</h3>
-                            <p className="mt-0.5 text-xs text-fg-muted">
-                                Agrega tu consulta u oficina si atiendes presencialmente y decide si se muestra en tu perfil público.
-                            </p>
+                    {showLocationsManager ? (
+                        <div id="ubicaciones" className="scroll-mt-24 border-t border-(--border) pt-5">
+                            <div className="mb-4">
+                                <h3 className="text-sm font-semibold text-(--fg)">Direcciones presenciales</h3>
+                                <p className="mt-0.5 text-xs text-fg-muted">
+                                    Administra tus sedes o consultas y marca cuál se muestra en tu perfil público.
+                                </p>
+                            </div>
+                            <AgendaBusinessLocationsContent />
                         </div>
-                        <AgendaBusinessLocationsContent />
-                    </div>
+                    ) : null}
                 </PanelCard>
 
                 {/* 3. Contacto y redes */}
