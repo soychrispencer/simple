@@ -345,6 +345,12 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default', showPubl
                             ) : null}
                         </div>
 
+                        {!state.isPublished ? (
+                            <p className="text-xs leading-relaxed text-(--color-warning,#b45309)">
+                                Aún está en borrador: tus clientes verán «Página en preparación» hasta que publiques tu perfil arriba.
+                            </p>
+                        ) : null}
+
                         {publicUrl ? (
                             <div className="flex flex-wrap items-center gap-3">
                                 {showPublicPreviewAction ? (

@@ -813,8 +813,14 @@ export type TimeSlot = { startsAt: string; endsAt: string };
 export async function fetchPublicSlots(slug: string, date: string, serviceId?: string): Promise<TimeSlot[]> {
     const params = new URLSearchParams({ date });
     if (serviceId) params.set('serviceId', serviceId);
-    const res = await fetch(`${API_BASE}/api/public/agenda/${slug}/slots?${params.toString()}`);
-    const data = await res.json() as { ok: boolean; slots: TimeSlot[] };
+    const res = await fetch(`${API_BASE}/api/public/agenda/${slug}/slots?${params.toString()}`, { cache: 'no-store' });
+    if (!res.ok) {
+        throw new Error('No pudimos consultar los horarios.');
+    }
+    const data = await res.json() as { ok: boolean; slots?: TimeSlot[] };
+    if (!data.ok) {
+        throw new Error('No pudimos consultar los horarios.');
+    }
     return data.slots ?? [];
 }
 

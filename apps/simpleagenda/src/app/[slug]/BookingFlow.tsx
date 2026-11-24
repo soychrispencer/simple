@@ -613,7 +613,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             <PanelScrollModal
                 onClose={close}
                 size={step === 'date' ? '3xl' : 'md'}
-                zIndexClass="z-50"
+                zIndexClass="z-[80]"
                 overlayClassName="bg-black/40 backdrop-blur-[2px]"
                 panelClassName={hasCustomAccent ? 'booking-modal booking-modal--custom-accent' : 'booking-modal'}
                 titleId="booking-step-title"
@@ -911,7 +911,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                     <button
                                         type="button"
                                         onClick={handleInfoNext}
-                                        disabled={submitting || !clientName.trim() || !clientLastName.trim()}
+                                        disabled={submitting}
                                         className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"
                                     >
                                         {submitting ? 'Registrando…' : profile.requiresAdvancePayment || bookingTermsText || selectedService?.preconsultFields?.length ? 'Continuar' : 'Confirmar cita'}
@@ -1006,18 +1006,25 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                 <div className="rounded-xl border p-4 mb-5 text-sm leading-relaxed booking-encuadre-box">
                                     {bookingTermsText}
                                 </div>
-                                <label className="flex items-start gap-3 cursor-pointer mb-5">
-                                    <button
-                                        onClick={() => setPolicyAgreed(!policyAgreed)}
+                                <button
+                                    type="button"
+                                    role="checkbox"
+                                    aria-checked={policyAgreed}
+                                    onClick={() => setPolicyAgreed((v) => !v)}
+                                    className="flex items-start gap-3 cursor-pointer mb-5 text-left w-full"
+                                >
+                                    <span
+                                        aria-hidden="true"
                                         className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors booking-checkbox ${policyAgreed ? 'booking-checkbox--checked' : ''}`}
                                     >
                                         {policyAgreed && <IconCheck size={12} color="var(--accent-contrast)" />}
-                                    </button>
+                                    </span>
                                     <span className="text-sm booking-fg">
                                         He leído y acepto las condiciones de atención.
                                     </span>
-                                </label>
+                                </button>
                                 <button
+                                    type="button"
                                     onClick={handleEncuadreNext}
                                     disabled={!policyAgreed || submitting}
                                     className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"

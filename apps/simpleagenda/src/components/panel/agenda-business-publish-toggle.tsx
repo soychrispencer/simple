@@ -71,7 +71,7 @@ function getAgendaPublishRequirements(
             id: 'availability',
             label: 'Define tu horario',
             met: hasAvailability,
-            href: '/panel/mi-negocio/horarios#agenda-availability',
+            href: '/panel/mi-negocio/agenda#horario',
         },
     ];
 }

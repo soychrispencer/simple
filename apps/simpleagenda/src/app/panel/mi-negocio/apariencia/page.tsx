@@ -51,7 +51,7 @@ export default function AgendaWebsitePage() {
             description={canCustomize
                 ? 'Personaliza la página donde te conocen y reservan tus clientes.'
                 : 'Comparte tu enlace para recibir citas.'}
-            publishToggle={!loading && profile && !canCustomize ? <AgendaBusinessPublishToggle /> : undefined}
+            publishToggle={!loading && profile ? <AgendaBusinessPublishToggle /> : undefined}
         >
             <div className="mx-auto w-full max-w-[56rem]">
                 {loading ? (
