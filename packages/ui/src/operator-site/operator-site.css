@@ -105,7 +105,7 @@
     gap: 0.125rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
     .os-nav__links { display: flex; }
 }
 
@@ -115,6 +115,7 @@
     color: var(--fg-secondary);
     padding: 0.5rem 0.75rem;
     border-radius: var(--radius-sm);
+    white-space: nowrap;
     transition: color 0.15s ease, background 0.15s ease;
 }
 
@@ -195,7 +196,7 @@
     border-color: var(--border-strong);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
     .os-nav__menu { display: none; }
 }
 
@@ -637,12 +638,25 @@
 
 @media (min-width: 1024px) {
     .os-content-layout:not(.os-content-layout--no-sidebar) {
-        grid-template-columns: minmax(0, 1fr) minmax(240px, 16rem);
+        grid-template-columns: minmax(0, 1fr) minmax(250px, 18rem);
         grid-template-areas:
             "services sidebar"
-            "rest rest";
+            "rest sidebar";
         column-gap: 2rem;
         align-items: start;
+    }
+
+    .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest {
+        min-width: 0;
+    }
+
+    .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest .os-section {
+        padding-inline: 0;
+        padding-block: clamp(2.25rem, 4.5vw, 3.5rem);
+    }
+
+    .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest .os-section__inner {
+        max-width: none;
     }
 
     .os-content-layout__sidebar {
@@ -793,12 +807,25 @@
 
 @media (min-width: 1024px) {
     .os-content-layout:not(.os-content-layout--no-sidebar) {
-        grid-template-columns: minmax(0, 1fr) minmax(240px, 17.5rem);
+        grid-template-columns: minmax(0, 1fr) minmax(250px, 18rem);
         grid-template-areas:
             "services sidebar"
-            "rest rest";
+            "rest sidebar";
         column-gap: 1.75rem;
         align-items: start;
+    }
+
+    .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest {
+        min-width: 0;
+    }
+
+    .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest .os-section {
+        padding-inline: 0;
+        padding-block: clamp(2.25rem, 4.5vw, 3.5rem);
+    }
+
+    .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest .os-section__inner {
+        max-width: none;
     }
 
     .os-content-layout__sidebar {
@@ -2589,10 +2616,20 @@
 
 @media (min-width: 1024px) {
     .os-page[data-os-layout="booking"] .os-content-layout:not(.os-content-layout--no-sidebar) {
-        grid-template-columns: 1fr minmax(240px, 17.5rem);
-        grid-template-areas: "services sidebar" "rest rest";
+        grid-template-columns: minmax(0, 1fr) minmax(250px, 18rem);
+        grid-template-areas: "services sidebar" "rest sidebar";
         column-gap: 1.75rem;
         align-items: start;
+    }
+    .os-page[data-os-layout="booking"] .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest {
+        min-width: 0;
+    }
+    .os-page[data-os-layout="booking"] .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest .os-section {
+        padding-inline: 0;
+        padding-block: clamp(2.25rem, 4.5vw, 3.5rem);
+    }
+    .os-page[data-os-layout="booking"] .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest .os-section__inner {
+        max-width: none;
     }
     .os-page[data-os-layout="booking"] .os-content-layout__sidebar {
         position: sticky;
@@ -3065,10 +3102,20 @@
 
 @media (min-width: 1024px) {
     .os-page[data-os-layout="portfolio"] .os-content-layout:not(.os-content-layout--no-sidebar) {
-        grid-template-columns: 1fr minmax(240px, 17.5rem);
-        grid-template-areas: "services sidebar" "rest rest";
+        grid-template-columns: minmax(0, 1fr) minmax(250px, 18rem);
+        grid-template-areas: "services sidebar" "rest sidebar";
         column-gap: 1.75rem;
         align-items: start;
+    }
+    .os-page[data-os-layout="portfolio"] .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest {
+        min-width: 0;
+    }
+    .os-page[data-os-layout="portfolio"] .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest .os-section {
+        padding-inline: 0;
+        padding-block: clamp(2.25rem, 4.5vw, 3.5rem);
+    }
+    .os-page[data-os-layout="portfolio"] .os-content-layout:not(.os-content-layout--no-sidebar) .os-content-layout__rest .os-section__inner {
+        max-width: none;
     }
     .os-page[data-os-layout="portfolio"] .os-content-layout__sidebar {
         position: sticky;

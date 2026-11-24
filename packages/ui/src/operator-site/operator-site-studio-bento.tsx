@@ -72,10 +72,15 @@ export function OperatorSiteStudioBento({
                             <div className="os-bento__cell os-bento__cell--location os-glass" id="ubicacion">
                                 <p className="os-bento__label">Ubicación</p>
                                 <div className="flex flex-col gap-2">
-                                    {profile.city ? (
+                                    {profile.locations.length === 0 && profile.city ? (
                                         <div className="os-bento__row">
                                             <IconMapPin size={16} />
-                                            <span>{[profile.city, profile.region].filter(Boolean).join(', ')}</span>
+                                            <span>
+                                                {[
+                                                    profile.city,
+                                                    profile.region && !/^[a-z]{2}-\d+$/i.test(profile.region.trim()) ? profile.region : null,
+                                                ].filter(Boolean).join(', ')}
+                                            </span>
                                         </div>
                                     ) : null}
                                     {profile.locations.slice(0, 2).map((loc) => (

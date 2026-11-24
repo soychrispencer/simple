@@ -137,7 +137,15 @@ function PaymentMethodsBlock({ pm, layout }: { pm: AgendaOperatorSiteProps['prof
     );
 }
 
+function formatPublicCityRegion(city?: string | null, region?: string | null): string {
+    const cleanRegion = region && !/^[a-z]{2}-\d+$/i.test(region.trim()) ? region.trim() : null;
+    return [city?.trim() || null, cleanRegion].filter(Boolean).join(', ');
+}
+
 function LocationSection({ profile, layout }: { profile: AgendaOperatorSiteProps['profile']; layout: OperatorSiteLayout }) {
+    const cityRegion = formatPublicCityRegion(profile.city, profile.region);
+    const showGeneralLocation = profile.locations.length === 0 && Boolean(cityRegion);
+
     return (
         <OperatorSiteReveal delayMs={80} variant={layout === 'studio' ? 'fade-right' : 'fade-up'}>
             <section id="ubicacion" className="os-section os-section--location">
@@ -145,20 +153,19 @@ function LocationSection({ profile, layout }: { profile: AgendaOperatorSiteProps
                     <p className="os-section__label">Ubicación</p>
                     <h2 className="os-section__title">Dónde atiendo</h2>
                     <div className="flex flex-col gap-3">
-                        {profile.city ? (
+                        {showGeneralLocation ? (
                             <div className="os-location-card">
                                 <span className="os-contact-card__icon">
                                     <IconMapPin size={16} />
                                 </span>
                                 <div>
-                                    <p className="text-sm font-semibold text-(--fg)">Zona de operación</p>
-                                    <p className="text-sm text-(--fg-secondary)">
-                                        {[profile.city, profile.region].filter(Boolean).join(', ')}
-                                    </p>
+                                    <p className="text-sm font-semibold text-(--fg)">Ciudad de atención</p>
+                                    <p className="text-sm text-(--fg-secondary)">{cityRegion}</p>
                                 </div>
                             </div>
                         ) : null}
                         {profile.locations.map((loc) => {
+                            const locArea = formatPublicCityRegion(loc.city, loc.region);
                             const mapUrl = loc.googleMapsUrl
                                 || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([loc.addressLine, loc.city, loc.region].filter(Boolean).join(', '))}`;
                             return (
@@ -175,10 +182,8 @@ function LocationSection({ profile, layout }: { profile: AgendaOperatorSiteProps
                                     <div className="min-w-0">
                                         <p className="text-sm font-semibold text-(--fg)">{loc.name}</p>
                                         <p className="text-sm text-(--fg-secondary)">{loc.addressLine}</p>
-                                        {(loc.city || loc.region) ? (
-                                            <p className="text-xs text-(--fg-muted)">
-                                                {[loc.city, loc.region].filter(Boolean).join(', ')}
-                                            </p>
+                                        {locArea ? (
+                                            <p className="text-xs text-(--fg-muted)">{locArea}</p>
                                         ) : null}
                                     </div>
                                 </a>
@@ -608,7 +613,6 @@ export function AgendaOperatorSite({
     brandHref = 'https://simpleagenda.app',
 }: AgendaOperatorSiteProps) {
     const [navScrolled, setNavScrolled] = useState(false);
-    const [hideFloatCta, setHideFloatCta] = useState(true);
 
     const landing = profile.landingPage;
     const sections = landing?.sections;
@@ -705,8 +709,6 @@ export function AgendaOperatorSite({
     useEffect(() => {
         const onScroll = () => {
             setNavScrolled(window.scrollY > 24);
-            const heroBottom = document.getElementById('inicio')?.offsetHeight ?? 400;
-            setHideFloatCta(window.scrollY < heroBottom * 0.55);
         };
         onScroll();
         window.addEventListener('scroll', onScroll, { passive: true });
@@ -857,16 +859,6 @@ export function AgendaOperatorSite({
                 layout={layout}
                 navItems={navItems.map((item) => ({ id: item.id, label: item.label }))}
             />
-
-            <button
-                type="button"
-                className={`os-float-cta ${hideFloatCta ? 'os-float-cta--hidden' : ''}`}
-                onClick={() => scrollToSection(isBooking ? 'inicio' : BOOKING_SECTION_ID)}
-                aria-label="Ir a reservar cita"
-            >
-                <IconCalendarEvent size={18} />
-                Reservar
-            </button>
         </OperatorSiteThemeShell>
     );
 }

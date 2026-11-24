@@ -102,14 +102,18 @@ export function OperatorSiteThemeShell({
         ? accentFallback?.darkContrast ?? accentFallback?.contrast
         : accentFallback?.lightContrast ?? accentFallback?.contrast;
     const resolvedAccent = fallback ?? operatorSiteAccentCssValue(accentColor);
+    const resolvedAccentContrast = fallback
+        ? fallbackContrast
+        : operatorSiteAccentContrastCssValue(resolvedAccent);
     const resolvedAccentInk = fallback
         ? resolvedColor === 'dark'
             ? accentFallback?.darkInk ?? resolvedAccent
             : accentFallback?.lightInk ?? resolvedAccent
-        : resolvedAccent;
-    const resolvedAccentContrast = fallback
-        ? fallbackContrast
-        : operatorSiteAccentContrastCssValue(resolvedAccent);
+        : resolvedColor === 'dark' && resolvedAccentContrast === '#FFFFFF'
+            ? `color-mix(in srgb, ${resolvedAccent} 45%, #FFFFFF)`
+            : resolvedColor === 'light' && resolvedAccentContrast === '#0E0E10'
+                ? `color-mix(in srgb, ${resolvedAccent} 68%, #0E0E10)`
+                : resolvedAccent;
     const accentStyle = {
         '--accent': resolvedAccent,
         '--accent-ink': resolvedAccentInk,

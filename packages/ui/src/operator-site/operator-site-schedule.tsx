@@ -1,14 +1,22 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { IconClock } from '@tabler/icons-react';
 import { formatBusinessScheduleRange, isBusinessOpenNow } from '@simple/utils';
 import type { OperatorSiteSchedule } from './types.js';
 
 function ScheduleBody({ schedule }: { schedule: OperatorSiteSchedule }) {
-    const todayDow = new Date().getDay();
-    const today = schedule.days.find((day) => day.dayOfWeek === todayDow && day.isActive);
-    const openNow = schedule.alwaysOpen
-        || (today ? isBusinessOpenNow(today.startTime, today.endTime) : false);
+    const [statusNow, setStatusNow] = useState<{ hasToday: boolean; openNow: boolean } | null>(null);
+
+    useEffect(() => {
+        if (schedule.alwaysOpen) return;
+        const todayDow = new Date().getDay();
+        const today = schedule.days.find((day) => day.dayOfWeek === todayDow && day.isActive);
+        setStatusNow({
+            hasToday: Boolean(today),
+            openNow: today ? isBusinessOpenNow(today.startTime, today.endTime) : false,
+        });
+    }, [schedule.alwaysOpen, schedule.days]);
 
     if (schedule.alwaysOpen) {
         return (
@@ -21,10 +29,10 @@ function ScheduleBody({ schedule }: { schedule: OperatorSiteSchedule }) {
 
     return (
         <>
-            {today ? (
-                <div className={`os-schedule-status ${openNow ? 'os-schedule-status--open' : 'os-schedule-status--closed'}`}>
+            {statusNow?.hasToday ? (
+                <div className={`os-schedule-status ${statusNow.openNow ? 'os-schedule-status--open' : 'os-schedule-status--closed'}`}>
                     <IconClock size={16} />
-                    {openNow ? 'Abierto ahora' : 'Cerrado ahora'}
+                    {statusNow.openNow ? 'Abierto ahora' : 'Cerrado ahora'}
                 </div>
             ) : null}
             <div className="os-schedule-sidebar__grid">
