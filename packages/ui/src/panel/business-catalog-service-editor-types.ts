@@ -13,6 +13,7 @@ export type BusinessCatalogServiceRowProps = {
     description?: string | null;
     imageUrl?: string | null;
     accentColor?: string | null;
+    emptyThumbnail?: 'placeholder' | 'color';
     footer?: ReactNode;
 };
 
@@ -83,5 +84,7 @@ export type BusinessCatalogServiceEditorProps<
     toolbarSummary?: (items: T[]) => string;
     /** Si existe, “Nuevo” navega a Publicar en lugar de abrir el formulario de alta. */
     createHref?: string;
+    /** Deshabilita la acción de crear servicio (p. ej. al alcanzar el tope del plan Gratis). */
+    createActionDisabled?: boolean;
     className?: string;
 };

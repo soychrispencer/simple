@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { IconCheck } from '@tabler/icons-react';
+import Link from 'next/link';
+import { IconArrowRight, IconCheck, IconLoader2 } from '@tabler/icons-react';
 import {
+    PanelCard,
     PanelNotice,
     AGENDA_BUSINESS_PROMOCIONES_PAGE,
     BusinessCatalogTabs,
@@ -13,7 +15,6 @@ import {
     EMPTY_CATALOG_PROMOTION_FORM,
     PanelConfirmProvider,
     validateCatalogPromotionAppliesTo,
-    agendaBusinessSubsectionShellProps,
     type BusinessCatalogPromotionAdapter,
     type CatalogPromotionFormValues,
 } from '@simple/ui/panel';
@@ -29,7 +30,10 @@ import {
     patchAgendaPromotion,
     deleteAgendaPromotion,
     fetchAgendaServices,
+    fetchAgendaProfile,
+    hasAgendaFullAccess,
     type AgendaPromotion,
+    type AgendaProfile,
 } from '@/lib/agenda-api';
 
 type AgendaPromotionItem = AgendaPromotion & { name: string };
@@ -90,14 +94,23 @@ export default function PromocionesPage() {
 function PromocionesPageContent() {
     const vocab = useAgendaVocab();
     const [services, setServices] = useState<Array<{ id: string; name: string }>>([]);
+    const [profile, setProfile] = useState<AgendaProfile | null>(null);
+    const [profileLoading, setProfileLoading] = useState(true);
     const [flash, setFlash] = useState<string | null>(null);
     const { copiedCode, copyCode } = useCatalogPromotionCodeCopy();
 
     useEffect(() => {
-        void fetchAgendaServices().then((items) => {
+        let active = true;
+        void Promise.all([fetchAgendaServices(), fetchAgendaProfile()]).then(([items, loadedProfile]) => {
+            if (!active) return;
             setServices(items.filter((service) => service.isActive).map((service) => ({ id: service.id, name: service.name })));
+            setProfile(loadedProfile);
+            setProfileLoading(false);
         });
+        return () => { active = false; };
     }, []);
+
+    const hasFullAccess = !profile || hasAgendaFullAccess(profile);
 
     const adapter = useMemo((): BusinessCatalogPromotionAdapter<AgendaPromotionItem> => ({
         load: async () => {
@@ -177,7 +190,6 @@ function PromocionesPageContent() {
 
     return (
         <AgendaMisServiciosShell
-            {...agendaBusinessSubsectionShellProps('promociones')}
             activeKey="servicios"
             title={AGENDA_BUSINESS_PROMOCIONES_PAGE.title}
             description={AGENDA_BUSINESS_PROMOCIONES_PAGE.description}
@@ -185,34 +197,56 @@ function PromocionesPageContent() {
             <div className="space-y-6">
                 <BusinessCatalogTabs active="promotions" variant="links" hrefs={AGENDA_BUSINESS_CATALOG_HREFS} />
 
-                {flash ? (
-                    <PanelNotice tone="success">
-                        <span className="flex items-center gap-2">
-                            <IconCheck size={14} /> {flash}
-                        </span>
-                    </PanelNotice>
-                ) : null}
+                {profileLoading ? (
+                    <p className="flex items-center gap-2 text-sm text-fg-muted">
+                        <IconLoader2 size={16} className="animate-spin" />
+                        Cargando…
+                    </p>
+                ) : !hasFullAccess ? (
+                    <PanelCard size="lg">
+                        <h2 className="text-lg font-bold tracking-tight text-fg">Descuentos y cupones</h2>
+                        <p className="mt-2 text-sm text-fg-secondary">
+                            Las promociones y códigos de descuento para tus {vocab.clients} están disponibles desde Plan Pro o durante tus 30 días de prueba gratis.
+                        </p>
+                        <Link
+                            href="/panel/mi-negocio/plan"
+                            className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90"
+                        >
+                            Ver planes y prueba gratis <IconArrowRight size={16} aria-hidden="true" />
+                        </Link>
+                    </PanelCard>
+                ) : (
+                    <>
+                        {flash ? (
+                            <PanelNotice tone="success">
+                                <span className="flex items-center gap-2">
+                                    <IconCheck size={14} /> {flash}
+                                </span>
+                            </PanelNotice>
+                        ) : null}
 
-                <BusinessCatalogPromotionEditor
-                    adapter={adapter}
-                    emptyForm={AGENDA_EMPTY_PROMO}
-                    services={services}
-                    formLayout="modal"
-                    onNotice={setFlash}
-                    promotionFormFields={{
-                        features: { couponCode: true, minAmount: true, maxUses: true, dateInput: 'datetime-local' },
-                        labelPlaceholder: 'Primera sesión',
-                    }}
-                    copy={{
-                        emptyTitle: 'Aún no tienes promociones',
-                        emptyDescription: `Crea tu primer cupón y compártelo en redes o con tus ${vocab.clients}.`,
-                        archiveMessage: (name) => `"${name}" se pausará y dejará de aplicarse. Podrás reactivarla con el interruptor.`,
-                        createSubmitLabel: 'Crear',
-                        editSubmitLabel: 'Guardar cambios',
-                        createdNotice: 'Promoción creada.',
-                        updatedNotice: 'Promoción actualizada.',
-                    }}
-                />
+                        <BusinessCatalogPromotionEditor
+                            adapter={adapter}
+                            emptyForm={AGENDA_EMPTY_PROMO}
+                            services={services}
+                            formLayout="modal"
+                            onNotice={setFlash}
+                            promotionFormFields={{
+                                features: { couponCode: true, minAmount: true, maxUses: true, dateInput: 'datetime-local' },
+                                labelPlaceholder: 'Primera sesión',
+                            }}
+                            copy={{
+                                emptyTitle: 'Aún no tienes promociones',
+                                emptyDescription: `Crea tu primer cupón y compártelo en redes o con tus ${vocab.clients}.`,
+                                archiveMessage: (name) => `"${name}" se pausará y dejará de aplicarse. Podrás reactivarla con el interruptor.`,
+                                createSubmitLabel: 'Crear',
+                                editSubmitLabel: 'Guardar cambios',
+                                createdNotice: 'Promoción creada.',
+                                updatedNotice: 'Promoción actualizada.',
+                            }}
+                        />
+                    </>
+                )}
             </div>
         </AgendaMisServiciosShell>
     );

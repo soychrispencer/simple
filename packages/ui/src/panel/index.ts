@@ -417,7 +417,9 @@ export {
 export {
     BusinessCatalogAgendaServiceFields,
     type BusinessCatalogAgendaServiceFieldsProps,
+    AgendaServiceKindSelector,
     type AgendaCatalogServiceExtraValues,
+    type AgendaSavedLocationOption,
 } from './business-catalog-agenda-service-fields.js';
 export {
     BusinessCatalogAgendaPreconsultFields,

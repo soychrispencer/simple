@@ -24,6 +24,8 @@ export type BusinessServiceListRowProps = {
     statusBadge?: Pick<PanelStatusBadgeProps, 'label' | 'tone'>;
     /** Oculta la miniatura (p. ej. promociones sin imagen). */
     hideThumbnail?: boolean;
+    /** Qué mostrar cuando no hay imageUrl: placeholder de foto o badge compacto de color. */
+    emptyThumbnail?: 'placeholder' | 'color';
     isEditing?: boolean;
     toggling?: boolean;
     deleting?: boolean;
@@ -58,14 +60,34 @@ function MetaContent({ meta }: { meta: ReactNode }) {
 function ListRowThumbnail({
     imageUrl,
     accentColor,
+    emptyThumbnail = 'placeholder',
     name,
 }: {
     imageUrl?: string | null;
     accentColor?: string | null;
+    emptyThumbnail?: 'placeholder' | 'color';
     name: string;
 }) {
     const resolved = resolveAppMediaUrl(imageUrl);
     const stripeColor = accentColor ?? 'var(--accent)';
+
+    if (!resolved && emptyThumbnail === 'color') {
+        return (
+            <div
+                className="flex h-11 w-11 shrink-0 items-center justify-center self-start rounded-xl border border-(--border) sm:self-center"
+                style={{
+                    background: `color-mix(in oklab, ${stripeColor} 12%, var(--surface))`,
+                }}
+                aria-hidden
+            >
+                <span
+                    className="h-3.5 w-3.5 rounded-full ring-2 ring-(--surface)"
+                    style={{ background: stripeColor }}
+                />
+                <span className="sr-only">{name}</span>
+            </div>
+        );
+    }
 
     return (
         <div
@@ -109,6 +131,7 @@ export function BusinessServiceListRow({
     accentColor,
     statusBadge,
     hideThumbnail = false,
+    emptyThumbnail = 'placeholder',
     isEditing = false,
     toggling = false,
     deleting = false,
@@ -128,7 +151,12 @@ export function BusinessServiceListRow({
         >
             <div className="flex min-h-[5.5rem] items-stretch gap-4 p-4">
                 {hideThumbnail ? null : (
-                    <ListRowThumbnail imageUrl={imageUrl} accentColor={accentColor} name={name} />
+                    <ListRowThumbnail
+                        imageUrl={imageUrl}
+                        accentColor={accentColor}
+                        emptyThumbnail={emptyThumbnail}
+                        name={name}
+                    />
                 )}
 
                 <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">

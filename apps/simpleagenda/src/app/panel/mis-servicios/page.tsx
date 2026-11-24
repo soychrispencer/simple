@@ -1,18 +1,22 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
     BusinessCatalogTabs,
     AGENDA_BUSINESS_CATALOG_HREFS,
     BusinessCatalogServiceEditor,
     BusinessCatalogAgendaServiceFields,
+    BusinessCatalogAgendaPreconsultFields,
+    AgendaServiceKindSelector,
     PanelConfirmProvider,
+    PanelNotice,
     AGENDA_BUSINESS_SERVICIOS_PAGE,
     type BusinessCatalogServiceAdapter,
     type BusinessCatalogServiceFormValues,
 } from '@simple/ui/panel';
 import {
+    AGENDA_PRICING,
     AGENDA_SERVICE_KIND_LABELS,
     DEFAULT_BUSINESS_CALENDAR_COLOR,
     DEFAULT_BUSINESS_SERVICE_MODALITY_ONLINE_FIRST,
@@ -27,10 +31,15 @@ import { AgendaMisServiciosShell } from '@/components/panel/agenda-mis-servicios
 import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
 import {
     fetchAgendaServices,
+    fetchAgendaProfile,
+    fetchAgendaLocations,
+    hasAgendaFullAccess,
     createAgendaService,
     updateAgendaService,
     deleteAgendaService,
     notifyAgendaSetupChanged,
+    type AgendaLocation,
+    type AgendaProfile,
     type AgendaService,
 } from '@/lib/agenda-api';
 
@@ -153,6 +162,46 @@ export default function ServiciosConfigPage() {
 }
 
 function ServiciosConfigPageContent() {
+    const [profile, setProfile] = useState<AgendaProfile | null>(null);
+    const [locations, setLocations] = useState<AgendaLocation[]>([]);
+    const [services, setServices] = useState<AgendaService[]>([]);
+    const servicesRef = useRef<AgendaService[]>([]);
+    servicesRef.current = services;
+
+    useEffect(() => {
+        let active = true;
+        const loadContext = async () => {
+            const [loadedProfile, loadedLocations] = await Promise.all([
+                fetchAgendaProfile(),
+                fetchAgendaLocations().catch(() => [] as AgendaLocation[]),
+            ]);
+            if (!active) return;
+            setProfile(loadedProfile);
+            setLocations(loadedLocations);
+        };
+        void loadContext();
+        const refresh = () => { void loadContext(); };
+        window.addEventListener('simple:agenda-profile-changed', refresh);
+        window.addEventListener('simple:agenda-setup-changed', refresh);
+        return () => {
+            active = false;
+            window.removeEventListener('simple:agenda-profile-changed', refresh);
+            window.removeEventListener('simple:agenda-setup-changed', refresh);
+        };
+    }, []);
+
+    const hasFullAccess = !profile || hasAgendaFullAccess(profile);
+    const activeCount = useMemo(() => services.filter((item) => item.isActive).length, [services]);
+    const atFreeServiceLimit = !hasFullAccess && activeCount >= AGENDA_PRICING.free.activeServices;
+    const defaultOnline = profile?.servesOnline ?? true;
+    const defaultPresential = profile?.servesPresential ?? false;
+    const emptyForm = useMemo<AgendaServiceForm>(() => ({
+        ...AGENDA_EMPTY_SERVICE,
+        isOnline: defaultOnline || !defaultPresential,
+        isPresential: defaultPresential,
+    }), [defaultOnline, defaultPresential]);
+    const activeSavedLocations = useMemo(() => locations.filter((loc) => loc.isActive), [locations]);
+
     const adapter = useMemo((): BusinessCatalogServiceAdapter<AgendaService, AgendaServiceForm> => ({
         load: async () => ({ ok: true, items: await fetchAgendaServices() }),
         save: async (id, form) => {
@@ -165,6 +214,15 @@ function ServiciosConfigPageContent() {
                 : { ok: false, error: result.error ?? 'Error al guardar.' };
         },
         toggle: async (service) => {
+            if (!hasFullAccess && !service.isActive) {
+                const currentActive = servicesRef.current.filter((item) => item.isActive).length;
+                if (currentActive >= AGENDA_PRICING.free.activeServices) {
+                    return {
+                        ok: false,
+                        error: `Tu plan Gratis permite hasta ${AGENDA_PRICING.free.activeServices} servicios activos. Pausa otro servicio o pásate a Pro.`,
+                    };
+                }
+            }
             const result = await updateAgendaService(service.id, { isActive: !service.isActive });
             if (result.ok) notifyAgendaSetupChanged();
             return { ok: result.ok, error: result.error };
@@ -175,7 +233,12 @@ function ServiciosConfigPageContent() {
             return result.ok ? { ok: true } : { ok: false, error: 'No se pudo archivar el servicio.' };
         },
         toForm: serviceToForm,
-        validate: validateAgendaServiceForm,
+        validate: (form) => {
+            if (!hasFullAccess && form.kind === 'group_event') {
+                return 'Las sesiones grupales están disponibles desde Plan Pro.';
+            }
+            return validateAgendaServiceForm(form);
+        },
         getRowProps: (service) => {
             const isGroup = isAgendaGroupService(service.kind);
             const metaParts = [
@@ -200,6 +263,7 @@ function ServiciosConfigPageContent() {
                 imageUrl: service.imageUrl,
                 description: service.description,
                 accentColor: service.color ?? 'var(--accent)',
+                emptyThumbnail: 'color',
                 meta: metaParts.join(' · '),
                 footer: isGroup ? (
                     <Link
@@ -211,7 +275,7 @@ function ServiciosConfigPageContent() {
                 ) : undefined,
             };
         },
-    }), []);
+    }), [hasFullAccess]);
 
     return (
         <AgendaMisServiciosShell
@@ -221,43 +285,92 @@ function ServiciosConfigPageContent() {
             <div className="space-y-6">
                 <BusinessCatalogTabs active="services" variant="links" hrefs={AGENDA_BUSINESS_CATALOG_HREFS} />
                 <AgendaSetupTip focusStepId="servicios" />
-                <p className="text-xs text-fg-muted">
-                    Los servicios activos solo se pueden reservar mientras tu perfil público esté publicado.
-                </p>
+
+                {atFreeServiceLimit ? (
+                    <PanelNotice tone="info">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p>
+                                Estás usando {activeCount} de {AGENDA_PRICING.free.activeServices} servicios activos en tu plan Gratis. Pausa uno para activar otro o pásate a Pro.
+                            </p>
+                            <Link href="/panel/mi-negocio/plan" className="shrink-0 font-semibold underline-offset-2 hover:underline">
+                                Ver planes →
+                            </Link>
+                        </div>
+                    </PanelNotice>
+                ) : null}
 
                 <div id="agenda-first-service" className="scroll-mt-24">
-                <BusinessCatalogServiceEditor
-                    adapter={adapter}
-                    emptyForm={AGENDA_EMPTY_SERVICE}
-                    formLayout="modal"
-                    resolveFormFieldsProps={({ form, setForm }) => ({
-                        imageOptional: true,
-                        priceOptional: true,
-                        showPromoPrice: false,
-                        extraFields: (
-                            <BusinessCatalogAgendaServiceFields
-                                values={{
-                                    kind: form.kind,
-                                    startsAt: form.startsAt,
-                                    capacity: form.capacity,
-                                    location: form.location,
-                                    meetingUrl: form.meetingUrl,
-                                    isOnline: form.isOnline,
-                                    isPresential: form.isPresential,
-                                }}
-                                onChange={(key, value) => setForm((prev) => ({ ...prev, [key]: value }))}
-                                preconsultFields={form.preconsultFields}
-                                onPreconsultFieldsChange={(preconsultFields) => setForm((prev) => ({ ...prev, preconsultFields }))}
-                            />
-                        ),
-                    })}
-                    copy={{
-                        modalDescription: 'Empieza con un nombre y una duración. El precio, la imagen y las preguntas previas son opcionales.',
-                        emptyTitle: 'Todavía no pueden reservarte',
-                        emptyDescription: 'Crea tu primer servicio con nombre y duración. El precio puede agregarse después; luego defines horario y publicas tu link.',
-                        archiveMessage: (name) => `"${name}" dejará de estar disponible. Podrás reactivarlo con el interruptor.`,
-                    }}
-                />
+                    <BusinessCatalogServiceEditor
+                        adapter={adapter}
+                        emptyForm={emptyForm}
+                        formLayout="modal"
+                        createActionDisabled={atFreeServiceLimit}
+                        onItemsChange={setServices}
+                        toolbarSummary={(items) => {
+                            if (items.length === 0) return 'Sin servicios creados';
+                            const active = items.filter((item) => item.isActive).length;
+                            if (!hasFullAccess) {
+                                return `${active} de ${AGENDA_PRICING.free.activeServices} servicios activos en plan Gratis`;
+                            }
+                            return `${active} activo${active === 1 ? '' : 's'} de ${items.length}`;
+                        }}
+                        resolveFormFieldsProps={({ form, setForm }) => {
+                            const questionCount = form.preconsultFields.length;
+                            const advancedSummaryHint = form.kind === 'group_event'
+                                ? 'Color e imagen'
+                                : questionCount > 0
+                                    ? `${questionCount} pregunta${questionCount === 1 ? '' : 's'} al reservar`
+                                    : 'Opcional';
+
+                            return {
+                                imageOptional: true,
+                                priceOptional: true,
+                                showPromoPrice: false,
+                                durationPresets: [30, 45, 50, 60, 90],
+                                collapseOptionalVisuals: true,
+                                defaultAdvancedOpen: questionCount > 0,
+                                advancedSummary: 'Color, imagen y preguntas al reservar',
+                                advancedSummaryHint,
+                                topFields: (
+                                    <AgendaServiceKindSelector
+                                        value={form.kind}
+                                        onChange={(nextKind) => setForm((prev) => ({ ...prev, kind: nextKind }))}
+                                        groupDisabled={!hasFullAccess}
+                                    />
+                                ),
+                                extraFields: (
+                                    <BusinessCatalogAgendaServiceFields
+                                        showKindField={false}
+                                        showPreconsult={false}
+                                        groupDisabled={!hasFullAccess}
+                                        savedLocations={activeSavedLocations}
+                                        values={{
+                                            kind: form.kind,
+                                            startsAt: form.startsAt,
+                                            capacity: form.capacity,
+                                            location: form.location,
+                                            meetingUrl: form.meetingUrl,
+                                            isOnline: form.isOnline,
+                                            isPresential: form.isPresential,
+                                        }}
+                                        onChange={(key, value) => setForm((prev) => ({ ...prev, [key]: value }))}
+                                    />
+                                ),
+                                advancedExtraFields: form.kind !== 'group_event' ? (
+                                    <BusinessCatalogAgendaPreconsultFields
+                                        fields={form.preconsultFields}
+                                        onChange={(preconsultFields) => setForm((prev) => ({ ...prev, preconsultFields }))}
+                                    />
+                                ) : undefined,
+                            };
+                        }}
+                        copy={{
+                            modalDescription: 'Define lo esencial para que puedan reservarte. El resto es opcional.',
+                            emptyTitle: 'Todavía no pueden reservarte',
+                            emptyDescription: 'Crea tu primer servicio con nombre y duración. Luego defines horario y publicas tu link.',
+                            archiveMessage: (name) => `"${name}" dejará de estar disponible. Podrás reactivarlo con el interruptor.`,
+                        }}
+                    />
                 </div>
             </div>
         </AgendaMisServiciosShell>

@@ -33,6 +33,7 @@ export function BusinessCatalogServiceEditor<
     onItemsChange,
     toolbarSummary,
     createHref,
+    createActionDisabled = false,
     className = 'w-full space-y-6',
 }: BusinessCatalogServiceEditorProps<T, TForm>) {
     const copy = { ...DEFAULT_CATALOG_SERVICE_EDITOR_COPY, ...copyInput };
@@ -211,7 +212,7 @@ export function BusinessCatalogServiceEditor<
     // Mis publicaciones (createHref): crear solo con el + Publicar del header de la app.
     const manageOnly = Boolean(createHref);
     const emptyAction = manageOnly ? undefined : (
-        <PanelButton type="button" onClick={openCreate}>
+        <PanelButton type="button" onClick={openCreate} disabled={createActionDisabled}>
             <IconPlus size={16} />
             {copy.actionLabel}
         </PanelButton>
@@ -225,6 +226,7 @@ export function BusinessCatalogServiceEditor<
                 onAction={manageOnly ? undefined : openCreate}
                 actionHref={undefined}
                 hideAction={formOpen || manageOnly}
+                actionDisabled={createActionDisabled}
             />
             {listNotice ? <PanelNotice tone="warning">{listNotice}</PanelNotice> : null}
 
@@ -278,6 +280,7 @@ export function BusinessCatalogServiceEditor<
                                 description={row.description}
                                 imageUrl={row.imageUrl}
                                 accentColor={row.accentColor}
+                                emptyThumbnail={row.emptyThumbnail}
                                 isActive={item.isActive}
                                 isEditing={editingId === item.id && formOpen}
                                 toggling={togglingId === item.id}

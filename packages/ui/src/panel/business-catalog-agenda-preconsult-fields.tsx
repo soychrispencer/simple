@@ -15,12 +15,16 @@ import { PanelSelect } from './panel-select.js';
 export type BusinessCatalogAgendaPreconsultFieldsProps = {
     fields: AgendaPreconsultField[];
     onChange: (fields: AgendaPreconsultField[]) => void;
+    label?: string;
+    hint?: string;
     className?: string;
 };
 
 export function BusinessCatalogAgendaPreconsultFields({
     fields,
     onChange,
+    label = 'Preguntas al reservar',
+    hint = 'Quien reserva las responde antes de confirmar. Las verás en la ficha de la reserva.',
     className = 'md:col-span-2',
 }: BusinessCatalogAgendaPreconsultFieldsProps) {
     const updateField = (id: string, patch: Partial<AgendaPreconsultField>) => {
@@ -44,10 +48,10 @@ export function BusinessCatalogAgendaPreconsultFields({
     };
 
     return (
-        <PanelField label="Preguntas pre-consulta" className={className}>
+        <PanelField label={label} className={className}>
             <div className="flex flex-col gap-2">
                 <p className="text-xs text-fg-muted">
-                    El cliente las responde al reservar. Las verás en la ficha de la cita.
+                    {hint}
                 </p>
                 {fields.map((field, index) => (
                     <div key={field.id} className="flex flex-col gap-2 rounded-xl border border-border bg-bg-subtle p-3">

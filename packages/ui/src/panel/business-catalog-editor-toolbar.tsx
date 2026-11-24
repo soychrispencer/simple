@@ -12,6 +12,7 @@ export type BusinessCatalogEditorToolbarProps = {
     /** Si existe, el CTA primario navega aquí (crear desde Publicar). */
     actionHref?: string;
     hideAction?: boolean;
+    actionDisabled?: boolean;
 };
 
 /** Fila superior unificada: resumen a la izquierda, acción primaria a la derecha. */
@@ -21,6 +22,7 @@ export function BusinessCatalogEditorToolbar({
     onAction,
     actionHref,
     hideAction = false,
+    actionDisabled = false,
 }: BusinessCatalogEditorToolbarProps) {
     if (!summary && (hideAction || (!onAction && !actionHref))) return null;
 
@@ -29,13 +31,13 @@ export function BusinessCatalogEditorToolbar({
             {summary ? <div className="text-sm text-fg-muted">{summary}</div> : <span />}
             {!hideAction && actionHref ? (
                 <Link href={actionHref} className="inline-flex">
-                    <PanelButton variant="accent" size="sm" type="button">
+                    <PanelButton variant="accent" size="sm" type="button" disabled={actionDisabled}>
                         <IconPlus size={14} />
                         {actionLabel}
                     </PanelButton>
                 </Link>
             ) : !hideAction && onAction ? (
-                <PanelButton variant="accent" size="sm" onClick={onAction}>
+                <PanelButton variant="accent" size="sm" onClick={onAction} disabled={actionDisabled}>
                     <IconPlus size={14} />
                     {actionLabel}
                 </PanelButton>

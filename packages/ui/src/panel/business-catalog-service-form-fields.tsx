@@ -31,9 +31,19 @@ export type BusinessCatalogServiceFormFieldsProps = {
     onCategoryChange?: (category: string) => void;
     pricingMode?: OperatorServicePricingMode;
     onPricingModeChange?: (mode: OperatorServicePricingMode) => void;
-    /** Campos propios de la vertical (músicos, pre-consulta, etc.) */
+    /** Campos que van al principio (p. ej. selector visual de tipo de servicio). */
+    topFields?: ReactNode;
+    /** Botones rápidos junto al input de duración (p. ej. [30, 45, 50, 60, 90]). */
+    durationPresets?: number[];
+    /** Campos propios de la vertical (músicos, modalidad, etc.) */
     extraFields?: ReactNode;
     extraFieldsClassName?: string;
+    /** Agrupa color, imagen y campos avanzados en un bloque colapsable. */
+    collapseOptionalVisuals?: boolean;
+    advancedSummary?: string;
+    advancedSummaryHint?: string;
+    defaultAdvancedOpen?: boolean;
+    advancedExtraFields?: ReactNode;
     /** Modalidad online / presencial (marketplace, serenatas) */
     showModality?: boolean;
     isOnline?: boolean;
@@ -62,8 +72,15 @@ export function BusinessCatalogServiceFormFields({
     onCategoryChange,
     pricingMode = 'fixed',
     onPricingModeChange,
+    topFields,
+    durationPresets,
     extraFields,
     extraFieldsClassName = 'md:col-span-2 space-y-4',
+    collapseOptionalVisuals = false,
+    advancedSummary = 'Opciones adicionales',
+    advancedSummaryHint,
+    defaultAdvancedOpen = false,
+    advancedExtraFields,
     showPromoPrice = true,
     imageOptional = false,
     priceOptional = false,
@@ -75,10 +92,18 @@ export function BusinessCatalogServiceFormFields({
     const showPriceFields = !onPricingModeChange || pricingMode === 'fixed';
     const showPromo = showPromoPrice && showPriceFields;
     const [imageDetailsOpen, setImageDetailsOpen] = useState(Boolean(values.imageUrl));
+    const [advancedOpen, setAdvancedOpen] = useState(Boolean(values.imageUrl) || defaultAdvancedOpen);
 
     useEffect(() => {
-        if (values.imageUrl) setImageDetailsOpen(true);
+        if (values.imageUrl) {
+            setImageDetailsOpen(true);
+            setAdvancedOpen(true);
+        }
     }, [values.imageUrl]);
+
+    useEffect(() => {
+        if (defaultAdvancedOpen) setAdvancedOpen(true);
+    }, [defaultAdvancedOpen]);
 
     const imageField = (
         <BusinessCatalogImageField
@@ -88,9 +113,13 @@ export function BusinessCatalogServiceFormFields({
         />
     );
 
+    const parsedDuration = Number(values.durationMinutes);
+
     return (
         <>
-            {!imageOptional ? imageField : null}
+            {topFields}
+
+            {!imageOptional && !collapseOptionalVisuals ? imageField : null}
 
             <PanelField label="Nombre" required className="md:col-span-2">
                 <input
@@ -101,25 +130,40 @@ export function BusinessCatalogServiceFormFields({
                 />
             </PanelField>
 
-            <PanelField label="Descripción" className="md:col-span-2">
-                <textarea
-                    className={`${PANEL_INPUT_CLASS} min-h-24`}
-                    value={values.description}
-                    onChange={(e) => onChange('description', e.target.value)}
-                    placeholder={descriptionPlaceholder}
-                />
-            </PanelField>
-
             <PanelField label="Duración (min)" hint="Tiempo estimado del servicio.">
-                <input
-                    className={PANEL_INPUT_CLASS}
-                    type="number"
-                    min={15}
-                    step={5}
-                    value={values.durationMinutes}
-                    onChange={(e) => onChange('durationMinutes', e.target.value)}
-                    placeholder="60"
-                />
+                <div className="space-y-2">
+                    {durationPresets && durationPresets.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                            {durationPresets.map((mins) => {
+                                const selected = parsedDuration === mins;
+                                return (
+                                    <button
+                                        key={mins}
+                                        type="button"
+                                        onClick={() => onChange('durationMinutes', String(mins))}
+                                        className={[
+                                            'rounded-lg border px-2.5 py-1 text-xs font-medium transition',
+                                            selected
+                                                ? 'border-(--signal,var(--accent)) bg-(--accent-soft)/50 text-accent-ink'
+                                                : 'border-border bg-bg-subtle text-fg-secondary hover:text-fg',
+                                        ].join(' ')}
+                                    >
+                                        {mins} min
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ) : null}
+                    <input
+                        className={PANEL_INPUT_CLASS}
+                        type="number"
+                        min={15}
+                        step={5}
+                        value={values.durationMinutes}
+                        onChange={(e) => onChange('durationMinutes', e.target.value)}
+                        placeholder="60"
+                    />
+                </div>
             </PanelField>
 
             {onPricingModeChange ? (
@@ -185,7 +229,16 @@ export function BusinessCatalogServiceFormFields({
                 </PanelField>
             ) : null}
 
-            {imageOptional ? (
+            <PanelField label="Descripción" className="md:col-span-2">
+                <textarea
+                    className={`${PANEL_INPUT_CLASS} min-h-20`}
+                    value={values.description}
+                    onChange={(e) => onChange('description', e.target.value)}
+                    placeholder={descriptionPlaceholder}
+                />
+            </PanelField>
+
+            {imageOptional && !collapseOptionalVisuals ? (
                 <details
                     open={imageDetailsOpen}
                     onToggle={(event) => setImageDetailsOpen(event.currentTarget.open)}
@@ -210,10 +263,12 @@ export function BusinessCatalogServiceFormFields({
                 </PanelField>
             ) : null}
 
-            <BusinessCatalogCalendarColorField
-                value={values.color}
-                onChange={(color) => onChange('color', color)}
-            />
+            {!collapseOptionalVisuals ? (
+                <BusinessCatalogCalendarColorField
+                    value={values.color}
+                    onChange={(color) => onChange('color', color)}
+                />
+            ) : null}
 
             {showModality && onModalityChange ? (
                 <BusinessCatalogModalityField
@@ -225,6 +280,30 @@ export function BusinessCatalogServiceFormFields({
 
             {extraFields ? (
                 <div className={extraFieldsClassName}>{extraFields}</div>
+            ) : null}
+
+            {collapseOptionalVisuals ? (
+                <details
+                    open={advancedOpen}
+                    onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+                    className="md:col-span-2 rounded-xl border px-3.5 py-3"
+                    style={{ borderColor: 'var(--border)' }}
+                >
+                    <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 text-sm font-medium text-(--fg)">
+                        <span>{advancedSummary}</span>
+                        {advancedSummaryHint ? (
+                            <span className="text-xs font-normal text-fg-muted">{advancedSummaryHint}</span>
+                        ) : null}
+                    </summary>
+                    <div className="mt-4 space-y-4 border-t border-(--border) pt-4">
+                        <BusinessCatalogCalendarColorField
+                            value={values.color}
+                            onChange={(color) => onChange('color', color)}
+                        />
+                        <div>{imageField}</div>
+                        {advancedExtraFields}
+                    </div>
+                </details>
             ) : null}
         </>
     );
