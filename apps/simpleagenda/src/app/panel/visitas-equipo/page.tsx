@@ -13,6 +13,36 @@ import {
     type AgendaAccountVisitsState,
 } from '@simple/utils';
 import { PanelButton, PanelCard, PanelNotice, PanelPageHeader } from '@simple/ui/panel';
+import { ModernDateInput, ModernTimeSelect, buildTimeSlotOptions } from '@simple/ui';
+
+function splitDateTimeParts(isoOrLocal: string) {
+    if (!isoOrLocal) return { date: '', time: '' };
+    if (isoOrLocal.includes('T')) {
+        const [d, t] = isoOrLocal.split('T');
+        return { date: d ?? '', time: (t ?? '').slice(0, 5) };
+    }
+    if (isoOrLocal.length === 10) return { date: isoOrLocal, time: '' };
+    return { date: '', time: '' };
+}
+
+function mergeDateTimeParts(date: string, time: string) {
+    const today = new Date().toISOString().slice(0, 10);
+    const d = date || today;
+    const t = time || '10:00';
+    return `${d}T${t}`;
+}
+
+const BASE_TIME_SLOT_OPTIONS = buildTimeSlotOptions(7, 23, 15);
+
+function getTimeSlotOptions(currentTime: string) {
+    if (!currentTime) return BASE_TIME_SLOT_OPTIONS;
+    if (BASE_TIME_SLOT_OPTIONS.some((o) => o.value === currentTime)) {
+        return BASE_TIME_SLOT_OPTIONS;
+    }
+    return [...BASE_TIME_SLOT_OPTIONS, { value: currentTime, label: currentTime }].sort((a, b) =>
+        a.value.localeCompare(b.value),
+    );
+}
 
 const STATUS_LABELS: Record<AgendaAccountVisit['status'], string> = {
     scheduled: 'Agendada',
@@ -394,10 +424,25 @@ export default function TeamVisitsPage() {
                                     Nombre del interesado
                                     <input required value={form.contactName} readOnly={Boolean(form.contactUserId)} onChange={(event) => setForm((current) => ({ ...current, contactName: event.target.value }))} maxLength={160} className="h-11 rounded-xl border px-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }} />
                                 </label>
-                                <label className="grid gap-1.5 text-sm font-medium" style={{ color: 'var(--fg)' }}>
-                                    Fecha y hora <span className="font-normal" style={{ color: 'var(--fg-muted)' }}>Revisaremos disponibilidad al guardar</span>
-                                    <input required type="datetime-local" value={form.startsAt} onChange={(event) => setForm((current) => ({ ...current, startsAt: event.target.value }))} className="h-11 rounded-xl border px-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }} />
-                                </label>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="grid gap-1.5 text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                        <span>Fecha</span>
+                                        <ModernDateInput
+                                            value={splitDateTimeParts(form.startsAt).date}
+                                            onChange={(newDate) => setForm((current) => ({ ...current, startsAt: mergeDateTimeParts(newDate, splitDateTimeParts(form.startsAt).time) }))}
+                                            placeholder="Seleccionar fecha"
+                                        />
+                                    </div>
+                                    <div className="grid gap-1.5 text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                        <span>Hora</span>
+                                        <ModernTimeSelect
+                                            value={splitDateTimeParts(form.startsAt).time}
+                                            onChange={(newTime) => setForm((current) => ({ ...current, startsAt: mergeDateTimeParts(splitDateTimeParts(form.startsAt).date, newTime) }))}
+                                            options={getTimeSlotOptions(splitDateTimeParts(form.startsAt).time)}
+                                            placeholder="Seleccionar hora"
+                                        />
+                                    </div>
+                                </div>
                                 <label className="grid gap-1.5 text-sm font-medium" style={{ color: 'var(--fg)' }}>
                                     Duración
                                     <select value={form.durationMinutes} onChange={(event) => setForm((current) => ({ ...current, durationMinutes: Number(event.target.value) }))} className="h-11 rounded-xl border px-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}>

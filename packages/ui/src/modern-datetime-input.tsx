@@ -131,7 +131,7 @@ export function ModernDateInput({
         if (!trigger) return;
         const rect = trigger.getBoundingClientRect();
         const popoverHeight = popoverRef.current?.offsetHeight ?? 360;
-        const width = rect.width;
+        const width = Math.max(280, rect.width);
         const maxLeft = window.innerWidth - width - VIEWPORT_PAD_PX;
         const left = Math.max(VIEWPORT_PAD_PX, Math.min(rect.left, maxLeft));
         const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_PAD_PX;

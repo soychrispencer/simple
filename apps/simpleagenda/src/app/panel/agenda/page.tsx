@@ -53,6 +53,7 @@ import { fmtDateShort as formatDate, fmtTime as formatTime, fmtDateTz } from '@/
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { ContextMessagesLink } from '@simple/ui/panel';
+import { ModernDateInput, ModernTimeSelect, buildTimeSlotOptions } from '@simple/ui';
 import { resolveBookingModality, parseDateTimeInTimezone } from '@simple/utils';
 import { WhatsAppClickButton } from '@/components/whatsapp-click-button';
 import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
@@ -129,6 +130,35 @@ function toDatetimeLocalValue(iso: string | Date, tz: string = 'America/Santiago
 function isoDateInput(date: Date): string {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function splitDateTimeParts(isoOrLocal: string) {
+    if (!isoOrLocal) return { date: '', time: '' };
+    if (isoOrLocal.includes('T')) {
+        const [d, t] = isoOrLocal.split('T');
+        return { date: d ?? '', time: (t ?? '').slice(0, 5) };
+    }
+    if (isoOrLocal.length === 10) return { date: isoOrLocal, time: '' };
+    return { date: '', time: '' };
+}
+
+function mergeDateTimeParts(date: string, time: string) {
+    const today = new Date().toISOString().slice(0, 10);
+    const d = date || today;
+    const t = time || '10:00';
+    return `${d}T${t}`;
+}
+
+const BASE_TIME_SLOT_OPTIONS = buildTimeSlotOptions(7, 23, 15);
+
+function getTimeSlotOptions(currentTime: string) {
+    if (!currentTime) return BASE_TIME_SLOT_OPTIONS;
+    if (BASE_TIME_SLOT_OPTIONS.some((o) => o.value === currentTime)) {
+        return BASE_TIME_SLOT_OPTIONS;
+    }
+    return [...BASE_TIME_SLOT_OPTIONS, { value: currentTime, label: currentTime }].sort((a, b) =>
+        a.value.localeCompare(b.value),
+    );
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -1520,31 +1550,48 @@ export default function AgendaPage() {
             )}
 
             {/* Edit appointment modal */}
-            {showEdit && selectedAppt && (
-                <Modal title="Editar cita" onClose={() => setShowEdit(false)}>
-                    <div className="flex flex-col gap-4">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium">Fecha y hora</label>
-                                <input
-                                    type="datetime-local"
-                                    value={editForm.startsAt}
-                                    onChange={(e) => setEditForm((p) => ({ ...p, startsAt: e.target.value }))}
-                                    className="field-input"
-                                />
+            {showEdit && selectedAppt && (() => {
+                const { date: editDate, time: editTime } = splitDateTimeParts(editForm.startsAt);
+                const editTimeOptions = getTimeSlotOptions(editTime);
+                return (
+                    <Modal title="Editar cita" onClose={() => setShowEdit(false)}>
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium">Fecha</label>
+                                    <ModernDateInput
+                                        value={editDate}
+                                        onChange={(newDate) => {
+                                            setEditForm((p) => ({ ...p, startsAt: mergeDateTimeParts(newDate, editTime) }));
+                                        }}
+                                        placeholder="Seleccionar fecha"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-medium">Hora</label>
+                                        <ModernTimeSelect
+                                            value={editTime}
+                                            onChange={(newTime) => {
+                                                setEditForm((p) => ({ ...p, startsAt: mergeDateTimeParts(editDate, newTime) }));
+                                            }}
+                                            options={editTimeOptions}
+                                            placeholder="Seleccionar hora"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-medium">Duración (min)</label>
+                                        <input
+                                            type="number"
+                                            min={15}
+                                            step={5}
+                                            value={editForm.durationMinutes}
+                                            onChange={(e) => setEditForm((p) => ({ ...p, durationMinutes: Number(e.target.value) }))}
+                                            className="field-input"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium">Duración (min)</label>
-                                <input
-                                    type="number"
-                                    min={15}
-                                    step={5}
-                                    value={editForm.durationMinutes}
-                                    onChange={(e) => setEditForm((p) => ({ ...p, durationMinutes: Number(e.target.value) }))}
-                                    className="field-input"
-                                />
-                            </div>
-                        </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-medium">Precio (CLP)</label>
                             <input
@@ -1584,12 +1631,16 @@ export default function AgendaPage() {
                         </div>
                     </div>
                 </Modal>
-            )}
+                );
+            })()}
 
             {/* Create appointment modal */}
-            {showCreate && (
-                <Modal title="Nueva cita" onClose={() => { setShowCreate(false); setClientSearch(''); setClientDropOpen(false); }}>
-                    <div className="flex flex-col gap-4">
+            {showCreate && (() => {
+                const { date: createDate, time: createTime } = splitDateTimeParts(form.startsAt);
+                const createTimeOptions = getTimeSlotOptions(createTime);
+                return (
+                    <Modal title="Nueva cita" onClose={() => { setShowCreate(false); setClientSearch(''); setClientDropOpen(false); }}>
+                        <div className="flex flex-col gap-4">
                         {/* Client — searchable combobox */}
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-medium">{vocab.Client}</label>
@@ -1676,26 +1727,40 @@ export default function AgendaPage() {
                         )}
 
                         {/* Date/time */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-3">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium">Fecha y hora</label>
-                                <input
-                                    type="datetime-local"
-                                    value={form.startsAt}
-                                    onChange={(e) => setForm((p) => ({ ...p, startsAt: e.target.value }))}
-                                    className="field-input"
+                                <label className="text-xs font-medium">Fecha</label>
+                                <ModernDateInput
+                                    value={createDate}
+                                    onChange={(newDate) => {
+                                        setForm((p) => ({ ...p, startsAt: mergeDateTimeParts(newDate, createTime) }));
+                                    }}
+                                    placeholder="Seleccionar fecha"
                                 />
                             </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium">Duración (min)</label>
-                                <input
-                                    type="number"
-                                    min={15}
-                                    step={5}
-                                    value={form.durationMinutes}
-                                    onChange={(e) => setForm((p) => ({ ...p, durationMinutes: Number(e.target.value) }))}
-                                    className="field-input"
-                                />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium">Hora</label>
+                                    <ModernTimeSelect
+                                        value={createTime}
+                                        onChange={(newTime) => {
+                                            setForm((p) => ({ ...p, startsAt: mergeDateTimeParts(createDate, newTime) }));
+                                        }}
+                                        options={createTimeOptions}
+                                        placeholder="Seleccionar hora"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium">Duración (min)</label>
+                                    <input
+                                        type="number"
+                                        min={15}
+                                        step={5}
+                                        value={form.durationMinutes}
+                                        onChange={(e) => setForm((p) => ({ ...p, durationMinutes: Number(e.target.value) }))}
+                                        className="field-input"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -1857,7 +1922,8 @@ export default function AgendaPage() {
                         </div>
                     </div>
                 </Modal>
-            )}
+                );
+            })()}
 
         </div>
     );
