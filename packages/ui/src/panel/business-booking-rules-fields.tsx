@@ -29,11 +29,20 @@ export type BusinessBookingRulesFieldsProps = {
     allowsRecurrentBooking?: boolean;
     recurrentDescription?: string;
     slaHours?: number;
+    showQuickPresets?: boolean;
     onBookingWindowDaysChange: (value: number) => void;
     onCancellationHoursChange: (value: number) => void;
     onAllowsRecurrentBookingChange?: (value: boolean) => void;
     onSlaHoursChange?: (value: number) => void;
 };
+
+const WINDOW_DAY_PRESETS = [7, 15, 30, 60] as const;
+const CANCELLATION_HOUR_PRESETS = [
+    { value: 0, label: 'Sin mínimo' },
+    { value: 12, label: '12 h' },
+    { value: 24, label: '24 h' },
+    { value: 48, label: '48 h' },
+] as const;
 
 export function BusinessBookingRulesFields({
     variant,
@@ -42,6 +51,7 @@ export function BusinessBookingRulesFields({
     allowsRecurrentBooking = true,
     recurrentDescription,
     slaHours = 24,
+    showQuickPresets = false,
     onBookingWindowDaysChange,
     onCancellationHoursChange,
     onAllowsRecurrentBookingChange,
@@ -63,28 +73,76 @@ export function BusinessBookingRulesFields({
                     label={BUSINESS_BOOKING_WINDOW_FIELD.label}
                     hint={BUSINESS_BOOKING_WINDOW_FIELD.hint}
                 >
-                    <input
-                        type="number"
-                        min={MIN_BOOKING_WINDOW_DAYS}
-                        max={MAX_BOOKING_WINDOW_DAYS}
-                        value={bookingWindowDays}
-                        onChange={(event) => onBookingWindowDaysChange(Number(event.target.value))}
-                        className={PANEL_INPUT_CLASS}
-                    />
+                    <div className="space-y-2">
+                        {showQuickPresets ? (
+                            <div className="flex flex-wrap gap-1.5">
+                                {WINDOW_DAY_PRESETS.map((days) => {
+                                    const active = bookingWindowDays === days;
+                                    return (
+                                        <button
+                                            key={days}
+                                            type="button"
+                                            onClick={() => onBookingWindowDaysChange(days)}
+                                            className={[
+                                                'rounded-lg border px-2.5 py-1 text-xs font-medium transition',
+                                                active
+                                                    ? 'border-(--signal,var(--accent)) bg-(--accent-soft)/50 text-accent-ink'
+                                                    : 'border-border bg-bg-subtle text-fg-secondary hover:text-fg',
+                                            ].join(' ')}
+                                        >
+                                            {days} días
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
+                        <input
+                            type="number"
+                            min={MIN_BOOKING_WINDOW_DAYS}
+                            max={MAX_BOOKING_WINDOW_DAYS}
+                            value={bookingWindowDays}
+                            onChange={(event) => onBookingWindowDaysChange(Number(event.target.value))}
+                            className={PANEL_INPUT_CLASS}
+                        />
+                    </div>
                 </PanelField>
 
                 <PanelField
                     label={BUSINESS_BOOKING_CANCELLATION_FIELD.label}
                     hint={BUSINESS_BOOKING_CANCELLATION_FIELD.hint}
                 >
-                    <input
-                        type="number"
-                        min={MIN_CANCELLATION_HOURS}
-                        max={MAX_CANCELLATION_HOURS}
-                        value={cancellationHours}
-                        onChange={(event) => onCancellationHoursChange(Number(event.target.value))}
-                        className={PANEL_INPUT_CLASS}
-                    />
+                    <div className="space-y-2">
+                        {showQuickPresets ? (
+                            <div className="flex flex-wrap gap-1.5">
+                                {CANCELLATION_HOUR_PRESETS.map((preset) => {
+                                    const active = cancellationHours === preset.value;
+                                    return (
+                                        <button
+                                            key={preset.value}
+                                            type="button"
+                                            onClick={() => onCancellationHoursChange(preset.value)}
+                                            className={[
+                                                'rounded-lg border px-2.5 py-1 text-xs font-medium transition',
+                                                active
+                                                    ? 'border-(--signal,var(--accent)) bg-(--accent-soft)/50 text-accent-ink'
+                                                    : 'border-border bg-bg-subtle text-fg-secondary hover:text-fg',
+                                            ].join(' ')}
+                                        >
+                                            {preset.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
+                        <input
+                            type="number"
+                            min={MIN_CANCELLATION_HOURS}
+                            max={MAX_CANCELLATION_HOURS}
+                            value={cancellationHours}
+                            onChange={(event) => onCancellationHoursChange(Number(event.target.value))}
+                            className={PANEL_INPUT_CLASS}
+                        />
+                    </div>
                 </PanelField>
 
                 {showResponseSla ? (

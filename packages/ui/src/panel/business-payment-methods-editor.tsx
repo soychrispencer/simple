@@ -29,6 +29,8 @@ export type BusinessPaymentMethodsMercadoPagoConfig = {
     mode: 'oauth' | 'toggle';
     connected?: boolean;
     integrationsHref?: string | null;
+    /** true cuando la tarjeta OAuth de MercadoPago está justo arriba en la misma vista. */
+    inlineCard?: boolean;
 };
 
 export type BusinessPaymentMethodsEditorCopy = {
@@ -362,13 +364,15 @@ export function BusinessPaymentMethodsEditor({
                             <p className="text-xs font-medium mb-1" style={{ color: 'var(--fg)' }}>
                                 Cuenta no conectada
                             </p>
-                            <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>
-                                Para cobrar con checkout automático en reservas necesitas conectar tu cuenta de MercadoPago.
+                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                {mercadoPago.inlineCard
+                                    ? 'Para cobrar con checkout automático en reservas, conecta tu cuenta de MercadoPago en la tarjeta de arriba.'
+                                    : 'Para cobrar con checkout automático en reservas necesitas conectar tu cuenta de MercadoPago.'}
                             </p>
-                            {mercadoPago.integrationsHref ? (
+                            {!mercadoPago.inlineCard && mercadoPago.integrationsHref ? (
                                 <Link
                                     href={mercadoPago.integrationsHref}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+                                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
                                     style={{ background: '#009EE3', color: '#fff' }}
                                 >
                                     <IconExternalLink size={12} />
@@ -379,14 +383,22 @@ export function BusinessPaymentMethodsEditor({
                     </div>
                 ) : null}
 
-                {value.acceptsMp && mercadoPago.mode === 'oauth' && mpConnected && mercadoPago.integrationsHref ? (
+                {value.acceptsMp && mercadoPago.mode === 'oauth' && mpConnected ? (
                     <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                            Los cobros van directo a tu cuenta de MercadoPago. Puedes desconectarla en{' '}
-                            <Link href={mercadoPago.integrationsHref} className="font-medium text-accent-ink hover:underline">
-                                Mi cuenta â†’ Integraciones
-                            </Link>
-                            .
+                            {mercadoPago.inlineCard ? (
+                                'Los cobros van directo a la cuenta de MercadoPago conectada arriba.'
+                            ) : mercadoPago.integrationsHref ? (
+                                <>
+                                    Los cobros van directo a tu cuenta de MercadoPago. Puedes desconectarla en{' '}
+                                    <Link href={mercadoPago.integrationsHref} className="font-medium text-accent-ink hover:underline">
+                                        Integraciones
+                                    </Link>
+                                    .
+                                </>
+                            ) : (
+                                'Los cobros van directo a tu cuenta de MercadoPago.'
+                            )}
                         </p>
                     </div>
                 ) : null}

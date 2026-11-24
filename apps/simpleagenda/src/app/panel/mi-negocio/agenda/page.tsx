@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { IconAdjustmentsHorizontal, IconBrandGoogle, IconClock, IconCreditCard, IconExternalLink } from '@tabler/icons-react';
-import { PanelCard } from '@simple/ui/panel';
+import { IconAdjustmentsHorizontal, IconClock, IconCreditCard } from '@tabler/icons-react';
 import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 import { AgendaScheduleContent } from '@/components/panel/agenda-schedule-content';
 import { AgendaConfiguracionesContent } from '@/components/panel/agenda-configuraciones-content';
+import { AgendaGoogleCalendarIntegrationCard } from '@/components/panel/agenda-google-calendar-integration-card';
 import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
 
 type AgendaSubTab = 'schedule' | 'rules' | 'payments';
@@ -41,8 +40,8 @@ export default function AgendaYReservasPage() {
 
     const subTabs: Array<{ id: AgendaSubTab; hash: string; label: string; icon: typeof IconClock }> = [
         { id: 'schedule', hash: 'horario', label: 'Horarios y bloqueos', icon: IconClock },
-        { id: 'rules', hash: 'reservas', label: 'Reglas y políticas', icon: IconAdjustmentsHorizontal },
-        { id: 'payments', hash: 'cobros', label: 'Cobros y avisos', icon: IconCreditCard },
+        { id: 'rules', hash: 'reservas', label: 'Reservas y avisos', icon: IconAdjustmentsHorizontal },
+        { id: 'payments', hash: 'cobros', label: 'Cobros', icon: IconCreditCard },
     ];
 
     return (
@@ -76,46 +75,30 @@ export default function AgendaYReservasPage() {
                     })}
                 </div>
 
-                {activeTab === 'schedule' ? (
-                    <section id="horario" className="scroll-mt-24 space-y-5">
-                        <PanelCard size="md" className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex items-start gap-3">
-                                <span
-                                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl"
-                                    style={{ background: 'var(--accent-subtle)', color: 'var(--accent-ink)' }}
-                                >
-                                    <IconBrandGoogle size={18} aria-hidden />
-                                </span>
-                                <div>
-                                    <p className="text-sm font-semibold text-fg">Sincronización con Google Calendar</p>
-                                    <p className="text-xs text-fg-muted">
-                                        Evita topes de horario bloqueando automáticamente tus eventos personales o genera enlaces Meet.
-                                    </p>
-                                </div>
-                            </div>
-                            <Link
-                                href="/panel/agenda/calendarios"
-                                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-(--border) bg-(--surface) px-3 text-xs font-semibold text-fg transition hover:bg-(--bg-subtle)"
-                            >
-                                Configurar calendarios <IconExternalLink size={13} aria-hidden />
-                            </Link>
-                        </PanelCard>
+                <section
+                    id="horario"
+                    className={activeTab === 'schedule' ? 'scroll-mt-24 space-y-5' : 'hidden'}
+                    aria-hidden={activeTab !== 'schedule'}
+                >
+                    <AgendaScheduleContent />
+                    <AgendaGoogleCalendarIntegrationCard />
+                </section>
 
-                        <AgendaScheduleContent />
-                    </section>
-                ) : null}
+                <section
+                    id="reservas"
+                    className={activeTab === 'rules' ? 'scroll-mt-24' : 'hidden'}
+                    aria-hidden={activeTab !== 'rules'}
+                >
+                    <AgendaConfiguracionesContent section="rules" />
+                </section>
 
-                {activeTab === 'rules' ? (
-                    <section id="reservas" className="scroll-mt-24">
-                        <AgendaConfiguracionesContent section="rules" />
-                    </section>
-                ) : null}
-
-                {activeTab === 'payments' ? (
-                    <section id="cobros" className="scroll-mt-24">
-                        <AgendaConfiguracionesContent section="payments" />
-                    </section>
-                ) : null}
+                <section
+                    id="cobros"
+                    className={activeTab === 'payments' ? 'scroll-mt-24' : 'hidden'}
+                    aria-hidden={activeTab !== 'payments'}
+                >
+                    <AgendaConfiguracionesContent section="payments" />
+                </section>
             </div>
         </AgendaMiNegocioShell>
     );

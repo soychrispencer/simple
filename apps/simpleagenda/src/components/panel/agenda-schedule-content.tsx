@@ -16,7 +16,6 @@ import {
     validateWeeklyScheduleState,
     type CommonWeeklyBreak,
 } from '@simple/utils';
-import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
 import {
     fetchAgendaAvailability,
     replaceAgendaAvailability,
@@ -295,17 +294,15 @@ export function AgendaScheduleContent() {
                 </div>
             ) : null}
 
-            <AgendaSetupTip focusStepId="horarios" className="mb-4" />
-
             <div id="agenda-availability" className="scroll-mt-24">
             <BusinessSchedulePanel
                 hideTitle
                 days={scheduleDays}
                 alwaysOpen={alwaysOpen}
-                onAlwaysOpenChange={(value) => {
+                onAlwaysOpenChange={alwaysOpen ? (value) => {
                     setAlwaysOpen(value);
                     setWeeklyStatus('');
-                }}
+                } : undefined}
                 onStartTimeChange={(key, value) => setDraft(key, 'startTime', value)}
                 onEndTimeChange={(key, value) => setDraft(key, 'endTime', value)}
                 onDayToggle={handleToggle}
@@ -329,11 +326,6 @@ export function AgendaScheduleContent() {
                         setWeeklyStatus('');
                     },
                     error: breakError || null,
-                }}
-                scheduleNote={scheduleNote}
-                onScheduleNoteChange={(value) => {
-                    setScheduleNote(value);
-                    setWeeklyStatus('');
                 }}
                 fieldsDisabled={alwaysOpen}
                 showLoadTypicalSchedule
