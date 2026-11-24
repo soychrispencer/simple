@@ -15,7 +15,6 @@ export function AgendaOnboardingRail({ className = '' }: Props) {
     const {
         steps,
         billing,
-        propertyVisitsEnabled,
         loading,
         setupComplete,
         isPublished,
@@ -35,25 +34,6 @@ export function AgendaOnboardingRail({ className = '' }: Props) {
 
     if (loading || !billing) {
         return null;
-    }
-
-    if (propertyVisitsEnabled) {
-        if (setupComplete) return null;
-        return (
-            <PanelCard size="md" className={className}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                        <h2 className="text-base font-semibold text-(--fg)">Coordina visitas desde SimpleAgenda</h2>
-                        <p className="mt-1 text-sm leading-6 text-fg-muted">
-                            Tu espacio de SimplePropiedades está conectado. Agenda visitas o reuniones desde su cartera, sin configurar una agenda pública.
-                        </p>
-                    </div>
-                    <Link href="/panel/visitas-equipo?nueva=1" className="shrink-0">
-                        <PanelButton type="button" className="w-full sm:w-auto">Agendar primera visita</PanelButton>
-                    </Link>
-                </div>
-            </PanelCard>
-        );
     }
 
     if (!setupComplete) {

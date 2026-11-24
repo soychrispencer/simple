@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { IconHome, IconMapPin } from '@tabler/icons-react';
+import { IconHome } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
 import { PanelAccountSwitcher, PanelShell as SharedPanelShell } from '@simple/ui/panel';
-import { fetchAgendaAccountVisitContext } from '@simple/utils';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
 import { getPanelNavItems, isPanelNavActive } from '@/components/panel/panel-nav-config';
@@ -16,19 +15,11 @@ const STORAGE_COLLAPSED = 'simpleagenda:panel:collapsed';
 export function PanelShell({ children }: { children: ReactNode }) {
     const { user } = useAuth();
     const vocab = useAgendaVocab();
-    const [teamVisitsContext, setTeamVisitsContext] = useState<{
-        userId: string;
-        enabled: boolean;
-        teamMode: boolean;
-    } | null>(null);
     const [accountContext, setAccountContext] = useState<{
         userId: string;
         role: string | null;
         isPersonal: boolean;
     } | null>(null);
-    const teamVisitsContextIsCurrent = Boolean(user?.id && teamVisitsContext?.userId === user.id);
-    const teamVisitsEnabled = teamVisitsContextIsCurrent && Boolean(teamVisitsContext?.enabled);
-    const teamVisitsTeamMode = teamVisitsContextIsCurrent && Boolean(teamVisitsContext?.teamMode);
     const accountContextIsCurrent = Boolean(user?.id && accountContext?.userId === user.id);
     const accountRole = accountContextIsCurrent ? accountContext?.role ?? null : null;
     const isPersonalAccount = accountContextIsCurrent ? accountContext?.isPersonal ?? true : true;
@@ -36,30 +27,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
     usePushNotifications(!!user);
 
     const pathname = usePathname() ?? '';
-
-    useEffect(() => {
-        let cancelled = false;
-        if (!user) {
-            setTeamVisitsContext(null);
-            return;
-        }
-        void fetchAgendaAccountVisitContext()
-            .then((context) => {
-                if (!cancelled) {
-                    setTeamVisitsContext({
-                        userId: user.id,
-                        enabled: Boolean(context?.enabled),
-                        teamMode: Boolean(context?.teamMode),
-                    });
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setTeamVisitsContext({ userId: user.id, enabled: false, teamMode: false });
-                }
-            });
-        return () => { cancelled = true; };
-    }, [user?.id]);
 
     const handleAccountContext = useCallback((context: {
         account: { isPersonal: boolean } | null;
@@ -75,28 +42,8 @@ export function PanelShell({ children }: { children: ReactNode }) {
     }, [user?.id]);
 
     const navItems = useMemo(
-        () => {
-            const isCompanyAgent = !isPersonalAccount && accountRole === 'agent';
-            const items = getPanelNavItems(vocab.Clients, accountRole, isPersonalAccount)
-                .map(({ href, label, icon, badge }) => ({
-                    href: teamVisitsEnabled && href === '/panel/clientes' ? '/panel/contactos' : href,
-                    label: teamVisitsEnabled && href === '/panel/clientes' ? 'Contactos'
-                        : teamVisitsEnabled && href === '/panel' ? 'Mi panel' : label,
-                    icon,
-                    badge,
-                }));
-            if (teamVisitsEnabled) {
-                const agendaIndex = items.findIndex((item) => item.href === '/panel/agenda');
-                items.splice(agendaIndex + 1, 0, {
-                    href: '/panel/visitas-equipo',
-                    label: isCompanyAgent ? 'Mis visitas' : teamVisitsTeamMode ? 'Visitas del equipo' : 'Mis visitas',
-                    icon: IconMapPin,
-                    badge: undefined,
-                });
-            }
-            return items;
-        },
-        [accountRole, isPersonalAccount, teamVisitsEnabled, teamVisitsTeamMode, vocab.Clients],
+        () => getPanelNavItems(vocab.Clients, accountRole, isPersonalAccount),
+        [accountRole, isPersonalAccount, vocab.Clients],
     );
     const activeHref = useMemo(
         () => navItems.find((item) => isPanelNavActive(pathname, item.href))?.href ?? null,
@@ -123,7 +70,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             footerHref="/"
             footerLabel="Ir al inicio"
             footerIcon={IconHome}
-            bottomNav={<PanelBottomNav propertyWorkspace={teamVisitsEnabled} />}
+            bottomNav={<PanelBottomNav />}
             chromeEnabled
             isVerified={user?.status === 'verified'}
             activeHref={activeHref}

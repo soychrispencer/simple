@@ -1,7 +1,5 @@
-'use client';
-
-import { MarketplaceContactsView } from '@simple/ui/panel';
+import { redirect } from 'next/navigation';
 
 export default function ContactosPage() {
-    return <MarketplaceContactsView vertical="propiedades" />;
+    redirect('/panel/clientes');
 }
