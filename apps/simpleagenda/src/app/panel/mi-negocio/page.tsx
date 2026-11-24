@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     fetchAgendaLocations,
     fetchAgendaProfile,
-    hasAgendaFullAccess,
     saveAgendaProfile,
     uploadAvatar,
     type AgendaLocation,
@@ -84,7 +83,6 @@ export default function PerfilConfigPage() {
     const [error, setError] = useState('');
     const [slug, setSlug] = useState('');
 
-    const [canEditAvatar, setCanEditAvatar] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [initialAvatarUrl, setInitialAvatarUrl] = useState<string | null>(null);
     const [avatarUploading, setAvatarUploading] = useState(false);
@@ -138,7 +136,6 @@ export default function PerfilConfigPage() {
             setInitialAccountName(currentAccountName);
             if (profile) {
                 setSlug(profile.slug ?? '');
-                setCanEditAvatar(hasAgendaFullAccess(profile));
                 setAvatarUrl(profile.avatarUrl ?? null);
                 setInitialAvatarUrl(profile.avatarUrl ?? null);
                 setForm({
@@ -322,7 +319,7 @@ export default function PerfilConfigPage() {
                 headline: form.headline.trim() || null,
                 servesOnline,
                 servesPresential,
-                ...(canEditAvatar && avatarUrl !== initialAvatarUrl ? { avatarUrl } : {}),
+                ...(avatarUrl !== initialAvatarUrl ? { avatarUrl } : {}),
                 ...contactForm,
                 ...agendaBusinessLocationToProfilePayload(businessLocation),
                 address: servesPresential && defaultLocation?.isActive ? defaultLocation.addressLine : null,
@@ -382,49 +379,45 @@ export default function PerfilConfigPage() {
                                             initials
                                         )}
                                     </div>
-                                    {canEditAvatar ? (
-                                        <button
-                                            type="button"
-                                            disabled={saving || avatarUploading}
-                                            onClick={() => avatarUploadRef.current?.openPicker()}
-                                            aria-label="Cambiar foto o logo"
-                                            className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full border border-(--border) bg-(--surface) text-fg shadow-xs transition hover:bg-(--bg-subtle) disabled:opacity-50"
-                                        >
-                                            {avatarUploading ? (
-                                                <IconLoader2 size={13} className="animate-spin" />
-                                            ) : (
-                                                <IconCamera size={13} />
-                                            )}
-                                        </button>
-                                    ) : null}
+                                    <button
+                                        type="button"
+                                        disabled={saving || avatarUploading}
+                                        onClick={() => avatarUploadRef.current?.openPicker()}
+                                        aria-label="Cambiar foto o logo"
+                                        className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full border border-(--border) bg-(--surface) text-fg shadow-xs transition hover:bg-(--bg-subtle) disabled:opacity-50"
+                                    >
+                                        {avatarUploading ? (
+                                            <IconLoader2 size={13} className="animate-spin" />
+                                        ) : (
+                                            <IconCamera size={13} />
+                                        )}
+                                    </button>
                                 </div>
                                 <div>
                                     <h2 className="text-base font-semibold text-fg">Identidad pública</h2>
                                     <p className="text-xs text-fg-muted">
                                         Así te verán tus {vocab.clients} en tu ficha y en tus recordatorios.
                                     </p>
-                                    {canEditAvatar ? (
-                                        <div className="mt-1.5 flex items-center gap-3">
+                                    <div className="mt-1.5 flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            disabled={saving || avatarUploading}
+                                            onClick={() => avatarUploadRef.current?.openPicker()}
+                                            className="text-xs font-semibold text-accent-ink hover:underline disabled:opacity-50"
+                                        >
+                                            {resolvedAvatarUrl ? 'Cambiar foto o logo' : 'Subir foto o logo'}
+                                        </button>
+                                        {resolvedAvatarUrl ? (
                                             <button
                                                 type="button"
                                                 disabled={saving || avatarUploading}
-                                                onClick={() => avatarUploadRef.current?.openPicker()}
-                                                className="text-xs font-semibold text-accent-ink hover:underline disabled:opacity-50"
+                                                onClick={() => { setAvatarUrl(null); setSaved(false); }}
+                                                className="text-xs text-fg-muted hover:text-fg"
                                             >
-                                                {resolvedAvatarUrl ? 'Cambiar foto o logo' : 'Subir foto o logo'}
+                                                Quitar
                                             </button>
-                                            {resolvedAvatarUrl ? (
-                                                <button
-                                                    type="button"
-                                                    disabled={saving || avatarUploading}
-                                                    onClick={() => { setAvatarUrl(null); setSaved(false); }}
-                                                    className="text-xs text-fg-muted hover:text-fg"
-                                                >
-                                                    Quitar
-                                                </button>
-                                            ) : null}
-                                        </div>
-                                    ) : null}
+                                        ) : null}
+                                    </div>
                                 </div>
                             </div>
 
@@ -436,42 +429,40 @@ export default function PerfilConfigPage() {
                             ) : null}
                         </div>
 
-                        {canEditAvatar ? (
-                            <AvatarUpload
-                                ref={avatarUploadRef}
-                                hideTrigger
-                                currentUrl={resolvedAvatarUrl}
-                                config={{
-                                    maxSize: RAW_IMAGE_MAX_SIZE_KB,
-                                    maxWidth: 512,
-                                    maxHeight: 512,
-                                    aspectRatio: 1,
-                                    circular: true,
-                                    shape: 'circle',
-                                    onUpload: async (file, croppedBlob) => {
-                                        setAvatarUploading(true);
-                                        try {
-                                            const uploadFile = croppedBlob === file
-                                                ? file
-                                                : new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
-                                            const res = await uploadAvatar(uploadFile, 'logo');
-                                            if (!res.ok || !res.url) {
-                                                throw new Error(res.error ?? 'No se pudo subir la imagen.');
-                                            }
-                                            return { url: res.url };
-                                        } finally {
-                                            setAvatarUploading(false);
+                        <AvatarUpload
+                            ref={avatarUploadRef}
+                            hideTrigger
+                            currentUrl={resolvedAvatarUrl}
+                            config={{
+                                maxSize: RAW_IMAGE_MAX_SIZE_KB,
+                                maxWidth: 512,
+                                maxHeight: 512,
+                                aspectRatio: 1,
+                                circular: true,
+                                shape: 'circle',
+                                onUpload: async (file, croppedBlob) => {
+                                    setAvatarUploading(true);
+                                    try {
+                                        const uploadFile = croppedBlob === file
+                                            ? file
+                                            : new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
+                                        const res = await uploadAvatar(uploadFile, 'logo');
+                                        if (!res.ok || !res.url) {
+                                            throw new Error(res.error ?? 'No se pudo subir la imagen.');
                                         }
-                                    },
-                                }}
-                                onSuccess={(url) => {
-                                    setAvatarUrl(url);
-                                    setSaved(false);
-                                    setError('');
-                                }}
-                                onError={(msg) => setError(msg)}
-                            />
-                        ) : null}
+                                        return { url: res.url };
+                                    } finally {
+                                        setAvatarUploading(false);
+                                    }
+                                },
+                            }}
+                            onSuccess={(url) => {
+                                setAvatarUrl(url);
+                                setSaved(false);
+                                setError('');
+                            }}
+                            onError={(msg) => setError(msg)}
+                        />
 
                         <div className="grid gap-4 sm:grid-cols-2">
                             <PanelField

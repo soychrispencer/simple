@@ -226,7 +226,7 @@ export function AgendaSitePreview({ layout, colorMode, accent, revision, draft, 
             };
             const appearance: OperatorSiteLandingAppearance = canCustomize
                 ? (showDraft ? config?.draftAppearance : undefined) ?? publishedAppearance
-                : { layout: 'booking', colorMode: 'system', accentColor: 'auto', avatarUrl: null, coverUrl: null };
+                : { layout: 'booking', colorMode: 'system', accentColor: 'auto', avatarUrl: profile.avatarUrl, coverUrl: null };
             setPreview(profileForPreview(
                 canCustomize ? profile : { ...profile, operatorSiteLandingConfig: null },
                 services, locations, availability, packs, promotions, appearance, showDraft,

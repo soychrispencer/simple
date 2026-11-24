@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
     IconArrowDown,
@@ -14,13 +14,15 @@ import {
     IconLoader2,
     IconMoon,
     IconPalette,
+    IconPhoto,
     IconPlus,
     IconSearch,
     IconSparkles,
     IconSun,
     IconTrash,
 } from '@tabler/icons-react';
-import { PanelButton, PanelCard, PanelNotice, PanelProfileBrandImages, PanelSwitch } from '@simple/ui/panel';
+import { AvatarUpload, type AvatarUploadHandle } from '@simple/ui';
+import { PanelButton, PanelCard, PanelNotice, PanelSwitch } from '@simple/ui/panel';
 import {
     emptyOperatorSiteLandingConfig,
     normalizeOperatorSiteAccentHex,
@@ -29,6 +31,7 @@ import {
     OPERATOR_SITE_ACCENT_OPTIONS,
     OPERATOR_SITE_LANDING_SECTIONS,
     operatorSiteAccentCssValue,
+    RAW_IMAGE_MAX_SIZE_KB,
     resolveAppMediaUrl,
     resolveOperatorSiteIndustry,
     type OperatorSiteLandingAppearance,
@@ -428,6 +431,8 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
     const [notice, setNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
     const [contentNotice, setContentNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
     const [uploadError, setUploadError] = useState('');
+    const coverUploadRef = useRef<AvatarUploadHandle>(null);
+    const resolvedCoverUrl = resolveAppMediaUrl(appearance.coverUrl);
     const [confirmGenerate, setConfirmGenerate] = useState(false);
     const [target, setTarget] = useState<OperatorSiteLandingGenerationTarget>('all');
 
@@ -782,18 +787,79 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                                 </div>
                             </div>
 
-                            {/* Imágenes de marca */}
+                            {/* Portada de la página */}
                             <div className="border-t border-(--border) pt-5">
-                                <PanelProfileBrandImages
-                                    compactControls
-                                    displayName={profile.displayName ?? ''}
-                                    logoUrl={appearance.avatarUrl}
-                                    coverUrl={appearance.coverUrl}
-                                    disabled={!!operation}
-                                    onLogoChange={(url) => changeAppearance('avatarUrl', url || null)}
-                                    onCoverChange={(url) => changeAppearance('coverUrl', url || null)}
-                                    onUploadLogo={(file, cropped) => upload(file, cropped, 'logo')}
-                                    onUploadCover={(file, cropped) => upload(file, cropped, 'cover')}
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <p className="text-sm font-semibold text-fg">Imagen de portada</p>
+                                        <p className="text-xs text-fg-muted">
+                                            Aparece en la cabecera de tu página web (recomendado 16:9).
+                                        </p>
+                                    </div>
+                                    <Link
+                                        href="/panel/mi-negocio"
+                                        className="text-xs font-medium text-accent-ink hover:underline"
+                                    >
+                                        Tu foto o logo se edita en Perfil →
+                                    </Link>
+                                </div>
+                                <div className="mt-3 flex flex-wrap items-center gap-4 rounded-2xl border border-(--border) bg-(--bg-subtle)/50 p-3.5">
+                                    <button
+                                        type="button"
+                                        disabled={!!operation}
+                                        onClick={() => coverUploadRef.current?.openPicker()}
+                                        aria-label={resolvedCoverUrl ? 'Cambiar imagen de portada' : 'Subir imagen de portada'}
+                                        className="relative flex aspect-video w-36 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-(--border) bg-(--surface) text-fg-muted transition hover:border-(--accent-border) disabled:opacity-60 sm:w-44"
+                                    >
+                                        {resolvedCoverUrl ? (
+                                            <img src={resolvedCoverUrl} alt="Portada de tu página web" className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-1 px-2 text-center">
+                                                <IconPhoto size={20} stroke={1.6} />
+                                                <span className="text-[11px] font-medium">Sin portada</span>
+                                            </div>
+                                        )}
+                                    </button>
+                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
+                                        <button
+                                            type="button"
+                                            disabled={!!operation}
+                                            onClick={() => coverUploadRef.current?.openPicker()}
+                                            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-(--border) bg-(--surface) px-3.5 text-xs font-semibold text-fg transition hover:bg-(--bg-subtle) disabled:opacity-50"
+                                        >
+                                            {operation === 'upload' ? (
+                                                <IconLoader2 size={14} className="animate-spin" />
+                                            ) : (
+                                                <IconPhoto size={14} />
+                                            )}
+                                            {resolvedCoverUrl ? 'Cambiar portada' : 'Subir portada'}
+                                        </button>
+                                        {resolvedCoverUrl ? (
+                                            <button
+                                                type="button"
+                                                disabled={!!operation}
+                                                onClick={() => changeAppearance('coverUrl', null)}
+                                                className="inline-flex h-9 items-center rounded-xl px-2.5 text-xs font-medium text-fg-muted transition hover:text-fg disabled:opacity-50"
+                                            >
+                                                Quitar
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                </div>
+                                <AvatarUpload
+                                    ref={coverUploadRef}
+                                    hideTrigger
+                                    currentUrl={resolvedCoverUrl}
+                                    config={{
+                                        maxSize: RAW_IMAGE_MAX_SIZE_KB,
+                                        maxWidth: 1600,
+                                        maxHeight: 900,
+                                        aspectRatio: 16 / 9,
+                                        circular: false,
+                                        shape: 'card',
+                                        onUpload: (file, cropped) => upload(file, cropped, 'cover'),
+                                    }}
+                                    onSuccess={(url) => changeAppearance('coverUrl', url || null)}
                                     onError={setUploadError}
                                 />
                                 {uploadError ? <PanelNotice tone="error" className="mt-3">{uploadError}</PanelNotice> : null}

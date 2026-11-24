@@ -1752,7 +1752,6 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const profile = await ensureAgendaProfile(user);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const pageAppearanceFields = [
-            'avatarUrl',
             'coverUrl',
             'operatorSiteLayout',
             'operatorSiteColorMode',
@@ -5077,7 +5076,6 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             operatingLocation,
         });
         if (isFreePlan(profile)) {
-            publicProfile.avatarUrl = null;
             publicProfile.coverUrl = null;
             publicProfile.landingPage = null;
             publicProfile.appearance = {
