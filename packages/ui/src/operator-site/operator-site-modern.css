@@ -348,7 +348,7 @@
     content: counter(os-service-index, decimal-leading-zero);
     position: absolute;
     top: 1rem;
-    left: 1rem;
+    right: 1rem;
     z-index: 3;
     font-size: clamp(2rem, 4vw, 3rem);
     font-weight: 800;

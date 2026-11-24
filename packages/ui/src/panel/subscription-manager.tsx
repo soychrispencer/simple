@@ -616,8 +616,10 @@ export function SubscriptionManager({
                     </div>
                 ) : null}
 
-                {loading ? null : proPlan || enterprisePlan ? (
-                    <div className={`grid gap-5 lg:items-stretch ${
+                {loading ? (
+                    <p className="mt-5 text-sm text-(--fg-muted)" role="status">Cargando planes…</p>
+                ) : proPlan || enterprisePlan ? (
+                    <div className={`mt-5 grid gap-5 lg:items-stretch ${
                         marketplaceMode
                             ? proPlan && enterprisePlan ? 'lg:grid-cols-2' : 'lg:grid-cols-1'
                             : 'lg:grid-cols-2 xl:grid-cols-3'
@@ -892,7 +894,7 @@ export function SubscriptionManager({
                         ) : null}
 
                         {!marketplaceMode ? (
-                            <aside className="flex h-full flex-col gap-4 rounded-card border border-(--border) bg-(--bg-subtle) p-5 sm:p-6">
+                            <aside className="flex h-full flex-col gap-4 rounded-card border border-(--border) bg-(--bg-subtle) p-5 sm:p-6 lg:col-span-2 xl:col-span-1">
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-wide text-(--fg-muted)">Resumen</p>
                                 <h4 className="mt-1 text-lg font-semibold text-(--fg)">
@@ -1003,7 +1005,7 @@ export function SubscriptionManager({
                             ))}
                         </ul>
                         <div className="flex flex-col gap-2 sm:flex-row md:flex-col">
-                            <a href={AGENDA_BUSINESS_WHATSAPP_HREF} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-button bg-(--accent) px-4 text-sm font-semibold text-(--accent-ink)">
+                            <a href={AGENDA_BUSINESS_WHATSAPP_HREF} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-button bg-(--accent) px-4 text-sm font-semibold text-(--accent-contrast,#fff)">
                                 Cotizar por WhatsApp
                             </a>
                         </div>
