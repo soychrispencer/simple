@@ -1351,18 +1351,6 @@
     opacity: 0.9;
 }
 
-@media (min-width: 640px) {
-    .os-service-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (min-width: 1100px) {
-    .os-service-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
 .os-service-card {
     display: flex;
     flex-direction: column;
@@ -4353,7 +4341,7 @@
 
 .os-page[data-os-layout="portfolio"] .os-service-card {
     position: relative;
-    min-height: clamp(24rem, 45vw, 35rem);
+    min-height: clamp(18rem, 35vw, 26rem);
     overflow: hidden;
     background: #111;
 }
@@ -4388,14 +4376,14 @@
 .os-page[data-os-layout="portfolio"] .os-service-card__cta {
     width: auto;
     align-self: flex-start;
-    border-radius: 0;
+    border-radius: 9999px;
     background: #fff;
     color: #111;
 }
 
 .os-page[data-os-layout="portfolio"] .os-booking-panel,
 .os-page[data-os-layout="portfolio"] .os-booking-shell {
-    border-radius: 0;
+    border-radius: var(--radius-lg);
 }
 
 .os-page[data-os-layout="portfolio"] .os-catalog-list-card,
@@ -4681,7 +4669,7 @@
 
 @media (min-width: 900px) {
     .os-page[data-os-layout="portfolio"] .os-service-scroller-hint {
-        text-align: left;
+        display: none;
     }
 }
 
@@ -4903,6 +4891,11 @@
     border: 1px solid var(--border);
     background: var(--surface);
     transition: border-color 0.2s var(--os-ease), box-shadow 0.2s var(--os-ease);
+}
+
+.os-page[data-os-layout="studio"][data-os-color="dark"] .os-bento__cell {
+    border-color: color-mix(in srgb, var(--border) 100%, var(--fg-muted) 20%);
+    background: color-mix(in srgb, var(--surface) 92%, var(--fg-muted) 8%);
 }
 
 .os-page[data-os-layout="studio"] .os-bento__cell:hover {

@@ -5,7 +5,7 @@ export type AgendaPanelTab = PanelSectionTabItem;
 
 export const businessSectionTabs: PanelSectionTabItem[] = [
     ...AGENDA_BUSINESS_TABS.map((item) => item.key === 'pagina' ? { ...item, label: 'Página web' } : item),
-    { key: 'equipo', label: 'Equipo', href: '/panel/mi-negocio/equipo' },
+    { key: 'equipo', label: 'Recepción', href: '/panel/mi-negocio/equipo' },
     { key: 'plan', label: 'Plan y facturación', href: '/panel/mi-negocio/plan' },
 ];
 

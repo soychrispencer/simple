@@ -236,7 +236,7 @@ export default function EquipoAgendaPage() {
     }
 
     return (
-        <AgendaMiNegocioShell activeKey="equipo" title="Equipo" description="Gestiona y consulta accesos de recepción por agenda." showPublishToggle={false}>
+        <AgendaMiNegocioShell activeKey="equipo" title="Recepción" description="Asigna asistentes para que gestionen citas de cada profesional." showPublishToggle={false}>
             {error && <PanelNotice tone="error">{error}</PanelNotice>}
             {confirmation && <p role="status" className="text-sm text-accent-ink">{confirmation}</p>}
             {!team && !error && <p role="status">Cargando equipo…</p>}
