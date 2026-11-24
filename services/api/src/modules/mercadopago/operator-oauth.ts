@@ -7,20 +7,38 @@ export type MercadoPagoOperatorTokens = {
     refreshToken: string | null;
 };
 
+export class MercadoPagoOperatorOAuthError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'MercadoPagoOperatorOAuthError';
+    }
+}
+
 function asString(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
+function asConfiguredCredential(value: unknown): string {
+    const credential = asString(value);
+    if (!credential) return '';
+
+    // Local environment templates intentionally ship with values such as
+    // YOUR_MP_AGENDA_APP_ID. Treat those as missing so the panel cannot claim
+    // OAuth is ready and send users to Mercado Pago with a fake client_id.
+    const placeholder = /^(?:your(?:[_ -]|$)|change[_ -]?me(?:$|[_ -])|replace(?:[_ -]?me)?(?:$|[_ -])|placeholder(?:$|[_ -])|example(?:$|[_ -])|<[^>]+>|\$\{[^}]+\})/i;
+    return placeholder.test(credential) ? '' : credential;
+}
+
 export function getMercadoPagoOperatorAppCredentials() {
-    const operatorAppId = asString(process.env.MP_OPERATOR_APP_ID);
-    const operatorAppSecret = asString(process.env.MP_OPERATOR_APP_SECRET);
+    const operatorAppId = asConfiguredCredential(process.env.MP_OPERATOR_APP_ID);
+    const operatorAppSecret = asConfiguredCredential(process.env.MP_OPERATOR_APP_SECRET);
 
     if (operatorAppId || operatorAppSecret) {
         return { appId: operatorAppId, appSecret: operatorAppSecret };
     }
 
-    const appId = asString(process.env.MP_AGENDA_APP_ID);
-    const appSecret = asString(process.env.MP_AGENDA_APP_SECRET);
+    const appId = asConfiguredCredential(process.env.MP_AGENDA_APP_ID);
+    const appSecret = asConfiguredCredential(process.env.MP_AGENDA_APP_SECRET);
     return { appId, appSecret };
 }
 
@@ -67,23 +85,28 @@ export function buildMercadoPagoOperatorAuthorizationUrl(state: string): string 
 export async function exchangeMercadoPagoOperatorOAuthCode(code: string): Promise<MercadoPagoOperatorTokens> {
     const { appId, appSecret } = getMercadoPagoOperatorAppCredentials();
     if (!appId || !appSecret) {
-        throw new Error('MercadoPago OAuth no está configurado.');
+        throw new MercadoPagoOperatorOAuthError('MercadoPago OAuth no está configurado.');
     }
 
-    const response = await fetch('https://api.mercadopago.com/oauth/token', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-        },
-        body: JSON.stringify({
-            client_id: appId,
-            client_secret: appSecret,
-            grant_type: 'authorization_code',
-            code,
-            redirect_uri: getMercadoPagoOperatorOAuthCallbackUrl(),
-        }),
-    });
+    let response: Response;
+    try {
+        response = await fetch('https://api.mercadopago.com/oauth/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({
+                client_id: appId,
+                client_secret: appSecret,
+                grant_type: 'authorization_code',
+                code,
+                redirect_uri: getMercadoPagoOperatorOAuthCallbackUrl(),
+            }),
+        });
+    } catch {
+        throw new MercadoPagoOperatorOAuthError('No pudimos comunicarnos con Mercado Pago. Revisa tu conexión e inténtalo nuevamente.');
+    }
 
     if (!response.ok) {
         const providerError = await response.json().catch(() => null) as { error?: unknown } | null;
@@ -92,7 +115,7 @@ export async function exchangeMercadoPagoOperatorOAuthCode(code: string): Promis
         const diagnostic = safeProviderCode
             ? `${safeProviderCode}, HTTP ${response.status}`
             : `HTTP ${response.status}`;
-        throw new Error(
+        throw new MercadoPagoOperatorOAuthError(
             `No pudimos autorizar tu cuenta de Mercado Pago (${diagnostic}). Verifica que la aplicación OAuth y el callback registrado coincidan con la configuración de Simple.`,
         );
     }
@@ -106,7 +129,7 @@ export async function exchangeMercadoPagoOperatorOAuthCode(code: string): Promis
 
     const accessToken = asString(tokens.access_token);
     if (!accessToken) {
-        throw new Error('MercadoPago no devolvió un token de acceso válido.');
+        throw new MercadoPagoOperatorOAuthError('MercadoPago no devolvió un token de acceso válido.');
     }
 
     return {

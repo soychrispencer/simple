@@ -48,6 +48,7 @@ import {
 import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
 import {
     fetchAccountWorkspace,
+    fetchCurrentAccountContext,
     saveAccountWorkspace,
     type AccountWorkspaceState,
 } from '@simple/utils';
@@ -70,6 +71,7 @@ export default function PerfilConfigPage() {
         operatorSubtypeCustom: '',
     });
     const [workspaceState, setWorkspaceState] = useState<AccountWorkspaceState | null>(null);
+    const [activeAccountIsPersonal, setActiveAccountIsPersonal] = useState<boolean | null>(null);
     const [accountName, setAccountName] = useState('');
     const [initialAccountName, setInitialAccountName] = useState('');
     const [workspaceSaving, setWorkspaceSaving] = useState(false);
@@ -93,12 +95,14 @@ export default function PerfilConfigPage() {
 
     useEffect(() => {
         const load = async () => {
-            const [profile, loadedLocations, loadedWorkspace] = await Promise.all([
+            const [profile, loadedLocations, loadedWorkspace, accountContext] = await Promise.all([
                 fetchAgendaProfile(),
                 fetchAgendaLocations(),
                 fetchAccountWorkspace('agenda'),
+                fetchCurrentAccountContext(),
             ]);
             setWorkspaceState(loadedWorkspace);
+            setActiveAccountIsPersonal(accountContext?.account?.isPersonal ?? null);
             const currentAccountName = loadedWorkspace?.accountName ?? '';
             setAccountName(currentAccountName);
             setInitialAccountName(currentAccountName);
@@ -108,11 +112,21 @@ export default function PerfilConfigPage() {
                     displayName: profile.displayName ?? '',
                     bio: profile.bio ?? '',
                 });
-                setOperator(resolveAgendaOperatorFields({
-                    accountKind: loadedWorkspace?.workspace?.accountKind ?? profile.accountKind,
-                    operatorSubtype: loadedWorkspace?.workspace?.operatorSubtype ?? profile.operatorSubtype,
-                    profession: loadedWorkspace?.workspace?.operatorSubtypeCustom ?? profile.profession,
-                }));
+                const activity = loadedWorkspace?.workspace;
+                const profileActivity = activity
+                    ? {
+                        accountKind: activity.accountKind,
+                        operatorSubtype: activity.operatorSubtype,
+                        profession: activity.operatorSubtypeCustom,
+                    }
+                    : accountContext?.account?.isPersonal === true
+                        ? {
+                            accountKind: profile.accountKind,
+                            operatorSubtype: profile.operatorSubtype,
+                            profession: profile.profession,
+                        }
+                        : { accountKind: 'company' as const, operatorSubtype: null, profession: null };
+                setOperator(resolveAgendaOperatorFields(profileActivity));
                 setContactForm({
                     publicEmail: profile.publicEmail ?? '',
                     publicPhone: profile.publicPhone ?? '',
@@ -219,6 +233,12 @@ export default function PerfilConfigPage() {
     };
 
     const workspace = workspaceState?.workspace;
+    const canShowActivityEditor = workspaceState !== null
+        && (
+            workspaceState.workspace !== null
+            || (workspaceState.canManage && activeAccountIsPersonal !== null)
+        )
+        && (workspaceState.canManage || Boolean(workspaceState.workspace?.onboardingCompletedAt));
     const customSubtype = operator.operatorSubtype === 'other' ? operator.operatorSubtypeCustom.trim() : '';
     const workspaceChanged = workspaceState?.canManage === true && (
         !workspace?.onboardingCompletedAt
@@ -335,49 +355,63 @@ export default function PerfilConfigPage() {
                         description="El rubro se usa para recomendar diseños y configurar los servicios de tu negocio."
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="sm:col-span-2">
-                            <OperatorProfileFields
-                                vertical="agenda"
-                                tier={operator.accountKind}
-                                subtype={operator.operatorSubtype}
-                                subtypeCustom={operator.operatorSubtypeCustom}
-                                disabled={workspaceState?.canManage !== true || workspaceSaving || saving}
-                                onTierChange={(tier) => {
-                                    setWorkspaceSaved(false);
-                                    setOperator({
-                                        accountKind: tier,
-                                        operatorSubtype: null,
-                                        operatorSubtypeCustom: '',
-                                    });
-                                }}
-                                onSubtypeChange={(subtype) => {
-                                    setWorkspaceSaved(false);
-                                    setOperator((current) => ({
-                                        ...current,
-                                        operatorSubtype: subtype,
-                                        operatorSubtypeCustom:
-                                            subtype === 'other' ? current.operatorSubtypeCustom : '',
-                                    }));
-                                }}
-                                onSubtypeCustomChange={(value) => {
-                                    setWorkspaceSaved(false);
-                                    setOperator((current) => ({
-                                        ...current,
-                                        operatorSubtypeCustom: value,
-                                    }));
-                                }}
-                            />
-                        </div>
-                        {workspaceState?.canManage === false ? (
+                        {!canShowActivityEditor && workspaceState === null ? (
                             <p className="sm:col-span-2 rounded-xl border px-3 py-2.5 text-sm leading-5" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
-                                La actividad de este espacio la configura quien lo administra. Puedes actualizar tu nombre y presentación personal aquí.
+                                No pudimos revisar los permisos del espacio. Recarga la página para consultar o cambiar su actividad.
                             </p>
-                        ) : null}
-                        {workspaceState === null ? (
+                        ) : !canShowActivityEditor && workspaceState.canManage === false ? (
                             <p className="sm:col-span-2 rounded-xl border px-3 py-2.5 text-sm leading-5" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
-                                No pudimos revisar los permisos del espacio. Recarga la página para cambiar su actividad.
+                                Este espacio aún no tiene una actividad de SimpleAgenda configurada. Pide a quien lo administra que la configure; tu perfil personal sigue disponible.
                             </p>
-                        ) : null}
+                        ) : !canShowActivityEditor ? (
+                            <p className="sm:col-span-2 rounded-xl border px-3 py-2.5 text-sm leading-5" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                No pudimos confirmar el tipo de este espacio. Recarga la página antes de cambiar su actividad.
+                            </p>
+                        ) : (
+                            <>
+                                <div className="sm:col-span-2">
+                                    <OperatorProfileFields
+                                        vertical="agenda"
+                                        tier={operator.accountKind}
+                                        subtype={operator.operatorSubtype}
+                                        subtypeCustom={operator.operatorSubtypeCustom}
+                                        tierLocked={activeAccountIsPersonal === false || (
+                                            activeAccountIsPersonal === null && workspaceState.workspace?.accountKind === 'company'
+                                        )}
+                                        disabled={workspaceState.canManage !== true || workspaceSaving || saving}
+                                        onTierChange={(tier) => {
+                                            setWorkspaceSaved(false);
+                                            setOperator({
+                                                accountKind: tier,
+                                                operatorSubtype: null,
+                                                operatorSubtypeCustom: '',
+                                            });
+                                        }}
+                                        onSubtypeChange={(subtype) => {
+                                            setWorkspaceSaved(false);
+                                            setOperator((current) => ({
+                                                ...current,
+                                                operatorSubtype: subtype,
+                                                operatorSubtypeCustom:
+                                                    subtype === 'other' ? current.operatorSubtypeCustom : '',
+                                            }));
+                                        }}
+                                        onSubtypeCustomChange={(value) => {
+                                            setWorkspaceSaved(false);
+                                            setOperator((current) => ({
+                                                ...current,
+                                                operatorSubtypeCustom: value,
+                                            }));
+                                        }}
+                                    />
+                                </div>
+                                {workspaceState.canManage === false ? (
+                                    <p className="sm:col-span-2 rounded-xl border px-3 py-2.5 text-sm leading-5" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                        La actividad configurada pertenece al espacio. Quien lo administra puede cambiarla; aquí puedes actualizar tu nombre y presentación personal.
+                                    </p>
+                                ) : null}
+                            </>
+                        )}
                         {operator.accountKind === 'company' && workspaceState?.canManage === true ? (
                             <PanelField label="Nombre de la empresa o equipo" hint="Identifica el espacio compartido. Puede ser distinto de tu nombre público." required className="sm:col-span-2">
                                 <input

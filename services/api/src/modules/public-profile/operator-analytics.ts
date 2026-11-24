@@ -109,8 +109,12 @@ export function buildMarketplaceOperatorAnalytics(
             .filter((item): item is ListingLike => Boolean(item && item.vertical === vertical));
 
     const profile = deps.getPublicProfileRecord(userId, vertical, accountId);
-    const accountKind = profile?.accountKind ?? 'individual';
-    const operatorSubtype = profile?.operatorSubtype ?? null;
+    const accountKind = accountScope?.accountId && !accountScope.isPersonal
+        ? 'company'
+        : profile?.accountKind ?? 'individual';
+    const operatorSubtype = accountKind === 'company' && profile?.accountKind !== 'company'
+        ? null
+        : profile?.operatorSubtype ?? null;
     const displayName = profile?.displayName ?? deps.getDefaultDisplayName(userId);
     const specialties = profile?.specialties ?? [];
 

@@ -149,9 +149,6 @@ export function createAccountCache(maps: AccountCacheMaps) {
             : [];
 
         if (existingId && personalAccount && personalMembershipRows[0]?.role === 'owner') {
-            const existing = accountsById.get(existingId);
-            if (existing) return existing;
-
             const rows = await db.select().from(accounts).where(eq(accounts.id, existingId)).limit(1);
             if (rows[0]) {
                 return upsertAccountCache(mapAccountRow(rows[0]));

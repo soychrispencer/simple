@@ -13,7 +13,8 @@ import { AgendaCta } from '@/components/landing/agenda-cta';
 import { AgendaPricingPlans } from '@/components/landing/agenda-pricing-plans';
 
 const questions = [
-    ['¿Qué pasa cuando termina la prueba?', `Pasas automáticamente a Gratis, con hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes. Las canceladas también cuentan. Los planes pagados se activan cuando eliges contratarlos.`],
+    ['¿Cómo funciona la prueba Pro?', `Todas las cuentas empiezan en Gratis. Puedes activar una prueba Pro de ${AGENDA_PRICING.trialDays} días desde tu panel cuando quieras. Empieza al activarla, una vez por espacio de trabajo, sin tarjeta ni cobro automático. Al terminar, sigues en Gratis.`],
+    ['¿Qué incluye el plan Gratis?', `Puedes recibir hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes. Las canceladas también cuentan. Tu perfil público y tus datos se mantienen sin límite de tiempo.`],
     ['¿Cómo reservan mis clientes?', 'Abren tu enlace, eligen un servicio y una hora disponible y completan sus datos. Tu agenda confirma automáticamente por defecto. Si pides un anticipo o prefieres aprobar a mano, verán el estado de su cita.'],
     ['¿Cómo puedo cobrar por una cita?', 'Con Pro o Pro+ puedes conectar Mercado Pago. También puedes compartir instrucciones de transferencia o un enlace de pago desde tu agenda. SimpleAgenda no cobra comisión por cita. El proveedor de pago puede aplicar sus propias tarifas.'],
     ['¿Cómo se envían los recordatorios?', 'Los recordatorios automáticos llegan por correo cuando tu cliente deja su email. En Agenda puedes abrir un mensaje listo en WhatsApp y enviarlo tú. Con Pro+ puedes además preparar mensajes para clientes que llevan 30, 60 o 90 días sin una atención.'],
@@ -42,7 +43,9 @@ export default function HomePage() {
                             </a>
                         </div>
                         <p className="agenda-hero__terms mt-4 max-w-sm text-sm">
-                            Hasta {AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes en Gratis.
+                            {showPlans
+                                ? `Gratis: hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes · Prueba Pro de ${AGENDA_PRICING.trialDays} días cuando quieras.`
+                                : 'Empieza gratis y configura tu agenda sin tarjeta durante el lanzamiento.'}
                         </p>
                     </div>
                     <div className="agenda-hero__visual">
@@ -66,7 +69,11 @@ export default function HomePage() {
                     <div className="container-app">
                         <p className="agenda-eyebrow mb-3">Planes</p>
                         <h2 className="agenda-heading">Parte con tu enlace. Crece con tu marca.</h2>
-                        <p className="agenda-section-description">Al terminar la prueba, puedes seguir en Gratis o contratar un plan cuando lo necesites.</p>
+                        <p className="agenda-section-description">
+                            {showPlans
+                                ? `Empieza en Gratis. Activa ${AGENDA_PRICING.trialDays} días de Pro cuando quieras o contrata un plan cuando lo necesites.`
+                                : 'Empieza gratis y organiza tu negocio sin tarjeta durante el lanzamiento.'}
+                        </p>
                         <AgendaPricingPlans />
                         <details id="plan-comparison" className="agenda-panel group mt-5 min-w-0 p-4 sm:mt-4 sm:p-4">
                             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-1 font-semibold marker:content-none">

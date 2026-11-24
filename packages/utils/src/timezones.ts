@@ -69,3 +69,71 @@ export function resolveDisplayTimezone(
     }
     return normalizeTimezone(userTimezone);
 }
+
+/**
+ * Parsea una fecha/hora (string o Date) garantizando la zona horaria destino.
+ * Si el string viene sin offset (ej: "2026-11-24T15:00" desde un <input type="datetime-local">),
+ * se interpreta explícitamente en la zona horaria indicada (por defecto America/Santiago)
+ * y devuelve el objeto Date UTC correspondiente, evitando que un servidor UTC asuma medianoche/hora UTC.
+ */
+export function parseDateTimeInTimezone(
+    input: string | Date | null | undefined,
+    timezone: string = DEFAULT_TIMEZONE,
+): Date {
+    if (!input) return new Date(NaN);
+    if (input instanceof Date) return new Date(input.getTime());
+    const str = String(input).trim();
+    if (!str) return new Date(NaN);
+
+    // Si ya trae información de zona (termina en 'Z' o tiene offset '+HH:mm' / '-HH:mm')
+    if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(str)) {
+        return new Date(str);
+    }
+
+    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/);
+    if (!match) return new Date(str);
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const hour = Number(match[4] ?? 0);
+    const minute = Number(match[5] ?? 0);
+    const second = Number(match[6] ?? 0);
+    const ms = Number((match[7] ?? '0').padEnd(3, '0').slice(0, 3));
+
+    const targetWallTime = Date.UTC(year, month - 1, day, hour, minute, second, ms);
+    const tz = normalizeTimezone(timezone, DEFAULT_TIMEZONE);
+
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+    });
+
+    const wallTimeAt = (instant: Date) => {
+        const parts = formatter.formatToParts(instant);
+        const val = (type: string) => Number.parseInt(parts.find((p) => p.type === type)?.value ?? '0', 10);
+        return Date.UTC(
+            val('year'),
+            val('month') - 1,
+            val('day'),
+            val('hour'),
+            val('minute'),
+            val('second'),
+            instant.getUTCMilliseconds(),
+        );
+    };
+
+    let candidate = targetWallTime;
+    for (let i = 0; i < 4; i++) {
+        const diff = targetWallTime - wallTimeAt(new Date(candidate));
+        if (diff === 0) return new Date(candidate);
+        candidate += diff;
+    }
+    return new Date(candidate);
+}

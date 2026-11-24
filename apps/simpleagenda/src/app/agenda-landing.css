@@ -4,8 +4,8 @@
     --agenda-hero-accent: var(--agenda-green);
     --agenda-header-ink: var(--agenda-ink);
     --agenda-header-border: color-mix(in srgb, var(--agenda-ink) 28%, transparent);
-    --agenda-intro-paper: #fbf8f3;
-    --agenda-demo-paper: color-mix(in srgb, var(--agenda-green) 4%, var(--agenda-paper));
+    --agenda-intro-paper: var(--agenda-paper);
+    --agenda-demo-paper: var(--bg-subtle);
     --agenda-hero-emphasis: #587400;
     --agenda-intro-ink: var(--agenda-green);
     --bg: var(--agenda-paper);
@@ -50,7 +50,7 @@
     --agenda-hero-accent: var(--agenda-lime);
     --agenda-header-ink: var(--agenda-paper);
     --agenda-intro-paper: var(--bg);
-    --agenda-demo-paper: color-mix(in srgb, var(--agenda-green) 14%, var(--bg));
+    --agenda-demo-paper: var(--bg-subtle);
     --agenda-hero-emphasis: var(--agenda-lime);
     --agenda-intro-ink: var(--fg);
     --agenda-header-border: color-mix(in srgb, var(--agenda-paper) 32%, transparent);
@@ -1138,20 +1138,17 @@ body.simpleagenda-root .marketplace-header .header-nav-link:focus-visible {
 
 .agenda-content-band--tint {
     border-block: 1px solid var(--border);
-    background: var(--agenda-tint);
+    background: var(--bg-subtle);
 }
 
 .agenda-content-band--pricing {
     border-block: 1px solid var(--border);
-    background: color-mix(in srgb, var(--agenda-green) 3%, var(--bg));
+    background: var(--bg-subtle);
 }
 
-:is(.dark, [data-theme="dark"]) .agenda-content-band--tint {
-    background: color-mix(in srgb, var(--agenda-green) 16%, var(--bg));
-}
-
+:is(.dark, [data-theme="dark"]) .agenda-content-band--tint,
 :is(.dark, [data-theme="dark"]) .agenda-content-band--pricing {
-    background: color-mix(in srgb, var(--agenda-green) 9%, var(--bg));
+    background: var(--bg-subtle);
 }
 
 .agenda-landing-grid {

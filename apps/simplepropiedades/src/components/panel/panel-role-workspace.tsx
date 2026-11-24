@@ -13,7 +13,8 @@ type WorkspaceExperience = {
     roleLabel: string;
     title: string;
     description: string;
-    publishLabel: string;
+    primaryActionLabel: string;
+    primaryActionHref?: string;
 };
 
 const SUBTYPE_EXPERIENCES: Record<string, WorkspaceExperience> = {
@@ -21,67 +22,68 @@ const SUBTYPE_EXPERIENCES: Record<string, WorkspaceExperience> = {
         roleLabel: 'Corredor independiente',
         title: 'Tu operación de corretaje, en un solo lugar',
         description: 'Publica tu cartera, atiende consultas y da seguimiento a cada oportunidad desde el mismo espacio.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
     advisor: {
         roleLabel: 'Asesor inmobiliario',
         title: 'Tu actividad inmobiliaria, lista para crecer',
         description: 'Ordena tus publicaciones, conversaciones y próximos pasos desde un espacio de trabajo.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
     appraiser: {
         roleLabel: 'Tasador',
         title: 'Haz visible tu experiencia inmobiliaria',
         description: 'Presenta tu trabajo y organiza las consultas que recibes en el mismo espacio.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Completar perfil profesional',
+        primaryActionHref: '/panel/mi-negocio',
     },
     auctioneer: {
         roleLabel: 'Martillero y remates',
         title: 'Un espacio profesional para tus oportunidades inmobiliarias',
         description: 'Publica propiedades, presenta tu perfil y sigue el interés que despiertan tus avisos.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
     rental_administrator: {
         roleLabel: 'Administrador independiente',
         title: 'Organiza las propiedades que administras',
         description: 'Reúne sus publicaciones y consultas para dar continuidad a cada gestión.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
     property_manager: {
         roleLabel: 'Gestora de propiedades',
         title: 'Organiza las propiedades que administras',
         description: 'Reúne sus publicaciones y consultas para dar continuidad a cada gestión.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
     real_estate_agency: {
         roleLabel: 'Inmobiliaria',
         title: 'Coordina la operación de tu inmobiliaria',
         description: 'Publicaciones, equipo y contactos comparten el mismo contexto para que cada oportunidad avance.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
     developer: {
         roleLabel: 'Desarrolladora inmobiliaria',
         title: 'Cada proyecto, con sus interesados conectados',
         description: 'Presenta tus proyectos y da seguimiento a las consultas que genera cada uno.',
-        publishLabel: 'Publicar proyecto',
+        primaryActionLabel: 'Publicar proyecto',
     },
     coworking: {
         roleLabel: 'Espacios flexibles',
         title: 'Administra y presenta tus espacios',
         description: 'Publica tus espacios y organiza las consultas que recibes desde el mismo panel.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar espacio',
     },
     owner: {
         roleLabel: 'Propietario',
         title: 'Publica tus propiedades y atiende a cada interesado',
         description: 'Mantén tus avisos y el interés de las personas en un mismo espacio.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
     landlord: {
         roleLabel: 'Arrendador',
         title: 'Un espacio simple para tus propiedades en arriendo',
         description: 'Publica tus inmuebles y revisa las consultas y conversaciones asociadas a cada aviso.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
 };
 
@@ -90,19 +92,19 @@ const TIER_EXPERIENCES: Record<string, WorkspaceExperience> = {
         roleLabel: 'Propietario o vendedor',
         title: 'Tus propiedades, publicaciones y consultas en un solo lugar',
         description: 'Publica, presenta tu perfil y revisa el interés que genera cada propiedad.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
     independent: {
         roleLabel: 'Profesional inmobiliario',
         title: 'Tu actividad inmobiliaria, en un espacio profesional',
         description: 'Presenta tu marca, administra tus publicaciones y atiende las consultas desde tu panel.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
     company: {
         roleLabel: 'Empresa inmobiliaria',
         title: 'Tu operación inmobiliaria, coordinada en un solo espacio',
         description: 'Publicaciones, contactos y equipo comparten el mismo contexto para dar continuidad a cada oportunidad.',
-        publishLabel: 'Publicar propiedad',
+        primaryActionLabel: 'Publicar propiedad',
     },
 };
 
@@ -116,7 +118,7 @@ function resolveExperience(
             roleLabel: 'Agente de equipo',
             title: 'Tu cartera de trabajo',
             description: 'Revisa tus propiedades asignadas, atiende conversaciones y lleva el seguimiento de cada contacto.',
-            publishLabel: 'Publicar propiedad',
+            primaryActionLabel: 'Publicar propiedad',
         };
     }
 
@@ -144,7 +146,7 @@ function resolveExperience(
             roleLabel: 'Tu espacio inmobiliario',
             title: 'Publica y gestiona tu actividad inmobiliaria desde un solo panel',
             description: 'Administra tus propiedades, presenta tu perfil y revisa las consultas que recibes.',
-            publishLabel: 'Publicar propiedad',
+            primaryActionLabel: 'Publicar propiedad',
         };
     }
 
@@ -172,7 +174,8 @@ export function PanelRoleWorkspace({
     const experience = resolveExperience(analytics, workspace, memberRole);
     const accountKind = workspace?.accountKind ?? analytics?.operator?.accountKind;
     const operatorSubtype = workspace?.operatorSubtype ?? analytics?.operator?.operatorSubtype;
-    const publishHref = operatorSubtype === 'developer' ? '/panel/publicar?op=project' : '/panel/publicar';
+    const primaryActionHref = experience.primaryActionHref
+        ?? (operatorSubtype === 'developer' ? '/panel/publicar?op=project' : '/panel/publicar');
     const workspaceLabel = memberRole === 'agent'
         ? 'Tu equipo'
         : !accountKind || accountKind === 'individual'
@@ -199,11 +202,11 @@ export function PanelRoleWorkspace({
 
                 <div className="flex flex-wrap gap-2">
                     <Link
-                        href={publishHref}
+                        href={primaryActionHref}
                         className={getPanelButtonClassName()}
                         style={getPanelButtonStyle('primary')}
                     >
-                        {experience.publishLabel}
+                        {experience.primaryActionLabel}
                         <IconArrowUpRight size={15} />
                     </Link>
                     <Link

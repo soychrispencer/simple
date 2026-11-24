@@ -35,6 +35,27 @@ export function fetchSubscriptionCatalog(): Promise<SubscriptionCatalogResponse 
     return fetchSubscriptionCatalogForVertical(VERTICAL);
 }
 
+export type AgendaTrialStatus = {
+    state: 'available' | 'active' | 'used';
+    endsAt: string | null;
+    remainingDays: number | null;
+    canManage: boolean;
+};
+
+export async function fetchAgendaTrialStatus(): Promise<AgendaTrialStatus | null> {
+    const { apiFetch } = await import('@simple/utils');
+    const { data } = await apiFetch<{ ok: boolean; trial?: AgendaTrialStatus }>('/api/agenda/subscription/trial');
+    return data?.ok ? data.trial ?? null : null;
+}
+
+export async function activateAgendaTrial(): Promise<{ ok: boolean; error?: string }> {
+    const { apiFetch } = await import('@simple/utils');
+    const { data } = await apiFetch<{ ok: boolean; error?: string }>('/api/agenda/subscription/trial/activate', {
+        method: 'POST',
+    });
+    return data ?? { ok: false, error: 'No pudimos activar la prueba Pro.' };
+}
+
 export function startSubscriptionCheckout(
     input: CheckoutStartInput,
 ): ReturnType<typeof startSubscriptionCheckoutForVertical> {

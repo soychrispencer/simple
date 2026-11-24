@@ -68,8 +68,8 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Diseño de la página pública',
-                description: 'Publica un enlace básico en Gratis o presenta tu negocio con una página completa en Pro.',
-                free: 'Página básica de reservas',
+                description: 'En Gratis tienes tu perfil público con el enlace para reservas; en Pro puedes personalizar su portada, estilos y contenido.',
+                free: 'Perfil público con reservas',
                 pro: 'Portada, estilos, colores y contenido asistido por IA',
                 proPlus: 'Incluido en Pro',
             },
@@ -232,10 +232,11 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 proPlus: 'No requerida',
             },
             {
-                name: 'Prueba completa sin costo',
-                free: '30 días de Pro incluidos',
-                pro: '30 días de Pro incluidos',
-                proPlus: '30 días de Pro incluidos',
+                name: 'Prueba del plan Pro (una vez por espacio)',
+                description: 'Actívala desde tu panel cuando estés listo. No inicia con el registro ni pide tarjeta.',
+                free: `${AGENDA_PRICING.trialDays} días, cuando quieras`,
+                pro: 'Prueba previa opcional',
+                proPlus: 'Incluye una prueba previa de Pro',
             },
             {
                 name: 'Permanencia o cláusulas mínimas',

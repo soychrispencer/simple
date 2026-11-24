@@ -1,7 +1,17 @@
 import { apiFetch } from './api-client.js';
+import type { OperatorTier } from './operator-profile-config.js';
 
 export type WorkspaceVertical = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 export type WorkspaceAccountKind = 'individual' | 'independent' | 'company';
+export const POST_REGISTRATION_ROLE_WIZARD_VERSION = 1;
+export type PostRegistrationWizardAnswers = {
+    accountKind?: OperatorTier;
+    operatorSubtype?: string;
+    operatorSubtypeCustom?: string;
+    companyName?: string;
+    firstTask?: string;
+    serenataRole?: 'client' | 'musician' | 'owner';
+};
 
 export type AccountWorkspaceSettings = {
     accountId: string;
@@ -20,6 +30,18 @@ export type AccountWorkspaceState = {
     memberRole: string | null;
 };
 
+export type VerticalOnboardingStatus = 'not_started' | 'in_progress' | 'deferred' | 'completed' | 'legacy_complete';
+
+export type VerticalOnboardingState = {
+    version: number;
+    status: VerticalOnboardingStatus;
+    step: number;
+    answers: Record<string, unknown>;
+    shouldShow: boolean;
+    legacyEquivalent: boolean;
+    canManage: boolean;
+};
+
 type WorkspaceResponse = {
     ok: boolean;
     workspace?: AccountWorkspaceSettings | null;
@@ -30,6 +52,48 @@ type WorkspaceResponse = {
     errorCode?: string;
     error?: string;
 };
+
+type VerticalOnboardingResponse = {
+    ok: boolean;
+    version?: number;
+    status?: VerticalOnboardingStatus;
+    step?: number;
+    answers?: Record<string, unknown>;
+    shouldShow?: boolean;
+    legacyEquivalent?: boolean;
+    canManage?: boolean;
+    error?: string;
+};
+
+export async function fetchVerticalOnboarding(
+    vertical: WorkspaceVertical,
+): Promise<VerticalOnboardingState | null> {
+    const { data } = await apiFetch<VerticalOnboardingResponse>(
+        `/api/accounts/current/onboarding?vertical=${vertical}`,
+        { method: 'GET' },
+    );
+    if (!data?.ok || !data.status) return null;
+    return {
+        version: data.version ?? POST_REGISTRATION_ROLE_WIZARD_VERSION,
+        status: data.status,
+        step: data.step ?? 0,
+        answers: data.answers ?? {},
+        shouldShow: data.shouldShow ?? false,
+        legacyEquivalent: data.legacyEquivalent ?? false,
+        canManage: data.canManage ?? true,
+    };
+}
+
+export async function saveVerticalOnboarding(
+    vertical: WorkspaceVertical,
+    input: { status: 'in_progress' | 'deferred' | 'completed'; step: number; answers: Record<string, unknown> },
+): Promise<{ ok: boolean; error?: string }> {
+    const { data } = await apiFetch<VerticalOnboardingResponse>(
+        `/api/accounts/current/onboarding?vertical=${vertical}`,
+        { method: 'PUT', body: JSON.stringify(input) },
+    );
+    return data?.ok ? { ok: true } : { ok: false, error: data?.error ?? 'No pudimos guardar el avance.' };
+}
 
 export async function fetchAccountWorkspace(
     vertical: WorkspaceVertical,

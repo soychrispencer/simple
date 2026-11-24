@@ -165,6 +165,7 @@ import {
     accountUsers,
     accountInvitations,
     accountVerticalSettings,
+    userVerticalOnboarding,
     accountListingAssignments,
     accountRelationshipAssignments,
     accountRelationshipTasks,
@@ -552,6 +553,10 @@ const INSTAGRAM_STATE_COOKIE = 'simple_instagram_state';
 const TIKTOK_STATE_COOKIE = 'simple_tiktok_state';
 const YOUTUBE_STATE_COOKIE = 'simple_youtube_state';
 const SESSION_SECRET = asString(env.SESSION_SECRET);
+// Local OAuth can return through the shared production API while keeping local
+// session cookies independent. The callback API and this API must share this
+// signing secret; production defaults to its existing SESSION_SECRET.
+const MERCADOPAGO_OAUTH_STATE_SECRET = asString(process.env.MP_OPERATOR_OAUTH_STATE_SECRET) || SESSION_SECRET;
 
 // ── Web Push (VAPID) ──────────────────────────────────────────────────────────
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? '';
@@ -2397,6 +2402,7 @@ app.route('/api/accounts', createAccountsRouter({
         users,
         addressBook,
         accountVerticalSettings,
+        userVerticalOnboarding,
         accountListingAssignments,
         accountRelationshipAssignments,
         accountRelationshipTasks,
@@ -2404,6 +2410,9 @@ app.route('/api/accounts', createAccountsRouter({
         messageThreads,
         platformNotifications,
         publicProfiles,
+        serenataClients,
+        serenataMusicians,
+        serenataOwners,
     },
     and,
     inArray,
@@ -2451,15 +2460,23 @@ const ensureMarketplaceDraftProfileForUser = async (user: AppUser, vertical: Ver
                     eq(accountVerticalSettings.vertical, vertical),
                 ))
                 .limit(1);
+            const [account] = await tx.select({ isPersonal: accounts.isPersonal })
+                .from(accounts)
+                .where(eq(accounts.id, accountId))
+                .limit(1);
+            const accountKind = account?.isPersonal === false
+                ? 'company'
+                : workspace?.accountKind ?? editable.accountKind;
+            const hasMatchingWorkspace = workspace?.accountKind === accountKind;
             const [profile] = await tx.insert(publicProfiles).values({
                 accountId,
                 userId: user.id,
                 vertical,
                 slug: editable.slug,
                 isPublished: false,
-                accountKind: workspace?.accountKind ?? editable.accountKind,
-                operatorSubtype: workspace?.operatorSubtype ?? editable.operatorSubtype,
-                operatorSubtypeCustom: workspace?.operatorSubtypeCustom ?? editable.operatorSubtypeCustom,
+                accountKind,
+                operatorSubtype: hasMatchingWorkspace ? workspace?.operatorSubtype ?? null : account?.isPersonal === false ? null : editable.operatorSubtype,
+                operatorSubtypeCustom: hasMatchingWorkspace ? workspace?.operatorSubtypeCustom ?? null : account?.isPersonal === false ? null : editable.operatorSubtypeCustom,
                 displayName: editable.displayName,
                 headline: editable.headline,
                 bio: editable.bio,
@@ -2550,7 +2567,16 @@ async function getMarketplaceAccountBillingContext(
             ? defaultMembership
             : await getAccountMembershipFromDb(userId, accountId))
         : null;
-    const account = accountId ? accountsById.get(accountId) ?? null : null;
+    const [account] = accountId
+        ? await db.select({
+            id: accounts.id,
+            name: accounts.name,
+            isPersonal: accounts.isPersonal,
+        })
+            .from(accounts)
+            .where(eq(accounts.id, accountId))
+            .limit(1)
+        : [];
     const [workspace] = accountId
         ? await db.select({ accountKind: accountVerticalSettings.accountKind })
             .from(accountVerticalSettings)
@@ -2561,7 +2587,9 @@ async function getMarketplaceAccountBillingContext(
             .limit(1)
         : [];
     const profile = accountId ? getPublicProfileRecord(userId, vertical, accountId) : null;
-    const rawAccountKind = workspace?.accountKind ?? profile?.accountKind ?? (account?.isPersonal ? 'individual' : 'company');
+    const rawAccountKind = account?.isPersonal === false
+        ? 'company'
+        : workspace?.accountKind ?? profile?.accountKind ?? 'individual';
     const accountKind: PublicProfileAccountKind = rawAccountKind === 'company'
         ? 'company'
         : rawAccountKind === 'independent'
@@ -2593,7 +2621,14 @@ async function getAgendaAccountBillingContext(userId: string, accountIdOverride?
     const membership = defaultMembership?.accountId === accountId
         ? defaultMembership
         : await getAccountMembershipFromDb(userId, accountId);
-    const account = accountsById.get(accountId) ?? null;
+    const [account] = await db.select({
+        id: accounts.id,
+        name: accounts.name,
+        isPersonal: accounts.isPersonal,
+    })
+        .from(accounts)
+        .where(eq(accounts.id, accountId))
+        .limit(1);
     const [workspace] = await db.select({ accountKind: accountVerticalSettings.accountKind })
         .from(accountVerticalSettings)
         .where(and(
@@ -2602,9 +2637,9 @@ async function getAgendaAccountBillingContext(userId: string, accountIdOverride?
         ))
         .limit(1);
     const profile = await getAgendaProfile(userId, accountId);
-    const rawAccountKind = workspace?.accountKind
-        ?? profile?.accountKind
-        ?? (account?.isPersonal ? 'individual' : 'company');
+    const rawAccountKind = account?.isPersonal === false
+        ? 'company'
+        : workspace?.accountKind ?? profile?.accountKind ?? 'individual';
     const accountKind: PublicProfileAccountKind = rawAccountKind === 'company'
         ? 'company'
         : rawAccountKind === 'independent'
@@ -2958,7 +2993,7 @@ app.route('/api/integrations/mercadopago', createMercadoPagoIntegrationRouter({
     resolveBrowserOrigin,
     sanitizeBrowserReturnUrl,
     randomBytes,
-    sessionSecret: SESSION_SECRET,
+    sessionSecret: MERCADOPAGO_OAUTH_STATE_SECRET,
     userCanConnectMercadoPago: (user, vertical, accountId) => userCanConnectMercadoPagoOperator(user as AppUser, vertical, accountId),
     getCurrentPlanId: (user, vertical, accountId) => getMercadoPagoOperatorPlanId(user as AppUser, vertical, accountId),
     getPrimaryAccountIdForUser,

@@ -17,9 +17,11 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
-it('asigna una primera prueba vigente a un perfil antiguo sin fecha', async () => {
-    await ensureAgendaProfileTrial({ id: 'legacy', plan: 'free', planExpiresAt: null, createdAt: new Date('2020-01-01') } as any);
-    expect(set.mock.calls[0][0].planExpiresAt.getTime()).toBeGreaterThan(Date.now());
+it('mantiene Gratis hasta que el negocio active voluntariamente su prueba', async () => {
+    const profile = { id: 'new', plan: 'free', planExpiresAt: null, createdAt: new Date('2026-09-01') };
+    expect(await ensureAgendaProfileTrial(profile as any)).toBe(profile);
+    expect(set).not.toHaveBeenCalled();
+    expect(hasAgendaFullAccess(profile)).toBe(false);
 });
 it('no regenera una prueba vencida o cancelada', async () => {
     const profile = { id: 'expired', plan: 'free', planExpiresAt: expiredAgendaPlanEndsAt() };

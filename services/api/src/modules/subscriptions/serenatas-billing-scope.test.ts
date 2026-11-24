@@ -47,6 +47,12 @@ describe('SimpleSerenatas individual billing scope', () => {
         const tx = {
             execute: vi.fn(async () => undefined),
             select: vi.fn(() => selectBuilder(transactionRows)),
+            update: vi.fn((targetTable: unknown) => ({
+                set: (values: Record<string, unknown>) => {
+                    profileUpdates.push({ table: targetTable, values });
+                    return { where: async () => undefined };
+                },
+            })),
             insert: vi.fn(() => ({
                 values: (values: Record<string, unknown>) => {
                     writtenSubscriptions.push(values);
@@ -56,13 +62,10 @@ describe('SimpleSerenatas individual billing scope', () => {
         };
 
         mocks.select.mockImplementation(() => selectBuilder(personalAndPlanRows));
-        mocks.transaction.mockImplementation(async (callback: (transaction: typeof tx) => unknown) => callback(tx));
-        mocks.update.mockImplementation((targetTable: unknown) => ({
-            set: (values: Record<string, unknown>) => {
-                profileUpdates.push({ table: targetTable, values });
-                return { where: async () => undefined };
-            },
+        mocks.update.mockImplementation(() => ({
+            set: () => ({ where: async () => undefined }),
         }));
+        mocks.transaction.mockImplementation(async (callback: (transaction: typeof tx) => unknown) => callback(tx));
 
         const result = await persistUserSubscription({
             userId: 'user-1',

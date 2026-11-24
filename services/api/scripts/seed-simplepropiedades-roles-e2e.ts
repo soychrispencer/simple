@@ -15,7 +15,7 @@ import { and, eq, inArray, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '../src/db/schema.js';
-import { accountInvitations, accountUsers, accountVerticalSettings, accounts, users } from '../src/db/schema.js';
+import { accountInvitations, accountUsers, accountVerticalSettings, accounts, agendaProfessionalProfiles, publicProfiles, userPlatformAccess, users } from '../src/db/schema.js';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 if (process.env.NODE_ENV !== 'production') {
@@ -278,6 +278,7 @@ async function cleanScale(db: ReturnType<typeof drizzle<typeof schema>>) {
             await tx.delete(accountUsers).where(or(...membershipClauses));
         }
         if (accountIds.length) await tx.delete(accounts).where(inArray(accounts.id, accountIds));
+        if (userIds.length) await tx.delete(userPlatformAccess).where(inArray(userPlatformAccess.userId, userIds));
         if (userIds.length) await tx.delete(users).where(inArray(users.id, userIds));
     });
     console.log(`Limpieza de escala local lista: ${userIds.length} integrantes y ${invitationEmails.length} invitaciones retiradas.`);
@@ -300,6 +301,18 @@ async function clean(db: ReturnType<typeof drizzle<typeof schema>>) {
     await db.transaction(async (tx) => {
         if (accountIds.length) await tx.delete(accountInvitations).where(inArray(accountInvitations.accountId, accountIds));
         if (userIds.length || accountIds.length) {
+            const profileClauses = [
+                userIds.length ? inArray(publicProfiles.userId, userIds) : undefined,
+                accountIds.length ? inArray(publicProfiles.accountId, accountIds) : undefined,
+            ].filter((clause) => clause !== undefined);
+            await tx.delete(publicProfiles).where(or(...profileClauses));
+            const agendaProfileClauses = [
+                userIds.length ? inArray(agendaProfessionalProfiles.userId, userIds) : undefined,
+                accountIds.length ? inArray(agendaProfessionalProfiles.accountId, accountIds) : undefined,
+            ].filter((clause) => clause !== undefined);
+            await tx.delete(agendaProfessionalProfiles).where(or(...agendaProfileClauses));
+        }
+        if (userIds.length || accountIds.length) {
             const membershipClauses = [
                 userIds.length ? inArray(accountUsers.userId, userIds) : undefined,
                 accountIds.length ? inArray(accountUsers.accountId, accountIds) : undefined,
@@ -307,6 +320,7 @@ async function clean(db: ReturnType<typeof drizzle<typeof schema>>) {
             await tx.delete(accountUsers).where(or(...membershipClauses));
         }
         if (accountIds.length) await tx.delete(accounts).where(inArray(accounts.id, accountIds));
+        if (userIds.length) await tx.delete(userPlatformAccess).where(inArray(userPlatformAccess.userId, userIds));
         if (userIds.length) await tx.delete(users).where(inArray(users.id, userIds));
     });
     console.log(`Limpieza local lista: ${userIds.length} identidades y ${accountIds.length} espacios de prueba retirados.`);
@@ -338,6 +352,19 @@ async function main() {
 }
 
 main().catch((error) => {
-    console.error(error instanceof Error ? error.message : 'No se pudo preparar el seed local.');
+    let databaseError = error as { code?: string; constraint_name?: string; table_name?: string; cause?: unknown };
+    for (let depth = 0; depth < 4 && databaseError.cause; depth += 1) {
+        databaseError = databaseError.cause as typeof databaseError;
+    }
+    if (databaseError.code || databaseError.constraint_name || databaseError.table_name) {
+        console.error('No se pudo preparar o limpiar el seed local por un error de base de datos.');
+        console.error(JSON.stringify({
+            code: databaseError.code,
+            constraint: databaseError.constraint_name,
+            table: databaseError.table_name,
+        }));
+    } else {
+        console.error(error instanceof Error ? error.message : 'No se pudo preparar el seed local.');
+    }
     process.exitCode = 1;
 });

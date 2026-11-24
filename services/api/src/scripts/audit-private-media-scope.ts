@@ -1,4 +1,4 @@
-import { pgClient } from '../src/db/index.js';
+import { pgClient } from '../db/index.js';
 
 type PrivateMediaScopeRow = {
     source_table: 'agenda_client_attachments' | 'serenata_song_scores';

@@ -9,7 +9,7 @@ import {
     useState,
     type ReactNode,
 } from 'react';
-import { fetchAccountWorkspace, resolveAgendaOperatorFields } from '@simple/utils';
+import { fetchAccountWorkspace, fetchCurrentAccountContext, resolveAgendaOperatorFields } from '@simple/utils';
 import { fetchAgendaProfile } from '@/lib/agenda-api';
 import {
     buildAgendaVocab,
@@ -23,16 +23,22 @@ export function AgendaVocabProvider({ children }: { children: ReactNode }) {
     const [vocab, setVocab] = useState<AgendaVocab>(() => buildAgendaVocab('cliente'));
 
     const refresh = useCallback(async () => {
-        const [profile, workspaceState] = await Promise.all([
+        const [profile, workspaceState, accountContext] = await Promise.all([
             fetchAgendaProfile(),
             fetchAccountWorkspace('agenda'),
+            fetchCurrentAccountContext(),
         ]);
         const workspace = workspaceState?.workspace;
         if (!profile && !workspace) return;
+        const isBusinessAccount = accountContext?.account?.isPersonal === false;
         const operator = resolveAgendaOperatorFields({
-            accountKind: workspace?.accountKind ?? profile?.accountKind,
-            operatorSubtype: workspace?.operatorSubtype ?? profile?.operatorSubtype,
-            profession: workspace?.operatorSubtypeCustom ?? profile?.profession,
+            accountKind: workspace?.accountKind ?? (isBusinessAccount ? 'company' : profile?.accountKind),
+            operatorSubtype: isBusinessAccount
+                ? workspace?.accountKind === 'company' ? workspace.operatorSubtype : null
+                : workspace?.operatorSubtype ?? profile?.operatorSubtype,
+            profession: isBusinessAccount
+                ? workspace?.accountKind === 'company' ? workspace.operatorSubtypeCustom : null
+                : workspace?.operatorSubtypeCustom ?? profile?.profession,
         });
         setVocab(buildAgendaVocabFromSubtype(operator.operatorSubtype));
     }, []);

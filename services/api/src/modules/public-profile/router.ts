@@ -123,6 +123,49 @@ export function createAccountRouter(deps: AccountRouterDeps) {
         return deps.getPrimaryAccountIdForUser(userId);
     }
 
+    async function buildCurrentAccountPublicProfileResponse(user: any, vertical: any, accountId: string | null) {
+        const response = buildAccountPublicProfileResponse(user, vertical, accountId);
+        const [workspaceActivity] = accountId
+            ? await db.select({
+                accountKind: accountVerticalSettings.accountKind,
+                operatorSubtype: accountVerticalSettings.operatorSubtype,
+                operatorSubtypeCustom: accountVerticalSettings.operatorSubtypeCustom,
+            })
+                .from(accountVerticalSettings)
+                .where(and(
+                    eq(accountVerticalSettings.accountId, accountId),
+                    eq(accountVerticalSettings.vertical, vertical),
+                ))
+                .limit(1)
+            : [];
+        const accountIsPersonal = accountId
+            ? deps.isPersonalAccountForUser?.(user.id, accountId)
+            : undefined;
+        const isBusinessAccount = accountIsPersonal === false;
+        const hasWorkspaceActivity = Boolean(workspaceActivity);
+        const legacyCompanyProfile = !hasWorkspaceActivity && response.profile.accountKind === 'company'
+            ? response.profile
+            : null;
+        const businessActivity = workspaceActivity?.accountKind === 'company'
+            ? workspaceActivity
+            : legacyCompanyProfile;
+        return {
+            ...response,
+            profile: {
+                ...response.profile,
+                accountKind: isBusinessAccount
+                    ? 'company'
+                    : workspaceActivity?.accountKind ?? response.profile.accountKind,
+                operatorSubtype: isBusinessAccount
+                    ? businessActivity?.operatorSubtype ?? null
+                    : hasWorkspaceActivity ? workspaceActivity.operatorSubtype : response.profile.operatorSubtype,
+                operatorSubtypeCustom: isBusinessAccount
+                    ? businessActivity?.operatorSubtypeCustom ?? null
+                    : hasWorkspaceActivity ? workspaceActivity.operatorSubtypeCustom : response.profile.operatorSubtypeCustom,
+            },
+        };
+    }
+
     app.patch('/profile', async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -165,7 +208,7 @@ export function createAccountRouter(deps: AccountRouterDeps) {
         if (ensureMarketplaceDraftProfileForUser) {
             await ensureMarketplaceDraftProfileForUser(user, vertical, accountId);
         }
-        return c.json(buildAccountPublicProfileResponse(user, vertical, accountId));
+        return c.json(await buildCurrentAccountPublicProfileResponse(user, vertical, accountId));
     });
 
     app.get('/public-profile/analytics', async (c) => {
@@ -257,9 +300,24 @@ export function createAccountRouter(deps: AccountRouterDeps) {
                 ))
                 .limit(1)
             : [];
-        const accountKind = workspaceActivity?.accountKind ?? current.accountKind;
-        const accountSubtype = workspaceActivity?.operatorSubtype ?? current.operatorSubtype;
-        const accountSubtypeCustom = workspaceActivity?.operatorSubtypeCustom ?? current.operatorSubtypeCustom;
+        const accountIsPersonal = activeAccountId
+            ? deps.isPersonalAccountForUser?.(user.id, activeAccountId)
+            : undefined;
+        const accountKind = accountIsPersonal === false
+            ? 'company'
+            : workspaceActivity?.accountKind ?? current.accountKind;
+        const legacyCompanyProfile = !workspaceActivity && current.accountKind === 'company'
+            ? current
+            : null;
+        const businessActivity = workspaceActivity?.accountKind === 'company'
+            ? workspaceActivity
+            : legacyCompanyProfile;
+        const accountSubtype = accountIsPersonal === false
+            ? businessActivity?.operatorSubtype ?? null
+            : workspaceActivity?.operatorSubtype ?? current.operatorSubtype;
+        const accountSubtypeCustom = accountIsPersonal === false
+            ? businessActivity?.operatorSubtypeCustom ?? null
+            : workspaceActivity?.operatorSubtypeCustom ?? current.operatorSubtypeCustom;
         const normalizedSlug = normalizePublicProfileSlug(parsed.data.slug || parsed.data.displayName);
         if (!isValidPublicProfileSlug(normalizedSlug)) {
             return c.json({ ok: false, error: 'Usa un slug válido de 3 a 80 caracteres.' }, 400);
@@ -438,7 +496,7 @@ export function createAccountRouter(deps: AccountRouterDeps) {
             await refreshAddressBookCacheForUser(user.id);
         }
 
-        return c.json(buildAccountPublicProfileResponse(user, vertical, activeAccountId));
+        return c.json(await buildCurrentAccountPublicProfileResponse(user, vertical, activeAccountId));
     });
 
     function buildPaymentMethodsResponse(record: ReturnType<typeof getPublicProfileRecord>) {

@@ -13,6 +13,7 @@ import {
     exchangeMercadoPagoOperatorOAuthCode,
     getMercadoPagoOperatorAppOrigin,
     isMercadoPagoOperatorOAuthConfigured,
+    MercadoPagoOperatorOAuthError,
 } from './operator-oauth.js';
 import {
     disconnectMercadoPagoOperator,
@@ -225,11 +226,26 @@ export function createMercadoPagoIntegrationRouter(deps: MercadoPagoIntegrationR
             const tokens = await exchangeMercadoPagoOperatorOAuthCode(code);
             await saveMercadoPagoOperatorTokens(user.id, vertical, tokens, attempt.accountId);
             if (deps.onMercadoPagoOperatorConnected) {
-                await deps.onMercadoPagoOperatorConnected(user.id, vertical, attempt.accountId);
+                try {
+                    await deps.onMercadoPagoOperatorConnected(user.id, vertical, attempt.accountId);
+                } catch (error) {
+                    console.warn('[mercadopago] OAuth connected, but workspace cache refresh failed', {
+                        vertical,
+                        errorType: error instanceof Error ? error.name : 'UnknownError',
+                    });
+                }
             }
             return redirectWithStatus('connected', 'MercadoPago conectado correctamente.');
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'No se pudo conectar con MercadoPago.';
+            const message = error instanceof MercadoPagoOperatorOAuthError || isSocialIntegrationAccessError(error)
+                ? error.message
+                : 'No pudimos guardar la conexión con Mercado Pago. Inténtalo nuevamente; si el problema continúa, contacta a soporte.';
+            if (!(error instanceof MercadoPagoOperatorOAuthError) && !isSocialIntegrationAccessError(error)) {
+                console.error('[mercadopago] OAuth token save failed', {
+                    vertical,
+                    errorType: error instanceof Error ? error.name : 'UnknownError',
+                });
+            }
             return redirectWithStatus('error', message);
         }
     }

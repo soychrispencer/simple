@@ -146,6 +146,8 @@ export const POST_JOURNAL_TAGS = [
     '0179_personal_account_owner_membership',
     '0180_agenda_booking_checkout_url',
     '0181_agenda_reception_assignments',
+    '0182_agenda_account_pro_trials',
+    '0183_user_vertical_onboarding',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

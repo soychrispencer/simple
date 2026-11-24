@@ -41,10 +41,16 @@ export function PanelButton(props: PanelButtonProps) {
             onClick={onClick}
             disabled={disabled || loading}
             aria-label={ariaLabel}
+            aria-busy={loading || undefined}
             className={getPanelButtonClassName({ size, className })}
             style={{ ...getPanelButtonStyle(variant), ...style }}
         >
-            {loading ? <IconLoader2 className="animate-spin" size={16} /> : children}
+            {loading ? (
+                <>
+                    <IconLoader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none" size={16} />
+                    <span className="sr-only">{children}</span>
+                </>
+            ) : children}
         </button>
     );
 }
@@ -58,7 +64,7 @@ export function getPanelButtonClassName(props?: {
         : 'h-10 px-4 text-sm';
 
     return joinClasses(
-        'panel-button inline-flex items-center justify-center gap-2 border font-medium transition-[background,color,border-color,box-shadow,transform] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+        'panel-button inline-flex items-center justify-center gap-2 border font-medium transition-[background,color,border-color,box-shadow,transform] duration-150 active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
         sizeClass,
         props?.className,
     );

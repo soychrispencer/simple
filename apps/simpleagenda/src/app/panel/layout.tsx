@@ -5,7 +5,7 @@ import { SubscriptionGate } from '@/components/auth/subscription-gate';
 import { Header } from '@/components/layout/header';
 import { PanelShell } from '@/components/panel/panel-shell';
 import { AgendaVocabProvider } from '@/components/panel/agenda-vocab-context';
-import { PanelConfirmProvider } from '@simple/ui/panel';
+import { PanelConfirmProvider, PostRegistrationRoleWizardGate } from '@simple/ui/panel';
 import './panel-identity.css';
 
 export default function PanelLayout({ children }: { children: React.ReactNode }) {
@@ -14,12 +14,16 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
             <SubscriptionGate>
                 <PanelConfirmProvider>
                     <AgendaVocabProvider>
-                        <div className="agenda-panel-workspace flex min-h-screen min-w-0 flex-col bg-(--bg) text-(--fg)">
-                            <div className="agenda-panel-quick-action shrink-0">
-                                <Header />
+                        <PostRegistrationRoleWizardGate vertical="agenda" enabled>
+                            <div className="agenda-panel-workspace flex min-h-screen min-w-0 flex-col bg-(--bg) text-(--fg)">
+                                <div className="agenda-panel-quick-action shrink-0">
+                                    <Header />
+                                </div>
+                                <PanelShell>
+                                    {children}
+                                </PanelShell>
                             </div>
-                            <PanelShell>{children}</PanelShell>
-                        </div>
+                        </PostRegistrationRoleWizardGate>
                     </AgendaVocabProvider>
                 </PanelConfirmProvider>
             </SubscriptionGate>

@@ -44,6 +44,10 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
         return [...filtered].sort((a, b) => b.updatedAt - a.updatedAt);
     }
 
+    function hasActiveAccess(item: ActiveSubscription): boolean {
+        return item.status === 'active' && (item.expiresAt == null || item.expiresAt > Date.now());
+    }
+
     function getCurrentSubscription(
         userId: string,
         vertical: VerticalType,
@@ -54,7 +58,7 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
             const targetProfileType = billingProfileType ?? 'provider';
             return getActiveSubscriptionsForUser(userId, vertical)
                 .find((item) => (
-                    item.status === 'active'
+                    hasActiveAccess(item)
                     && (item.billingProfileType ?? 'provider') === targetProfileType
                 )) ?? null;
         }
@@ -63,14 +67,14 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
             : explicitAccountId;
         if (accountId) {
             const accountSubscription = (activeSubscriptionsByAccount.get(accountId) ?? [])
-                .find((item) => item.vertical === vertical && item.status === 'active');
+                .find((item) => item.vertical === vertical && hasActiveAccess(item));
             if (accountSubscription) return accountSubscription;
         }
 
         const canReadLegacy = canReadLegacyPersonalSubscription(userId, accountId);
 
         return getActiveSubscriptionsForUser(userId, vertical).find((item) => (
-            item.status === 'active'
+            hasActiveAccess(item)
             && (accountId !== null && item.accountId === accountId || (canReadLegacy && !item.accountId))
         )) ?? null;
     }
@@ -84,13 +88,13 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
             : explicitAccountId;
         const accountSubscription = accountId
             ? (activeSubscriptionsByAccount.get(accountId) ?? [])
-                .find((item) => item.vertical === vertical && item.status === 'active')
+                .find((item) => item.vertical === vertical && hasActiveAccess(item))
             : null;
         if (accountSubscription) return accountSubscription.planId;
         if (explicitAccountId !== undefined) {
             const canReadLegacy = canReadLegacyPersonalSubscription(user.id, accountId ?? null);
             return getActiveSubscriptionsForUser(user.id, vertical).find((item) => (
-                item.status === 'active'
+                hasActiveAccess(item)
                 && (accountId !== null && item.accountId === accountId || (canReadLegacy && !item.accountId))
             ))?.planId ?? 'free';
         }

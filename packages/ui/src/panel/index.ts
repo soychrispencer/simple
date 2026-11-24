@@ -664,6 +664,8 @@ export {
 
 export { MarketplaceFinanceView } from './marketplace-finance-view';
 export { AccountWorkspaceSetup, type AccountWorkspaceSetupVertical } from './account-workspace-setup.js';
+export { PostRegistrationRoleWizard } from './post-registration-role-wizard.js';
+export { PostRegistrationRoleWizardGate } from './post-registration-role-wizard-gate.js';
 export { MarketplaceBoostManager, type MarketplaceBoostManagerProps } from './marketplace-boost-manager.js';
 export { MarketplacePublicidadShell, type MarketplacePublicidadShellProps } from './marketplace-publicidad-shell.js';
 export {

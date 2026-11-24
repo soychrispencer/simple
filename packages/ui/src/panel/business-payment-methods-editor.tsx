@@ -225,7 +225,7 @@ export function BusinessPaymentMethodsEditor({
                     <PanelSwitch
                         checked={value.acceptsTransfer}
                         onChange={(next: boolean) => onChange(patchValue(value, { acceptsTransfer: next }))}
-                        ariaLabel="Activar transferencia bancaria"
+                        ariaLabel={value.acceptsTransfer ? 'Dejar de aceptar transferencia bancaria' : 'Aceptar transferencia bancaria'}
                     />
                 </div>
 
@@ -351,7 +351,7 @@ export function BusinessPaymentMethodsEditor({
                     <PanelSwitch
                         checked={value.acceptsMp}
                         onChange={(next: boolean) => onChange(patchValue(value, { acceptsMp: next }))}
-                        ariaLabel="Activar MercadoPago"
+                        ariaLabel={value.acceptsMp ? 'Dejar de aceptar MercadoPago' : 'Aceptar MercadoPago'}
                     />
                 </div>
 
@@ -447,7 +447,7 @@ export function BusinessPaymentMethodsEditor({
                     <PanelSwitch
                         checked={value.acceptsPaymentLink}
                         onChange={(next: boolean) => onChange(patchValue(value, { acceptsPaymentLink: next }))}
-                        ariaLabel="Activar link de pago"
+                        ariaLabel={value.acceptsPaymentLink ? 'Dejar de aceptar link de pago' : 'Aceptar link de pago'}
                     />
                 </div>
 

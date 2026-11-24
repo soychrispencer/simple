@@ -1,8 +1,6 @@
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { accountUsers, accounts, agendaAppointments, agendaProfessionalProfiles } from '../../db/schema.js';
-import { defaultTrialEndsAt } from '../billing/trial-config.js';
-
+import { accountUsers, accounts, agendaAccountTrials, agendaAppointments, agendaProfessionalProfiles } from '../../db/schema.js';
 import { AGENDA_PRICING, isPlatformLaunchActive } from '@simple/utils';
 
 export async function getAgendaProfile(userId: string, accountId?: string | null) {
@@ -47,29 +45,24 @@ export function normalizeAgendaBillingPlan(plan: string): 'free' | 'pro' | 'pro_
 }
 
 /**
- * Marca el plan como free expirado (sin regenerar trial).
- * `planExpiresAt` queda en el pasado — nunca null — para que ensureAgendaProfileTrial no reabra 30 días.
+ * Marca el plan como free expirado y conserva la fecha histórica de fin.
+ * Las pruebas nuevas se registran por cuenta en `agenda_account_trials`.
  */
 export function expiredAgendaPlanEndsAt(from = new Date()): Date {
     return new Date(from.getTime() - 60_000);
 }
 
 /**
- * Perfiles free sin fecha: solo perfiles legacy que nunca tuvieron trial.
- * No re-otorga prueba si ya expiró o se canceló (fecha en el pasado).
+ * Normaliza el plan del perfil. La prueba Pro ya no se inicia al visitar o crear
+ * el perfil; se activa explícitamente desde la sección de planes.
  */
 export async function ensureAgendaProfileTrial(
     profile: typeof agendaProfessionalProfiles.$inferSelect,
 ) {
     const billingPlan = normalizeAgendaBillingPlan(profile.plan);
-    const needsTrialDate = billingPlan === 'free' && profile.planExpiresAt == null;
     const needsPlanNormalize = profile.plan !== billingPlan;
 
-    if (!needsTrialDate && !needsPlanNormalize) return profile;
-
-    const planExpiresAt = needsTrialDate
-        ? defaultTrialEndsAt(new Date())
-        : profile.planExpiresAt;
+    if (!needsPlanNormalize) return profile;
 
     const conditions = [
         eq(agendaProfessionalProfiles.id, profile.id),
@@ -82,7 +75,6 @@ export async function ensureAgendaProfileTrial(
         .update(agendaProfessionalProfiles)
         .set({
             plan: billingPlan,
-            planExpiresAt,
             updatedAt: new Date(),
         })
         .where(and(...conditions))
@@ -112,19 +104,83 @@ export function hasAgendaFullAccess(
     return isAgendaTrialActive(profile) || isAgendaProActive(profile);
 }
 
-/** Baja a Gratis un perfil concreto sin afectar otros espacios del usuario. */
+/** Baja el plan del espacio asociado al perfil sin afectar otros espacios del usuario. */
 export async function downgradeAgendaProfileAccessById(
     profileId: string,
     endsAt: Date = expiredAgendaPlanEndsAt(),
 ): Promise<void> {
-    await db
-        .update(agendaProfessionalProfiles)
-        .set({
-            plan: 'free',
-            planExpiresAt: endsAt,
-            updatedAt: new Date(),
+    await db.transaction(async (tx) => {
+        const [snapshot] = await tx.select({
+            userId: agendaProfessionalProfiles.userId,
+            accountId: agendaProfessionalProfiles.accountId,
         })
-        .where(eq(agendaProfessionalProfiles.id, profileId));
+            .from(agendaProfessionalProfiles)
+            .where(eq(agendaProfessionalProfiles.id, profileId))
+            .limit(1);
+        if (!snapshot) return;
+
+        let accountId = snapshot.accountId;
+        if (!accountId) {
+            const [personalAccount] = await tx.select({ id: accounts.id })
+                .from(accounts)
+                .where(and(
+                    eq(accounts.ownerUserId, snapshot.userId),
+                    eq(accounts.isPersonal, true),
+                ))
+                .limit(1);
+            accountId = personalAccount?.id ?? null;
+        }
+
+        // Match account-write lock order: serialize workspace entitlement changes
+        // before locking profiles so a trial activation cannot race a downgrade.
+        if (accountId) {
+            const [lockedAccount] = await tx.select({ id: accounts.id })
+                .from(accounts)
+                .where(eq(accounts.id, accountId))
+                .limit(1)
+                .for('update');
+            if (!lockedAccount) return;
+        }
+
+        const [profile] = await tx.select({
+            userId: agendaProfessionalProfiles.userId,
+            accountId: agendaProfessionalProfiles.accountId,
+        })
+            .from(agendaProfessionalProfiles)
+            .where(eq(agendaProfessionalProfiles.id, profileId))
+            .limit(1)
+            .for('update');
+        if (!profile) return;
+        if (profile.accountId && profile.accountId !== accountId) {
+            throw new Error('El perfil cambió de espacio durante la baja del plan.');
+        }
+
+        const updateValues = { plan: 'free', planExpiresAt: endsAt, updatedAt: new Date() };
+        if (accountId) {
+            await tx.update(agendaProfessionalProfiles)
+                .set(updateValues)
+                .where(eq(agendaProfessionalProfiles.accountId, accountId));
+            if (!profile.accountId) {
+                await tx.update(agendaProfessionalProfiles)
+                    .set(updateValues)
+                    .where(and(
+                        eq(agendaProfessionalProfiles.userId, snapshot.userId),
+                        isNull(agendaProfessionalProfiles.accountId),
+                    ));
+            }
+            await tx.update(agendaAccountTrials)
+                .set({ endsAt })
+                .where(and(
+                    eq(agendaAccountTrials.accountId, accountId),
+                    gt(agendaAccountTrials.endsAt, endsAt),
+                ));
+            return;
+        }
+
+        await tx.update(agendaProfessionalProfiles)
+            .set(updateValues)
+            .where(eq(agendaProfessionalProfiles.id, profileId));
+    });
 }
 
 /** Normaliza Pro vencidos a Gratis; los perfiles publicados siguen recibiendo citas. */

@@ -192,7 +192,7 @@ async function sendUpcomingAppointmentReminders(kind: '24h' | '30min', entitleme
     for (const { appointment, professional } of appointments) {
         const { dateLabel, timeLabel } = formatReminderLabels(appointment.startsAt, professional.timezone ?? 'America/Santiago');
         const whenLabel = `${dateLabel} · ${timeLabel}`;
-        let processed: { emailAccepted: boolean } | null = null;
+        let processed: { emailAccepted: boolean } | null;
         try {
             processed = await db.transaction(async (tx) => {
                 const [current] = await tx.select().from(agendaAppointments).where(and(

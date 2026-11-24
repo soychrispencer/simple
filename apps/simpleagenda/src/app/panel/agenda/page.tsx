@@ -53,7 +53,7 @@ import { fmtDateShort as formatDate, fmtTime as formatTime, fmtDateTz } from '@/
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { ContextMessagesLink } from '@simple/ui/panel';
-import { resolveBookingModality } from '@simple/utils';
+import { resolveBookingModality, parseDateTimeInTimezone } from '@simple/utils';
 import { WhatsAppClickButton } from '@/components/whatsapp-click-button';
 import { AgendaSetupTip } from '@/components/panel/agenda-setup-tip';
 import { ReservationTicket } from '@/components/agenda/reservation-ticket';
@@ -103,6 +103,27 @@ function appointmentModalityOptions(service: AgendaService | undefined): Array<'
     if (service.isOnline) options.push('online');
     if (service.isPresential) options.push('presential');
     return options.length > 0 ? options : ['online'];
+}
+
+function toDatetimeLocalValue(iso: string | Date, tz: string = 'America/Santiago'): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hourCycle: 'h23',
+        }).formatToParts(d);
+        const getVal = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+        return `${getVal('year')}-${getVal('month')}-${getVal('day')}T${getVal('hour')}:${getVal('minute')}`;
+    } catch {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
 }
 
 function isoDateInput(date: Date): string {
@@ -509,10 +530,14 @@ export default function AgendaPage() {
             return;
         }
         setCreating(true);
-        const { recurrenceFrequency, recurrenceCount, ...restForm } = form;
+        const { recurrenceFrequency, recurrenceCount, startsAt, ...restForm } = form;
         const recurring = recurrenceFrequency !== 'none';
+        const targetTz = profile?.timezone ?? 'America/Santiago';
+        const parsedStartsAt = parseDateTimeInTimezone(startsAt, targetTz);
+        const startsAtIso = Number.isNaN(parsedStartsAt.getTime()) ? startsAt : parsedStartsAt.toISOString();
         const result = await createAgendaAppointment({
             ...restForm,
+            startsAt: startsAtIso,
             clientId: form.clientId || null,
             clientName: form.clientName || null,
             clientEmail: form.clientEmail || null,
@@ -555,10 +580,8 @@ export default function AgendaPage() {
 
     const handleOpenEdit = () => {
         if (!selectedAppt) return;
-        // Convert UTC ISO to local datetime-local string
-        const localDt = new Date(selectedAppt.startsAt);
-        const pad = (n: number) => String(n).padStart(2, '0');
-        const localStr = `${localDt.getFullYear()}-${pad(localDt.getMonth() + 1)}-${pad(localDt.getDate())}T${pad(localDt.getHours())}:${pad(localDt.getMinutes())}`;
+        const targetTz = profile?.timezone ?? 'America/Santiago';
+        const localStr = toDatetimeLocalValue(selectedAppt.startsAt, targetTz);
         setEditForm({
             startsAt: localStr,
             durationMinutes: selectedAppt.durationMinutes,
@@ -571,8 +594,11 @@ export default function AgendaPage() {
     const handleSaveEdit = async () => {
         if (!selectedAppt) return;
         setEditSaving(true);
+        const targetTz = profile?.timezone ?? 'America/Santiago';
+        const parsedStartsAt = parseDateTimeInTimezone(editForm.startsAt, targetTz);
+        const startsAtIso = Number.isNaN(parsedStartsAt.getTime()) ? editForm.startsAt : parsedStartsAt.toISOString();
         const result = await updateAgendaAppointment(selectedAppt.id, {
-            startsAt: editForm.startsAt,
+            startsAt: startsAtIso,
             durationMinutes: editForm.durationMinutes,
             price: editForm.price || null,
             internalNotes: editForm.internalNotes || null,

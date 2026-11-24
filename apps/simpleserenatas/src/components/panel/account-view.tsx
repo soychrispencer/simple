@@ -657,11 +657,13 @@ export function ProfileView({
 
                 {subsection === 'integrations' ? (
             <div className="flex flex-col gap-4">
-                <MercadoPagoIntegrationCard
-                    vertical="serenatas"
-                    subscriptionHref="/panel/mi-cuenta?account_tab=subscription"
-                    lockedHint="MercadoPago requiere plan Pro o periodo de prueba activo en Simple Serenatas."
-                />
+                {profile === 'owner' ? (
+                    <MercadoPagoIntegrationCard
+                        vertical="serenatas"
+                        subscriptionHref="/panel/mi-cuenta?account_tab=subscription"
+                        lockedHint="MercadoPago requiere plan Pro o periodo de prueba activo en Simple Serenatas."
+                    />
+                ) : null}
                 <SerenatasGoogleCalendarIntegrationCard />
             </div>
             ) : null}

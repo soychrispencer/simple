@@ -10,12 +10,10 @@ import {
 } from '@simple/utils';
 import { PanelField } from './panel-display.js';
 import { PanelCard } from './panel-card.js';
-import { PanelSelect } from './panel-select.js';
+import { PanelChoiceCard, PanelNotice } from './panel-primitives.js';
 import { PANEL_INPUT_CLASS } from './panel-form-classes.js';
 import {
     OPERATOR_BUSINESS_CUSTOM_FIELD,
-    OPERATOR_BUSINESS_FIELD,
-    OPERATOR_TYPE_FIELD,
 } from './business-copy.js';
 
 type RoleProductPreview = {
@@ -77,6 +75,7 @@ export type OperatorProfileFieldsProps = {
     onTierChange: (tier: OperatorTier) => void;
     onSubtypeChange: (subtype: string | null) => void;
     onSubtypeCustomChange?: (value: string) => void;
+    tierLocked?: boolean;
     disabled?: boolean;
 };
 
@@ -88,6 +87,7 @@ export function OperatorProfileFields({
     onTierChange,
     onSubtypeChange,
     onSubtypeCustomChange,
+    tierLocked = false,
     disabled = false,
 }: OperatorProfileFieldsProps) {
     const tierOptions = getOperatorTierOptions(vertical);
@@ -95,52 +95,70 @@ export function OperatorProfileFields({
     const showSubtypeSelect = subtypes.length > 0;
     const showCustomField = isOperatorSubtypeOther(subtype);
     const rolePreview = getRoleProductPreview(vertical, tier, subtype);
+    const tierLabel = tierOptions.find((option) => option.tier === tier)?.label ?? tier;
 
     return (
-        <div className="grid gap-4 sm:grid-cols-2">
-            <PanelField label={OPERATOR_TYPE_FIELD.label} hint={OPERATOR_TYPE_FIELD.hint}>
-                <PanelSelect
-                    value={tier}
-                    disabled={disabled}
-                    onChange={(event) => {
-                        const nextTier = event.target.value as OperatorTier;
-                        onTierChange(nextTier);
-                        onSubtypeChange(null);
-                        onSubtypeCustomChange?.('');
-                    }}
-                >
-                    {tierOptions.map((option) => (
-                        <option key={option.tier} value={option.tier}>
-                            {option.label}
-                        </option>
-                    ))}
-                </PanelSelect>
-            </PanelField>
+        <div className="grid gap-4">
+            <div>
+                {tierLocked ? (
+                    <>
+                        <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg)' }}>Tipo de espacio</p>
+                        <PanelNotice tone="info">
+                            <strong>{tierLabel}</strong> · Este espacio conserva su tipo y su equipo. Aquí puedes ajustar la actividad; para configurar tu espacio personal, selecciónalo desde el selector de espacios.
+                        </PanelNotice>
+                    </>
+                ) : (
+                    <>
+                        <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg)' }}>¿Cómo trabajas?</p>
+                        <div className="grid gap-3 md:grid-cols-3" role="group" aria-label="Cómo trabajas">
+                            {tierOptions.map((option) => (
+                                <PanelChoiceCard
+                                    key={option.tier}
+                                    selected={tier === option.tier}
+                                    disabled={disabled}
+                                    onClick={() => {
+                                        onTierChange(option.tier);
+                                        onSubtypeChange(null);
+                                        onSubtypeCustomChange?.('');
+                                    }}
+                                    className="min-h-24"
+                                >
+                                    <span className="block font-semibold" style={{ color: 'var(--fg)' }}>{option.label}</span>
+                                    <span className="mt-1 block text-sm leading-5" style={{ color: 'var(--fg-muted)' }}>{option.description}</span>
+                                </PanelChoiceCard>
+                            ))}
+                        </div>
+                        <p className="mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>El permiso de cada integrante se administra por separado.</p>
+                    </>
+                )}
+            </div>
 
             {showSubtypeSelect ? (
-                <PanelField label={OPERATOR_BUSINESS_FIELD.label} hint={OPERATOR_BUSINESS_FIELD.hint}>
-                    <PanelSelect
-                        value={subtype ?? ''}
-                        disabled={disabled}
-                        onChange={(event) => {
-                            const value = event.target.value;
-                            const nextSubtype = value
-                                ? normalizeOperatorSubtype(vertical, tier, value)
-                                : null;
-                            onSubtypeChange(nextSubtype);
-                            if (nextSubtype !== OPERATOR_SUBTYPE_OTHER_ID) {
-                                onSubtypeCustomChange?.('');
-                            }
-                        }}
-                    >
-                        <option value="">Selecciona una opción</option>
+                <div>
+                    <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg)' }}>¿Qué actividad describe mejor tu trabajo?</p>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="group" aria-label="Actividad principal">
                         {subtypes.map((item) => (
-                            <option key={item.id} value={item.id}>
-                                {item.label}
-                            </option>
+                            <PanelChoiceCard
+                                key={item.id}
+                                selected={subtype === item.id}
+                                disabled={disabled}
+                                onClick={() => {
+                                    const nextSubtype = normalizeOperatorSubtype(vertical, tier, item.id);
+                                    onSubtypeChange(nextSubtype);
+                                    if (nextSubtype !== OPERATOR_SUBTYPE_OTHER_ID) {
+                                        onSubtypeCustomChange?.('');
+                                    }
+                                }}
+                                className="min-h-24"
+                            >
+                                <span className="block font-semibold" style={{ color: 'var(--fg)' }}>{item.label}</span>
+                                {item.description ? (
+                                    <span className="mt-1 block text-sm leading-5" style={{ color: 'var(--fg-muted)' }}>{item.description}</span>
+                                ) : null}
+                            </PanelChoiceCard>
                         ))}
-                    </PanelSelect>
-                </PanelField>
+                    </div>
+                </div>
             ) : null}
 
             {showCustomField ? (

@@ -75,7 +75,7 @@ export async function cancelAgendaProSubscription(
     }
 
     if (sub && hasDbPro) {
-        await persistUserSubscription({
+        const persisted = await persistUserSubscription({
             userId,
             accountId: sub.accountId,
             vertical: 'agenda',
@@ -84,7 +84,15 @@ export async function cancelAgendaProSubscription(
             providerSubscriptionId: preapprovalId ?? `cancelled-${sub.id}`,
             providerStatus: 'cancelled',
             status: 'cancelled',
+            expectedProviderSubscriptionId: sub.providerSubscriptionId ?? null,
         });
+        if (!persisted.applied) {
+            return {
+                ok: false,
+                error: 'El plan cambió mientras procesábamos la baja. Actualiza la página para revisar el estado actual.',
+                status: 409,
+            };
+        }
     }
     if (profileMatchesAccount && profile && !hasDbPro) {
         await downgradeAgendaProfileAccessById(profile.id);

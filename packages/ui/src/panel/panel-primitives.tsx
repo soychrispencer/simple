@@ -1,6 +1,6 @@
 'use client';
 
-import type { MouseEventHandler, ReactNode } from 'react';
+import type { KeyboardEventHandler, MouseEventHandler, ReactNode } from 'react';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { joinClasses } from '../shared/join-classes';
 
@@ -31,6 +31,9 @@ export type PanelChoiceCardProps = {
     type?: 'button' | 'submit' | 'reset';
     disabled?: boolean;
     selected?: boolean;
+    selectionMode?: 'toggle' | 'radio';
+    tabIndex?: number;
+    onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
     className?: string;
 };
 
@@ -113,15 +116,29 @@ export function PanelStatusBadge(props: PanelStatusBadgeProps) {
 }
 
 export function PanelChoiceCard(props: PanelChoiceCardProps) {
-    const { children, onClick, type = 'button', disabled = false, selected = false, className } = props;
+    const {
+        children,
+        onClick,
+        type = 'button',
+        disabled = false,
+        selected = false,
+        selectionMode = 'toggle',
+        tabIndex,
+        onKeyDown,
+        className,
+    } = props;
     return (
         <button
             type={type}
             onClick={onClick}
             disabled={disabled}
-            aria-pressed={selected}
+            role={selectionMode === 'radio' ? 'radio' : undefined}
+            aria-checked={selectionMode === 'radio' ? selected : undefined}
+            aria-pressed={selectionMode === 'toggle' ? selected : undefined}
+            tabIndex={tabIndex}
+            onKeyDown={onKeyDown}
             className={joinClasses(
-                'rounded-card border p-4 text-left transition-[border-color,background,opacity,transform,box-shadow] duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0',
+                'rounded-card border p-4 text-left transition-[border-color,background,opacity,transform,box-shadow] duration-150 hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0',
                 className,
             )}
             style={{

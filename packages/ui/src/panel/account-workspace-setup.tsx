@@ -14,7 +14,6 @@ import { PanelButton } from './panel-button.js';
 import { PanelCard } from './panel-card.js';
 import { PanelChoiceCard, PanelNotice } from './panel-primitives.js';
 import { PanelField } from './panel-display.js';
-import { PanelSelect } from './panel-select.js';
 
 export type AccountWorkspaceSetupVertical = 'autos' | 'propiedades';
 
@@ -144,7 +143,7 @@ export function AccountWorkspaceSetup({
                         ? 'Tu espacio de empresa se mantendrá separado. Tus publicaciones personales seguirán en tu cuenta personal y podrás cambiar entre espacios cuando quieras.'
                         : isPersonalAccount === false
                             ? 'Este espacio ya está definido como Empresa. Aquí puedes ajustar la actividad sin cambiar el equipo ni sus datos.'
-                            : 'Primero eliges entre Particular, Profesional o Empresa. Después defines tu actividad. Los permisos de equipo se asignan por separado.'}
+                            : 'Elige cómo trabajas y luego la actividad que mejor te representa. Los permisos del equipo se configuran por separado.'}
                 </p>
             </div>
 
@@ -154,8 +153,8 @@ export function AccountWorkspaceSetup({
                 </PanelNotice>
             ) : (
                 <div>
-                    <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg)' }}>Tipo de espacio</p>
-                    <div className="grid gap-3 md:grid-cols-3" role="group" aria-label="Tipo de espacio">
+                    <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg)' }}>¿Cómo trabajas?</p>
+                    <div className="grid gap-3 md:grid-cols-3" role="group" aria-label="Cómo trabajas">
                         {tierOptions.map((option) => (
                             <PanelChoiceCard
                                 key={option.tier}
@@ -190,23 +189,30 @@ export function AccountWorkspaceSetup({
                         />
                     </PanelField>
                 ) : null}
-                <PanelField label="Actividad principal" hint="Así enfocamos las herramientas que ves primero." required>
-                    <PanelSelect
-                        aria-label="Actividad principal"
-                        value={subtype ?? ''}
-                        disabled={saving}
-                        onChange={(event) => {
-                            const next = normalizeOperatorSubtype(vertical, accountKind, event.target.value);
-                            setSubtype(next);
-                            if (!isOperatorSubtypeOther(next)) setSubtypeCustom('');
-                        }}
-                    >
-                        <option value="">Selecciona una actividad</option>
+                <div className="sm:col-span-2">
+                    <p className="mb-2 text-sm font-medium" style={{ color: 'var(--fg)' }}>¿Qué describe mejor tu actividad?</p>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="group" aria-label="Actividad principal">
                         {subtypeOptions.map((option) => (
-                            <option key={option.id} value={option.id}>{option.label}</option>
+                            <PanelChoiceCard
+                                key={option.id}
+                                selected={subtype === option.id}
+                                disabled={saving}
+                                onClick={() => {
+                                    const next = normalizeOperatorSubtype(vertical, accountKind, option.id);
+                                    setSubtype(next);
+                                    if (!isOperatorSubtypeOther(next)) setSubtypeCustom('');
+                                }}
+                                className="min-h-24"
+                            >
+                                <span className="block font-semibold" style={{ color: 'var(--fg)' }}>{option.label}</span>
+                                {option.description ? (
+                                    <span className="mt-1 block text-sm leading-5" style={{ color: 'var(--fg-muted)' }}>{option.description}</span>
+                                ) : null}
+                            </PanelChoiceCard>
                         ))}
-                    </PanelSelect>
-                </PanelField>
+                    </div>
+                    <p className="mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>Así enfocamos las herramientas que verás primero.</p>
+                </div>
 
                 {showCustomSubtype ? (
                     <PanelField label="¿A qué te dedicas?" hint="Esto ayuda a personalizar tu espacio." required>

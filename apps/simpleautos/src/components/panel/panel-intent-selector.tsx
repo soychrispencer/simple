@@ -39,9 +39,19 @@ const OPTIONS: IntentOption[] = [
     },
 ];
 
-export function PanelIntentSelector({ hidden, accountId }: { hidden?: boolean; accountId?: string }) {
+export function PanelIntentSelector({
+    hidden,
+    accountId,
+    operatorSubtype,
+}: {
+    hidden?: boolean;
+    accountId?: string;
+    operatorSubtype?: string | null;
+}) {
     const [visible, setVisible] = useState(false);
-    const storageKey = accountId ? `${STORAGE_KEY}:${accountId}` : null;
+    const activityKey = operatorSubtype?.trim() || 'default';
+    const legacyStorageKey = accountId ? `${STORAGE_KEY}:${accountId}` : null;
+    const storageKey = accountId ? `${STORAGE_KEY}:${accountId}:${activityKey}` : null;
 
     useEffect(() => {
         if (hidden || !storageKey) {
@@ -49,15 +59,22 @@ export function PanelIntentSelector({ hidden, accountId }: { hidden?: boolean; a
             return;
         }
         try {
-            setVisible(localStorage.getItem(storageKey) !== '1');
+            let dismissed = localStorage.getItem(storageKey) === '1';
+            if (!dismissed && legacyStorageKey && localStorage.getItem(legacyStorageKey) === '1') {
+                localStorage.setItem(storageKey, '1');
+                localStorage.removeItem(legacyStorageKey);
+                dismissed = true;
+            }
+            setVisible(!dismissed);
         } catch {
             setVisible(true);
         }
-    }, [hidden, storageKey]);
+    }, [hidden, legacyStorageKey, storageKey]);
 
     function dismiss() {
         try {
             if (storageKey) localStorage.setItem(storageKey, '1');
+            if (legacyStorageKey) localStorage.removeItem(legacyStorageKey);
         } catch {
             // ignore
         }
@@ -66,14 +83,25 @@ export function PanelIntentSelector({ hidden, accountId }: { hidden?: boolean; a
 
     if (!visible) return null;
 
+    const serviceFirst = operatorSubtype === 'buyer_agent' || operatorSubtype === 'workshop';
+    const options = serviceFirst ? [OPTIONS[2], OPTIONS[0], OPTIONS[1]] : OPTIONS;
+    const firstOption = options[0];
+    const firstDescription = operatorSubtype === 'buyer_agent'
+        ? 'Publica tus servicios de asesoría y acompaña a tus clientes desde SimpleAutos.'
+        : operatorSubtype === 'workshop'
+            ? 'Presenta mecánica, mantenciones, revisión, lavado o detailing.'
+            : firstOption.description;
+
     return (
         <PanelCard size="lg" className="space-y-4 p-4 md:p-6">
             <div className="space-y-1">
-                <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>¿Qué quieres hacer en SimpleAutos?</p>
-                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Elige tu camino — puedes combinar vehículos, productos y servicios después.</p>
+                <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>
+                    {serviceFirst ? 'Presenta el servicio que ofreces' : '¿Qué quieres hacer en SimpleAutos?'}
+                </p>
+                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Elige por dónde empezar; después puedes combinar vehículos, productos y servicios.</p>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
-                {OPTIONS.map((option) => (
+                {options.map((option, index) => (
                     <Link
                         key={option.key}
                         href={option.href}
@@ -86,7 +114,9 @@ export function PanelIntentSelector({ hidden, accountId }: { hidden?: boolean; a
                         </div>
                         <div className="space-y-1">
                             <p className="font-medium" style={{ color: 'var(--fg)' }}>{option.title}</p>
-                            <p className="text-sm leading-6" style={{ color: 'var(--fg-muted)' }}>{option.description}</p>
+                            <p className="text-sm leading-6" style={{ color: 'var(--fg-muted)' }}>
+                                {index === 0 ? firstDescription : option.description}
+                            </p>
                         </div>
                     </Link>
                 ))}

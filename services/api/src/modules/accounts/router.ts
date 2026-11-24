@@ -2,7 +2,12 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { and, asc, desc, inArray, sql } from 'drizzle-orm';
 import { createHash, randomBytes } from 'node:crypto';
-import { getOperatorSubtypes, isOperatorSubtypeOther, normalizeOperatorSubtype } from '@simple/utils';
+import {
+  getOperatorSubtypes,
+  isOperatorSubtypeOther,
+  normalizeOperatorSubtype,
+  POST_REGISTRATION_ROLE_WIZARD_VERSION,
+} from '@simple/utils';
 import { insertPlatformNotifications } from '../platform/notifications-service.js';
 import { canManageAccountRole, isAccountOwnerRole } from './permissions.js';
 
@@ -48,7 +53,11 @@ export interface AccountsRouterDeps {
       users: any;
       addressBook: any;
       accountVerticalSettings: any;
+      userVerticalOnboarding: any;
       publicProfiles: any;
+      serenataClients: any;
+      serenataMusicians: any;
+      serenataOwners: any;
     };
     eq: any;
     and: any;
@@ -155,6 +164,188 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
     return canManageAccountRole(membership?.role);
   }
 
+  app.get('/current/onboarding', async (c) => {
+    const user = await deps.authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+    const vertical = parseWorkspaceVertical(c.req.query('vertical'));
+    if (!vertical) return c.json({ ok: false, error: 'Producto no disponible.' }, 400);
+
+    const account = vertical === 'serenatas' ? null : await deps.ensurePrimaryAccountForUser(user);
+    const membership = account
+      ? deps.getAccountMembershipsForUser(user.id).find((item: any) => item.accountId === account.id)
+      : null;
+    // Serenatas roles belong to the person's profiles, not their Simple company-space membership.
+    const canManage = vertical === 'serenatas' || canManageAccountRole(membership?.role);
+    const [record] = await deps.db.select()
+      .from(deps.tables.userVerticalOnboarding)
+      .where(deps.and(
+        deps.eq(deps.tables.userVerticalOnboarding.userId, user.id),
+        deps.eq(deps.tables.userVerticalOnboarding.vertical, vertical),
+      ))
+      .limit(1);
+
+    let legacyEquivalent: boolean;
+    if (vertical === 'serenatas') {
+      const [client, musician, owner] = await Promise.all([
+        deps.db.select({ userId: deps.tables.serenataClients.userId })
+          .from(deps.tables.serenataClients)
+          .where(deps.eq(deps.tables.serenataClients.userId, user.id)).limit(1),
+        deps.db.select({ userId: deps.tables.serenataMusicians.userId })
+          .from(deps.tables.serenataMusicians)
+          .where(deps.eq(deps.tables.serenataMusicians.userId, user.id)).limit(1),
+        deps.db.select({ userId: deps.tables.serenataOwners.userId })
+          .from(deps.tables.serenataOwners)
+          .where(deps.eq(deps.tables.serenataOwners.userId, user.id)).limit(1),
+      ]);
+      legacyEquivalent = Boolean(client[0] || musician[0] || owner[0]);
+    } else {
+      const [workspace] = await deps.db.select()
+        .from(deps.tables.accountVerticalSettings)
+        .where(deps.and(
+          deps.eq(deps.tables.accountVerticalSettings.accountId, account!.id),
+          deps.eq(deps.tables.accountVerticalSettings.vertical, vertical),
+        ))
+        .limit(1);
+      let [profile] = await deps.db.select()
+        .from(deps.tables.publicProfiles)
+        .where(deps.and(
+          deps.eq(deps.tables.publicProfiles.userId, user.id),
+          deps.eq(deps.tables.publicProfiles.vertical, vertical),
+          deps.eq(deps.tables.publicProfiles.accountId, account.id),
+        ))
+        .limit(1);
+      if (!profile && account!.isPersonal && account!.ownerUserId === user.id) {
+        [profile] = await deps.db.select()
+          .from(deps.tables.publicProfiles)
+          .where(deps.and(
+            deps.eq(deps.tables.publicProfiles.userId, user.id),
+            deps.eq(deps.tables.publicProfiles.vertical, vertical),
+            deps.isNull(deps.tables.publicProfiles.accountId),
+          ))
+          .limit(1);
+      }
+      legacyEquivalent = Boolean(
+        workspace?.onboardingCompletedAt
+        || profile?.operatorSubtype
+            || (account!.isPersonal && profile?.isPublished),
+      );
+    }
+
+    const recordIsCurrent = (record?.version ?? 0) >= POST_REGISTRATION_ROLE_WIZARD_VERSION;
+    const alreadyComplete = record
+      ? record.status === 'completed' && recordIsCurrent
+      : legacyEquivalent;
+    const deferred = !alreadyComplete && record?.status === 'deferred' && recordIsCurrent;
+    const needsWizard = !alreadyComplete && !deferred && canManage;
+    return c.json({
+      ok: true,
+      version: record?.version ?? POST_REGISTRATION_ROLE_WIZARD_VERSION,
+      status: record?.status ?? (legacyEquivalent ? 'legacy_complete' : 'not_started'),
+      step: record?.step ?? 0,
+      answers: record?.answers ?? {},
+      shouldShow: needsWizard,
+      legacyEquivalent,
+      canManage,
+    });
+  });
+
+  app.put('/current/onboarding', async (c) => {
+    const user = await deps.authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+    const vertical = parseWorkspaceVertical(c.req.query('vertical'));
+    if (!vertical) return c.json({ ok: false, error: 'Producto no disponible.' }, 400);
+
+    if (vertical !== 'serenatas') {
+      const account = await deps.ensurePrimaryAccountForUser(user);
+      const membership = deps.getAccountMembershipsForUser(user.id)
+        .find((item: any) => item.accountId === account.id);
+      if (!canManageAccountRole(membership?.role)) {
+        return c.json({ ok: false, error: 'Quien administra este espacio configura su actividad.' }, 403);
+      }
+    }
+
+    const payload = await c.req.json().catch(() => null);
+    const status = payload?.status;
+    const step = payload?.step;
+    if (!['in_progress', 'deferred', 'completed'].includes(status)
+      || !Number.isInteger(step) || step < 0 || step > 3) {
+      return c.json({ ok: false, error: 'El avance del wizard no es válido.' }, 400);
+    }
+
+    const source = payload?.answers && typeof payload.answers === 'object' && !Array.isArray(payload.answers)
+      ? payload.answers
+      : {};
+    const answers: Record<string, unknown> = {};
+    if (['individual', 'independent', 'company'].includes(source.accountKind)) answers.accountKind = source.accountKind;
+    for (const key of ['operatorSubtype', 'operatorSubtypeCustom', 'firstTask', 'serenataRole', 'companyName']) {
+      if (typeof source[key] === 'string' && source[key].length <= 160) answers[key] = source[key];
+    }
+    if (status === 'completed') {
+      const hasRole = vertical === 'serenatas'
+        ? ['client', 'musician', 'owner'].includes(String(answers.serenataRole ?? ''))
+        : ['individual', 'independent', 'company'].includes(String(answers.accountKind ?? ''))
+          && typeof answers.operatorSubtype === 'string'
+          && typeof answers.firstTask === 'string';
+      if (!hasRole) return c.json({ ok: false, error: 'Completa la selección antes de terminar.' }, 400);
+      if (vertical !== 'serenatas') {
+        const account = await deps.ensurePrimaryAccountForUser(user);
+        const [workspace] = await deps.db.select({ onboardingCompletedAt: deps.tables.accountVerticalSettings.onboardingCompletedAt })
+          .from(deps.tables.accountVerticalSettings)
+          .where(deps.and(
+            deps.eq(deps.tables.accountVerticalSettings.accountId, account.id),
+            deps.eq(deps.tables.accountVerticalSettings.vertical, vertical),
+          ))
+          .limit(1);
+        if (!workspace?.onboardingCompletedAt) {
+          return c.json({ ok: false, error: 'Primero guarda la actividad del espacio.' }, 409);
+        }
+      }
+    }
+
+    const [existing] = await deps.db.select()
+      .from(deps.tables.userVerticalOnboarding)
+      .where(deps.and(
+        deps.eq(deps.tables.userVerticalOnboarding.userId, user.id),
+        deps.eq(deps.tables.userVerticalOnboarding.vertical, vertical),
+      ))
+      .limit(1);
+    if (existing?.status === 'completed'
+      && (existing.version ?? 0) >= POST_REGISTRATION_ROLE_WIZARD_VERSION
+      && status !== 'completed') {
+      return c.json({ ok: false, error: 'Este wizard ya está completado.' }, 409);
+    }
+
+    const now = new Date();
+    const [saved] = await deps.db.insert(deps.tables.userVerticalOnboarding).values({
+      userId: user.id,
+      vertical,
+      version: POST_REGISTRATION_ROLE_WIZARD_VERSION,
+      status,
+      step,
+      answers,
+      startedAt: existing?.startedAt ?? now,
+      deferredAt: status === 'deferred' ? now : null,
+      completedAt: status === 'completed' ? now : null,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    }).onConflictDoUpdate({
+      target: [deps.tables.userVerticalOnboarding.userId, deps.tables.userVerticalOnboarding.vertical],
+      set: {
+        version: POST_REGISTRATION_ROLE_WIZARD_VERSION,
+        status,
+        step,
+        answers,
+        deferredAt: status === 'deferred' ? now : null,
+        completedAt: status === 'completed' ? now : null,
+        updatedAt: now,
+      },
+    }).returning();
+
+    return c.json({ ok: true, status: saved.status, step: saved.step, answers: saved.answers });
+  });
+
   app.get('/current/workspace', async (c) => {
     const user = await deps.authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -175,7 +366,12 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
       ))
       .limit(1);
 
-    if (workspace) return c.json({ ok: true, workspace, accountName: account.name, canManage, memberRole: membership?.role ?? null });
+    if (workspace) {
+      if (!account.isPersonal && workspace.accountKind !== 'company') {
+        return c.json({ ok: true, workspace: null, accountName: account.name, canManage, memberRole: membership?.role ?? null });
+      }
+      return c.json({ ok: true, workspace, accountName: account.name, canManage, memberRole: membership?.role ?? null });
+    }
 
     // Transitional read for profiles created before activity was stored on the account.
     let [profile] = await deps.db
@@ -198,6 +394,12 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
         ))
         .limit(1);
     }
+    // A legacy profile cannot turn a shared company workspace into a personal activity.
+    // If that vertical has not been configured on the account yet, let its administrators
+    // complete setup instead of showing an agent stale personal-profile values.
+    if (!account.isPersonal && profile?.accountKind !== 'company') {
+      return c.json({ ok: true, workspace: null, accountName: account.name, canManage, memberRole: membership?.role ?? null });
+    }
     if (!profile) {
       return c.json({ ok: true, workspace: null, accountName: account.name, canManage, memberRole: membership?.role ?? null });
     }
@@ -213,7 +415,7 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
         accountKind: profile.accountKind,
         operatorSubtype: profile.operatorSubtype ?? null,
         operatorSubtypeCustom: profile.operatorSubtypeCustom ?? null,
-        onboardingCompletedAt: profile.operatorSubtype || profile.isPublished
+        onboardingCompletedAt: profile.operatorSubtype || (account.isPersonal && profile.isPublished)
           ? profile.updatedAt
           : null,
         updatedAt: profile.updatedAt,
@@ -231,6 +433,7 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
     const account = await deps.ensurePrimaryAccountForUser(user);
     let activityAccount = account;
     let accountChanged = false;
+    let preserveExistingBusinessName = false;
     const membership = deps.getAccountMembershipsForUser(user.id)
       .find((item: any) => item.accountId === account.id);
     if (!canManageAccountRole(membership?.role)) {
@@ -307,6 +510,7 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
       }
       if (ownedBusinessAccounts.length === 1) {
         activityAccount = ownedBusinessAccounts[0];
+        preserveExistingBusinessName = true;
         const now = new Date();
         const switched = await deps.db.transaction(async (tx: any) => {
           await lockUserAccountContext(tx, user.id);
@@ -373,15 +577,7 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
       if (!managed || !await isDefaultWorkspace(tx, user.id, activityAccount.id)) return null;
 
       if (!managed.account.isPersonal) {
-        const [currentWorkspace] = await tx.select({ accountKind: deps.tables.accountVerticalSettings.accountKind })
-          .from(deps.tables.accountVerticalSettings)
-          .where(deps.and(
-            deps.eq(deps.tables.accountVerticalSettings.accountId, activityAccount.id),
-            deps.eq(deps.tables.accountVerticalSettings.vertical, vertical),
-          ))
-          .limit(1);
-        const currentAccountKind = currentWorkspace?.accountKind ?? 'company';
-        if (!accountChanged && accountKind !== currentAccountKind) {
+        if (!accountChanged && accountKind !== 'company') {
           return { kind: 'workspace-kind-locked' as const };
         }
       }
@@ -411,7 +607,7 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
         .returning();
 
       let updatedAccount = managed.account;
-      if (accountKind === 'company') {
+      if (accountKind === 'company' && !preserveExistingBusinessName) {
         const [accountRow] = await tx.update(deps.tables.accounts)
           .set({ name: accountName, isPersonal: false, updatedAt: now })
           .where(deps.eq(deps.tables.accounts.id, activityAccount.id))
@@ -1164,6 +1360,25 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
     }
 
     const removalResult = await deps.db.transaction(async (tx: any) => {
+      // Lock the actor membership before the target, without the account row that activity setup locks later.
+      let currentActor: { role: string; isDefault: boolean } | null = null;
+      if (!isSelfLeaving) {
+        const [actorMembership] = await tx.select({
+          role: deps.tables.accountUsers.role,
+          isDefault: deps.tables.accountUsers.isDefault,
+        })
+          .from(deps.tables.accountUsers)
+          .where(deps.and(
+            deps.eq(deps.tables.accountUsers.accountId, account.id),
+            deps.eq(deps.tables.accountUsers.userId, user.id),
+          ))
+          .limit(1)
+          .for('update');
+        currentActor = actorMembership ?? null;
+        if (!currentActor?.isDefault || !canManageAccountRole(currentActor.role)) {
+          return { status: 'not_authorized' as const };
+        }
+      }
       await lockUserAccountContext(tx, targetUserId);
       const [currentTarget] = await tx.select().from(deps.tables.accountUsers).where(deps.and(
         deps.eq(deps.tables.accountUsers.id, target.id),
@@ -1176,17 +1391,7 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
         return { status: 'space_changed' as const };
       }
       if (!isSelfLeaving) {
-        const [currentActor] = await tx.select({ role: deps.tables.accountUsers.role, isDefault: deps.tables.accountUsers.isDefault })
-          .from(deps.tables.accountUsers)
-          .where(deps.and(
-            deps.eq(deps.tables.accountUsers.accountId, account.id),
-            deps.eq(deps.tables.accountUsers.userId, user.id),
-          ))
-          .limit(1)
-          .for('update');
-        if (!currentActor?.isDefault
-          || !canManageAccountRole(currentActor?.role)
-          || (currentActor?.role !== 'owner' && currentTarget.role !== 'agent')) {
+        if (currentActor!.role !== 'owner' && currentTarget.role !== 'agent') {
           return { status: 'not_authorized' as const };
         }
       }

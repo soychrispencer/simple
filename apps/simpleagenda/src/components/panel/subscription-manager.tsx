@@ -4,19 +4,26 @@ import { useCallback } from 'react';
 import { SubscriptionManager } from '@simple/ui/panel';
 import {
     cancelSubscription,
+    activateAgendaTrial,
     confirmCheckout,
+    fetchAgendaTrialStatus,
     fetchSubscriptionCatalog,
     startSubscriptionCheckout,
     type SubscriptionPlanId,
 } from '@/lib/payments';
 import { fetchAgendaProfile } from '@/lib/agenda-api';
+import { fetchCurrentAccountContext } from '@simple/utils';
 import { track } from '@/lib/analytics';
 
 export default function AppSubscriptionManager() {
     const fetchCompanyBillingContext = useCallback(async () => {
-        const profile = await fetchAgendaProfile();
-        if (!profile) return null;
-        return { isCompany: profile.accountKind === 'company' };
+        const [profile, accountContext] = await Promise.all([
+            fetchAgendaProfile(),
+            fetchCurrentAccountContext(),
+        ]);
+        if (accountContext?.account?.isPersonal === false) return { isCompany: true };
+        if (!profile && !accountContext) return null;
+        return { isCompany: profile?.accountKind === 'company' };
     }, []);
 
     return (
@@ -24,6 +31,8 @@ export default function AppSubscriptionManager() {
             fetchSubscriptionCatalog={fetchSubscriptionCatalog}
             confirmCheckout={confirmCheckout}
             cancelSubscription={cancelSubscription}
+            fetchAgendaTrialStatus={fetchAgendaTrialStatus}
+            activateAgendaTrial={activateAgendaTrial}
             startSubscriptionCheckout={(input) => {
                 track('subscription_checkout_started', { plan: input.planId, billing_cycle: input.billingCycle });
                 return startSubscriptionCheckout({

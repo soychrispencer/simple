@@ -20,7 +20,7 @@ export const AGENDA_PLAN_CATALOG = {
         name: 'Gratis',
         availability: 'available',
         priceMonthlyNetClp: 0,
-        description: 'Agenda básica para empezar y seguir recibiendo citas después de la prueba.',
+        description: 'Organiza tu agenda y recibe reservas con el plan Gratis, sin límite de tiempo.',
         features: [
             `Hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes (las canceladas también cuentan)`,
             `Hasta ${AGENDA_PRICING.free.activeServices} servicios activos y ${AGENDA_PRICING.free.activeLocations} ubicación`,

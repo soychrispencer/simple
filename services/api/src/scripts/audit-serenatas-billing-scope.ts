@@ -1,8 +1,10 @@
-import { pgClient } from '../src/db/index.js';
+import { pgClient } from '../db/index.js';
 
 async function main() {
     try {
-        const [profileScopeColumn] = await pgClient.unsafe(`
+        const audit = await pgClient.begin(async (tx) => {
+            await tx.unsafe('SET TRANSACTION READ ONLY');
+            const [profileScopeColumn] = await tx.unsafe(`
             SELECT EXISTS (
                 SELECT 1
                 FROM information_schema.columns
@@ -29,7 +31,7 @@ async function main() {
             )`
             : '(SELECT 0::bigint)';
 
-        const [summary] = await pgClient.unsafe(`
+            const [summary] = await tx.unsafe(`
             WITH per_profile AS (
                 SELECT
                     subscription.user_id,
@@ -51,7 +53,7 @@ async function main() {
             FROM per_profile
         `, ['serenatas', 'active']);
 
-        const scopes = await pgClient.unsafe(`
+            const scopes = await tx.unsafe(`
             SELECT
                 COALESCE(account.is_personal, false) AS is_personal_account,
                 ${profileTypeColumn} AS billing_profile_type,
@@ -65,7 +67,7 @@ async function main() {
             ORDER BY is_personal_account DESC, billing_profile_type, subscription.status
         `, ['serenatas']);
 
-        const rowsToMove = await pgClient.unsafe(`
+            const rowsToMove = await tx.unsafe(`
             SELECT
                 count(*) AS subscription_rows,
                 count(DISTINCT subscription.user_id) AS users,
@@ -81,7 +83,7 @@ async function main() {
               AND subscription.account_id IS DISTINCT FROM personal_account.id
         `, ['serenatas', 'active']);
 
-        const usersWithoutPersonalAccount = await pgClient.unsafe(`
+            const usersWithoutPersonalAccount = await tx.unsafe(`
             SELECT count(DISTINCT subscription.user_id) AS users
             FROM subscriptions AS subscription
             LEFT JOIN accounts AS personal_account
@@ -91,13 +93,18 @@ async function main() {
               AND personal_account.id IS NULL
         `, ['serenatas']);
 
+            return {
+                profileScopeColumnPresent: hasProfileScope,
+                summary,
+                scopes,
+                rowsToMove,
+                usersWithoutPersonalAccount,
+            };
+        });
+
         console.log(JSON.stringify({
-            note: 'Consulta agregada de solo lectura; no contiene IDs ni datos personales. Las suscripciones se agrupan por usuario y perfil cuando la migración de alcance por perfil está aplicada; antes de esa migración se agrupan por usuario.',
-            profileScopeColumnPresent: hasProfileScope,
-            summary,
-            scopes,
-            rowsToMove,
-            usersWithoutPersonalAccount,
+            note: 'Consulta agregada dentro de una transacción READ ONLY; no contiene IDs ni datos personales. Las suscripciones se agrupan por usuario y perfil cuando la migración de alcance por perfil está aplicada; antes de esa migración se agrupan por usuario.',
+            ...audit,
         }, null, 2));
     } finally {
         await pgClient.end();

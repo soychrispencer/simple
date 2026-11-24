@@ -36,7 +36,25 @@ export function PanelAuthGuard({ children, appLabel, brandAppId, allowAnonymous 
     const { isLoggedIn, authLoading, openAuth, user, logout, refreshSession } = useAuth();
 
     if (authLoading) {
-        return null;
+        return (
+            <div
+                className="container-app flex min-h-[70vh] items-center justify-center py-20"
+                role="status"
+                aria-live="polite"
+            >
+                <div className="flex flex-col items-center text-center">
+                    <BrandLogo appId={brandAppId} size="md" className="mb-6" />
+                    <span
+                        aria-hidden="true"
+                        className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]"
+                    />
+                    <p className="mt-4 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                        Preparando tu espacio…
+                    </p>
+                    <span className="sr-only">Verificando tu sesión.</span>
+                </div>
+            </div>
+        );
     }
 
     if (!isLoggedIn) {

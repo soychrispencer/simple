@@ -116,7 +116,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
                     </div>
                     <Link href="/panel/mi-cuenta/suscripcion" className="shrink-0">
                         <PanelButton variant="primary" className="h-10 px-5">
-                            {trialActive ? 'Ver plan Pro' : 'Activar Pro'}
+                            {trialActive ? 'Ver plan Pro' : 'Ver planes'}
                         </PanelButton>
                     </Link>
                 </div>

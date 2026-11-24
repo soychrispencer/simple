@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { IconCalendar } from '@tabler/icons-react';
-import { AGENDA_PRICING } from '@simple/utils';
+import { AGENDA_PRICING, isPlatformLaunchActive } from '@simple/utils';
 import { AgendaCta } from './agenda-cta';
 import { InteractiveBookingDemo } from './interactive-booking-demo';
 import { INDUSTRY_SITE_DEMOS } from '@/lib/industry-site-demos';
@@ -14,6 +14,7 @@ const sampleAppointments = [
 ];
 
 export function AgendaHomepageExperience() {
+    const launchMode = isPlatformLaunchActive('agenda');
     const [industryId, setIndustryId] = useState('barber');
     const industry = INDUSTRY_SITE_DEMOS.find((item) => item.id === industryId) ?? INDUSTRY_SITE_DEMOS[0]!;
     const appointments = industry.catalog.services.slice(0, sampleAppointments.length).map((service, index) => ({
@@ -29,7 +30,11 @@ export function AgendaHomepageExperience() {
                     <div className="agenda-experience-cta">
                         <div>
                             <p className="agenda-experience-cta__title">¿Te gustaría tener una página así?</p>
-                            <p className="agenda-experience-cta__detail">Crea tu cuenta gratis y prueba Pro por {AGENDA_PRICING.trialDays} días, sin tarjeta ni cobro automático.</p>
+                            <p className="agenda-experience-cta__detail">
+                                {launchMode
+                                    ? 'Empieza gratis y configura tu agenda sin tarjeta durante el lanzamiento.'
+                                    : `Empieza gratis y activa Pro por ${AGENDA_PRICING.trialDays} días cuando estés listo, sin tarjeta ni cobro automático.`}
+                            </p>
                         </div>
                         <AgendaCta location="demo" className="agenda-button agenda-button--signal" />
                     </div>

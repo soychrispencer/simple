@@ -6,10 +6,16 @@ import { formatAuthFromAddress, getAuthMailerTransporter } from '../../lib/auth-
 import { getEmailBrandProfileForVertical, type EmailBrandProfile, type EmailBrandVertical } from '../../lib/email-brand.js';
 import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
 import { buildActionEmailPackage, buildActionEmailText, escapeHtml } from '../../lib/email-template.js';
-import { getPersonalAccountIdForUserFromDb, persistManualAdminSubscription } from '../subscriptions/persist-db.js';
+import {
+    getPersonalAccountIdForUserFromDb,
+    loadCurrentSubscriptionFromDb,
+    persistManualAdminSubscription,
+    persistUserSubscription,
+} from '../subscriptions/persist-db.js';
 import { cancelAgendaProSubscription } from '../agenda/cancel-subscription.js';
 import { downgradeAgendaProfileAccessById } from '../agenda/plan-limits.js';
 import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
+import { isDevMercadoPagoPreapprovalId } from '../mercadopago/checkout-helpers.js';
 import {
     captureManualResponse,
     listAdminConversations,
@@ -58,6 +64,46 @@ export type AdminRouterDeps = {
 };
 
 type AdminEmailBrandInput = EmailBrandVertical | 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | null | undefined;
+
+function syncAdminSubscriptionCache(
+    deps: AdminRouterDeps,
+    userId: string,
+    accountId: string | null,
+    vertical: 'agenda' | 'autos' | 'propiedades' | 'serenatas',
+    subscription: Awaited<ReturnType<typeof loadCurrentSubscriptionFromDb>>,
+    billingProfileType?: 'provider' | 'musician',
+): void {
+    if (
+        !subscription
+        || subscription.status !== 'active'
+        || (subscription.expiresAt && subscription.expiresAt.getTime() <= Date.now())
+    ) {
+        deps.cancelActiveSubscriptionForUser?.(userId, vertical as VerticalType, accountId, billingProfileType);
+        return;
+    }
+
+    const plan = deps.getPaidSubscriptionPlan(vertical, subscription.planSlug);
+    if (!plan) return;
+    deps.upsertActiveSubscription({
+        id: subscription.id,
+        accountId,
+        userId,
+        vertical: vertical as VerticalType,
+        ...(vertical === 'serenatas' ? { billingProfileType: billingProfileType ?? subscription.billingProfileType ?? 'provider' } : {}),
+        planId: plan.id,
+        billingCycle: subscription.billingCycle,
+        planName: subscription.planName || plan.name,
+        priceMonthly: subscription.priceMonthly,
+        currency: 'CLP',
+        features: subscription.features,
+        status: 'active',
+        providerPreapprovalId: subscription.providerSubscriptionId ?? `db-${subscription.id}`,
+        providerStatus: subscription.providerStatus,
+        expiresAt: subscription.expiresAt?.getTime() ?? null,
+        startedAt: subscription.startedAt.getTime(),
+        updatedAt: subscription.updatedAt.getTime(),
+    });
+}
 
 const adminOutboundMessageSchema = z.object({
     channel: z.enum(['whatsapp_personal', 'whatsapp_business', 'email']),
@@ -396,6 +442,18 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             }
 
             const subData = payload?.subscriptions ?? {};
+            const serenatasProviderUpdate = subData.serenatasProvider ?? subData.serenatas;
+            const serenatasMusicianUpdate = subData.serenatasMusician;
+            const hasSerenatasBillingUpdate = Boolean(serenatasProviderUpdate || serenatasMusicianUpdate);
+            const serenatasAccountId = hasSerenatasBillingUpdate
+                ? await getPersonalAccountIdForUserFromDb(userId)
+                : null;
+            if (hasSerenatasBillingUpdate && !serenatasAccountId) {
+                return c.json({
+                    ok: false,
+                    error: 'No se puede actualizar SimpleSerenatas: el usuario no tiene una cuenta personal identificable.',
+                }, 409);
+            }
             const results: Record<string, unknown> = {};
 
             if (subData.agenda) {
@@ -432,17 +490,85 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                     if (plan === 'free') {
                         const cancelled = await cancelAgendaProSubscription(userId, targetAccount.id, targetAccount.isPersonal);
                         if (cancelled.ok) {
+                            deps.cancelActiveSubscriptionForUser?.(userId, 'agenda', targetAccount.id);
                             results.agenda = { plan, status: 'free', message: cancelled.message };
                         } else if (cancelled.status === 400) {
                             await downgradeAgendaProfileAccessById(profile[0].id);
+                            deps.cancelActiveSubscriptionForUser?.(userId, 'agenda', targetAccount.id);
                             results.agenda = { plan: 'free', expiresAt: null };
                         } else {
                             return c.json({ ok: false, error: cancelled.error }, cancelled.status as 400 | 404 | 502);
                         }
                     } else if (profile[0].plan === plan) {
-                        await deps.db.update(deps.tables.agendaProfessionalProfiles)
-                            .set({ plan, planExpiresAt: expiresAt, updatedAt: new Date() })
-                            .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profile[0].id));
+                        const currentSubscription = await loadCurrentSubscriptionFromDb(
+                            userId,
+                            'agenda',
+                            targetAccount.id,
+                            { includeInactive: true },
+                        );
+                        if (currentSubscription?.status === 'active' && currentSubscription.planSlug !== plan) {
+                            return c.json({
+                                ok: false,
+                                error: 'El plan de Agenda cambió mientras editabas. Actualiza el panel e inténtalo nuevamente.',
+                            }, 409);
+                        }
+
+                        if (
+                            currentSubscription?.status === 'active'
+                            && currentSubscription.planSlug === plan
+                            && currentSubscription.providerSubscriptionId
+                        ) {
+                            const persisted = await persistUserSubscription({
+                                userId,
+                                accountId: targetAccount.id,
+                                vertical: 'agenda',
+                                planSlug: plan,
+                                billingCycle: currentSubscription.billingCycle,
+                                providerSubscriptionId: currentSubscription.providerSubscriptionId,
+                                providerStatus: currentSubscription.providerStatus ?? 'active',
+                                status: 'active',
+                                subscriptionStartedAt: currentSubscription.startedAt,
+                                expiresAt,
+                                expectedProviderSubscriptionId: currentSubscription.providerSubscriptionId,
+                                expectedPlanSlug: plan,
+                            });
+                            if (!persisted.applied) {
+                                return c.json({
+                                    ok: false,
+                                    error: 'La suscripción de Agenda cambió mientras guardabas. Actualiza el panel e inténtalo nuevamente.',
+                                }, 409);
+                            }
+                        } else {
+                            // A same-plan edit with no active provider subscription is an explicit
+                            // admin assignment. Active Mercado Pago rows above keep their identity.
+                            const persisted = await persistUserSubscription({
+                                userId,
+                                accountId: targetAccount.id,
+                                vertical: 'agenda',
+                                planSlug: plan,
+                                providerSubscriptionId: `admin-manual-${adminUser.id}-${Date.now()}`,
+                                providerStatus: 'manual',
+                                status: 'active',
+                                expiresAt,
+                                expectedProviderSubscriptionId: currentSubscription?.providerSubscriptionId ?? null,
+                                ...(currentSubscription && currentSubscription.planSlug !== 'free'
+                                    ? { expectedPlanSlug: currentSubscription.planSlug as 'pro' | 'pro_plus' | 'enterprise' }
+                                    : {}),
+                            });
+                            if (!persisted.applied) {
+                                return c.json({
+                                    ok: false,
+                                    error: 'La suscripción de Agenda cambió mientras guardabas. Actualiza el panel e inténtalo nuevamente.',
+                                }, 409);
+                            }
+                        }
+                        const refreshedSubscription = await loadCurrentSubscriptionFromDb(
+                            userId,
+                            'agenda',
+                            targetAccount.id,
+                            { includeInactive: true },
+                        );
+                        syncAdminSubscriptionCache(deps, userId, targetAccount.id, 'agenda', refreshedSubscription);
                         results.agenda = { plan, status: 'active', expiresAt: expiresAt?.toISOString() ?? null };
                     } else {
                         const result = await persistManualAdminSubscription({
@@ -453,6 +579,13 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                             status: 'active',
                             expiresAt,
                         });
+                        const refreshedSubscription = await loadCurrentSubscriptionFromDb(
+                            userId,
+                            'agenda',
+                            targetAccount.id,
+                            { includeInactive: true },
+                        );
+                        syncAdminSubscriptionCache(deps, userId, targetAccount.id, 'agenda', refreshedSubscription);
                         results.agenda = { ...result, expiresAt: expiresAt?.toISOString() ?? null };
                     }
                 } else if (isPaidAgendaPlan) {
@@ -473,6 +606,13 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                         status: 'active',
                         expiresAt,
                     });
+                    const refreshedSubscription = await loadCurrentSubscriptionFromDb(
+                        userId,
+                        'agenda',
+                        targetAccount.id,
+                        { includeInactive: true },
+                    );
+                    syncAdminSubscriptionCache(deps, userId, targetAccount.id, 'agenda', refreshedSubscription);
                     results.agenda = { ...result, expiresAt: expiresAt?.toISOString() ?? null, created: true };
                 } else {
                     results.agenda = { plan, skipped: 'Sin perfil Agenda para asignar free' };
@@ -482,7 +622,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             const billingVerticals = ['autos', 'propiedades', 'serenatas'] as const;
             for (const vertical of billingVerticals) {
                 const raw = (vertical === 'serenatas'
-                    ? subData.serenatasProvider ?? subData.serenatas
+                    ? serenatasProviderUpdate
                     : subData[vertical]) as {
                     planId?: string;
                     status?: 'active' | 'cancelled' | 'expired';
@@ -499,60 +639,132 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                     return c.json({ ok: false, error: `Plan inválido para ${vertical}` }, 400);
                 }
 
-                const status = raw.status ?? (planSlug === 'free' ? 'cancelled' : 'active');
-                const expiresAt = raw.expiresAt ? new Date(raw.expiresAt) : null;
-
-                const persisted = await persistManualAdminSubscription({
-                    userId,
-                    accountId: targetAccount.id,
-                    vertical,
-                    ...(vertical === 'serenatas' ? { billingProfileType: 'provider' as const } : {}),
-                    planSlug,
-                    status,
-                    expiresAt,
-                });
-                results[vertical] = persisted;
-
-                if (vertical === 'serenatas') {
-                    if (persisted.status === 'active' && persisted.planSlug !== 'free') {
-                        const plan = deps.getPaidSubscriptionPlan('serenatas', persisted.planSlug);
-                        const personalAccountId = await getPersonalAccountIdForUserFromDb(userId);
-                        if (plan && personalAccountId) {
-                            deps.upsertActiveSubscription({
-                                id: deps.makeSubscriptionId('serenatas' as never, plan.id),
-                                accountId: personalAccountId,
-                                userId,
-                                vertical: 'serenatas',
-                                billingProfileType: 'provider',
-                                planId: plan.id,
-                                planName: plan.name,
-                                priceMonthly: plan.priceMonthly,
-                                billingCycle: 'monthly',
-                                currency: 'CLP',
-                                features: plan.features,
-                                status: 'active',
-                                providerPreapprovalId: `admin-manual-${adminUser.id}-${Date.now()}`,
-                                providerStatus: 'manual',
-                                startedAt: Date.now(),
-                                updatedAt: Date.now(),
-                            });
-                        }
-                    } else {
-                        deps.cancelActiveSubscriptionForUser?.(userId, 'serenatas' as never, undefined, 'provider');
-                    }
+                if (raw.status !== undefined && !['active', 'cancelled', 'expired'].includes(raw.status)) {
+                    return c.json({ ok: false, error: `Estado inválido para ${vertical}` }, 400);
+                }
+                if (raw.expiresAt !== undefined && raw.expiresAt !== null && typeof raw.expiresAt !== 'string') {
+                    return c.json({ ok: false, error: `La fecha de expiración de ${vertical} no es válida.` }, 400);
                 }
 
-                if (vertical === 'serenatas' && raw.trialEndsAt !== undefined) {
-                    const requestedTrialEndsAt = raw.trialEndsAt ? new Date(raw.trialEndsAt) : null;
-                    if (requestedTrialEndsAt && Number.isNaN(requestedTrialEndsAt.getTime())) {
-                        return c.json({ ok: false, error: 'La fecha de prueba del perfil proveedor no es válida.' }, 400);
+                const status = raw.status ?? (planSlug === 'free' ? 'cancelled' : 'active');
+                const accountId = vertical === 'serenatas' ? serenatasAccountId : targetAccount.id;
+                if (vertical === 'serenatas' && raw.trialEndsAt !== undefined
+                    && raw.trialEndsAt !== null && typeof raw.trialEndsAt !== 'string') {
+                    return c.json({ ok: false, error: 'La fecha de prueba del perfil proveedor no es válida.' }, 400);
+                }
+                const requestedSerenataTrialEndsAt = vertical === 'serenatas' && raw.trialEndsAt
+                    ? new Date(raw.trialEndsAt)
+                    : null;
+                if (requestedSerenataTrialEndsAt && Number.isNaN(requestedSerenataTrialEndsAt.getTime())) {
+                    return c.json({ ok: false, error: 'La fecha de prueba del perfil proveedor no es válida.' }, 400);
+                }
+                const currentSubscription = await loadCurrentSubscriptionFromDb(userId, vertical, accountId, {
+                    includeInactive: true,
+                    ...(vertical === 'serenatas' ? { billingProfileType: 'provider' as const } : {}),
+                });
+                const expiresAt = raw.expiresAt === undefined
+                    ? currentSubscription?.expiresAt ?? null
+                    : raw.expiresAt
+                        ? new Date(raw.expiresAt)
+                        : null;
+                if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+                    return c.json({ ok: false, error: `La fecha de expiración de ${vertical} no es válida.` }, 400);
+                }
+
+                let persisted: Awaited<ReturnType<typeof persistManualAdminSubscription>>;
+                const providerSubscriptionId = currentSubscription?.providerSubscriptionId ?? null;
+                const liveProviderSubscriptionId = currentSubscription?.providerSubscriptionId;
+                const hasLiveProviderSubscription = Boolean(
+                    currentSubscription?.status === 'active'
+                    && liveProviderSubscriptionId
+                    && !liveProviderSubscriptionId.startsWith('admin-manual-')
+                    && !liveProviderSubscriptionId.startsWith('cancelled-')
+                    && !isDevMercadoPagoPreapprovalId(liveProviderSubscriptionId),
+                );
+
+                if (hasLiveProviderSubscription && (status !== 'active' || planSlug !== currentSubscription?.planSlug)) {
+                    return c.json({
+                        ok: false,
+                        error: `La suscripción activa de ${vertical} está vinculada a Mercado Pago. Usa el flujo de cancelación antes de cambiar el plan o el estado.`,
+                    }, 409);
+                }
+
+                if (hasLiveProviderSubscription && currentSubscription && liveProviderSubscriptionId) {
+                    if (currentSubscription.planSlug === 'free') {
+                        return c.json({
+                            ok: false,
+                            error: `La suscripción activa de ${vertical} no tiene un plan pagado asociado. Revisa el registro antes de editarlo.`,
+                        }, 409);
                     }
+                    const result = await persistUserSubscription({
+                        userId,
+                        accountId,
+                        vertical,
+                        ...(vertical === 'serenatas' ? { billingProfileType: 'provider' as const } : {}),
+                        planSlug: planSlug as Exclude<SubscriptionPlanId, 'free'>,
+                        billingCycle: currentSubscription.billingCycle,
+                        providerSubscriptionId: liveProviderSubscriptionId,
+                        providerStatus: currentSubscription.providerStatus ?? 'active',
+                        status: 'active',
+                        subscriptionStartedAt: currentSubscription.startedAt,
+                        expiresAt,
+                        expectedProviderSubscriptionId: liveProviderSubscriptionId,
+                        expectedPlanSlug: currentSubscription.planSlug as Exclude<SubscriptionPlanId, 'free'>,
+                    });
+                    if (!result.applied) {
+                        return c.json({
+                            ok: false,
+                            error: `La suscripción de ${vertical} cambió mientras guardabas. Actualiza el panel e inténtalo nuevamente.`,
+                        }, 409);
+                    }
+                    persisted = {
+                        planSlug: result.planSlug,
+                        status: 'active',
+                        expiresAt: expiresAt?.toISOString() ?? null,
+                        applied: true,
+                    };
+                } else {
+                    persisted = await persistManualAdminSubscription({
+                        userId,
+                        accountId,
+                        vertical,
+                        ...(vertical === 'serenatas' ? { billingProfileType: 'provider' as const } : {}),
+                        planSlug,
+                        status,
+                        expiresAt,
+                        expectedProviderSubscriptionId: providerSubscriptionId,
+                        ...(currentSubscription && currentSubscription.planSlug !== 'free'
+                            ? { expectedPlanSlug: currentSubscription.planSlug as Exclude<SubscriptionPlanId, 'free'> }
+                            : {}),
+                    });
+                    if (!persisted.applied) {
+                        return c.json({
+                            ok: false,
+                            error: `La suscripción de ${vertical} cambió mientras guardabas. Actualiza el panel e inténtalo nuevamente.`,
+                        }, 409);
+                    }
+                }
+                const refreshedSubscription = await loadCurrentSubscriptionFromDb(userId, vertical, accountId, {
+                    includeInactive: true,
+                    ...(vertical === 'serenatas' ? { billingProfileType: 'provider' as const } : {}),
+                });
+                syncAdminSubscriptionCache(
+                    deps,
+                    userId,
+                    accountId,
+                    vertical,
+                    refreshedSubscription,
+                    vertical === 'serenatas' ? 'provider' : undefined,
+                );
+                results[vertical] = persisted;
+
+                if (vertical === 'serenatas' && raw.trialEndsAt !== undefined) {
                     const owners = await deps.db.select({ id: serenataOwners.id, createdAt: serenataOwners.createdAt })
                         .from(serenataOwners)
                         .where(deps.eq(serenataOwners.userId, userId))
                         .limit(1);
                     if (owners[0]) {
-                        const trialEndsAt = requestedTrialEndsAt ?? defaultSerenataTrialEndsAt(owners[0].createdAt);
+                        const trialEndsAt = requestedSerenataTrialEndsAt ?? defaultSerenataTrialEndsAt(owners[0].createdAt);
                         await deps.db.update(serenataOwners)
                             .set({ trialEndsAt, updatedAt: new Date() })
                             .where(deps.eq(serenataOwners.id, owners[0].id));
@@ -567,7 +779,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 }
             }
 
-            const musicianBilling = subData.serenatasMusician as {
+            const musicianBilling = serenatasMusicianUpdate as {
                 planId?: string;
                 status?: 'active' | 'cancelled' | 'expired';
                 expiresAt?: string | null;
@@ -578,49 +790,113 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 if (!['free', 'pro'].includes(planSlug)) {
                     return c.json({ ok: false, error: 'Plan inválido para el perfil músico de Serenatas' }, 400);
                 }
-                const expiresAt = musicianBilling.expiresAt ? new Date(musicianBilling.expiresAt) : null;
+                if (musicianBilling.status !== undefined && !['active', 'cancelled', 'expired'].includes(musicianBilling.status)) {
+                    return c.json({ ok: false, error: 'Estado inválido para el perfil músico de Serenatas' }, 400);
+                }
+                if (musicianBilling.expiresAt !== undefined && musicianBilling.expiresAt !== null
+                    && typeof musicianBilling.expiresAt !== 'string') {
+                    return c.json({ ok: false, error: 'La fecha de facturación del perfil músico no es válida.' }, 400);
+                }
+                if (musicianBilling.trialEndsAt !== undefined && musicianBilling.trialEndsAt !== null
+                    && typeof musicianBilling.trialEndsAt !== 'string') {
+                    return c.json({ ok: false, error: 'La fecha de prueba del perfil músico no es válida.' }, 400);
+                }
+                const currentSubscription = await loadCurrentSubscriptionFromDb(
+                    userId,
+                    'serenatas',
+                    serenatasAccountId,
+                    { includeInactive: true, billingProfileType: 'musician' },
+                );
+                const expiresAt = musicianBilling.expiresAt === undefined
+                    ? currentSubscription?.expiresAt ?? null
+                    : musicianBilling.expiresAt
+                        ? new Date(musicianBilling.expiresAt)
+                        : null;
                 const trialEndsAt = musicianBilling.trialEndsAt ? new Date(musicianBilling.trialEndsAt) : null;
                 if ((expiresAt && Number.isNaN(expiresAt.getTime())) || (trialEndsAt && Number.isNaN(trialEndsAt.getTime()))) {
                     return c.json({ ok: false, error: 'La fecha de facturación del perfil músico no es válida.' }, 400);
                 }
                 const status = musicianBilling.status ?? (planSlug === 'free' ? 'cancelled' : 'active');
-                const persisted = await persistManualAdminSubscription({
-                    userId,
-                    accountId: targetAccount.id,
-                    vertical: 'serenatas',
-                    billingProfileType: 'musician',
-                    planSlug,
-                    status,
-                    expiresAt,
-                });
-                results.serenatasMusician = persisted;
-
-                if (persisted.status === 'active' && persisted.planSlug !== 'free') {
-                    const plan = deps.getPaidSubscriptionPlan('serenatas', persisted.planSlug);
-                    const personalAccountId = await getPersonalAccountIdForUserFromDb(userId);
-                    if (plan && personalAccountId) {
-                        deps.upsertActiveSubscription({
-                            id: deps.makeSubscriptionId('serenatas' as never, plan.id),
-                            accountId: personalAccountId,
-                            userId,
-                            vertical: 'serenatas',
-                            billingProfileType: 'musician',
-                            planId: plan.id,
-                            planName: plan.name,
-                            priceMonthly: plan.priceMonthly,
-                            billingCycle: 'monthly',
-                            currency: 'CLP',
-                            features: plan.features,
-                            status: 'active',
-                            providerPreapprovalId: `admin-manual-${adminUser.id}-${Date.now()}`,
-                            providerStatus: 'manual',
-                            startedAt: Date.now(),
-                            updatedAt: Date.now(),
-                        });
-                    }
-                } else {
-                    deps.cancelActiveSubscriptionForUser?.(userId, 'serenatas' as never, undefined, 'musician');
+                const providerSubscriptionId = currentSubscription?.providerSubscriptionId ?? null;
+                const liveProviderSubscriptionId = currentSubscription?.providerSubscriptionId;
+                const hasLiveProviderSubscription = Boolean(
+                    currentSubscription?.status === 'active'
+                    && liveProviderSubscriptionId
+                    && !liveProviderSubscriptionId.startsWith('admin-manual-')
+                    && !liveProviderSubscriptionId.startsWith('cancelled-')
+                    && !isDevMercadoPagoPreapprovalId(liveProviderSubscriptionId),
+                );
+                if (hasLiveProviderSubscription && (status !== 'active' || planSlug !== currentSubscription?.planSlug)) {
+                    return c.json({
+                        ok: false,
+                        error: 'La suscripción activa del perfil músico está vinculada a Mercado Pago. Usa el flujo de cancelación antes de cambiar el plan o el estado.',
+                    }, 409);
                 }
+
+                let persisted: Awaited<ReturnType<typeof persistManualAdminSubscription>>;
+                if (hasLiveProviderSubscription && currentSubscription && liveProviderSubscriptionId) {
+                    if (currentSubscription.planSlug === 'free') {
+                        return c.json({
+                            ok: false,
+                            error: 'La suscripción activa del perfil músico no tiene un plan pagado asociado. Revisa el registro antes de editarlo.',
+                        }, 409);
+                    }
+                    const result = await persistUserSubscription({
+                        userId,
+                        accountId: serenatasAccountId,
+                        vertical: 'serenatas',
+                        billingProfileType: 'musician',
+                        planSlug: planSlug as Exclude<SubscriptionPlanId, 'free'>,
+                        billingCycle: currentSubscription.billingCycle,
+                        providerSubscriptionId: liveProviderSubscriptionId,
+                        providerStatus: currentSubscription.providerStatus ?? 'active',
+                        status: 'active',
+                        subscriptionStartedAt: currentSubscription.startedAt,
+                        expiresAt,
+                        expectedProviderSubscriptionId: liveProviderSubscriptionId,
+                        expectedPlanSlug: currentSubscription.planSlug as Exclude<SubscriptionPlanId, 'free'>,
+                    });
+                    if (!result.applied) {
+                        return c.json({
+                            ok: false,
+                            error: 'La suscripción del perfil músico cambió mientras guardabas. Actualiza el panel e inténtalo nuevamente.',
+                        }, 409);
+                    }
+                    persisted = {
+                        planSlug: result.planSlug,
+                        status: 'active',
+                        expiresAt: expiresAt?.toISOString() ?? null,
+                        applied: true,
+                    };
+                } else {
+                    persisted = await persistManualAdminSubscription({
+                        userId,
+                        accountId: serenatasAccountId,
+                        vertical: 'serenatas',
+                        billingProfileType: 'musician',
+                        planSlug,
+                        status,
+                        expiresAt,
+                        expectedProviderSubscriptionId: providerSubscriptionId,
+                        ...(currentSubscription && currentSubscription.planSlug !== 'free'
+                            ? { expectedPlanSlug: currentSubscription.planSlug as Exclude<SubscriptionPlanId, 'free'> }
+                            : {}),
+                    });
+                    if (!persisted.applied) {
+                        return c.json({
+                            ok: false,
+                            error: 'La suscripción del perfil músico cambió mientras guardabas. Actualiza el panel e inténtalo nuevamente.',
+                        }, 409);
+                    }
+                }
+                results.serenatasMusician = persisted;
+                const refreshedSubscription = await loadCurrentSubscriptionFromDb(
+                    userId,
+                    'serenatas',
+                    serenatasAccountId,
+                    { includeInactive: true, billingProfileType: 'musician' },
+                );
+                syncAdminSubscriptionCache(deps, userId, serenatasAccountId, 'serenatas', refreshedSubscription, 'musician');
 
                 if (musicianBilling.trialEndsAt !== undefined) {
                     const musicianProfiles = await deps.db.select({ id: serenataMusicians.id, createdAt: serenataMusicians.createdAt })
@@ -646,7 +922,13 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 entityId: userId,
                 payload: {
                     accountId: targetAccount.id,
-                    serenatasBillingOwner: subData.serenatasProvider || subData.serenatas ? 'provider_user' : undefined,
+                    serenatasBillingAccountId: serenatasAccountId ?? undefined,
+                    serenatasBillingProfiles: hasSerenatasBillingUpdate
+                        ? {
+                            provider: Boolean(serenatasProviderUpdate),
+                            musician: Boolean(serenatasMusicianUpdate),
+                        }
+                        : undefined,
                     subscriptions: subData,
                     results,
                 },

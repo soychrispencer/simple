@@ -3,7 +3,7 @@
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { Header } from '@/components/layout/header';
 import { PanelShell } from '@/components/panel/panel-shell';
-import { PanelConfirmProvider } from '@simple/ui/panel';
+import { PanelConfirmProvider, PostRegistrationRoleWizardGate } from '@simple/ui/panel';
 import { simpleFontClassName } from '@simple/ui/fonts';
 import { usePathname } from 'next/navigation';
 
@@ -17,14 +17,20 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
             <AuthGuard allowInvitationPreview={isInvitationRoute}>
                 <PanelConfirmProvider>
                     {isPublishFlow ? (
-                        children
+                        <PostRegistrationRoleWizardGate vertical="propiedades" enabled>
+                            {children}
+                        </PostRegistrationRoleWizardGate>
                     ) : (
-                        <div className="flex min-h-screen min-w-0 flex-col bg-(--bg) text-(--fg)">
-                            <div className="shrink-0">
-                                <Header />
+                        <PostRegistrationRoleWizardGate vertical="propiedades" enabled={!isInvitationRoute}>
+                            <div className="flex min-h-screen min-w-0 flex-col bg-(--bg) text-(--fg)">
+                                <div className="shrink-0">
+                                    <Header />
+                                </div>
+                                <PanelShell>
+                                    {children}
+                                </PanelShell>
                             </div>
-                            <PanelShell>{children}</PanelShell>
-                        </div>
+                        </PostRegistrationRoleWizardGate>
                     )}
                 </PanelConfirmProvider>
             </AuthGuard>

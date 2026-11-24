@@ -97,13 +97,16 @@ export function MercadoPagoIntegrationCard({
                     title="MercadoPago"
                     connected={false}
                     loading
+                    controlVariant="actions"
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}
                 />
             ) : !status ? (
                 <PanelNotice tone="warning">No pudimos cargar el estado de MercadoPago.</PanelNotice>
             ) : !status.configured ? (
-                <PanelNotice tone="warning">MercadoPago aún no está disponible.</PanelNotice>
+                <PanelNotice tone="warning">
+                    No se pudo iniciar la conexión con Mercado Pago. Contacta a soporte para habilitarla.
+                </PanelNotice>
             ) : !status.canManageIntegration ? (
                 <PanelNotice tone="neutral">
                     {connected
@@ -124,6 +127,7 @@ export function MercadoPagoIntegrationCard({
                     locked={locked}
                     lockedHint={lockedHint || `Tu plan actual es ${status.currentPlanId}.`}
                     subscriptionsHref={subscriptionHref}
+                    controlVariant="actions"
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}
                 />

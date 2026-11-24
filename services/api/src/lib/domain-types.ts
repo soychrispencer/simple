@@ -366,6 +366,7 @@ export type ActiveSubscription = {
     status: ActiveSubscriptionStatus;
     providerPreapprovalId: string;
     providerStatus: string | null;
+    expiresAt?: number | null;
     startedAt: number;
     updatedAt: number;
 };

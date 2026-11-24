@@ -128,6 +128,28 @@ export const accountVerticalSettings = pgTable('account_vertical_settings', {
   verticalIdx: index('account_vertical_settings_vertical_idx').on(table.vertical),
 }));
 
+/** Per-person, per-product onboarding progress; this does not grant workspace permissions. */
+export const userVerticalOnboarding = pgTable('user_vertical_onboarding', {
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  vertical: varchar('vertical', { length: 20 }).notNull(),
+  version: integer('version').notNull().default(1),
+  status: varchar('status', { length: 20 }).notNull().default('in_progress'),
+  step: integer('step').notNull().default(0),
+  answers: jsonb('answers').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  startedAt: timestamp('started_at').notNull().defaultNow(),
+  deferredAt: timestamp('deferred_at'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  userVerticalPrimaryKey: primaryKey({ columns: [table.userId, table.vertical] }),
+  validVertical: check('user_vertical_onboarding_vertical_check', sql`${table.vertical} IN ('autos', 'propiedades', 'agenda', 'serenatas')`),
+  validStatus: check('user_vertical_onboarding_status_check', sql`${table.status} IN ('in_progress', 'deferred', 'completed')`),
+  validStep: check('user_vertical_onboarding_step_check', sql`${table.step} BETWEEN 0 AND 3`),
+  completedHasTimestamp: check('user_vertical_onboarding_completed_check', sql`${table.status} <> 'completed' OR ${table.completedAt} IS NOT NULL`),
+  deferredHasTimestamp: check('user_vertical_onboarding_deferred_check', sql`${table.status} <> 'deferred' OR ${table.deferredAt} IS NOT NULL`),
+}));
+
 export const passwordResetTokens = pgTable('password_reset_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id).notNull(),
@@ -633,6 +655,20 @@ export const adCampaigns = pgTable('ad_campaigns', {
 // SimpleAgenda tables
 // ─────────────────────────────────────────────────────────────────────────────
 
+// One optional Pro trial per business workspace. Kept independent of profiles
+// so deleting or replacing a practitioner profile cannot reset trial eligibility.
+export const agendaAccountTrials = pgTable('agenda_account_trials', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }).notNull(),
+  startedByUserId: uuid('started_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  startedAt: timestamp('started_at').notNull().defaultNow(),
+  endsAt: timestamp('ends_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  accountUnique: uniqueIndex('agenda_account_trials_account_unique_idx').on(table.accountId),
+  endsAtIdx: index('agenda_account_trials_ends_at_idx').on(table.endsAt),
+}));
+
 // Professional profile — one per user and workspace (the practitioner using SimpleAgenda)
 export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -1049,12 +1085,12 @@ export const subscriptions = pgTable('subscriptions', {
   accountId: uuid('account_id').references(() => accounts.id),
   userId: uuid('user_id').references(() => users.id).notNull(),
   planId: uuid('plan_id').references(() => subscriptionPlans.id).notNull(),
-  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda'
+  vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda' | 'serenatas'
   billingProfileType: varchar('billing_profile_type', { length: 20 }), // SimpleSerenatas: 'provider' | 'musician'
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'cancelled' | 'paused' | 'expired'
-  provider: varchar('provider', { length: 30 }).notNull().default('mercadopago'), // 'mercadopago'
-  providerSubscriptionId: varchar('provider_subscription_id', { length: 255 }), // MercadoPago subscription ID
-  providerStatus: varchar('provider_status', { length: 50 }), // MercadoPago status
+  provider: varchar('provider', { length: 30 }).notNull().default('mercadopago'), // 'mercadopago' | 'manual'
+  providerSubscriptionId: varchar('provider_subscription_id', { length: 255 }), // Provider ID or admin-manual marker
+  providerStatus: varchar('provider_status', { length: 50 }), // Provider status or 'manual'
   billingCycle: varchar('billing_cycle', { length: 12 }).notNull().default('monthly'), // 'monthly' | 'annual'
   startedAt: timestamp('started_at').notNull().defaultNow(),
   expiresAt: timestamp('expires_at'), // Next billing date

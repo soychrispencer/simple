@@ -19,7 +19,6 @@ import { PanelButton } from './panel-button.js';
 import { PanelCard } from './panel-card.js';
 import { PanelField } from './panel-display.js';
 import { PanelBlockHeader, PanelChoiceCard, PanelNotice } from './panel-primitives.js';
-import { PanelSelect } from './panel-select.js';
 
 export function BusinessActivitySettings({ vertical }: { vertical: WorkspaceVertical }) {
     const [loading, setLoading] = useState(true);
@@ -208,21 +207,30 @@ export function BusinessActivitySettings({ vertical }: { vertical: WorkspaceVert
                         </div>
                     ) : null}
 
-                    <PanelField label="Actividad principal" hint="Usamos esta opción para priorizar las herramientas del panel." required>
-                        <PanelSelect
-                            aria-label="Actividad principal"
-                            value={subtype ?? ''}
-                            disabled={saving}
-                            onChange={(event) => {
-                                const next = normalizeOperatorSubtype(vertical, accountKind, event.target.value);
-                                setSubtype(next);
-                                if (!isOperatorSubtypeOther(next)) setSubtypeCustom('');
-                            }}
-                        >
-                            <option value="">Selecciona una actividad</option>
-                            {subtypeOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-                        </PanelSelect>
-                    </PanelField>
+                    <div>
+                        <p className="mb-2 text-sm font-medium text-fg">¿Qué describe mejor tu actividad?</p>
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="group" aria-label="Actividad principal">
+                            {subtypeOptions.map((option) => (
+                                <PanelChoiceCard
+                                    key={option.id}
+                                    selected={subtype === option.id}
+                                    disabled={saving}
+                                    onClick={() => {
+                                        const next = normalizeOperatorSubtype(vertical, accountKind, option.id);
+                                        setSubtype(next);
+                                        if (!isOperatorSubtypeOther(next)) setSubtypeCustom('');
+                                    }}
+                                    className="min-h-24"
+                                >
+                                    <span className="block text-sm font-semibold text-fg">{option.label}</span>
+                                    {option.description ? (
+                                        <span className="mt-1 block text-xs leading-5 text-fg-muted">{option.description}</span>
+                                    ) : null}
+                                </PanelChoiceCard>
+                            ))}
+                        </div>
+                        <p className="mt-2 text-xs text-fg-muted">Simple usará esta actividad para priorizar las herramientas del panel.</p>
+                    </div>
 
                     {showCustomSubtype ? (
                         <PanelField label="¿A qué te dedicas?" required>

@@ -388,16 +388,9 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
         if (!bucket[subscriptionKey] || bucket[subscriptionKey].updatedAt < value.updatedAt) bucket[subscriptionKey] = value;
         subscriptionsByUser.set(row.userId, bucket);
 
-        const memberships = membershipsByUser.get(row.userId) ?? [];
-        const defaultMembership = memberships.find((membership) => membership.isDefault) ?? memberships[0];
-        const defaultAccount = defaultMembership ? accountsById.get(defaultMembership.accountId) : null;
         const scopedAccountId = row.vertical === 'serenatas'
             ? personalAccountByUser.get(row.userId) ?? row.accountId
-            : row.accountId ?? (
-            defaultAccount?.isPersonal && defaultAccount.ownerUserId === row.userId
-                ? defaultAccount.id
-                : null
-        );
+            : row.accountId ?? personalAccountByUser.get(row.userId) ?? null;
         if (scopedAccountId) {
             const key = `${row.userId}:${scopedAccountId}`;
             const accountBucket = subscriptionsByAccount.get(key) ?? {};

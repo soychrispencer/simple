@@ -77,6 +77,27 @@ describe('Mercado Pago OAuth across the API and panel domains', () => {
         vi.unstubAllEnvs();
     });
 
+    it('does not send users to Mercado Pago when the app credentials are placeholders', async () => {
+        vi.stubEnv('MP_OPERATOR_APP_ID', 'YOUR_MP_OPERATOR_APP_ID');
+        vi.stubEnv('MP_OPERATOR_APP_SECRET', 'YOUR_MP_OPERATOR_APP_SECRET');
+        vi.stubEnv('MP_AGENDA_APP_ID', 'YOUR_MP_AGENDA_APP_ID');
+        vi.stubEnv('MP_AGENDA_APP_SECRET', 'YOUR_MP_AGENDA_APP_SECRET');
+
+        const { app } = createTestApi();
+        const response = await app.request(
+            `${INTEGRATION_PATH}/connect?vertical=agenda&returnTo=${encodeURIComponent(PANEL_PAGE)}`,
+            { headers: { Cookie: SESSION_COOKIE } },
+        );
+
+        expect(response.status).toBe(503);
+        expect(response.headers.get('Location')).toBeNull();
+        expect(response.headers.get('Set-Cookie')).toBeNull();
+        await expect(response.json()).resolves.toMatchObject({
+            ok: false,
+            error: 'MercadoPago no está configurado en este entorno.',
+        });
+    });
+
     it('completes from the panel that holds the browser cookies and keeps the original workspace', async () => {
         const { app, selectOtherWorkspace } = createTestApi();
         const { cookie, state } = await beginConnection(app);

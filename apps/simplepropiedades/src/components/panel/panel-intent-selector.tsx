@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { IconBuildingCommunity, IconHome2, IconMessageCircle, IconListDetails } from '@tabler/icons-react';
+import { IconBuildingCommunity, IconHome2, IconMessageCircle, IconListDetails, IconUserCircle } from '@tabler/icons-react';
 import { PanelButton, PanelCard } from '@simple/ui/panel';
 
 const STORAGE_KEY = 'simplepropiedades-panel-intent-dismissed-v1';
@@ -64,23 +64,39 @@ export function PanelIntentSelector({
 
     if (!visible) return null;
 
-    const projectFirst = operatorSubtype === 'developer';
-    const options: IntentOption[] = [
-        projectFirst
+    const primaryOption: IntentOption = operatorSubtype === 'developer'
+        ? {
+            key: 'project',
+            title: 'Presentar un proyecto',
+            description: 'Publica el proyecto y organiza el interés por sus unidades.',
+            href: '/panel/publicar?op=project',
+            icon: <IconBuildingCommunity size={18} />,
+        }
+        : operatorSubtype === 'appraiser'
             ? {
-                key: 'project',
-                title: 'Presentar un proyecto',
-                description: 'Publica el proyecto y organiza el interés por sus unidades.',
-                href: '/panel/publicar?op=project',
-                icon: <IconBuildingCommunity size={18} />,
+                key: 'profile',
+                title: 'Presentar mi perfil profesional',
+                description: 'Muestra tu especialidad y la experiencia de tu servicio de tasación.',
+                href: '/panel/mi-negocio',
+                icon: <IconUserCircle size={18} />,
             }
-            : {
-                key: 'property',
-                title: 'Publicar una propiedad',
-                description: 'Crea un aviso y atiende las consultas desde Simple.',
-                href: '/panel/publicar',
-                icon: <IconHome2 size={18} />,
-            },
+            : operatorSubtype === 'coworking'
+                ? {
+                    key: 'space',
+                    title: 'Publicar un espacio',
+                    description: 'Presenta tus oficinas, salas o espacios disponibles.',
+                    href: '/panel/publicar',
+                    icon: <IconHome2 size={18} />,
+                }
+                : {
+                    key: 'property',
+                    title: 'Publicar una propiedad',
+                    description: 'Crea un aviso y atiende las consultas desde Simple.',
+                    href: '/panel/publicar',
+                    icon: <IconHome2 size={18} />,
+                };
+    const options: IntentOption[] = [
+        primaryOption,
         {
             key: 'contacts',
             title: 'Organizar contactos',

@@ -1,12 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 import { normalizeTimezone, resolveOperatorDisplayLabel, type OperatorTier } from '@simple/utils';
 import type { AppUser } from '../../lib/domain-types.js';
 import { db } from '../../db/index.js';
-import { accountVerticalSettings, accounts, agendaProfessionalProfiles } from '../../db/schema.js';
+import { accountVerticalSettings, accounts, agendaAccountTrials, agendaProfessionalProfiles } from '../../db/schema.js';
 import { runAccountMemberWrite } from '../accounts/write-access.js';
 import { ensureAgendaProfileTrial } from './plan-limits.js';
-import { defaultTrialEndsAt } from '../billing/trial-config.js';
 import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
 import { isValidAgendaSlug } from './runtime-support.js';
 
@@ -72,7 +71,7 @@ export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: E
                         eq(accountVerticalSettings.vertical, 'agenda'),
                     ))
                     .limit(1);
-                const workspaceTier = parseOperatorTier(workspace?.accountKind);
+                const storedWorkspaceTier = parseOperatorTier(workspace?.accountKind);
 
                 const [accountRow] = await tx.select({
                     isPersonal: accounts.isPersonal,
@@ -81,6 +80,11 @@ export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: E
                     .from(accounts)
                     .where(eq(accounts.id, account.id))
                     .limit(1);
+                const isBusinessAccount = Boolean(accountRow && !accountRow.isPersonal);
+                const workspaceTier = accountRow && !accountRow.isPersonal
+                    ? storedWorkspaceTier === 'company' ? 'company' : null
+                    : storedWorkspaceTier;
+                const profileTier = isBusinessAccount ? 'company' : workspaceTier;
                 const [scopedProfile] = await tx.select().from(agendaProfessionalProfiles)
                     .where(and(
                         eq(agendaProfessionalProfiles.userId, user.id),
@@ -105,20 +109,45 @@ export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: E
                 if (existing) {
                     const updates: Partial<typeof agendaProfessionalProfiles.$inferInsert> = {};
                     if (existing.accountId !== account.id) updates.accountId = account.id;
-                    if (workspaceTier && existing.accountKind !== workspaceTier) {
-                        updates.accountKind = workspaceTier;
+                    if (profileTier && existing.accountKind !== profileTier) {
+                        updates.accountKind = profileTier;
                     }
-                    if (workspace?.operatorSubtype && existing.operatorSubtype !== workspace.operatorSubtype) {
-                        updates.operatorSubtype = workspace.operatorSubtype;
-                    }
-                    if (workspaceTier && workspace?.operatorSubtype) {
-                        const profession = resolveOperatorDisplayLabel(
-                            'agenda',
-                            workspaceTier,
-                            workspace.operatorSubtype,
-                            workspace.operatorSubtypeCustom,
-                        );
-                        if (existing.profession !== profession) updates.profession = profession;
+                    if (isBusinessAccount) {
+                        // A business profile must never keep an individual activity from an
+                        // earlier workspace. Company activity comes from this account's
+                        // Agenda workspace; preserve legacy company details only when no
+                        // workspace settings row exists yet.
+                        if (workspace) {
+                            const operatorSubtype = workspaceTier === 'company'
+                                ? workspace.operatorSubtype ?? null
+                                : null;
+                            const profession = workspaceTier === 'company' && workspace.operatorSubtype
+                                ? resolveOperatorDisplayLabel(
+                                    'agenda',
+                                    'company',
+                                    workspace.operatorSubtype,
+                                    workspace.operatorSubtypeCustom,
+                                )
+                                : null;
+                            if (existing.operatorSubtype !== operatorSubtype) updates.operatorSubtype = operatorSubtype;
+                            if (existing.profession !== profession) updates.profession = profession;
+                        } else if (existing.accountKind !== 'company') {
+                            updates.operatorSubtype = null;
+                            updates.profession = null;
+                        }
+                    } else {
+                        if (workspace?.operatorSubtype && existing.operatorSubtype !== workspace.operatorSubtype) {
+                            updates.operatorSubtype = workspace.operatorSubtype;
+                        }
+                        if (workspaceTier && workspace?.operatorSubtype) {
+                            const profession = resolveOperatorDisplayLabel(
+                                'agenda',
+                                workspaceTier,
+                                workspace.operatorSubtype,
+                                workspace.operatorSubtypeCustom,
+                            );
+                            if (existing.profession !== profession) updates.profession = profession;
+                        }
                     }
                     const [updated] = Object.keys(updates).length > 0
                         ? await tx.update(agendaProfessionalProfiles)
@@ -130,7 +159,14 @@ export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: E
                 }
 
                 let plan: 'free' | 'pro' | 'pro_plus' = 'free';
-                let planExpiresAt: Date | null = defaultTrialEndsAt();
+                const [activeTrial] = await tx.select({ endsAt: agendaAccountTrials.endsAt })
+                    .from(agendaAccountTrials)
+                    .where(and(
+                        eq(agendaAccountTrials.accountId, account.id),
+                        gt(agendaAccountTrials.endsAt, new Date()),
+                    ))
+                    .limit(1);
+                let planExpiresAt: Date | null = activeTrial?.endsAt ?? null;
                 try {
                     const accountSubscription = await loadCurrentSubscriptionFromDb(user.id, 'agenda', account.id);
                     if (accountSubscription && ['pro', 'pro_plus', 'enterprise'].includes(accountSubscription.planSlug)) {
@@ -147,14 +183,17 @@ export function createEnsureAgendaProfile(deps: { ensurePrimaryAccountForUser: E
                 const slug = await pickUniqueSlug(user);
                 const displayName = user.name?.trim() || user.email.split('@')[0] || null;
                 const residenceCountry = (user.residenceCountryCode ?? 'CL').trim().toUpperCase() || 'CL';
+                const profileOperatorSubtype = isBusinessAccount
+                    ? workspaceTier === 'company' ? workspace?.operatorSubtype ?? null : null
+                    : workspace?.operatorSubtype ?? null;
                 const [profile] = await tx.insert(agendaProfessionalProfiles)
                     .values({
                         accountId: account.id,
                         userId: user.id,
                         slug,
                         displayName,
-                        accountKind: workspaceTier ?? 'individual',
-                        operatorSubtype: workspace?.operatorSubtype ?? null,
+                        accountKind: profileTier ?? 'individual',
+                        operatorSubtype: profileOperatorSubtype,
                         profession: workspaceTier && workspace.operatorSubtype
                             ? resolveOperatorDisplayLabel(
                                 'agenda',

@@ -1,4 +1,4 @@
-import { pgClient } from '../src/db/index.js';
+import { pgClient } from '../db/index.js';
 
 type DuplicateScopeRow = {
     platform: 'instagram' | 'tiktok' | 'youtube';
@@ -8,7 +8,9 @@ type DuplicateScopeRow = {
 
 async function main() {
     try {
-        const duplicateScopes = await pgClient.unsafe<DuplicateScopeRow[]>(`
+        const audit = await pgClient.begin(async (tx) => {
+            await tx.unsafe('SET TRANSACTION READ ONLY');
+            const duplicateScopes = await tx.unsafe<DuplicateScopeRow[]>(`
             SELECT 'instagram' AS platform,
                    count(*)::text AS duplicate_scopes,
                    coalesce(sum(connection_count - 1), 0)::text AS extra_connections
@@ -59,7 +61,7 @@ async function main() {
             ORDER BY platform
         `);
 
-        const uniqueIndexes = await pgClient.unsafe<{ platform: string; ready: boolean }[]>(`
+            const uniqueIndexes = await tx.unsafe<{ platform: string; ready: boolean }[]>(`
             WITH expected(platform, table_name, index_name) AS (
                 VALUES
                     ('instagram', 'instagram_accounts', 'instagram_accounts_account_vertical_idx'),
@@ -84,15 +86,18 @@ async function main() {
             ORDER BY expected.platform
         `);
 
-        const hasDuplicates = duplicateScopes.some((row) => Number(row.duplicate_scopes) > 0);
+            const hasDuplicates = duplicateScopes.some((row) => Number(row.duplicate_scopes) > 0);
+            return { duplicateScopes, uniqueIndexes, hasDuplicates };
+        });
+
         console.log(JSON.stringify({
-            note: 'Auditoría agregada de solo lectura; no devuelve IDs, nombres de cuentas ni tokens. Simula el alcance de las migraciones 0163/0164 asignando conexiones heredadas al espacio predeterminado antes de detectar duplicados.',
-            duplicateScopes,
-            uniqueIndexes,
-            safeToApplySocialUniquenessMigration: !hasDuplicates,
+            note: 'Auditoría agregada dentro de una transacción READ ONLY; no devuelve IDs, nombres de cuentas ni tokens. Simula el alcance de las migraciones 0163/0164 asignando conexiones heredadas al espacio predeterminado antes de detectar duplicados.',
+            duplicateScopes: audit.duplicateScopes,
+            uniqueIndexes: audit.uniqueIndexes,
+            safeToApplySocialUniquenessMigration: !audit.hasDuplicates,
         }, null, 2));
 
-        if (hasDuplicates) process.exitCode = 2;
+        if (audit.hasDuplicates) process.exitCode = 2;
     } finally {
         await pgClient.end();
     }

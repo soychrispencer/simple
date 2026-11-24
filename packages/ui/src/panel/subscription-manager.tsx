@@ -98,6 +98,14 @@ export type SubscriptionManagerPayments = {
     }) => Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string; alreadyActive?: boolean; message?: string }>;
     /** Cancela Pro (preapproval MP + downgrade). Opcional: si falta, no se muestra el botón. */
     cancelSubscription?: () => Promise<{ ok: boolean; error?: string; message?: string }>;
+    /** Estado y activación de la prueba voluntaria, usada solo por SimpleAgenda. */
+    fetchAgendaTrialStatus?: () => Promise<{
+        state: 'available' | 'active' | 'used';
+        endsAt: string | null;
+        remainingDays: number | null;
+        canManage: boolean;
+    } | null>;
+    activateAgendaTrial?: () => Promise<{ ok: boolean; error?: string }>;
 };
 
 export type SubscriptionManagerProps = SubscriptionManagerPayments & {
@@ -117,6 +125,8 @@ export function SubscriptionManager({
     confirmCheckout,
     startSubscriptionCheckout,
     cancelSubscription,
+    fetchAgendaTrialStatus,
+    activateAgendaTrial,
     subscriptionsPath = '/panel/mi-cuenta/suscripcion',
     marketplaceMode = false,
     marketplaceVertical,
@@ -142,10 +152,23 @@ export function SubscriptionManager({
     const [billingModalOpen, setBillingModalOpen] = useState(false);
     const [isCompanyOperator, setIsCompanyOperator] = useState(false);
     const [companyBillingComplete, setCompanyBillingComplete] = useState(false);
+    const [agendaTrial, setAgendaTrial] = useState<{
+        state: 'available' | 'active' | 'used';
+        endsAt: string | null;
+        remainingDays: number | null;
+        canManage: boolean;
+    } | null>(null);
+    const [activatingTrial, setActivatingTrial] = useState(false);
 
     const load = async () => {
         setLoading(true);
-        const catalogData = await fetchSubscriptionCatalog();
+        const [catalogData, trialStatus] = await Promise.all([
+            fetchSubscriptionCatalog(),
+            launchVertical === 'agenda' && fetchAgendaTrialStatus
+                ? fetchAgendaTrialStatus().catch(() => null)
+                : Promise.resolve(null),
+        ]);
+        if (launchVertical === 'agenda') setAgendaTrial(trialStatus);
         if (!catalogData) {
             setError('No pudimos cargar tus suscripciones.');
             setLoading(false);
@@ -258,7 +281,10 @@ export function SubscriptionManager({
         [agendaBilling, marketplaceMode, plans],
     );
 
-    const trial = useMemo(() => trialMeta(catalog, currentPlanId), [catalog, currentPlanId]);
+    const trial = useMemo(
+        () => agendaBilling ? null : trialMeta(catalog, currentPlanId),
+        [agendaBilling, catalog, currentPlanId],
+    );
     const proPlan = paidPlans.find((plan) => plan.id === 'pro') ?? null;
     const currentPaidPlan = paidPlans.find((plan) => plan.id === currentPlanId) ?? proPlan;
     const proPlusPlan = paidPlans.find((plan) => plan.id === 'pro_plus') ?? null;
@@ -286,6 +312,28 @@ export function SubscriptionManager({
     const marketplaceIndividual = marketplaceMode && catalog?.accountContext?.accountKind === 'individual';
     const canSelfServeEnterprise = marketplaceMode && catalog?.accountContext?.accountKind === 'company';
     const marketplaceEntitlements = marketplaceMode ? catalog?.entitlements ?? null : null;
+
+    const activateOptionalTrial = async () => {
+        if (!activateAgendaTrial) return;
+        setActivatingTrial(true);
+        setError('');
+        setMessage('');
+        try {
+            const result = await activateAgendaTrial();
+            if (!result.ok) {
+                setError(result.error ?? 'No pudimos activar la prueba Pro.');
+                const status = await fetchAgendaTrialStatus?.().catch(() => null);
+                if (status) setAgendaTrial(status);
+                return;
+            }
+            setMessage(`Prueba Pro activada por ${AGENDA_PRICING.trialDays} días.`);
+            await load();
+        } catch {
+            setError('No pudimos conectar para activar la prueba Pro. Inténtalo nuevamente.');
+        } finally {
+            setActivatingTrial(false);
+        }
+    };
 
     const startCheckout = async (planId: Exclude<SubscriptionPlanId, 'free'>) => {
         setBusyPlanId(planId);
@@ -390,7 +438,7 @@ export function SubscriptionManager({
             {error ? <PanelNotice tone="error">{error}</PanelNotice> : null}
             {!checkoutEnabled && !loading ? (
                 <PanelNotice tone="warning">
-                    Mercado Pago aún no está disponible en este entorno.
+                    No pudimos iniciar el pago en línea. Contacta a soporte para completar tu suscripción.
                 </PanelNotice>
             ) : null}
             {!loading && catalog?.checkoutEnabled && catalog.mercadoPagoEnabled === false ? (
@@ -421,6 +469,56 @@ export function SubscriptionManager({
                     <span className="basis-full text-xs text-(--fg-muted)">
                         Incluye integrantes activos e invitaciones vigentes. Cada persona conserva los permisos de su rol.
                     </span>
+                </div>
+            ) : null}
+
+            {!loading && agendaBilling && currentPlanId === 'free' && agendaTrial ? (
+                <div className="flex flex-col gap-4 rounded-2xl border border-(--accent-border) bg-(--accent-subtle) p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                    <div className="max-w-2xl">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <PanelStatusBadge
+                                label={agendaTrial.state === 'available'
+                                    ? `Prueba Pro · ${AGENDA_PRICING.trialDays} días`
+                                    : agendaTrial.state === 'active' ? 'Prueba Pro activa' : 'Prueba Pro utilizada'}
+                                tone={agendaTrial.state === 'active' ? 'info' : 'neutral'}
+                            />
+                            {agendaTrial.state === 'active' && agendaTrial.remainingDays !== null ? (
+                                <span className="rounded-full border border-(--border) bg-(--surface) px-2.5 py-0.5 text-xs font-semibold text-(--fg-secondary)">
+                                    {agendaTrial.remainingDays} {agendaTrial.remainingDays === 1 ? 'día restante' : 'días restantes'}
+                                </span>
+                            ) : null}
+                        </div>
+                        <h3 className="text-lg font-semibold text-(--fg)">
+                            {agendaTrial.state === 'available'
+                                ? `Prueba Pro gratis por ${AGENDA_PRICING.trialDays} días, cuando estés listo`
+                                : agendaTrial.state === 'active'
+                                    ? 'Tienes acceso completo a Pro'
+                                    : 'Este espacio ya utilizó la prueba Pro'}
+                        </h3>
+                        <p className="mt-1 text-sm text-(--fg-secondary)">
+                            {agendaTrial.state === 'available'
+                                ? 'Este espacio sigue en Gratis hasta que lo actives. No pide tarjeta y, al terminar, vuelve a Gratis sin cobro automático.'
+                                : agendaTrial.state === 'active'
+                                    ? 'Al terminar el período, este espacio vuelve a Gratis. No se realiza ningún cobro automático.'
+                                    : `Este espacio y su perfil público siguen disponibles en Gratis, con hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes.`}
+                        </p>
+                        {agendaTrial.state === 'available' && !agendaTrial.canManage ? (
+                            <p className="mt-2 text-sm font-medium text-(--fg-muted)">
+                                Pide al dueño o administrador de este espacio que active la prueba.
+                            </p>
+                        ) : null}
+                    </div>
+                    {agendaTrial.state === 'available' && agendaTrial.canManage && activateAgendaTrial ? (
+                        <PanelButton
+                            variant="primary"
+                            loading={activatingTrial}
+                            disabled={activatingTrial || busyPlanId !== null || cancelling}
+                            onClick={() => void activateOptionalTrial()}
+                            className="shrink-0"
+                        >
+                            Activar prueba Pro
+                        </PanelButton>
+                    ) : null}
                 </div>
             ) : null}
 
@@ -817,7 +915,11 @@ export function SubscriptionManager({
                                                 : trial
                                                     ? `Te quedan ${trial.daysRemaining} días con todo incluido.`
                                                     : agendaBilling && currentPlanId === 'free'
-                                                        ? 'Tu cuenta sigue en Gratis. No hay cobro automático.'
+                                                        ? agendaTrial?.state === 'available'
+                                                            ? `Activa la prueba Pro de ${AGENDA_PRICING.trialDays} días cuando estés listo; tu cuenta empieza en Gratis.`
+                                                            : agendaTrial?.state === 'active'
+                                                                ? `Te quedan ${agendaTrial.remainingDays ?? 0} días de Pro. Después vuelves a Gratis sin cobro automático.`
+                                                                : 'Tu cuenta sigue en Gratis. No hay cobro automático.'
                                                         : 'Al registrarte tuviste acceso completo para configurar tu cuenta.'}
                                         </p>
                                     </div>

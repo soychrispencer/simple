@@ -11,13 +11,12 @@ import {
     fetchAccountWorkspace,
     fetchCurrentAccountContext,
     fetchMarketplaceOperatorAnalytics,
+    fetchVerticalOnboarding,
     type AccountWorkspaceState,
     type MarketplaceOperatorAnalytics,
 } from '@simple/utils';
 import {
     PanelBlockHeader, PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelPageHeader, PanelStatCard,
-    AccountWorkspaceSetup,
-    announceMarketplaceWorkspaceReady,
 } from '@simple/ui/panel';
 
 const WORKSPACE_SETUP_DISMISSED_PREFIX = 'simplepropiedades:workspace-setup-dismissed-session';
@@ -36,7 +35,6 @@ export default function PanelHomePage() {
     const [operatorAnalytics, setOperatorAnalytics] = useState<MarketplaceOperatorAnalytics | null>(null);
     const [workspaceState, setWorkspaceState] = useState<AccountWorkspaceState | null>(null);
     const [workspaceLoading, setWorkspaceLoading] = useState(true);
-    const [workspaceAccountIsPersonal, setWorkspaceAccountIsPersonal] = useState<boolean | null>(null);
     const [workspaceAccountId, setWorkspaceAccountId] = useState('');
     const [workspaceSetupDismissed, setWorkspaceSetupDismissed] = useState(false);
     const [workspaceIntentDismissed, setWorkspaceIntentDismissed] = useState(false);
@@ -56,19 +54,24 @@ export default function PanelHomePage() {
         void Promise.all([
             fetchAccountWorkspace('propiedades'),
             fetchCurrentAccountContext(),
-        ]).then(([workspace, context]) => {
+            fetchVerticalOnboarding('propiedades'),
+        ]).then(([workspace, context, onboarding]) => {
             const accountId = context?.account?.id ?? workspace?.workspace?.accountId ?? '';
             setWorkspaceAccountId(accountId);
-            setWorkspaceAccountIsPersonal(context?.account?.isPersonal ?? null);
             setWorkspaceState(workspace ?? { workspace: null, canManage: true, memberRole: null });
             const activityKey = workspace?.workspace?.operatorSubtype?.trim() || 'default';
+            const wizardIntentAlreadyHandled = Boolean(onboarding && (
+                onboarding.shouldShow
+                || onboarding.status === 'deferred'
+                || (typeof onboarding.answers.firstTask === 'string' && onboarding.answers.firstTask.length > 0)
+            ));
             try {
                 setWorkspaceSetupDismissed(Boolean(accountId && sessionStorage.getItem(`${WORKSPACE_SETUP_DISMISSED_PREFIX}:${accountId}`) === '1'));
             } catch {
                 setWorkspaceSetupDismissed(false);
             }
             try {
-                setWorkspaceIntentDismissed(Boolean(accountId && (
+                setWorkspaceIntentDismissed(wizardIntentAlreadyHandled || Boolean(accountId && (
                     localStorage.getItem(`${WORKSPACE_INTENT_DISMISSED_PREFIX}:${accountId}:${activityKey}`) === '1'
                     || localStorage.getItem(`${WORKSPACE_INTENT_DISMISSED_PREFIX}:${accountId}`) === '1'
                 )));
@@ -77,21 +80,16 @@ export default function PanelHomePage() {
             }
         }).catch(() => {
             setWorkspaceState({ workspace: null, canManage: true, memberRole: null });
-            setWorkspaceAccountIsPersonal(null);
             setWorkspaceSetupDismissed(false);
             setWorkspaceIntentDismissed(false);
         }).finally(() => setWorkspaceLoading(false));
     }, []);
 
-    function dismissWorkspaceSetup() {
-        try {
-            if (workspaceAccountId) sessionStorage.setItem(`${WORKSPACE_SETUP_DISMISSED_PREFIX}:${workspaceAccountId}`, '1');
-        } catch {
-            // La configuración sigue disponible desde Mi negocio.
-        }
-        setWorkspaceSetupDismissed(true);
-        announceMarketplaceWorkspaceReady();
-    }
+    useEffect(() => {
+        const onWorkspaceReady = () => setWorkspaceSetupDismissed(true);
+        window.addEventListener('simple:marketplace-workspace-ready', onWorkspaceReady);
+        return () => window.removeEventListener('simple:marketplace-workspace-ready', onWorkspaceReady);
+    }, []);
 
     const activeItems = useMemo(
         () => items.filter((item) => item.status === 'active' || item.status === 'paused').sort((a, b) => b.updatedAt - a.updatedAt),
@@ -101,6 +99,7 @@ export default function PanelHomePage() {
         workspaceState?.memberRole === 'agent'
         || workspaceState?.workspace?.onboardingCompletedAt
         || workspaceSetupDismissed
+        || workspaceState?.canManage === false
     );
     const panelDescription = workspaceState?.memberRole === 'agent'
         ? 'Tu cartera, conversaciones y próximos pasos en un solo lugar.'
@@ -128,21 +127,8 @@ export default function PanelHomePage() {
             <PanelPageHeader title="Mi panel" description={panelDescription} />
 
             <div className="grid gap-4">
-                <AccountWorkspaceSetup
-                    vertical="propiedades"
-                    state={workspaceState}
-                    loading={workspaceLoading}
-                    dismissed={workspaceSetupDismissed}
-                    isPersonalAccount={workspaceAccountIsPersonal}
-                    onSaved={(nextState, accountChanged) => {
-                        setWorkspaceState(nextState);
-                        announceMarketplaceWorkspaceReady();
-                        if (accountChanged) window.location.reload();
-                    }}
-                    onDismiss={dismissWorkspaceSetup}
-                />
                 <PanelIntentSelector
-                    hidden={loading || workspaceLoading || items.length > 0 || !workspaceReady}
+                    hidden={loading || workspaceLoading || items.length > 0 || !workspaceReady || workspaceIntentDismissed}
                     accountId={workspaceAccountId}
                     operatorSubtype={workspaceState?.workspace?.operatorSubtype}
                     memberRole={workspaceState?.memberRole}

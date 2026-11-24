@@ -29,6 +29,7 @@ export type IntegrationConnectRowProps = {
     readOnly?: boolean;
     readOnlyHint?: string;
     canManagePlan?: boolean;
+    controlVariant?: 'switch' | 'actions';
     subscriptionsHref?: string;
     ariaLabel?: string;
     onConnect: () => void;
@@ -49,13 +50,14 @@ export function IntegrationConnectRow({
     readOnly = false,
     readOnlyHint,
     canManagePlan = true,
+    controlVariant = 'switch',
     subscriptionsHref = '/panel/mi-cuenta/suscripcion',
     ariaLabel,
     onConnect,
     onDisconnect,
     footer,
 }: IntegrationConnectRowProps) {
-    const switchLabel = ariaLabel ?? `Conectar ${title}`;
+    const switchLabel = ariaLabel ?? `${connected ? 'Desconectar' : 'Conectar'} ${title}`;
     const subtitle = connected && connectedAccountLabel
         ? connectedAccountLabel
         : (!connected ? description : undefined);
@@ -79,7 +81,7 @@ export function IntegrationConnectRow({
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-semibold text-(--fg)">{title}</p>
-                            {!loading && connected && !connectedAccountLabel ? (
+                            {!loading && connected ? (
                                 <PanelStatusBadge label="Conectado" tone="success" size="sm" />
                             ) : null}
                             {!loading && locked ? (
@@ -98,13 +100,30 @@ export function IntegrationConnectRow({
                     {loading || busy ? (
                         <IconLoader2 size={18} className="animate-spin text-(--fg-muted)" aria-hidden />
                     ) : null}
-                    <PanelSwitch
-                        checked={connected}
-                        onChange={handleToggle}
-                        disabled={loading || busy || locked || readOnly}
-                        ariaLabel={switchLabel}
-                        size="sm"
-                    />
+                    {controlVariant === 'actions' ? (
+                        !locked ? (
+                            <PanelButton
+                                variant={connected ? 'secondary' : 'accent'}
+                                size="sm"
+                                loading={loading || busy}
+                                disabled={readOnly}
+                                onClick={() => {
+                                    if (connected) void onDisconnect();
+                                    else onConnect();
+                                }}
+                            >
+                                {connected ? 'Desconectar' : 'Conectar cuenta'}
+                            </PanelButton>
+                        ) : null
+                    ) : (
+                        <PanelSwitch
+                            checked={connected}
+                            onChange={handleToggle}
+                            disabled={loading || busy || locked || readOnly}
+                            ariaLabel={switchLabel}
+                            size="sm"
+                        />
+                    )}
                 </div>
             </div>
             {locked && lockedHint ? (

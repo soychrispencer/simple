@@ -88,9 +88,9 @@ export const subscriptions = pgTable('subscriptions', {
   vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda' | 'serenatas'
   billingProfileType: varchar('billing_profile_type', { length: 20 }), // SimpleSerenatas: 'provider' | 'musician'
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'cancelled' | 'paused' | 'expired'
-  provider: varchar('provider', { length: 30 }).notNull().default('mercadopago'), // 'mercadopago'
-  providerSubscriptionId: varchar('provider_subscription_id', { length: 255 }), // MercadoPago subscription ID
-  providerStatus: varchar('provider_status', { length: 50 }), // MercadoPago status
+  provider: varchar('provider', { length: 30 }).notNull().default('mercadopago'), // 'mercadopago' | 'manual'
+  providerSubscriptionId: varchar('provider_subscription_id', { length: 255 }), // Provider ID or admin-manual marker
+  providerStatus: varchar('provider_status', { length: 50 }), // Provider status or 'manual'
   startedAt: timestamp('started_at').notNull().defaultNow(),
   expiresAt: timestamp('expires_at'), // Next billing date
   cancelledAt: timestamp('cancelled_at'),

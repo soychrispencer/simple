@@ -8,7 +8,8 @@ export type MarketplaceLaunchVertical = 'autos' | 'propiedades';
  * Modo lanzamiento global (autos / propiedades / serenatas).
  * Desactivar con `MARKETPLACE_LAUNCH_MODE=false` (o `NEXT_PUBLIC_MARKETPLACE_LAUNCH_MODE=false`).
  *
- * Agenda **no** usa este flag por defecto: monetiza con trial 30d → Pro.
+ * Agenda **no** usa este flag por defecto: el registro inicia en Gratis y
+ * ofrece una prueba Pro opcional de 30 días.
  * Solo vuelve a gratis de lanzamiento con `AGENDA_LAUNCH_MODE=true`.
  */
 export function isPlatformLaunchMode(): boolean {
@@ -31,7 +32,8 @@ export function isPlatformLaunchVertical(vertical: string): vertical is Platform
 
 /**
  * ¿La vertical está en lanzamiento sin cobro?
- * - agenda: cobro activo por defecto; opt-in con AGENDA_LAUNCH_MODE=true
+ * - agenda: cobro activo por defecto; la prueba Pro opcional dura 30 días
+ *   y solo comienza cuando el negocio la activa.
  * - resto: MARKETPLACE_LAUNCH_MODE (default true)
  */
 export function isPlatformLaunchActive(vertical: string): boolean {

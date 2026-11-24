@@ -1,6 +1,6 @@
-import { AGENDA_PRICING } from '@simple/utils';
-
-export const BILLING_TRIAL_DAYS = AGENDA_PRICING.trialDays;
+// Non-Agenda billing still uses the legacy 30-day trial (SimpleSerenatas).
+// Agenda now owns its separate, optional trial length in AGENDA_PRICING.
+export const BILLING_TRIAL_DAYS = 30;
 
 export function defaultTrialEndsAt(from = new Date()): Date {
     const trialEndsAt = new Date(from);

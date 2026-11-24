@@ -65,6 +65,7 @@ export async function loadActiveSubscriptionsCache(): Promise<Map<string, Active
             status: 'active',
             providerPreapprovalId: row.providerSubscriptionId ?? `db-${row.id}`,
             providerStatus: row.providerStatus ?? null,
+            expiresAt: row.expiresAt?.getTime() ?? null,
             startedAt: row.startedAt.getTime(),
             updatedAt: row.updatedAt.getTime(),
         };

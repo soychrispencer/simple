@@ -1,4 +1,4 @@
-import { pgClient } from '../src/db/index.js';
+import { pgClient } from '../db/index.js';
 
 type AccountMembershipAuditRow = {
     users_with_memberships: string;
@@ -16,7 +16,9 @@ type AccountMembershipAuditRow = {
 
 async function main() {
     try {
-        const [row] = await pgClient.unsafe<AccountMembershipAuditRow[]>(`
+        const { row, accountUserIndexes } = await pgClient.begin(async (tx) => {
+            await tx.unsafe('SET TRANSACTION READ ONLY');
+            const [row] = await tx.unsafe<AccountMembershipAuditRow[]>(`
             WITH user_membership_defaults AS (
                 SELECT
                     person.id AS user_id,
@@ -67,8 +69,8 @@ async function main() {
                 (SELECT count(*) FROM personal_account_members WHERE other_membership_count > 0)::text AS personal_accounts_with_other_members,
                 (SELECT count(*) FROM account_users WHERE role NOT IN ('owner', 'admin', 'agent'))::text AS invalid_membership_roles,
                 (SELECT count(*) FROM account_invitations WHERE role NOT IN ('admin', 'agent'))::text AS invalid_invitation_roles
-        `);
-        const [accountUserIndexes] = await pgClient.unsafe<{
+            `);
+            const [accountUserIndexes] = await tx.unsafe<{
             unique_membership_index_present: boolean;
             unique_default_index_present: boolean;
             unique_owner_index_present: boolean;
@@ -215,7 +217,9 @@ async function main() {
                       AND constraint_record.convalidated
                       AND pg_get_constraintdef(constraint_record.oid) ~* 'role.*admin.*agent'
                 ) AS account_invitation_role_check_present
-        `);
+            `);
+            return { row, accountUserIndexes };
+        });
 
         if (!row) throw new Error('La consulta no devolvió resultados.');
         const counts = Object.fromEntries(
@@ -245,7 +249,7 @@ async function main() {
         const ok = Object.keys(anomalies).length === 0;
 
         console.log(JSON.stringify({
-            note: 'Auditoría agregada de solo lectura; no incluye IDs ni datos personales. Cada persona debe tener una cuenta personal y un espacio predeterminado; las cuentas personales son privadas de su dueño; cada cuenta debe tener un solo rol owner que coincida con owner_user_id.',
+            note: 'Auditoría agregada dentro de una transacción READ ONLY; no incluye IDs ni datos personales. Cada persona debe tener una cuenta personal y un espacio predeterminado; las cuentas personales son privadas de su dueño; cada cuenta debe tener un solo rol owner que coincida con owner_user_id.',
             ok,
             schema,
             counts,

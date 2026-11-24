@@ -244,15 +244,16 @@ export function AgendaConfiguracionesContent() {
                     className="mb-0"
                 />
                 <p className="text-sm text-fg-muted">
-                    La conexión de Mercado Pago pertenece al perfil que recibe las citas. Verifica el titular de
-                    Mercado Pago antes de activar un anticipo.
+                    Conecta la cuenta que recibirá los pagos. Luego activa Mercado Pago como método de cobro cuando quieras ofrecerlo a tus clientes.
                 </p>
-                <MercadoPagoIntegrationCard
-                    vertical="agenda"
-                    subscriptionHref="/panel/mi-negocio/plan"
-                    lockedHint="Disponible con Pro, Pro+ o una prueba activa."
-                    onConnectionChange={setMpConnected}
-                />
+                <div id="mercadopago" className="scroll-mt-24">
+                    <MercadoPagoIntegrationCard
+                        vertical="agenda"
+                        subscriptionHref="/panel/mi-negocio/plan"
+                        lockedHint="Disponible con Pro, Pro+ o una prueba activa."
+                        onConnectionChange={setMpConnected}
+                    />
+                </div>
                 <BusinessPaymentMethodsEditor
                     value={paymentForm}
                     onChange={(next) => {
@@ -265,6 +266,7 @@ export function AgendaConfiguracionesContent() {
                     mercadoPago={{
                         mode: 'oauth',
                         connected: mpConnected,
+                        integrationsHref: '/panel/mi-negocio/agenda#mercadopago',
                     }}
                     copy={{
                         advancePaymentDescription: `Aplica a cualquier método activo. El ${vocab.client} verá las instrucciones antes de confirmar.`,

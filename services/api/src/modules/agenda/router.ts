@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { canManageAccountRole } from '../accounts/permissions.js';
-import { runAccountMemberWrite } from '../accounts/write-access.js';
+import { runAccountManagerWrite, runAccountMemberWrite } from '../accounts/write-access.js';
 import { gt, ilike, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { cleanupReplacedMediaUrl, isOwnedStorageUrl, toProtectedMediaUrl, unwrapProtectedMediaUrl } from '../media/stored-object.js';
@@ -38,6 +38,7 @@ import {
     OPERATOR_SITE_COLOR_MODES,
     isValidOperatorSiteAccentStorage,
     normalizeOperatorSiteAccentHex,
+    parseDateTimeInTimezone,
     AGENDA_PRICING,
     type OperatorSiteLandingBrief,
     type OperatorSiteLandingConfig,
@@ -55,10 +56,12 @@ import {
     accountListingAssignments,
     accountRelationshipAssignments,
     agendaAccountVisits,
+    agendaAccountTrials,
     listings,
     messageThreads,
     platformNotifications,
     publicProfiles,
+    subscriptions,
 } from '../../db/schema.js';
 
 export interface AgendaRouterDeps {
@@ -684,7 +687,11 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                 ))
                 .limit(1)
             : [];
-        const accountKind = workspace?.accountKind ?? profile?.accountKind ?? null;
+        const accountKind = account?.isPersonal === false
+            ? workspace?.accountKind === 'company' || (!workspace?.accountKind && profile?.accountKind === 'company')
+                ? 'company'
+                : null
+            : workspace?.accountKind ?? profile?.accountKind ?? null;
         const enabled = Boolean(account && accountKind);
         const teamMode = Boolean(enabled && account && !account.isPersonal && accountKind === 'company');
         if (!enabled) {
@@ -736,8 +743,10 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             ))
             .limit(1)
             .for('update');
-        let accountKind = workspace?.accountKind ?? null;
-        if (!accountKind) {
+        let accountKind = account.isPersonal
+            ? workspace?.accountKind ?? null
+            : workspace?.accountKind === 'company' ? 'company' : null;
+        if (!workspace?.accountKind) {
             const profileScope = account.isPersonal && account.ownerUserId === context.ownerUserId
                 ? or(
                     eq(publicProfiles.accountId, context.accountId),
@@ -752,7 +761,9 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                 ))
                 .limit(1)
                 .for('update');
-            accountKind = profile?.accountKind ?? null;
+            accountKind = account.isPersonal
+                ? profile?.accountKind ?? null
+                : profile?.accountKind === 'company' ? 'company' : null;
         }
         const teamMode = Boolean(!account.isPersonal && accountKind === 'company');
         return Boolean(accountKind && accountKind === context.accountKind && teamMode === context.teamMode);
@@ -1087,7 +1098,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const context = await resolvePropertyVisitContext(user.id);
         if (!context?.enabled) return c.json({ ok: false, error: 'Configura tu espacio en SimplePropiedades para coordinar visitas y reuniones.' }, 403);
 
-        const startsAt = new Date(parsed.data.startsAt);
+        const startsAt = parseDateTimeInTimezone(parsed.data.startsAt, 'America/Santiago');
         if (!Number.isFinite(startsAt.getTime()) || startsAt.getTime() <= Date.now()) {
             return c.json({ ok: false, error: 'Elige una fecha y hora futuras.' }, 400);
         }
@@ -1354,7 +1365,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
 
         const updates: Record<string, unknown> = { updatedAt: new Date() };
         if (parsed.data.startsAt !== undefined) {
-            const startsAt = new Date(parsed.data.startsAt);
+            const startsAt = parseDateTimeInTimezone(parsed.data.startsAt, 'America/Santiago');
             if (!Number.isFinite(startsAt.getTime())) return c.json({ ok: false, error: 'La fecha y hora no son válidas.' }, 400);
             updates.startsAt = startsAt;
         }
@@ -2152,11 +2163,12 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await ensureAgendaProfile(user);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const profileTz = profile.timezone ?? 'America/Santiago';
         const slot = await withCurrentAgendaProfileWrite(user.id, profile, async (tx, current) => {
             const [created] = await tx.insert(agendaBlockedSlots).values({
                 professionalId: current.id,
-                startsAt: new Date(String(body.startsAt)),
-                endsAt: new Date(String(body.endsAt)),
+                startsAt: parseDateTimeInTimezone(String(body.startsAt), profileTz),
+                endsAt: parseDateTimeInTimezone(String(body.endsAt), profileTz),
                 reason: typeof body.reason === 'string' ? body.reason : null,
             }).returning();
             return created;
@@ -2841,7 +2853,9 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!body.startsAt) return c.json({ ok: false, error: 'Fecha de inicio requerida' }, 400);
         const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
         if (durationMinutes < 15) return c.json({ ok: false, error: 'La duración mínima es 15 minutos.' }, 400);
-        const startsAt = new Date(String(body.startsAt));
+        const profileTz = profile.timezone ?? 'America/Santiago';
+        const startsAt = parseDateTimeInTimezone(String(body.startsAt), profileTz);
+        if (Number.isNaN(startsAt.getTime())) return c.json({ ok: false, error: 'Fecha de inicio inválida' }, 400);
         const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
         const rawFreq = typeof body.recurrenceFrequency === 'string' ? body.recurrenceFrequency : null;
         const frequency: 'weekly'|'biweekly'|'monthly'|null = rawFreq === 'weekly' || rawFreq === 'biweekly' || rawFreq === 'monthly' ? rawFreq : null;
@@ -3051,7 +3065,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const id = c.req.param('id') ?? '';
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const patch: Record<string, unknown> = { updatedAt: new Date() };
-        if (body.startsAt) { const s = new Date(String(body.startsAt)); const dur = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60; patch.startsAt = s; patch.endsAt = new Date(s.getTime() + dur * 60_000); patch.durationMinutes = dur; } else if (body.durationMinutes) { patch.durationMinutes = body.durationMinutes; }
+        if (body.startsAt) {
+            const profileTz = profile.timezone ?? 'America/Santiago';
+            const s = parseDateTimeInTimezone(String(body.startsAt), profileTz);
+            const dur = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
+            patch.startsAt = s;
+            patch.endsAt = new Date(s.getTime() + dur * 60_000);
+            patch.durationMinutes = dur;
+        } else if (body.durationMinutes) { patch.durationMinutes = body.durationMinutes; }
         if ('clientId' in body) {
             if (body.clientId === null || body.clientId === '') patch.clientId = null;
             else if (typeof body.clientId === 'string') {
@@ -4473,6 +4494,168 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         return c.json({ ok: true, sent, failed });
     });
 
+    async function findAgendaSubscriptionForTrial(queryable: any, userId: string, accountId: string) {
+        const [account] = await queryable.select({
+            isPersonal: accounts.isPersonal,
+            ownerUserId: accounts.ownerUserId,
+        })
+            .from(accounts)
+            .where(eq(accounts.id, accountId))
+            .limit(1);
+
+        const scopes = [eq(subscriptions.accountId, accountId)];
+        if (account?.isPersonal && account.ownerUserId === userId) {
+            // Legacy subscriptions without account_id belong only to their owner's personal workspace.
+            scopes.push(and(isNull(subscriptions.accountId), eq(subscriptions.userId, userId)));
+        }
+
+        const [subscription] = await queryable.select({ id: subscriptions.id })
+            .from(subscriptions)
+            .where(and(
+                eq(subscriptions.vertical, 'agenda'),
+                or(...scopes),
+            ))
+            .limit(1);
+
+        return subscription ?? null;
+    }
+
+    // ── Optional Pro trial ───────────────────────────────────────────────────
+    app.get('/subscription/trial', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const membership = deps.getAccountMembershipFromDb
+            ? await deps.getAccountMembershipFromDb(user.id)
+            : null;
+        const accountId = deps.getAccountMembershipFromDb
+            ? membership?.accountId ?? null
+            : await getPrimaryAccountIdForUser(user.id);
+        const currentMembership = membership?.accountId === accountId
+            ? membership
+            : accountId
+                ? deps.getAccountMembershipsForUser(user.id).find((item: any) => item.accountId === accountId)
+                : null;
+        if (!accountId) return c.json({ ok: false, error: 'No pudimos identificar el negocio activo.' }, 404);
+
+        const now = new Date();
+        const [trial] = await db.select().from(agendaAccountTrials)
+            .where(eq(agendaAccountTrials.accountId, accountId))
+            .limit(1);
+        const profiles: Array<{ plan: string; planExpiresAt: Date | null }> = await db.select({
+            plan: agendaProfessionalProfiles.plan,
+            planExpiresAt: agendaProfessionalProfiles.planExpiresAt,
+        }).from(agendaProfessionalProfiles)
+            .where(eq(agendaProfessionalProfiles.accountId, accountId));
+        const subscription = await findAgendaSubscriptionForTrial(db, user.id, accountId);
+
+        let state: 'available' | 'active' | 'used' = 'available';
+        let endsAt: Date | null = trial?.endsAt ?? null;
+        if (subscription) {
+            // A paid subscription consumes the optional trial, even if a legacy
+            // or concurrent activation left its end date in the future.
+            state = 'used';
+            if (endsAt && endsAt.getTime() > now.getTime()) endsAt = now;
+        } else if (trial) {
+            state = trial.endsAt.getTime() > now.getTime() ? 'active' : 'used';
+        } else {
+            const legacyActiveTrial = profiles
+                .filter((profile) => profile.plan === 'free' && profile.planExpiresAt && profile.planExpiresAt.getTime() > now.getTime())
+                .sort((left, right) => right.planExpiresAt!.getTime() - left.planExpiresAt!.getTime())[0];
+            const legacyTrialHistory = profiles.some((profile) => profile.planExpiresAt !== null);
+            const paidPlanHistory = profiles.some((profile) => profile.plan === 'pro' || profile.plan === 'pro_plus');
+            if (legacyActiveTrial) {
+                state = 'active';
+                endsAt = legacyActiveTrial.planExpiresAt;
+            } else if (legacyTrialHistory || paidPlanHistory) {
+                state = 'used';
+            }
+        }
+
+        const remainingDays = state === 'active' && endsAt
+            ? Math.max(0, Math.ceil((endsAt.getTime() - now.getTime()) / 86_400_000))
+            : null;
+        return c.json({
+            ok: true,
+            trial: {
+                state,
+                endsAt: endsAt?.toISOString() ?? null,
+                remainingDays,
+                canManage: canManageAccountRole(currentMembership?.role),
+            },
+        });
+    });
+
+    app.post('/subscription/trial/activate', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const membership = deps.getAccountMembershipFromDb
+            ? await deps.getAccountMembershipFromDb(user.id)
+            : null;
+        const accountId = deps.getAccountMembershipFromDb
+            ? membership?.accountId ?? null
+            : await getPrimaryAccountIdForUser(user.id);
+        if (!accountId) return c.json({ ok: false, error: 'No pudimos identificar el negocio activo.' }, 404);
+
+        const result = await runAccountManagerWrite(db, { userId: user.id, accountId }, async (tx) => {
+            const now = new Date();
+            const subscription = await findAgendaSubscriptionForTrial(tx, user.id, accountId);
+            if (subscription) {
+                return { ok: false as const, error: 'La prueba Pro no está disponible para este negocio.' };
+            }
+
+            const [existingTrial] = await tx.select().from(agendaAccountTrials)
+                .where(eq(agendaAccountTrials.accountId, accountId))
+                .limit(1)
+                .for('update');
+            if (existingTrial) {
+                if (existingTrial.endsAt.getTime() > now.getTime()) {
+                    return { ok: true as const, state: 'active' as const, endsAt: existingTrial.endsAt };
+                }
+                return { ok: false as const, error: 'La prueba Pro de este negocio ya fue utilizada.' };
+            }
+
+            const profiles: Array<{ id: string; plan: string; planExpiresAt: Date | null }> = await tx.select({
+                id: agendaProfessionalProfiles.id,
+                plan: agendaProfessionalProfiles.plan,
+                planExpiresAt: agendaProfessionalProfiles.planExpiresAt,
+            }).from(agendaProfessionalProfiles)
+                .where(eq(agendaProfessionalProfiles.accountId, accountId))
+                .for('update');
+
+            const legacyHistory = profiles.some((profile) => profile.planExpiresAt !== null);
+            const paidPlan = profiles.some((profile) => profile.plan === 'pro' || profile.plan === 'pro_plus');
+            if (legacyHistory || paidPlan) {
+                return { ok: false as const, error: 'La prueba Pro no está disponible para este negocio.' };
+            }
+
+            const endsAt = new Date(now.getTime() + AGENDA_PRICING.trialDays * 86_400_000);
+            await tx.insert(agendaAccountTrials).values({
+                accountId,
+                startedByUserId: user.id,
+                startedAt: now,
+                endsAt,
+            });
+            await tx.update(agendaProfessionalProfiles)
+                .set({ planExpiresAt: endsAt, updatedAt: now })
+                .where(and(
+                    eq(agendaProfessionalProfiles.accountId, accountId),
+                    eq(agendaProfessionalProfiles.plan, 'free'),
+                ));
+
+            return { ok: true as const, state: 'active' as const, endsAt };
+        });
+
+        if (!result.ok) return c.json({ ok: false, error: 'Solo quien administra este negocio puede activar la prueba Pro.' }, 403);
+        if (!result.value.ok) return c.json({ ok: false, error: result.value.error }, 409);
+        const remainingDays = Math.max(0, Math.ceil((result.value.endsAt.getTime() - Date.now()) / 86_400_000));
+        return c.json({
+            ok: true,
+            trial: { state: result.value.state, endsAt: result.value.endsAt.toISOString(), remainingDays },
+        });
+    });
+
     // ── Subscription Self-cancel ──────────────────────────────────────────────
     app.post('/subscription/cancel', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
@@ -4991,7 +5174,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             expectedStartsAt: z.string().datetime({ offset: true }),
         }).safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return c.json({ ok: false, error: 'La fecha elegida no es válida.' }, 400);
-        const startsAt = new Date(parsed.data.startsAt);
+        const startsAt = parseDateTimeInTimezone(parsed.data.startsAt, 'America/Santiago');
         const expectedStartsAt = new Date(parsed.data.expectedStartsAt);
         const moved = await db.transaction(async (tx: any) => {
             // Usar el mismo orden de bloqueo que la creación pública para serializar ambas operaciones.
@@ -5156,7 +5339,8 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const clientName = typeof body.clientName === 'string' ? body.clientName.trim() : '';
         if (!body.startsAt || !clientName) return c.json({ ok: false, error: 'Datos requeridos: startsAt, clientName' }, 400);
-        const startsAt = new Date(String(body.startsAt));
+        const profileTz = profile.timezone ?? 'America/Santiago';
+        const startsAt = parseDateTimeInTimezone(String(body.startsAt), profileTz);
         if (Number.isNaN(startsAt.getTime())) return c.json({ ok: false, error: 'La fecha seleccionada no es válida.' }, 400);
         const requestedServiceId = typeof body.serviceId === 'string' && body.serviceId ? body.serviceId : null;
         const paymentMethod = z.enum(['mp', 'link', 'transfer', 'manual']).optional().safeParse(body.paymentMethod);
