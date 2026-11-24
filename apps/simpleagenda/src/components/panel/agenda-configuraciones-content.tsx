@@ -61,8 +61,10 @@ function paymentFormDirty(profile: AgendaProfile, form: BusinessPaymentMethodsVa
     return JSON.stringify(form) !== JSON.stringify(baseline);
 }
 
-export function AgendaConfiguracionesContent() {
+export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'all' | 'rules' | 'payments' }) {
     const vocab = useAgendaVocab();
+    const showRules = section === 'all' || section === 'rules';
+    const showPayments = section === 'all' || section === 'payments';
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [bookingForm, setBookingForm] = useState<BookingForm | null>(null);
     const [paymentForm, setPaymentForm] = useState<BusinessPaymentMethodsValue>(emptyBusinessPaymentMethodsValue());
@@ -200,95 +202,100 @@ export function AgendaConfiguracionesContent() {
 
     return (
         <div className="flex w-full min-w-0 flex-col gap-7">
-            <section className="space-y-4">
-                <PanelBlockHeader
-                    title="Condiciones de reserva"
-                    description="Define cómo se confirman las citas y las condiciones que aceptan tus clientes."
-                    className="mb-0"
-                />
-                <BusinessBookingResponseModeCard
-                    title="Confirmación de citas"
-                    description="Elige si las citas se confirman al instante o quedan pendientes de tu aprobación."
-                    mode={automaticSelected ? 'automatic' : 'manual'}
-                    onModeChange={(next) => setBooking('confirmationMode', next === 'automatic' ? 'auto' : 'manual')}
-                    manualDescription="Cada cita queda pendiente para que la apruebes o rechaces desde el panel."
-                    automaticTitle="Confirmar automáticamente"
-                    automaticDescription="Si el horario está disponible, la cita se confirma sin intervención manual."
-                    hasUnsavedChanges={hasChanges}
-                />
-
-                <BusinessBookingRulesFields
-                    variant="agenda"
-                    bookingWindowDays={bookingForm.bookingWindowDays}
-                    cancellationHours={bookingForm.cancellationHours}
-                    allowsRecurrentBooking={bookingForm.allowsRecurrentBooking}
-                    recurrentDescription={`Tus ${vocab.clients} podrán agendar varias sesiones desde tu perfil público.`}
-                    onBookingWindowDaysChange={(value) => setBooking('bookingWindowDays', value)}
-                    onCancellationHoursChange={(value) => setBooking('cancellationHours', value)}
-                    onAllowsRecurrentBookingChange={(value) => setBooking('allowsRecurrentBooking', value)}
-                />
-
-                <BusinessBookingPoliciesSection
-                    value={bookingForm.bookingTermsText}
-                    onChange={(next) => setBooking('bookingTermsText', next)}
-                    clientLabel={vocab.client}
-                    generating={generatingPolicies}
-                    onGenerate={handleGeneratePolicies}
-                />
-            </section>
-
-            <section id="cobros" className="scroll-mt-24 space-y-4 border-t border-[var(--border)] pt-6">
-                <PanelBlockHeader
-                    title="Cobros"
-                    description={BUSINESS_PAYMENT_METHODS_PAGE.description}
-                    className="mb-0"
-                />
-                <p className="text-sm text-fg-muted">
-                    Conecta la cuenta que recibirá los pagos. Luego activa Mercado Pago como método de cobro cuando quieras ofrecerlo a tus clientes.
-                </p>
-                <div id="mercadopago" className="scroll-mt-24">
-                    <MercadoPagoIntegrationCard
-                        vertical="agenda"
-                        subscriptionHref="/panel/mi-negocio/plan"
-                        lockedHint="Disponible con Pro, Pro+ o una prueba activa."
-                        onConnectionChange={setMpConnected}
+            {showRules ? (
+                <section className="space-y-4">
+                    <PanelBlockHeader
+                        title="Condiciones de reserva"
+                        description="Define cómo se confirman las citas y las condiciones que aceptan tus clientes."
+                        className="mb-0"
                     />
-                </div>
-                <BusinessPaymentMethodsEditor
-                    value={paymentForm}
-                    onChange={(next) => {
-                        setSaved(false);
-                        setPaymentForm(next);
-                    }}
-                    onSave={handleSave}
-                    hideSaveButton
-                    showSubscriptionNotice={false}
-                    mercadoPago={{
-                        mode: 'oauth',
-                        connected: mpConnected,
-                        integrationsHref: '/panel/mi-negocio/agenda#mercadopago',
-                    }}
-                    copy={{
-                        advancePaymentDescription: `Aplica a cualquier método activo. El ${vocab.client} verá las instrucciones antes de confirmar.`,
-                        advancePaymentInstructionsHint: `Se muestran al ${vocab.client} en la pantalla de confirmación.`,
-                        transferDescription: `El ${vocab.client} recibirá tus datos para transferirte.`,
-                    }}
-                />
-            </section>
-
-            <details className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-                <summary className="cursor-pointer list-none text-sm font-semibold text-fg">
-                    Avisos operativos
-                    <span className="mt-1 block text-xs font-normal text-fg-muted">Configura qué notificaciones recibes sobre tus citas.</span>
-                </summary>
-                <div className="mt-4 border-t border-[var(--border)] pt-4">
-                    <AgendaOperationalAlertsSettings
-                        prefs={notificationPrefs.prefs}
-                        onPrefsChange={notificationPrefs.updatePrefs}
-                        disabled={saving}
+                    <BusinessBookingResponseModeCard
+                        title="Confirmación de citas"
+                        description="Elige si las citas se confirman al instante o quedan pendientes de tu aprobación."
+                        mode={automaticSelected ? 'automatic' : 'manual'}
+                        onModeChange={(next) => setBooking('confirmationMode', next === 'automatic' ? 'auto' : 'manual')}
+                        manualDescription="Cada cita queda pendiente para que la apruebes o rechaces desde el panel."
+                        automaticTitle="Confirmar automáticamente"
+                        automaticDescription="Si el horario está disponible, la cita se confirma sin intervención manual."
+                        hasUnsavedChanges={hasChanges}
                     />
-                </div>
-            </details>
+
+                    <BusinessBookingRulesFields
+                        variant="agenda"
+                        bookingWindowDays={bookingForm.bookingWindowDays}
+                        cancellationHours={bookingForm.cancellationHours}
+                        allowsRecurrentBooking={bookingForm.allowsRecurrentBooking}
+                        recurrentDescription={`Tus ${vocab.clients} podrán agendar varias sesiones desde tu perfil público.`}
+                        onBookingWindowDaysChange={(value) => setBooking('bookingWindowDays', value)}
+                        onCancellationHoursChange={(value) => setBooking('cancellationHours', value)}
+                        onAllowsRecurrentBookingChange={(value) => setBooking('allowsRecurrentBooking', value)}
+                    />
+
+                    <BusinessBookingPoliciesSection
+                        value={bookingForm.bookingTermsText}
+                        onChange={(next) => setBooking('bookingTermsText', next)}
+                        clientLabel={vocab.client}
+                        generating={generatingPolicies}
+                        onGenerate={handleGeneratePolicies}
+                    />
+                </section>
+            ) : null}
+
+            {showPayments ? (
+                <>
+                    <section id="cobros" className={`scroll-mt-24 space-y-4 ${showRules ? 'border-t border-[var(--border)] pt-6' : ''}`}>
+                        <PanelBlockHeader
+                            title="Cobros"
+                            description={BUSINESS_PAYMENT_METHODS_PAGE.description}
+                            className="mb-0"
+                        />
+                        <p className="text-sm text-fg-muted">
+                            Conecta la cuenta que recibirá los pagos. Luego activa Mercado Pago como método de cobro cuando quieras ofrecerlo a tus clientes.
+                        </p>
+                        <div id="mercadopago" className="scroll-mt-24">
+                            <MercadoPagoIntegrationCard
+                                vertical="agenda"
+                                subscriptionHref="/panel/mi-negocio/plan"
+                                lockedHint="Disponible con Pro, Pro+ o una prueba activa."
+                                onConnectionChange={setMpConnected}
+                            />
+                        </div>
+                        <BusinessPaymentMethodsEditor
+                            value={paymentForm}
+                            onChange={(next) => {
+                                setSaved(false);
+                                setPaymentForm(next);
+                            }}
+                            onSave={handleSave}
+                            hideSaveButton
+                            showSubscriptionNotice={false}
+                            mercadoPago={{
+                                mode: 'oauth',
+                                connected: mpConnected,
+                                integrationsHref: '/panel/mi-negocio/agenda#mercadopago',
+                            }}
+                            copy={{
+                                advancePaymentDescription: `Aplica a cualquier método activo. El ${vocab.client} verá las instrucciones antes de confirmar.`,
+                                advancePaymentInstructionsHint: `Se muestran al ${vocab.client} en la pantalla de confirmación.`,
+                                transferDescription: `El ${vocab.client} recibirá tus datos para transferirte.`,
+                            }}
+                        />
+                    </section>
+
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5 space-y-4">
+                        <PanelBlockHeader
+                            title="Avisos operativos"
+                            description="Configura qué notificaciones recibes sobre nuevas citas, cancelaciones y pagos."
+                            className="mb-0"
+                        />
+                        <AgendaOperationalAlertsSettings
+                            prefs={notificationPrefs.prefs}
+                            onPrefsChange={notificationPrefs.updatePrefs}
+                            disabled={saving}
+                        />
+                    </div>
+                </>
+            ) : null}
 
             <PanelSectionSaveFooter
                 saving={saving}

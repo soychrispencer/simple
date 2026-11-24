@@ -6,18 +6,21 @@ import {
     PanelMiNegocioShell,
 } from '@simple/ui/panel';
 import { AgendaBusinessPublishToggle } from '@/components/panel/agenda-business-publish-toggle';
-import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
+import { getAgendaBusinessTabs } from '@/components/panel/panel-section-tabs';
+import { useAgendaIsTeamWorkspace } from '@/components/panel/agenda-vocab-context';
 
 type AgendaMiNegocioShellProps = Omit<ComponentProps<typeof PanelMiNegocioShell>, 'publishToggle' | 'tabs'> & {
     tabs?: ComponentProps<typeof PanelMiNegocioShell>['tabs'];
     showPublishToggle?: boolean;
 };
 
-export function AgendaMiNegocioShell({ tabs = businessSectionTabs, showPublishToggle = true, ...props }: AgendaMiNegocioShellProps) {
+export function AgendaMiNegocioShell({ tabs, showPublishToggle = true, ...props }: AgendaMiNegocioShellProps) {
+    const isTeamWorkspace = useAgendaIsTeamWorkspace();
+    const resolvedTabs = tabs ?? getAgendaBusinessTabs(isTeamWorkspace || props.activeKey === 'equipo');
     return (
         <PanelMiNegocioShell
             {...props}
-            tabs={tabs}
+            tabs={resolvedTabs}
             publishToggle={showPublishToggle ? <AgendaBusinessPublishToggle /> : undefined}
         />
     );
@@ -27,11 +30,13 @@ type AgendaMiNegocioLoadingProps = Omit<ComponentProps<typeof PanelMiNegocioLoad
     tabs?: ComponentProps<typeof PanelMiNegocioLoading>['tabs'];
 };
 
-export function AgendaMiNegocioLoading({ tabs = businessSectionTabs, ...props }: AgendaMiNegocioLoadingProps) {
+export function AgendaMiNegocioLoading({ tabs, ...props }: AgendaMiNegocioLoadingProps) {
+    const isTeamWorkspace = useAgendaIsTeamWorkspace();
+    const resolvedTabs = tabs ?? getAgendaBusinessTabs(isTeamWorkspace || props.activeKey === 'equipo');
     return (
         <PanelMiNegocioLoading
             {...props}
-            tabs={tabs}
+            tabs={resolvedTabs}
             publishToggle={<AgendaBusinessPublishToggle />}
         />
     );

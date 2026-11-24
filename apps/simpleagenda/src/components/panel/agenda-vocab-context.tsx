@@ -18,9 +18,11 @@ import {
 } from '@/lib/vocabulary';
 
 const AgendaVocabContext = createContext<AgendaVocab>(buildAgendaVocab('cliente'));
+const AgendaTeamWorkspaceContext = createContext<boolean>(false);
 
 export function AgendaVocabProvider({ children }: { children: ReactNode }) {
     const [vocab, setVocab] = useState<AgendaVocab>(() => buildAgendaVocab('cliente'));
+    const [isTeamWorkspace, setIsTeamWorkspace] = useState(false);
 
     const refresh = useCallback(async () => {
         const [profile, workspaceState, accountContext] = await Promise.all([
@@ -29,8 +31,9 @@ export function AgendaVocabProvider({ children }: { children: ReactNode }) {
             fetchCurrentAccountContext(),
         ]);
         const workspace = workspaceState?.workspace;
-        if (!profile && !workspace) return;
         const isBusinessAccount = accountContext?.account?.isPersonal === false;
+        setIsTeamWorkspace(Boolean(isBusinessAccount || workspace?.accountKind === 'company' || profile?.accountKind === 'company'));
+        if (!profile && !workspace) return;
         const operator = resolveAgendaOperatorFields({
             accountKind: workspace?.accountKind ?? (isBusinessAccount ? 'company' : profile?.accountKind),
             operatorSubtype: isBusinessAccount
@@ -59,12 +62,18 @@ export function AgendaVocabProvider({ children }: { children: ReactNode }) {
     const value = useMemo(() => vocab, [vocab]);
 
     return (
-        <AgendaVocabContext.Provider value={value}>
-            {children}
-        </AgendaVocabContext.Provider>
+        <AgendaTeamWorkspaceContext.Provider value={isTeamWorkspace}>
+            <AgendaVocabContext.Provider value={value}>
+                {children}
+            </AgendaVocabContext.Provider>
+        </AgendaTeamWorkspaceContext.Provider>
     );
 }
 
 export function useAgendaVocab(): AgendaVocab {
     return useContext(AgendaVocabContext);
+}
+
+export function useAgendaIsTeamWorkspace(): boolean {
+    return useContext(AgendaTeamWorkspaceContext);
 }

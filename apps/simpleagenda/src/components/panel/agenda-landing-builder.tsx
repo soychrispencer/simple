@@ -1,17 +1,35 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { IconArrowDown, IconArrowUp, IconCheck, IconChevronDown, IconCircle, IconExternalLink, IconLoader2, IconSparkles } from '@tabler/icons-react';
-import { PanelButton, PanelCard, PanelNotice, PanelProfileBrandImages } from '@simple/ui/panel';
+import {
+    IconArrowDown,
+    IconArrowUp,
+    IconCheck,
+    IconChevronDown,
+    IconDeviceDesktop,
+    IconDeviceMobile,
+    IconExternalLink,
+    IconLayout,
+    IconLoader2,
+    IconMoon,
+    IconPalette,
+    IconPlus,
+    IconSearch,
+    IconSparkles,
+    IconSun,
+    IconTrash,
+} from '@tabler/icons-react';
+import { PanelButton, PanelCard, PanelNotice, PanelProfileBrandImages, PanelSwitch } from '@simple/ui/panel';
 import {
     emptyOperatorSiteLandingConfig,
+    normalizeOperatorSiteAccentHex,
     normalizeOperatorSiteColorMode,
     normalizeOperatorSiteLayout,
-    normalizeOperatorSiteAccentHex,
     OPERATOR_SITE_ACCENT_OPTIONS,
-    OPERATOR_SITE_COLOR_MODE_OPTIONS,
     OPERATOR_SITE_LANDING_SECTIONS,
+    operatorSiteAccentCssValue,
+    resolveAppMediaUrl,
     resolveOperatorSiteIndustry,
     type OperatorSiteLandingAppearance,
     type OperatorSiteLandingConfig,
@@ -19,6 +37,7 @@ import {
     type OperatorSiteLandingGenerationTarget,
     type OperatorSiteLandingSection,
     type OperatorSiteLandingTone,
+    type OperatorSiteLayout,
 } from '@simple/utils';
 import { AgendaPublicLinkPanel } from './agenda-public-link-panel';
 import {
@@ -29,12 +48,21 @@ import {
     saveAgendaLandingDraft,
     uploadAvatar,
     type AgendaProfile,
+    type AgendaService,
 } from '@/lib/agenda-api';
 
 const EMPTY_CONTENT: OperatorSiteLandingContent = {
-    heroHeadline: '', heroSubheadline: '', aboutTitle: '', aboutText: '',
-    highlightsTitle: '', highlights: [], seoTitle: '', seoDescription: '',
+    heroHeadline: '',
+    heroSubheadline: '',
+    aboutTitle: '',
+    aboutText: '',
+    highlightsTitle: '',
+    highlights: [],
+    seoTitle: '',
+    seoDescription: '',
 };
+
+type StudioTab = 'design' | 'copy' | 'sections';
 
 const TONES: Array<{ value: OperatorSiteLandingTone; label: string }> = [
     { value: 'profesional', label: 'Profesional' },
@@ -43,6 +71,7 @@ const TONES: Array<{ value: OperatorSiteLandingTone; label: string }> = [
     { value: 'premium', label: 'Premium' },
     { value: 'dinamico', label: 'Dinámico' },
 ];
+
 const GENERATION_TARGETS: Array<{ value: OperatorSiteLandingGenerationTarget; label: string }> = [
     { value: 'all', label: 'Todo el contenido' },
     { value: 'hero', label: 'Portada' },
@@ -50,6 +79,7 @@ const GENERATION_TARGETS: Array<{ value: OperatorSiteLandingGenerationTarget; la
     { value: 'highlights', label: 'Puntos destacados' },
     { value: 'seo', label: 'Texto para buscadores' },
 ];
+
 const SECTION_LABELS: Record<OperatorSiteLandingSection, string> = {
     about: 'Presentación',
     highlights: 'Puntos destacados',
@@ -57,30 +87,57 @@ const SECTION_LABELS: Record<OperatorSiteLandingSection, string> = {
     contact: 'Datos de contacto',
 };
 
-const fieldClassName = 'mt-1.5 min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-sm text-fg outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-subtle)]';
-const actionClassName = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-fg hover:bg-[var(--bg-subtle)] disabled:opacity-50';
+const LAYOUT_OPTIONS: Array<{
+    id: OperatorSiteLayout;
+    name: string;
+    description: string;
+}> = [
+    {
+        id: 'booking',
+        name: 'Reserva directa',
+        description: 'Portada con tus servicios listos para agendar al instante.',
+    },
+    {
+        id: 'portfolio',
+        name: 'Portada visual',
+        description: 'Banner amplio, vitrina horizontal y enfoque editorial.',
+    },
+    {
+        id: 'studio',
+        name: 'Perfil compacto',
+        description: 'Encabezado limpio y grilla moderna tipo tarjeta.',
+    },
+];
 
-function Field({ label, value, onChange, maxLength, rows, placeholder }: {
+const fieldClassName = 'mt-1.5 min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-sm text-fg outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-subtle)]';
+const actionClassName = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 text-sm font-semibold text-fg transition hover:bg-[var(--bg-subtle)] disabled:opacity-50';
+
+function Field({ label, value, onChange, maxLength, rows, placeholder, hint }: {
     label: string;
     value: string;
     onChange: (value: string) => void;
     maxLength: number;
     rows?: number;
     placeholder?: string;
+    hint?: string;
 }) {
     return (
         <label className="block text-sm font-medium text-fg">
-            {label}
+            <span className="flex items-center justify-between gap-2">
+                <span>{label}</span>
+                <span className="text-[11px] font-normal text-fg-muted">{value.length}/{maxLength}</span>
+            </span>
             {rows
                 ? <textarea className={fieldClassName} value={value} maxLength={maxLength} rows={rows} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
                 : <input className={fieldClassName} value={value} maxLength={maxLength} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />}
+            {hint ? <span className="mt-1 block text-xs font-normal text-fg-muted">{hint}</span> : null}
         </label>
     );
 }
 
 function EditorDetails({ title, children }: { title: string; children: ReactNode }) {
     return (
-        <details className="group rounded-xl border border-[var(--border)]">
+        <details className="group rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]/50">
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3.5 text-sm font-semibold text-fg">
                 {title}
                 <IconChevronDown size={16} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180" />
@@ -90,19 +147,249 @@ function EditorDetails({ title, children }: { title: string; children: ReactNode
     );
 }
 
-function Requirement({ label, detail, href }: { label: string; detail: string | null; href: string }) {
-    const Icon = detail ? IconCheck : IconCircle;
-    return (
-        <li className="flex items-center gap-3 border-t border-[var(--border)] py-3 first:border-t-0">
-            <Icon size={18} aria-hidden="true" className={detail ? 'shrink-0 text-accent-ink' : 'shrink-0 text-fg-muted'} />
-            <div className="min-w-0 grow">
-                <span className="block text-sm font-semibold text-fg">{label}</span>
-                {detail ? <span className="block text-xs text-fg-secondary">{detail}</span> : null}
+function LayoutSchematic({ layout, accent }: { layout: OperatorSiteLayout; accent: string }) {
+    if (layout === 'booking') {
+        return (
+            <div className="grid h-20 w-full grid-cols-[1.2fr_1fr] gap-2 rounded-lg border border-black/10 bg-white p-2 dark:border-white/10 dark:bg-zinc-900">
+                <div className="flex flex-col justify-center gap-1.5">
+                    <div className="h-3 w-3 rounded-full" style={{ background: accent }} />
+                    <div className="h-2 w-4/5 rounded bg-zinc-200 dark:bg-zinc-700" />
+                    <div className="h-1.5 w-3/5 rounded bg-zinc-100 dark:bg-zinc-800" />
+                </div>
+                <div className="flex flex-col justify-between rounded-md border border-zinc-200 p-1.5 dark:border-zinc-700">
+                    <div className="h-1.5 w-2/3 rounded bg-zinc-200 dark:bg-zinc-700" />
+                    <div className="space-y-1">
+                        <div className="h-2 rounded bg-zinc-100 dark:bg-zinc-800" />
+                        <div className="h-2 rounded" style={{ background: accent, opacity: 0.85 }} />
+                    </div>
+                </div>
             </div>
-            <Link href={href} className="inline-flex min-h-10 shrink-0 items-center text-sm font-medium text-accent-ink underline underline-offset-4">
-                {detail ? 'Editar' : 'Completar'}<span className="sr-only"> {label}</span>
-            </Link>
-        </li>
+        );
+    }
+    if (layout === 'portfolio') {
+        return (
+            <div className="flex h-20 w-full flex-col justify-between rounded-lg border border-black/10 bg-white p-2 dark:border-white/10 dark:bg-zinc-900">
+                <div className="flex h-9 items-end justify-between rounded-md p-1.5" style={{ background: `${accent}22` }}>
+                    <div className="space-y-1">
+                        <div className="h-2 w-16 rounded bg-zinc-800/80 dark:bg-white/80" />
+                        <div className="h-1 w-10 rounded bg-zinc-500/60 dark:bg-white/50" />
+                    </div>
+                    <div className="h-3 w-8 rounded-full" style={{ background: accent }} />
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                    <div className="h-5 rounded bg-zinc-100 dark:bg-zinc-800" />
+                    <div className="h-5 rounded bg-zinc-100 dark:bg-zinc-800" />
+                    <div className="h-5 rounded bg-zinc-100 dark:bg-zinc-800" />
+                </div>
+            </div>
+        );
+    }
+    return (
+        <div className="flex h-20 w-full flex-col justify-between rounded-lg border border-black/10 bg-white p-2 dark:border-white/10 dark:bg-zinc-900">
+            <div className="flex items-center gap-2 rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
+                <div className="h-4 w-4 shrink-0 rounded-full" style={{ background: accent }} />
+                <div className="flex-1 space-y-1">
+                    <div className="h-1.5 w-14 rounded bg-zinc-300 dark:bg-zinc-600" />
+                    <div className="h-1 w-9 rounded bg-zinc-200 dark:bg-zinc-700" />
+                </div>
+                <div className="h-2.5 w-7 rounded-full" style={{ background: accent }} />
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+                <div className="h-6 rounded bg-zinc-100 dark:bg-zinc-800" />
+                <div className="h-6 rounded bg-zinc-100 dark:bg-zinc-800" />
+            </div>
+        </div>
+    );
+}
+
+function LiveSiteMiniPreview({
+    profile,
+    content,
+    appearance,
+    services,
+    previewUrl,
+}: {
+    profile: AgendaProfile;
+    content: OperatorSiteLandingContent;
+    appearance: OperatorSiteLandingAppearance;
+    services: AgendaService[];
+    previewUrl: string;
+}) {
+    const [device, setDevice] = useState<'mobile' | 'desktop'>('mobile');
+    const accentHex = appearance.accentColor === 'auto'
+        ? '#6D9F32'
+        : operatorSiteAccentCssValue(appearance.accentColor);
+    const isDark = appearance.colorMode === 'dark';
+    const coverSrc = resolveAppMediaUrl(appearance.coverUrl);
+    const avatarSrc = resolveAppMediaUrl(appearance.avatarUrl);
+    const headline = content.heroHeadline.trim() || profile.displayName?.trim() || 'Tu negocio';
+    const subheadline = content.heroSubheadline.trim()
+        || [profile.profession?.trim(), profile.city?.trim()].filter(Boolean).join(' · ')
+        || 'Atención profesional con reserva online';
+    const bioPreview = (content.sections?.about !== false ? (content.aboutText.trim() || profile.bio?.trim()) : '') || '';
+    const highlights = content.sections?.highlights !== false
+        ? content.highlights.filter((item) => item.title.trim())
+        : [];
+    const visibleServices = services.slice(0, 3);
+    const initials = (profile.displayName?.trim() || 'S').charAt(0).toUpperCase();
+
+    return (
+        <div className="rounded-2xl border border-(--border) bg-(--surface) p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1 rounded-xl border border-(--border) bg-(--bg-subtle) p-1">
+                    <button
+                        type="button"
+                        onClick={() => setDevice('mobile')}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                            device === 'mobile' ? 'bg-(--surface) text-fg shadow-xs' : 'text-fg-muted hover:text-fg'
+                        }`}
+                    >
+                        <IconDeviceMobile size={14} /> Móvil
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setDevice('desktop')}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                            device === 'desktop' ? 'bg-(--surface) text-fg shadow-xs' : 'text-fg-muted hover:text-fg'
+                        }`}
+                    >
+                        <IconDeviceDesktop size={14} /> Web
+                    </button>
+                </div>
+                <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-accent-ink hover:underline"
+                >
+                    Pantalla completa <IconExternalLink size={12} />
+                </a>
+            </div>
+
+            <div
+                className={`mx-auto overflow-hidden rounded-2xl border transition-all ${
+                    device === 'mobile' ? 'max-w-[295px]' : 'w-full'
+                } ${isDark ? 'border-zinc-800 bg-zinc-950 text-zinc-100' : 'border-zinc-200 bg-white text-zinc-900'}`}
+            >
+                {/* Browser chrome bar */}
+                <div
+                    className={`flex items-center gap-1.5 border-b px-3 py-2 text-[10px] ${
+                        isDark ? 'border-zinc-800 bg-zinc-900 text-zinc-400' : 'border-zinc-100 bg-zinc-50 text-zinc-500'
+                    }`}
+                >
+                    <span className="size-2 rounded-full bg-red-400/70" />
+                    <span className="size-2 rounded-full bg-amber-400/70" />
+                    <span className="size-2 rounded-full bg-emerald-400/70" />
+                    <span className="ml-2 truncate font-mono">simpleagenda.app/{profile.slug || 'tu-link'}</span>
+                </div>
+
+                {/* Cover / Hero area */}
+                <div
+                    className={`relative overflow-hidden ${appearance.layout === 'studio' ? 'p-3' : 'p-4'}`}
+                    style={{
+                        background: coverSrc
+                            ? undefined
+                            : `linear-gradient(135deg, ${accentHex}22 0%, ${accentHex}08 100%)`,
+                    }}
+                >
+                    {coverSrc ? (
+                        <img
+                            src={coverSrc}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover opacity-25"
+                        />
+                    ) : null}
+                    <div className="relative z-10 flex items-center gap-3">
+                        <div
+                            className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 text-sm font-bold"
+                            style={{ borderColor: accentHex, background: `${accentHex}1A`, color: accentHex }}
+                        >
+                            {avatarSrc ? (
+                                <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                                initials
+                            )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold leading-snug">{headline}</p>
+                            <p className={`truncate text-[11px] ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                                {subheadline}
+                            </p>
+                        </div>
+                    </div>
+                    {appearance.layout !== 'booking' ? (
+                        <div className="relative z-10 mt-3">
+                            <span
+                                className="inline-flex items-center rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white"
+                                style={{ background: accentHex }}
+                            >
+                                Reservar cita
+                            </span>
+                        </div>
+                    ) : null}
+                </div>
+
+                {/* Body */}
+                <div className="space-y-3 p-3.5 text-xs">
+                    {bioPreview ? (
+                        <p className={`line-clamp-2 text-[11px] leading-relaxed ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                            {bioPreview}
+                        </p>
+                    ) : null}
+
+                    <div>
+                        <p className={`mb-1.5 text-[10px] font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                            Servicios disponibles
+                        </p>
+                        {visibleServices.length > 0 ? (
+                            <div className={appearance.layout === 'portfolio' && device === 'desktop' ? 'grid grid-cols-2 gap-1.5' : 'space-y-1.5'}>
+                                {visibleServices.map((svc) => (
+                                    <div
+                                        key={svc.id}
+                                        className={`flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2 ${
+                                            isDark ? 'border-zinc-800 bg-zinc-900/70' : 'border-zinc-200 bg-zinc-50/60'
+                                        }`}
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="truncate text-[11px] font-semibold">{svc.name}</p>
+                                            <p className={`text-[10px] ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                                {svc.durationMinutes} min
+                                            </p>
+                                        </div>
+                                        <span
+                                            className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-semibold text-white"
+                                            style={{ background: accentHex }}
+                                        >
+                                            Reservar
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className={`rounded-xl border border-dashed px-3 py-2 text-[11px] ${isDark ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}>
+                                Agrega un servicio para mostrarlo aquí.
+                            </div>
+                        )}
+                    </div>
+
+                    {highlights.length > 0 ? (
+                        <div className="grid gap-1.5 pt-1">
+                            {highlights.slice(0, 2).map((h, i) => (
+                                <div
+                                    key={i}
+                                    className={`rounded-lg border-l-2 px-2.5 py-1.5 ${
+                                        isDark ? 'bg-zinc-900 text-zinc-300' : 'bg-zinc-50 text-zinc-700'
+                                    }`}
+                                    style={{ borderLeftColor: accentHex }}
+                                >
+                                    <p className="truncate text-[11px] font-semibold">{h.title}</p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -120,13 +407,21 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
     profile: AgendaProfile;
     onPublished: (changes: Partial<AgendaProfile>) => void;
 }) {
+    const [activeTab, setActiveTab] = useState<StudioTab>('design');
     const [config, setConfig] = useState<OperatorSiteLandingConfig>(
         () => profile.operatorSiteLandingConfig ?? emptyOperatorSiteLandingConfig(),
     );
     const [brief, setBrief] = useState(config.brief);
     const [content, setContent] = useState(config.draft ?? config.published ?? EMPTY_CONTENT);
     const [appearance, setAppearance] = useState(config.draftAppearance ?? publishedAppearance(profile));
-    const [readiness, setReadiness] = useState<{ serviceCount: number; hasSchedule: boolean } | null>(null);
+    const [overrideBio, setOverrideBio] = useState(() => Boolean(
+        (config.draft?.aboutText ?? config.published?.aboutText)?.trim(),
+    ));
+    const [readiness, setReadiness] = useState<{
+        serviceCount: number;
+        services: AgendaService[];
+        hasSchedule: boolean;
+    } | null>(null);
     const [readinessAttempt, setReadinessAttempt] = useState(0);
     const [readinessFailed, setReadinessFailed] = useState(false);
     const [operation, setOperation] = useState<'generate' | 'save' | 'publish' | 'upload' | null>(null);
@@ -140,8 +435,10 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
         let active = true;
         void Promise.all([fetchAgendaServices(), fetchAgendaAvailability()]).then(([services, availability]) => {
             if (!active) return;
+            const bookable = services.filter((service) => service.isActive && (!service.kind || service.kind === 'appointment'));
             setReadiness({
-                serviceCount: services.filter((service) => service.isActive && (!service.kind || service.kind === 'appointment')).length,
+                serviceCount: bookable.length,
+                services: bookable,
                 hasSchedule: availability.alwaysOpen || availability.rules.some((rule) => rule.isActive && rule.startTime && rule.endTime),
             });
             setReadinessFailed(false);
@@ -154,21 +451,21 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
     const baselineAppearance = config.draftAppearance ?? publishedAppearance(profile);
     const baselineContent = config.draft ?? config.published ?? EMPTY_CONTENT;
     const hasChanges = JSON.stringify([content, brief, appearance]) !== JSON.stringify([baselineContent, config.brief, baselineAppearance]);
-    const hasSavedDraft = Boolean(config.draft && (
-        config.draftAppearance || JSON.stringify(config.draft) !== JSON.stringify(config.published)
-    ));
     const hasIdentity = Boolean(profile.displayName?.trim() && profile.profession?.trim());
     const hasServices = (readiness?.serviceCount ?? 0) > 0;
-    const canPublishLink = profile.isPublished || Boolean(profile.slug && hasIdentity && hasServices && readiness?.hasSchedule);
+    const canPublish = profile.isPublished || Boolean(profile.slug && hasIdentity && hasServices && readiness?.hasSchedule);
     const mutationContext = { profileId: profile.id, revision: config.draftRevision ?? null };
     const previewParams = new URLSearchParams({ draft: '1', profile: profile.id });
     if (config.draftRevision) previewParams.set('rev', config.draftRevision);
     const previewUrl = `/vista-previa?${previewParams}`;
+
     const customColor = normalizeOperatorSiteAccentHex(appearance.accentColor);
     const accentOption = OPERATOR_SITE_ACCENT_OPTIONS.find((option) => option.id === appearance.accentColor);
     const accentSelection = customColor ? 'custom' : accentOption && accentOption.id !== 'teal' ? accentOption.id : 'auto';
+    const currentAccentHex = accentSelection === 'auto' ? '#6D9F32' : operatorSiteAccentCssValue(appearance.accentColor);
+
     const industry = resolveOperatorSiteIndustry(`${profile.operatorSubtype ?? ''} ${profile.profession ?? ''}`).id;
-    const recommendedLayout = industry === 'beauty' ? 'portfolio' : industry === 'fitness' || industry === 'education' ? 'studio' : 'booking';
+    const recommendedLayout: OperatorSiteLayout = industry === 'beauty' ? 'portfolio' : industry === 'fitness' || industry === 'education' ? 'studio' : 'booking';
     const hasSomeCopy = Object.values(content).some((value) => (typeof value === 'string' || Array.isArray(value)) && value.length > 0);
     const sectionOrder = content.sectionOrder ?? OPERATOR_SITE_LANDING_SECTIONS;
 
@@ -190,7 +487,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
         changeContent('sectionOrder', order);
     }
 
-    function setDraft(next: OperatorSiteLandingConfig) {
+    function applyDraftConfig(next: OperatorSiteLandingConfig) {
         setConfig(next);
         setBrief(next.brief);
         setContent(next.draft ?? next.published ?? EMPTY_CONTENT);
@@ -206,32 +503,17 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
         const result = await generateAgendaLandingPage(brief, appearance, mutationContext, content, target);
         setOperation(null);
         if (!result.ok || !result.config?.draft) {
-            setContentNotice({ tone: 'error', message: result.error ?? 'No se pudo generar el borrador. Puedes escribirlo y guardarlo.' });
+            setContentNotice({ tone: 'error', message: result.error ?? 'No se pudo generar la propuesta. Puedes escribirla manualmente.' });
             return;
         }
-        setDraft(result.config);
-        setContentNotice({ tone: 'success', message: 'Guardamos la propuesta como borrador. Revisa el contenido antes de publicarlo.' });
+        applyDraftConfig(result.config);
+        if (result.config.draft.aboutText?.trim()) {
+            setOverrideBio(true);
+        }
+        setContentNotice({ tone: 'success', message: 'Propuesta generada. Revísala en la vista previa antes de publicar.' });
     }
 
-    function prepareFromProfile() {
-        const name = profile.displayName?.trim();
-        if (!name) return;
-        const activity = profile.profession?.trim() ?? '';
-        const intro = [activity, profile.city?.trim()].filter(Boolean).join(' · ');
-        setContent((current) => ({
-            ...current,
-            heroHeadline: current.heroHeadline || (profile.headline?.trim() || name).slice(0, 90),
-            heroSubheadline: current.heroSubheadline || intro.slice(0, 180),
-            aboutTitle: current.aboutTitle || (profile.bio ? 'Presentación' : ''),
-            aboutText: current.aboutText || (profile.bio?.trim() ?? '').slice(0, 900),
-            seoTitle: current.seoTitle || [name, activity].filter(Boolean).join(' · ').slice(0, 65),
-            seoDescription: current.seoDescription || (profile.bio?.trim() || intro).slice(0, 170),
-        }));
-        setNotice(null);
-        setContentNotice({ tone: 'success', message: 'Completamos los campos vacíos con los datos de tu perfil. Revisa y guarda el borrador.' });
-    }
-
-    async function save() {
+    async function saveDraftOnly() {
         if (operation) return;
         setOperation('save');
         setNotice(null);
@@ -241,21 +523,37 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
             setNotice({ tone: 'error', message: result.error ?? 'No se pudo guardar el borrador.' });
             return;
         }
-        setDraft(result.config);
-        setNotice({ tone: 'success', message: 'Borrador guardado. Ya puedes revisarlo en la vista previa.' });
+        applyDraftConfig(result.config);
+        setNotice({ tone: 'success', message: 'Borrador guardado.' });
     }
 
-    async function publish() {
-        if (operation || hasChanges || !hasSavedDraft || !canPublishLink) return;
+    async function saveAndPublish() {
+        if (operation || !canPublish) return;
         setOperation('publish');
         setNotice(null);
-        const result = await publishAgendaLandingDraft(mutationContext);
+
+        let latestRevision = config.draftRevision ?? null;
+        if (hasChanges || !config.draft) {
+            const draftResult = await saveAgendaLandingDraft(brief, content, appearance, {
+                profileId: profile.id,
+                revision: latestRevision,
+            });
+            if (!draftResult.ok || !draftResult.config) {
+                setOperation(null);
+                setNotice({ tone: 'error', message: draftResult.error ?? 'No pudimos guardar tus cambios antes de publicar.' });
+                return;
+            }
+            applyDraftConfig(draftResult.config);
+            latestRevision = draftResult.config.draftRevision ?? null;
+        }
+
+        const result = await publishAgendaLandingDraft({ profileId: profile.id, revision: latestRevision });
         setOperation(null);
         if (!result.ok || !result.config || !result.appearance) {
             setNotice({ tone: 'error', message: result.error ?? 'No se pudo publicar. El borrador sigue guardado.' });
             return;
         }
-        setDraft(result.config);
+        applyDraftConfig(result.config);
         setAppearance(result.appearance);
         onPublished({
             isPublished: true,
@@ -266,7 +564,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
             avatarUrl: result.appearance.avatarUrl,
             coverUrl: result.appearance.coverUrl,
         });
-        setNotice({ tone: 'success', message: 'La nueva versión ya está publicada en tu enlace.' });
+        setNotice({ tone: 'success', message: 'Tu página web está publicada y actualizada.' });
     }
 
     async function upload(file: File, cropped: Blob, purpose: 'logo' | 'cover') {
@@ -282,212 +580,527 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
         }
     }
 
+    const studioTabs: Array<{ id: StudioTab; label: string; icon: typeof IconPalette }> = [
+        { id: 'design', label: 'Diseño y marca', icon: IconPalette },
+        { id: 'copy', label: 'Portada y textos', icon: IconSparkles },
+        { id: 'sections', label: 'Secciones y SEO', icon: IconLayout },
+    ];
+
+    const seoPreviewTitle = content.seoTitle.trim()
+        || `${profile.displayName || 'Tu negocio'}${profile.profession ? ` — ${profile.profession}` : ''} | SimpleAgenda`;
+    const seoPreviewDesc = content.seoDescription.trim()
+        || content.aboutText.trim()
+        || profile.bio?.trim()
+        || `Reserva tu hora online con ${profile.displayName || 'este profesional'}. Disponibilidad en tiempo real.`;
+
     return (
-        <div className="grid min-w-0 gap-5">
-            <div id="agenda-public-link" className="scroll-mt-24 space-y-3">
+        <div className="grid min-w-0 gap-6">
+            {/* Link público y acceso directo */}
+            <div id="agenda-public-link" className="scroll-mt-24">
                 <AgendaPublicLinkPanel previewUrl={previewUrl} />
-                {profile.isPublished ? (
-                    <p className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">
-                        <span>{config.publishedAt ? `Última publicación: ${new Date(config.publishedAt).toLocaleDateString('es-CL')}` : 'Tu enlace admite reservas.'}</span>
-                        <a href={`/${profile.slug}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-8 items-center gap-1.5 font-semibold text-accent-ink underline underline-offset-4">
-                            Ver página publicada <IconExternalLink size={13} aria-hidden="true" />
-                        </a>
-                    </p>
-                ) : null}
             </div>
 
-            <PanelCard size="lg">
-                <h2 className="text-lg font-bold tracking-tight text-fg">Datos del negocio</h2>
-                <p className="mt-1 text-sm text-fg-secondary">Tu página usa los datos de Perfil, Servicios y Agenda.</p>
-                {readinessFailed ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-fg-secondary">
-                        No pudimos comprobar tus servicios y horarios.
-                        <button type="button" className={actionClassName} onClick={() => {
-                            setReadinessFailed(false);
-                            setReadinessAttempt((attempt) => attempt + 1);
-                        }}>Reintentar</button>
+            {readinessFailed ? (
+                <PanelNotice tone="info">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span>No pudimos comprobar tus servicios y horarios para la vista previa.</span>
+                        <button
+                            type="button"
+                            className={actionClassName}
+                            onClick={() => {
+                                setReadinessFailed(false);
+                                setReadinessAttempt((attempt) => attempt + 1);
+                            }}
+                        >
+                            Reintentar
+                        </button>
                     </div>
-                ) : null}
-                <ul className="mt-2">
-                    <Requirement label="Nombre y actividad" detail={hasIdentity ? `${profile.displayName} · ${profile.profession}` : null} href="/panel/mi-negocio#agenda-public-profile" />
-                    {readiness ? (
-                        <>
-                            <Requirement label="Servicios para reservar" detail={hasServices ? `${readiness.serviceCount} en tu página` : null} href="/panel/mis-servicios#agenda-first-service" />
-                            <Requirement label="Horario" detail={readiness.hasSchedule ? 'Horario configurado' : null} href="/panel/mi-negocio/agenda#agenda-availability" />
-                        </>
-                    ) : !readinessFailed ? <li className="py-2 text-sm text-fg-muted">Revisando servicios y horarios…</li> : null}
-                </ul>
-            </PanelCard>
+                </PanelNotice>
+            ) : null}
 
-            <PanelCard size="lg" className="space-y-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h2 className="text-lg font-bold tracking-tight text-fg">Contenido</h2>
-                        <p className="mt-1 text-sm text-fg-secondary">Escribe tus textos o genera una propuesta con IA.</p>
+            {/* Workspace 2 columnas: Editor visual + Live Mini-Preview */}
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+                {/* Columna izquierda: Editor */}
+                <div className="min-w-0 space-y-5">
+                    {/* Sub-tabs de Studio */}
+                    <div className="flex flex-wrap gap-1.5 rounded-2xl border border-(--border) bg-(--bg-subtle) p-1.5">
+                        {studioTabs.map(({ id, label, icon: Icon }) => {
+                            const active = activeTab === id;
+                            return (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setActiveTab(id)}
+                                    className={`inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold transition ${
+                                        active
+                                            ? 'bg-(--surface) text-fg shadow-xs'
+                                            : 'text-fg-muted hover:text-fg'
+                                    }`}
+                                >
+                                    <Icon size={16} aria-hidden="true" />
+                                    <span className="truncate">{label}</span>
+                                </button>
+                            );
+                        })}
                     </div>
-                    <button
-                        type="button"
-                        className={actionClassName}
-                        disabled={!!operation || !hasIdentity || !hasServices}
-                        onClick={() => hasSomeCopy ? setConfirmGenerate(true) : void generate()}
-                    >
-                        {operation === 'generate' ? <IconLoader2 size={17} className="animate-spin" aria-hidden="true" /> : <IconSparkles size={17} aria-hidden="true" />}
-                        {operation === 'generate' ? 'Generando…' : 'Generar borrador'}
-                    </button>
-                </div>
-                {confirmGenerate ? (
-                    <div className="space-y-2 rounded-xl bg-[var(--bg-subtle)] p-3 text-sm text-fg-secondary">
-                        <p>La propuesta reemplazará {target === 'all' ? 'los textos de este borrador' : 'el texto de la sección elegida'}.</p>
-                        <div className="flex flex-wrap gap-2">
-                            <button type="button" className={actionClassName} disabled={!!operation} onClick={() => void generate()}>Generar propuesta</button>
-                            <button type="button" className={actionClassName} onClick={() => setConfirmGenerate(false)}>Seguir editando</button>
-                        </div>
-                    </div>
-                ) : null}
-                {contentNotice ? <PanelNotice tone={contentNotice.tone}>{contentNotice.message}</PanelNotice> : null}
-                {hasIdentity && (!hasSomeCopy || contentNotice?.tone === 'error') && (
-                    <button type="button" className={actionClassName} disabled={!!operation} onClick={prepareFromProfile}>
-                        Completar con los datos de mi perfil
-                    </button>
-                )}
-                <fieldset disabled={!!operation} className="space-y-4">
-                    <Field label="Titular" value={content.heroHeadline} onChange={(value) => changeContent('heroHeadline', value)} maxLength={90} placeholder={profile.headline ?? 'Describe tu forma de atender en una frase'} />
-                    <Field label="Bajada" value={content.heroSubheadline} onChange={(value) => changeContent('heroSubheadline', value)} maxLength={180} rows={2} />
-                    <Field label="Título de presentación" value={content.aboutTitle} onChange={(value) => changeContent('aboutTitle', value)} maxLength={80} placeholder="Sobre mí" />
-                    <Field label="Presentación" value={content.aboutText} onChange={(value) => changeContent('aboutText', value)} maxLength={900} rows={4} placeholder={profile.bio || 'Cuenta qué ofreces y qué encontrará el cliente al reservar'} />
-                    <EditorDetails title="Instrucciones para la IA">
-                        <label className="block text-sm font-medium text-fg">Qué quieres generar
-                            <select className={fieldClassName} value={target} onChange={(event) => setTarget(event.target.value as OperatorSiteLandingGenerationTarget)}>
-                                {GENERATION_TARGETS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                            </select>
-                        </label>
-                        <Field label="A quién atiendes" value={brief.audience} onChange={(value) => setBrief((current) => ({ ...current, audience: value }))} maxLength={500} rows={2} />
-                        <Field label="Qué distingue tu atención" value={brief.differentiators} onChange={(value) => setBrief((current) => ({ ...current, differentiators: value }))} maxLength={700} rows={2} />
-                        <Field label="Formación o credenciales" value={brief.credentials} onChange={(value) => setBrief((current) => ({ ...current, credentials: value }))} maxLength={500} />
-                        <label className="block text-sm font-medium text-fg">Tono
-                            <select className={fieldClassName} value={brief.tone} onChange={(event) => setBrief((current) => ({ ...current, tone: event.target.value as OperatorSiteLandingTone }))}>
-                                {TONES.map((tone) => <option key={tone.value} value={tone.value}>{tone.label}</option>)}
-                            </select>
-                        </label>
-                    </EditorDetails>
-                    <EditorDetails title="Puntos destacados">
-                        {content.highlights.length ? <Field label="Título de la sección" value={content.highlightsTitle} onChange={(value) => changeContent('highlightsTitle', value)} maxLength={80} /> : null}
-                        {content.highlights.map((highlight, index) => (
-                            <div key={index} className="space-y-3 rounded-xl bg-[var(--bg-subtle)] p-3">
-                                <Field label={`Título ${index + 1}`} value={highlight.title} maxLength={48} onChange={(value) => changeContent('highlights', content.highlights.map((item, i) => i === index ? { ...item, title: value } : item))} />
-                                <Field label={`Descripción ${index + 1}`} value={highlight.description} maxLength={150} rows={2} onChange={(value) => changeContent('highlights', content.highlights.map((item, i) => i === index ? { ...item, description: value } : item))} />
-                                <button type="button" aria-label={`Quitar punto ${index + 1}`} className={actionClassName} onClick={() => changeContent('highlights', content.highlights.filter((_, i) => i !== index))}>Quitar punto</button>
+
+                    {/* Tab 1: Diseño y marca */}
+                    {activeTab === 'design' ? (
+                        <PanelCard size="lg" className="space-y-6">
+                            {/* Composición visual */}
+                            <div>
+                                <div className="mb-3">
+                                    <h2 className="text-sm font-semibold text-fg">Estilo de página</h2>
+                                    <p className="text-xs text-fg-muted">Elige cómo se presenta tu portada y tus servicios.</p>
+                                </div>
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    {LAYOUT_OPTIONS.map((option) => {
+                                        const selected = appearance.layout === option.id;
+                                        const isRecommended = recommendedLayout === option.id;
+                                        return (
+                                            <button
+                                                key={option.id}
+                                                type="button"
+                                                disabled={!!operation}
+                                                onClick={() => changeAppearance('layout', option.id)}
+                                                className={`flex flex-col items-start gap-2.5 rounded-2xl border p-3 text-left transition ${
+                                                    selected
+                                                        ? 'border-(--accent) bg-(--accent-subtle)/40 ring-2 ring-(--accent-subtle)'
+                                                        : 'border-(--border) bg-(--surface) hover:border-(--fg-muted)/40'
+                                                }`}
+                                            >
+                                                <LayoutSchematic layout={option.id} accent={currentAccentHex} />
+                                                <div className="w-full">
+                                                    <div className="flex items-center justify-between gap-1.5">
+                                                        <span className="text-xs font-semibold text-fg">{option.name}</span>
+                                                        {selected ? (
+                                                            <IconCheck size={14} className="shrink-0 text-accent-ink" />
+                                                        ) : null}
+                                                    </div>
+                                                    {isRecommended ? (
+                                                        <span className="mt-1 inline-block rounded-full bg-(--accent-subtle) px-2 py-0.5 text-[10px] font-semibold text-accent-ink">
+                                                            Recomendado
+                                                        </span>
+                                                    ) : null}
+                                                    <p className="mt-1 text-[11px] leading-snug text-fg-muted">{option.description}</p>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        ))}
-                        <button type="button" className={actionClassName} disabled={content.highlights.length >= 3} onClick={() => changeContent('highlights', [...content.highlights, { title: '', description: '' }])}>Agregar punto</button>
-                    </EditorDetails>
-                    <EditorDetails title="Título y descripción para buscadores">
-                        <Field label="Título SEO" value={content.seoTitle} onChange={(value) => changeContent('seoTitle', value)} maxLength={65} />
-                        <Field label="Descripción SEO" value={content.seoDescription} onChange={(value) => changeContent('seoDescription', value)} maxLength={170} rows={2} />
-                    </EditorDetails>
-                    <EditorDetails title="Secciones de la página">
-                        <p className="text-sm text-fg-secondary">Al cambiar el orden, estas secciones se muestran después de tus servicios.</p>
-                        <ul className="space-y-1">
-                            {sectionOrder.map((id, index) => (
-                                <li key={id} className="flex items-center justify-between gap-2">
-                                    <label className="flex min-h-10 cursor-pointer items-center gap-2.5 text-sm text-fg">
-                                        <input
-                                            type="checkbox"
-                                            className="size-4 accent-[var(--accent)]"
-                                            checked={content.sections?.[id] !== false}
-                                            onChange={(event) => changeContent('sections', { ...content.sections, [id]: event.target.checked })}
-                                        />
-                                        {SECTION_LABELS[id]}
-                                    </label>
-                                    <div className="flex shrink-0 gap-1">
-                                        <PanelButton size="sm" variant="ghost" className="px-2" ariaLabel={`Subir ${SECTION_LABELS[id]}`} disabled={index === 0} onClick={() => moveSection(index, -1)}><IconArrowUp size={16} aria-hidden="true" /></PanelButton>
-                                        <PanelButton size="sm" variant="ghost" className="px-2" ariaLabel={`Bajar ${SECTION_LABELS[id]}`} disabled={index === sectionOrder.length - 1} onClick={() => moveSection(index, 1)}><IconArrowDown size={16} aria-hidden="true" /></PanelButton>
+
+                            {/* Paleta de color visual */}
+                            <div className="border-t border-(--border) pt-5">
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <h2 className="text-sm font-semibold text-fg">Color principal</h2>
+                                        <p className="text-xs text-fg-muted">Personaliza botones, enlaces y acentos visuales.</p>
                                     </div>
-                                </li>
-                            ))}
-                        </ul>
-                        {content.sectionOrder ? (
-                            <button type="button" className={actionClassName} onClick={() => changeContent('sectionOrder', undefined)}>Usar el orden de la composición</button>
-                        ) : null}
-                    </EditorDetails>
-                </fieldset>
-            </PanelCard>
+                                    <button
+                                        type="button"
+                                        disabled={!!operation}
+                                        onClick={() => changeAppearance('accentColor', 'auto')}
+                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition ${
+                                            accentSelection === 'auto'
+                                                ? 'border-(--accent) bg-(--accent-subtle) text-accent-ink'
+                                                : 'border-(--border) text-fg-secondary hover:text-fg'
+                                        }`}
+                                    >
+                                        <span className="size-3 rounded-full bg-[#6D9F32]" />
+                                        Original SimpleAgenda
+                                    </button>
+                                </div>
 
-            <PanelCard size="lg" className="space-y-4">
-                <h2 className="text-lg font-bold tracking-tight text-fg">Diseño y marca</h2>
-                <fieldset className="space-y-4" disabled={!!operation}>
-                    <label className="block text-sm font-medium text-fg">Composición
-                        <select className={fieldClassName} value={appearance.layout} onChange={(event) => changeAppearance('layout', normalizeOperatorSiteLayout(event.target.value))}>
-                            <option value="booking">Reserva directa{recommendedLayout === 'booking' ? ' · Recomendada' : ''}</option>
-                            <option value="portfolio">Portada visual{recommendedLayout === 'portfolio' ? ' · Recomendada' : ''}</option>
-                            <option value="studio">Perfil compacto{recommendedLayout === 'studio' ? ' · Recomendado' : ''}</option>
-                        </select>
-                    </label>
-                    <label className="block text-sm font-medium text-fg">Paleta
-                        <select className={fieldClassName} value={accentSelection} onChange={(event) => changeAppearance('accentColor', event.target.value === 'custom' ? accentOption?.value ?? '#002E32' : event.target.value)}>
-                            <option value="auto">Colores de SimpleAgenda</option>
-                            {OPERATOR_SITE_ACCENT_OPTIONS.filter((option) => option.id !== 'teal').map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-                            <option value="custom">Color personalizado</option>
-                        </select>
-                    </label>
-                    {customColor ? (
-                        <label className="flex items-center gap-3 text-sm font-medium text-fg">
-                            <input aria-label="Color principal" type="color" className="h-11 w-14 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1" value={customColor} onChange={(event) => changeAppearance('accentColor', event.target.value.toUpperCase())} />
-                            {customColor.toUpperCase()}
-                        </label>
+                                <div className="flex flex-wrap items-center gap-2.5">
+                                    {OPERATOR_SITE_ACCENT_OPTIONS.filter((opt) => opt.id !== 'teal').map((opt) => {
+                                        const selected = accentSelection === opt.id;
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                disabled={!!operation}
+                                                title={opt.label}
+                                                aria-label={opt.label}
+                                                aria-pressed={selected}
+                                                onClick={() => changeAppearance('accentColor', opt.id)}
+                                                className={`relative flex size-8 items-center justify-center rounded-full transition-transform hover:scale-110 ${
+                                                    selected ? 'ring-2 ring-(--fg) ring-offset-2 ring-offset-(--surface)' : ''
+                                                }`}
+                                                style={{ background: opt.value }}
+                                            >
+                                                {selected ? <IconCheck size={14} color="#FFFFFF" stroke={2.5} /> : null}
+                                            </button>
+                                        );
+                                    })}
+
+                                    {/* Color personalizado */}
+                                    <label
+                                        className={`inline-flex h-8 cursor-pointer items-center gap-2 rounded-full border px-2.5 text-xs font-medium transition ${
+                                            customColor
+                                                ? 'border-(--fg) bg-(--bg-subtle) text-fg'
+                                                : 'border-(--border) text-fg-secondary hover:text-fg'
+                                        }`}
+                                    >
+                                        <input
+                                            aria-label="Color personalizado"
+                                            type="color"
+                                            disabled={!!operation}
+                                            className="size-4 cursor-pointer rounded-full border-0 bg-transparent p-0"
+                                            value={customColor ?? '#0F766E'}
+                                            onChange={(event) => changeAppearance('accentColor', event.target.value.toUpperCase())}
+                                        />
+                                        <span>{customColor ?? 'Otro'}</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Modo de color */}
+                            <div className="border-t border-(--border) pt-5">
+                                <h2 className="mb-2.5 text-sm font-semibold text-fg">Tema de la página</h2>
+                                <div className="inline-flex flex-wrap gap-1.5 rounded-xl border border-(--border) bg-(--bg-subtle) p-1">
+                                    {([
+                                        { id: 'system', label: 'Automático', icon: IconDeviceDesktop },
+                                        { id: 'light', label: 'Claro', icon: IconSun },
+                                        { id: 'dark', label: 'Oscuro', icon: IconMoon },
+                                    ] as const).map(({ id, label, icon: Icon }) => {
+                                        const selected = appearance.colorMode === id;
+                                        return (
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                disabled={!!operation}
+                                                onClick={() => changeAppearance('colorMode', id)}
+                                                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                                                    selected ? 'bg-(--surface) text-fg shadow-xs' : 'text-fg-muted hover:text-fg'
+                                                }`}
+                                            >
+                                                <Icon size={14} /> {label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Imágenes de marca */}
+                            <div className="border-t border-(--border) pt-5">
+                                <PanelProfileBrandImages
+                                    compactControls
+                                    displayName={profile.displayName ?? ''}
+                                    logoUrl={appearance.avatarUrl}
+                                    coverUrl={appearance.coverUrl}
+                                    disabled={!!operation}
+                                    onLogoChange={(url) => changeAppearance('avatarUrl', url || null)}
+                                    onCoverChange={(url) => changeAppearance('coverUrl', url || null)}
+                                    onUploadLogo={(file, cropped) => upload(file, cropped, 'logo')}
+                                    onUploadCover={(file, cropped) => upload(file, cropped, 'cover')}
+                                    onError={setUploadError}
+                                />
+                                {uploadError ? <PanelNotice tone="error" className="mt-3">{uploadError}</PanelNotice> : null}
+                            </div>
+                        </PanelCard>
                     ) : null}
-                    <label className="block text-sm font-medium text-fg">Modo de color
-                        <select className={fieldClassName} value={appearance.colorMode} onChange={(event) => changeAppearance('colorMode', normalizeOperatorSiteColorMode(event.target.value))}>
-                            {OPERATOR_SITE_COLOR_MODE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-                        </select>
-                    </label>
-                </fieldset>
-                <PanelProfileBrandImages
-                    compactControls
-                    displayName={profile.displayName ?? ''}
-                    logoUrl={appearance.avatarUrl}
-                    coverUrl={appearance.coverUrl}
-                    disabled={!!operation}
-                    onLogoChange={(url) => changeAppearance('avatarUrl', url || null)}
-                    onCoverChange={(url) => changeAppearance('coverUrl', url || null)}
-                    onUploadLogo={(file, cropped) => upload(file, cropped, 'logo')}
-                    onUploadCover={(file, cropped) => upload(file, cropped, 'cover')}
-                    onError={setUploadError}
-                />
-                {uploadError ? <PanelNotice tone="error">{uploadError}</PanelNotice> : null}
-            </PanelCard>
 
-            <PanelCard size="lg" className="space-y-3">
-                <h2 className="text-lg font-bold tracking-tight text-fg">Publicación</h2>
-                <p className="text-sm text-fg-secondary" role="status">
-                    {hasChanges
-                        ? 'Guarda tus cambios para actualizarlos en la vista previa.'
-                        : hasSavedDraft
-                            ? canPublishLink ? 'Revisa tu borrador en la vista previa y publícalo cuando esté listo.' : 'Completa el enlace, los datos, un servicio y un horario para publicar.'
-                            : profile.isPublished ? 'Estás viendo el contenido de la versión publicada.' : 'Guarda un borrador para preparar la publicación.'}
-                </p>
-                {notice ? <PanelNotice tone={notice.tone}>{notice.message}</PanelNotice> : null}
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                    <button type="button" className={actionClassName} disabled={!!operation || (!hasChanges && Boolean(config.draft))} onClick={() => void save()}>
-                        {operation === 'save' ? 'Guardando…' : 'Guardar borrador'}
-                    </button>
-                    <PanelButton variant="primary" className="min-h-11" disabled={!!operation || !hasSavedDraft || hasChanges || !canPublishLink} onClick={() => void publish()}>
-                        {operation === 'publish' ? 'Publicando…' : profile.isPublished ? 'Publicar cambios' : 'Publicar mi página'}
-                    </PanelButton>
+                    {/* Tab 2: Portada y textos IA */}
+                    {activeTab === 'copy' ? (
+                        <PanelCard size="lg" className="space-y-5">
+                            {/* Aviso de fuente única (sin duplicar Perfil/Servicios/Horarios) */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-(--border) bg-(--bg-subtle) px-4 py-3 text-xs text-fg-secondary">
+                                <span>
+                                    Tu nombre, presentación, servicios, horarios, sedes y contacto se sincronizan automáticamente desde <strong>Perfil</strong> y <strong>Agenda</strong>.
+                                </span>
+                                <Link href="/panel/mi-negocio" className="shrink-0 font-semibold text-accent-ink hover:underline">
+                                    Editar datos base →
+                                </Link>
+                            </div>
+
+                            {/* Asistente IA limpio */}
+                            <div className="rounded-2xl border border-(--accent-border) bg-(--accent-subtle)/50 p-4 space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-sm font-semibold text-fg flex items-center gap-1.5">
+                                            <IconSparkles size={16} className="text-accent-ink" />
+                                            Redacción asistida con IA
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-fg-muted">
+                                            Genera un titular atractivo, bajada y puntos clave según tu rubro y servicios.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-(--accent) px-4 text-xs font-semibold text-(--accent-contrast) transition hover:opacity-90 disabled:opacity-50"
+                                        disabled={!!operation || !hasIdentity || !hasServices}
+                                        onClick={() => hasSomeCopy ? setConfirmGenerate(true) : void generate()}
+                                    >
+                                        {operation === 'generate' ? <IconLoader2 size={15} className="animate-spin" /> : <IconSparkles size={15} />}
+                                        {operation === 'generate' ? 'Generando…' : hasSomeCopy ? 'Regenerar textos' : 'Generar textos'}
+                                    </button>
+                                </div>
+
+                                {!hasIdentity || !hasServices ? (
+                                    <p className="text-xs text-fg-muted">
+                                        Completa tu nombre/rubro en Perfil y crea al menos un servicio para usar el asistente IA.
+                                    </p>
+                                ) : null}
+
+                                {confirmGenerate ? (
+                                    <div className="space-y-2 rounded-xl border border-(--border) bg-(--surface) p-3 text-xs text-fg-secondary">
+                                        <p>La propuesta reemplazará {target === 'all' ? 'los textos actuales de portada y destacados' : 'la sección seleccionada'}.</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button type="button" className={actionClassName} disabled={!!operation} onClick={() => void generate()}>Reemplazar con IA</button>
+                                            <button type="button" className={actionClassName} onClick={() => setConfirmGenerate(false)}>Cancelar</button>
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {contentNotice ? <PanelNotice tone={contentNotice.tone}>{contentNotice.message}</PanelNotice> : null}
+
+                                <EditorDetails title="Personalizar indicaciones para la IA">
+                                    <label className="block text-xs font-medium text-fg">
+                                        Qué quieres generar
+                                        <select className={fieldClassName} value={target} onChange={(event) => setTarget(event.target.value as OperatorSiteLandingGenerationTarget)}>
+                                            {GENERATION_TARGETS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                        </select>
+                                    </label>
+                                    <Field label="A quién atiendes" value={brief.audience} onChange={(value) => setBrief((current) => ({ ...current, audience: value }))} maxLength={500} rows={2} placeholder="Ej. Adultos jóvenes con estrés laboral o ansiedad" />
+                                    <Field label="Qué distingue tu atención" value={brief.differentiators} onChange={(value) => setBrief((current) => ({ ...current, differentiators: value }))} maxLength={700} rows={2} placeholder="Ej. Enfoque cercano, sesiones puntuales, seguimiento claro" />
+                                    <Field label="Formación o credenciales" value={brief.credentials} onChange={(value) => setBrief((current) => ({ ...current, credentials: value }))} maxLength={500} placeholder="Ej. Psicólogo U. de Chile · 8 años de experiencia" />
+                                    <label className="block text-xs font-medium text-fg">
+                                        Tono
+                                        <select className={fieldClassName} value={brief.tone} onChange={(event) => setBrief((current) => ({ ...current, tone: event.target.value as OperatorSiteLandingTone }))}>
+                                            {TONES.map((tone) => <option key={tone.value} value={tone.value}>{tone.label}</option>)}
+                                        </select>
+                                    </label>
+                                </EditorDetails>
+                            </div>
+
+                            <fieldset disabled={!!operation} className="space-y-5">
+                                <Field
+                                    label="Titular principal de portada"
+                                    value={content.heroHeadline}
+                                    onChange={(value) => changeContent('heroHeadline', value)}
+                                    maxLength={90}
+                                    placeholder={profile.headline || profile.displayName || 'Describe tu atención en una frase clara'}
+                                    hint="Si lo dejas vacío, mostraremos tu nombre y actividad."
+                                />
+                                <Field
+                                    label="Bajada de portada"
+                                    value={content.heroSubheadline}
+                                    onChange={(value) => changeContent('heroSubheadline', value)}
+                                    maxLength={180}
+                                    rows={2}
+                                    placeholder={[profile.profession, profile.city].filter(Boolean).join(' · ') || 'Sesiones online y presenciales con reserva inmediata'}
+                                />
+
+                                {/* Puntos destacados */}
+                                <div className="border-t border-(--border) pt-4 space-y-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-fg">Puntos destacados</h3>
+                                            <p className="text-xs text-fg-muted">Hasta 3 razones clave por las que elegirte.</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className={actionClassName}
+                                            disabled={content.highlights.length >= 3}
+                                            onClick={() => changeContent('highlights', [...content.highlights, { title: '', description: '' }])}
+                                        >
+                                            <IconPlus size={14} /> Agregar
+                                        </button>
+                                    </div>
+                                    {content.highlights.length > 0 ? (
+                                        <Field
+                                            label="Título de la sección destacados"
+                                            value={content.highlightsTitle}
+                                            onChange={(value) => changeContent('highlightsTitle', value)}
+                                            maxLength={80}
+                                            placeholder="Lo que puedes esperar"
+                                        />
+                                    ) : null}
+                                    {content.highlights.map((highlight, index) => (
+                                        <div key={index} className="space-y-3 rounded-xl border border-(--border) bg-(--bg-subtle) p-3.5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-semibold text-fg-muted">Punto destacado {index + 1}</span>
+                                                <button
+                                                    type="button"
+                                                    aria-label={`Quitar punto ${index + 1}`}
+                                                    className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:underline dark:text-red-400"
+                                                    onClick={() => changeContent('highlights', content.highlights.filter((_, i) => i !== index))}
+                                                >
+                                                    <IconTrash size={13} /> Quitar
+                                                </button>
+                                            </div>
+                                            <Field
+                                                label="Título"
+                                                value={highlight.title}
+                                                maxLength={48}
+                                                onChange={(value) => changeContent('highlights', content.highlights.map((item, i) => i === index ? { ...item, title: value } : item))}
+                                            />
+                                            <Field
+                                                label="Descripción breve"
+                                                value={highlight.description}
+                                                maxLength={150}
+                                                rows={2}
+                                                onChange={(value) => changeContent('highlights', content.highlights.map((item, i) => i === index ? { ...item, description: value } : item))}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Personalización opcional de Presentación (sin duplicar Bio) */}
+                                <div className="border-t border-(--border) pt-4 space-y-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-fg">Presentación personalizada en web</p>
+                                            <p className="text-xs text-fg-muted">
+                                                Por defecto usamos la presentación de tu Perfil. Actívalo solo si quieres un texto distinto aquí.
+                                            </p>
+                                        </div>
+                                        <PanelSwitch
+                                            checked={overrideBio}
+                                            onChange={(checked) => {
+                                                setOverrideBio(checked);
+                                                if (!checked) {
+                                                    setContent((curr) => ({ ...curr, aboutTitle: '', aboutText: '' }));
+                                                    setNotice(null);
+                                                }
+                                            }}
+                                            ariaLabel="Usar presentación distinta solo para la web"
+                                        />
+                                    </div>
+                                    {overrideBio ? (
+                                        <div className="space-y-4 rounded-xl border border-(--border) p-3.5">
+                                            <Field label="Título de presentación" value={content.aboutTitle} onChange={(value) => changeContent('aboutTitle', value)} maxLength={80} placeholder="Sobre mí" />
+                                            <Field label="Presentación para la web" value={content.aboutText} onChange={(value) => changeContent('aboutText', value)} maxLength={900} rows={4} placeholder={profile.bio || 'Cuenta tu experiencia y enfoque'} />
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </fieldset>
+                        </PanelCard>
+                    ) : null}
+
+                    {/* Tab 3: Secciones y SEO */}
+                    {activeTab === 'sections' ? (
+                        <PanelCard size="lg" className="space-y-6">
+                            <div>
+                                <h2 className="text-sm font-semibold text-fg">Secciones visibles y orden</h2>
+                                <p className="mt-0.5 text-xs text-fg-muted">Activa o reordena los bloques que aparecen después de tus servicios.</p>
+                                <ul className="mt-3 divide-y divide-(--border) rounded-xl border border-(--border)">
+                                    {sectionOrder.map((id, index) => {
+                                        const visible = content.sections?.[id] !== false;
+                                        return (
+                                            <li key={id} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                                                <div className="flex items-center gap-3">
+                                                    <PanelSwitch
+                                                        checked={visible}
+                                                        size="sm"
+                                                        onChange={(checked) => changeContent('sections', { ...content.sections, [id]: checked })}
+                                                        ariaLabel={`Mostrar ${SECTION_LABELS[id]}`}
+                                                    />
+                                                    <span className={`text-sm font-medium ${visible ? 'text-fg' : 'text-fg-muted line-through'}`}>
+                                                        {SECTION_LABELS[id]}
+                                                    </span>
+                                                </div>
+                                                <div className="flex shrink-0 gap-1">
+                                                    <PanelButton size="sm" variant="ghost" className="px-2" ariaLabel={`Subir ${SECTION_LABELS[id]}`} disabled={index === 0} onClick={() => moveSection(index, -1)}>
+                                                        <IconArrowUp size={15} aria-hidden="true" />
+                                                    </PanelButton>
+                                                    <PanelButton size="sm" variant="ghost" className="px-2" ariaLabel={`Bajar ${SECTION_LABELS[id]}`} disabled={index === sectionOrder.length - 1} onClick={() => moveSection(index, 1)}>
+                                                        <IconArrowDown size={15} aria-hidden="true" />
+                                                    </PanelButton>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                                {content.sectionOrder ? (
+                                    <button type="button" className="mt-2.5 text-xs font-medium text-accent-ink hover:underline" onClick={() => changeContent('sectionOrder', undefined)}>
+                                        Restaurar orden recomendado
+                                    </button>
+                                ) : null}
+                            </div>
+
+                            <div className="border-t border-(--border) pt-5 space-y-4">
+                                <div>
+                                    <h2 className="text-sm font-semibold text-fg flex items-center gap-1.5">
+                                        <IconSearch size={15} className="text-accent-ink" />
+                                        Vista en Google (SEO)
+                                    </h2>
+                                    <p className="mt-0.5 text-xs text-fg-muted">Así aparecerá tu enlace cuando alguien te busque en Google o lo comparta.</p>
+                                </div>
+
+                                <div className="rounded-xl border border-(--border) bg-(--bg-subtle) p-3.5 space-y-1">
+                                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                                        simpleagenda.app/{profile.slug || 'tu-link'}
+                                    </p>
+                                    <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">
+                                        {seoPreviewTitle}
+                                    </p>
+                                    <p className="line-clamp-2 text-xs text-fg-secondary">
+                                        {seoPreviewDesc}
+                                    </p>
+                                </div>
+
+                                <fieldset disabled={!!operation} className="space-y-4">
+                                    <Field label="Título SEO" value={content.seoTitle} onChange={(value) => changeContent('seoTitle', value)} maxLength={65} placeholder={seoPreviewTitle} />
+                                    <Field label="Descripción SEO" value={content.seoDescription} onChange={(value) => changeContent('seoDescription', value)} maxLength={170} rows={2} placeholder={seoPreviewDesc} />
+                                </fieldset>
+                            </div>
+                        </PanelCard>
+                    ) : null}
+
+                    {/* Barra unificada de guardado y publicación */}
+                    <PanelCard size="md" className="space-y-3">
+                        {notice ? <PanelNotice tone={notice.tone}>{notice.message}</PanelNotice> : null}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <p className="text-xs text-fg-muted" role="status">
+                                {hasChanges
+                                    ? 'Tienes cambios sin guardar en el diseño o textos.'
+                                    : profile.isPublished
+                                        ? config.publishedAt
+                                            ? `Publicado el ${new Date(config.publishedAt).toLocaleDateString('es-CL')}.`
+                                            : 'Tu página web está activa y en línea.'
+                                        : canPublish
+                                            ? 'Todo listo para publicar tu página.'
+                                            : 'Completa perfil, un servicio y horario para publicar.'}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    className={actionClassName}
+                                    disabled={!!operation || (!hasChanges && Boolean(config.draft))}
+                                    onClick={() => void saveDraftOnly()}
+                                >
+                                    {operation === 'save' ? 'Guardando…' : 'Guardar borrador'}
+                                </button>
+                                <PanelButton
+                                    variant="primary"
+                                    className="min-h-10"
+                                    disabled={!!operation || !canPublish || (!hasChanges && Boolean(profile.isPublished) && !config.draftAppearance && JSON.stringify(config.draft ?? EMPTY_CONTENT) === JSON.stringify(config.published ?? EMPTY_CONTENT))}
+                                    onClick={() => void saveAndPublish()}
+                                >
+                                    {operation === 'publish'
+                                        ? 'Publicando…'
+                                        : profile.isPublished
+                                            ? 'Publicar cambios'
+                                            : 'Guardar y publicar'}
+                                </PanelButton>
+                            </div>
+                        </div>
+                    </PanelCard>
                 </div>
-                {config.previous ? (
-                    <EditorDetails title="Versión anterior">
-                        <p className="text-sm text-fg-secondary">Carga su texto y diseño en el editor y revísalos antes de publicar.</p>
-                        {hasChanges ? <p className="text-xs text-fg-muted">Guarda tus cambios antes de cargar la versión anterior.</p> : null}
-                        <button type="button" className={actionClassName} disabled={!!operation || hasChanges} onClick={() => {
-                            if (!config.previous) return;
-                            setContent(config.previous.content ?? EMPTY_CONTENT);
-                            setAppearance(config.previous.appearance);
-                            setNotice({ tone: 'success', message: 'Versión anterior cargada en el editor. Guarda el borrador para revisarla.' });
-                        }}>Recuperar versión anterior</button>
-                    </EditorDetails>
-                ) : null}
-            </PanelCard>
+
+                {/* Columna derecha: Live Mini-Preview */}
+                <div className="xl:sticky xl:top-24">
+                    <LiveSiteMiniPreview
+                        profile={profile}
+                        content={content}
+                        appearance={appearance}
+                        services={readiness?.services ?? []}
+                        previewUrl={previewUrl}
+                    />
+                </div>
+            </div>
         </div>
     );
 }

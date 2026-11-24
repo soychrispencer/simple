@@ -7,10 +7,12 @@ import { PanelButton, PanelCard, PanelMiNegocioShell, PanelNotice } from '@simpl
 import { AgendaBusinessPublishToggle } from '@/components/panel/agenda-business-publish-toggle';
 import { AgendaLandingBuilder } from '@/components/panel/agenda-landing-builder';
 import { AgendaPublicLinkPanel } from '@/components/panel/agenda-public-link-panel';
-import { businessSectionTabs } from '@/components/panel/panel-section-tabs';
+import { getAgendaBusinessTabs } from '@/components/panel/panel-section-tabs';
+import { useAgendaIsTeamWorkspace } from '@/components/panel/agenda-vocab-context';
 import { fetchAgendaProfile, hasAgendaFullAccess, type AgendaProfile } from '@/lib/agenda-api';
 
 export default function AgendaWebsitePage() {
+    const isTeamWorkspace = useAgendaIsTeamWorkspace();
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
@@ -46,14 +48,14 @@ export default function AgendaWebsitePage() {
     return (
         <PanelMiNegocioShell
             activeKey="pagina"
-            tabs={businessSectionTabs}
+            tabs={getAgendaBusinessTabs(isTeamWorkspace)}
             title="Página web"
             description={canCustomize
-                ? 'Personaliza la página donde te conocen y reservan tus clientes.'
+                ? 'Diseña la página donde tus clientes te conocen y reservan.'
                 : 'Comparte tu enlace para recibir citas.'}
             publishToggle={!loading && profile ? <AgendaBusinessPublishToggle /> : undefined}
         >
-            <div className="mx-auto w-full max-w-[56rem]">
+            <div className={canCustomize ? 'mx-auto w-full max-w-[72rem]' : 'mx-auto w-full max-w-[56rem]'}>
                 {loading ? (
                     <div role="status" className="flex items-center gap-2 text-sm text-fg-muted">
                         <IconLoader2 size={16} className="animate-spin" aria-hidden="true" /> Cargando tu página…
@@ -82,7 +84,7 @@ export default function AgendaWebsitePage() {
                         <AgendaPublicLinkPanel previewUrl={profile.isPublished ? undefined : `/vista-previa?profile=${encodeURIComponent(profile.id)}`} />
                         <PanelCard size="lg">
                             <h2 className="text-lg font-bold tracking-tight text-fg">Tu página con marca propia</h2>
-                            <p className="mt-2 text-sm text-fg-secondary">Desde Pro puedes crear una página con tus textos, imágenes, composición y colores. Tu enlace de reservas está incluido en Gratis.</p>
+                            <p className="mt-2 text-sm text-fg-secondary">Desde Pro puedes personalizar diseño, colores, portada y textos con IA. Tu enlace de reservas está incluido en Gratis.</p>
                             <Link
                                 href="/panel/mi-negocio/plan"
                                 className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90"

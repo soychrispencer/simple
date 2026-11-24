@@ -8,6 +8,12 @@ export const businessSectionTabs: PanelSectionTabItem[] = [
     { key: 'equipo', label: 'Equipo', href: '/panel/mi-negocio/equipo' },
     { key: 'plan', label: 'Plan y facturación', href: '/panel/mi-negocio/plan' },
 ];
+
+export function getAgendaBusinessTabs(showTeamTab: boolean): PanelSectionTabItem[] {
+    return showTeamTab
+        ? businessSectionTabs
+        : businessSectionTabs.filter((item) => item.key !== 'equipo');
+}
 export const accountSectionTabs: PanelSectionTabItem[] = DEFAULT_ACCOUNT_SECTION_TABS
     .filter((item) => item.key !== 'integraciones' && item.key !== 'suscripcion')
     .map((item) => {
