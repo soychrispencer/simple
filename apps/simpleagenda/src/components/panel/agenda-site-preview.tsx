@@ -82,7 +82,7 @@ function profileForPreview(
         landingPage: showDraft
             ? profile.operatorSiteLandingConfig?.draft ?? profile.operatorSiteLandingConfig?.published ?? null
             : profile.operatorSiteLandingConfig?.published ?? null,
-        avatarUrl: appearance.avatarUrl,
+        avatarUrl: profile.avatarUrl,
         coverUrl: appearance.coverUrl,
         city: profile.city,
         region: profile.region,
@@ -225,7 +225,7 @@ export function AgendaSitePreview({ layout, colorMode, accent, revision, draft, 
                 coverUrl: profile.coverUrl,
             };
             const appearance: OperatorSiteLandingAppearance = canCustomize
-                ? (showDraft ? config?.draftAppearance : undefined) ?? publishedAppearance
+                ? { ...((showDraft ? config?.draftAppearance : undefined) ?? publishedAppearance), avatarUrl: profile.avatarUrl }
                 : { layout: 'booking', colorMode: 'system', accentColor: 'auto', avatarUrl: profile.avatarUrl, coverUrl: null };
             setPreview(profileForPreview(
                 canCustomize ? profile : { ...profile, operatorSiteLandingConfig: null },

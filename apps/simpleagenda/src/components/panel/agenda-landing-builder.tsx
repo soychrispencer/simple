@@ -80,7 +80,7 @@ const GENERATION_TARGETS: Array<{ value: OperatorSiteLandingGenerationTarget; la
     { value: 'hero', label: 'Portada' },
     { value: 'about', label: 'Presentación' },
     { value: 'highlights', label: 'Puntos destacados' },
-    { value: 'seo', label: 'Texto para buscadores' },
+    { value: 'seo', label: 'Vista en Google' },
 ];
 
 const SECTION_LABELS: Record<OperatorSiteLandingSection, string> = {
@@ -210,13 +210,15 @@ function LiveSiteMiniPreview({
     content,
     appearance,
     services,
-    previewUrl,
+    openingPreview,
+    onOpenFullPreview,
 }: {
     profile: AgendaProfile;
     content: OperatorSiteLandingContent;
     appearance: OperatorSiteLandingAppearance;
     services: AgendaService[];
-    previewUrl: string;
+    openingPreview: boolean;
+    onOpenFullPreview: () => void;
 }) {
     const [device, setDevice] = useState<'mobile' | 'desktop'>('mobile');
     const accentHex = appearance.accentColor === 'auto'
@@ -224,17 +226,55 @@ function LiveSiteMiniPreview({
         : operatorSiteAccentCssValue(appearance.accentColor);
     const isDark = appearance.colorMode === 'dark';
     const coverSrc = resolveAppMediaUrl(appearance.coverUrl);
-    const avatarSrc = resolveAppMediaUrl(appearance.avatarUrl);
+    const avatarSrc = resolveAppMediaUrl(profile.avatarUrl);
     const headline = content.heroHeadline.trim() || profile.displayName?.trim() || 'Tu negocio';
     const subheadline = content.heroSubheadline.trim()
         || [profile.profession?.trim(), profile.city?.trim()].filter(Boolean).join(' · ')
         || 'Atención profesional con reserva online';
-    const bioPreview = (content.sections?.about !== false ? (content.aboutText.trim() || profile.bio?.trim()) : '') || '';
-    const highlights = content.sections?.highlights !== false
-        ? content.highlights.filter((item) => item.title.trim())
-        : [];
-    const visibleServices = services.slice(0, 3);
+    const bioPreview = content.aboutText.trim() || profile.bio?.trim() || '';
+    const highlights = content.highlights.filter((item) => item.title.trim());
+    const visibleServices = services.slice(0, device === 'desktop' ? 4 : 3);
     const initials = (profile.displayName?.trim() || 'S').charAt(0).toUpperCase();
+    const order = content.sectionOrder ?? OPERATOR_SITE_LANDING_SECTIONS;
+    const isDesktop = device === 'desktop';
+    const cardCls = isDark ? 'border-zinc-800 bg-zinc-900/70' : 'border-zinc-200 bg-zinc-50/70';
+    const mutedCls = isDark ? 'text-zinc-400' : 'text-zinc-500';
+
+    const avatarEl = (sizeClass = 'size-11') => (
+        <div
+            className={`flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full border-2 text-sm font-bold`}
+            style={{ borderColor: accentHex, background: isDark ? '#18181b' : '#ffffff', color: accentHex }}
+        >
+            {avatarSrc ? <img src={avatarSrc} alt="" className="h-full w-full object-cover" /> : initials}
+        </div>
+    );
+
+    const servicesBlock = (
+        <div>
+            <p className={`mb-1.5 text-[10px] font-semibold uppercase tracking-wider ${mutedCls}`}>
+                Servicios disponibles
+            </p>
+            {visibleServices.length > 0 ? (
+                <div className={appearance.layout === 'portfolio' && isDesktop ? 'grid grid-cols-2 gap-2' : 'space-y-1.5'}>
+                    {visibleServices.map((svc) => (
+                        <div key={svc.id} className={`flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2 ${cardCls}`}>
+                            <div className="min-w-0">
+                                <p className="truncate text-[11px] font-semibold">{svc.name}</p>
+                                <p className={`text-[10px] ${mutedCls}`}>{svc.durationMinutes} min</p>
+                            </div>
+                            <span className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-semibold text-white" style={{ background: accentHex }}>
+                                Reservar
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className={`rounded-xl border border-dashed px-3 py-2 text-[11px] ${isDark ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}>
+                    Agrega un servicio para mostrarlo aquí.
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <div className="rounded-2xl border border-(--border) bg-(--surface) p-4 shadow-sm">
@@ -259,137 +299,161 @@ function LiveSiteMiniPreview({
                         <IconDeviceDesktop size={14} /> Web
                     </button>
                 </div>
-                <a
-                    href={previewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-accent-ink hover:underline"
+                <button
+                    type="button"
+                    disabled={openingPreview}
+                    onClick={onOpenFullPreview}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-accent-ink hover:underline disabled:opacity-50"
                 >
-                    Pantalla completa <IconExternalLink size={12} />
-                </a>
+                    {openingPreview ? 'Abriendo…' : 'Pantalla completa'} <IconExternalLink size={12} />
+                </button>
             </div>
 
-            <div
-                className={`mx-auto overflow-hidden rounded-2xl border transition-all ${
-                    device === 'mobile' ? 'max-w-[295px]' : 'w-full'
-                } ${isDark ? 'border-zinc-800 bg-zinc-950 text-zinc-100' : 'border-zinc-200 bg-white text-zinc-900'}`}
-            >
-                {/* Browser chrome bar */}
+            <div className="overflow-hidden">
                 <div
-                    className={`flex items-center gap-1.5 border-b px-3 py-2 text-[10px] ${
-                        isDark ? 'border-zinc-800 bg-zinc-900 text-zinc-400' : 'border-zinc-100 bg-zinc-50 text-zinc-500'
-                    }`}
+                    className={`mx-auto overflow-hidden rounded-2xl border transition-all ${
+                        device === 'mobile'
+                            ? 'max-w-[295px]'
+                            : 'w-full xl:w-[620px] xl:[zoom:0.528]'
+                    } ${isDark ? 'border-zinc-800 bg-zinc-950 text-zinc-100' : 'border-zinc-200 bg-white text-zinc-900'}`}
                 >
-                    <span className="size-2 rounded-full bg-red-400/70" />
-                    <span className="size-2 rounded-full bg-amber-400/70" />
-                    <span className="size-2 rounded-full bg-emerald-400/70" />
-                    <span className="ml-2 truncate font-mono">simpleagenda.app/{profile.slug || 'tu-link'}</span>
-                </div>
-
-                {/* Cover / Hero area */}
-                <div
-                    className={`relative overflow-hidden ${appearance.layout === 'studio' ? 'p-3' : 'p-4'}`}
-                    style={{
-                        background: coverSrc
-                            ? undefined
-                            : `linear-gradient(135deg, ${accentHex}22 0%, ${accentHex}08 100%)`,
-                    }}
-                >
-                    {coverSrc ? (
-                        <img
-                            src={coverSrc}
-                            alt=""
-                            className="absolute inset-0 h-full w-full object-cover opacity-25"
-                        />
-                    ) : null}
-                    <div className="relative z-10 flex items-center gap-3">
-                        <div
-                            className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 text-sm font-bold"
-                            style={{ borderColor: accentHex, background: `${accentHex}1A`, color: accentHex }}
-                        >
-                            {avatarSrc ? (
-                                <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                                initials
-                            )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-bold leading-snug">{headline}</p>
-                            <p className={`truncate text-[11px] ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                                {subheadline}
-                            </p>
-                        </div>
+                    {/* Browser chrome bar */}
+                    <div
+                        className={`flex items-center gap-1.5 border-b px-3 py-2 text-[10px] ${
+                            isDark ? 'border-zinc-800 bg-zinc-900 text-zinc-400' : 'border-zinc-100 bg-zinc-50 text-zinc-500'
+                        }`}
+                    >
+                        <span className="size-2 rounded-full bg-red-400/70" />
+                        <span className="size-2 rounded-full bg-amber-400/70" />
+                        <span className="size-2 rounded-full bg-emerald-400/70" />
+                        <span className="ml-2 truncate font-mono">simpleagenda.app/{profile.slug || 'tu-link'}</span>
                     </div>
-                    {appearance.layout !== 'booking' ? (
-                        <div className="relative z-10 mt-3">
-                            <span
-                                className="inline-flex items-center rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white"
-                                style={{ background: accentHex }}
+
+                    {/* Layout 1: Portada visual — banner limpio superior + tarjeta identidad */}
+                    {appearance.layout === 'portfolio' ? (
+                        <div>
+                            <div
+                                className="relative h-28 w-full overflow-hidden"
+                                style={{
+                                    background: coverSrc
+                                        ? undefined
+                                        : `linear-gradient(135deg, ${accentHex}44 0%, ${accentHex}16 100%)`,
+                                }}
                             >
-                                Reservar cita
-                            </span>
-                        </div>
-                    ) : null}
-                </div>
-
-                {/* Body */}
-                <div className="space-y-3 p-3.5 text-xs">
-                    {bioPreview ? (
-                        <p className={`line-clamp-2 text-[11px] leading-relaxed ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>
-                            {bioPreview}
-                        </p>
-                    ) : null}
-
-                    <div>
-                        <p className={`mb-1.5 text-[10px] font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                            Servicios disponibles
-                        </p>
-                        {visibleServices.length > 0 ? (
-                            <div className={appearance.layout === 'portfolio' && device === 'desktop' ? 'grid grid-cols-2 gap-1.5' : 'space-y-1.5'}>
-                                {visibleServices.map((svc) => (
-                                    <div
-                                        key={svc.id}
-                                        className={`flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2 ${
-                                            isDark ? 'border-zinc-800 bg-zinc-900/70' : 'border-zinc-200 bg-zinc-50/60'
-                                        }`}
-                                    >
-                                        <div className="min-w-0">
-                                            <p className="truncate text-[11px] font-semibold">{svc.name}</p>
-                                            <p className={`text-[10px] ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                                                {svc.durationMinutes} min
-                                            </p>
-                                        </div>
-                                        <span
-                                            className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-semibold text-white"
-                                            style={{ background: accentHex }}
-                                        >
-                                            Reservar
-                                        </span>
-                                    </div>
-                                ))}
+                                {coverSrc ? <img src={coverSrc} alt="" className="h-full w-full object-cover" /> : null}
                             </div>
-                        ) : (
-                            <div className={`rounded-xl border border-dashed px-3 py-2 text-[11px] ${isDark ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}>
-                                Agrega un servicio para mostrarlo aquí.
-                            </div>
-                        )}
-                    </div>
-
-                    {highlights.length > 0 ? (
-                        <div className="grid gap-1.5 pt-1">
-                            {highlights.slice(0, 2).map((h, i) => (
-                                <div
-                                    key={i}
-                                    className={`rounded-lg border-l-2 px-2.5 py-1.5 ${
-                                        isDark ? 'bg-zinc-900 text-zinc-300' : 'bg-zinc-50 text-zinc-700'
-                                    }`}
-                                    style={{ borderLeftColor: accentHex }}
-                                >
-                                    <p className="truncate text-[11px] font-semibold">{h.title}</p>
+                            <div className="-mt-6 relative z-10 px-4 pb-3">
+                                <div className="flex items-end justify-between gap-2">
+                                    {avatarEl('size-12')}
+                                    <span className="rounded-full px-3 py-1 text-[10px] font-semibold text-white shadow-xs" style={{ background: accentHex }}>
+                                        Reservar cita
+                                    </span>
                                 </div>
-                            ))}
+                                <p className="mt-2 truncate text-xs font-bold leading-snug">{headline}</p>
+                                <p className={`truncate text-[11px] ${mutedCls}`}>{subheadline}</p>
+                            </div>
                         </div>
-                    ) : null}
+                    ) : appearance.layout === 'studio' ? (
+                        /* Layout 3: Perfil compacto — banda superior sutil + tarjeta compacta */
+                        <div className="p-3.5 pb-2">
+                            {coverSrc ? (
+                                <div className="mb-2.5 h-16 w-full overflow-hidden rounded-xl">
+                                    <img src={coverSrc} alt="" className="h-full w-full object-cover" />
+                                </div>
+                            ) : null}
+                            <div className={`flex items-center gap-3 rounded-xl border p-2.5 ${cardCls}`}>
+                                {avatarEl('size-10')}
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-xs font-bold leading-snug">{headline}</p>
+                                    <p className={`truncate text-[10px] ${mutedCls}`}>{subheadline}</p>
+                                </div>
+                                <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white" style={{ background: accentHex }}>
+                                    Reservar
+                                </span>
+                            </div>
+                        </div>
+                    ) : (
+                        /* Layout 2: Reserva directa */
+                        <div
+                            className="relative overflow-hidden p-4"
+                            style={{
+                                background: coverSrc
+                                    ? undefined
+                                    : `linear-gradient(135deg, ${accentHex}20 0%, ${accentHex}06 100%)`,
+                            }}
+                        >
+                            {coverSrc ? (
+                                <img src={coverSrc} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
+                            ) : null}
+                            <div className={`relative z-10 grid gap-3 ${isDesktop ? 'grid-cols-[1.15fr_1fr] items-center' : ''}`}>
+                                <div className="flex items-center gap-3">
+                                    {avatarEl('size-11')}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-xs font-bold leading-snug">{headline}</p>
+                                        <p className={`truncate text-[11px] ${mutedCls}`}>{subheadline}</p>
+                                    </div>
+                                </div>
+                                {isDesktop ? servicesBlock : null}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Body */}
+                    <div className="space-y-3 p-3.5 text-xs">
+                        {!(appearance.layout === 'booking' && isDesktop) ? servicesBlock : null}
+
+                        {order.map((sectionId) => {
+                            if (content.sections?.[sectionId] === false) return null;
+                            if (sectionId === 'about' && bioPreview) {
+                                return (
+                                    <div key={sectionId} className="space-y-0.5">
+                                        {content.aboutTitle.trim() ? (
+                                            <p className="text-[10px] font-semibold">{content.aboutTitle.trim()}</p>
+                                        ) : null}
+                                        <p className={`line-clamp-2 text-[11px] leading-relaxed ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                                            {bioPreview}
+                                        </p>
+                                    </div>
+                                );
+                            }
+                            if (sectionId === 'highlights' && highlights.length > 0) {
+                                return (
+                                    <div key={sectionId} className="grid gap-1.5">
+                                        {highlights.slice(0, 2).map((h, i) => (
+                                            <div
+                                                key={i}
+                                                className={`rounded-lg border-l-2 px-2.5 py-1.5 ${isDark ? 'bg-zinc-900 text-zinc-300' : 'bg-zinc-50 text-zinc-700'}`}
+                                                style={{ borderLeftColor: accentHex }}
+                                            >
+                                                <p className="truncate text-[11px] font-semibold">{h.title}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            }
+                            if (sectionId === 'location' && (profile.city || profile.region || profile.servesOnline)) {
+                                return (
+                                    <div key={sectionId} className={`rounded-xl border px-2.5 py-2 text-[10px] ${cardCls}`}>
+                                        <p className="font-semibold">Lugares de atención</p>
+                                        <p className={`truncate ${mutedCls}`}>
+                                            {[profile.servesOnline ? 'Online' : null, profile.city || profile.region].filter(Boolean).join(' · ')}
+                                        </p>
+                                    </div>
+                                );
+                            }
+                            if (sectionId === 'contact' && (profile.publicPhone || profile.publicEmail || profile.publicWhatsapp)) {
+                                return (
+                                    <div key={sectionId} className={`rounded-xl border px-2.5 py-2 text-[10px] ${cardCls}`}>
+                                        <p className="font-semibold">Contacto</p>
+                                        <p className={`truncate ${mutedCls}`}>
+                                            {profile.publicWhatsapp || profile.publicPhone || profile.publicEmail}
+                                        </p>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })}
+                    </div>
                 </div>
             </div>
         </div>
@@ -455,14 +519,18 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
 
     const baselineAppearance = config.draftAppearance ?? publishedAppearance(profile);
     const baselineContent = config.draft ?? config.published ?? EMPTY_CONTENT;
-    const hasChanges = JSON.stringify([content, brief, appearance]) !== JSON.stringify([baselineContent, config.brief, baselineAppearance]);
+    const comparableAppearance = { ...appearance, avatarUrl: profile.avatarUrl };
+    const comparableBaselineAppearance = { ...baselineAppearance, avatarUrl: profile.avatarUrl };
+    const hasChanges = JSON.stringify([content, brief, comparableAppearance]) !== JSON.stringify([baselineContent, config.brief, comparableBaselineAppearance]);
     const hasIdentity = Boolean(profile.displayName?.trim() && profile.profession?.trim());
     const hasServices = (readiness?.serviceCount ?? 0) > 0;
     const canPublish = profile.isPublished || Boolean(profile.slug && hasIdentity && hasServices && readiness?.hasSchedule);
     const mutationContext = { profileId: profile.id, revision: config.draftRevision ?? null };
-    const previewParams = new URLSearchParams({ draft: '1', profile: profile.id });
-    if (config.draftRevision) previewParams.set('rev', config.draftRevision);
-    const previewUrl = `/vista-previa?${previewParams}`;
+    const buildPreviewUrl = (revision?: string | null) => {
+        const params = new URLSearchParams({ draft: '1', profile: profile.id });
+        if (revision) params.set('rev', revision);
+        return `/vista-previa?${params}`;
+    };
 
     const customColor = normalizeOperatorSiteAccentHex(appearance.accentColor);
     const accentOption = OPERATOR_SITE_ACCENT_OPTIONS.find((option) => option.id === appearance.accentColor);
@@ -505,7 +573,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
         setOperation('generate');
         setNotice(null);
         setContentNotice(null);
-        const result = await generateAgendaLandingPage(brief, appearance, mutationContext, content, target);
+        const result = await generateAgendaLandingPage(brief, comparableAppearance, mutationContext, content, target);
         setOperation(null);
         if (!result.ok || !result.config?.draft) {
             setContentNotice({ tone: 'error', message: result.error ?? 'No se pudo generar la propuesta. Puedes escribirla manualmente.' });
@@ -522,7 +590,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
         if (operation) return;
         setOperation('save');
         setNotice(null);
-        const result = await saveAgendaLandingDraft(brief, content, appearance, mutationContext);
+        const result = await saveAgendaLandingDraft(brief, content, comparableAppearance, mutationContext);
         setOperation(null);
         if (!result.ok || !result.config) {
             setNotice({ tone: 'error', message: result.error ?? 'No se pudo guardar el borrador.' });
@@ -532,6 +600,42 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
         setNotice({ tone: 'success', message: 'Borrador guardado.' });
     }
 
+    function discardChanges() {
+        setContent(baselineContent);
+        setBrief(config.brief);
+        setAppearance(baselineAppearance);
+        setOverrideBio(Boolean(baselineContent.aboutText?.trim()));
+        setConfirmGenerate(false);
+        setNotice(null);
+        setContentNotice(null);
+        setUploadError('');
+    }
+
+    async function openFullPreview() {
+        if (operation) return;
+        const previewTab = typeof window !== 'undefined' ? window.open('about:blank', '_blank') : null;
+        if (previewTab) previewTab.opener = null;
+        let nextUrl = buildPreviewUrl(config.draftRevision);
+        if (hasChanges || !config.draft) {
+            setOperation('save');
+            setNotice(null);
+            const result = await saveAgendaLandingDraft(brief, content, comparableAppearance, mutationContext);
+            setOperation(null);
+            if (!result.ok || !result.config) {
+                previewTab?.close();
+                setNotice({ tone: 'error', message: result.error ?? 'No se pudo preparar la vista previa.' });
+                return;
+            }
+            applyDraftConfig(result.config);
+            nextUrl = buildPreviewUrl(result.config.draftRevision);
+        }
+        if (previewTab) {
+            previewTab.location.href = nextUrl;
+        } else if (typeof window !== 'undefined') {
+            window.open(nextUrl, '_blank', 'noopener,noreferrer');
+        }
+    }
+
     async function saveAndPublish() {
         if (operation || !canPublish) return;
         setOperation('publish');
@@ -539,7 +643,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
 
         let latestRevision = config.draftRevision ?? null;
         if (hasChanges || !config.draft) {
-            const draftResult = await saveAgendaLandingDraft(brief, content, appearance, {
+            const draftResult = await saveAgendaLandingDraft(brief, content, comparableAppearance, {
                 profileId: profile.id,
                 revision: latestRevision,
             });
@@ -559,14 +663,13 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
             return;
         }
         applyDraftConfig(result.config);
-        setAppearance(result.appearance);
+        setAppearance({ ...result.appearance, avatarUrl: profile.avatarUrl });
         onPublished({
             isPublished: true,
             operatorSiteLandingConfig: result.config,
             operatorSiteLayout: result.appearance.layout,
             operatorSiteColorMode: result.appearance.colorMode,
             operatorSiteAccentColor: result.appearance.accentColor,
-            avatarUrl: result.appearance.avatarUrl,
             coverUrl: result.appearance.coverUrl,
         });
         setNotice({ tone: 'success', message: 'Tu página web está publicada y actualizada.' });
@@ -586,10 +689,11 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
     }
 
     const studioTabs: Array<{ id: StudioTab; label: string; icon: typeof IconPalette }> = [
-        { id: 'design', label: 'Diseño y marca', icon: IconPalette },
-        { id: 'copy', label: 'Portada y textos', icon: IconSparkles },
-        { id: 'sections', label: 'Secciones y SEO', icon: IconLayout },
+        { id: 'design', label: 'Diseño y portada', icon: IconPalette },
+        { id: 'copy', label: 'Textos e IA', icon: IconSparkles },
+        { id: 'sections', label: 'Secciones y Google', icon: IconLayout },
     ];
+    const previewUrl = buildPreviewUrl(config.draftRevision);
 
     const seoPreviewTitle = content.seoTitle.trim()
         || `${profile.displayName || 'Tu negocio'}${profile.profession ? ` — ${profile.profession}` : ''} | SimpleAgenda`;
@@ -1034,6 +1138,20 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                                             ariaLabel="Usar presentación distinta solo para la web"
                                         />
                                     </div>
+                                    {content.sections?.about === false ? (
+                                        <PanelNotice tone="info">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <span>La sección Presentación está oculta en Secciones y Google.</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => changeContent('sections', { ...content.sections, about: true })}
+                                                    className="font-semibold underline underline-offset-2"
+                                                >
+                                                    Mostrar sección
+                                                </button>
+                                            </div>
+                                        </PanelNotice>
+                                    ) : null}
                                     {overrideBio ? (
                                         <div className="space-y-4 rounded-xl border border-(--border) p-3.5">
                                             <Field label="Título de presentación" value={content.aboutTitle} onChange={(value) => changeContent('aboutTitle', value)} maxLength={80} placeholder="Sobre mí" />
@@ -1045,7 +1163,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                         </PanelCard>
                     ) : null}
 
-                    {/* Tab 3: Secciones y SEO */}
+                    {/* Tab 3: Secciones y Google */}
                     {activeTab === 'sections' ? (
                         <PanelCard size="lg" className="space-y-6">
                             <div>
@@ -1090,7 +1208,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                                 <div>
                                     <h2 className="text-sm font-semibold text-fg flex items-center gap-1.5">
                                         <IconSearch size={15} className="text-accent-ink" />
-                                        Vista en Google (SEO)
+                                        Vista en Google
                                     </h2>
                                     <p className="mt-0.5 text-xs text-fg-muted">Así aparecerá tu enlace cuando alguien te busque en Google o lo comparta.</p>
                                 </div>
@@ -1108,15 +1226,15 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                                 </div>
 
                                 <fieldset disabled={!!operation} className="space-y-4">
-                                    <Field label="Título SEO" value={content.seoTitle} onChange={(value) => changeContent('seoTitle', value)} maxLength={65} placeholder={seoPreviewTitle} />
-                                    <Field label="Descripción SEO" value={content.seoDescription} onChange={(value) => changeContent('seoDescription', value)} maxLength={170} rows={2} placeholder={seoPreviewDesc} />
+                                    <Field label="Título en Google" value={content.seoTitle} onChange={(value) => changeContent('seoTitle', value)} maxLength={65} placeholder={seoPreviewTitle} />
+                                    <Field label="Descripción en Google" value={content.seoDescription} onChange={(value) => changeContent('seoDescription', value)} maxLength={170} rows={2} placeholder={seoPreviewDesc} />
                                 </fieldset>
                             </div>
                         </PanelCard>
                     ) : null}
 
-                    {/* Barra unificada de guardado y publicación */}
-                    <PanelCard size="md" className="space-y-3">
+                    {/* Barra sticky unificada de guardado y publicación */}
+                    <PanelCard size="md" className="sticky bottom-3 z-20 space-y-3 shadow-md">
                         {notice ? <PanelNotice tone={notice.tone}>{notice.message}</PanelNotice> : null}
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <p className="text-xs text-fg-muted" role="status">
@@ -1130,7 +1248,17 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                                             ? 'Todo listo para publicar tu página.'
                                             : 'Completa perfil, un servicio y horario para publicar.'}
                             </p>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                {hasChanges ? (
+                                    <button
+                                        type="button"
+                                        className="inline-flex min-h-10 items-center justify-center rounded-xl px-3 text-xs font-semibold text-fg-muted transition hover:text-fg disabled:opacity-50"
+                                        disabled={!!operation}
+                                        onClick={discardChanges}
+                                    >
+                                        Descartar cambios
+                                    </button>
+                                ) : null}
                                 <button
                                     type="button"
                                     className={actionClassName}
@@ -1163,7 +1291,8 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                         content={content}
                         appearance={appearance}
                         services={readiness?.services ?? []}
-                        previewUrl={previewUrl}
+                        openingPreview={operation === 'save'}
+                        onOpenFullPreview={() => void openFullPreview()}
                     />
                 </div>
             </div>

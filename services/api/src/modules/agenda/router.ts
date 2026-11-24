@@ -1704,7 +1704,13 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             if (config.draft.sections?.highlights !== false && config.draft.highlights.some((item) => !item.title || !item.description)) {
                 return { error: 'Completa el título y la descripción de cada punto destacado.' };
             }
-            const version = { content: config.draft, appearance: config.draftAppearance ?? publishedAppearance };
+            const version = {
+                content: config.draft,
+                appearance: {
+                    ...(config.draftAppearance ?? publishedAppearance),
+                    avatarUrl: current.avatarUrl,
+                },
+            };
             if (!current.isPublished) {
                 const missing = await getAgendaPublishMissing(tx, current);
                 if (missing.length) return { error: `Para publicar tu agenda, completa: ${missing.join(', ')}.` };
@@ -1727,7 +1733,6 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                     operatorSiteLayout: version.appearance.layout,
                     operatorSiteColorMode: version.appearance.colorMode,
                     operatorSiteAccentColor: version.appearance.accentColor,
-                    avatarUrl: version.appearance.avatarUrl,
                     coverUrl: version.appearance.coverUrl,
                     isPublished: true,
                     updatedAt: now,
