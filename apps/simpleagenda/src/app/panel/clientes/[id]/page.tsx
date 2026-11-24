@@ -675,7 +675,6 @@ export default function ClienteFichaPage() {
                         <AgendaScrollModal
                             title={`Asignar pack a ${`${client.firstName} ${client.lastName ?? ''}`.trim()}`}
                             size="md"
-                            zIndexClass="z-40"
                             onClose={closePackModal}
                             footer={(
                                 <div className="flex items-center justify-end gap-2">
@@ -955,7 +954,7 @@ export default function ClienteFichaPage() {
 
             {/* Delete confirmation modal */}
             {confirmDelete && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="cliente-delete-title">
+                <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="cliente-delete-title">
                     <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => !deleting && setConfirmDelete(false)} />
                     <div className="relative w-full max-w-sm rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-start gap-3 mb-4">

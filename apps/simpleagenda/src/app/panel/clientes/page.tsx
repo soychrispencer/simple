@@ -544,7 +544,7 @@ export default function ClientesPage() {
 
             {/* ── Delete confirmation ─────────────────────────────────── */}
             {deleteClient && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="clientes-delete-title">
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="clientes-delete-title">
                     <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setDeleteClient(null)} />
                     <div className="relative w-full max-w-sm rounded-2xl border p-6" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-start gap-3 mb-4">
