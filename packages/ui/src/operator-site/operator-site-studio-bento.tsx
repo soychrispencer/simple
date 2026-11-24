@@ -45,7 +45,7 @@ export function OperatorSiteStudioBento({
 }: OperatorSiteStudioBentoProps) {
     const pm = profile.paymentMethods;
     const hasMercadoPago = pm.mpConnected || pm.acceptsMp;
-    const hasTransfer = Boolean(pm.bankTransferData);
+    const hasTransfer = Boolean(pm.acceptsTransfer || pm.bankTransferData);
     const hasPaymentLink = Boolean(pm.paymentLinkUrl);
 
     return (

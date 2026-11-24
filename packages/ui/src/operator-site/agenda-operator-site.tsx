@@ -74,7 +74,7 @@ type HeroSignal = {
 
 function PaymentMethodsBlock({ pm, layout }: { pm: AgendaOperatorSiteProps['profile']['paymentMethods']; layout: OperatorSiteLayout }) {
     const hasMercadoPago = pm.mpConnected || pm.acceptsMp;
-    const hasTransfer = Boolean(pm.bankTransferData);
+    const hasTransfer = Boolean(pm.acceptsTransfer || pm.bankTransferData);
     const hasPaymentLink = Boolean(pm.paymentLinkUrl);
 
     if (!hasMercadoPago && !hasTransfer && !hasPaymentLink) return null;
@@ -105,16 +105,14 @@ function PaymentMethodsBlock({ pm, layout }: { pm: AgendaOperatorSiteProps['prof
                                     </div>
                                 </div>
                             ) : null}
-                            {hasTransfer && pm.bankTransferData ? (
-                                <div className="os-contact-card items-start">
+                            {hasTransfer ? (
+                                <div className="os-contact-card">
                                     <span className="os-contact-card__icon">
                                         <IconBuildingBank size={16} />
                                     </span>
-                                    <div className="text-xs text-(--fg-secondary) min-w-0">
-                                        <p className="text-sm font-semibold text-(--fg) mb-1">Transferencia</p>
-                                        <p>{pm.bankTransferData.bank} · {pm.bankTransferData.accountType}</p>
-                                        <p>Cuenta {pm.bankTransferData.accountNumber}</p>
-                                        <p>{pm.bankTransferData.holderName}</p>
+                                    <div>
+                                        <p className="text-sm font-semibold text-(--fg)">Transferencia</p>
+                                        <p className="text-xs text-(--fg-muted)">Datos de transferencia al confirmar tu reserva.</p>
                                     </div>
                                 </div>
                             ) : null}
@@ -636,6 +634,7 @@ export function AgendaOperatorSite({
     const hasPayments = Boolean(
         profile.paymentMethods.mpConnected
         || profile.paymentMethods.acceptsMp
+        || profile.paymentMethods.acceptsTransfer
         || profile.paymentMethods.bankTransferData
         || profile.paymentMethods.paymentLinkUrl,
     );

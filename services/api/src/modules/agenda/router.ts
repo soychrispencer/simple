@@ -321,7 +321,7 @@ function mapPublicAgendaProfile(
             acceptsPaymentLink: !!profile.acceptsPaymentLink,
             mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
             paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
-            bankTransferData: profile.acceptsTransfer ? (profile.bankTransferData ?? null) : null,
+            bankTransferData: null,
         },
         schedule: {
             alwaysOpen: Boolean(profile.alwaysOpen),

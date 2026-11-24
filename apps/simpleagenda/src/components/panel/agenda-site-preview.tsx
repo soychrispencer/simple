@@ -105,7 +105,7 @@ function profileForPreview(
             acceptsPaymentLink: profile.acceptsPaymentLink,
             mpConnected: Boolean(profile.acceptsMp && profile.mpConnected),
             paymentLinkUrl: profile.acceptsPaymentLink ? profile.paymentLinkUrl : null,
-            bankTransferData: profile.acceptsTransfer ? profile.bankTransferData : null,
+            bankTransferData: null,
         },
         locations: locations.filter((location) => location.isActive).map((location) => ({
             id: location.id,
