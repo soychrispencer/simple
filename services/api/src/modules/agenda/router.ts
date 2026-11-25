@@ -6,7 +6,13 @@ import { gt, ilike, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { cleanupReplacedMediaUrl, isOwnedStorageUrl, toProtectedMediaUrl, unwrapProtectedMediaUrl } from '../media/stored-object.js';
 import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
-import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount } from './plan-limits.js';
+import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount, hasAgendaProPlusAccess } from './plan-limits.js';
+import {
+    getCustomDomainTargetHost,
+    normalizeCustomDomain,
+    syncCustomDomainWithCoolify,
+    verifyCustomDomainDns,
+} from './custom-domain.js';
 import { buildAgendaOAuthState, verifyAgendaOAuthState } from './oauth-state.js';
 import { resolveAgendaProfessionalTimezone, syncAgendaProfileTimezoneFromOperatingLocation } from '../../lib/sync-user-timezone.js';
 import { generateAgendaLandingPageContent } from './generate-landing-page.js';
@@ -145,6 +151,7 @@ type PreconsultFieldType = 'text' | 'textarea' | 'select' | 'checkbox' | 'number
 type PreconsultField = { id: string; label: string; type: PreconsultFieldType; required: boolean; placeholder?: string; options?: string[] };
 
 const AGENDA_PRO_REQUIRED_MESSAGE = `Esta función está incluida en Pro (${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes).`;
+const AGENDA_PRO_PLUS_REQUIRED_MESSAGE = `El dominio propio está incluido en Pro+ (${AGENDA_PRICING.proPlusMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes).`;
 
 function matchesLandingRevision(config: OperatorSiteLandingConfig, revision: string | null | undefined): boolean {
     return revision === undefined || revision === (config.draftRevision ?? null);
@@ -162,6 +169,7 @@ const AGENDA_PROFILE_FIELDS = [
     'acceptsTransfer', 'acceptsMp', 'acceptsPaymentLink', 'paymentLinkUrl', 'bankTransferData',
     'websiteUrl', 'instagramUrl', 'facebookUrl', 'linkedinUrl', 'tiktokUrl', 'youtubeUrl', 'twitterUrl',
     'operatorSiteLayout', 'operatorSiteColorMode', 'operatorSiteAccentColor',
+    'customDomain', 'customDomainStatus', 'customDomainVerifiedAt',
     'notificationsLastSeenAt', 'createdAt', 'updatedAt',
 ] as const;
 
@@ -454,6 +462,8 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
 
     const proGateError = (profile: any) =>
         isFreePlan(profile) ? AGENDA_PRO_REQUIRED_MESSAGE : null;
+    const proPlusGateError = (profile: any) =>
+        hasAgendaProPlusAccess(profile) ? null : AGENDA_PRO_PLUS_REQUIRED_MESSAGE;
 
     async function areProfileAppointmentServices(profileId: string, serviceIds: string[], queryable: any = db) {
         const uniqueIds = [...new Set(serviceIds)];
@@ -1888,6 +1898,146 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const profile = await getCurrentAgendaProfile(user.id);
         const isMine = profile && existing.length > 0 && existing[0].id === profile.id;
         return c.json({ ok: true, available: existing.length === 0 || isMine });
+    });
+
+    app.get('/custom-domain', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        let profile = await ensureAgendaProfile(user);
+        profile = await ensureAgendaProfileTrial(profile);
+        return c.json({
+            ok: true,
+            customDomain: profile.customDomain ?? null,
+            customDomainStatus: profile.customDomainStatus ?? 'none',
+            customDomainVerifiedAt: profile.customDomainVerifiedAt ?? null,
+            targetHost: getCustomDomainTargetHost(),
+            proPlusEligible: hasAgendaProPlusAccess(profile),
+        });
+    });
+
+    app.put('/custom-domain', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        let profile = await ensureAgendaProfile(user);
+        profile = await ensureAgendaProfileTrial(profile);
+        if (proPlusGateError(profile)) {
+            return c.json({ ok: false, error: proPlusGateError(profile) }, 403);
+        }
+
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const rawDomain = typeof body.domain === 'string' ? body.domain : '';
+        const normalized = normalizeCustomDomain(rawDomain);
+        if (!normalized.ok) {
+            return c.json({ ok: false, error: normalized.error }, 400);
+        }
+
+        const existing = await db.select({ id: agendaProfessionalProfiles.id })
+            .from(agendaProfessionalProfiles)
+            .where(eq(agendaProfessionalProfiles.customDomain, normalized.domain))
+            .limit(1);
+        if (existing.length > 0 && existing[0].id !== profile.id) {
+            return c.json({ ok: false, error: 'Este dominio ya está conectado a otra cuenta.' }, 409);
+        }
+
+        if (profile.customDomain && profile.customDomain !== normalized.domain) {
+            await syncCustomDomainWithCoolify({ action: 'remove', domain: profile.customDomain });
+        }
+
+        const [updated] = await db.update(agendaProfessionalProfiles)
+            .set({
+                customDomain: normalized.domain,
+                customDomainStatus: 'pending',
+                customDomainVerifiedAt: null,
+                updatedAt: new Date(),
+            })
+            .where(eq(agendaProfessionalProfiles.id, profile.id))
+            .returning();
+
+        return c.json({
+            ok: true,
+            customDomain: updated.customDomain,
+            customDomainStatus: updated.customDomainStatus,
+            customDomainVerifiedAt: updated.customDomainVerifiedAt,
+            targetHost: getCustomDomainTargetHost(),
+        });
+    });
+
+    app.post('/custom-domain/verify', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        let profile = await ensureAgendaProfile(user);
+        profile = await ensureAgendaProfileTrial(profile);
+        if (proPlusGateError(profile)) {
+            return c.json({ ok: false, error: proPlusGateError(profile) }, 403);
+        }
+        if (!profile.customDomain) {
+            return c.json({ ok: false, error: 'Primero guarda un dominio para verificarlo.' }, 400);
+        }
+
+        const dnsCheck = await verifyCustomDomainDns(profile.customDomain);
+        if (!dnsCheck.verified) {
+            await db.update(agendaProfessionalProfiles)
+                .set({
+                    customDomainStatus: 'error',
+                    customDomainVerifiedAt: null,
+                    updatedAt: new Date(),
+                })
+                .where(eq(agendaProfessionalProfiles.id, profile.id));
+            return c.json({
+                ok: false,
+                error: dnsCheck.error ?? 'Aún no detectamos el registro DNS.',
+                customDomainStatus: 'error',
+                method: dnsCheck.method,
+            }, 422);
+        }
+
+        const coolifySync = await syncCustomDomainWithCoolify({
+            action: 'add',
+            domain: profile.customDomain,
+        });
+        if (!coolifySync.ok) {
+            return c.json({
+                ok: false,
+                error: coolifySync.error ?? 'No pudimos sincronizar el certificado SSL.',
+            }, 502);
+        }
+
+        const verifiedAt = new Date();
+        const [updated] = await db.update(agendaProfessionalProfiles)
+            .set({
+                customDomainStatus: 'verified',
+                customDomainVerifiedAt: verifiedAt,
+                updatedAt: verifiedAt,
+            })
+            .where(eq(agendaProfessionalProfiles.id, profile.id))
+            .returning();
+
+        return c.json({
+            ok: true,
+            customDomain: updated.customDomain,
+            customDomainStatus: updated.customDomainStatus,
+            customDomainVerifiedAt: updated.customDomainVerifiedAt,
+            method: dnsCheck.method,
+            coolifySynced: coolifySync.synced,
+        });
+    });
+
+    app.delete('/custom-domain', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const profile = await ensureAgendaProfile(user);
+        if (profile.customDomain) {
+            await syncCustomDomainWithCoolify({ action: 'remove', domain: profile.customDomain });
+        }
+        await db.update(agendaProfessionalProfiles)
+            .set({
+                customDomain: null,
+                customDomainStatus: 'none',
+                customDomainVerifiedAt: null,
+                updatedAt: new Date(),
+            })
+            .where(eq(agendaProfessionalProfiles.id, profile.id));
+        return c.json({ ok: true });
     });
 
     // ── Services ──────────────────────────────────────────────────────────────
@@ -4938,6 +5088,22 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
     const { localDateKey, getPublicBookingSlots } = createAgendaBookingSchedule(deps);
 
     const app = new Hono();
+
+    app.get('/by-domain', publicReadLimit, async (c) => {
+        const rawHost = (c.req.query('host') ?? '').trim().toLowerCase().replace(/:\d+$/, '').replace(/\.+$/, '');
+        if (!rawHost) return c.json({ ok: false, error: 'Host requerido.' }, 400);
+        const profile = await db.query.agendaProfessionalProfiles.findFirst({
+            where: and(
+                eq(agendaProfessionalProfiles.customDomain, rawHost),
+                eq(agendaProfessionalProfiles.customDomainStatus, 'verified'),
+            ),
+        });
+        if (!profile || !profile.isPublished || !hasAgendaProPlusAccess(profile)) {
+            return c.json({ ok: false, error: 'Dominio no encontrado.' }, 404);
+        }
+        c.header('Cache-Control', 'public, max-age=60');
+        return c.json({ ok: true, slug: profile.slug });
+    });
 
     app.get('/marketplace/professionals', publicReadLimit, async (c) => {
         const country = c.req.query('country')?.trim() || c.req.query('pais')?.trim();

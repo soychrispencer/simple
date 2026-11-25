@@ -155,6 +155,9 @@ export type AgendaProfile = {
     operatorSiteColorMode?: string | null;
     operatorSiteAccentColor?: string | null;
     operatorSiteLandingConfig?: OperatorSiteLandingConfig | null;
+    customDomain?: string | null;
+    customDomainStatus?: 'none' | 'pending' | 'verified' | 'error';
+    customDomainVerifiedAt?: string | null;
     createdAt: string;
     updatedAt: string;
 };
@@ -225,6 +228,52 @@ export async function publishAgendaLandingDraft(context: AgendaLandingMutationCo
 export async function checkSlugAvailable(slug: string): Promise<{ available: boolean; error?: string }> {
     const data = await apiFetch<{ ok: boolean; available: boolean; error?: string }>(`/api/agenda/slug-available?slug=${encodeURIComponent(slug)}`);
     return { available: data.available, error: data.error };
+}
+
+export type AgendaCustomDomainState = {
+    customDomain: string | null;
+    customDomainStatus: 'none' | 'pending' | 'verified' | 'error';
+    customDomainVerifiedAt: string | null;
+    targetHost: string;
+    proPlusEligible: boolean;
+};
+
+export async function fetchAgendaCustomDomain(): Promise<AgendaCustomDomainState> {
+    return apiFetch('/api/agenda/custom-domain');
+}
+
+export async function saveAgendaCustomDomain(domain: string): Promise<{
+    ok: boolean;
+    customDomain?: string | null;
+    customDomainStatus?: 'none' | 'pending' | 'verified' | 'error';
+    customDomainVerifiedAt?: string | null;
+    targetHost?: string;
+    error?: string;
+}> {
+    return agendaMutation('/api/agenda/custom-domain', {
+        method: 'PUT',
+        body: JSON.stringify({ domain }),
+    });
+}
+
+export async function verifyAgendaCustomDomain(): Promise<{
+    ok: boolean;
+    customDomain?: string | null;
+    customDomainStatus?: 'none' | 'pending' | 'verified' | 'error';
+    customDomainVerifiedAt?: string | null;
+    method?: 'cname' | 'a' | 'none';
+    coolifySynced?: boolean;
+    error?: string;
+}> {
+    return agendaMutation('/api/agenda/custom-domain/verify', {
+        method: 'POST',
+    });
+}
+
+export async function deleteAgendaCustomDomain(): Promise<{ ok: boolean; error?: string }> {
+    return agendaMutation('/api/agenda/custom-domain', {
+        method: 'DELETE',
+    });
 }
 
 export async function uploadAvatar(

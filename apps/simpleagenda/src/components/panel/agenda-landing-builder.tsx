@@ -43,6 +43,7 @@ import {
     type OperatorSiteLayout,
 } from '@simple/utils';
 import { AgendaPublicLinkPanel } from './agenda-public-link-panel';
+import { AgendaCustomDomainCard } from './agenda-custom-domain-card';
 import {
     fetchAgendaAvailability,
     fetchAgendaServices,
@@ -705,8 +706,9 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
     return (
         <div className="grid min-w-0 gap-6">
             {/* Link público y acceso directo */}
-            <div id="agenda-public-link" className="scroll-mt-24">
+            <div id="agenda-public-link" className="scroll-mt-24 space-y-5">
                 <AgendaPublicLinkPanel previewUrl={previewUrl} />
+                <AgendaCustomDomainCard profile={profile} />
             </div>
 
             {readinessFailed ? (

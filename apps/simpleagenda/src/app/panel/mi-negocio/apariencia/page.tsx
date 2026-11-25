@@ -7,6 +7,7 @@ import { PanelButton, PanelCard, PanelNotice } from '@simple/ui/panel';
 import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 import { AgendaLandingBuilder } from '@/components/panel/agenda-landing-builder';
 import { AgendaPublicLinkPanel } from '@/components/panel/agenda-public-link-panel';
+import { AgendaCustomDomainCard } from '@/components/panel/agenda-custom-domain-card';
 import { fetchAgendaProfile, hasAgendaFullAccess, type AgendaProfile } from '@/lib/agenda-api';
 
 export default function AgendaWebsitePage() {
@@ -77,6 +78,7 @@ export default function AgendaWebsitePage() {
                 ) : (
                     <div id="agenda-public-link" className="scroll-mt-24 space-y-5">
                         <AgendaPublicLinkPanel previewUrl={profile.isPublished ? undefined : `/vista-previa?profile=${encodeURIComponent(profile.id)}`} />
+                        <AgendaCustomDomainCard profile={profile} />
                         <PanelCard size="lg">
                             <h2 className="text-lg font-bold tracking-tight text-fg">Tu página con marca propia</h2>
                             <p className="mt-2 text-sm text-fg-secondary">Desde Pro puedes personalizar diseño, colores, portada y textos con IA. Tu enlace de reservas está incluido en Gratis.</p>

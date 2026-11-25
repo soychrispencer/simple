@@ -54,6 +54,7 @@ export const AGENDA_PLAN_CATALOG = {
         description: 'Herramientas para retomar el contacto con clientes que dejaron de agendar.',
         features: [
             'Todo lo incluido en Pro',
+            'Dominio propio conectado a tu página de reservas (ej. reservas.tunegocio.cl)',
             'Lista de clientes sin una cita reciente: 30, 60 o 90 días',
             'Segmentos según última atención y próximas citas',
             'Mensajes individuales listos para WhatsApp o correo',

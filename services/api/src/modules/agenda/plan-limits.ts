@@ -104,6 +104,14 @@ export function hasAgendaFullAccess(
     return isAgendaTrialActive(profile) || isAgendaProActive(profile);
 }
 
+export function hasAgendaProPlusAccess(
+    profile: { plan: string; planExpiresAt: Date | null },
+): boolean {
+    if (isPlatformLaunchActive('agenda')) return true;
+    if (normalizeAgendaBillingPlan(profile.plan) !== 'pro_plus') return false;
+    return !profile.planExpiresAt || profile.planExpiresAt.getTime() >= Date.now();
+}
+
 /** Baja el plan del espacio asociado al perfil sin afectar otros espacios del usuario. */
 export async function downgradeAgendaProfileAccessById(
     profileId: string,

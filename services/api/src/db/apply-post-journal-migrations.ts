@@ -148,6 +148,7 @@ export const POST_JOURNAL_TAGS = [
     '0181_agenda_reception_assignments',
     '0182_agenda_account_pro_trials',
     '0183_user_vertical_onboarding',
+    '0184_agenda_custom_domain',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

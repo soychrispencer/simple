@@ -58,6 +58,7 @@ export function AgendaPricingPlans() {
             features: [
                 AGENDA_PLAN_CATALOG.proPlus.features[1],
                 AGENDA_PLAN_CATALOG.proPlus.features[2],
+                AGENDA_PLAN_CATALOG.proPlus.features[3],
                 'Mensajes individuales para WhatsApp o correo; tú eliges a quién contactar y los envías',
             ],
             action: 'pro_plus' as const,

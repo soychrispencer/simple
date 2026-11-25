@@ -78,8 +78,11 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   // Notifications
   notificationsLastSeenAt: timestamp('notifications_last_seen_at'),
   // Subscription plan
-  plan: varchar('plan', { length: 20 }).notNull().default('free'), // 'free' | 'pro'
+  plan: varchar('plan', { length: 20 }).notNull().default('free'), // 'free' | 'pro' | 'pro_plus'
   planExpiresAt: timestamp('plan_expires_at'),
+  customDomain: varchar('custom_domain', { length: 255 }),
+  customDomainStatus: varchar('custom_domain_status', { length: 20 }).notNull().default('none'),
+  customDomainVerifiedAt: timestamp('custom_domain_verified_at'),
   operatorSiteLayout: varchar('operator_site_layout', { length: 20 }).notNull().default('booking'),
   operatorSiteColorMode: varchar('operator_site_color_mode', { length: 10 }).notNull().default('system'),
   operatorSiteAccentColor: varchar('operator_site_accent_color', { length: 20 }).notNull().default('teal'),
