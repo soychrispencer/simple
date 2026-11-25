@@ -394,14 +394,13 @@ export default function AgendaPage() {
         return () => document.removeEventListener('mousedown', handler);
     }, [clientDropOpen]);
 
-    // Open create modal if ?nueva=1 is in the URL
+    // Open create modal if ?nueva=1 is in the URL (once services/profile context is ready)
     useEffect(() => {
-        if (searchParams.get('nueva') === '1') {
+        if (searchParams.get('nueva') === '1' && !loading) {
             handleCreateOpen();
             router.replace('/panel/agenda');
         }
-     
-    }, [searchParams]);
+    }, [loading, searchParams]);
 
     // Open appointment detail if ?appt=<id> is in the URL
     useEffect(() => {
@@ -409,14 +408,27 @@ export default function AgendaPage() {
         if (!apptId || appointments.length === 0) return;
         const match = appointments.find((appt) => appt.id === apptId);
         if (!match) return;
-        setSelectedAppt(match);
+        void handleSelectAppt(match);
         setShowEdit(false);
     }, [appointments, searchParams]);
 
-    // Helper: local YYYY-MM-DD key from any Date
+    const activeTz = profile?.timezone ?? 'America/Santiago';
+
+    // Helper: YYYY-MM-DD key from any Date in local calendar grid or target timezone
     const localKey = (d: Date) => {
         const p = (n: number) => String(n).padStart(2, '0');
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    };
+    const tzDateKey = (isoOrDate: string | Date) => {
+        const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+        return new Intl.DateTimeFormat('en-CA', { timeZone: activeTz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    };
+    const tzMinutes = (isoOrDate: string | Date) => {
+        const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone: activeTz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
+        const h = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24;
+        const m = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
+        return h * 60 + m;
     };
 
     // Group appointments by local YYYY-MM-DD (applying series + search + status filters)
@@ -440,7 +452,7 @@ export default function AgendaPage() {
     const filtersActive = !!normalizedQuery || statusFilter !== 'all';
     const byDay: AppointmentsByDay = {};
     for (const appt of visibleAppointments) {
-        const key = localKey(new Date(appt.startsAt));
+        const key = tzDateKey(appt.startsAt);
         if (!byDay[key]) byDay[key] = [];
         byDay[key].push(appt);
     }
@@ -468,7 +480,7 @@ export default function AgendaPage() {
     const groupByDay: Record<string, AgendaService[]> = {};
     for (const gs of groupEventsInView) {
         if (!gs.startsAt) continue;
-        const key = localKey(new Date(gs.startsAt));
+        const key = tzDateKey(gs.startsAt);
         if (!groupByDay[key]) groupByDay[key] = [];
         groupByDay[key].push(gs);
     }
@@ -559,29 +571,38 @@ export default function AgendaPage() {
             setCreateError(`Indica el nombre del ${vocab.client} o selecciona uno existente.`);
             return;
         }
+        if (!Number.isFinite(form.durationMinutes) || form.durationMinutes < 5) {
+            setCreateError('La duración debe ser de al menos 5 minutos.');
+            return;
+        }
         setCreating(true);
-        const { recurrenceFrequency, recurrenceCount, startsAt, ...restForm } = form;
-        const recurring = recurrenceFrequency !== 'none';
-        const targetTz = profile?.timezone ?? 'America/Santiago';
-        const parsedStartsAt = parseDateTimeInTimezone(startsAt, targetTz);
-        const startsAtIso = Number.isNaN(parsedStartsAt.getTime()) ? startsAt : parsedStartsAt.toISOString();
-        const result = await createAgendaAppointment({
-            ...restForm,
-            startsAt: startsAtIso,
-            clientId: form.clientId || null,
-            clientName: form.clientName || null,
-            clientEmail: form.clientEmail || null,
-            serviceId: form.serviceId || null,
-            location: form.modality === 'presential' ? (form.location || null) : null,
-            price: form.clientPackId ? null : (form.price || null),
-            recurrenceFrequency: recurring ? recurrenceFrequency : undefined,
-            recurrenceCount: recurring ? Math.max(2, Math.min(52, recurrenceCount)) : undefined,
-            clientPackId: form.clientPackId || null,
-        });
-        setCreating(false);
-        if (!result.ok) { setCreateError(result.error ?? 'Error al crear la cita.'); return; }
-        setShowCreate(false);
-        await load();
+        try {
+            const { recurrenceFrequency, recurrenceCount, startsAt, ...restForm } = form;
+            const recurring = recurrenceFrequency !== 'none';
+            const targetTz = profile?.timezone ?? 'America/Santiago';
+            const parsedStartsAt = parseDateTimeInTimezone(startsAt, targetTz);
+            const startsAtIso = Number.isNaN(parsedStartsAt.getTime()) ? startsAt : parsedStartsAt.toISOString();
+            const result = await createAgendaAppointment({
+                ...restForm,
+                startsAt: startsAtIso,
+                clientId: form.clientId || null,
+                clientName: form.clientName || null,
+                clientEmail: form.clientEmail || null,
+                serviceId: form.serviceId || null,
+                location: form.modality === 'presential' ? (form.location || null) : null,
+                price: form.clientPackId ? null : (form.price || null),
+                recurrenceFrequency: recurring ? recurrenceFrequency : undefined,
+                recurrenceCount: recurring ? Math.max(2, Math.min(52, recurrenceCount)) : undefined,
+                clientPackId: form.clientPackId || null,
+            });
+            if (!result.ok) { setCreateError(result.error ?? 'Error al crear la cita.'); return; }
+            setShowCreate(false);
+            await load();
+        } catch (err) {
+            setCreateError(err instanceof Error ? err.message : 'Error al crear la cita.');
+        } finally {
+            setCreating(false);
+        }
     };
 
     // Load note when appointment is selected
@@ -590,22 +611,35 @@ export default function AgendaPage() {
         setNoteContent('');
         setNoteOriginal('');
         setNoteSaved(false);
+        setStatusError(null);
+        setConfirmCancelId(null);
         setNoteLoading(true);
-        const note = await fetchAgendaNote(appt.id);
-        const content = note?.content ?? '';
-        setNoteContent(content);
-        setNoteOriginal(content);
-        setNoteLoading(false);
+        try {
+            const note = await fetchAgendaNote(appt.id);
+            const content = note?.content ?? '';
+            setNoteContent(content);
+            setNoteOriginal(content);
+        } catch {
+            // Mantener nota vacía si falla la carga sin bloquear el modal
+        } finally {
+            setNoteLoading(false);
+        }
     };
 
     const handleSaveNote = async () => {
         if (!selectedAppt) return;
         setNoteSaving(true);
-        await saveAgendaNote(selectedAppt.id, noteContent);
-        setNoteOriginal(noteContent);
-        setNoteSaving(false);
-        setNoteSaved(true);
-        setTimeout(() => setNoteSaved(false), 2000);
+        setStatusError(null);
+        try {
+            await saveAgendaNote(selectedAppt.id, noteContent);
+            setNoteOriginal(noteContent);
+            setNoteSaved(true);
+            setTimeout(() => setNoteSaved(false), 2000);
+        } catch (err) {
+            setStatusError(err instanceof Error ? err.message : 'No se pudo guardar la nota.');
+        } finally {
+            setNoteSaving(false);
+        }
     };
 
     const handleOpenEdit = () => {
@@ -623,21 +657,33 @@ export default function AgendaPage() {
 
     const handleSaveEdit = async () => {
         if (!selectedAppt) return;
+        if (!Number.isFinite(editForm.durationMinutes) || editForm.durationMinutes < 5) {
+            setStatusError('La duración debe ser de al menos 5 minutos.');
+            return;
+        }
         setEditSaving(true);
-        const targetTz = profile?.timezone ?? 'America/Santiago';
-        const parsedStartsAt = parseDateTimeInTimezone(editForm.startsAt, targetTz);
-        const startsAtIso = Number.isNaN(parsedStartsAt.getTime()) ? editForm.startsAt : parsedStartsAt.toISOString();
-        const result = await updateAgendaAppointment(selectedAppt.id, {
-            startsAt: startsAtIso,
-            durationMinutes: editForm.durationMinutes,
-            price: editForm.price || null,
-            internalNotes: editForm.internalNotes || null,
-        } as Partial<AgendaAppointment>);
-        setEditSaving(false);
-        if (result.ok && result.appointment) {
-            setSelectedAppt(result.appointment);
-            setShowEdit(false);
-            await load();
+        setStatusError(null);
+        try {
+            const targetTz = profile?.timezone ?? 'America/Santiago';
+            const parsedStartsAt = parseDateTimeInTimezone(editForm.startsAt, targetTz);
+            const startsAtIso = Number.isNaN(parsedStartsAt.getTime()) ? editForm.startsAt : parsedStartsAt.toISOString();
+            const result = await updateAgendaAppointment(selectedAppt.id, {
+                startsAt: startsAtIso,
+                durationMinutes: editForm.durationMinutes,
+                price: editForm.price || null,
+                internalNotes: editForm.internalNotes || null,
+            } as Partial<AgendaAppointment>);
+            if (result.ok && result.appointment) {
+                setSelectedAppt(result.appointment);
+                setShowEdit(false);
+                await load();
+            } else {
+                setStatusError(result.error ?? 'No se pudo guardar los cambios.');
+            }
+        } catch (err) {
+            setStatusError(err instanceof Error ? err.message : 'No se pudo guardar los cambios.');
+        } finally {
+            setEditSaving(false);
         }
     };
 
@@ -650,35 +696,49 @@ export default function AgendaPage() {
         setSavingStatus(status);
         setStatusError(null);
 
-        const result = await patchAppointmentStatus(appt.id, status);
-        setSavingStatus(null);
-
-        if (!result.ok) {
-            // Revert
+        try {
+            const result = await patchAppointmentStatus(appt.id, status);
+            if (!result.ok) {
+                setSelectedAppt((prev) => prev ? { ...prev, status: prevStatus } : null);
+                setAppointments((prev) => prev.map((a) => a.id === appt.id ? { ...a, status: prevStatus } : a));
+                setStatusError(result.error ?? 'No se pudo guardar el cambio.');
+            }
+        } catch (err) {
             setSelectedAppt((prev) => prev ? { ...prev, status: prevStatus } : null);
             setAppointments((prev) => prev.map((a) => a.id === appt.id ? { ...a, status: prevStatus } : a));
-            setStatusError(result.error ?? 'No se pudo guardar el cambio.');
+            setStatusError(err instanceof Error ? err.message : 'No se pudo guardar el cambio.');
+        } finally {
+            setSavingStatus(null);
         }
     };
 
     const handleCancelSeries = async (appt: AgendaAppointment, scope: 'future' | 'all') => {
         setSavingStatus('cancelled');
-        const result = await cancelAppointmentSeries(appt.id, scope);
-        setSavingStatus(null);
-        setConfirmCancelId(null);
-        if (!result.ok || !appt.seriesId) return;
-        const anchorTime = new Date(appt.startsAt).getTime();
-        setAppointments((prev) => prev.map((a) => {
-            if (a.seriesId !== appt.seriesId) return a;
-            if (a.status !== 'confirmed' && a.status !== 'pending') return a;
-            if (scope === 'future' && new Date(a.startsAt).getTime() < anchorTime) return a;
-            return { ...a, status: 'cancelled' };
-        }));
-        setSelectedAppt((prev) => prev ? { ...prev, status: 'cancelled' } : null);
+        setStatusError(null);
+        try {
+            const result = await cancelAppointmentSeries(appt.id, scope);
+            setConfirmCancelId(null);
+            if (!result.ok || !appt.seriesId) {
+                if (!result.ok) setStatusError(result.error ?? 'No se pudo cancelar la serie.');
+                return;
+            }
+            const anchorTime = new Date(appt.startsAt).getTime();
+            setAppointments((prev) => prev.map((a) => {
+                if (a.seriesId !== appt.seriesId) return a;
+                if (a.status !== 'confirmed' && a.status !== 'pending') return a;
+                if (scope === 'future' && new Date(a.startsAt).getTime() < anchorTime) return a;
+                return { ...a, status: 'cancelled' };
+            }));
+            setSelectedAppt((prev) => prev ? { ...prev, status: 'cancelled' } : null);
+        } catch (err) {
+            setStatusError(err instanceof Error ? err.message : 'No se pudo cancelar la serie.');
+        } finally {
+            setSavingStatus(null);
+        }
     };
 
     const weekEnd = addDays(weekStart, 6);
-    const todayKey = localKey(new Date());
+    const todayKey = tzDateKey(new Date());
     const weekLabel = `${weekStart.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} — ${weekEnd.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
     const monthLabel = monthDate.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
     const dayLabel = dayDate.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -691,7 +751,7 @@ export default function AgendaPage() {
     const dayGroups = (groupByDay[dayKey] ?? []).sort((a, b) => (a.startsAt ?? '').localeCompare(b.startsAt ?? ''));
     const dayHours = Array.from({ length: DAY_VIEW_HOUR_END - DAY_VIEW_HOUR_START + 1 }, (_, i) => DAY_VIEW_HOUR_START + i);
     const isDayToday = dayKey === todayKey;
-    const nowMinutes = isDayToday ? (new Date().getHours() * 60 + new Date().getMinutes()) : null;
+    const nowMinutes = isDayToday ? tzMinutes(new Date()) : null;
     const appointmentTime = (iso: string) => profile ? formatTimeTz(iso, profile.timezone) : formatTime(iso);
     const selectedDateLabel = selectedAppt
         ? profile
@@ -942,8 +1002,7 @@ export default function AgendaPage() {
 
                         {/* Group sessions */}
                         {!loading && dayGroups.map((gs) => {
-                            const start = new Date(gs.startsAt!);
-                            const startMin = start.getHours() * 60 + start.getMinutes();
+                            const startMin = tzMinutes(gs.startsAt!);
                             const top = ((startMin - DAY_VIEW_HOUR_START * 60) / 60) * DAY_VIEW_HOUR_HEIGHT;
                             const height = Math.max((gs.durationMinutes / 60) * DAY_VIEW_HOUR_HEIGHT - 2, 24);
                             if (top < -DAY_VIEW_HOUR_HEIGHT || top > dayHours.length * DAY_VIEW_HOUR_HEIGHT) return null;
@@ -961,7 +1020,7 @@ export default function AgendaPage() {
                                     }}
                                 >
                                     <p className="text-xs font-semibold truncate flex items-center gap-1">
-                                        <IconUsersGroup size={11} /> {formatTime(gs.startsAt!)} · {gs.name}
+                                        <IconUsersGroup size={11} /> {appointmentTime(gs.startsAt!)} · {gs.name}
                                     </p>
                                     {height > 36 && (
                                         <p className="text-[10px] opacity-90 truncate">
@@ -974,8 +1033,7 @@ export default function AgendaPage() {
 
                         {/* Appointments */}
                         {!loading && dayAppts.map((appt) => {
-                            const start = new Date(appt.startsAt);
-                            const startMin = start.getHours() * 60 + start.getMinutes();
+                            const startMin = tzMinutes(appt.startsAt);
                             const top = ((startMin - DAY_VIEW_HOUR_START * 60) / 60) * DAY_VIEW_HOUR_HEIGHT;
                             const height = Math.max((appt.durationMinutes / 60) * DAY_VIEW_HOUR_HEIGHT - 2, 24);
                             if (top < -DAY_VIEW_HOUR_HEIGHT || top > dayHours.length * DAY_VIEW_HOUR_HEIGHT) return null;
@@ -995,7 +1053,7 @@ export default function AgendaPage() {
                                 >
                                     <p className="text-xs font-semibold truncate">
                                         <span className="agenda-calendar-time" data-status={appt.status}>
-                                            {formatTime(appt.startsAt)}
+                                            {appointmentTime(appt.startsAt)}
                                         </span>
                                         {' · '}{appt.clientName ?? `${vocab.client} sin nombre`}
                                     </p>
@@ -1084,8 +1142,8 @@ export default function AgendaPage() {
                                         </button>
                                         );
                                     })())}
-                                    {!loading && dayAppts.length > 3 && (
-                                        <p className="text-[10px] pl-1">+{dayAppts.length - 3} más</p>
+                                    {!loading && combined.length > 3 && (
+                                        <p className="text-[10px] pl-1">+{combined.length - 3} más</p>
                                     )}
                                 </div>
                             );

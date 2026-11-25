@@ -36,10 +36,15 @@ export function GoogleCalendarIntegrationCard({
 
     const loadStatus = async () => {
         setLoading(true);
-        const status = await fetchStatus();
-        setConnected(status?.connected ?? false);
-        setCalendarId(status?.calendarId ?? null);
-        setLoading(false);
+        try {
+            const status = await fetchStatus();
+            setConnected(status?.connected ?? false);
+            setCalendarId(status?.calendarId ?? null);
+        } catch {
+            setError('No pudimos consultar el estado de Google Calendar.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -64,14 +69,19 @@ export function GoogleCalendarIntegrationCard({
     const handleDisconnect = async () => {
         setDisconnecting(true);
         setError(null);
-        const result = await disconnect();
-        setDisconnecting(false);
-        if (!result.ok) {
+        try {
+            const result = await disconnect();
+            if (!result.ok) {
+                setError('No pudimos desconectar Google Calendar.');
+                return;
+            }
+            setConnected(false);
+            setCalendarId(null);
+        } catch {
             setError('No pudimos desconectar Google Calendar.');
-            return;
+        } finally {
+            setDisconnecting(false);
         }
-        setConnected(false);
-        setCalendarId(null);
     };
 
     return (

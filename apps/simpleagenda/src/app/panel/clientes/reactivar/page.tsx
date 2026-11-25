@@ -141,9 +141,14 @@ export default function ReactivarClientesPage() {
         return (
             <div className="container-app panel-page max-w-3xl py-6 lg:py-10">
                 <Link href="/panel/clientes" className="inline-flex items-center gap-2 text-sm font-medium text-(--fg-secondary) hover:text-(--fg)">
-                    <IconArrowLeft size={16} /> Volver a clientes
+                    <IconArrowLeft size={16} /> Volver
                 </Link>
-                <p role="alert" className="mt-5 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800">{loadError}</p>
+                <div role="alert" className="mt-5 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+                    <p>{loadError}</p>
+                    <button type="button" onClick={() => window.location.reload()} className="mt-2 font-semibold underline">
+                        Reintentar
+                    </button>
+                </div>
             </div>
         );
     }

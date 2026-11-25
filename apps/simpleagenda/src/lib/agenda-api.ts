@@ -534,18 +534,22 @@ export type ClientAttachment = {
 };
 
 export async function uploadClientFile(file: File, fileType: 'image' | 'document'): Promise<{ ok: boolean; url?: string; error?: string }> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('fileType', fileType);
-    formData.append('purpose', 'private_attachment');
-    const res = await fetch(`${API_BASE}/api/media/upload`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-    });
-    const data = await res.json() as { ok: boolean; result?: { publicUrl: string }; error?: string };
-    if (!data.ok) return { ok: false, error: data.error ?? 'Error al subir el archivo' };
-    return { ok: true, url: data.result?.publicUrl };
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('fileType', fileType);
+        formData.append('purpose', 'private_attachment');
+        const res = await fetch(`${API_BASE}/api/media/upload`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+        });
+        const data = await res.json().catch(() => null) as { ok?: boolean; result?: { publicUrl: string }; error?: string } | null;
+        if (!res.ok || !data?.ok) return { ok: false, error: data?.error ?? 'Error al subir el archivo' };
+        return { ok: true, url: data.result?.publicUrl };
+    } catch {
+        return { ok: false, error: 'Error de conexión al subir el archivo.' };
+    }
 }
 
 export async function fetchClientAttachments(clientId: string): Promise<ClientAttachment[]> {

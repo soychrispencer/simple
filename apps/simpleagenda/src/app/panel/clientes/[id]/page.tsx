@@ -157,26 +157,31 @@ export default function ClienteFichaPage() {
 
     useEffect(() => {
         const load = async () => {
-            const [data, atts, tags, packs, catalog, events] = await Promise.all([
-                fetchAgendaClient(id),
-                fetchClientAttachments(id),
-                fetchClientTags(),
-                fetchClientPacks({ clientId: id }),
-                fetchAgendaPacks(),
-                fetchAgendaClientTimeline(id),
-            ]);
-            if (!data) { router.push('/panel/clientes'); return; }
-            setClient(data.client);
-            setAppointments(data.appointments);
-            setNotes(data.client.internalNotes ?? '');
-            setAttachments(atts);
-            setAllTags(tags);
-            setAssignedTags(data.client.tags ?? []);
-            setClientPacks(packs);
-            setAvailablePacks(catalog.filter((p) => p.isActive));
-            setTimeline(events);
-            setTimelineLoading(false);
-            setLoading(false);
+            try {
+                const [data, atts, tags, packs, catalog, events] = await Promise.all([
+                    fetchAgendaClient(id),
+                    fetchClientAttachments(id),
+                    fetchClientTags(),
+                    fetchClientPacks({ clientId: id }),
+                    fetchAgendaPacks(),
+                    fetchAgendaClientTimeline(id),
+                ]);
+                if (!data) { router.push('/panel/clientes'); return; }
+                setClient(data.client);
+                setAppointments(data.appointments);
+                setNotes(data.client.internalNotes ?? '');
+                setAttachments(atts);
+                setAllTags(tags);
+                setAssignedTags(data.client.tags ?? []);
+                setClientPacks(packs);
+                setAvailablePacks(catalog.filter((p) => p.isActive));
+                setTimeline(events);
+            } catch {
+                router.push('/panel/clientes');
+            } finally {
+                setTimelineLoading(false);
+                setLoading(false);
+            }
         };
         void load();
     }, [id, router]);
@@ -189,19 +194,28 @@ export default function ClienteFichaPage() {
         setTagBusy(true);
         // Optimistic
         setAssignedTags((prev) => [...prev, { id: tag.id, name: tag.name, color: tag.color }]);
-        const res = await assignTagToClient(client.id, tag.id);
-        if (!res.ok) {
+        try {
+            const res = await assignTagToClient(client.id, tag.id);
+            if (!res.ok) {
+                setAssignedTags((prev) => prev.filter((t) => t.id !== tag.id));
+            }
+        } catch {
             setAssignedTags((prev) => prev.filter((t) => t.id !== tag.id));
+        } finally {
+            setTagBusy(false);
         }
-        setTagBusy(false);
     };
 
     const handleUnassignTag = async (tagId: string) => {
         if (!client) return;
         const previous = assignedTags;
         setAssignedTags((prev) => prev.filter((t) => t.id !== tagId));
-        const res = await unassignTagFromClient(client.id, tagId);
-        if (!res.ok) setAssignedTags(previous);
+        try {
+            const res = await unassignTagFromClient(client.id, tagId);
+            if (!res.ok) setAssignedTags(previous);
+        } catch {
+            setAssignedTags(previous);
+        }
     };
 
     const handleCreateAndAssign = async () => {
@@ -209,14 +223,19 @@ export default function ClienteFichaPage() {
         const name = tagInput.trim();
         if (!name) return;
         setTagBusy(true);
-        const res = await createClientTag({ name });
-        if (res.ok && res.tag) {
-            setAllTags((prev) => [...prev, res.tag!]);
-            setAssignedTags((prev) => [...prev, { id: res.tag!.id, name: res.tag!.name, color: res.tag!.color }]);
-            await assignTagToClient(client.id, res.tag.id);
-            setTagInput('');
+        try {
+            const res = await createClientTag({ name });
+            if (res.ok && res.tag) {
+                setAllTags((prev) => [...prev, res.tag!]);
+                setAssignedTags((prev) => [...prev, { id: res.tag!.id, name: res.tag!.name, color: res.tag!.color }]);
+                await assignTagToClient(client.id, res.tag.id);
+                setTagInput('');
+            }
+        } catch {
+            // Silently recover tagBusy state
+        } finally {
+            setTagBusy(false);
         }
-        setTagBusy(false);
     };
 
     const openPackModal = () => {
@@ -253,10 +272,17 @@ export default function ClienteFichaPage() {
     const handleSaveNotes = async () => {
         if (!client) return;
         setSaving(true);
-        await updateAgendaClient(client.id, { internalNotes: notes });
-        setSaving(false);
-        setNotesSaved(true);
-        setTimeout(() => setNotesSaved(false), 2000);
+        try {
+            const res = await updateAgendaClient(client.id, { internalNotes: notes });
+            if (res.ok) {
+                setNotesSaved(true);
+                setTimeout(() => setNotesSaved(false), 2000);
+            }
+        } catch {
+            // No marcar como guardado si falló
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,37 +299,45 @@ export default function ClienteFichaPage() {
         }
 
         setUploading(true);
-        const fileType: 'image' | 'document' = isImageKind ? 'image' : 'document';
-        const upload = await uploadClientFile(file, fileType);
-        if (!upload.ok || !upload.url) {
+        try {
+            const fileType: 'image' | 'document' = isImageKind ? 'image' : 'document';
+            const upload = await uploadClientFile(file, fileType);
+            if (!upload.ok || !upload.url) {
+                setUploadError(upload.error ?? 'Error al subir el archivo.');
+                return;
+            }
+            const result = await createClientAttachment(client.id, {
+                name: file.name,
+                url: upload.url,
+                mimeType: file.type || null,
+                sizeBytes: file.size,
+                kind: uploadKind,
+            });
+            if (!result.ok || !result.attachment) {
+                setUploadError(result.error ?? 'No se pudo guardar el archivo.');
+                return;
+            }
+            setAttachments((prev) => [result.attachment!, ...prev]);
+        } catch (err) {
+            setUploadError(err instanceof Error ? err.message : 'Error al subir el archivo.');
+        } finally {
             setUploading(false);
-            setUploadError(upload.error ?? 'Error al subir el archivo.');
             if (fileInputRef.current) fileInputRef.current.value = '';
-            return;
         }
-        const result = await createClientAttachment(client.id, {
-            name: file.name,
-            url: upload.url,
-            mimeType: file.type || null,
-            sizeBytes: file.size,
-            kind: uploadKind,
-        });
-        setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        if (!result.ok || !result.attachment) {
-            setUploadError(result.error ?? 'No se pudo guardar el archivo.');
-            return;
-        }
-        setAttachments((prev) => [result.attachment!, ...prev]);
     };
 
     const handleDeleteAttachment = async (attachmentId: string) => {
         if (!client) return;
         setDeletingAttId(attachmentId);
-        const result = await deleteClientAttachment(client.id, attachmentId);
-        setDeletingAttId(null);
-        if (result.ok) {
-            setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+        try {
+            const result = await deleteClientAttachment(client.id, attachmentId);
+            if (result.ok) {
+                setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+            }
+        } catch (err) {
+            setUploadError(err instanceof Error ? err.message : 'No se pudo eliminar el archivo.');
+        } finally {
+            setDeletingAttId(null);
         }
     };
 
@@ -311,12 +345,17 @@ export default function ClienteFichaPage() {
         if (!client) return;
         setDeleting(true);
         setDeleteError('');
-        const result = await deleteAgendaClient(client.id);
-        setDeleting(false);
-        if (result.ok) {
-            router.push('/panel/clientes');
-        } else {
-            setDeleteError(result.error ?? `No se pudo eliminar el ${vocab.client}.`);
+        try {
+            const result = await deleteAgendaClient(client.id);
+            if (result.ok) {
+                router.push('/panel/clientes');
+            } else {
+                setDeleteError(result.error ?? `No se pudo eliminar el ${vocab.client}.`);
+            }
+        } catch (err) {
+            setDeleteError(err instanceof Error ? err.message : `No se pudo eliminar el ${vocab.client}.`);
+        } finally {
+            setDeleting(false);
         }
     };
 

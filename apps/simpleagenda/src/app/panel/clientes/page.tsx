@@ -105,7 +105,9 @@ export default function ClientesPage() {
             result = result.filter((c) =>
                 `${c.firstName} ${c.lastName ?? ''}`.toLowerCase().includes(q) ||
                 (c.email ?? '').toLowerCase().includes(q) ||
-                (c.phone ?? '').includes(q)
+                (c.phone ?? '').includes(q) ||
+                (c.whatsapp ?? '').includes(q) ||
+                (c.rut ?? '').toLowerCase().includes(q)
             );
         }
         setFiltered(result);
@@ -145,55 +147,70 @@ export default function ClientesPage() {
     const handleEditSave = async () => {
         if (!editClient || !editForm.firstName.trim()) { setEditError('El nombre es requerido.'); return; }
         setEditSaving(true); setEditError('');
-        const result = await updateAgendaClient(editClient.id, {
-            firstName: editForm.firstName.trim(), lastName: editForm.lastName || null,
-            email: editForm.email || null, phone: editForm.phone || null,
-            whatsapp: editForm.whatsapp || null, rut: editForm.rut || null,
-            dateOfBirth: editForm.dateOfBirth || null, gender: editForm.gender || null,
-            occupation: editForm.occupation || null, city: editForm.city || null,
-            referredBy: editForm.referredBy || null, internalNotes: editForm.internalNotes || null,
-        });
-        setEditSaving(false);
-        if (!result.ok) { setEditError(result.error ?? 'Error al guardar.'); return; }
-        if (result.client) {
-            setClients((prev) => prev.map((c) => c.id === result.client!.id ? result.client! : c));
+        try {
+            const result = await updateAgendaClient(editClient.id, {
+                firstName: editForm.firstName.trim(), lastName: editForm.lastName || null,
+                email: editForm.email || null, phone: editForm.phone || null,
+                whatsapp: editForm.whatsapp || null, rut: editForm.rut || null,
+                dateOfBirth: editForm.dateOfBirth || null, gender: editForm.gender || null,
+                occupation: editForm.occupation || null, city: editForm.city || null,
+                referredBy: editForm.referredBy || null, internalNotes: editForm.internalNotes || null,
+            });
+            if (!result.ok) { setEditError(result.error ?? 'Error al guardar.'); return; }
+            if (result.client) {
+                setClients((prev) => prev.map((c) => c.id === result.client!.id ? { ...c, ...result.client! } : c));
+            }
+            setEditClient(null);
+        } catch (err) {
+            setEditError(err instanceof Error ? err.message : 'Error al guardar.');
+        } finally {
+            setEditSaving(false);
         }
-        setEditClient(null);
     };
 
     const handleDelete = async () => {
         if (!deleteClient) return;
         setDeleting(true); setDeleteError('');
-        const result = await deleteAgendaClient(deleteClient.id);
-        setDeleting(false);
-        if (!result.ok) { setDeleteError(result.error ?? 'Error al eliminar.'); return; }
-        setClients((prev) => prev.filter((c) => c.id !== deleteClient.id));
-        setDeleteClient(null);
+        try {
+            const result = await deleteAgendaClient(deleteClient.id);
+            if (!result.ok) { setDeleteError(result.error ?? 'Error al eliminar.'); return; }
+            setClients((prev) => prev.filter((c) => c.id !== deleteClient.id));
+            setDeleteClient(null);
+        } catch (err) {
+            setDeleteError(err instanceof Error ? err.message : 'Error al eliminar.');
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handleSave = async () => {
         if (!form.firstName.trim()) { setError('El nombre es requerido.'); return; }
         setSaving(true);
         setError('');
-        const result = await createAgendaClient({
-            firstName: form.firstName.trim(),
-            lastName: form.lastName || null,
-            email: form.email || null,
-            phone: form.phone || null,
-            whatsapp: form.whatsapp || null,
-            rut: form.rut || null,
-            dateOfBirth: form.dateOfBirth || null,
-            gender: form.gender || null,
-            occupation: form.occupation || null,
-            city: form.city || null,
-            referredBy: form.referredBy || null,
-            internalNotes: form.internalNotes || null,
-        });
-        setSaving(false);
-        if (!result.ok) { setError(result.error ?? 'Error al guardar.'); return; }
-        setShowForm(false);
-        setForm(emptyForm());
-        await load();
+        try {
+            const result = await createAgendaClient({
+                firstName: form.firstName.trim(),
+                lastName: form.lastName || null,
+                email: form.email || null,
+                phone: form.phone || null,
+                whatsapp: form.whatsapp || null,
+                rut: form.rut || null,
+                dateOfBirth: form.dateOfBirth || null,
+                gender: form.gender || null,
+                occupation: form.occupation || null,
+                city: form.city || null,
+                referredBy: form.referredBy || null,
+                internalNotes: form.internalNotes || null,
+            });
+            if (!result.ok) { setError(result.error ?? 'Error al guardar.'); return; }
+            setShowForm(false);
+            setForm(emptyForm());
+            await load();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Error al guardar.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const fullName = (c: AgendaClient) => `${c.firstName} ${c.lastName ?? ''}`.trim();
@@ -227,7 +244,7 @@ export default function ClientesPage() {
                         className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-(--accent-ink) hover:underline"
                     >
                         <IconTag size={13} />
-                        Reactivar clientes · Pro+
+                        Reactivar {vocab.clients} · Pro+
                     </Link>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -351,6 +368,15 @@ export default function ClientesPage() {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <Field label="WhatsApp">
+                                    <input type="tel" value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} placeholder="+56 9 1234 5678" className="field-input" />
+                                </Field>
+                                <Field label="Ocupación">
+                                    <input type="text" value={form.occupation} onChange={(e) => set('occupation', e.target.value)} placeholder="Ej: Ingeniero" className="field-input" />
+                                </Field>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="RUT">
                                     <input type="text" value={form.rut} onChange={(e) => set('rut', e.target.value)} placeholder="12.345.678-9" className="field-input" />
                                 </Field>
@@ -399,9 +425,13 @@ export default function ClientesPage() {
                     <p>No se pudieron cargar los clientes: {loadError}</p>
                     <button type="button" className="mt-2 font-semibold underline" onClick={() => void load()}>Reintentar</button>
                 </div>
-            ) : loading ? null : filtered.length === 0 ? (
+            ) : loading ? (
+                <div className="flex items-center justify-center py-16 text-sm text-(--fg-muted)" role="status">
+                    Cargando {vocab.clients}…
+                </div>
+            ) : filtered.length === 0 ? (
                 <div className="rounded-2xl border flex flex-col items-center justify-center py-20 text-center agenda-panel-surface">
-                    {!query ? (
+                    {!query && !selectedTagId ? (
                         <CalendarMascot className="mb-3 h-auto w-[76px]" />
                     ) : (
                         <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 agenda-panel-accent-soft">
@@ -409,10 +439,10 @@ export default function ClientesPage() {
                         </div>
                     )}
                     <p className="text-sm font-medium mb-1 agenda-panel-fg">
-                        {query ? 'Sin resultados' : vocab.noClients}
+                        {query || selectedTagId ? 'Sin resultados' : vocab.noClients}
                     </p>
                     <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                        {query ? `No encontramos ${vocab.clients} con "${query}"` : vocab.addFirstClient}
+                        {query ? `No encontramos ${vocab.clients} con "${query}"` : selectedTagId ? `No hay ${vocab.clients} con esa etiqueta.` : vocab.addFirstClient}
                     </p>
                 </div>
             ) : (

@@ -605,7 +605,7 @@ export function MarketplaceCampaignBuilder({
 
     const createCampaign = async () => {
         if (!paidPromotionsEnabled && !isEditing) {
-            setError('La publicidad pagada está pausada temporalmente en SimplePropiedades.');
+            setError(`La publicidad pagada está pausada temporalmente en ${MARKETPLACE_BRAND[vertical]}.`);
             return;
         }
         const step0Issue = validateStep(0);
@@ -703,7 +703,7 @@ export function MarketplaceCampaignBuilder({
 
     const startCampaignCheckout = async (campaignId: string) => {
         if (!paidPromotionsEnabled) {
-            setError('La publicidad pagada está pausada temporalmente en SimplePropiedades.');
+            setError(`La publicidad pagada está pausada temporalmente en ${MARKETPLACE_BRAND[vertical]}.`);
             return;
         }
         setError('');
@@ -861,7 +861,7 @@ export function MarketplaceCampaignBuilder({
             ) : null}
             {!paidPromotionsEnabled ? (
                 <PanelNotice tone="neutral" className="mb-6">
-                    La publicidad pagada está pausada mientras ampliamos las publicaciones y visitas de SimplePropiedades. Publicar sigue siendo gratis.
+                    La publicidad pagada está pausada mientras ampliamos las publicaciones y visitas de {MARKETPLACE_BRAND[vertical]}. Publicar sigue siendo gratis.
                 </PanelNotice>
             ) : null}
             {isEditing && editingCampaign ? (

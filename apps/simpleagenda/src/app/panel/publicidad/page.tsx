@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { Suspense, useCallback } from 'react';
 import BoostManager from '@/components/panel/boost-manager';
 import { fetchAgendaProfile } from '@/lib/agenda-api';
 import {
@@ -37,33 +37,35 @@ export default function PublicidadPage() {
     }, []);
 
     return (
-        <MarketplacePublicidadShell
-            vertical={VERTICAL}
-            header={
-                <PanelPageHeader
-                    title={config.copy.pageTitle}
-                    description={config.copy.pageDescription}
-                />
-            }
-            boostContent={<BoostManager />}
-            campaignsContent={
-                <MarketplaceCampaignBuilder
-                    vertical={VERTICAL}
-                    fetchListingOptions={fetchListingOptions}
-                    fetchProfileSlug={fetchProfileSlug}
-                    startAdvertisingCheckout={startAdvertisingCheckout}
-                    confirmCheckout={confirmCheckout}
-                    advertising={{
-                        AD_UPDATE_EVENT,
-                        fetchMyAdCampaigns,
-                        createAdCampaign,
-                        updateAdCampaignContent,
-                        updateAdCampaignLifecycle,
-                        deleteAdCampaign,
-                        emitCampaignsUpdated,
-                    }}
-                />
-            }
-        />
+        <Suspense fallback={null}>
+            <MarketplacePublicidadShell
+                vertical={VERTICAL}
+                header={
+                    <PanelPageHeader
+                        title={config.copy.pageTitle}
+                        description={config.copy.pageDescription}
+                    />
+                }
+                boostContent={<BoostManager />}
+                campaignsContent={
+                    <MarketplaceCampaignBuilder
+                        vertical={VERTICAL}
+                        fetchListingOptions={fetchListingOptions}
+                        fetchProfileSlug={fetchProfileSlug}
+                        startAdvertisingCheckout={startAdvertisingCheckout}
+                        confirmCheckout={confirmCheckout}
+                        advertising={{
+                            AD_UPDATE_EVENT,
+                            fetchMyAdCampaigns,
+                            createAdCampaign,
+                            updateAdCampaignContent,
+                            updateAdCampaignLifecycle,
+                            deleteAdCampaign,
+                            emitCampaignsUpdated,
+                        }}
+                    />
+                }
+            />
+        </Suspense>
     );
 }

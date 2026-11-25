@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import Link from 'next/link';
 import {
     IconCreditCard,
     IconPlus,
@@ -234,9 +235,15 @@ export default function PagosPage() {
 
     const handleMarkPaid = async (payment: AgendaPayment) => {
         setMarkingPaid(payment.id);
-        await patchAgendaPayment(payment.id, { status: 'paid' });
-        setMarkingPaid(null);
-        await load();
+        setLoadError('');
+        try {
+            await patchAgendaPayment(payment.id, { status: 'paid' });
+            await load();
+        } catch (err) {
+            setLoadError(err instanceof Error ? err.message : 'No se pudo marcar el cobro como pagado.');
+        } finally {
+            setMarkingPaid(null);
+        }
     };
 
     const handleOpenEdit = (payment: AgendaPayment) => {
@@ -248,16 +255,20 @@ export default function PagosPage() {
 
     const handleSaveEdit = async () => {
         if (!editingPayment) return;
-        if (!editAmount || Number(editAmount) <= 0) return;
+        const parsedAmount = Number(editAmount);
+        if (!editAmount || !Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
         setEditSaving(true);
+        setLoadError('');
         try {
             await patchAgendaPayment(editingPayment.id, {
                 amount: editAmount,
                 method: editMethod,
-                notes: editNotes || undefined,
+                notes: editNotes.trim() || null,
             });
             setEditingPayment(null);
             await load();
+        } catch (err) {
+            setLoadError(err instanceof Error ? err.message : 'No se pudo actualizar el cobro.');
         } finally {
             setEditSaving(false);
         }
@@ -265,10 +276,13 @@ export default function PagosPage() {
 
     const handleDelete = async (id: string) => {
         setDeletingId(id);
+        setLoadError('');
         try {
             await deleteAgendaPayment(id);
             setConfirmDeleteId(null);
             await load();
+        } catch (err) {
+            setLoadError(err instanceof Error ? err.message : 'No se pudo eliminar el cobro.');
         } finally {
             setDeletingId(null);
         }
@@ -276,7 +290,8 @@ export default function PagosPage() {
 
     const handleCreate = async () => {
         setCreateError('');
-        if (!form.amount || Number(form.amount) <= 0) {
+        const parsedAmount = Number(form.amount);
+        if (!form.amount || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
             setCreateError('Ingresa un monto válido.');
             return;
         }
@@ -329,9 +344,15 @@ export default function PagosPage() {
     };
 
     const handleExportCsv = () => {
+        const formatCsvDate = (isoOrDate: string | Date) => {
+            const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+            return Number.isNaN(d.getTime())
+                ? String(isoOrDate).slice(0, 10)
+                : new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+        };
         const header = ['Fecha', 'Cliente', 'Monto', 'Moneda', 'Método', 'Estado', 'Notas'];
         const rows = payments.map((p) => [
-            (p.paidAt ?? p.createdAt).slice(0, 10),
+            formatCsvDate(p.paidAt ?? p.createdAt),
             clientName(p.clientId) ?? '',
             p.amount,
             p.currency || 'CLP',
@@ -343,7 +364,7 @@ export default function PagosPage() {
         const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        const today = new Date().toISOString().slice(0, 10);
+        const today = formatCsvDate(new Date());
         link.href = url;
         link.download = `finanzas-${today}.csv`;
         document.body.appendChild(link);
@@ -357,7 +378,7 @@ export default function PagosPage() {
             <div className="container-app panel-page py-4 lg:py-8">
                 <div className="flex items-start justify-between gap-3 mb-5 lg:mb-6 flex-wrap">
                     <div className="min-w-0">
-                        <h1 className="text-2xl font-bold agenda-pagos-title">Cobros</h1>
+                        <h1 className="text-2xl font-bold agenda-pagos-title">Finanzas</h1>
                         <p className="text-sm mt-0.5 agenda-pagos-muted">
                             Registra y controla los pagos de tus sesiones.
                         </p>
@@ -367,13 +388,13 @@ export default function PagosPage() {
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
                         <IconLock size={22} />
                     </div>
-                    <h2 className="text-xl font-bold agenda-pagos-title mb-2">Cobros es una función Pro</h2>
+                    <h2 className="text-xl font-bold agenda-pagos-title mb-2">Finanzas es una función Pro</h2>
                     <p className="text-sm agenda-pagos-muted max-w-xl mb-5">
                         Activa el plan Profesional para registrar pagos, controlar pendientes, exportar cobros y conectar medios de pago.
                     </p>
-                    <a href="/panel/mi-negocio/plan" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold agenda-pagos-btn-accent">
+                    <Link href="/panel/mi-negocio/plan" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold agenda-pagos-btn-accent">
                         Ver planes
-                    </a>
+                    </Link>
                 </div>
             </div>
         );
@@ -576,7 +597,7 @@ export default function PagosPage() {
                                     </p>
                                     <span
                                         className="px-2 py-0.5 rounded-full text-xs font-medium"
-                                        style={{ background: `color-mix(in srgb, ${STATUS_COLORS[payment.status]} 12%, transparent)`, color: STATUS_COLORS[payment.status] ?? 'var(--fg-muted)' }}
+                                        style={{ background: `color-mix(in srgb, ${STATUS_COLORS[payment.status] ?? 'var(--border)'} 12%, transparent)`, color: STATUS_COLORS[payment.status] ?? 'var(--fg-muted)' }}
                                     >
                                         {STATUS_LABELS[payment.status] ?? payment.status}
                                     </span>
@@ -663,7 +684,7 @@ export default function PagosPage() {
                                         type="button"
                                         aria-label="Eliminar cobro"
                                         onClick={() => setConfirmDeleteId(payment.id)}
-                                        className="hidden sm:flex w-7 h-7 rounded-lg items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40"
+                                        className="flex w-7 h-7 rounded-lg items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40"
                                         style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                         title="Eliminar cobro"
                                     >

@@ -111,7 +111,7 @@ export function PanelMessagesInbox({ vertical, copy, className, headerActions }:
 
     const searchField = (
         <PanelSearchField
-            className="hidden w-64 sm:block"
+            className="w-full sm:w-64"
             inputClassName="text-xs"
             placeholder="Buscar conversación"
             value={query}
@@ -202,16 +202,13 @@ export function PanelMessagesInbox({ vertical, copy, className, headerActions }:
             if (!active) return;
             setSelectedThread(detail?.item ?? null);
             setEntries(detail?.entries ?? []);
-            if (detail?.item?.folder && detail.item.folder !== folder) {
-                setFolder(detail.item.folder);
-            }
             setDetailLoading(false);
         };
         void run();
         return () => {
             active = false;
         };
-    }, [folder, selectedId, vertical]);
+    }, [selectedId, vertical]);
 
     async function handleSend(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -409,10 +406,12 @@ export function PanelMessagesInbox({ vertical, copy, className, headerActions }:
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap justify-end gap-2">
-                                        <PanelStatusBadge
-                                            label={selectedThread.viewerRole === 'seller' ? 'Inbox vendedor' : 'Inbox comprador'}
-                                            tone="neutral"
-                                        />
+                                        {vertical !== 'agenda' ? (
+                                            <PanelStatusBadge
+                                                label={selectedThread.viewerRole === 'seller' ? 'Inbox vendedor' : 'Inbox comprador'}
+                                                tone="neutral"
+                                            />
+                                        ) : null}
                                         <PanelButton
                                             type="button"
                                             variant="secondary"

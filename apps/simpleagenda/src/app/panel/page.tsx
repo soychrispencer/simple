@@ -162,7 +162,8 @@ export default function PanelHomePage() {
     }, [load]);
 
     const greeting = profile?.displayName ? `Hola, ${profile.displayName.split(' ')[0]}` : null;
-    const dateLabel = fmtTodayLabel(fmt.timezone);
+    const activeTimezone = profile?.timezone || fmt.timezone;
+    const dateLabel = fmtTodayLabel(activeTimezone);
     const hasProAccess = profile ? hasAgendaFullAccess(profile) : false;
     const monthlyBookingsUsed = profile?.monthlyBookingsUsed ?? 0;
     const monthlyBookingsLimit = profile?.monthlyBookingsLimit ?? AGENDA_PRICING.free.monthlyBookings;
@@ -257,9 +258,13 @@ export default function PanelHomePage() {
                                             className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
                                         >
                                             <span className="break-words font-semibold agenda-home-fg">{appointment.clientName || 'Cita'}</span>
-                                            <span className="agenda-home-muted">{fmt.dateShort(appointment.startsAt)} · {fmt.time(appointment.startsAt)}</span>
+                                            <span className="agenda-home-muted">
+                                                {new Intl.DateTimeFormat('es-CL', { timeZone: activeTimezone, day: 'numeric', month: 'short' }).format(new Date(appointment.startsAt))}
+                                                {' · '}
+                                                {new Intl.DateTimeFormat('es-CL', { timeZone: activeTimezone, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(appointment.startsAt))}
+                                            </span>
                                             <span className="rounded-full bg-(--bg-subtle) px-2.5 py-1 text-xs font-semibold agenda-home-fg">
-                                                {appointment.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}
+                                                {appointment.status === 'confirmed' ? 'Confirmada' : appointment.status === 'scheduled' ? 'Agendada' : 'Pendiente'}
                                             </span>
                                         </Link>
                                     </li>

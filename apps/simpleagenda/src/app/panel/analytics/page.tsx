@@ -89,19 +89,24 @@ export default function AnalyticsPage() {
 
     const load = async () => {
         setRefreshing(true);
-        const [analytics, npsRows] = await Promise.all([
-            fetchAgendaAnalytics(),
-            fetchNpsResponses(),
-        ]);
-        setData(analytics);
-        setNps(npsRows);
-        setLoading(false);
-        setRefreshing(false);
+        try {
+            const [analytics, npsRows] = await Promise.all([
+                fetchAgendaAnalytics(),
+                fetchNpsResponses(),
+            ]);
+            setData(analytics);
+            setNps(npsRows);
+        } catch {
+            // Mantiene el estado anterior si falla el refresco
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
     };
 
     useEffect(() => { void load(); }, []);
 
-    const monthly = data?.monthly ?? [];
+    const monthly = useMemo(() => (data?.monthly ?? []).slice(-MAX_BARS), [data?.monthly]);
     const maxRevenue = useMemo(() => {
         return monthly.reduce((m, r) => Math.max(m, r.revenue), 0);
     }, [monthly]);
@@ -155,11 +160,12 @@ export default function AnalyticsPage() {
                     </div>
                     <button
                         type="button"
+                        disabled={refreshing}
                         onClick={() => void load()}
-                        className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm"
+                        className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm disabled:opacity-50"
                         style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
                     >
-                        <IconRefresh size={14} /> Reintentar
+                        <IconRefresh size={14} className={refreshing ? 'animate-spin' : ''} /> Reintentar
                     </button>
                 </div>
             </div>
@@ -266,31 +272,33 @@ export default function AnalyticsPage() {
                         </div>
                     ) : (
                         <ul className="space-y-2">
-                            {byService.map((s) => {
-                                const max = byService[0]?.count ?? 1;
-                                const pct = max > 0 ? (s.count / max) * 100 : 0;
-                                return (
-                                    <li key={s.serviceId ?? s.serviceName} className="flex items-center gap-3">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between gap-2 mb-1">
-                                                <span className="text-sm truncate" style={{ color: 'var(--fg)' }}>{s.serviceName}</span>
-                                                <span className="text-xs shrink-0" style={{ color: 'var(--fg-muted)' }}>
-                                                    {s.count} · {fmtCLP(s.revenue)}
-                                                </span>
-                                            </div>
-                                            <div
-                                                className="h-1.5 rounded-full overflow-hidden"
-                                                style={{ background: 'var(--bg-subtle)' }}
-                                            >
+                            {(() => {
+                                const max = Math.max(...byService.map((item) => item.count), 1);
+                                return byService.map((s) => {
+                                    const pct = max > 0 ? Math.min(100, (s.count / max) * 100) : 0;
+                                    return (
+                                        <li key={s.serviceId ?? s.serviceName} className="flex items-center gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between gap-2 mb-1">
+                                                    <span className="text-sm truncate" style={{ color: 'var(--fg)' }}>{s.serviceName}</span>
+                                                    <span className="text-xs shrink-0" style={{ color: 'var(--fg-muted)' }}>
+                                                        {s.count} · {fmtCLP(s.revenue)}
+                                                    </span>
+                                                </div>
                                                 <div
-                                                    className="h-full"
-                                                    style={{ width: `${pct}%`, background: 'var(--signal)' }}
-                                                />
+                                                    className="h-1.5 rounded-full overflow-hidden"
+                                                    style={{ background: 'var(--bg-subtle)' }}
+                                                >
+                                                    <div
+                                                        className="h-full"
+                                                        style={{ width: `${pct}%`, background: 'var(--signal)' }}
+                                                    />
+                                                </div>
                                             </div>
-                                        </div>
-                                    </li>
-                                );
-                            })}
+                                        </li>
+                                    );
+                                });
+                            })()}
                         </ul>
                     )}
                 </SectionCard>
