@@ -3473,6 +3473,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getCurrentAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile)) return c.json({ ok: false, error: proGateError(profile) }, 403);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const label = typeof body.label === 'string' ? body.label.trim() : '';
         if (!label) return c.json({ ok: false, error: 'Falta el nombre de la promoción.' }, 400);
@@ -3521,6 +3522,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getCurrentAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile)) return c.json({ ok: false, error: proGateError(profile) }, 403);
         const id = c.req.param('id') ?? '';
         const existing = await db.query.agendaPromotions.findFirst({ where: and(eq(agendaPromotions.id, id), eq(agendaPromotions.professionalId, profile.id)) });
         if (!existing) return c.json({ ok: false, error: 'Promoción no encontrada' }, 404);
@@ -3579,6 +3581,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getCurrentAgendaProfile(user.id);
         if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile)) return c.json({ ok: false, error: proGateError(profile) }, 403);
         const id = c.req.param('id') ?? '';
         const result = await withCurrentAgendaProfileWrite(user.id, profile, async (tx, current) => {
             const [deleted] = await tx.delete(agendaPromotions).where(and(

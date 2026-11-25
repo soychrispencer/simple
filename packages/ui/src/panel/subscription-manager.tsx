@@ -134,6 +134,7 @@ export function SubscriptionManager({
     fetchCompanyBillingContext,
 }: SubscriptionManagerProps) {
     const searchParams = useSearchParams();
+    const requestedPlan = searchParams.get('plan');
     const [loading, setLoading] = useState(true);
     const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
     const [cancelling, setCancelling] = useState(false);
@@ -627,7 +628,11 @@ export function SubscriptionManager({
                         {proPlan ? (
                             <article
                             className={`flex h-full flex-col rounded-card border p-5 sm:p-6 ${
-                                        currentPlanId === 'pro' ? 'border-(--accent-border) bg-(--accent-subtle)' : 'border-(--border) bg-(--surface)'
+                                        currentPlanId === 'pro'
+                                            ? 'border-(--accent-border) bg-(--accent-subtle)'
+                                            : requestedPlan === 'pro' && currentPlanId === 'free'
+                                              ? 'border-(--accent) bg-(--surface) ring-2 ring-(--accent)/25'
+                                              : 'border-(--border) bg-(--surface)'
                             }`}
                         >
                             <div className="flex items-start justify-between gap-3">
@@ -640,6 +645,8 @@ export function SubscriptionManager({
                                     <PanelStatusBadge label="Activo" tone="success" />
                                 ) : currentPlanId === 'enterprise' ? (
                                     <PanelStatusBadge label="Incluido en Enterprise" tone="neutral" size="sm" />
+                                ) : requestedPlan === 'pro' && currentPlanId === 'free' ? (
+                                    <PanelStatusBadge label="Elegido" tone="info" size="sm" />
                                 ) : (
                                     <PanelStatusBadge label="Recomendado" tone="info" size="sm" />
                                 )}
@@ -729,7 +736,11 @@ export function SubscriptionManager({
                         {proPlusPlan ? (
                             <article
                                 className={`flex h-full flex-col rounded-card border p-5 sm:p-6 ${
-                                    currentPlanId === 'pro_plus' ? 'border-(--accent-border) bg-(--accent-subtle)' : 'border-(--border) bg-(--surface)'
+                                    currentPlanId === 'pro_plus'
+                                        ? 'border-(--accent-border) bg-(--accent-subtle)'
+                                        : requestedPlan === 'pro_plus' && currentPlanId === 'free'
+                                          ? 'border-(--accent) bg-(--surface) ring-2 ring-(--accent)/25'
+                                          : 'border-(--border) bg-(--surface)'
                                 }`}
                             >
                                 <div className="flex items-start justify-between gap-3">
@@ -740,6 +751,8 @@ export function SubscriptionManager({
                                     </div>
                                     {currentPlanId === 'pro_plus' ? (
                                         <PanelStatusBadge label="Activo" tone="success" />
+                                    ) : requestedPlan === 'pro_plus' && currentPlanId === 'free' ? (
+                                        <PanelStatusBadge label="Elegido" tone="info" size="sm" />
                                     ) : (
                                         <PanelStatusBadge label="Más completo" tone="info" size="sm" />
                                     )}

@@ -70,9 +70,7 @@ export default function HomePage() {
                         <p className="agenda-eyebrow mb-3">Planes</p>
                         <h2 className="agenda-heading">Parte con tu enlace. Crece con tu marca.</h2>
                         <p className="agenda-section-description">
-                            {showPlans
-                                ? `Empieza en Gratis. Activa ${AGENDA_PRICING.trialDays} días de Pro cuando quieras o contrata un plan cuando lo necesites.`
-                                : 'Empieza gratis y organiza tu negocio sin tarjeta durante el lanzamiento.'}
+                            {`Empieza en Gratis. Activa ${AGENDA_PRICING.trialDays} días de Pro cuando quieras o contrata un plan cuando lo necesites.`}
                         </p>
                         <AgendaPricingPlans />
                         <details id="plan-comparison" className="agenda-panel group mt-5 min-w-0 p-4 sm:mt-4 sm:p-4">

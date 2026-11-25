@@ -57,7 +57,7 @@ export function AgendaHomepageExperience() {
                                 Las reservas de tu página aparecen en la agenda con su horario, servicio y estado. Revisa los datos y marca cada atención como completada al terminar.
                             </p>
                             <p className="agenda-function-note">
-                                La confirmación automática viene activada por defecto. Puedes ajustar el flujo desde Configuraciones.
+                                La confirmación automática viene activada por defecto. Puedes ajustar el flujo desde Agenda y reservas.
                             </p>
                         </div>
 
