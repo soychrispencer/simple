@@ -1005,7 +1005,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         disabled={submitting}
                                         className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"
                                     >
-                                        {submitting ? 'Registrando…' : profile.requiresAdvancePayment || bookingTermsText || selectedService?.preconsultFields?.length ? 'Continuar' : 'Confirmar cita'}
+                                        {submitting ? 'Registrando…' : needsAdvancePaymentStep || bookingTermsText || selectedService?.preconsultFields?.length ? 'Continuar' : 'Confirmar cita'}
                                     </button>
                                 </div>
                             </div>

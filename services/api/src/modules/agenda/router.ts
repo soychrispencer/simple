@@ -326,7 +326,7 @@ function mapPublicAgendaProfile(
         paymentMethods: {
             requiresAdvancePayment: profile.requiresAdvancePayment,
             acceptsMp: !!profile.acceptsMp,
-            acceptsTransfer: !!profile.acceptsTransfer,
+            acceptsTransfer: Boolean(profile.acceptsTransfer && profile.bankTransferData),
             acceptsPaymentLink: !!profile.acceptsPaymentLink,
             mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
             paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
@@ -5460,7 +5460,8 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const appt = await db.query.agendaAppointments.findFirst({ where: eq(agendaAppointments.id, id) });
         if (!appt || appt.status === 'cancelled') return c.json({ ok: false, error: 'Cita no encontrada o ya cancelada.' }, 404);
-        if (appt.status === 'completed') return c.json({ ok: false, error: 'No se puede cancelar una cita completada.' }, 400);
+        if (appt.status === 'completed' || appt.status === 'no_show') return c.json({ ok: false, error: 'No se puede cancelar una cita ya finalizada.' }, 400);
+        if (appt.startsAt.getTime() <= Date.now()) return c.json({ ok: false, error: 'No puedes cancelar una cita cuya hora ya pasó.' }, 400);
         const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: eq(agendaProfessionalProfiles.id, appt.professionalId) });
         if (profile?.cancellationHours) { const hoursUntil = (appt.startsAt.getTime() - Date.now()) / (1000 * 60 * 60); if (hoursUntil < profile.cancellationHours) return c.json({ ok: false, error: `La cancelación debe hacerse con al menos ${profile.cancellationHours} horas de anticipación.` }, 400); }
         const [updated] = await db.update(agendaAppointments)
@@ -5593,10 +5594,18 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 : [];
             const preconsultResponses = normalizePreconsultResponses(body.preconsultResponses, preconsultFields);
             if (preconsultResponses) {
+                const rawMap = body.preconsultResponses && typeof body.preconsultResponses === 'object'
+                    ? (body.preconsultResponses as Record<string, unknown>)
+                    : {};
                 for (let i = 0; i < preconsultFields.length; i++) {
                     const field = preconsultFields[i];
-                    if (field.required && !preconsultResponses[i].value.trim()) {
-                        return { ok: false as const, status: 400 as const, error: `Falta responder: ${field.label}` };
+                    if (field.required) {
+                        const missing = field.type === 'checkbox'
+                            ? rawMap[field.id] !== true
+                            : !preconsultResponses[i].value.trim();
+                        if (missing) {
+                            return { ok: false as const, status: 400 as const, error: `Falta responder: ${field.label}` };
+                        }
                     }
                 }
             }
@@ -5612,6 +5621,9 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 if (!promotion) return { ok: false as const, status: 400 as const, error: 'Cupón no válido.' };
                 const result = applyPromotionToPrice(promotion, price ? Number(price) : 0, requestedServiceId);
                 if (!result.ok) return { ok: false as const, status: 400 as const, error: result.message };
+                if (result.promotion.maxUses !== null && result.promotion.usesCount + publicTotalOccurrences > result.promotion.maxUses) {
+                    return { ok: false as const, status: 400 as const, error: 'El cupón no tiene suficientes usos disponibles para todas las sesiones.' };
+                }
                 appliedPromotion = result.promotion;
                 originalPriceForPromo = result.originalPrice;
                 discountAmount = result.discountAmount;

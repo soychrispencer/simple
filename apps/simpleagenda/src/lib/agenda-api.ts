@@ -964,7 +964,7 @@ export async function bookAppointment(slug: string, body: {
     promotionCode?: string;
     paymentMethod?: 'mp' | 'link' | 'transfer' | 'manual';
 }): Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null; location?: string | null }; appointments?: Array<{ id: string; startsAt: string }>; seriesId?: string | null; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }> {
-    return publicFetchJson(`${API_BASE}/api/public/agenda/${slug}/book`, {
+    return publicFetchJson(`${API_BASE}/api/public/agenda/${encodeURIComponent(slug)}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1227,16 +1227,11 @@ export async function validatePublicPromo(slug: string, params: {
     serviceId?: string | null;
     basePrice?: number | null;
 }): Promise<PromoValidationResult> {
-    try {
-        const res = await fetch(`${API_BASE}/api/public/agenda/${slug}/validate-promo`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(params),
-        });
-        return await res.json() as PromoValidationResult;
-    } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
-    }
+    return publicFetchJson(`${API_BASE}/api/public/agenda/${encodeURIComponent(slug)}/validate-promo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+    });
 }
 
 // ── Packs / bonos ────────────────────────────────────────────────────────────
