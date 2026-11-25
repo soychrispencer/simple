@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { canManageAccountRole } from '../accounts/permissions.js';
 import { runAccountManagerWrite, runAccountMemberWrite } from '../accounts/write-access.js';
-import { gt, ilike, type SQL } from 'drizzle-orm';
+import { gt, ilike, isNotNull, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { cleanupReplacedMediaUrl, isOwnedStorageUrl, toProtectedMediaUrl, unwrapProtectedMediaUrl } from '../media/stored-object.js';
 import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
@@ -441,6 +441,21 @@ type PropertyVisitTeamContext = {
 };
 
 const ACCOUNT_VISIT_MEMBER_PAGE_SIZE = 50;
+
+function formatPublicReviewAuthor(rawName?: string | null): string {
+    const parts = (rawName ?? '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'Paciente verificado';
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]} ${parts[1][0]?.toUpperCase() ?? ''}.`;
+}
+
+function resolveStarsFromNps(row: { ratingStars?: number | null; score?: number | null }): number {
+    if (typeof row.ratingStars === 'number' && row.ratingStars >= 1 && row.ratingStars <= 5) {
+        return Math.round(row.ratingStars);
+    }
+    const score = typeof row.score === 'number' ? row.score : 10;
+    return Math.max(1, Math.min(5, Math.round(score / 2)));
+}
 
 function resolvePublicProfileUrls(profile: any) {
     const agendaAppUrl = (typeof process.env.AGENDA_APP_URL === 'string' && process.env.AGENDA_APP_URL.trim()) || 'https://simpleagenda.app';
@@ -3500,8 +3515,43 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const profile = await getCurrentAgendaProfile(user.id);
         if (profile && proGateError(profile)) return c.json({ ok: false, error: proGateError(profile) }, 403);
         if (!profile) return c.json({ ok: true, responses: [] });
-        const rows = await db.select({ id:agendaNpsResponses.id, score:agendaNpsResponses.score, comment:agendaNpsResponses.comment, submittedAt:agendaNpsResponses.submittedAt, sentAt:agendaNpsResponses.sentAt, appointmentId:agendaNpsResponses.appointmentId, clientName:agendaAppointments.clientName }).from(agendaNpsResponses).leftJoin(agendaAppointments,eq(agendaNpsResponses.appointmentId,agendaAppointments.id)).where(and(eq(agendaNpsResponses.professionalId,profile.id),sql`${agendaNpsResponses.submittedAt} IS NOT NULL`)).orderBy(desc(agendaNpsResponses.submittedAt)).limit(100);
+        const rows = await db.select({
+            id: agendaNpsResponses.id,
+            score: agendaNpsResponses.score,
+            ratingStars: agendaNpsResponses.ratingStars,
+            comment: agendaNpsResponses.comment,
+            publicConsent: agendaNpsResponses.publicConsent,
+            isPublic: agendaNpsResponses.isPublic,
+            submittedAt: agendaNpsResponses.submittedAt,
+            sentAt: agendaNpsResponses.sentAt,
+            appointmentId: agendaNpsResponses.appointmentId,
+            clientName: agendaAppointments.clientName,
+        }).from(agendaNpsResponses).leftJoin(agendaAppointments,eq(agendaNpsResponses.appointmentId,agendaAppointments.id)).where(and(eq(agendaNpsResponses.professionalId,profile.id),sql`${agendaNpsResponses.submittedAt} IS NOT NULL`)).orderBy(desc(agendaNpsResponses.submittedAt)).limit(100);
         return c.json({ ok: true, responses: rows });
+    });
+
+    app.patch('/nps/:id/visibility', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const profile = await getCurrentAgendaProfile(user.id);
+        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile)) return c.json({ ok: false, error: proGateError(profile) }, 403);
+        const id = c.req.param('id') ?? '';
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const isPublic = body.isPublic === true;
+
+        const record = await db.query.agendaNpsResponses.findFirst({
+            where: and(eq(agendaNpsResponses.id, id), eq(agendaNpsResponses.professionalId, profile.id)),
+        });
+        if (!record || !record.submittedAt) return c.json({ ok: false, error: 'Reseña no encontrada' }, 404);
+        if (isPublic && !record.publicConsent) {
+            return c.json({ ok: false, error: 'El paciente no autorizó publicar esta opinión.' }, 400);
+        }
+
+        await db.update(agendaNpsResponses)
+            .set({ isPublic })
+            .where(eq(agendaNpsResponses.id, record.id));
+        return c.json({ ok: true, isPublic });
     });
 
     app.post('/nps/for-appointment', requireVerifiedSession, async (c) => {
@@ -5326,20 +5376,24 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
     app.post('/nps/:token', async (c) => {
         const token = c.req.param('token') ?? '';
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-        const score = typeof body.score === 'number' ? Math.max(0, Math.min(10, Math.round(body.score))) : null;
-        if (score === null) return c.json({ ok: false, error: 'Puntuación inválida (0–10)' }, 400);
-        const comment = typeof body.comment === 'string' ? body.comment.slice(0, 2000) : null;
+        const rawStars = typeof body.ratingStars === 'number' ? Math.max(1, Math.min(5, Math.round(body.ratingStars))) : null;
+        const rawScore = typeof body.score === 'number' ? Math.max(0, Math.min(10, Math.round(body.score))) : null;
+        const ratingStars = rawStars ?? (rawScore !== null ? Math.max(1, Math.min(5, Math.round(rawScore / 2))) : null);
+        const score = rawScore ?? (rawStars !== null ? rawStars * 2 : null);
+        if (score === null || ratingStars === null) return c.json({ ok: false, error: 'Puntuación inválida (1–5 estrellas)' }, 400);
+        const comment = typeof body.comment === 'string' ? body.comment.trim().slice(0, 2000) || null : null;
+        const publicConsent = body.publicConsent === true;
         const record = await db.query.agendaNpsResponses.findFirst({ where: eq(agendaNpsResponses.token, token) });
         if (!record) return c.json({ ok: false, error: 'Encuesta no encontrada' }, 404);
         if (record.submittedAt) return c.json({ ok: false, error: 'Esta encuesta ya fue respondida' }, 409);
-        await db.update(agendaNpsResponses).set({ score, comment, submittedAt: new Date() }).where(eq(agendaNpsResponses.id, record.id));
+        await db.update(agendaNpsResponses).set({ score, ratingStars, comment, publicConsent, submittedAt: new Date() }).where(eq(agendaNpsResponses.id, record.id));
         emitTimelineEvent(db, timelineEvents, {
             type: 'nps.submitted',
             business: agendaBusiness(record.professionalId),
             person: agendaClientPerson(record.clientId),
             subject: { kind: 'agenda_appointment', id: record.appointmentId },
             actor: 'client',
-            payload: { score, npsResponseId: record.id },
+            payload: { score, ratingStars, npsResponseId: record.id },
         });
         return c.json({ ok: true });
     });
@@ -5381,25 +5435,66 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             return c.json(access.body, access.status);
         }
         const profile = access.profile;
-        const [services, locations, rules, packRows, promotionRows, operationalTz] = await Promise.all([
+        const [services, locations, rules, packRows, promotionRows, operationalTz, publicReviewRows] = await Promise.all([
             db.select().from(agendaServices).where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true), eq(agendaServices.kind, 'appointment'))).orderBy(asc(agendaServices.position)),
             db.select().from(agendaLocations).where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true))).orderBy(asc(agendaLocations.position)),
             db.select().from(agendaAvailabilityRules).where(eq(agendaAvailabilityRules.professionalId, profile.id)).orderBy(asc(agendaAvailabilityRules.dayOfWeek)),
             db.select().from(agendaPacks).where(and(eq(agendaPacks.professionalId, profile.id), eq(agendaPacks.isActive, true))).orderBy(asc(agendaPacks.position), desc(agendaPacks.createdAt)),
             db.select().from(agendaPromotions).where(eq(agendaPromotions.professionalId, profile.id)).orderBy(desc(agendaPromotions.createdAt)),
             resolveAgendaProfessionalTimezone(profile.userId, profile as Record<string, unknown>),
+            db.select({
+                id: agendaNpsResponses.id,
+                ratingStars: agendaNpsResponses.ratingStars,
+                score: agendaNpsResponses.score,
+                comment: agendaNpsResponses.comment,
+                submittedAt: agendaNpsResponses.submittedAt,
+                clientName: agendaAppointments.clientName,
+            })
+                .from(agendaNpsResponses)
+                .leftJoin(agendaAppointments, eq(agendaNpsResponses.appointmentId, agendaAppointments.id))
+                .where(and(
+                    eq(agendaNpsResponses.professionalId, profile.id),
+                    eq(agendaNpsResponses.isPublic, true),
+                    eq(agendaNpsResponses.publicConsent, true),
+                    isNotNull(agendaNpsResponses.submittedAt),
+                ))
+                .orderBy(desc(agendaNpsResponses.submittedAt))
+                .limit(12),
         ]);
         const operatingLocation = operatingLocationFromAgendaProfile(profile);
         const promotions = promotionRows.filter((promo: typeof promotionRows[number]) => isPublicAgendaPromotionVisible(promo));
-        const publicProfile = mapPublicAgendaProfile(profile, {
-            services,
-            locations,
-            rules,
-            packs: packRows,
-            promotions,
-            operationalTz,
-            operatingLocation,
-        });
+        const reviews: Array<{
+            id: string;
+            stars: number;
+            comment: string | null;
+            authorLabel: string;
+            submittedAt: string | null;
+        }> = publicReviewRows.map((row: typeof publicReviewRows[number]) => ({
+            id: row.id,
+            stars: resolveStarsFromNps(row),
+            comment: row.comment ?? null,
+            authorLabel: formatPublicReviewAuthor(row.clientName),
+            submittedAt: row.submittedAt ? row.submittedAt.toISOString() : null,
+        }));
+        const reviewSummary = reviews.length > 0
+            ? {
+                count: reviews.length,
+                averageStars: Number((reviews.reduce((sum: number, r) => sum + r.stars, 0) / reviews.length).toFixed(1)),
+            }
+            : null;
+        const publicProfile = {
+            ...mapPublicAgendaProfile(profile, {
+                services,
+                locations,
+                rules,
+                packs: packRows,
+                promotions,
+                operationalTz,
+                operatingLocation,
+            }),
+            reviews,
+            reviewSummary,
+        };
         if (isFreePlan(profile)) {
             publicProfile.coverUrl = null;
             publicProfile.landingPage = null;

@@ -1030,7 +1030,10 @@ export async function fetchAgendaAnalytics(): Promise<AnalyticsData | null> {
 export type NpsResponseRow = {
     id: string;
     score: number | null;
+    ratingStars?: number | null;
     comment: string | null;
+    publicConsent?: boolean;
+    isPublic?: boolean;
     submittedAt: string | null;
     sentAt: string;
     appointmentId: string;
@@ -1042,6 +1045,13 @@ export async function fetchNpsResponses(): Promise<NpsResponseRow[]> {
         const data = await apiFetch<{ ok: boolean; responses: NpsResponseRow[] }>('/api/agenda/nps');
         return data.responses ?? [];
     } catch { return []; }
+}
+
+export async function toggleNpsReviewVisibility(id: string, isPublic: boolean): Promise<{ ok: boolean; isPublic?: boolean; error?: string }> {
+    return agendaMutation(`/api/agenda/nps/${encodeURIComponent(id)}/visibility`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isPublic }),
+    });
 }
 
 export async function createNpsTokenForAppointment(appointmentId: string): Promise<string | null> {
@@ -1069,13 +1079,17 @@ export async function fetchPublicNpsContext(token: string): Promise<PublicNpsCon
     } catch { return null; }
 }
 
-export async function submitPublicNps(token: string, score: number, comment?: string): Promise<{ ok: boolean; error?: string }> {
-    const res = await fetch(`${API_BASE}/api/public/nps/${token}`, {
+export async function submitPublicNps(
+    token: string,
+    ratingStars: number,
+    comment?: string,
+    publicConsent?: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+    return publicFetchJson(`${API_BASE}/api/public/nps/${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, comment }),
+        body: JSON.stringify({ ratingStars, comment, publicConsent: Boolean(publicConsent) }),
     });
-    return res.json() as Promise<{ ok: boolean; error?: string }>;
 }
 
 // ── Referidos ────────────────────────────────────────────────────────────────

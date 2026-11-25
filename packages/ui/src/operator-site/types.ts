@@ -57,6 +57,14 @@ export type AgendaOperatorSiteProfile = {
     servesPresential?: boolean;
     paymentMethods: OperatorSitePaymentMethods;
     locations: OperatorSiteLocation[];
+    reviewSummary?: { averageStars: number; count: number } | null;
+    reviews?: Array<{
+        id: string;
+        stars: number;
+        comment: string | null;
+        authorLabel: string;
+        submittedAt: string | null;
+    }>;
 };
 
 export type OperatorSiteSchedule = {

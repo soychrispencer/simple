@@ -14,6 +14,7 @@ import {
 import {
     fetchAgendaAnalytics,
     fetchNpsResponses,
+    toggleNpsReviewVisibility,
     type AnalyticsData,
     type NpsResponseRow,
 } from '@/lib/agenda-api';
@@ -86,6 +87,23 @@ export default function AnalyticsPage() {
     const [nps, setNps] = useState<NpsResponseRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [togglingReviewId, setTogglingReviewId] = useState<string | null>(null);
+
+    const handleToggleReviewVisibility = async (row: NpsResponseRow) => {
+        if (!row.publicConsent) return;
+        const nextPublic = !row.isPublic;
+        setTogglingReviewId(row.id);
+        try {
+            const res = await toggleNpsReviewVisibility(row.id, nextPublic);
+            if (res.ok) {
+                setNps((prev) => prev.map((item) => (
+                    item.id === row.id ? { ...item, isPublic: res.isPublic ?? nextPublic } : item
+                )));
+            }
+        } finally {
+            setTogglingReviewId(null);
+        }
+    };
 
     const load = async () => {
         setRefreshing(true);
@@ -375,39 +393,68 @@ export default function AnalyticsPage() {
                                     Últimos comentarios
                                 </div>
                                 <ul className="space-y-2">
-                                    {lastComments.map((r) => (
-                                        <li
-                                            key={r.id}
-                                            className="flex items-start gap-3 p-3 rounded-xl border"
-                                            style={{ borderColor: 'var(--border)' }}
-                                        >
-                                            <span
-                                                className="w-8 h-8 rounded-lg border flex items-center justify-center text-sm font-semibold shrink-0"
-                                                style={{
-                                                    borderColor: 'var(--border)',
-                                                    color: npsColor(r.score ?? 0),
-                                                }}
+                                    {lastComments.map((r) => {
+                                        const stars = r.ratingStars ?? Math.max(1, Math.min(5, Math.round((r.score ?? 10) / 2)));
+                                        return (
+                                            <li
+                                                key={r.id}
+                                                className="flex items-start gap-3 p-3 rounded-xl border"
+                                                style={{ borderColor: 'var(--border)' }}
                                             >
-                                                {r.score ?? '—'}
-                                            </span>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <span className="text-sm truncate" style={{ color: 'var(--fg)' }}>
-                                                        {r.clientName ?? 'Anónimo'}
-                                                    </span>
-                                                    {r.submittedAt ? (
-                                                        <span className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
-                                                            · {fmt.dateMedium(r.submittedAt)}
-                                                        </span>
-                                                    ) : null}
+                                                <span
+                                                    className="px-2 h-8 rounded-lg border flex items-center justify-center gap-1 text-xs font-semibold shrink-0"
+                                                    style={{
+                                                        borderColor: 'var(--border)',
+                                                        color: stars >= 4 ? '#d97706' : stars === 3 ? 'var(--color-warning)' : 'var(--color-error)',
+                                                    }}
+                                                    title={`${stars} de 5 estrellas`}
+                                                >
+                                                    {stars} ★
+                                                </span>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-0.5">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <span className="text-sm truncate" style={{ color: 'var(--fg)' }}>
+                                                                {r.clientName ?? 'Anónimo'}
+                                                            </span>
+                                                            {r.submittedAt ? (
+                                                                <span className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                                                    · {fmt.dateMedium(r.submittedAt)}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                        {r.publicConsent ? (
+                                                            <button
+                                                                type="button"
+                                                                disabled={togglingReviewId === r.id}
+                                                                onClick={() => void handleToggleReviewVisibility(r)}
+                                                                className="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors shrink-0 disabled:opacity-50"
+                                                                style={{
+                                                                    borderColor: r.isPublic ? 'var(--accent)' : 'var(--border)',
+                                                                    background: r.isPublic ? 'var(--accent-soft)' : 'transparent',
+                                                                    color: r.isPublic ? 'var(--accent-ink)' : 'var(--fg-secondary)',
+                                                                }}
+                                                            >
+                                                                {togglingReviewId === r.id
+                                                                    ? 'Guardando…'
+                                                                    : r.isPublic
+                                                                        ? 'Visible en web'
+                                                                        : 'Publicar en web'}
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                                                Sin autorización pública
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                                                        <IconMessage size={12} className="inline mr-1" style={{ color: 'var(--fg-muted)' }} />
+                                                        {r.comment}
+                                                    </p>
                                                 </div>
-                                                <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                                    <IconMessage size={12} className="inline mr-1" style={{ color: 'var(--fg-muted)' }} />
-                                                    {r.comment}
-                                                </p>
-                                            </div>
-                                        </li>
-                                    ))}
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             </div>
                         ) : null}

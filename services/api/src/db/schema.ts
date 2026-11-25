@@ -1186,7 +1186,10 @@ export const agendaNpsResponses = pgTable('agenda_nps_responses', {
   clientId: uuid('client_id').references(() => agendaClients.id),
   token: varchar('token', { length: 64 }).notNull().unique(),
   score: integer('score'), // 0–10, null hasta que responda
+  ratingStars: integer('rating_stars'), // 1–5 estrellas
   comment: text('comment'),
+  publicConsent: boolean('public_consent').notNull().default(false),
+  isPublic: boolean('is_public').notNull().default(false),
   sentAt: timestamp('sent_at').notNull().defaultNow(),
   submittedAt: timestamp('submitted_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
