@@ -4289,6 +4289,93 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         return c.json({ ok: true });
     });
 
+    app.post('/appointments/:id/mark-paid', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const profile = await getCurrentAgendaProfile(user.id);
+        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+
+        const id = c.req.param('id') ?? '';
+        const parsed = z.object({
+            method: z.enum(['cash', 'transfer', 'link', 'other']).default('cash'),
+            amount: z.number().positive().optional(),
+            notes: z.string().max(300).optional(),
+        }).safeParse(await c.req.json().catch(() => ({})));
+        if (!parsed.success) return c.json({ ok: false, error: 'Datos de pago inválidos.' }, 400);
+
+        const result = await withCurrentAgendaProfileWrite(user.id, profile, async (tx, current) => {
+            const [appt] = await tx.select().from(agendaAppointments)
+                .where(and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, current.id)))
+                .limit(1)
+                .for('update');
+            if (!appt) return { error: 'Cita no encontrada.', status: 404 as const };
+            if (appt.status === 'cancelled') return { error: 'No se puede registrar pago en una cita cancelada.', status: 400 as const };
+
+            const wasPending = appt.paymentStatus === 'pending';
+            const resolvedAmount = parsed.data.amount ?? (Number(appt.price) > 0 ? Number(appt.price) : 0);
+            const now = new Date();
+
+            const [existingPending] = await tx.select().from(agendaPayments)
+                .where(and(
+                    eq(agendaPayments.appointmentId, appt.id),
+                    eq(agendaPayments.professionalId, current.id),
+                    eq(agendaPayments.status, 'pending'),
+                ))
+                .limit(1);
+
+            let paymentRecord: any = null;
+            if (existingPending) {
+                const [updatedPay] = await tx.update(agendaPayments).set({
+                    status: 'paid',
+                    method: parsed.data.method,
+                    paidAt: now,
+                    ...(parsed.data.amount ? { amount: String(parsed.data.amount) } : {}),
+                    ...(parsed.data.notes ? { notes: parsed.data.notes } : {}),
+                    updatedAt: now,
+                }).where(eq(agendaPayments.id, existingPending.id)).returning();
+                paymentRecord = updatedPay ?? null;
+            } else if (resolvedAmount > 0) {
+                const [insertedPay] = await tx.insert(agendaPayments).values({
+                    professionalId: current.id,
+                    appointmentId: appt.id,
+                    clientId: appt.clientId ?? null,
+                    amount: String(resolvedAmount),
+                    currency: appt.currency,
+                    method: parsed.data.method,
+                    status: 'paid',
+                    paidAt: now,
+                    notes: parsed.data.notes ?? null,
+                }).returning();
+                paymentRecord = insertedPay ?? null;
+            }
+
+            const [updatedAppt] = await tx.update(agendaAppointments).set({
+                paymentStatus: 'paid',
+                updatedAt: now,
+            }).where(eq(agendaAppointments.id, appt.id)).returning();
+
+            return { appointment: updatedAppt, payment: paymentRecord, wasPending };
+        });
+
+        if (!result) return c.json({ ok: false, error: 'El espacio activo cambió. Actualiza la página e inténtalo nuevamente.' }, 409);
+        if ('error' in result) return c.json({ ok: false, error: result.error }, result.status);
+
+        if (result.wasPending) {
+            notifySettledAppointment(profile, result.appointment);
+        }
+        if (result.payment) {
+            emitTimelineEvent(db, timelineEvents, {
+                type: 'payment.paid',
+                business: agendaBusiness(profile.id),
+                person: agendaClientPerson(result.payment.clientId),
+                subject: { kind: 'agenda_payment', id: result.payment.id },
+                actor: 'professional',
+                payload: { amount: result.payment.amount, method: result.payment.method },
+            });
+        }
+        return c.json({ ok: true, appointment: result.appointment, payment: result.payment });
+    });
+
     // ── Google Calendar ───────────────────────────────────────────────────────
     app.get('/google-calendar/auth', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
@@ -4993,7 +5080,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
 
     const {
         agendaProfessionalProfiles, agendaServices, agendaAvailabilityRules, agendaBlockedSlots,
-        agendaLocations, agendaClients, agendaAppointments, agendaPromotions, agendaPacks, agendaNpsResponses, users,
+        agendaLocations, agendaClients, agendaAppointments, agendaPayments, agendaPromotions, agendaPacks, agendaNpsResponses, users,
         pushSubscriptions, timelineEvents,
     } = tables;
 
@@ -5798,6 +5885,20 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 await tx.update(agendaAppointments)
                     .set({ clientId: resolvedClientId })
                     .where(inArray(agendaAppointments.id, insertedAppointments.map((item) => item.id)));
+            }
+
+            if (requiresPayment && Number(price) > 0 && chosenMethod && chosenMethod !== 'mp') {
+                for (const item of insertedAppointments) {
+                    await tx.insert(agendaPayments).values({
+                        professionalId: currentProfile.id,
+                        appointmentId: item.id,
+                        clientId: resolvedClientId,
+                        amount: String(price),
+                        currency: currentProfile.currency,
+                        method: chosenMethod,
+                        status: 'pending',
+                    });
+                }
             }
 
             return {

@@ -636,6 +636,7 @@ export type AgendaAppointment = {
     meetingUrl: string | null;
     location: string | null;
     status: string;
+    paymentStatus?: string | null;
     price: string | null;
     currency: string;
     internalNotes: string | null;
@@ -718,6 +719,16 @@ export async function patchAgendaPayment(id: string, body: Partial<AgendaPayment
 
 export async function deleteAgendaPayment(id: string): Promise<{ ok: boolean; error?: string }> {
     return apiFetch(`/api/agenda/payments/${id}`, { method: 'DELETE' });
+}
+
+export async function markAppointmentPaid(
+    appointmentId: string,
+    body: { method: 'cash' | 'transfer' | 'link' | 'other'; amount?: number; notes?: string },
+): Promise<{ ok: boolean; appointment?: AgendaAppointment; error?: string }> {
+    return agendaMutation(`/api/agenda/appointments/${encodeURIComponent(appointmentId)}/mark-paid`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
 }
 
 // ── Session notes ─────────────────────────────────────────────────────────────

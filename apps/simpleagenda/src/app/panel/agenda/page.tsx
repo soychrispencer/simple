@@ -33,6 +33,7 @@ import {
     createAgendaAppointment,
     patchAppointmentStatus,
     cancelAppointmentSeries,
+    markAppointmentPaid,
     updateAgendaAppointment,
     fetchAgendaServices,
     fetchAgendaClients,
@@ -248,6 +249,7 @@ export default function AgendaPage() {
     const [showCreate, setShowCreate] = useState(false);
     const [selectedAppt, setSelectedAppt] = useState<AgendaAppointment | null>(null);
     const [savingStatus, setSavingStatus] = useState<string | null>(null);
+    const [markingPaidMethod, setMarkingPaidMethod] = useState<'cash' | 'transfer' | null>(null);
     const [statusError, setStatusError] = useState<string | null>(null);
 
     // Session notes
@@ -734,6 +736,25 @@ export default function AgendaPage() {
             setStatusError(err instanceof Error ? err.message : 'No se pudo cancelar la serie.');
         } finally {
             setSavingStatus(null);
+        }
+    };
+
+    const handleMarkPaid = async (appt: AgendaAppointment, method: 'cash' | 'transfer') => {
+        if (markingPaidMethod) return;
+        setMarkingPaidMethod(method);
+        setStatusError(null);
+        try {
+            const res = await markAppointmentPaid(appt.id, { method });
+            if (!res.ok) {
+                setStatusError(res.error ?? 'No pudimos registrar el pago.');
+                return;
+            }
+            setAppointments((prev) => prev.map((a) => (a.id === appt.id ? { ...a, paymentStatus: 'paid' } : a)));
+            setSelectedAppt((prev) => (prev && prev.id === appt.id ? { ...prev, paymentStatus: 'paid' } : prev));
+        } catch (err) {
+            setStatusError(err instanceof Error ? err.message : 'No pudimos registrar el pago.');
+        } finally {
+            setMarkingPaidMethod(null);
         }
     };
 
@@ -1279,8 +1300,21 @@ export default function AgendaPage() {
                                 </>
                             )}
                             {selectedAppt.modality === 'presential' && <InfoRow icon={<IconMapPin size={14} />} label={selectedAppt.location ?? 'Presencial'} />}
-                            {selectedAppt.price && (
-                                <InfoRow icon={<span className="text-[11px] font-bold">$</span>} label={new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(parseFloat(selectedAppt.price))} />
+                            {(selectedAppt.price || selectedAppt.paymentStatus === 'paid' || selectedAppt.paymentStatus === 'pending') && (
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    {selectedAppt.price ? (
+                                        <InfoRow icon={<span className="text-[11px] font-bold">$</span>} label={new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(parseFloat(selectedAppt.price))} />
+                                    ) : <span />}
+                                    {selectedAppt.paymentStatus === 'paid' ? (
+                                        <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
+                                            Pagada
+                                        </span>
+                                    ) : selectedAppt.paymentStatus === 'pending' ? (
+                                        <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: 'var(--color-warning-subtle, rgba(245,158,11,0.12))', color: 'var(--color-warning, #b45309)' }}>
+                                            Pago pendiente
+                                        </span>
+                                    ) : null}
+                                </div>
                             )}
                         </div>
 
@@ -1437,6 +1471,34 @@ export default function AgendaPage() {
                                 style={{ borderColor: 'var(--color-error-border)', background: 'var(--color-error-bg)', color: 'var(--color-error)' }}
                             >
                                 {statusError}
+                            </div>
+                        )}
+
+                        {selectedAppt.status !== 'cancelled' && selectedAppt.paymentStatus !== 'paid' && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-2.5" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                                <span className="text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Marcar pagada:</span>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        disabled={!!markingPaidMethod}
+                                        onClick={() => void handleMarkPaid(selectedAppt, 'cash')}
+                                        className="inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-colors hover:bg-(--bg) disabled:opacity-60"
+                                        style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                    >
+                                        {markingPaidMethod === 'cash' ? <IconLoader2 size={12} className="animate-spin" /> : <IconCheck size={12} />}
+                                        Efectivo
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={!!markingPaidMethod}
+                                        onClick={() => void handleMarkPaid(selectedAppt, 'transfer')}
+                                        className="inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-colors hover:bg-(--bg) disabled:opacity-60"
+                                        style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                    >
+                                        {markingPaidMethod === 'transfer' ? <IconLoader2 size={12} className="animate-spin" /> : <IconCheck size={12} />}
+                                        Transferencia
+                                    </button>
+                                </div>
                             </div>
                         )}
 
