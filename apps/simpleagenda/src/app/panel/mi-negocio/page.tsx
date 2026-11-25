@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
     fetchAgendaLocations,
     fetchAgendaProfile,
     saveAgendaProfile,
-    uploadAvatar,
     type AgendaLocation,
 } from '@/lib/agenda-api';
 import {
@@ -27,18 +26,15 @@ import {
     normalizeStructuredLocation,
     normalizeTimezone,
     OPERATOR_SUBTYPE_OTHER_ID,
-    RAW_IMAGE_MAX_SIZE_KB,
     requiresOperatorSubtype,
     requiresOperatorSubtypeCustom,
     resolveAgendaOperatorFields,
-    resolveAppMediaUrl,
     saveAccountWorkspace,
     timezoneOptionLabel,
     timezoneShortLabel,
     type AccountWorkspaceState,
     type OperatorTier,
 } from '@simple/utils';
-import { AvatarUpload, type AvatarUploadHandle } from '@simple/ui';
 import {
     BUSINESS_DESCRIPTION_FIELD,
     BUSINESS_OPERATING_TIMEZONE_HINT,
@@ -62,7 +58,6 @@ import {
 import {
     IconBriefcase,
     IconBuildingStore,
-    IconCamera,
     IconCheck,
     IconClock,
     IconLoader2,
@@ -76,7 +71,6 @@ import type { StructuredLocation } from '@simple/types';
 
 export default function PerfilConfigPage() {
     const vocab = useAgendaVocab();
-    const avatarUploadRef = useRef<AvatarUploadHandle>(null);
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -86,7 +80,6 @@ export default function PerfilConfigPage() {
 
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [initialAvatarUrl, setInitialAvatarUrl] = useState<string | null>(null);
-    const [avatarUploading, setAvatarUploading] = useState(false);
 
     const [form, setForm] = useState({
         displayName: '',
@@ -258,7 +251,7 @@ export default function PerfilConfigPage() {
     };
 
     const handleSaveAll = async () => {
-        if (saving || avatarUploading) return;
+        if (saving) return;
         setError('');
         setSaved(false);
 
@@ -343,8 +336,6 @@ export default function PerfilConfigPage() {
         }
     };
 
-    const resolvedAvatarUrl = resolveAppMediaUrl(avatarUrl);
-    const initials = form.displayName.trim().charAt(0).toUpperCase() || '?';
     const showLocationsManager = servesPresential || businessLocations.length > 0;
 
     if (loading) {
@@ -369,44 +360,18 @@ export default function PerfilConfigPage() {
                 <div id="agenda-public-profile" className="scroll-mt-24">
                     <PanelCard size="lg" className="space-y-6">
                         <div className="flex flex-wrap items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="relative">
-                                    <div
-                                        className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-(--border) bg-(--bg-subtle) text-lg font-bold text-fg"
+                            <div>
+                                <h2 className="text-base font-semibold text-fg">Identidad pública</h2>
+                                <p className="text-xs text-fg-muted">
+                                    Así te verán tus {vocab.clients} en tu ficha y en tus recordatorios.
+                                </p>
+                                <div className="mt-1.5">
+                                    <Link
+                                        href="/panel/mi-negocio/apariencia"
+                                        className="text-xs font-semibold text-accent-ink hover:underline"
                                     >
-                                        {resolvedAvatarUrl ? (
-                                            <img src={resolvedAvatarUrl} alt={form.displayName || 'Foto de perfil'} className="h-full w-full object-cover" />
-                                        ) : (
-                                            initials
-                                        )}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        disabled={saving || avatarUploading}
-                                        onClick={() => avatarUploadRef.current?.openPicker()}
-                                        aria-label="Cambiar foto o logo"
-                                        className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full border border-(--border) bg-(--surface) text-fg shadow-xs transition hover:bg-(--bg-subtle) disabled:opacity-50"
-                                    >
-                                        {avatarUploading ? (
-                                            <IconLoader2 size={13} className="animate-spin" />
-                                        ) : (
-                                            <IconCamera size={13} />
-                                        )}
-                                    </button>
-                                </div>
-                                <div>
-                                    <h2 className="text-base font-semibold text-fg">Identidad pública</h2>
-                                    <p className="text-xs text-fg-muted">
-                                        Así te verán tus {vocab.clients} en tu ficha y en tus recordatorios.
-                                    </p>
-                                    <div className="mt-1.5">
-                                        <Link
-                                            href="/panel/mi-negocio/apariencia"
-                                            className="text-xs font-semibold text-accent-ink hover:underline"
-                                        >
-                                            Logo y portada se editan en Página web →
-                                        </Link>
-                                    </div>
+                                        Logo y portada se editan en Página web →
+                                    </Link>
                                 </div>
                             </div>
 
@@ -417,41 +382,6 @@ export default function PerfilConfigPage() {
                                 </span>
                             ) : null}
                         </div>
-
-                        <AvatarUpload
-                            ref={avatarUploadRef}
-                            hideTrigger
-                            currentUrl={resolvedAvatarUrl}
-                            config={{
-                                maxSize: RAW_IMAGE_MAX_SIZE_KB,
-                                maxWidth: 512,
-                                maxHeight: 512,
-                                aspectRatio: 1,
-                                circular: true,
-                                shape: 'circle',
-                                onUpload: async (file, croppedBlob) => {
-                                    setAvatarUploading(true);
-                                    try {
-                                        const uploadFile = croppedBlob === file
-                                            ? file
-                                            : new File([croppedBlob], 'logo.webp', { type: 'image/webp' });
-                                        const res = await uploadAvatar(uploadFile, 'logo');
-                                        if (!res.ok || !res.url) {
-                                            throw new Error(res.error ?? 'No se pudo subir la imagen.');
-                                        }
-                                        return { url: res.url };
-                                    } finally {
-                                        setAvatarUploading(false);
-                                    }
-                                },
-                            }}
-                            onSuccess={(url) => {
-                                setAvatarUrl(url);
-                                setSaved(false);
-                                setError('');
-                            }}
-                            onError={(msg) => setError(msg)}
-                        />
 
                         <div className="grid gap-4 sm:grid-cols-2">
                             <PanelField
