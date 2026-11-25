@@ -6,7 +6,7 @@ const tools = [
     { href: '/panel/analytics', title: 'Estadísticas', description: 'Revisa tus citas, la actividad y las encuestas de satisfacción.', icon: IconChartBar },
     { href: '/panel/clientes/reactivar', title: 'Reactivar clientes', description: 'Encuentra a quienes llevan tiempo sin agendar y prepara mensajes individuales.', icon: IconUsers },
     { href: '/panel/mis-servicios/promociones', title: 'Promociones', description: 'Crea descuentos que tus clientes puedan usar al reservar.', icon: IconTags },
-    { href: '/panel/mi-cuenta/referidos', title: 'Referidos', description: 'Consulta los beneficios y comparte tu enlace de invitación.', icon: IconGift },
+    { href: '/panel/crecimiento/referidos', title: 'Referidos', description: 'Consulta los beneficios y comparte tu enlace de invitación.', icon: IconGift },
     { href: '/panel/publicidad', title: 'Publicidad', description: 'Promociona los servicios de tu perfil público.', icon: IconRocket },
 ];
 

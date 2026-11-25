@@ -140,7 +140,7 @@ export function AccountSubscriptionBillingModal({
                                 }));
                             }}
                             className={PANEL_INPUT_CLASS}
-                            placeholder="Inmobiliaria Ejemplo SpA"
+                            placeholder="Mi Empresa SpA"
                             autoComplete="organization"
                         />
                     </PanelField>

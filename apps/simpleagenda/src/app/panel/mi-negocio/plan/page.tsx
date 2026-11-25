@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
-import SubscriptionWrapper from '../../mi-cuenta/suscripcion/subscription-wrapper';
+import SubscriptionWrapper from '@/components/panel/subscription-wrapper';
 
 export default function PlanPage() {
     return (

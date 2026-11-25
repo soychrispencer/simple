@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
+    IconArrowLeft,
     IconPlus,
     IconLoader2,
     IconCheck,
@@ -16,7 +18,6 @@ import {
 import { AgendaScrollModal } from '@/components/panel/agenda-scroll-modal';
 import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 import {
-    PanelAccountShell,
     PanelBlockHeader,
     PanelButton,
     PanelCard,
@@ -24,6 +25,7 @@ import {
     PanelEmptyState,
     PanelField,
     PanelNotice,
+    PanelPageHeader,
     PanelStatCard,
     PanelStatusBadge,
     ACCOUNT_REFERRALS_PAGE,
@@ -42,7 +44,6 @@ import {
     type AgendaProfile,
 } from '@/lib/agenda-api';
 import { usePanelFormatters } from '@simple/auth';
-import { accountSectionTabs } from '@/components/panel/panel-section-tabs';
 import { useEscapeClose } from '@/lib/use-modal-a11y';
 
 const STATUS_LABELS: Record<ReferralStatus, string> = {
@@ -63,8 +64,15 @@ function clientFullName(c: AgendaClient): string {
     return `${c.firstName}${c.lastName ? ` ${c.lastName}` : ''}`.trim();
 }
 
+function resolveAppOrigin(): string {
+    if (typeof window !== 'undefined' && window.location.origin) {
+        return window.location.origin;
+    }
+    return process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app';
+}
+
 function platformReferralUrl(profile: AgendaProfile | null): string {
-    const url = new URL('https://simpleagenda.app/');
+    const url = new URL(resolveAppOrigin());
     url.searchParams.set('utm_source', 'simpleagenda_panel');
     url.searchParams.set('utm_medium', 'referral');
     url.searchParams.set('utm_campaign', 'professional_recommendation');
@@ -97,16 +105,22 @@ export function AgendaReferralsContent() {
 
     const load = async () => {
         setLoading(true);
-        const [refData, cls, agendaProfile] = await Promise.all([
-            fetchAgendaReferrals(),
-            fetchAgendaClients(),
-            fetchAgendaProfile(),
-        ]);
-        setReferrals(refData.referrals);
-        setStats(refData.stats);
-        setClients(cls);
-        setProfile(agendaProfile);
-        setLoading(false);
+        setError('');
+        try {
+            const [refData, cls, agendaProfile] = await Promise.all([
+                fetchAgendaReferrals(),
+                fetchAgendaClients(),
+                fetchAgendaProfile(),
+            ]);
+            setReferrals(refData.referrals);
+            setStats(refData.stats);
+            setClients(cls);
+            setProfile(agendaProfile);
+        } catch {
+            setError('No pudimos cargar los referidos. Intenta nuevamente.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => { void load(); }, []);
@@ -119,13 +133,17 @@ export function AgendaReferralsContent() {
     );
 
     const conversionRate = stats.total > 0 ? Math.round(((stats.converted + stats.rewarded) / stats.total) * 100) : 0;
-    const bookingUrl = profile?.slug ? `https://simpleagenda.app/${profile.slug}` : '';
+    const bookingUrl = profile?.slug ? `${resolveAppOrigin()}/${profile.slug}` : '';
     const platformUrl = platformReferralUrl(profile);
 
     const copyToClipboard = async (value: string, type: 'booking' | 'platform') => {
-        await navigator.clipboard.writeText(value);
-        setCopied(type);
-        window.setTimeout(() => setCopied(null), 1800);
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(type);
+            window.setTimeout(() => setCopied(null), 1800);
+        } catch {
+            setError('No pudimos copiar al portapapeles. Copia el enlace manualmente.');
+        }
     };
 
     const handleCreate = async () => {
@@ -166,33 +184,39 @@ export function AgendaReferralsContent() {
 
     if (loading) {
         return (
-            <PanelAccountShell
-                activeKey="referidos"
-                tabs={accountSectionTabs}
-                title={ACCOUNT_REFERRALS_PAGE.title}
-                description={`Seguimiento de recomendaciones de ${vocab.clients} y link para invitar colegas.`}
-            >
-                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page min-w-0 py-4 lg:py-8">
+                <Link href="/panel/crecimiento" className="mb-3 inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg">
+                    <IconArrowLeft size={15} aria-hidden /> Volver a Crecimiento
+                </Link>
+                <PanelPageHeader
+                    title={ACCOUNT_REFERRALS_PAGE.title}
+                    description={`Seguimiento de recomendaciones de ${vocab.clients} y link para invitar colegas.`}
+                />
+                <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                     <IconLoader2 size={16} className="animate-spin" aria-hidden />
                     Cargando referidos...
                 </div>
-            </PanelAccountShell>
+            </div>
         );
     }
 
     return (
-        <PanelAccountShell
-            activeKey="referidos"
-            tabs={accountSectionTabs}
-            title={ACCOUNT_REFERRALS_PAGE.title}
-            description={`Seguimiento de recomendaciones de ${vocab.clients} y link para invitar colegas.`}
-            actions={
-                <PanelButton variant="accent" size="sm" onClick={() => setShowCreate(true)}>
-                    <IconPlus size={15} />
-                    Registrar referido
-                </PanelButton>
-            }
-        >
+        <div className="container-app panel-page min-w-0 space-y-6 py-4 lg:py-8">
+            <div>
+                <Link href="/panel/crecimiento" className="mb-3 inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg">
+                    <IconArrowLeft size={15} aria-hidden /> Volver a Crecimiento
+                </Link>
+                <PanelPageHeader
+                    title={ACCOUNT_REFERRALS_PAGE.title}
+                    description={`Seguimiento de recomendaciones de ${vocab.clients} y link para invitar colegas.`}
+                    actions={
+                        <PanelButton variant="accent" size="sm" onClick={() => setShowCreate(true)}>
+                            <IconPlus size={15} />
+                            Registrar referido
+                        </PanelButton>
+                    }
+                />
+            </div>
             <PanelNotice tone="neutral">
                 Herramienta opcional para premiar {vocab.clients} que te traen nuevos contactos. El beneficio lo defines tú; Simple no interviene en el premio.
             </PanelNotice>
@@ -211,15 +235,11 @@ export function AgendaReferralsContent() {
                         description="Registra quién refirió a quién y marca el estado cuando reserve."
                         className="mb-4"
                     />
-                    <ol className="mb-4 space-y-2 text-sm text-fg-secondary">
+                    <ol className="space-y-2 text-sm text-fg-secondary">
                         <li>1. Un {vocab.client} te recomienda a alguien</li>
                         <li>2. Guardas el contacto aquí</li>
                         <li>3. Si agenda, lo marcas convertido o premiado</li>
                     </ol>
-                    <PanelButton variant="secondary" size="sm" onClick={() => setShowCreate(true)}>
-                        <IconUserPlus size={14} />
-                        Registrar referido
-                    </PanelButton>
                 </PanelCard>
 
                 <PanelCard size="md">
@@ -404,6 +424,6 @@ export function AgendaReferralsContent() {
                 onConfirm={() => confirmDeleteId && void handleDelete(confirmDeleteId)}
                 onClose={() => setConfirmDeleteId(null)}
             />
-        </PanelAccountShell>
+        </div>
     );
 }

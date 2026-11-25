@@ -31,16 +31,28 @@ export function PanelAccountPersonalNotificationsConnected({
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
+    const [loadAttempt, setLoadAttempt] = useState(0);
 
     useEffect(() => {
+        let active = true;
+        setLoading(true);
+        setError('');
         void fetchAccountNotificationUser().then((loaded) => {
+            if (!active) return;
             if (loaded) {
                 setUser(loaded);
                 setForm(prefsFromUser(loaded));
+            } else {
+                setError('No pudimos cargar tus preferencias de notificación.');
             }
             setLoading(false);
+        }).catch(() => {
+            if (!active) return;
+            setError('No pudimos cargar tus preferencias de notificación.');
+            setLoading(false);
         });
-    }, []);
+        return () => { active = false; };
+    }, [loadAttempt]);
 
     const hasChanges = user && form ? JSON.stringify(form) !== JSON.stringify(prefsFromUser(user)) : false;
 
@@ -67,13 +79,14 @@ export function PanelAccountPersonalNotificationsConnected({
         return (
             <PanelAccountPersonalNotificationsSection
                 loading={loading}
+                error={error || null}
                 prefs={{
                     inAppNotificationsEnabled: true,
                     emailNotifyAccount: true,
                 }}
                 onPrefsChange={() => {}}
-                onSave={() => {}}
-                hasChanges={false}
+                onSave={() => setLoadAttempt((n) => n + 1)}
+                hasChanges={!loading && Boolean(error)}
                 appLabel={appLabel}
             />
         );

@@ -113,6 +113,12 @@ function sameUser(a: User, b: User): boolean {
         && a.lastLoginAt === b.lastLoginAt
         && a.timezone === b.timezone
         && a.currentApp === b.currentApp
+        && a.residence === b.residence
+        && a.residenceCountryCode === b.residenceCountryCode
+        && a.residenceRegionId === b.residenceRegionId
+        && a.residenceRegionName === b.residenceRegionName
+        && a.residenceLocalityId === b.residenceLocalityId
+        && a.residenceLocalityName === b.residenceLocalityName
         && JSON.stringify(a.platformAccesses ?? []) === JSON.stringify(b.platformAccesses ?? []);
 }
 

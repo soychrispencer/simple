@@ -10,6 +10,7 @@ import Link from 'next/link';
 
 const AGENDA_PRO_ROUTES = [
     '/panel/analytics',
+    '/panel/crecimiento/referidos',
     '/panel/mi-cuenta/referidos',
     '/panel/mi-negocio/packs',
     '/panel/mi-negocio/promociones',

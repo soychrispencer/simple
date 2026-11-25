@@ -12,7 +12,7 @@ export default function AparienciaCuentaPage() {
         <PanelAccountShell
             activeKey="apariencia"
             tabs={accountSectionTabs}
-            title={ACCOUNT_APPEARANCE_PAGE.title}
+            title="Tema del panel"
             description={ACCOUNT_APPEARANCE_PAGE.description}
         >
             <AccountThemePreferenceSection />

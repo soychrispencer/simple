@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { AgendaReferralsContent } from '@/components/panel/agenda-referrals-content';
-
-export default function ReferidosCuentaPage() {
-    return <AgendaReferralsContent />;
+export default function LegacyMiCuentaReferidosPage() {
+    redirect('/panel/crecimiento/referidos');
 }

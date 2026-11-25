@@ -196,6 +196,7 @@ export function PanelAccountPersonalDataSection({
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [modalError, setModalError] = useState<string | null>(null);
     const [deletePassword, setDeletePassword] = useState('');
     const [deletePhrase, setDeletePhrase] = useState('');
 
@@ -308,19 +309,23 @@ export function PanelAccountPersonalDataSection({
     };
 
     const submitEmailChange = async () => {
+        setModalError(null);
         const email = nextEmail.trim().toLowerCase();
         if (!isValidEmail(email)) {
-            setNotice({ tone: 'error', text: 'Ingresa un correo válido.' });
+            setModalError('Ingresa un correo válido.');
             return;
         }
         if (!onRequestEmailChange) return;
         setBusyAction('email-change');
         const result = await onRequestEmailChange(email);
         setBusyAction(null);
-        if (await handleResult(result, `Enviamos un enlace de confirmación a ${result.pendingEmail || email}.`)) {
-            setEmailModalOpen(false);
-            setNextEmail('');
+        if (!result.ok) {
+            setModalError(result.error || 'No se pudo solicitar el cambio de correo.');
+            return;
         }
+        await handleResult(result, `Enviamos un enlace de confirmación a ${result.pendingEmail || email}.`);
+        setEmailModalOpen(false);
+        setNextEmail('');
     };
 
     const resendPendingEmail = async () => {
@@ -371,23 +376,36 @@ export function PanelAccountPersonalDataSection({
 
     const submitPasswordChange = async () => {
         if (!onChangePassword) return;
+        setModalError(null);
+        if (hasPassword && !currentPassword) {
+            setModalError('Ingresa tu contraseña actual.');
+            return;
+        }
         if (newPassword.length < 8) {
-            setNotice({ tone: 'error', text: 'La contraseña debe tener al menos 8 caracteres.' });
+            setModalError('La contraseña debe tener al menos 8 caracteres.');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setModalError('Las contraseñas no coinciden.');
             return;
         }
         setBusyAction('password');
         const result = await onChangePassword({ currentPassword, newPassword, confirmPassword });
         setBusyAction(null);
-        if (await handleResult(result, hasPassword ? 'Contraseña actualizada.' : 'Contraseña creada.')) {
-            setPasswordModalOpen(false);
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
+        if (!result.ok) {
+            setModalError(result.error || 'No se pudo actualizar la contraseña.');
+            return;
         }
+        await handleResult(result, hasPassword ? 'Contraseña actualizada.' : 'Contraseña creada.');
+        setPasswordModalOpen(false);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
     };
 
     const submitDeleteAccount = async () => {
         if (!onDeleteAccount) return;
+        setModalError(null);
         setBusyAction('delete');
         const result = await onDeleteAccount({
             password: deletePassword,
@@ -395,7 +413,7 @@ export function PanelAccountPersonalDataSection({
         });
         setBusyAction(null);
         if (!result.ok) {
-            setNotice({ tone: 'error', text: result.error || 'No se pudo eliminar la cuenta.' });
+            setModalError(result.error || 'No se pudo eliminar la cuenta.');
             return;
         }
         setDeleteModalOpen(false);
@@ -721,7 +739,8 @@ export function PanelAccountPersonalDataSection({
             ) : null}
 
             {emailModalOpen ? (
-                <AccountModal title="Cambiar correo" onClose={() => setEmailModalOpen(false)}>
+                <AccountModal title="Cambiar correo" onClose={() => { setModalError(null); setEmailModalOpen(false); }}>
+                    {modalError ? <PanelNotice tone="error" className="mb-3">{modalError}</PanelNotice> : null}
                     <PanelField label="Nuevo correo">
                         <input
                             className="form-input"
@@ -742,7 +761,8 @@ export function PanelAccountPersonalDataSection({
             ) : null}
 
             {passwordModalOpen ? (
-                <AccountModal title={hasPassword ? 'Cambiar contraseña' : 'Crear contraseña'} onClose={() => setPasswordModalOpen(false)}>
+                <AccountModal title={hasPassword ? 'Cambiar contraseña' : 'Crear contraseña'} onClose={() => { setModalError(null); setPasswordModalOpen(false); }}>
+                    {modalError ? <PanelNotice tone="error" className="mb-3">{modalError}</PanelNotice> : null}
                     <div className="space-y-3">
                         {hasPassword ? (
                             <PanelField label="Contraseña actual">
@@ -785,7 +805,8 @@ export function PanelAccountPersonalDataSection({
             ) : null}
 
             {deleteModalOpen ? (
-                <AccountModal title="Eliminar cuenta" onClose={() => setDeleteModalOpen(false)}>
+                <AccountModal title="Eliminar cuenta" onClose={() => { setModalError(null); setDeleteModalOpen(false); }}>
+                    {modalError ? <PanelNotice tone="error" className="mb-3">{modalError}</PanelNotice> : null}
                     <PanelNotice tone="warning">
                         Esta acción elimina tu cuenta de Simple. Para confirmar, completa el campo requerido.
                     </PanelNotice>
