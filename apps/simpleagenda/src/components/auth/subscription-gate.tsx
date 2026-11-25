@@ -67,39 +67,5 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
         );
     }
 
-    const daysRemaining = profile.planExpiresAt ? agendaTrialDaysRemaining(profile) : null;
-    const bookingsUsed = profile.monthlyBookingsUsed ?? 0;
-    const bookingsLimit = profile.monthlyBookingsLimit ?? AGENDA_PRICING.free.monthlyBookings;
-
-    return (
-        <>
-            <div className="container-app pt-4">
-                <div className="flex flex-col gap-3 rounded-2xl border border-(--accent-border) bg-(--accent-subtle) p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-                    <div className="flex items-start gap-3">
-                        <span className="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-(--agenda-lime) text-(--agenda-green)">
-                            <IconSparkles size={17} />
-                        </span>
-                        <div>
-                            <p className="font-semibold text-(--fg)">
-                                {trialActive
-                                    ? `Tu prueba Pro termina en ${daysRemaining ?? AGENDA_PRICING.trialDays} ${daysRemaining === 1 ? 'día' : 'días'}`
-                                    : 'Tu cuenta sigue en Gratis'}
-                            </p>
-                            <p className="mt-1 text-sm text-(--fg-secondary)">
-                                {trialActive
-                                    ? `Después podrás crear hasta ${bookingsLimit} citas nuevas al mes (las canceladas también cuentan), usar ${AGENDA_PRICING.free.activeServices} servicios y ${AGENDA_PRICING.free.activeLocations} ubicación. No hay cobro automático.`
-                                    : `Este mes: ${bookingsUsed} de ${bookingsLimit} citas creadas. Las canceladas también cuentan; tu perfil y tus datos siguen disponibles.`}
-                            </p>
-                        </div>
-                    </div>
-                    <Link href="/panel/mi-negocio/plan" className="shrink-0">
-                        <PanelButton variant="primary" className="h-10 px-5">
-                            {trialActive ? 'Ver plan Pro' : 'Ver planes'}
-                        </PanelButton>
-                    </Link>
-                </div>
-            </div>
-            {children}
-        </>
-    );
+    return <>{children}</>;
 }
