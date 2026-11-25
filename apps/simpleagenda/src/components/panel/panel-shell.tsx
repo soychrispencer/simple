@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { IconHome } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
-import { PanelAccountSwitcher, PanelShell as SharedPanelShell } from '@simple/ui/panel';
+import { PanelShell as SharedPanelShell } from '@simple/ui/panel';
+import { fetchCurrentAccountContext } from '@simple/utils';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
 import { getPanelNavItems, isPanelNavActive } from '@/components/panel/panel-nav-config';
@@ -41,6 +42,15 @@ export function PanelShell({ children }: { children: ReactNode }) {
         });
     }, [user?.id]);
 
+    useEffect(() => {
+        if (!user?.id) return;
+        let active = true;
+        void fetchCurrentAccountContext().then((context) => {
+            if (active && context) handleAccountContext(context);
+        }).catch(() => {});
+        return () => { active = false; };
+    }, [handleAccountContext, user?.id]);
+
     const navItems = useMemo(
         () => getPanelNavItems(vocab.Clients, accountRole, isPersonalAccount),
         [accountRole, isPersonalAccount, vocab.Clients],
@@ -75,10 +85,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             isVerified={user?.status === 'verified'}
             activeHref={activeHref}
         >
-            <>
-                <PanelAccountSwitcher userId={user?.id} onContextLoaded={handleAccountContext} />
-                {children}
-            </>
+            {children}
         </SharedPanelShell>
     );
 }

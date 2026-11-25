@@ -9,10 +9,9 @@ export const businessSectionTabs: PanelSectionTabItem[] = [
     { key: 'plan', label: 'Plan y facturación', href: '/panel/mi-negocio/plan' },
 ];
 
-export function getAgendaBusinessTabs(showTeamTab: boolean): PanelSectionTabItem[] {
-    return showTeamTab
-        ? businessSectionTabs
-        : businessSectionTabs.filter((item) => item.key !== 'equipo');
+export function getAgendaBusinessTabs(_showTeamTab: boolean): PanelSectionTabItem[] {
+    // Recepción (multiusuario) se habilitará cuando lancemos planes para equipos y clínicas.
+    return businessSectionTabs.filter((item) => item.key !== 'equipo');
 }
 export const accountSectionTabs: PanelSectionTabItem[] = DEFAULT_ACCOUNT_SECTION_TABS
     .filter((item) => item.key !== 'integraciones' && item.key !== 'suscripcion')
