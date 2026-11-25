@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { IconArrowRight, IconCheck, IconCopy, IconExternalLink, IconGlobe, IconLoader2, IconRefresh, IconTrash } from '@tabler/icons-react';
-import { PanelButton, PanelCard, PanelField, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
+import { IconArrowRight, IconCheck, IconCopy, IconExternalLink, IconLoader2, IconRefresh, IconTrash } from '@tabler/icons-react';
+import { PanelButton, PanelCard, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
 import {
     deleteAgendaCustomDomain,
     fetchAgendaCustomDomain,
@@ -71,7 +71,7 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
                 targetHost: res.targetHost ?? prev.targetHost,
             }));
             setDomainInput(res.customDomain ?? domainInput.trim().toLowerCase());
-            setMessage('Dominio guardado. Configura el CNAME en tu proveedor DNS y pulsa Verificar DNS.');
+            setMessage('Dominio guardado. Configura el CNAME y pulsa Verificar DNS.');
         } finally {
             setSaving(false);
         }
@@ -97,7 +97,7 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
                 customDomainStatus: 'verified',
                 customDomainVerifiedAt: res.customDomainVerifiedAt ?? new Date().toISOString(),
             }));
-            setMessage('Dominio verificado y conectado con SSL automático.');
+            setMessage('Dominio verificado y activo con SSL.');
         } finally {
             setVerifying(false);
         }
@@ -137,126 +137,106 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
     };
 
     const badge = state.customDomainStatus === 'verified'
-        ? <PanelStatusBadge label="Verificado" tone="success" />
+        ? <PanelStatusBadge label="Activo" tone="success" size="sm" />
         : state.customDomainStatus === 'pending'
-          ? <PanelStatusBadge label="Pendiente DNS" tone="warning" />
+          ? <PanelStatusBadge label="Pendiente DNS" tone="warning" size="sm" />
           : state.customDomainStatus === 'error'
-            ? <PanelStatusBadge label="DNS no detectado" tone="danger" />
+            ? <PanelStatusBadge label="DNS no detectado" tone="danger" size="sm" />
             : null;
 
     return (
         <div id="agenda-custom-domain" className="scroll-mt-24">
-            <PanelCard size="lg">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-(--border) bg-(--bg-subtle) text-(--fg)">
-                            <IconGlobe size={18} aria-hidden="true" />
-                        </span>
-                        <div>
+            <PanelCard size="md">
+                {!state.proPlusEligible ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                                <h2 className="text-base font-bold tracking-tight text-fg">Dominio propio</h2>
+                                <h2 className="text-sm font-bold text-fg">Dominio propio</h2>
                                 <PanelStatusBadge label="Pro+" tone="info" size="sm" />
-                                {badge}
                             </div>
-                            <p className="mt-1 text-sm text-fg-secondary">
-                                Conecta tu propia dirección web (ej. <span className="font-medium text-fg">reservas.tunegocio.cl</span>) para que tus clientes agenden directo en tu dominio.
+                            <p className="mt-0.5 text-xs text-fg-secondary">
+                                Conecta tu propia URL (ej. <span className="font-medium text-fg">reservas.tunegocio.cl</span>) con SSL automático.
                             </p>
                         </div>
-                    </div>
-                </div>
-
-                {!state.proPlusEligible ? (
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-(--border) bg-(--bg-subtle) p-4">
-                        <p className="text-sm text-fg-secondary">
-                            Disponible en <span className="font-semibold text-fg">Pro+</span> con certificado SSL automático incluido.
-                        </p>
                         <Link
                             href="/panel/mi-negocio/plan?plan=pro_plus"
-                            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-(--accent) px-4 text-sm font-semibold text-(--accent-contrast) hover:opacity-90"
+                            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl bg-(--accent) px-3.5 text-xs font-semibold text-(--accent-contrast) hover:opacity-90"
                         >
-                            Mejorar a Pro+ <IconArrowRight size={15} aria-hidden="true" />
+                            Mejorar a Pro+ <IconArrowRight size={14} aria-hidden="true" />
                         </Link>
                     </div>
                 ) : (
-                    <div className="mt-4 space-y-4">
+                    <div className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h2 className="text-sm font-bold text-fg">Dominio propio</h2>
+                                <PanelStatusBadge label="Pro+" tone="info" size="sm" />
+                                {badge}
+                            </div>
+                            {state.customDomain && state.customDomainStatus === 'verified' ? (
+                                <a
+                                    href={`https://${state.customDomain}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline"
+                                >
+                                    {state.customDomain} <IconExternalLink size={13} aria-hidden="true" />
+                                </a>
+                            ) : null}
+                        </div>
+
                         {error ? <PanelNotice tone="error">{error}</PanelNotice> : null}
                         {message ? <PanelNotice tone="success">{message}</PanelNotice> : null}
 
-                        <form onSubmit={handleSave} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                            <div className="min-w-0 flex-1">
-                                <PanelField label="Tu dominio o subdominio">
-                                    <input
-                                        id="agenda-custom-domain-input"
-                                        type="text"
-                                        value={domainInput}
-                                        onChange={(e) => setDomainInput(e.target.value)}
-                                        placeholder="reservas.tunegocio.cl"
-                                        className="form-input w-full"
-                                    />
-                                </PanelField>
-                            </div>
-                            <PanelButton type="submit" disabled={saving || !domainInput.trim()}>
-                                {saving ? <IconLoader2 size={15} className="animate-spin" aria-hidden="true" /> : null}
-                                {state.customDomain ? 'Actualizar dominio' : 'Guardar dominio'}
+                        <form onSubmit={handleSave} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <input
+                                id="agenda-custom-domain-input"
+                                type="text"
+                                aria-label="Dominio propio"
+                                value={domainInput}
+                                onChange={(e) => setDomainInput(e.target.value)}
+                                placeholder="reservas.tunegocio.cl"
+                                className="form-input h-10 min-w-0 flex-1 text-sm"
+                            />
+                            <PanelButton type="submit" size="sm" disabled={saving || !domainInput.trim()}>
+                                {saving ? <IconLoader2 size={14} className="animate-spin" aria-hidden="true" /> : null}
+                                {state.customDomain ? 'Actualizar' : 'Guardar'}
                             </PanelButton>
                         </form>
 
                         {state.customDomain ? (
-                            <div className="rounded-xl border border-(--border) bg-(--bg-subtle) p-4 text-sm">
-                                <p className="font-semibold text-fg">Configura este registro en tu proveedor de dominio:</p>
-                                <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
-                                    <div className="rounded-lg border border-(--border) bg-(--bg) px-3 py-2">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Tipo</p>
-                                        <p className="mt-0.5 font-mono text-xs font-semibold text-fg">CNAME</p>
-                                    </div>
-                                    <div className="rounded-lg border border-(--border) bg-(--bg) px-3 py-2">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Nombre / Host</p>
-                                        <p className="mt-0.5 truncate font-mono text-xs font-semibold text-fg">
-                                            {extractDnsHostLabel(state.customDomain)}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-2 rounded-lg border border-(--border) bg-(--bg) px-3 py-2">
-                                        <div className="min-w-0">
-                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Destino / Valor</p>
-                                            <p className="mt-0.5 truncate font-mono text-xs font-semibold text-fg">{state.targetHost}</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleCopyTarget()}
-                                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-(--border) text-fg-secondary hover:text-fg"
-                                            aria-label="Copiar destino DNS"
-                                        >
-                                            {copiedTarget ? <IconCheck size={14} aria-hidden="true" /> : <IconCopy size={14} aria-hidden="true" />}
-                                        </button>
-                                    </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-(--border) bg-(--bg-subtle) px-3 py-2 text-xs">
+                                <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-fg-secondary">
+                                    <span className="rounded bg-(--bg) px-1.5 py-0.5 font-mono font-semibold text-fg">CNAME</span>
+                                    <span className="font-mono font-semibold text-fg">{extractDnsHostLabel(state.customDomain)}</span>
+                                    <span aria-hidden="true">→</span>
+                                    <span className="truncate font-mono font-semibold text-fg">{state.targetHost}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleCopyTarget()}
+                                        className="inline-flex h-6 w-6 items-center justify-center rounded border border-(--border) bg-(--bg) text-fg-secondary hover:text-fg"
+                                        aria-label="Copiar destino DNS"
+                                    >
+                                        {copiedTarget ? <IconCheck size={12} aria-hidden="true" /> : <IconCopy size={12} aria-hidden="true" />}
+                                    </button>
                                 </div>
 
-                                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <PanelButton type="button" onClick={() => void handleVerify()} disabled={verifying}>
-                                            {verifying
-                                                ? <IconLoader2 size={15} className="animate-spin" aria-hidden="true" />
-                                                : <IconRefresh size={15} aria-hidden="true" />}
-                                            {state.customDomainStatus === 'verified' ? 'Reverificar DNS' : 'Verificar DNS'}
-                                        </PanelButton>
-                                        {state.customDomainStatus === 'verified' ? (
-                                            <a
-                                                href={`https://${state.customDomain}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-(--border) bg-(--bg) px-3.5 text-sm font-semibold text-fg hover:bg-(--bg-subtle)"
-                                            >
-                                                Abrir sitio <IconExternalLink size={14} aria-hidden="true" />
-                                            </a>
-                                        ) : null}
-                                    </div>
+                                <div className="flex items-center gap-1.5">
+                                    <PanelButton type="button" size="sm" variant="secondary" onClick={() => void handleVerify()} disabled={verifying}>
+                                        {verifying
+                                            ? <IconLoader2 size={13} className="animate-spin" aria-hidden="true" />
+                                            : <IconRefresh size={13} aria-hidden="true" />}
+                                        {state.customDomainStatus === 'verified' ? 'Reverificar' : 'Verificar DNS'}
+                                    </PanelButton>
                                     <button
                                         type="button"
                                         onClick={() => void handleRemove()}
                                         disabled={removing}
-                                        className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-fg-muted hover:text-(--danger)"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-muted hover:bg-(--bg) hover:text-(--danger)"
+                                        aria-label="Quitar dominio"
+                                        title="Quitar dominio"
                                     >
-                                        <IconTrash size={14} aria-hidden="true" /> Quitar dominio
+                                        <IconTrash size={14} aria-hidden="true" />
                                     </button>
                                 </div>
                             </div>
