@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { IconHome } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
 import { PanelShell as SharedPanelShell } from '@simple/ui/panel';
-import { fetchCurrentAccountContext } from '@simple/utils';
+import { fetchCurrentAccountContext, switchCurrentAccount } from '@simple/utils';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
 import { getPanelNavItems, isPanelNavActive } from '@/components/panel/panel-nav-config';
@@ -45,8 +45,24 @@ export function PanelShell({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (!user?.id) return;
         let active = true;
-        void fetchCurrentAccountContext().then((context) => {
-            if (active && context) handleAccountContext(context);
+        void fetchCurrentAccountContext().then(async (context) => {
+            if (!active || !context) return;
+            if (context.account?.isPersonal === false) {
+                const personal = context.memberships.find((m) => m.account?.isPersonal && m.accountId !== context.account?.id);
+                if (personal) {
+                    const guardKey = `simpleagenda:personal-switch:${user.id}`;
+                    const alreadyTried = typeof window !== 'undefined' && window.sessionStorage.getItem(guardKey) === '1';
+                    if (!alreadyTried) {
+                        if (typeof window !== 'undefined') window.sessionStorage.setItem(guardKey, '1');
+                        const switched = await switchCurrentAccount(personal.accountId).catch(() => ({ ok: false }));
+                        if (switched.ok && typeof window !== 'undefined') {
+                            window.location.reload();
+                            return;
+                        }
+                    }
+                }
+            }
+            handleAccountContext(context);
         }).catch(() => {});
         return () => { active = false; };
     }, [handleAccountContext, user?.id]);
