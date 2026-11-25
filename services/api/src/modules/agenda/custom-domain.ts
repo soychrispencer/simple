@@ -6,6 +6,24 @@ export type CustomDomainStatus = 'none' | 'pending' | 'verified' | 'error';
 const DEFAULT_AGENDA_APP_UUID = 'bgwg04c0csokg8cgs84s80s8';
 const DEFAULT_TARGET_HOST = 'simpleagenda.app';
 const HOSTNAME_LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+let cachedTargetIp: { host: string; ip: string | null; expiresAt: number } | null = null;
+
+export async function getCustomDomainTargetIp(
+    targetHost: string = getCustomDomainTargetHost(),
+): Promise<string | null> {
+    const envIp = process.env.AGENDA_CUSTOM_DOMAIN_IP?.trim();
+    if (envIp && net.isIPv4(envIp)) return envIp;
+
+    const now = Date.now();
+    if (cachedTargetIp && cachedTargetIp.host === targetHost && cachedTargetIp.expiresAt > now) {
+        return cachedTargetIp.ip;
+    }
+
+    const ips = await dns.resolve4(targetHost).catch(() => [] as string[]);
+    const ip = ips[0] ?? null;
+    cachedTargetIp = { host: targetHost, ip, expiresAt: now + 10 * 60_000 };
+    return ip;
+}
 
 export function getCustomDomainTargetHost(): string {
     const raw = process.env.AGENDA_CUSTOM_DOMAIN_TARGET || process.env.NEXT_PUBLIC_APP_URL || DEFAULT_TARGET_HOST;

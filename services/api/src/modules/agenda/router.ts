@@ -9,6 +9,7 @@ import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopag
 import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount, hasAgendaProPlusAccess } from './plan-limits.js';
 import {
     getCustomDomainTargetHost,
+    getCustomDomainTargetIp,
     normalizeCustomDomain,
     syncCustomDomainWithCoolify,
     verifyCustomDomainDns,
@@ -1905,12 +1906,15 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         let profile = await ensureAgendaProfile(user);
         profile = await ensureAgendaProfileTrial(profile);
+        const targetHost = getCustomDomainTargetHost();
+        const targetIp = await getCustomDomainTargetIp(targetHost);
         return c.json({
             ok: true,
             customDomain: profile.customDomain ?? null,
             customDomainStatus: profile.customDomainStatus ?? 'none',
             customDomainVerifiedAt: profile.customDomainVerifiedAt ?? null,
-            targetHost: getCustomDomainTargetHost(),
+            targetHost,
+            targetIp,
             proPlusEligible: hasAgendaProPlusAccess(profile),
         });
     });
@@ -1953,12 +1957,16 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             .where(eq(agendaProfessionalProfiles.id, profile.id))
             .returning();
 
+        const targetHost = getCustomDomainTargetHost();
+        const targetIp = await getCustomDomainTargetIp(targetHost);
+
         return c.json({
             ok: true,
             customDomain: updated.customDomain,
             customDomainStatus: updated.customDomainStatus,
             customDomainVerifiedAt: updated.customDomainVerifiedAt,
-            targetHost: getCustomDomainTargetHost(),
+            targetHost,
+            targetIp,
         });
     });
 

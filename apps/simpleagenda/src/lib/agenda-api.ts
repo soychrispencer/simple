@@ -235,6 +235,7 @@ export type AgendaCustomDomainState = {
     customDomainStatus: 'none' | 'pending' | 'verified' | 'error';
     customDomainVerifiedAt: string | null;
     targetHost: string;
+    targetIp?: string | null;
     proPlusEligible: boolean;
 };
 
@@ -248,6 +249,7 @@ export async function saveAgendaCustomDomain(domain: string): Promise<{
     customDomainStatus?: 'none' | 'pending' | 'verified' | 'error';
     customDomainVerifiedAt?: string | null;
     targetHost?: string;
+    targetIp?: string | null;
     error?: string;
 }> {
     return agendaMutation('/api/agenda/custom-domain', {
