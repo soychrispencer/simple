@@ -4,11 +4,34 @@ const META_GRAPH_VERSION = process.env.WHATSAPP_CLOUD_API_VERSION?.trim() || 'v2
 const DEFAULT_REMINDER_TEMPLATE = process.env.WHATSAPP_REMINDER_TEMPLATE_NAME?.trim() || 'cita_recordatorio_24h';
 const DEFAULT_TEMPLATE_LANG = process.env.WHATSAPP_REMINDER_TEMPLATE_LANG?.trim() || 'es_CL';
 
-export function isWhatsAppCloudConfigured(): boolean {
-    return Boolean(
-        process.env.WHATSAPP_CLOUD_ACCESS_TOKEN?.trim()
-        && process.env.WHATSAPP_CLOUD_PHONE_NUMBER_ID?.trim(),
+function resolveWhatsAppAccessToken(): string | undefined {
+    return (
+        process.env.WHATSAPP_ACCESS_TOKEN?.trim()
+        || process.env.WHATSAPP_CLOUD_ACCESS_TOKEN?.trim()
+        || undefined
     );
+}
+
+function resolveWhatsAppPhoneNumberId(): string | undefined {
+    return (
+        process.env.WHATSAPP_PHONE_NUMBER_ID_AGENDA?.trim()
+        || process.env.WHATSAPP_PHONE_NUMBER_ID?.trim()
+        || process.env.WHATSAPP_CLOUD_PHONE_NUMBER_ID?.trim()
+        || undefined
+    );
+}
+
+function resolveWhatsAppAppSecret(): string | undefined {
+    return (
+        process.env.WHATSAPP_CLOUD_APP_SECRET?.trim()
+        || process.env.WHATSAPP_APP_SECRET?.trim()
+        || process.env.META_APP_SECRET?.trim()
+        || undefined
+    );
+}
+
+export function isWhatsAppCloudConfigured(): boolean {
+    return Boolean(resolveWhatsAppAccessToken() && resolveWhatsAppPhoneNumberId());
 }
 
 /**
@@ -26,7 +49,7 @@ export function normalizeWhatsAppRecipient(rawPhone?: string | null): string | n
 }
 
 export function verifyWhatsAppWebhookSignature(rawBody: string, signatureHeader?: string | null): boolean {
-    const appSecret = process.env.WHATSAPP_CLOUD_APP_SECRET?.trim();
+    const appSecret = resolveWhatsAppAppSecret();
     if (!appSecret) return true;
     if (!signatureHeader || !signatureHeader.startsWith('sha256=')) return false;
 
@@ -108,8 +131,8 @@ export async function sendAppointmentReminderWhatsApp(input: {
     whenLabel: string;
     locationLabel: string;
 }): Promise<{ ok: boolean; messageId?: string; error?: string }> {
-    const token = process.env.WHATSAPP_CLOUD_ACCESS_TOKEN?.trim();
-    const phoneNumberId = process.env.WHATSAPP_CLOUD_PHONE_NUMBER_ID?.trim();
+    const token = resolveWhatsAppAccessToken();
+    const phoneNumberId = resolveWhatsAppPhoneNumberId();
     if (!token || !phoneNumberId) {
         return { ok: false, error: 'WhatsApp Cloud API no configurada' };
     }

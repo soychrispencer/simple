@@ -6188,7 +6188,11 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const mode = c.req.query('hub.mode');
         const token = c.req.query('hub.verify_token');
         const challenge = c.req.query('hub.challenge') ?? '';
-        const expected = process.env.WHATSAPP_CLOUD_VERIFY_TOKEN?.trim();
+        const expected = (
+            process.env.WHATSAPP_VERIFY_TOKEN?.trim()
+            || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim()
+            || process.env.WHATSAPP_CLOUD_VERIFY_TOKEN?.trim()
+        );
         if (mode === 'subscribe' && expected && token === expected) {
             return c.text(challenge, 200);
         }
