@@ -6,6 +6,7 @@ import { gt, ilike, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { cleanupReplacedMediaUrl, isOwnedStorageUrl, toProtectedMediaUrl, unwrapProtectedMediaUrl } from '../media/stored-object.js';
 import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
+import { refreshMercadoPagoOperatorOAuthToken } from '../mercadopago/operator-oauth.js';
 import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount, hasAgendaProPlusAccess } from './plan-limits.js';
 import {
     getCustomDomainTargetHost,
@@ -440,6 +441,33 @@ type PropertyVisitTeamContext = {
 };
 
 const ACCOUNT_VISIT_MEMBER_PAGE_SIZE = 50;
+
+function resolvePublicProfileUrls(profile: any) {
+    const agendaAppUrl = (typeof process.env.AGENDA_APP_URL === 'string' && process.env.AGENDA_APP_URL.trim()) || 'https://simpleagenda.app';
+    const hasVerifiedDomain = Boolean(
+        profile?.customDomain
+        && profile?.customDomainStatus === 'verified'
+        && hasAgendaProPlusAccess(profile),
+    );
+    const baseUrl = hasVerifiedDomain ? `https://${profile.customDomain}` : agendaAppUrl;
+    const bookingUrl = hasVerifiedDomain ? baseUrl : `${baseUrl}/${encodeURIComponent(profile.slug)}`;
+    return { agendaAppUrl, baseUrl, bookingUrl };
+}
+
+async function refreshAgendaMpToken(db: any, agendaProfessionalProfiles: any, eq: any, profile: any): Promise<string | null> {
+    if (!profile?.mpRefreshToken) return null;
+    const refreshed = await refreshMercadoPagoOperatorOAuthToken(String(profile.mpRefreshToken));
+    if (!refreshed?.accessToken) return null;
+    await db.update(agendaProfessionalProfiles).set({
+        mpAccessToken: refreshed.accessToken,
+        mpRefreshToken: refreshed.refreshToken ?? profile.mpRefreshToken,
+        ...(refreshed.publicKey ? { mpPublicKey: refreshed.publicKey } : {}),
+        updatedAt: new Date(),
+    }).where(eq(agendaProfessionalProfiles.id, profile.id));
+    profile.mpAccessToken = refreshed.accessToken;
+    profile.mpRefreshToken = refreshed.refreshToken ?? profile.mpRefreshToken;
+    return refreshed.accessToken;
+}
 
 export function createAgendaRouter(deps: AgendaRouterDeps) {
     const {
@@ -4154,17 +4182,25 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         return updated;
     }
 
-    function notifySettledAppointment(profile: any, appointment: any) {
+    async function notifySettledAppointment(profile: any, appointment: any) {
         if (!appointment?.clientEmail || !['confirmed', 'pending'].includes(appointment.status)) return;
-        const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
+        let serviceName: string | null = null;
+        if (appointment.serviceId) {
+            const svc = await db.query.agendaServices.findFirst({
+                where: eq(agendaServices.id, appointment.serviceId),
+                columns: { name: true },
+            }).catch(() => null);
+            serviceName = svc?.name ?? null;
+        }
+        const { baseUrl } = resolvePublicProfileUrls(profile);
         void sendBookingConfirmationEmail(appointment.clientEmail, {
             ...appointment,
             clientName: appointment.clientName ?? 'Cliente',
             professionalName: profile.displayName ?? 'el profesional',
             timezone: profile.timezone ?? 'America/Santiago',
-            serviceName: null,
-            cancelUrl: `${agendaAppUrl}/cancelar?appt=${appointment.id}&slug=${profile.slug}`,
-            appUrl: agendaAppUrl,
+            serviceName,
+            cancelUrl: `${baseUrl}/cancelar?appt=${appointment.id}&slug=${profile.slug}`,
+            appUrl: baseUrl,
         }).catch((error: unknown) => console.error('[agenda] Payment confirmation email error:', error));
     }
 
@@ -4547,7 +4583,13 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             });
             if (!profile) return c.json({ ok: true });
             if (profile.mpAccessToken) {
-                payment = await getPaymentById(paymentId, { accessToken: profile.mpAccessToken });
+                try {
+                    payment = await getPaymentById(paymentId, { accessToken: profile.mpAccessToken });
+                } catch (err) {
+                    const refreshedToken = await refreshAgendaMpToken(db, agendaProfessionalProfiles, eq, profile);
+                    if (!refreshedToken) throw err;
+                    payment = await getPaymentById(paymentId, { accessToken: refreshedToken });
+                }
             }
             if (!payment || payment.status !== 'approved' || String(payment.external_reference) !== initial.id) {
                 return c.json({ ok: true });
@@ -4610,7 +4652,12 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                     payload: { source: 'mercadopago_webhook' },
                 });
             }
-            notifySettledAppointment(profile, appt);
+            void notifySettledAppointment(profile, appt);
+            void sendPushToUser(profile.userId, {
+                title: '💳 Pago confirmado',
+                body: `${appt.clientName ?? 'Cliente'} pagó su cita por MercadoPago.`,
+                url: '/panel/agenda',
+            });
             return c.json({ ok: true });
         } catch (error) {
             console.error('[agenda] MP webhook error:', error);
@@ -5138,18 +5185,6 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         }
     }
 
-    function resolvePublicProfileUrls(profile: any) {
-        const agendaAppUrl = (typeof process.env.AGENDA_APP_URL === 'string' && process.env.AGENDA_APP_URL.trim()) || 'https://simpleagenda.app';
-        const hasVerifiedDomain = Boolean(
-            profile?.customDomain
-            && profile?.customDomainStatus === 'verified'
-            && hasAgendaProPlusAccess(profile),
-        );
-        const baseUrl = hasVerifiedDomain ? `https://${profile.customDomain}` : agendaAppUrl;
-        const bookingUrl = hasVerifiedDomain ? baseUrl : `${baseUrl}/${encodeURIComponent(profile.slug)}`;
-        return { agendaAppUrl, baseUrl, bookingUrl };
-    }
-
     async function ensureBookingCheckout(profile: any, appointmentId: string): Promise<string | null> {
         if (!profile.acceptsMp || !profile.mpAccessToken) return null;
 
@@ -5168,7 +5203,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
 
             const apiUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
             const { bookingUrl } = resolvePublicProfileUrls(profile);
-            const pref = await createCheckoutPreference({
+            const prefPayload = {
                 externalReference: appointment.id,
                 title: `Sesión con ${profile.displayName ?? 'el profesional'}`,
                 amount,
@@ -5183,12 +5218,21 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 notificationUrl: `${apiUrl}/api/agenda/mercadopago/webhook?appointment=${appointment.id}`,
                 accessToken: profile.mpAccessToken,
                 signal: AbortSignal.timeout(8_000),
-            });
-            if (!pref.initPoint) return null;
+            };
+            let pref: { initPoint: string | null; sandboxInitPoint?: string | null; [key: string]: any };
+            try {
+                pref = await createCheckoutPreference(prefPayload);
+            } catch (err) {
+                const refreshedToken = await refreshAgendaMpToken(db, agendaProfessionalProfiles, eq, profile);
+                if (!refreshedToken) throw err;
+                pref = await createCheckoutPreference({ ...prefPayload, accessToken: refreshedToken });
+            }
+            const resolvedInitPoint = pref.initPoint || pref.sandboxInitPoint || null;
+            if (!resolvedInitPoint) return null;
             await tx.update(agendaAppointments)
-                .set({ mpCheckoutUrl: pref.initPoint })
+                .set({ mpCheckoutUrl: resolvedInitPoint })
                 .where(eq(agendaAppointments.id, appointment.id));
-            return pref.initPoint;
+            return resolvedInitPoint;
         });
     }
 

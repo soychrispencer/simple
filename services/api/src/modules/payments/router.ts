@@ -1605,7 +1605,9 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 );
 
                 if (result.ok) {
-                    processedPre?.add(preapprovalId);
+                    if (result.applied) {
+                        processedPre?.add(preapprovalId);
+                    }
                 } else {
                     console.warn('[payments] MP webhook preapproval: confirmación fallida:', result.error);
                 }

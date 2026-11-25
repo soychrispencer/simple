@@ -139,3 +139,43 @@ export async function exchangeMercadoPagoOperatorOAuthCode(code: string): Promis
         refreshToken: asString(tokens.refresh_token) || null,
     };
 }
+
+export async function refreshMercadoPagoOperatorOAuthToken(
+    refreshToken: string,
+): Promise<MercadoPagoOperatorTokens | null> {
+    const { appId, appSecret } = getMercadoPagoOperatorAppCredentials();
+    if (!appId || !appSecret || !refreshToken.trim()) return null;
+
+    try {
+        const response = await fetch('https://api.mercadopago.com/oauth/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({
+                client_id: appId,
+                client_secret: appSecret,
+                grant_type: 'refresh_token',
+                refresh_token: refreshToken.trim(),
+            }),
+        });
+        if (!response.ok) return null;
+        const tokens = await response.json() as {
+            access_token?: string;
+            public_key?: string;
+            refresh_token?: string;
+            user_id?: number | string;
+        };
+        const accessToken = asString(tokens.access_token);
+        if (!accessToken) return null;
+        return {
+            accessToken,
+            publicKey: asString(tokens.public_key) || null,
+            userId: tokens.user_id != null ? String(tokens.user_id) : null,
+            refreshToken: asString(tokens.refresh_token) || refreshToken,
+        };
+    } catch {
+        return null;
+    }
+}
