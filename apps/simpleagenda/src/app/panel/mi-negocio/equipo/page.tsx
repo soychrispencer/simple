@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { IconLoader2 } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
 import { PanelButton, PanelCard, PanelNotice } from '@simple/ui/panel';
 import { usePanelFormatters } from '@simple/auth';
@@ -204,15 +205,17 @@ export default function EquipoAgendaPage() {
     }, [agenda, team, refresh]);
 
     const assigned = team?.assignments.some((item) => item.membershipId === member && item.professionalId === agenda);
-    async function toggleAssignment() {
+    async function toggleAssignment(targetMember = member, targetAgenda = agenda, nextEnabled = !assigned) {
         setBusy(true);
         setError('');
+        setConfirmation('');
         try {
             await teamRequest('/assignment', {
                 method: 'PUT',
-                body: JSON.stringify({ membershipId: member, professionalId: agenda, enabled: !assigned }),
+                body: JSON.stringify({ membershipId: targetMember, professionalId: targetAgenda, enabled: nextEnabled }),
             });
             setTeam(await teamRequest<Team>());
+            setConfirmation(nextEnabled ? 'Acceso de recepción asignado.' : 'Acceso retirado.');
         } catch (failure) {
             setError(failure instanceof Error ? failure.message : 'No pudimos guardar el acceso.');
         } finally {
@@ -238,17 +241,22 @@ export default function EquipoAgendaPage() {
     return (
         <AgendaMiNegocioShell activeKey="equipo" title="Recepción" description="Asigna asistentes para que gestionen citas de cada profesional." showPublishToggle={false}>
             {error && <PanelNotice tone="error">{error}</PanelNotice>}
-            {confirmation && <p role="status" className="text-sm text-accent-ink">{confirmation}</p>}
-            {!team && !error && <p role="status">Cargando equipo…</p>}
+            {confirmation && <PanelNotice tone="success">{confirmation}</PanelNotice>}
+            {!team && !error && (
+                <p role="status" className="flex items-center gap-2 text-sm text-fg-muted">
+                    <IconLoader2 size={16} className="animate-spin" aria-hidden="true" />
+                    Cargando recepción…
+                </p>
+            )}
             {team && !team.workspace && <PanelNotice tone="info">Elige un espacio de negocio compatible para configurar accesos de recepción.</PanelNotice>}
             {team?.workspace && (
                 <PanelCard size="lg" className="space-y-4">
                     <h2 className="font-semibold">{team.workspace.name}</h2>
                     <p className="text-sm text-fg-muted">Recepción gestiona las citas de cada agenda asignada.</p>
                     {team.workspace.canManage && (
-                        <label className="block text-sm font-medium">Persona del equipo
+                        <label className="block text-sm font-medium">Asistente
                             <select className="form-input mt-1" value={member} disabled={busy} onChange={(event) => setMember(event.target.value)}>
-                                <option value="">Selecciona un integrante</option>
+                                <option value="">Selecciona un asistente</option>
                                 {team.members.filter((item) => item.role === 'agent').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                             </select>
                         </label>
@@ -270,9 +278,39 @@ export default function EquipoAgendaPage() {
                         />
                     ) : <PanelButton type="button" onClick={() => setSchedule('new')}>Nueva cita</PanelButton>)}
                     {team.workspace.canManage ? (
-                        <PanelButton disabled={!member || !agenda || busy} onClick={() => void toggleAssignment()}>
-                            {assigned ? 'Retirar acceso' : 'Dar acceso a recepción'}
-                        </PanelButton>
+                        <div className="space-y-4">
+                            <PanelButton disabled={!member || !agenda || busy} onClick={() => void toggleAssignment()}>
+                                {assigned ? 'Retirar acceso' : 'Dar acceso a recepción'}
+                            </PanelButton>
+                            {team.assignments.length > 0 ? (
+                                <div className="border-t border-(--border) pt-4">
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">Accesos activos</p>
+                                    <ul className="divide-y divide-(--border)">
+                                        {team.assignments.map((item) => {
+                                            const mName = team.members.find((m) => m.id === item.membershipId)?.name ?? 'Asistente';
+                                            const ag = team.agendas.find((a) => a.id === item.professionalId);
+                                            const aName = ag?.displayName || ag?.name || 'Agenda profesional';
+                                            return (
+                                                <li key={`${item.membershipId}:${item.professionalId}`} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
+                                                    <span><strong>{mName}</strong> → {aName}</span>
+                                                    <PanelButton
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        disabled={busy}
+                                                        onClick={() => void toggleAssignment(item.membershipId, item.professionalId, false)}
+                                                    >
+                                                        Retirar
+                                                    </PanelButton>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            ) : (
+                                <p className="text-xs text-fg-muted">Aún no hay asistentes con acceso asignado.</p>
+                            )}
+                        </div>
                     ) : busy ? <p role="status">Cargando citas…</p> : agenda && (
                         appointments.length ? <ul className="divide-y divide-(--border)">
                             {appointments.map((item) => (

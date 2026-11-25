@@ -41,7 +41,7 @@ function getAgendaPublishRequirements(
             id: 'plan',
             label: 'Cuenta Gratis o Pro',
             met: featureEnabled,
-            href: '/panel/mi-cuenta/suscripcion',
+            href: '/panel/mi-negocio/plan',
         },
         {
             id: 'name',

@@ -57,7 +57,7 @@ export function AgendaPublicProfileLocationContact({
     return (
         <>
             <BusinessPublicLocationCard
-                addressesHref="/panel/mi-negocio/direcciones"
+                addressesHref="/panel/mi-negocio#ubicaciones"
                 defaultAddress={defaultAddress}
                 showPrimaryAddress={showPrimaryAddress}
                 onShowPrimaryAddressChange={onShowPrimaryAddressChange}

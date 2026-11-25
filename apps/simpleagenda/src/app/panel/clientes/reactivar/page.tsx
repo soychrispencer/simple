@@ -165,7 +165,7 @@ export default function ReactivarClientesPage() {
                     <p className="mt-3 text-sm font-semibold text-(--fg)">
                         {'Desde $' + AGENDA_PRICING.proPlusMonthlyNetClp.toLocaleString('es-CL') + ' + IVA al mes'}
                     </p>
-                    <Link href="/panel/mi-cuenta/suscripcion" className="agenda-button agenda-button--signal mt-5 inline-flex min-h-11 items-center justify-center px-5">
+                    <Link href="/panel/mi-negocio/plan" className="agenda-button agenda-button--signal mt-5 inline-flex min-h-11 items-center justify-center px-5">
                         Ver y contratar Pro+
                     </Link>
                 </section>

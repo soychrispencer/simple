@@ -105,10 +105,18 @@ function validateAgendaServiceForm(form: AgendaServiceForm): string | null {
     if (!Number.isFinite(durationMinutes) || durationMinutes < 15) {
         return 'La duración mínima es 15 minutos.';
     }
+    if (form.price.trim()) {
+        const price = Number(form.price);
+        if (!Number.isFinite(price) || price < 0) {
+            return 'El precio debe ser un monto válido.';
+        }
+    }
     const modalityError = validateBusinessServiceModality(form);
     if (modalityError) return modalityError;
     if (form.kind === 'group_event') {
-        if (!form.startsAt) return 'Indica fecha y hora de la sesión.';
+        if (!form.startsAt || Number.isNaN(new Date(form.startsAt).getTime())) {
+            return 'Indica una fecha y hora válida para la sesión.';
+        }
         const capacity = Number(form.capacity);
         if (!Number.isFinite(capacity) || capacity < 1) return 'Cupo inválido.';
         if (form.isPresential && !form.location.trim()) return 'Indica la dirección del evento.';
@@ -163,6 +171,7 @@ export default function ServiciosConfigPage() {
 
 function ServiciosConfigPageContent() {
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
+    const [profileLoading, setProfileLoading] = useState(true);
     const [locations, setLocations] = useState<AgendaLocation[]>([]);
     const [services, setServices] = useState<AgendaService[]>([]);
     const servicesRef = useRef<AgendaService[]>([]);
@@ -178,6 +187,7 @@ function ServiciosConfigPageContent() {
             if (!active) return;
             setProfile(loadedProfile);
             setLocations(loadedLocations);
+            setProfileLoading(false);
         };
         void loadContext();
         const refresh = () => { void loadContext(); };
@@ -190,7 +200,7 @@ function ServiciosConfigPageContent() {
         };
     }, []);
 
-    const hasFullAccess = !profile || hasAgendaFullAccess(profile);
+    const hasFullAccess = !profileLoading && (!profile || hasAgendaFullAccess(profile));
     const activeCount = useMemo(() => services.filter((item) => item.isActive).length, [services]);
     const atFreeServiceLimit = !hasFullAccess && activeCount >= AGENDA_PRICING.free.activeServices;
     const defaultOnline = profile?.servesOnline ?? true;

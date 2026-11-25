@@ -174,7 +174,7 @@ export default function PerfilConfigPage() {
             const defaultLocation = loadedLocations.find((item) => item.isDefault) ?? null;
             if (defaultLocation) {
                 setBusinessLocation(normalizeStructuredLocation({
-                    countryCode: 'CL',
+                    countryCode: profile?.countryCode || 'CL',
                     regionName: defaultLocation.region,
                     localityName: defaultLocation.city,
                 }));
@@ -190,8 +190,8 @@ export default function PerfilConfigPage() {
             setBusinessLocations(locations);
             const defaultLocation = locations.find((item) => item.isDefault) ?? null;
             if (defaultLocation) {
-                setBusinessLocation(normalizeStructuredLocation({
-                    countryCode: 'CL',
+                setBusinessLocation((curr) => normalizeStructuredLocation({
+                    countryCode: curr.countryCode || 'CL',
                     regionName: defaultLocation.region,
                     localityName: defaultLocation.city,
                 }));
@@ -550,7 +550,9 @@ export default function PerfilConfigPage() {
                                                 ))}
                                             </select>
                                         </PanelField>
-                                    ) : operator.accountKind === 'company' && workspaceState?.canManage ? (
+                                    ) : null}
+
+                                    {operator.accountKind === 'company' && workspaceState?.canManage ? (
                                         <PanelField label="Nombre del equipo o centro" required>
                                             <input
                                                 type="text"
@@ -729,7 +731,13 @@ export default function PerfilConfigPage() {
                             </div>
                             <AgendaBusinessLocationsContent />
                         </div>
-                    ) : null}
+                    ) : (
+                        <div id="ubicaciones" className="scroll-mt-24 border-t border-(--border) pt-4">
+                            <p className="text-xs text-fg-muted">
+                                Activa <strong>Atiendo presencial</strong> arriba para administrar tus sedes o consultas físicas.
+                            </p>
+                        </div>
+                    )}
                 </PanelCard>
 
                 {/* 3. Contacto y redes */}

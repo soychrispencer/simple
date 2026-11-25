@@ -788,6 +788,7 @@ export async function fetchNotificationHistory(limit = 20): Promise<Notification
 
 export type PaymentMethods = {
     requiresAdvancePayment: boolean;
+    acceptsTransfer?: boolean;
     mpConnected: boolean;
     paymentLinkUrl: string | null;
     bankTransferData: BankTransferData | null;

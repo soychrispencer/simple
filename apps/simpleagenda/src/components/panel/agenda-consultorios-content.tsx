@@ -1,10 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     createAgendaLocation,
     deleteAgendaLocation,
     fetchAgendaLocations,
+    fetchAgendaProfile,
+    hasAgendaFullAccess,
     saveAgendaProfile,
     updateAgendaLocation,
     type AgendaLocation,
@@ -18,6 +21,7 @@ import { AddressBookManager, useGoogleMapsBrowserKey, type AddressBookManagerSub
 import { PanelNotice } from '@simple/ui/panel';
 import {
     AGENDA_LOCATIONS_CHANGED_EVENT,
+    AGENDA_PRICING,
     dispatchAgendaLocationsChanged,
     getCommunesForRegion,
     LOCATION_REGIONS,
@@ -43,11 +47,15 @@ export function AgendaBusinessLocationsContent() {
     const [message, setMessage] = useState<string | null>(null);
     const [entries, setEntries] = useState(() => [] as ReturnType<typeof agendaLocationToAddressBookEntry>[]);
     const [featuredOnProfileId, setFeaturedOnProfileId] = useState<string | null>(null);
+    const [hasFullAccess, setHasFullAccess] = useState(true);
+    const [activeLocationsCount, setActiveLocationsCount] = useState(0);
 
     const loadLocations = useCallback(async () => {
-        const items = await fetchAgendaLocations();
+        const [items, profile] = await Promise.all([fetchAgendaLocations(), fetchAgendaProfile()]);
         const mapped = items.map(agendaLocationToAddressBookEntry);
         setEntries(mapped);
+        setActiveLocationsCount(items.filter((item) => item.isActive).length);
+        setHasFullAccess(!profile || hasAgendaFullAccess(profile));
         const defaultLocation = items.find((item) => item.isDefault) ?? null;
         setFeaturedOnProfileId(defaultLocation?.isActive ? defaultLocation.id : null);
         setLoading(false);
@@ -75,6 +83,11 @@ export function AgendaBusinessLocationsContent() {
         }
         if (!payload.addressLine) {
             setMessage('La dirección es obligatoria.');
+            return false;
+        }
+
+        if (!draft.id && !hasFullAccess && activeLocationsCount >= AGENDA_PRICING.free.activeLocations) {
+            setMessage(`Tu plan Gratis permite hasta ${AGENDA_PRICING.free.activeLocations} ubicación activa. Pásate a Pro para agregar más sedes.`);
             return false;
         }
 
@@ -122,12 +135,22 @@ export function AgendaBusinessLocationsContent() {
         setMessage('Dirección eliminada.');
     }, [entries, loadLocations]);
 
-    const noticeTone = message?.toLowerCase().includes('no se pudo') || message?.includes('obligator')
+    const freeLocationLimitReached = !loading && !hasFullAccess && activeLocationsCount >= AGENDA_PRICING.free.activeLocations;
+
+    const noticeTone = message?.toLowerCase().includes('no se pudo') || message?.includes('obligator') || message?.includes('plan Gratis')
         ? 'error'
         : 'success';
 
     return (
         <div className="grid gap-5">
+            {freeLocationLimitReached ? (
+                <PanelNotice tone="info">
+                    El plan Gratis incluye hasta {AGENDA_PRICING.free.activeLocations} ubicación presencial activa.{' '}
+                    <Link href="/panel/mi-negocio/plan" className="font-semibold underline">
+                        Ver planes Pro
+                    </Link>
+                </PanelNotice>
+            ) : null}
             <AddressBookManager
                 showHeader={false}
                 googleMapsApiKey={googleMapsApiKey}

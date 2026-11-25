@@ -1215,7 +1215,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
 
                                 <div className="rounded-xl border border-(--border) bg-(--bg-subtle) p-3.5 space-y-1">
                                     <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                                        simpleagenda.app/{profile.slug || 'tu-link'}
+                                        {(process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app').replace(/^https?:\/\//, '')}/{profile.slug || 'tu-link'}
                                     </p>
                                     <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">
                                         {seoPreviewTitle}

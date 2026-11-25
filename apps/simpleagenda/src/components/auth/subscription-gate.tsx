@@ -59,7 +59,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
                 <p className="mx-auto mb-7 max-w-md text-fg-muted">
                     Tu cuenta y tus datos siguen disponibles en Gratis. Activa Pro para usar estadísticas, packs, promociones, NPS y referidos.
                 </p>
-                <Link href="/panel/mi-cuenta/suscripcion">
+                <Link href="/panel/mi-negocio/plan">
                     <PanelButton variant="primary" className="h-12 px-8">Ver plan Pro</PanelButton>
                 </Link>
             </div>
@@ -91,7 +91,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
                             </p>
                         </div>
                     </div>
-                    <Link href="/panel/mi-cuenta/suscripcion" className="shrink-0">
+                    <Link href="/panel/mi-negocio/plan" className="shrink-0">
                         <PanelButton variant="primary" className="h-10 px-5">
                             {trialActive ? 'Ver plan Pro' : 'Ver planes'}
                         </PanelButton>

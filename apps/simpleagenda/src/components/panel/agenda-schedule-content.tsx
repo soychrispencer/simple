@@ -10,14 +10,17 @@ import {
     buildFullWeekScheduleDays,
     BUSINESS_SCHEDULE_DEFAULTS,
     BUSINESS_SCHEDULE_TYPICAL_WEEK_SAVE,
+    DEFAULT_TIMEZONE,
     deriveCommonWeeklyBreak,
     mapWeeklyRulesForSave,
+    parseDateTimeInTimezone,
     ruleKeyFromDayOfWeek,
     validateWeeklyScheduleState,
     type CommonWeeklyBreak,
 } from '@simple/utils';
 import {
     fetchAgendaAvailability,
+    fetchAgendaProfile,
     replaceAgendaAvailability,
     createBlockedSlot,
     deleteBlockedSlot,
@@ -81,12 +84,17 @@ export function AgendaScheduleContent() {
         reason: '',
     });
     const [deletingBlock, setDeletingBlock] = useState<string | null>(null);
+    const [businessTimezone, setBusinessTimezone] = useState(DEFAULT_TIMEZONE);
 
     const load = async () => {
         setLoading(true);
         setLoadError('');
         try {
-            const data = await fetchAgendaAvailability();
+            const [data, profile] = await Promise.all([
+                fetchAgendaAvailability(),
+                fetchAgendaProfile().catch(() => null),
+            ]);
+            if (profile?.timezone) setBusinessTimezone(profile.timezone);
             const nextRules = rulesFromAvailability(data.rules);
             const breakConfig = deriveCommonWeeklyBreak(data.rules);
             setRules(nextRules);
@@ -200,16 +208,16 @@ export function AgendaScheduleContent() {
             if (!blockedForm.startDate || !blockedForm.endDate) error = 'Selecciona las fechas de inicio y fin.';
             else if (blockedForm.endDate < blockedForm.startDate) error = 'La fecha de fin debe ser igual o posterior a la de inicio.';
             else {
-                startsAtIso = new Date(`${blockedForm.startDate}T00:00:00`).toISOString();
-                endsAtIso = new Date(`${blockedForm.endDate}T23:59:59`).toISOString();
+                startsAtIso = parseDateTimeInTimezone(`${blockedForm.startDate}T00:00:00`, businessTimezone).toISOString();
+                endsAtIso = parseDateTimeInTimezone(`${blockedForm.endDate}T23:59:59`, businessTimezone).toISOString();
             }
         } else if (!blockedForm.startDate) {
             error = 'Selecciona la fecha del bloqueo.';
         } else if (blockedForm.endTime <= blockedForm.startTime) {
             error = 'La hora de fin debe ser posterior a la de inicio.';
         } else {
-            startsAtIso = new Date(`${blockedForm.startDate}T${blockedForm.startTime}:00`).toISOString();
-            endsAtIso = new Date(`${blockedForm.startDate}T${blockedForm.endTime}:00`).toISOString();
+            startsAtIso = parseDateTimeInTimezone(`${blockedForm.startDate}T${blockedForm.startTime}:00`, businessTimezone).toISOString();
+            endsAtIso = parseDateTimeInTimezone(`${blockedForm.startDate}T${blockedForm.endTime}:00`, businessTimezone).toISOString();
         }
 
         if (error) {

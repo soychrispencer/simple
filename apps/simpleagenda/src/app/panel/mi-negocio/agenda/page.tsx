@@ -75,30 +75,24 @@ export default function AgendaYReservasPage() {
                     })}
                 </div>
 
-                <section
-                    id="horario"
-                    className={activeTab === 'schedule' ? 'scroll-mt-24 space-y-5' : 'hidden'}
-                    aria-hidden={activeTab !== 'schedule'}
-                >
-                    <AgendaScheduleContent />
-                    <AgendaGoogleCalendarIntegrationCard />
-                </section>
+                {activeTab === 'schedule' ? (
+                    <section id="horario" className="scroll-mt-24 space-y-5">
+                        <AgendaScheduleContent />
+                        <AgendaGoogleCalendarIntegrationCard />
+                    </section>
+                ) : null}
 
-                <section
-                    id="reservas"
-                    className={activeTab === 'rules' ? 'scroll-mt-24' : 'hidden'}
-                    aria-hidden={activeTab !== 'rules'}
-                >
-                    <AgendaConfiguracionesContent section="rules" />
-                </section>
+                {activeTab === 'rules' ? (
+                    <section id="reservas" className="scroll-mt-24">
+                        <AgendaConfiguracionesContent section="rules" />
+                    </section>
+                ) : null}
 
-                <section
-                    id="cobros"
-                    className={activeTab === 'payments' ? 'scroll-mt-24' : 'hidden'}
-                    aria-hidden={activeTab !== 'payments'}
-                >
-                    <AgendaConfiguracionesContent section="payments" />
-                </section>
+                {activeTab === 'payments' ? (
+                    <section id="cobros" className="scroll-mt-24">
+                        <AgendaConfiguracionesContent section="payments" />
+                    </section>
+                ) : null}
             </div>
         </AgendaMiNegocioShell>
     );

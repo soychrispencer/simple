@@ -1042,6 +1042,11 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                     Esta sesión requiere pago anticipado. Elige tu método de pago preferido.
                                 </p>
 
+                                {profile.advancePaymentInstructions ? (
+                                    <div className="mb-4 rounded-xl border border-(--border) bg-(--bg-subtle) px-3.5 py-2.5 text-xs leading-relaxed booking-fg whitespace-pre-line">
+                                        {profile.advancePaymentInstructions}
+                                    </div>
+                                ) : null}
                                 <div className="flex flex-col gap-3 mb-5">
                                     {/* MercadoPago automatic checkout */}
                                     {profile.paymentMethods.mpConnected && Number(selectedService?.price) > 0 && (
@@ -1080,9 +1085,10 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                     )}
 
                                     {/* Bank transfer */}
-                                    {profile.paymentMethods.bankTransferData && (
+                                    {(profile.paymentMethods.acceptsTransfer || profile.paymentMethods.bankTransferData) && (
                                         <div className="rounded-xl border p-4 booking-subtle">
                                             <p className="text-xs font-semibold mb-2 booking-fg">Transferencia bancaria</p>
+                                            {profile.paymentMethods.bankTransferData ? (
                                             <div className="flex flex-col gap-1 mb-3">
                                                 {[
                                                     ['Banco', profile.paymentMethods.bankTransferData.bank],
@@ -1099,6 +1105,11 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                                     </div>
                                                 ))}
                                             </div>
+                                            ) : (
+                                                <p className="text-xs mb-3 booking-muted">
+                                                    Al confirmar tu cita te enviaremos los datos de transferencia por correo.
+                                                </p>
+                                            )}
                                             <button
                                                 onClick={() => void handleSubmit('transfer')}
                                                 disabled={submitting}
@@ -1111,7 +1122,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                     )}
 
                                     {/* Fallback: no methods configured but requiresAdvancePayment */}
-                                    {!(profile.paymentMethods.mpConnected && Number(selectedService?.price) > 0) && !profile.paymentMethods.paymentLinkUrl && !profile.paymentMethods.bankTransferData && (
+                                    {!(profile.paymentMethods.mpConnected && Number(selectedService?.price) > 0) && !profile.paymentMethods.paymentLinkUrl && !(profile.paymentMethods.acceptsTransfer || profile.paymentMethods.bankTransferData) && (
                                         <div className="rounded-xl border p-4 border-(--border)">
                                             <p className="text-xs mb-3 booking-muted">
                                                 El profesional confirmará los detalles de pago contigo directamente.

@@ -115,10 +115,14 @@ function PacksPageContent() {
         },
         toggle: async (pack) => {
             const result = await patchAgendaPack(pack.id, { isActive: !pack.isActive });
+            if (result.ok) {
+                setFlash(pack.isActive ? 'Pack pausado.' : 'Pack activado.');
+            }
             return { ok: result.ok, error: result.error };
         },
         remove: async (pack) => {
             const result = await deleteAgendaPack(pack.id);
+            if (result.ok) setFlash('Pack archivado.');
             return result.ok
                 ? { ok: true }
                 : { ok: false, error: result.error ?? 'No se pudo archivar.' };

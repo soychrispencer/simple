@@ -3,16 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { IconArrowRight, IconLoader2 } from '@tabler/icons-react';
-import { PanelButton, PanelCard, PanelMiNegocioShell, PanelNotice } from '@simple/ui/panel';
-import { AgendaBusinessPublishToggle } from '@/components/panel/agenda-business-publish-toggle';
+import { PanelButton, PanelCard, PanelNotice } from '@simple/ui/panel';
+import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell';
 import { AgendaLandingBuilder } from '@/components/panel/agenda-landing-builder';
 import { AgendaPublicLinkPanel } from '@/components/panel/agenda-public-link-panel';
-import { getAgendaBusinessTabs } from '@/components/panel/panel-section-tabs';
-import { useAgendaIsTeamWorkspace } from '@/components/panel/agenda-vocab-context';
 import { fetchAgendaProfile, hasAgendaFullAccess, type AgendaProfile } from '@/lib/agenda-api';
 
 export default function AgendaWebsitePage() {
-    const isTeamWorkspace = useAgendaIsTeamWorkspace();
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
@@ -46,14 +43,12 @@ export default function AgendaWebsitePage() {
     const canCustomize = !!profile && hasAgendaFullAccess(profile);
 
     return (
-        <PanelMiNegocioShell
+        <AgendaMiNegocioShell
             activeKey="pagina"
-            tabs={getAgendaBusinessTabs(isTeamWorkspace)}
             title="Página web"
             description={canCustomize
                 ? 'Diseña la página donde tus clientes te conocen y reservan.'
                 : 'Comparte tu enlace para recibir citas.'}
-            publishToggle={!loading && profile ? <AgendaBusinessPublishToggle /> : undefined}
         >
             <div className={canCustomize ? 'mx-auto w-full max-w-[72rem]' : 'mx-auto w-full max-w-[56rem]'}>
                 {loading ? (
@@ -95,6 +90,6 @@ export default function AgendaWebsitePage() {
                     </div>
                 )}
             </div>
-        </PanelMiNegocioShell>
+        </AgendaMiNegocioShell>
     );
 }
