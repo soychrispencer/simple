@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
     IconArrowDown,
     IconArrowUp,
+    IconCamera,
     IconCheck,
     IconChevronDown,
     IconDeviceDesktop,
@@ -50,6 +51,7 @@ import {
     generateAgendaLandingPage,
     publishAgendaLandingDraft,
     saveAgendaLandingDraft,
+    saveAgendaProfile,
     uploadAvatar,
     type AgendaProfile,
     type AgendaService,
@@ -497,7 +499,11 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
     const [contentNotice, setContentNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
     const [uploadError, setUploadError] = useState('');
     const coverUploadRef = useRef<AvatarUploadHandle>(null);
+    const logoUploadRef = useRef<AvatarUploadHandle>(null);
+    const [logoUrl, setLogoUrl] = useState<string | null>(profile.avatarUrl ?? null);
     const resolvedCoverUrl = resolveAppMediaUrl(appearance.coverUrl);
+    const resolvedLogoUrl = resolveAppMediaUrl(logoUrl);
+    const [showSeo, setShowSeo] = useState(false);
     const [confirmGenerate, setConfirmGenerate] = useState(false);
     const [target, setTarget] = useState<OperatorSiteLandingGenerationTarget>('all');
 
@@ -689,6 +695,25 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
         }
     }
 
+    async function updateLogo(nextUrl: string | null) {
+        if (operation) return;
+        setOperation('upload');
+        setUploadError('');
+        try {
+            const res = await saveAgendaProfile({ avatarUrl: nextUrl });
+            if (!res.ok) {
+                setUploadError(res.error ?? 'No se pudo guardar el logo.');
+                return;
+            }
+            setLogoUrl(nextUrl);
+            window.dispatchEvent(new CustomEvent('simple:agenda-profile-changed'));
+        } catch (err) {
+            setUploadError(err instanceof Error ? err.message : 'No se pudo guardar el logo.');
+        } finally {
+            setOperation(null);
+        }
+    }
+
     const studioTabs: Array<{ id: StudioTab; label: string; icon: typeof IconPalette }> = [
         { id: 'design', label: 'Diseño y portada', icon: IconPalette },
         { id: 'copy', label: 'Textos e IA', icon: IconSparkles },
@@ -758,65 +783,113 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                     {/* Tab 1: Diseño y marca */}
                     {activeTab === 'design' ? (
                         <PanelCard size="lg" className="space-y-6">
-                            {/* Portada de la página */}
-                            <div>
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div>
-                                        <h2 className="text-sm font-semibold text-fg">Imagen de portada</h2>
-                                        <p className="text-xs text-fg-muted">
-                                            Aparece en la cabecera de tu página web (recomendado 16:9).
-                                        </p>
-                                    </div>
-                                    <Link
-                                        href="/panel/mi-negocio"
-                                        className="text-xs font-medium text-accent-ink hover:underline"
-                                    >
-                                        Tu foto o logo se edita en Perfil →
-                                    </Link>
+                            {/* Portada y logo */}
+                            <div className="space-y-4">
+                                <div>
+                                    <h2 className="text-sm font-semibold text-fg">Portada y logo</h2>
+                                    <p className="text-xs text-fg-muted">
+                                        Tu foto o logo y la imagen principal de tu página web.
+                                    </p>
                                 </div>
-                                <div className="mt-3 flex flex-wrap items-center gap-4 rounded-2xl border border-(--border) bg-(--bg-subtle)/50 p-3.5">
-                                    <button
-                                        type="button"
-                                        disabled={!!operation}
-                                        onClick={() => coverUploadRef.current?.openPicker()}
-                                        aria-label={resolvedCoverUrl ? 'Cambiar imagen de portada' : 'Subir imagen de portada'}
-                                        className="relative flex aspect-video w-36 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-(--border) bg-(--surface) text-fg-muted transition hover:border-(--accent-border) disabled:opacity-60 sm:w-44"
-                                    >
-                                        {resolvedCoverUrl ? (
-                                            <img src={resolvedCoverUrl} alt="Portada de tu página web" className="h-full w-full object-cover" />
-                                        ) : (
-                                            <div className="flex flex-col items-center gap-1 px-2 text-center">
-                                                <IconPhoto size={20} stroke={1.6} />
-                                                <span className="text-[11px] font-medium">Sin portada</span>
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    {/* Logo o foto */}
+                                    <div className="flex items-center gap-3.5 rounded-2xl border border-(--border) bg-(--bg-subtle)/50 p-3">
+                                        <button
+                                            type="button"
+                                            disabled={!!operation}
+                                            onClick={() => logoUploadRef.current?.openPicker()}
+                                            aria-label={resolvedLogoUrl ? 'Cambiar foto o logo' : 'Subir foto o logo'}
+                                            className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-(--border) bg-(--surface) text-fg-muted transition hover:border-(--accent-border) disabled:opacity-60"
+                                        >
+                                            {resolvedLogoUrl ? (
+                                                <img src={resolvedLogoUrl} alt={profile.displayName || 'Logo'} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <IconCamera size={18} stroke={1.6} />
+                                            )}
+                                        </button>
+                                        <div className="min-w-0 flex-1 space-y-1">
+                                            <p className="text-xs font-semibold text-fg">Foto o logo</p>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    disabled={!!operation}
+                                                    onClick={() => logoUploadRef.current?.openPicker()}
+                                                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-(--border) bg-(--surface) px-2.5 text-xs font-semibold text-fg transition hover:bg-(--bg-subtle) disabled:opacity-50"
+                                                >
+                                                    {resolvedLogoUrl ? 'Cambiar' : 'Subir'}
+                                                </button>
+                                                {resolvedLogoUrl ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={!!operation}
+                                                        onClick={() => void updateLogo(null)}
+                                                        className="inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium text-fg-muted hover:text-fg disabled:opacity-50"
+                                                    >
+                                                        Quitar
+                                                    </button>
+                                                ) : null}
                                             </div>
-                                        )}
-                                    </button>
-                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
+                                        </div>
+                                    </div>
+
+                                    {/* Imagen de portada */}
+                                    <div className="flex items-center gap-3.5 rounded-2xl border border-(--border) bg-(--bg-subtle)/50 p-3">
                                         <button
                                             type="button"
                                             disabled={!!operation}
                                             onClick={() => coverUploadRef.current?.openPicker()}
-                                            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-(--border) bg-(--surface) px-3.5 text-xs font-semibold text-fg transition hover:bg-(--bg-subtle) disabled:opacity-50"
+                                            aria-label={resolvedCoverUrl ? 'Cambiar imagen de portada' : 'Subir imagen de portada'}
+                                            className="relative flex aspect-video w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-(--border) bg-(--surface) text-fg-muted transition hover:border-(--accent-border) disabled:opacity-60"
                                         >
-                                            {operation === 'upload' ? (
-                                                <IconLoader2 size={14} className="animate-spin" />
+                                            {resolvedCoverUrl ? (
+                                                <img src={resolvedCoverUrl} alt="Portada de tu página web" className="h-full w-full object-cover" />
                                             ) : (
-                                                <IconPhoto size={14} />
+                                                <IconPhoto size={18} stroke={1.6} />
                                             )}
-                                            {resolvedCoverUrl ? 'Cambiar portada' : 'Subir portada'}
                                         </button>
-                                        {resolvedCoverUrl ? (
-                                            <button
-                                                type="button"
-                                                disabled={!!operation}
-                                                onClick={() => changeAppearance('coverUrl', null)}
-                                                className="inline-flex h-9 items-center rounded-xl px-2.5 text-xs font-medium text-fg-muted transition hover:text-fg disabled:opacity-50"
-                                            >
-                                                Quitar
-                                            </button>
-                                        ) : null}
+                                        <div className="min-w-0 flex-1 space-y-1">
+                                            <p className="text-xs font-semibold text-fg">Portada (16:9)</p>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    disabled={!!operation}
+                                                    onClick={() => coverUploadRef.current?.openPicker()}
+                                                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-(--border) bg-(--surface) px-2.5 text-xs font-semibold text-fg transition hover:bg-(--bg-subtle) disabled:opacity-50"
+                                                >
+                                                    {resolvedCoverUrl ? 'Cambiar' : 'Subir'}
+                                                </button>
+                                                {resolvedCoverUrl ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={!!operation}
+                                                        onClick={() => changeAppearance('coverUrl', null)}
+                                                        className="inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium text-fg-muted hover:text-fg disabled:opacity-50"
+                                                    >
+                                                        Quitar
+                                                    </button>
+                                                ) : null}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+
+                                <AvatarUpload
+                                    ref={logoUploadRef}
+                                    hideTrigger
+                                    currentUrl={resolvedLogoUrl}
+                                    config={{
+                                        maxSize: RAW_IMAGE_MAX_SIZE_KB,
+                                        maxWidth: 512,
+                                        maxHeight: 512,
+                                        aspectRatio: 1,
+                                        circular: true,
+                                        shape: 'circle',
+                                        onUpload: (file, cropped) => upload(file, cropped, 'logo'),
+                                    }}
+                                    onSuccess={(url) => void updateLogo(url || null)}
+                                    onError={setUploadError}
+                                />
                                 <AvatarUpload
                                     ref={coverUploadRef}
                                     hideTrigger
@@ -833,7 +906,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                                     onSuccess={(url) => changeAppearance('coverUrl', url || null)}
                                     onError={setUploadError}
                                 />
-                                {uploadError ? <PanelNotice tone="error" className="mt-3">{uploadError}</PanelNotice> : null}
+                                {uploadError ? <PanelNotice tone="error">{uploadError}</PanelNotice> : null}
                             </div>
 
                             {/* Composición visual */}
@@ -1207,48 +1280,76 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                             </div>
 
                             <div className="border-t border-(--border) pt-5 space-y-4">
-                                <div>
-                                    <h2 className="text-sm font-semibold text-fg flex items-center gap-1.5">
-                                        <IconSearch size={15} className="text-accent-ink" />
-                                        Vista en Google
-                                    </h2>
-                                    <p className="mt-0.5 text-xs text-fg-muted">Así aparecerá tu enlace cuando alguien te busque en Google o lo comparta.</p>
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSeo((v) => !v)}
+                                    aria-expanded={showSeo}
+                                    className="flex w-full items-center justify-between gap-3 text-left"
+                                >
+                                    <div>
+                                        <h2 className="text-sm font-semibold text-fg flex items-center gap-1.5">
+                                            <IconSearch size={15} className="text-accent-ink" />
+                                            Vista en Google <span className="text-xs font-normal text-fg-muted">(opcional)</span>
+                                        </h2>
+                                        <p className="mt-0.5 text-xs text-fg-muted">Personaliza cómo aparece tu enlace al buscarlo o compartirlo.</p>
+                                    </div>
+                                    <IconChevronDown size={16} className={`shrink-0 text-fg-muted transition-transform ${showSeo ? 'rotate-180' : ''}`} />
+                                </button>
 
-                                <div className="rounded-xl border border-(--border) bg-(--bg-subtle) p-3.5 space-y-1">
-                                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                                        {(process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app').replace(/^https?:\/\//, '')}/{profile.slug || 'tu-link'}
-                                    </p>
-                                    <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">
-                                        {seoPreviewTitle}
-                                    </p>
-                                    <p className="line-clamp-2 text-xs text-fg-secondary">
-                                        {seoPreviewDesc}
-                                    </p>
-                                </div>
+                                {showSeo ? (
+                                    <>
+                                        <div className="rounded-xl border border-(--border) bg-(--bg-subtle) p-3.5 space-y-1">
+                                            <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                                                {(process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleagenda.app').replace(/^https?:\/\//, '')}/{profile.slug || 'tu-link'}
+                                            </p>
+                                            <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">
+                                                {seoPreviewTitle}
+                                            </p>
+                                            <p className="line-clamp-2 text-xs text-fg-secondary">
+                                                {seoPreviewDesc}
+                                            </p>
+                                        </div>
 
-                                <fieldset disabled={!!operation} className="space-y-4">
-                                    <Field label="Título en Google" value={content.seoTitle} onChange={(value) => changeContent('seoTitle', value)} maxLength={65} placeholder={seoPreviewTitle} />
-                                    <Field label="Descripción en Google" value={content.seoDescription} onChange={(value) => changeContent('seoDescription', value)} maxLength={170} rows={2} placeholder={seoPreviewDesc} />
-                                </fieldset>
+                                        <fieldset disabled={!!operation} className="space-y-4">
+                                            <Field label="Título en Google" value={content.seoTitle} onChange={(value) => changeContent('seoTitle', value)} maxLength={65} placeholder={seoPreviewTitle} />
+                                            <Field label="Descripción en Google" value={content.seoDescription} onChange={(value) => changeContent('seoDescription', value)} maxLength={170} rows={2} placeholder={seoPreviewDesc} />
+                                        </fieldset>
+                                    </>
+                                ) : null}
                             </div>
                         </PanelCard>
                     ) : null}
 
-                    {/* Barra sticky unificada de guardado y publicación */}
-                    <PanelCard size="md" className="sticky bottom-3 z-20 space-y-3 shadow-md">
+                    {/* Barra de guardado y publicación (sticky solo con cambios pendientes) */}
+                    <PanelCard size="md" className={hasChanges ? 'sticky bottom-3 z-20 space-y-3 shadow-md' : 'space-y-3'}>
                         {notice ? <PanelNotice tone={notice.tone}>{notice.message}</PanelNotice> : null}
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <p className="text-xs text-fg-muted" role="status">
-                                {hasChanges
-                                    ? 'Tienes cambios sin guardar en el diseño o textos.'
-                                    : profile.isPublished
-                                        ? config.publishedAt
-                                            ? `Publicado el ${new Date(config.publishedAt).toLocaleDateString('es-CL')}.`
-                                            : 'Tu página web está activa y en línea.'
-                                        : canPublish
-                                            ? 'Todo listo para publicar tu página.'
-                                            : 'Completa perfil, un servicio y horario para publicar.'}
+                                {hasChanges ? (
+                                    'Tienes cambios sin guardar en el diseño o textos.'
+                                ) : profile.isPublished ? (
+                                    config.publishedAt
+                                        ? `Publicado el ${new Date(config.publishedAt).toLocaleDateString('es-CL')}.`
+                                        : 'Tu página web está activa y en línea.'
+                                ) : canPublish ? (
+                                    'Todo listo para publicar tu página.'
+                                ) : (
+                                    <>
+                                        Te falta completar para publicar:{' '}
+                                        {!hasIdentity ? (
+                                            <Link href="/panel/mi-negocio" className="font-semibold text-fg underline underline-offset-2">perfil</Link>
+                                        ) : null}
+                                        {!hasIdentity && (!hasServices || !readiness?.hasSchedule) ? ' · ' : null}
+                                        {!hasServices ? (
+                                            <Link href="/panel/mi-negocio/servicios" className="font-semibold text-fg underline underline-offset-2">1 servicio</Link>
+                                        ) : null}
+                                        {!hasServices && !readiness?.hasSchedule ? ' · ' : null}
+                                        {!readiness?.hasSchedule ? (
+                                            <Link href="/panel/mi-negocio/horarios" className="font-semibold text-fg underline underline-offset-2">horarios</Link>
+                                        ) : null}
+                                        .
+                                    </>
+                                )}
                             </p>
                             <div className="flex flex-wrap items-center gap-2">
                                 {hasChanges ? (
@@ -1289,7 +1390,7 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                 {/* Columna derecha: Live Mini-Preview */}
                 <div className="xl:sticky xl:top-24">
                     <LiveSiteMiniPreview
-                        profile={profile}
+                        profile={{ ...profile, avatarUrl: logoUrl }}
                         content={content}
                         appearance={appearance}
                         services={readiness?.services ?? []}

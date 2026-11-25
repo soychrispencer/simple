@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
     fetchAgendaLocations,
     fetchAgendaProfile,
@@ -398,25 +399,13 @@ export default function PerfilConfigPage() {
                                     <p className="text-xs text-fg-muted">
                                         Así te verán tus {vocab.clients} en tu ficha y en tus recordatorios.
                                     </p>
-                                    <div className="mt-1.5 flex items-center gap-3">
-                                        <button
-                                            type="button"
-                                            disabled={saving || avatarUploading}
-                                            onClick={() => avatarUploadRef.current?.openPicker()}
-                                            className="text-xs font-semibold text-accent-ink hover:underline disabled:opacity-50"
+                                    <div className="mt-1.5">
+                                        <Link
+                                            href="/panel/mi-negocio/apariencia"
+                                            className="text-xs font-semibold text-accent-ink hover:underline"
                                         >
-                                            {resolvedAvatarUrl ? 'Cambiar foto o logo' : 'Subir foto o logo'}
-                                        </button>
-                                        {resolvedAvatarUrl ? (
-                                            <button
-                                                type="button"
-                                                disabled={saving || avatarUploading}
-                                                onClick={() => { setAvatarUrl(null); setSaved(false); }}
-                                                className="text-xs text-fg-muted hover:text-fg"
-                                            >
-                                                Quitar
-                                            </button>
-                                        ) : null}
+                                            Logo y portada se editan en Página web →
+                                        </Link>
                                     </div>
                                 </div>
                             </div>
