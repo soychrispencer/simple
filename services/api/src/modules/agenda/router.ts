@@ -7,8 +7,16 @@ import { z } from 'zod';
 import { cleanupReplacedMediaUrl, isOwnedStorageUrl, toProtectedMediaUrl, unwrapProtectedMediaUrl } from '../media/stored-object.js';
 import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
 import { refreshMercadoPagoOperatorOAuthToken } from '../mercadopago/operator-oauth.js';
-import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount, getAgendaWhatsappQuota, hasAgendaProPlusAccess } from './plan-limits.js';
-import { extractWhatsAppButtonActions, verifyWhatsAppWebhookSignature } from '../../lib/whatsapp-cloud.js';
+import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount, getAgendaWhatsappMonthlyLimit, getAgendaWhatsappQuota, hasAgendaProPlusAccess } from './plan-limits.js';
+import {
+    extractWhatsAppButtonActions,
+    extractWhatsAppOptOuts,
+    isWhatsAppCloudConfigured,
+    isWhatsAppWebhookForConfiguredPhoneNumber,
+    isWhatsAppWebhookConfigured,
+    normalizeWhatsAppRecipient,
+    verifyWhatsAppWebhookSignature,
+} from '../../lib/whatsapp-cloud.js';
 import { insertPlatformNotifications } from '../platform/notifications-service.js';
 import {
     getCustomDomainTargetHost,
@@ -67,6 +75,7 @@ import {
     accountRelationshipAssignments,
     agendaAccountVisits,
     agendaAccountTrials,
+    agendaWhatsappOptOuts,
     listings,
     messageThreads,
     platformNotifications,
@@ -5501,6 +5510,9 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             }),
             reviews,
             reviewSummary,
+            whatsappRemindersAvailable: getAgendaWhatsappMonthlyLimit(profile) > 0
+                && profile.whatsappRemindersEnabled !== false
+                && isWhatsAppCloudConfigured(),
         };
         if (isFreePlan(profile)) {
             publicProfile.coverUrl = null;
@@ -5790,7 +5802,16 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const publicTotalOccurrences = requestedFrequency ? Math.max(2, Math.min(recurrenceCountRaw, 26)) : 1;
         const publicSeriesId = publicTotalOccurrences > 1 ? randomUUID() : null;
         const bookingEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
-        const bookingPhone = typeof body.clientPhone === 'string' && body.clientPhone ? body.clientPhone : null;
+        const bookingPhone = typeof body.clientPhone === 'string' && body.clientPhone.trim() ? body.clientPhone.trim() : null;
+        const whatsappReminderOptIn = body.whatsappReminderOptIn === true
+            && profile.whatsappRemindersEnabled !== false
+            && getAgendaWhatsappMonthlyLimit(profile) > 0
+            && isWhatsAppCloudConfigured();
+        const normalizedWhatsappOptInPhone = whatsappReminderOptIn ? normalizeWhatsAppRecipient(bookingPhone) : null;
+        if (whatsappReminderOptIn && !normalizedWhatsappOptInPhone) {
+            return c.json({ ok: false, error: 'Ingresa un teléfono válido para recibir recordatorios por WhatsApp.' }, 400);
+        }
+        const whatsappReminderOptInAt = whatsappReminderOptIn ? new Date() : null;
         const nameParts = clientName.split(/\s+/);
         const bookingFirstName = nameParts[0] ?? clientName;
         const bookingLastName = nameParts.slice(1).join(' ') || null;
@@ -5923,6 +5944,11 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 }
             }
 
+            if (normalizedWhatsappOptInPhone) {
+                await tx.delete(agendaWhatsappOptOuts)
+                    .where(eq(agendaWhatsappOptOuts.phoneNumber, normalizedWhatsappOptInPhone));
+            }
+
             let existingClient: any = null;
             if (bookingEmail) {
                 const [client] = await tx.select().from(agendaClients).where(and(
@@ -5981,6 +6007,8 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                     clientName,
                     clientEmail: bookingEmail,
                     clientPhone: bookingPhone,
+                    whatsappReminderOptIn,
+                    whatsappReminderOptInAt,
                     clientNotes: typeof body.clientNotes === 'string' ? body.clientNotes || null : null,
                     startsAt: occurrence.startsAt,
                     endsAt: occurrence.endsAt,
@@ -6189,10 +6217,13 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const token = c.req.query('hub.verify_token');
         const challenge = c.req.query('hub.challenge') ?? '';
         const expected = (
-            process.env.WHATSAPP_VERIFY_TOKEN?.trim()
-            || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim()
+            process.env.WHATSAPP_VERIFY_TOKEN_AGENDA?.trim()
+            || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN_AGENDA?.trim()
             || process.env.WHATSAPP_CLOUD_VERIFY_TOKEN?.trim()
+            || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim()
+            || process.env.WHATSAPP_VERIFY_TOKEN?.trim()
         );
+        if (!expected) return c.json({ ok: false, error: 'El webhook de WhatsApp aún no está configurado.' }, 503);
         if (mode === 'subscribe' && expected && token === expected) {
             return c.text(challenge, 200);
         }
@@ -6200,6 +6231,9 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
     });
 
     app.post('/whatsapp/webhook', async (c) => {
+        if (!isWhatsAppWebhookConfigured()) {
+            return c.json({ ok: false, error: 'El webhook de WhatsApp aún no está configurado.' }, 503);
+        }
         const rawBody = await c.req.text();
         const sig = c.req.header('x-hub-signature-256');
         if (!verifyWhatsAppWebhookSignature(rawBody, sig)) {
@@ -6212,26 +6246,66 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             return c.json({ ok: false, error: 'JSON inválido' }, 400);
         }
 
+        if (!isWhatsAppWebhookForConfiguredPhoneNumber(payload)) {
+            return c.json({ ok: true, ignored: true });
+        }
+
+        const optOuts = extractWhatsAppOptOuts(payload);
+        for (const optOut of optOuts) {
+            const phoneNumber = normalizeWhatsAppRecipient(optOut.from);
+            if (!phoneNumber) continue;
+            await db.insert(agendaWhatsappOptOuts)
+                .values({ phoneNumber, sourceMessageId: optOut.messageId })
+                .onConflictDoUpdate({
+                    target: agendaWhatsappOptOuts.phoneNumber,
+                    set: { optedOutAt: new Date(), sourceMessageId: optOut.messageId },
+                });
+        }
+
         const actions = extractWhatsAppButtonActions(payload);
+        let processedActions = 0;
         for (const item of actions) {
             const appt = await db.query.agendaAppointments.findFirst({
                 where: eq(agendaAppointments.id, item.appointmentId),
             });
-            if (!appt || !['pending', 'confirmed'].includes(appt.status)) continue;
+            if (
+                !appt
+                || !appt.whatsappReminderOptIn
+                || !item.from
+                || !['pending', 'confirmed'].includes(appt.status)
+            ) continue;
+
+            const sender = normalizeWhatsAppRecipient(item.from);
+            const client = appt.clientId
+                ? await db.query.agendaClients.findFirst({
+                    where: and(
+                        eq(agendaClients.id, appt.clientId),
+                        eq(agendaClients.professionalId, appt.professionalId),
+                    ),
+                })
+                : null;
+            const allowedSenders = [appt.clientPhone, client?.whatsapp, client?.phone]
+                .map((phone) => normalizeWhatsAppRecipient(phone))
+                .filter((phone): phone is string => Boolean(phone));
+            if (!sender || !allowedSenders.includes(sender)) continue;
 
             const prof = await db.query.agendaProfessionalProfiles.findFirst({
                 where: eq(agendaProfessionalProfiles.id, appt.professionalId),
             });
 
             if (item.action === 'confirm') {
-                await db.update(agendaAppointments)
+                if (appt.status !== 'pending') continue;
+                const [updated] = await db.update(agendaAppointments)
                     .set({
                         clientConfirmedAt: new Date(),
                         clientConfirmedVia: 'whatsapp',
                         status: 'confirmed',
                         updatedAt: new Date(),
                     })
-                    .where(eq(agendaAppointments.id, appt.id));
+                    .where(and(eq(agendaAppointments.id, appt.id), eq(agendaAppointments.status, 'pending')))
+                    .returning({ id: agendaAppointments.id });
+                if (!updated) continue;
+                processedActions += 1;
                 if (prof) {
                     void insertPlatformNotifications({
                         userId: prof.userId,
@@ -6245,7 +6319,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                     }).catch(() => {});
                 }
             } else if (item.action === 'cancel') {
-                await db.update(agendaAppointments)
+                const [updated] = await db.update(agendaAppointments)
                     .set({
                         status: 'cancelled',
                         cancelledAt: new Date(),
@@ -6253,7 +6327,13 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                         cancellationReason: 'Cancelada desde botón de WhatsApp',
                         updatedAt: new Date(),
                     })
-                    .where(eq(agendaAppointments.id, appt.id));
+                    .where(and(
+                        eq(agendaAppointments.id, appt.id),
+                        inArray(agendaAppointments.status, ['pending', 'confirmed']),
+                    ))
+                    .returning({ id: agendaAppointments.id });
+                if (!updated) continue;
+                processedActions += 1;
                 if (prof) {
                     void insertPlatformNotifications({
                         userId: prof.userId,
@@ -6269,7 +6349,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             }
         }
 
-        return c.json({ ok: true, processed: actions.length });
+        return c.json({ ok: true, processed: processedActions, optOuts: optOuts.length });
     });
 
     return app;

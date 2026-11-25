@@ -950,6 +950,8 @@ export const agendaAppointments = pgTable('agenda_appointments', {
   reminderSentAt: timestamp('reminder_sent_at'),       // 24h reminder
   reminder30minSentAt: timestamp('reminder_30min_sent_at'), // 30min reminder
   whatsappReminderSentAt: timestamp('whatsapp_reminder_sent_at'), // 24h WhatsApp Cloud reminder
+  whatsappReminderOptIn: boolean('whatsapp_reminder_opt_in').notNull().default(false),
+  whatsappReminderOptInAt: timestamp('whatsapp_reminder_opt_in_at'),
   clientConfirmedAt: timestamp('client_confirmed_at'),
   clientConfirmedVia: varchar('client_confirmed_via', { length: 30 }),
   // Policy agreement (encuadre)
@@ -1350,6 +1352,13 @@ export const agendaNotificationEvents = pgTable('agenda_notification_events', {
   appointmentIdx: index('agenda_notification_events_appointment_idx').on(table.appointmentId),
   createdAtIdx: index('agenda_notification_events_created_at_idx').on(table.createdAt),
 }));
+
+// Global suppression list for the SimpleAgenda WhatsApp sender.
+export const agendaWhatsappOptOuts = pgTable('agenda_whatsapp_opt_outs', {
+  phoneNumber: varchar('phone_number', { length: 15 }).primaryKey(), // normalized E.164 digits, no '+'
+  optedOutAt: timestamp('opted_out_at').notNull().defaultNow(),
+  sourceMessageId: varchar('source_message_id', { length: 255 }),
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SimpleSerenatas

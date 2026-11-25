@@ -280,10 +280,12 @@ export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'a
                                         Recordatorios automáticos por WhatsApp
                                     </h3>
                                     <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                                        Se envían 24 horas antes de la cita con botón de confirmación. Al agotarse la cuota del mes, siguen saliendo gratis por email y puedes enviar por wa.me en 1 clic.
+                                        {profile.whatsappQuota.cloudConfigured
+                                            ? 'Se envían 24 horas antes de la cita con botón de confirmación. Al agotarse la cuota del mes, siguen saliendo gratis por email y puedes enviar por wa.me en 1 clic.'
+                                            : 'La conexión oficial de SimpleAgenda con WhatsApp está pendiente de configuración en Meta. Mientras tanto, los recordatorios por email y el contacto manual por wa.me siguen disponibles.'}
                                     </p>
                                 </div>
-                                {profile.whatsappQuota.planLimit > 0 ? (
+                                {profile.whatsappQuota.planLimit > 0 && profile.whatsappQuota.cloudConfigured ? (
                                     <label className="inline-flex items-center gap-2 text-xs font-medium cursor-pointer shrink-0" style={{ color: 'var(--fg)' }}>
                                         <input
                                             type="checkbox"
@@ -293,6 +295,10 @@ export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'a
                                         />
                                         <span>{bookingForm.whatsappRemindersEnabled ? 'Activados' : 'Pausados'}</span>
                                     </label>
+                                ) : profile.whatsappQuota.planLimit > 0 ? (
+                                    <span className="text-xs font-medium shrink-0" style={{ color: 'var(--fg-muted)' }}>
+                                        Configuración pendiente
+                                    </span>
                                 ) : null}
                             </div>
 

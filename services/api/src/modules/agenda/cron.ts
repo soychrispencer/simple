@@ -9,6 +9,7 @@ import {
     agendaNotificationEvents,
     agendaProfessionalProfiles,
     agendaServices,
+    agendaWhatsappOptOuts,
     listings,
     platformNotifications,
     users,
@@ -16,7 +17,7 @@ import {
 import { logNotification } from '../../lib/audit.js';
 import { isProduction } from '../../env.js';
 import { sendAppointmentReminderEmail } from '../../lib/auth-email.js';
-import { isWhatsAppCloudConfigured, sendAppointmentReminderWhatsApp } from '../../lib/whatsapp-cloud.js';
+import { isWhatsAppCloudConfigured, normalizeWhatsAppRecipient, sendAppointmentReminderWhatsApp } from '../../lib/whatsapp-cloud.js';
 import { sendAgendaTrialEmail, type AgendaTrialEmailKind } from '../../lib/agenda-trial-email.js';
 import { createAccountNotificationRecipientResolver, insertPlatformNotifications } from '../platform/notifications-service.js';
 import { downgradeExpiredAgendaProProfiles, getAgendaWhatsappQuota } from './plan-limits.js';
@@ -318,77 +319,101 @@ async function sendUpcomingAppointmentReminders(kind: '24h' | '30min', entitleme
         if (
             kind === '24h'
             && !appointment.whatsappReminderSentAt
+            && appointment.whatsappReminderOptIn === true
             && professional.whatsappRemindersEnabled !== false
             && isWhatsAppCloudConfigured()
         ) {
             try {
-                const [clientRow, serviceRow] = await Promise.all([
-                    appointment.clientId
-                        ? db.query.agendaClients.findFirst({ where: eq(agendaClients.id, appointment.clientId) })
-                        : Promise.resolve(null),
-                    appointment.serviceId
-                        ? db.query.agendaServices.findFirst({ where: eq(agendaServices.id, appointment.serviceId) })
-                        : Promise.resolve(null),
-                ]);
-                const waPhone = clientRow?.whatsapp || appointment.clientPhone || clientRow?.phone || null;
-                if (waPhone) {
-                    const quota = await getAgendaWhatsappQuota(professional);
-                    if (quota.remaining > 0) {
-                        const locationLabel = appointment.modality === 'online'
-                            ? 'Atención online'
-                            : (appointment.location || 'Atención presencial');
-                        const waResult = await sendAppointmentReminderWhatsApp({
-                            appointmentId: appointment.id,
-                            toPhone: waPhone,
-                            clientName: appointment.clientName ?? 'Paciente',
-                            professionalName: professional.displayName ?? 'tu profesional',
-                            serviceName: serviceRow?.name ?? null,
-                            whenLabel,
-                            locationLabel,
-                        });
-                        if (waResult.ok) {
-                            await db.update(agendaAppointments)
-                                .set({ whatsappReminderSentAt: new Date() })
-                                .where(eq(agendaAppointments.id, appointment.id));
-                            if (quota.used >= quota.planLimit && (professional.whatsappExtraCredits ?? 0) > 0) {
-                                await db.update(agendaProfessionalProfiles)
-                                    .set({ whatsappExtraCredits: sql`GREATEST(${agendaProfessionalProfiles.whatsappExtraCredits} - 1, 0)` })
-                                    .where(eq(agendaProfessionalProfiles.id, professional.id));
-                            }
-                            await logNotification({
-                                professionalId: professional.id,
-                                appointmentId: appointment.id,
-                                clientId: appointment.clientId,
-                                channel: 'whatsapp',
-                                eventType: 'reminder_24h',
-                                recipient: waPhone,
-                                status: 'sent',
-                                payload: waResult.messageId ? { messageId: waResult.messageId } : {},
-                            });
-                        } else {
-                            await logNotification({
-                                professionalId: professional.id,
-                                appointmentId: appointment.id,
-                                clientId: appointment.clientId,
-                                channel: 'whatsapp',
-                                eventType: 'reminder_24h',
-                                recipient: waPhone,
-                                status: 'failed',
-                                errorMessage: waResult.error ?? 'Error enviando WhatsApp',
-                            });
-                        }
-                    } else if (quota.totalLimit > 0) {
+                const serviceRow = appointment.serviceId
+                    ? await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, appointment.serviceId) })
+                    : null;
+                const waPhone = appointment.clientPhone;
+                const recipient = normalizeWhatsAppRecipient(waPhone);
+                if (recipient) {
+                    const optedOut = await db.query.agendaWhatsappOptOuts.findFirst({
+                        where: eq(agendaWhatsappOptOuts.phoneNumber, recipient),
+                    });
+                    if (optedOut) {
                         await logNotification({
                             professionalId: professional.id,
                             appointmentId: appointment.id,
                             clientId: appointment.clientId,
                             channel: 'whatsapp',
                             eventType: 'reminder_24h',
-                            recipient: waPhone,
+                            recipient,
                             status: 'skipped',
-                            errorMessage: 'Cuota mensual de WhatsApp alcanzada; se usó respaldo por email / wa.me',
+                            errorMessage: 'El destinatario pidió dejar de recibir mensajes por WhatsApp.',
                         });
+                    } else {
+                        const quota = await getAgendaWhatsappQuota(professional);
+                        if (quota.remaining > 0) {
+                            const locationLabel = appointment.modality === 'online'
+                                ? 'Atención online'
+                                : (appointment.location || 'Atención presencial');
+                            const waResult = await sendAppointmentReminderWhatsApp({
+                                appointmentId: appointment.id,
+                                toPhone: recipient,
+                                clientName: appointment.clientName ?? 'Paciente',
+                                professionalName: professional.displayName ?? 'tu profesional',
+                                serviceName: serviceRow?.name ?? null,
+                                whenLabel,
+                                locationLabel,
+                            });
+                            if (waResult.ok) {
+                                await db.update(agendaAppointments)
+                                    .set({ whatsappReminderSentAt: new Date() })
+                                    .where(eq(agendaAppointments.id, appointment.id));
+                                if (quota.used >= quota.planLimit && (professional.whatsappExtraCredits ?? 0) > 0) {
+                                    await db.update(agendaProfessionalProfiles)
+                                        .set({ whatsappExtraCredits: sql`GREATEST(${agendaProfessionalProfiles.whatsappExtraCredits} - 1, 0)` })
+                                        .where(eq(agendaProfessionalProfiles.id, professional.id));
+                                }
+                                await logNotification({
+                                    professionalId: professional.id,
+                                    appointmentId: appointment.id,
+                                    clientId: appointment.clientId,
+                                    channel: 'whatsapp',
+                                    eventType: 'reminder_24h',
+                                    recipient,
+                                    status: 'sent',
+                                    payload: waResult.messageId ? { messageId: waResult.messageId } : {},
+                                });
+                            } else {
+                                await logNotification({
+                                    professionalId: professional.id,
+                                    appointmentId: appointment.id,
+                                    clientId: appointment.clientId,
+                                    channel: 'whatsapp',
+                                    eventType: 'reminder_24h',
+                                    recipient,
+                                    status: 'failed',
+                                    errorMessage: waResult.error ?? 'Error enviando WhatsApp',
+                                });
+                            }
+                        } else if (quota.totalLimit > 0) {
+                            await logNotification({
+                                professionalId: professional.id,
+                                appointmentId: appointment.id,
+                                clientId: appointment.clientId,
+                                channel: 'whatsapp',
+                                eventType: 'reminder_24h',
+                                recipient,
+                                status: 'skipped',
+                                errorMessage: 'Cuota mensual de WhatsApp alcanzada; se usó respaldo por email / wa.me',
+                            });
+                        }
                     }
+                } else if (waPhone) {
+                    await logNotification({
+                        professionalId: professional.id,
+                        appointmentId: appointment.id,
+                        clientId: appointment.clientId,
+                        channel: 'whatsapp',
+                        eventType: 'reminder_24h',
+                        recipient: waPhone,
+                        status: 'failed',
+                        errorMessage: 'Número no válido para recibir recordatorios de WhatsApp.',
+                    });
                 }
             } catch (waError) {
                 console.error('[agenda] WhatsApp 24h reminder failed for', appointment.id, ':', waError);

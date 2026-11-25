@@ -151,6 +151,7 @@ export const POST_JOURNAL_TAGS = [
     '0184_agenda_custom_domain',
     '0185_agenda_nps_public_reviews',
     '0186_agenda_whatsapp_reminders',
+    '0187_agenda_whatsapp_consent_and_optouts',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

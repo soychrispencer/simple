@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-const META_GRAPH_VERSION = process.env.WHATSAPP_CLOUD_API_VERSION?.trim() || 'v21.0';
+const META_GRAPH_VERSION = process.env.WHATSAPP_CLOUD_API_VERSION?.trim() || 'v27.0';
 const DEFAULT_REMINDER_TEMPLATE = process.env.WHATSAPP_REMINDER_TEMPLATE_NAME?.trim() || 'cita_recordatorio_24h';
 const DEFAULT_TEMPLATE_LANG = process.env.WHATSAPP_REMINDER_TEMPLATE_LANG?.trim() || 'es_CL';
 
@@ -23,15 +23,37 @@ function resolveWhatsAppPhoneNumberId(): string | undefined {
 
 function resolveWhatsAppAppSecret(): string | undefined {
     return (
-        process.env.WHATSAPP_CLOUD_APP_SECRET?.trim()
+        process.env.WHATSAPP_APP_SECRET_AGENDA?.trim()
+        || process.env.META_APP_SECRET_AGENDA?.trim()
+        || process.env.WHATSAPP_CLOUD_APP_SECRET?.trim()
         || process.env.WHATSAPP_APP_SECRET?.trim()
         || process.env.META_APP_SECRET?.trim()
         || undefined
     );
 }
 
+function resolveWhatsAppVerifyToken(): string | undefined {
+    return (
+        process.env.WHATSAPP_VERIFY_TOKEN_AGENDA?.trim()
+        || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN_AGENDA?.trim()
+        || process.env.WHATSAPP_CLOUD_VERIFY_TOKEN?.trim()
+        || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim()
+        || process.env.WHATSAPP_VERIFY_TOKEN?.trim()
+        || undefined
+    );
+}
+
+export function isWhatsAppWebhookConfigured(): boolean {
+    return Boolean(resolveWhatsAppVerifyToken() && resolveWhatsAppAppSecret());
+}
+
 export function isWhatsAppCloudConfigured(): boolean {
-    return Boolean(resolveWhatsAppAccessToken() && resolveWhatsAppPhoneNumberId());
+    return Boolean(
+        process.env.WHATSAPP_AGENDA_ENABLED?.trim().toLowerCase() === 'true'
+        && resolveWhatsAppAccessToken()
+        && resolveWhatsAppPhoneNumberId()
+        && isWhatsAppWebhookConfigured()
+    );
 }
 
 /**
@@ -50,7 +72,7 @@ export function normalizeWhatsAppRecipient(rawPhone?: string | null): string | n
 
 export function verifyWhatsAppWebhookSignature(rawBody: string, signatureHeader?: string | null): boolean {
     const appSecret = resolveWhatsAppAppSecret();
-    if (!appSecret) return true;
+    if (!appSecret) return false;
     if (!signatureHeader || !signatureHeader.startsWith('sha256=')) return false;
 
     const receivedHex = signatureHeader.slice('sha256='.length).trim();
@@ -60,6 +82,99 @@ export function verifyWhatsAppWebhookSignature(rawBody: string, signatureHeader?
     const a = Buffer.from(receivedHex, 'hex');
     const b = Buffer.from(expectedHex, 'hex');
     return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export type WhatsAppOptOut = { from: string; messageId: string | null };
+
+const WHATSAPP_OPTOUT_PHRASES = new Set([
+    'stop',
+    'unsubscribe',
+    'opt out',
+    'baja',
+    'parar',
+    'detener',
+    'dejar de recibir',
+    'no quiero recibir mas',
+    'no quiero recibir mensajes',
+    'no me escriban mas',
+]);
+
+function isWhatsAppOptOutMessage(rawText: string): boolean {
+    const text = rawText
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[.!?,;:]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return WHATSAPP_OPTOUT_PHRASES.has(text)
+        || /^(stop|unsubscribe|baja|parar|detener)(\s|$)/.test(text);
+}
+
+/** Extracts explicit inbound opt-out requests so future reminders can be suppressed. */
+export function extractWhatsAppOptOuts(payload: unknown): WhatsAppOptOut[] {
+    if (!payload || typeof payload !== 'object') return [];
+    const entries = Array.isArray((payload as { entry?: unknown[] }).entry)
+        ? (payload as { entry: unknown[] }).entry
+        : [];
+    const optOuts: WhatsAppOptOut[] = [];
+
+    for (const entry of entries) {
+        if (!entry || typeof entry !== 'object') continue;
+        const changes = Array.isArray((entry as { changes?: unknown[] }).changes)
+            ? (entry as { changes: unknown[] }).changes
+            : [];
+        for (const change of changes) {
+            if (!change || typeof change !== 'object') continue;
+            const value = (change as { value?: Record<string, unknown> }).value;
+            const messages = Array.isArray(value?.messages) ? value.messages : [];
+            for (const message of messages) {
+                if (!message || typeof message !== 'object') continue;
+                const record = message as Record<string, unknown>;
+                const text = (record.text as { body?: unknown } | undefined)?.body;
+                if (
+                    record.type !== 'text'
+                    || typeof record.from !== 'string'
+                    || typeof text !== 'string'
+                    || !isWhatsAppOptOutMessage(text)
+                ) continue;
+                optOuts.push({
+                    from: record.from,
+                    messageId: typeof record.id === 'string' ? record.id : null,
+                });
+            }
+        }
+    }
+
+    return optOuts;
+}
+
+/** Rejects callbacks from other WhatsApp senders configured on the shared Meta app. */
+export function isWhatsAppWebhookForConfiguredPhoneNumber(payload: unknown): boolean {
+    const expectedPhoneNumberId = resolveWhatsAppPhoneNumberId();
+    if (!expectedPhoneNumberId || !payload || typeof payload !== 'object') return false;
+    const entries = Array.isArray((payload as { entry?: unknown[] }).entry)
+        ? (payload as { entry: unknown[] }).entry
+        : [];
+    const receivedPhoneNumberIds: string[] = [];
+
+    for (const entry of entries) {
+        if (!entry || typeof entry !== 'object') continue;
+        const changes = Array.isArray((entry as { changes?: unknown[] }).changes)
+            ? (entry as { changes: unknown[] }).changes
+            : [];
+        for (const change of changes) {
+            if (!change || typeof change !== 'object') continue;
+            const value = (change as { value?: Record<string, unknown> }).value;
+            const metadata = value?.metadata as { phone_number_id?: unknown } | undefined;
+            if (typeof metadata?.phone_number_id === 'string') {
+                receivedPhoneNumberIds.push(metadata.phone_number_id);
+            }
+        }
+    }
+
+    return receivedPhoneNumberIds.length > 0
+        && receivedPhoneNumberIds.every((id) => id === expectedPhoneNumberId);
 }
 
 export type WhatsAppButtonAction = {
@@ -133,8 +248,8 @@ export async function sendAppointmentReminderWhatsApp(input: {
 }): Promise<{ ok: boolean; messageId?: string; error?: string }> {
     const token = resolveWhatsAppAccessToken();
     const phoneNumberId = resolveWhatsAppPhoneNumberId();
-    if (!token || !phoneNumberId) {
-        return { ok: false, error: 'WhatsApp Cloud API no configurada' };
+    if (!token || !phoneNumberId || !isWhatsAppCloudConfigured()) {
+        return { ok: false, error: 'WhatsApp Cloud API de Agenda no está habilitada o su configuración está incompleta' };
     }
 
     const to = normalizeWhatsAppRecipient(input.toPhone);
@@ -178,14 +293,25 @@ export async function sendAppointmentReminderWhatsApp(input: {
         },
     };
 
-    const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+        res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(15_000),
+        });
+    } catch (error) {
+        return {
+            ok: false,
+            error: error instanceof Error && error.name === 'TimeoutError'
+                ? 'Meta tardó demasiado en responder al envío de WhatsApp'
+                : 'No fue posible conectar con WhatsApp Cloud API',
+        };
+    }
 
     const data = await res.json().catch(() => ({})) as {
         messages?: Array<{ id?: string }>;

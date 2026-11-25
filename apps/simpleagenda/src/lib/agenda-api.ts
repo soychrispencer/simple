@@ -977,6 +977,7 @@ export async function bookAppointment(slug: string, body: {
     clientName: string;
     clientEmail?: string;
     clientPhone?: string;
+    whatsappReminderOptIn?: boolean;
     clientNotes?: string;
     startsAt: string;
     modality?: string;

@@ -58,6 +58,7 @@ type BookingFlowProps = {
 type PublicProfile = {
     slug: string;
     displayName: string;
+    whatsappRemindersAvailable?: boolean;
     profession: string | null;
     timezone: string;
     bookingWindowDays: number;
@@ -193,6 +194,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     const [clientLastName, setClientLastName] = useState('');
     const [clientEmail, setClientEmail] = useState('');
     const [clientPhone, setClientPhone] = useState('');
+    const [whatsappReminderOptIn, setWhatsappReminderOptIn] = useState(false);
     const [clientNotes, setClientNotes] = useState('');
 
     // Pre-consulta
@@ -482,6 +484,16 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             setInfoError('Ingresa un número de teléfono válido.');
             return;
         }
+        if (whatsappReminderOptIn) {
+            const digits = clientPhone.trim().replace(/\D/g, '');
+            const isValidWhatsappPhone = (digits.startsWith('56') && digits.length === 11)
+                || (digits.length === 9 && digits.startsWith('9'))
+                || (digits.length >= 10 && digits.length <= 15);
+            if (!isValidWhatsappPhone) {
+                setInfoError('Revisa el número de WhatsApp o desmarca el permiso para recibir recordatorios.');
+                return;
+            }
+        }
         if (!clientEmail.trim() && !clientPhone.trim()) {
             setInfoError('Ingresa al menos un correo o teléfono de contacto. Si dejas un correo, te enviaremos el estado de tu cita.');
             return;
@@ -556,6 +568,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                 clientName: `${clientName.trim()} ${clientLastName.trim()}`,
                 clientEmail: clientEmail.trim() || undefined,
                 clientPhone: clientPhone.trim() || undefined,
+                whatsappReminderOptIn: whatsappReminderOptIn && Boolean(clientPhone.trim()),
                 clientNotes: clientNotes.trim() || undefined,
                 startsAt: selectedSlot.startsAt,
                 policyAgreed: !!bookingTermsText && policyAgreed,
@@ -847,7 +860,27 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         <label htmlFor="agenda-booking-phone" className="text-xs font-medium block mb-1.5 booking-muted">
                                             <IconPhone size={11} className="inline mr-1" />Teléfono
                                         </label>
-                                        <input id="agenda-booking-phone" type="tel" value={clientPhone} onChange={(e) => { setClientPhone(e.target.value); setInfoError(''); }} placeholder="+56 9 1234 5678" className="booking-input" />
+                                        <input id="agenda-booking-phone" type="tel" value={clientPhone} onChange={(e) => { setClientPhone(e.target.value); setWhatsappReminderOptIn(false); setInfoError(''); }} placeholder="+56 9 1234 5678" className="booking-input" />
+                                        {clientPhone.trim() && profile.whatsappRemindersAvailable && (
+                                            <button
+                                                type="button"
+                                                role="checkbox"
+                                                aria-checked={whatsappReminderOptIn}
+                                                onClick={() => setWhatsappReminderOptIn((value) => !value)}
+                                                className="flex items-start gap-3 w-full mt-2 rounded-xl border p-3 text-left booking-subtle"
+                                            >
+                                                <span
+                                                    aria-hidden="true"
+                                                    className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors booking-checkbox ${whatsappReminderOptIn ? 'booking-checkbox--checked' : ''}`}
+                                                >
+                                                    {whatsappReminderOptIn && <IconCheck size={10} color="var(--accent-contrast)" />}
+                                                </span>
+                                                <span className="min-w-0">
+                                                    <span className="block text-xs font-medium booking-fg">Acepto recibir recordatorios de esta cita por WhatsApp</span>
+                                                    <span className="block text-[11px] leading-relaxed mt-0.5 booking-muted">SimpleAgenda te enviará solo avisos relacionados con tu cita. Responde BAJA cuando quieras dejar de recibirlos.</span>
+                                                </span>
+                                            </button>
+                                        )}
                                     </div>
                                     <div>
                                         <label htmlFor="agenda-booking-notes" className="text-xs font-medium block mb-1.5 booking-muted">Mensaje (opcional)</label>
