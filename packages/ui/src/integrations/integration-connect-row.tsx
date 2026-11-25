@@ -34,6 +34,7 @@ export type IntegrationConnectRowProps = {
     ariaLabel?: string;
     onConnect: () => void;
     onDisconnect: () => void | Promise<void>;
+    extraControl?: ReactNode;
     footer?: ReactNode;
 };
 
@@ -55,6 +56,7 @@ export function IntegrationConnectRow({
     ariaLabel,
     onConnect,
     onDisconnect,
+    extraControl,
     footer,
 }: IntegrationConnectRowProps) {
     const switchLabel = ariaLabel ?? `${connected ? 'Desconectar' : 'Conectar'} ${title}`;
@@ -124,6 +126,7 @@ export function IntegrationConnectRow({
                             size="sm"
                         />
                     )}
+                    {extraControl}
                 </div>
             </div>
             {locked && lockedHint ? (

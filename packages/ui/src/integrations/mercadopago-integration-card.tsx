@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { IconCash } from '@tabler/icons-react';
 import type { MercadoPagoIntegrationVertical } from '@simple/utils';
 import {
@@ -17,6 +17,8 @@ export type MercadoPagoIntegrationCardProps = {
     vertical: MercadoPagoIntegrationVertical;
     subscriptionHref?: string;
     lockedHint?: string;
+    description?: string;
+    extraControl?: ReactNode;
     className?: string;
     embedded?: boolean;
     onConnectionChange?: (connected: boolean) => void;
@@ -26,6 +28,8 @@ export function MercadoPagoIntegrationCard({
     vertical,
     subscriptionHref = '/panel/mi-cuenta/suscripcion',
     lockedHint,
+    description,
+    extraControl,
     className,
     embedded = false,
     onConnectionChange,
@@ -97,11 +101,13 @@ export function MercadoPagoIntegrationCard({
                 <IntegrationConnectRow
                     icon={<IconCash size={18} style={{ color: '#009EE3' }} />}
                     title="MercadoPago"
+                    description={description}
                     connected={false}
                     loading
                     controlVariant="actions"
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}
+                    extraControl={extraControl}
                 />
             ) : !status ? (
                 <PanelNotice tone="warning">No pudimos cargar el estado de MercadoPago.</PanelNotice>
@@ -123,6 +129,7 @@ export function MercadoPagoIntegrationCard({
                 <IntegrationConnectRow
                     icon={<IconCash size={18} style={{ color: '#009EE3' }} />}
                     title="MercadoPago"
+                    description={description}
                     connected={connected}
                     connectedAccountLabel={connected && status.userId ? `Cuenta #${status.userId}` : undefined}
                     busy={disconnecting}
@@ -132,6 +139,7 @@ export function MercadoPagoIntegrationCard({
                     controlVariant="actions"
                     onConnect={onConnect}
                     onDisconnect={onDisconnect}
+                    extraControl={extraControl}
                 />
             )}
         </>

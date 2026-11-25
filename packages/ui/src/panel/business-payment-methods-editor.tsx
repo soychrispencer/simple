@@ -314,17 +314,19 @@ export function BusinessPaymentMethodsEditor({
             </PanelCard>
 
             <PanelCard size="md">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                            style={{
-                                background: value.acceptsMp ? 'rgba(0,158,227,0.12)' : 'var(--accent-soft)',
-                                color: '#009EE3',
-                            }}
-                        >
-                            <IconCash size={18} />
-                        </div>
+                {mercadoPagoSlot ? mercadoPagoSlot : (
+                    <>
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <div
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                    style={{
+                                        background: value.acceptsMp ? 'rgba(0,158,227,0.12)' : 'var(--accent-soft)',
+                                        color: '#009EE3',
+                                    }}
+                                >
+                                    <IconCash size={18} />
+                                </div>
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
@@ -423,6 +425,8 @@ export function BusinessPaymentMethodsEditor({
                         </PanelNotice>
                     </div>
                 ) : null}
+                    </>
+                )}
             </PanelCard>
 
             <PanelCard size="md">

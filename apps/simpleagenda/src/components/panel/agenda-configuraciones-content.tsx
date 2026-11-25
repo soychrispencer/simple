@@ -12,6 +12,7 @@ import {
     BUSINESS_PAYMENT_METHODS_PAGE,
     PanelBlockHeader,
     PanelNotice,
+    PanelSwitch,
 } from '@simple/ui/panel';
 import {
     businessPaymentMethodsFromRecord,
@@ -296,9 +297,20 @@ export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'a
                                 <MercadoPagoIntegrationCard
                                     embedded
                                     vertical="agenda"
+                                    description="Cobros online con tarjeta o débito en tu cuenta de MercadoPago. Sin comisión de Simple."
                                     subscriptionHref="/panel/mi-negocio/plan"
                                     lockedHint="Disponible con Pro, Pro+ o una prueba activa."
                                     onConnectionChange={setMpConnected}
+                                    extraControl={(
+                                        <PanelSwitch
+                                            checked={paymentForm.acceptsMp}
+                                            onChange={(next: boolean) => {
+                                                setSaved(false);
+                                                setPaymentForm((curr) => ({ ...curr, acceptsMp: next }));
+                                            }}
+                                            ariaLabel={paymentForm.acceptsMp ? 'Dejar de aceptar MercadoPago' : 'Aceptar MercadoPago'}
+                                        />
+                                    )}
                                 />
                             </div>
                         )}
