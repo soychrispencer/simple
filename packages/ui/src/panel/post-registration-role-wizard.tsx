@@ -145,9 +145,12 @@ export function PostRegistrationRoleWizard({
     onComplete,
     onDefer,
 }: Props) {
-    const [step, setStep] = useState(Math.max(0, Math.min(initialStep, vertical === 'serenatas' ? 1 : 2)));
+    const isAgendaMinimal = vertical === 'agenda';
+    const [step, setStep] = useState(Math.max(0, Math.min(initialStep, vertical === 'serenatas' ? 1 : isAgendaMinimal ? 0 : 2)));
     const [accountKind, setAccountKind] = useState<OperatorTier | null>(
-        isPersonalAccount === false ? 'company' : (initialAnswers?.accountKind as OperatorTier | undefined) ?? initialAccountKind,
+        isAgendaMinimal
+            ? 'individual'
+            : isPersonalAccount === false ? 'company' : (initialAnswers?.accountKind as OperatorTier | undefined) ?? initialAccountKind,
     );
     const [subtype, setSubtype] = useState<string | null>(
         typeof initialAnswers?.operatorSubtype === 'string' ? initialAnswers.operatorSubtype : initialSubtype ?? null,
@@ -348,6 +351,120 @@ export function PostRegistrationRoleWizard({
             event.preventDefault();
             focusable[0]?.focus();
         }
+    }
+
+    const agendaSubtypes = useMemo(
+        () => isAgendaMinimal ? getOperatorSubtypes('agenda', 'individual') : [],
+        [isAgendaMinimal],
+    );
+    const canSubmitAgendaMinimal = isAgendaMinimal
+        && Boolean(subtype)
+        && (!selectedCustomSubtype || Boolean(subtypeCustom.trim()));
+
+    if (isAgendaMinimal) {
+        return (
+            <section
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="role-onboarding-step-title"
+                aria-describedby="role-onboarding-step-description"
+                tabIndex={-1}
+                onKeyDown={handleDialogKeyDown}
+                className="role-onboarding-gate fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto px-4 py-6 backdrop-blur-sm"
+                style={{ background: 'color-mix(in srgb, var(--bg) 92%, transparent)' }}
+            >
+                <div ref={stepContentRef} className="w-full max-w-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                        <BrandLogo appId="simpleagenda" size="sm" />
+                        <PanelButton type="button" variant="ghost" size="sm" onClick={() => void defer()} disabled={saving}>
+                            Omitir
+                        </PanelButton>
+                    </div>
+
+                    <PanelCard size="lg" className="space-y-5 shadow-lg">
+                        <div>
+                            <h1 id="role-onboarding-step-title" ref={stepHeadingRef} tabIndex={-1} className="text-xl font-semibold tracking-tight focus:outline-none sm:text-2xl" style={{ color: 'var(--fg)' }}>
+                                ¿A qué te dedicas?
+                            </h1>
+                            <p id="role-onboarding-step-description" className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                Personalizamos tu agenda en un clic. Puedes cambiarlo luego.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2" role="radiogroup" aria-labelledby="role-onboarding-step-title" onKeyDown={handleRadioGroupKeyDown}>
+                            {agendaSubtypes.map((option) => (
+                                <PanelChoiceCard
+                                    key={option.id}
+                                    selected={subtype === option.id}
+                                    selectionMode="radio"
+                                    tabIndex={subtype === option.id || (!subtype && option.id === agendaSubtypes[0]?.id) ? 0 : -1}
+                                    disabled={saving}
+                                    onClick={() => {
+                                        const normalized = normalizeOperatorSubtype('agenda', 'individual', option.id);
+                                        setSubtype(normalized);
+                                        if (!isOperatorSubtypeOther(normalized)) setSubtypeCustom('');
+                                        setError(null);
+                                    }}
+                                    className="transition-transform duration-150 hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                                >
+                                    <span className="block text-sm font-semibold" style={{ color: 'var(--fg)' }}>{option.label}</span>
+                                    {option.description ? (
+                                        <span className="mt-0.5 block text-xs leading-4" style={{ color: 'var(--fg-muted)' }}>{option.description}</span>
+                                    ) : null}
+                                </PanelChoiceCard>
+                            ))}
+                        </div>
+
+                        {selectedCustomSubtype ? (
+                            <PanelField label="Tu actividad o especialidad" required>
+                                <input
+                                    value={subtypeCustom}
+                                    maxLength={160}
+                                    disabled={saving}
+                                    autoFocus
+                                    onChange={(event) => setSubtypeCustom(event.target.value)}
+                                    placeholder="Ej. Nutrición deportiva"
+                                    className="h-11 w-full rounded-xl border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                                    style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                                />
+                            </PanelField>
+                        ) : null}
+
+                        {error ? <div role="alert"><PanelNotice tone="error">{error}</PanelNotice></div> : null}
+
+                        <div className="flex items-center justify-end pt-1">
+                            <PanelButton
+                                type="button"
+                                variant="primary"
+                                loading={saving}
+                                disabled={!canSubmitAgendaMinimal}
+                                onClick={async () => {
+                                    if (!canSubmitAgendaMinimal || saving) return;
+                                    setSaving(true);
+                                    setError(null);
+                                    try {
+                                        const result = await onComplete({
+                                            accountKind: 'individual',
+                                            operatorSubtype: subtype ?? undefined,
+                                            operatorSubtypeCustom: selectedCustomSubtype ? subtypeCustom.trim() : '',
+                                        });
+                                        if (!result.ok) setError(result.error ?? 'No pudimos guardar tu actividad.');
+                                    } catch {
+                                        setError('No pudimos guardar tu actividad. Inténtalo nuevamente.');
+                                    } finally {
+                                        setSaving(false);
+                                    }
+                                }}
+                                className="w-full sm:w-auto"
+                            >
+                                Empezar
+                            </PanelButton>
+                        </div>
+                    </PanelCard>
+                </div>
+            </section>
+        );
     }
 
     return (
@@ -569,13 +686,13 @@ export function PostRegistrationRoleWizard({
                                             ))}
                                         </div>
                                         {accountKind === 'company' ? (
-                                            <PanelField label={vertical === 'agenda' ? 'Nombre de tu centro o equipo' : vertical === 'autos' ? 'Nombre de tu empresa o automotora' : 'Nombre de tu empresa o espacio'} required>
+                                            <PanelField label={vertical === 'autos' ? 'Nombre de tu empresa o automotora' : 'Nombre de tu empresa o espacio'} required>
                                                 <input
                                                     value={resolvedCompanyName}
                                                     maxLength={160}
                                                     disabled={saving || isPersonalAccount === false || Boolean(existingBusinessWorkspaceName)}
                                                     onChange={(event) => setCompanyName(event.target.value)}
-                                                    placeholder={vertical === 'agenda' ? 'Ej. Centro Vida' : vertical === 'autos' ? 'Ej. Automotora del Valle' : 'Ej. Inmobiliaria del Valle'}
+                                                    placeholder={vertical === 'autos' ? 'Ej. Automotora del Valle' : 'Ej. Inmobiliaria del Valle'}
                                                     className="h-11 w-full rounded-xl border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                                     style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
                                                 />

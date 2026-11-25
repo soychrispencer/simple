@@ -55,6 +55,7 @@ export interface AccountsRouterDeps {
       accountVerticalSettings: any;
       userVerticalOnboarding: any;
       publicProfiles: any;
+      agendaProfiles?: any;
       serenataClients: any;
       serenataMusicians: any;
       serenataOwners: any;
@@ -225,17 +226,30 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
           ))
           .limit(1);
       }
+      const [agendaProfile] = vertical === 'agenda' && deps.tables.agendaProfiles
+        ? await deps.db.select({
+            displayName: deps.tables.agendaProfiles.displayName,
+            operatorSubtype: deps.tables.agendaProfiles.operatorSubtype,
+            isPublished: deps.tables.agendaProfiles.isPublished,
+          })
+            .from(deps.tables.agendaProfiles)
+            .where(deps.eq(deps.tables.agendaProfiles.userId, user.id))
+            .limit(1)
+        : [null];
       legacyEquivalent = Boolean(
         workspace?.onboardingCompletedAt
         || profile?.operatorSubtype
-            || (account!.isPersonal && profile?.isPublished),
+        || (account!.isPersonal && profile?.isPublished)
+        || (vertical === 'agenda' && agendaProfile && (
+          agendaProfile.operatorSubtype
+          || agendaProfile.displayName?.trim()
+          || agendaProfile.isPublished
+        )),
       );
     }
 
     const recordIsCurrent = (record?.version ?? 0) >= POST_REGISTRATION_ROLE_WIZARD_VERSION;
-    const alreadyComplete = record
-      ? record.status === 'completed' && recordIsCurrent
-      : legacyEquivalent;
+    const alreadyComplete = legacyEquivalent || (Boolean(record) && record.status === 'completed' && recordIsCurrent);
     const deferred = !alreadyComplete && record?.status === 'deferred' && recordIsCurrent;
     const needsWizard = !alreadyComplete && !deferred && canManage;
     return c.json({

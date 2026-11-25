@@ -37,9 +37,10 @@ function firstTaskHref(vertical: WorkspaceVertical, answers: PostRegistrationWiz
         return answers.firstTask === 'sell_products' ? '/panel/publicar?op=product' : '/panel/publicar';
     }
     if (vertical === 'agenda') {
-        if (answers.firstTask === 'set_availability') return '/panel/agenda';
-        if (answers.firstTask === 'share_booking_link') return '/panel/mi-negocio';
-        return '/panel/mi-negocio';
+        if (answers.firstTask === 'set_availability') return '/panel/mi-negocio/agenda#horario';
+        if (answers.firstTask === 'share_booking_link') return '/panel/mi-negocio/apariencia';
+        if (answers.firstTask === 'configure_services') return '/panel/mis-servicios';
+        return '/panel';
     }
     if (answers.firstTask === 'request_serenata') return '/mariachis';
     if (answers.firstTask === 'complete_musician_profile') return '/panel/mi-cuenta?account_tab=musician';

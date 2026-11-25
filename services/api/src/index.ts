@@ -2410,6 +2410,7 @@ app.route('/api/accounts', createAccountsRouter({
         messageThreads,
         platformNotifications,
         publicProfiles,
+        agendaProfiles: agendaProfessionalProfiles,
         serenataClients,
         serenataMusicians,
         serenataOwners,
