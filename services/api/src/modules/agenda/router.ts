@@ -7,7 +7,9 @@ import { z } from 'zod';
 import { cleanupReplacedMediaUrl, isOwnedStorageUrl, toProtectedMediaUrl, unwrapProtectedMediaUrl } from '../media/stored-object.js';
 import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
 import { refreshMercadoPagoOperatorOAuthToken } from '../mercadopago/operator-oauth.js';
-import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount, hasAgendaProPlusAccess } from './plan-limits.js';
+import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount, getAgendaWhatsappQuota, hasAgendaProPlusAccess } from './plan-limits.js';
+import { extractWhatsAppButtonActions, verifyWhatsAppWebhookSignature } from '../../lib/whatsapp-cloud.js';
+import { insertPlatformNotifications } from '../platform/notifications-service.js';
 import {
     getCustomDomainTargetHost,
     getCustomDomainTargetIp,
@@ -324,6 +326,7 @@ function mapPublicAgendaProfile(
         bookingTermsText: bookingTermsFromRecord(profile),
         requiresAdvancePayment: profile.requiresAdvancePayment,
         advancePaymentInstructions: profile.advancePaymentInstructions,
+        whatsappRemindersEnabled: Boolean(profile.whatsappRemindersEnabled ?? true),
         paymentMethods: {
             requiresAdvancePayment: profile.requiresAdvancePayment,
             acceptsMp: !!profile.acceptsMp,
@@ -1608,14 +1611,18 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         let profile = await ensureAgendaProfile(user);
         profile = await ensureAgendaProfileTrial(profile);
-        const operationalTz = await resolveAgendaProfessionalTimezone(user.id, profile as Record<string, unknown>);
-        const monthlyBookingsUsed = await getAgendaMonthlyBookingCount(profile.id);
+        const [operationalTz, monthlyBookingsUsed, whatsappQuota] = await Promise.all([
+            resolveAgendaProfessionalTimezone(user.id, profile as Record<string, unknown>),
+            getAgendaMonthlyBookingCount(profile.id),
+            getAgendaWhatsappQuota(profile),
+        ]);
         return c.json({
             ok: true,
             profile: {
                 ...serializeAgendaProfile(profile),
                 monthlyBookingsUsed,
                 monthlyBookingsLimit: AGENDA_PRICING.free.monthlyBookings,
+                whatsappQuota,
                 bookingTermsText: bookingTermsFromRecord(profile),
                 timezone: operationalTz,
                 operatingLocation: operatingLocationFromAgendaProfile(profile),
@@ -1844,7 +1851,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
                 typeof body.bookingTermsText === 'string' ? body.bookingTermsText : null,
             ).bookingTermsText;
         }
-        const allowed = ['displayName','headline','bio','avatarUrl','address','city','region','countryCode','regionId','localityId','serviceLocalities','servesOnline','servesPresential','publicEmail','publicPhone','publicWhatsapp','isPublished','slug','currency','bookingWindowDays','cancellationHours','confirmationMode','encuadre','requiresAdvancePayment','advancePaymentInstructions','acceptsTransfer','acceptsMp','acceptsPaymentLink','paymentLinkUrl','bankTransferData','coverUrl','websiteUrl','instagramUrl','facebookUrl','linkedinUrl','tiktokUrl','youtubeUrl','twitterUrl','allowsRecurrentBooking','operatorSiteLayout','operatorSiteColorMode','operatorSiteAccentColor'] as const;
+        const allowed = ['displayName','headline','bio','avatarUrl','address','city','region','countryCode','regionId','localityId','serviceLocalities','servesOnline','servesPresential','publicEmail','publicPhone','publicWhatsapp','isPublished','slug','currency','bookingWindowDays','cancellationHours','confirmationMode','encuadre','requiresAdvancePayment','advancePaymentInstructions','whatsappRemindersEnabled','acceptsTransfer','acceptsMp','acceptsPaymentLink','paymentLinkUrl','bankTransferData','coverUrl','websiteUrl','instagramUrl','facebookUrl','linkedinUrl','tiktokUrl','youtubeUrl','twitterUrl','allowsRecurrentBooking','operatorSiteLayout','operatorSiteColorMode','operatorSiteAccentColor'] as const;
         for (const key of allowed) {
             if (key === 'avatarUrl' || key === 'coverUrl') continue;
             if (key in body) patch[key] = body[key];
@@ -6175,6 +6182,90 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             }
         })();
         return c.json({ ok: true, appointment, appointments: insertedAppointments, seriesId: publicSeriesId, checkoutUrl });
+    });
+
+    app.get('/whatsapp/webhook', (c) => {
+        const mode = c.req.query('hub.mode');
+        const token = c.req.query('hub.verify_token');
+        const challenge = c.req.query('hub.challenge') ?? '';
+        const expected = process.env.WHATSAPP_CLOUD_VERIFY_TOKEN?.trim();
+        if (mode === 'subscribe' && expected && token === expected) {
+            return c.text(challenge, 200);
+        }
+        return c.json({ ok: false, error: 'Verificación inválida' }, 403);
+    });
+
+    app.post('/whatsapp/webhook', async (c) => {
+        const rawBody = await c.req.text();
+        const sig = c.req.header('x-hub-signature-256');
+        if (!verifyWhatsAppWebhookSignature(rawBody, sig)) {
+            return c.json({ ok: false, error: 'Firma inválida' }, 403);
+        }
+        let payload: unknown = null;
+        try {
+            payload = JSON.parse(rawBody);
+        } catch {
+            return c.json({ ok: false, error: 'JSON inválido' }, 400);
+        }
+
+        const actions = extractWhatsAppButtonActions(payload);
+        for (const item of actions) {
+            const appt = await db.query.agendaAppointments.findFirst({
+                where: eq(agendaAppointments.id, item.appointmentId),
+            });
+            if (!appt || !['pending', 'confirmed'].includes(appt.status)) continue;
+
+            const prof = await db.query.agendaProfessionalProfiles.findFirst({
+                where: eq(agendaProfessionalProfiles.id, appt.professionalId),
+            });
+
+            if (item.action === 'confirm') {
+                await db.update(agendaAppointments)
+                    .set({
+                        clientConfirmedAt: new Date(),
+                        clientConfirmedVia: 'whatsapp',
+                        status: 'confirmed',
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(agendaAppointments.id, appt.id));
+                if (prof) {
+                    void insertPlatformNotifications({
+                        userId: prof.userId,
+                        vertical: 'agenda',
+                        type: 'appointment.whatsapp_confirmed',
+                        title: 'Cita confirmada por WhatsApp',
+                        body: `${appt.clientName ?? 'Paciente'} confirmó su asistencia desde WhatsApp.`,
+                        actionUrl: '/panel/agenda',
+                        entityType: 'appointment',
+                        entityId: appt.id,
+                    }).catch(() => {});
+                }
+            } else if (item.action === 'cancel') {
+                await db.update(agendaAppointments)
+                    .set({
+                        status: 'cancelled',
+                        cancelledAt: new Date(),
+                        cancelledBy: 'client',
+                        cancellationReason: 'Cancelada desde botón de WhatsApp',
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(agendaAppointments.id, appt.id));
+                if (prof) {
+                    void insertPlatformNotifications({
+                        userId: prof.userId,
+                        vertical: 'agenda',
+                        type: 'appointment.cancelled',
+                        title: 'Cita cancelada por WhatsApp',
+                        body: `${appt.clientName ?? 'Paciente'} canceló su cita desde WhatsApp.`,
+                        actionUrl: '/panel/agenda',
+                        entityType: 'appointment',
+                        entityId: appt.id,
+                    }).catch(() => {});
+                }
+            }
+        }
+
+        return c.json({ ok: true, processed: actions.length });
     });
 
     return app;

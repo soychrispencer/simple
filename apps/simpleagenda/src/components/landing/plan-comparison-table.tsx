@@ -135,10 +135,10 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Envíos automáticos por WhatsApp',
-                description: 'Los recordatorios automáticos disponibles hoy se envían por email.',
+                description: 'Recordatorio automático 24 horas antes con botón de confirmación y respaldo gratis por email y wa.me al completar tu cuota.',
                 free: false,
-                pro: false,
-                proPlus: false,
+                pro: `${AGENDA_PRICING.pro.monthlyWhatsappReminders} al mes`,
+                proPlus: `${AGENDA_PRICING.proPlus.monthlyWhatsappReminders} al mes`,
             },
             {
                 name: 'Seguimiento automático después de la cita',

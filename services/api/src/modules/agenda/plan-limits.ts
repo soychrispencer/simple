@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { accountUsers, accounts, agendaAccountTrials, agendaAppointments, agendaProfessionalProfiles } from '../../db/schema.js';
+import { accountUsers, accounts, agendaAccountTrials, agendaAppointments, agendaNotificationEvents, agendaProfessionalProfiles } from '../../db/schema.js';
 import { AGENDA_PRICING, isPlatformLaunchActive } from '@simple/utils';
+import { isWhatsAppCloudConfigured } from '../../lib/whatsapp-cloud.js';
 
 export async function getAgendaProfile(userId: string, accountId?: string | null) {
     let resolvedAccountId = accountId;
@@ -233,6 +234,51 @@ export async function getAgendaMonthlyBookingCount(profileId: string, queryable:
         ));
 
     return Number(rows[0]?.count ?? 0);
+}
+
+export function getAgendaWhatsappMonthlyLimit(profile: { plan: string; planExpiresAt: Date | null }): number {
+    if (!isAgendaProActive(profile)) return 0;
+    const plan = normalizeAgendaBillingPlan(profile.plan);
+    if (plan === 'pro_plus') return AGENDA_PRICING.proPlus.monthlyWhatsappReminders;
+    if (plan === 'pro') return AGENDA_PRICING.pro.monthlyWhatsappReminders;
+    return 0;
+}
+
+export async function getAgendaMonthlyWhatsappUsed(profileId: string, queryable: any = db): Promise<number> {
+    const rows = await queryable
+        .select({ count: sql<number>`count(*)::int` })
+        .from(agendaNotificationEvents)
+        .where(and(
+            eq(agendaNotificationEvents.professionalId, profileId),
+            eq(agendaNotificationEvents.channel, 'whatsapp'),
+            eq(agendaNotificationEvents.status, 'sent'),
+            sql`${agendaNotificationEvents.createdAt} >= date_trunc('month', now() AT TIME ZONE COALESCE((SELECT timezone FROM agenda_professional_profiles WHERE id = ${profileId}), 'America/Santiago')) AT TIME ZONE COALESCE((SELECT timezone FROM agenda_professional_profiles WHERE id = ${profileId}), 'America/Santiago')`,
+        ));
+
+    return Number(rows[0]?.count ?? 0);
+}
+
+export async function getAgendaWhatsappQuota(profile: {
+    id: string;
+    plan: string;
+    planExpiresAt: Date | null;
+    whatsappRemindersEnabled?: boolean | null;
+    whatsappExtraCredits?: number | null;
+}, queryable: any = db) {
+    const planLimit = getAgendaWhatsappMonthlyLimit(profile);
+    const extraCredits = Math.max(0, Number(profile.whatsappExtraCredits ?? 0));
+    const used = await getAgendaMonthlyWhatsappUsed(profile.id, queryable);
+    const planRemaining = Math.max(0, planLimit - used);
+    const remaining = planRemaining + extraCredits;
+    return {
+        used,
+        planLimit,
+        extraCredits,
+        totalLimit: planLimit + extraCredits,
+        remaining,
+        enabled: profile.whatsappRemindersEnabled !== false,
+        cloudConfigured: isWhatsAppCloudConfigured(),
+    };
 }
 
 export async function checkAppointmentLimit(profileId: string, additionalAppointments = 1, queryable: any = db): Promise<string | null> {

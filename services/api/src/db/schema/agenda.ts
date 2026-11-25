@@ -41,6 +41,8 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   encuadre: text('encuadre'), // Policy text shown to client at booking (e.g. no-show = no refund)
   requiresAdvancePayment: boolean('requires_advance_payment').notNull().default(false),
   advancePaymentInstructions: text('advance_payment_instructions'), // Bank transfer info, etc.
+  whatsappRemindersEnabled: boolean('whatsapp_reminders_enabled').notNull().default(true),
+  whatsappExtraCredits: integer('whatsapp_extra_credits').notNull().default(0),
   // Google Calendar integration
   googleCalendarId: varchar('google_calendar_id', { length: 255 }),
   googleAccessToken: text('google_access_token'),
@@ -243,6 +245,9 @@ export const agendaAppointments = pgTable('agenda_appointments', {
   cancellationReason: text('cancellation_reason'),
   reminderSentAt: timestamp('reminder_sent_at'),       // 24h reminder
   reminder30minSentAt: timestamp('reminder_30min_sent_at'), // 30min reminder
+  whatsappReminderSentAt: timestamp('whatsapp_reminder_sent_at'), // 24h WhatsApp Cloud reminder
+  clientConfirmedAt: timestamp('client_confirmed_at'),
+  clientConfirmedVia: varchar('client_confirmed_via', { length: 30 }),
   // Policy agreement (encuadre)
   policyAgreed: boolean('policy_agreed').notNull().default(false),
   policyAgreedAt: timestamp('policy_agreed_at'),

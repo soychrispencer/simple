@@ -11,6 +11,13 @@ export const AGENDA_PRICING = {
         monthlyBookings: 30,
         activeServices: 3,
         activeLocations: 1,
+        monthlyWhatsappReminders: 0,
+    },
+    pro: {
+        monthlyWhatsappReminders: 30,
+    },
+    proPlus: {
+        monthlyWhatsappReminders: 80,
     },
 } as const;
 
@@ -26,7 +33,7 @@ export const AGENDA_PLAN_CATALOG = {
             `Hasta ${AGENDA_PRICING.free.activeServices} servicios activos y ${AGENDA_PRICING.free.activeLocations} ubicación`,
             'Perfil público, link para reservar, agenda y clientes',
             'Confirmaciones por email',
-            'Recordatorios automáticos por email',
+            'Recordatorios automáticos por email y manuales por WhatsApp (wa.me)',
             'Sin cobro automático ni comisión de SimpleAgenda por cita',
         ],
     },
@@ -39,7 +46,7 @@ export const AGENDA_PLAN_CATALOG = {
         features: [
             'Citas, servicios y ubicaciones sin límites de uso',
             'Página pública personalizable: portada, estilos visuales y colores de marca',
-            'Recordatorios automáticos por email',
+            `${AGENDA_PRICING.pro.monthlyWhatsappReminders} recordatorios automáticos por WhatsApp al mes + email ilimitado`,
             'Finanzas y control de cobros',
             'Packs, promociones y agenda avanzada',
             'Estadísticas, NPS y referidos',
@@ -54,6 +61,7 @@ export const AGENDA_PLAN_CATALOG = {
         description: 'Herramientas para retomar el contacto con clientes que dejaron de agendar.',
         features: [
             'Todo lo incluido en Pro',
+            `${AGENDA_PRICING.proPlus.monthlyWhatsappReminders} recordatorios automáticos por WhatsApp al mes`,
             'Dominio propio conectado a tu página de reservas (ej. reservas.tunegocio.cl)',
             'Lista de clientes sin una cita reciente: 30, 60 o 90 días',
             'Segmentos según última atención y próximas citas',

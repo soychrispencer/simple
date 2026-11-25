@@ -1384,9 +1384,18 @@ export default function AgendaPage() {
                             const isActive = selectedAppt.status !== 'cancelled' && selectedAppt.status !== 'completed';
                             return (
                                 <div className="agenda-panel-border border-t pt-4 flex flex-col gap-2">
-                                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                                    <p className="text-xs font-semibold flex items-center gap-1.5 flex-wrap">
                                         <IconBrandWhatsapp size={13} className="text-[var(--brand-whatsapp)]" />
                                         Avisar por WhatsApp
+                                        {selectedAppt.clientConfirmedVia === 'whatsapp' ? (
+                                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--color-success-subtle)', color: 'var(--brand-whatsapp)' }}>
+                                                Confirmada por WhatsApp
+                                            </span>
+                                        ) : selectedAppt.whatsappReminderSentAt ? (
+                                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-[var(--border)]" style={{ color: 'var(--fg-muted)' }}>
+                                                Recordatorio enviado
+                                            </span>
+                                        ) : null}
                                     </p>
                                     <p className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
                                         Abre WhatsApp con el mensaje listo. Tú envías; no usa la API de pago de Meta.

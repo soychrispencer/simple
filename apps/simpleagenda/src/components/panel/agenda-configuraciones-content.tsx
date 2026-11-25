@@ -34,6 +34,7 @@ import { useAgendaVocab } from '@/components/panel/agenda-vocab-context';
 type BookingForm = {
     confirmationMode: 'auto' | 'manual';
     allowsRecurrentBooking: boolean;
+    whatsappRemindersEnabled: boolean;
     bookingWindowDays: number;
     cancellationHours: number;
     bookingTermsText: string;
@@ -43,6 +44,7 @@ function applyProfileToBookingForm(profile: AgendaProfile): BookingForm {
     return {
         confirmationMode: (profile.confirmationMode as 'auto' | 'manual') ?? 'auto',
         allowsRecurrentBooking: profile.allowsRecurrentBooking ?? true,
+        whatsappRemindersEnabled: profile.whatsappRemindersEnabled ?? true,
         bookingWindowDays: profile.bookingWindowDays ?? 30,
         cancellationHours: profile.cancellationHours ?? 24,
         bookingTermsText: bookingTermsFromRecord(profile),
@@ -52,6 +54,7 @@ function applyProfileToBookingForm(profile: AgendaProfile): BookingForm {
 function bookingFormDirty(profile: AgendaProfile, form: BookingForm): boolean {
     return form.confirmationMode !== ((profile.confirmationMode as 'auto' | 'manual') ?? 'auto')
         || form.allowsRecurrentBooking !== (profile.allowsRecurrentBooking ?? true)
+        || form.whatsappRemindersEnabled !== (profile.whatsappRemindersEnabled ?? true)
         || form.bookingWindowDays !== (profile.bookingWindowDays ?? 30)
         || form.cancellationHours !== (profile.cancellationHours ?? 24)
         || form.bookingTermsText !== bookingTermsFromRecord(profile);
@@ -268,6 +271,57 @@ export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'a
                         onPrefsChange={notificationPrefs.updatePrefs}
                         disabled={saving}
                     />
+
+                    {profile?.whatsappQuota ? (
+                        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5 space-y-3">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h3 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                        Recordatorios automáticos por WhatsApp
+                                    </h3>
+                                    <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                                        Se envían 24 horas antes de la cita con botón de confirmación. Al agotarse la cuota del mes, siguen saliendo gratis por email y puedes enviar por wa.me en 1 clic.
+                                    </p>
+                                </div>
+                                {profile.whatsappQuota.planLimit > 0 ? (
+                                    <label className="inline-flex items-center gap-2 text-xs font-medium cursor-pointer shrink-0" style={{ color: 'var(--fg)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={bookingForm.whatsappRemindersEnabled}
+                                            onChange={(e) => setBooking('whatsappRemindersEnabled', e.target.checked)}
+                                            disabled={saving}
+                                        />
+                                        <span>{bookingForm.whatsappRemindersEnabled ? 'Activados' : 'Pausados'}</span>
+                                    </label>
+                                ) : null}
+                            </div>
+
+                            {profile.whatsappQuota.totalLimit > 0 ? (
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span style={{ color: 'var(--fg-secondary)' }}>
+                                            Cuota mensual incluida
+                                        </span>
+                                        <span className="font-semibold" style={{ color: 'var(--fg)' }}>
+                                            {profile.whatsappQuota.used} / {profile.whatsappQuota.totalLimit} usados
+                                        </span>
+                                    </div>
+                                    <div className="h-2 overflow-hidden rounded-full bg-[var(--border)]">
+                                        <div
+                                            className="h-full rounded-full bg-[var(--accent)] transition-all"
+                                            style={{
+                                                width: `${Math.min(100, (profile.whatsappQuota.used / profile.whatsappQuota.totalLimit) * 100)}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    Tu plan actual incluye recordatorios automáticos por email y envío manual por wa.me. Activa Pro (30/mes) o Pro+ (80/mes) para envíos automáticos por WhatsApp.
+                                </p>
+                            )}
+                        </section>
+                    ) : null}
                 </>
             ) : null}
 

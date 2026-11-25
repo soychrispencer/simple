@@ -99,6 +99,16 @@ export type AgendaProfile = {
     planExpiresAt: string | null;
     monthlyBookingsUsed?: number;
     monthlyBookingsLimit?: number;
+    whatsappRemindersEnabled?: boolean;
+    whatsappQuota?: {
+        used: number;
+        planLimit: number;
+        extraCredits: number;
+        totalLimit: number;
+        remaining: number;
+        enabled: boolean;
+        cloudConfigured: boolean;
+    };
     acceptsTransfer: boolean;
     acceptsMp: boolean;
     acceptsPaymentLink: boolean;
@@ -644,6 +654,9 @@ export type AgendaAppointment = {
     cancelledAt: string | null;
     cancelledBy: string | null;
     cancellationReason: string | null;
+    whatsappReminderSentAt?: string | null;
+    clientConfirmedAt?: string | null;
+    clientConfirmedVia?: string | null;
     seriesId: string | null;
     recurrenceFrequency: string | null;
     clientPackId: string | null;
