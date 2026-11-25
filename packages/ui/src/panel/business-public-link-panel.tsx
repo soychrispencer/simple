@@ -295,18 +295,23 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default', showPubl
     if (variant === 'minimal') {
         return (
             <PanelCard size="sm" className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium text-(--fg)">{showPublicPreviewAction ? 'Enlace de reservas' : 'Link público'}</p>
-                    <span
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                        style={{
-                            background: state.isPublished ? 'var(--accent-soft)' : 'var(--bg-muted)',
-                            color: state.isPublished ? 'var(--accent-ink, var(--accent))' : 'var(--fg-muted)',
-                        }}
-                    >
-                        {state.isPublished ? <IconEye size={10} /> : <IconEyeOff size={10} />}
-                        {state.isPublished ? 'Publicado' : 'Borrador'}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {!state.isPublished ? (
+                            <span className="text-[11px] text-(--fg-muted)">No visible hasta publicar</span>
+                        ) : null}
+                        <span
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                            style={{
+                                background: state.isPublished ? 'var(--accent-soft)' : 'var(--bg-muted)',
+                                color: state.isPublished ? 'var(--accent-ink, var(--accent))' : 'var(--fg-muted)',
+                            }}
+                        >
+                            {state.isPublished ? <IconEye size={10} /> : <IconEyeOff size={10} />}
+                            {state.isPublished ? 'Publicado' : 'Borrador'}
+                        </span>
+                    </div>
                 </div>
 
                 {editingSlug ? slugEditForm : (
@@ -344,12 +349,6 @@ export function BusinessPublicLinkPanel({ adapter, variant = 'default', showPubl
                                 </IconAction>
                             ) : null}
                         </div>
-
-                        {!state.isPublished ? (
-                            <p className="text-xs leading-relaxed text-(--color-warning,#b45309)">
-                                Aún está en borrador: tus clientes verán «Página en preparación» hasta que publiques tu perfil arriba.
-                            </p>
-                        ) : null}
 
                         {publicUrl ? (
                             <div className="flex flex-wrap items-center gap-3">

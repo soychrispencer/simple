@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { IconArrowRight, IconCheck, IconCopy, IconExternalLink, IconLoader2, IconRefresh, IconTrash } from '@tabler/icons-react';
+import { IconArrowRight, IconCheck, IconCopy, IconEdit, IconExternalLink, IconLoader2, IconRefresh, IconTrash } from '@tabler/icons-react';
 import { PanelButton, PanelCard, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
 import {
     deleteAgendaCustomDomain,
@@ -57,6 +57,7 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
         proPlusEligible: hasAgendaProPlusAccess(profile),
     });
     const [domainInput, setDomainInput] = useState(profile.customDomain ?? '');
+    const [editing, setEditing] = useState(profile.customDomainStatus !== 'verified');
     const [saving, setSaving] = useState(false);
     const [verifying, setVerifying] = useState(false);
     const [removing, setRemoving] = useState(false);
@@ -71,6 +72,7 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
                 if (!active) return;
                 setState(data);
                 setDomainInput(data.customDomain ?? '');
+                setEditing(data.customDomainStatus !== 'verified');
             })
             .catch(() => {
                 // Keep initial profile snapshot if secondary fetch fails.
@@ -100,7 +102,7 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
                 targetIp: res.targetIp ?? prev.targetIp,
             }));
             setDomainInput(res.customDomain ?? domainInput.trim().toLowerCase());
-            setMessage('Dominio guardado. Crea el registro indicado abajo y luego pulsa Verificar DNS.');
+            setEditing(true);
         } finally {
             setSaving(false);
         }
@@ -126,6 +128,7 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
                 customDomainStatus: 'verified',
                 customDomainVerifiedAt: res.customDomainVerifiedAt ?? new Date().toISOString(),
             }));
+            setEditing(false);
             setMessage('Dominio verificado y activo con SSL.');
         } finally {
             setVerifying(false);
@@ -149,6 +152,7 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
                 customDomainVerifiedAt: null,
             }));
             setDomainInput('');
+            setEditing(true);
             setMessage('Dominio desconectado.');
         } finally {
             setRemoving(false);
@@ -170,7 +174,8 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
         }
     };
 
-    const badge = state.customDomainStatus === 'verified'
+    const isVerified = state.customDomainStatus === 'verified' && Boolean(state.customDomain);
+    const badge = isVerified
         ? <PanelStatusBadge label="Activo" tone="success" size="sm" />
         : state.customDomainStatus === 'pending'
           ? <PanelStatusBadge label="Pendiente DNS" tone="warning" size="sm" />
@@ -180,12 +185,12 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
 
     return (
         <div id="agenda-custom-domain" className="scroll-mt-24">
-            <PanelCard size="md">
+            <PanelCard size="sm">
                 {!state.proPlusEligible ? (
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                                <h2 className="text-sm font-bold text-fg">Dominio propio</h2>
+                                <h2 className="text-sm font-medium text-fg">Dominio propio</h2>
                                 <PanelStatusBadge label="Pro+" tone="info" size="sm" />
                             </div>
                             <p className="mt-0.5 text-xs text-fg-secondary">
@@ -200,95 +205,122 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
                         </Link>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex flex-wrap items-center gap-2">
-                                <h2 className="text-sm font-bold text-fg">Dominio propio</h2>
+                                <h2 className="text-sm font-medium text-fg">Dominio propio</h2>
                                 <PanelStatusBadge label="Pro+" tone="info" size="sm" />
-                                {badge}
                             </div>
-                            {state.customDomain && state.customDomainStatus === 'verified' ? (
-                                <a
-                                    href={`https://${state.customDomain}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline"
-                                >
-                                    {state.customDomain} <IconExternalLink size={13} aria-hidden="true" />
-                                </a>
-                            ) : null}
+                            {badge}
                         </div>
 
                         {error ? <PanelNotice tone="error">{error}</PanelNotice> : null}
                         {message ? <PanelNotice tone="success">{message}</PanelNotice> : null}
 
-                        <div className="space-y-1.5">
-                            <form onSubmit={handleSave} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                <input
-                                    id="agenda-custom-domain-input"
-                                    type="text"
-                                    aria-label="Dominio propio"
-                                    value={domainInput}
-                                    onChange={(e) => setDomainInput(e.target.value)}
-                                    placeholder="reservas.tunegocio.cl"
-                                    className="form-input h-10 min-w-0 flex-1 text-sm"
-                                />
-                                <PanelButton type="submit" size="sm" disabled={saving || !domainInput.trim()}>
-                                    {saving ? <IconLoader2 size={14} className="animate-spin" aria-hidden="true" /> : null}
-                                    {state.customDomain ? 'Actualizar' : 'Guardar'}
-                                </PanelButton>
-                            </form>
-                            <p className="text-[11px] text-fg-muted">
-                                Recomendado: usa un subdominio como <span className="font-medium text-fg-secondary">reservas.tunegocio.cl</span> para no afectar tu correo ni tu web actual.
-                            </p>
-                        </div>
-
-                        {dnsSetup ? (
-                            <div className="space-y-2 rounded-xl border border-(--border) bg-(--bg-subtle) px-3 py-2.5 text-xs">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-fg-secondary">
-                                        <span className="rounded bg-(--bg) px-1.5 py-0.5 font-mono font-semibold text-fg">
-                                            {dnsSetup.recordType}
-                                        </span>
-                                        <span className="font-mono font-semibold text-fg">{dnsSetup.hostLabel}</span>
-                                        <span aria-hidden="true">→</span>
-                                        <span className="truncate font-mono font-semibold text-fg">{dnsSetup.value}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleCopyTarget()}
-                                            className="inline-flex h-6 w-6 items-center justify-center rounded border border-(--border) bg-(--bg) text-fg-secondary hover:text-fg"
-                                            aria-label="Copiar destino DNS"
-                                        >
-                                            {copiedTarget ? <IconCheck size={12} aria-hidden="true" /> : <IconCopy size={12} aria-hidden="true" />}
-                                        </button>
-                                    </div>
-
-                                    <div className="flex items-center gap-1.5">
-                                        <PanelButton type="button" size="sm" variant="secondary" onClick={() => void handleVerify()} disabled={verifying}>
-                                            {verifying
-                                                ? <IconLoader2 size={13} className="animate-spin" aria-hidden="true" />
-                                                : <IconRefresh size={13} aria-hidden="true" />}
-                                            {state.customDomainStatus === 'verified' ? 'Reverificar' : 'Verificar DNS'}
-                                        </PanelButton>
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleRemove()}
-                                            disabled={removing}
-                                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-muted hover:bg-(--bg) hover:text-(--danger)"
-                                            aria-label="Quitar dominio"
-                                            title="Quitar dominio"
-                                        >
-                                            <IconTrash size={14} aria-hidden="true" />
-                                        </button>
-                                    </div>
+                        {isVerified && !editing ? (
+                            <>
+                                <div className="flex items-center justify-between gap-2 rounded-xl border border-(--border) bg-(--bg-subtle) px-3 py-2">
+                                    <span className="min-w-0 truncate text-xs sm:text-sm font-medium text-fg">
+                                        https://{state.customDomain}
+                                    </span>
+                                    <a
+                                        href={`https://${state.customDomain}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-(--accent) px-2.5 text-xs font-semibold text-(--accent-contrast) transition-opacity hover:opacity-90"
+                                    >
+                                        Abrir <IconExternalLink size={13} aria-hidden="true" />
+                                    </a>
                                 </div>
-                                <p className="text-[11px] text-fg-muted">
-                                    {dnsSetup.isRoot
-                                        ? 'En tu proveedor DNS crea este registro A con el valor copiado. Suele activarse en 5–30 min.'
-                                        : 'En tu proveedor DNS crea este registro CNAME con el valor copiado. Suele activarse en 5–30 min.'}
-                                </p>
-                            </div>
-                        ) : null}
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditing(true)}
+                                        className="inline-flex items-center gap-1.5 text-xs font-medium text-fg-secondary transition-colors hover:text-fg"
+                                    >
+                                        <IconEdit size={14} aria-hidden="true" /> Cambiar dominio
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleRemove()}
+                                        disabled={removing}
+                                        className="inline-flex items-center gap-1.5 text-xs font-medium text-fg-muted transition-colors hover:text-(--danger)"
+                                    >
+                                        <IconTrash size={14} aria-hidden="true" /> Quitar
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="space-y-1">
+                                    <form onSubmit={handleSave} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                        <input
+                                            id="agenda-custom-domain-input"
+                                            type="text"
+                                            aria-label="Dominio propio"
+                                            value={domainInput}
+                                            onChange={(e) => setDomainInput(e.target.value)}
+                                            placeholder="reservas.tunegocio.cl"
+                                            className="form-input h-10 min-w-0 flex-1 text-sm"
+                                        />
+                                        <PanelButton type="submit" size="sm" disabled={saving || !domainInput.trim()}>
+                                            {saving ? <IconLoader2 size={14} className="animate-spin" aria-hidden="true" /> : null}
+                                            {state.customDomain ? 'Actualizar' : 'Guardar'}
+                                        </PanelButton>
+                                    </form>
+                                    {!state.customDomain ? (
+                                        <p className="text-[11px] text-fg-muted">
+                                            Recomendado: usa un subdominio como <span className="font-medium text-fg-secondary">reservas.tunegocio.cl</span> para no afectar tu correo ni tu web actual.
+                                        </p>
+                                    ) : null}
+                                </div>
+
+                                {dnsSetup ? (
+                                    <div className="space-y-1.5 rounded-xl border border-(--border) bg-(--bg-subtle) px-3 py-2 text-xs">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-fg-secondary">
+                                                <span className="rounded bg-(--bg) px-1.5 py-0.5 font-mono font-semibold text-fg">
+                                                    {dnsSetup.recordType}
+                                                </span>
+                                                <span className="font-mono font-semibold text-fg">{dnsSetup.hostLabel}</span>
+                                                <span aria-hidden="true">→</span>
+                                                <span className="truncate font-mono font-semibold text-fg">{dnsSetup.value}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleCopyTarget()}
+                                                    className="inline-flex h-6 w-6 items-center justify-center rounded border border-(--border) bg-(--bg) text-fg-secondary hover:text-fg"
+                                                    aria-label="Copiar destino DNS"
+                                                >
+                                                    {copiedTarget ? <IconCheck size={12} aria-hidden="true" /> : <IconCopy size={12} aria-hidden="true" />}
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5">
+                                                <PanelButton type="button" size="sm" variant="secondary" onClick={() => void handleVerify()} disabled={verifying}>
+                                                    {verifying
+                                                        ? <IconLoader2 size={13} className="animate-spin" aria-hidden="true" />
+                                                        : <IconRefresh size={13} aria-hidden="true" />}
+                                                    Verificar DNS
+                                                </PanelButton>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleRemove()}
+                                                    disabled={removing}
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-muted hover:bg-(--bg) hover:text-(--danger)"
+                                                    aria-label="Quitar dominio"
+                                                    title="Quitar dominio"
+                                                >
+                                                    <IconTrash size={14} aria-hidden="true" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p className="text-[11px] text-fg-muted">
+                                            Copia este registro en tu proveedor de dominio y pulsa Verificar DNS (tarda 5–30 min).
+                                        </p>
+                                    </div>
+                                ) : null}
+                            </>
+                        )}
                     </div>
                 )}
             </PanelCard>
