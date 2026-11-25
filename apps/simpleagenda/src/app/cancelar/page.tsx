@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
     cancelPublicAppointment,
@@ -19,6 +19,26 @@ function CancelPage() {
     const [state, setState] = useState<'idle' | 'loading' | 'rescheduling' | 'done' | 'error'>('idle');
     const [reason, setReason] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
+
+    const [appointmentPreview, setAppointmentPreview] = useState<{
+        startsAt: string;
+        timezone: string;
+    } | null>(null);
+
+    useEffect(() => {
+        if (!slug || !appointmentId) return;
+        let active = true;
+        void fetchPublicRescheduleAvailability(slug, appointmentId)
+            .then((data) => {
+                if (!active || !data.ok || !data.startsAt) return;
+                setAppointmentPreview({
+                    startsAt: data.startsAt,
+                    timezone: data.timezone ?? 'America/Santiago',
+                });
+            })
+            .catch(() => {});
+        return () => { active = false; };
+    }, [slug, appointmentId]);
 
     const handleCancel = async () => {
         if (!appointmentId) return;
@@ -187,9 +207,19 @@ function CancelPage() {
                     <IconCalendarX size={28} className="text-(--color-error)" aria-hidden="true" />
                 </div>
                 <h1 className="text-xl font-bold text-center mb-1" style={{ color: 'var(--fg)' }}>Cancelar o reprogramar</h1>
-                <p className="text-sm text-center mb-6" style={{ color: 'var(--fg-muted)' }}>
+                <p className="text-sm text-center mb-5" style={{ color: 'var(--fg-muted)' }}>
                     Elige si quieres cancelar tu cita o cambiar a otra fecha.
                 </p>
+
+                {appointmentPreview ? (
+                    <div className="mb-5 rounded-xl border p-3.5 text-center text-sm" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                        <p className="text-xs font-medium capitalize" style={{ color: 'var(--fg)' }}>
+                            {new Date(appointmentPreview.startsAt).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: appointmentPreview.timezone })}
+                            {' · '}
+                            {new Date(appointmentPreview.startsAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: appointmentPreview.timezone })}
+                        </p>
+                    </div>
+                ) : null}
 
                 {state === 'error' && (
                     <div role="alert" className="mb-4 rounded-button border border-(--color-error-border) bg-(--color-error-subtle) p-3 text-sm text-(--color-error)">
@@ -214,7 +244,7 @@ function CancelPage() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                    {slug && (
+                    {slug ? (
                         <button
                             onClick={() => void handleReschedule()}
                             disabled={state === 'loading'}
@@ -224,6 +254,10 @@ function CancelPage() {
                             <IconCalendarEvent size={16} aria-hidden="true" />
                             Cambiar a otra fecha
                         </button>
+                    ) : (
+                        <p className="text-center text-xs py-1" style={{ color: 'var(--fg-muted)' }}>
+                            Para reprogramar, abre este enlace desde tu correo de confirmación.
+                        </p>
                     )}
                     <button
                         onClick={() => void handleCancel()}

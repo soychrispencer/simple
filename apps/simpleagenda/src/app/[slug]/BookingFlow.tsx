@@ -68,6 +68,11 @@ type PublicProfile = {
     advancePaymentInstructions: string | null;
     paymentMethods: PaymentMethods;
     services: Service[];
+    locations?: Array<{ id: string; name: string; addressLine?: string | null }>;
+    schedule?: {
+        alwaysOpen?: boolean;
+        rules?: Array<{ dayOfWeek: number; isActive: boolean }>;
+    };
 };
 
 type Step = 'idle' | 'date' | 'info' | 'preconsult' | 'encuadre' | 'payment' | 'confirmed';
@@ -154,9 +159,21 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     const [bookingModality, setBookingModality] = useState<'online' | 'presential'>('online');
 
     // Date picker state
-    const today = new Date();
-    const [viewYear, setViewYear] = useState(today.getFullYear());
-    const [viewMonth, setViewMonth] = useState(today.getMonth());
+    const todayYmd = (() => {
+        try {
+            return new Intl.DateTimeFormat('en-CA', {
+                timeZone: professionalTz,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+            }).format(new Date());
+        } catch {
+            return new Date().toISOString().slice(0, 10);
+        }
+    })();
+    const [todayY, todayM, todayD] = todayYmd.split('-').map(Number);
+    const [viewYear, setViewYear] = useState(todayY);
+    const [viewMonth, setViewMonth] = useState(todayM - 1);
     const [selectedDate, setSelectedDate] = useState<string | null>(null); // YYYY-MM-DD
 
     // Time slots
@@ -164,7 +181,10 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [slotsError, setSlotsError] = useState(false);
     const [slotsRetry, setSlotsRetry] = useState(0);
+    const slotsCacheRef = useRef<Map<string, TimeSlot[]>>(new Map());
     const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+    const [selectedLocationId, setSelectedLocationId] = useState<string>(profile.locations?.[0]?.id ?? '');
+    const [copiedBank, setCopiedBank] = useState(false);
     const slotsHeading = useRef<HTMLHeadingElement>(null);
     const nameInputId = 'agenda-booking-name';
 
@@ -224,10 +244,17 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     useEffect(() => {
         if (!selectedDate || !selectedService || step !== 'date') return;
         let active = true;
+        const date = selectedDate;
+        const cacheKey = `${selectedService.id}:${date}`;
+        if (slotsRetry === 0 && slotsCacheRef.current.has(cacheKey)) {
+            setSlots(slotsCacheRef.current.get(cacheKey) ?? []);
+            setLoadingSlots(false);
+            setSlotsError(false);
+            return;
+        }
         setLoadingSlots(true);
         setSlots([]);
         setSlotsError(false);
-        const date = selectedDate;
         const request = isDemo
             ? Promise.resolve([
                 { startsAt: date + 'T14:00:00.000Z', endsAt: date + 'T14:50:00.000Z' },
@@ -235,7 +262,11 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                 { startsAt: date + 'T18:00:00.000Z', endsAt: date + 'T18:50:00.000Z' },
             ])
             : fetchPublicSlots(profile.slug, date, selectedService.id);
-        void request.then((data) => { if (active) setSlots(data); })
+        void request.then((data) => {
+            if (!active) return;
+            slotsCacheRef.current.set(cacheKey, data);
+            setSlots(data);
+        })
             .catch(() => { if (active) setSlotsError(true); })
             .finally(() => { if (active) setLoadingSlots(false); });
         return () => { active = false; };
@@ -252,7 +283,14 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                 if (!result.ok || !result.status || !result.paymentStatus) {
                     setPaymentError(result.error ?? 'No pudimos verificar tu cita. Inténtalo de nuevo.');
                 } else {
-                    setConfirmedAppt({ id: returnedAppointmentId, status: result.status, paymentStatus: result.paymentStatus });
+                    setConfirmedAppt({
+                        id: returnedAppointmentId,
+                        status: result.status,
+                        paymentStatus: result.paymentStatus,
+                        modality: result.modality ?? null,
+                        meetingUrl: result.meetingUrl ?? null,
+                        location: result.location ?? null,
+                    });
                     if (result.startsAt && result.endsAt) {
                         setSelectedSlot({ startsAt: result.startsAt, endsAt: result.endsAt });
                     }
@@ -278,9 +316,12 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     }, [returnedAppointmentId, returnedPayment, paymentRefresh, profile.slug, isDemo]);
 
     const openBooking = useCallback((service: Service) => {
+        slotsCacheRef.current.clear();
         setSelectedService(service);
         const modality = resolveBookingModality(service);
         setBookingModality(modality ?? 'online');
+        setSelectedLocationId(profile.locations?.[0]?.id ?? '');
+        setCopiedBank(false);
         setStep('date');
         setSelectedDate(null);
         setSelectedSlot(null);
@@ -369,17 +410,31 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
         setPromoError(null);
     };
 
-    // Calendar grid helpers
-    const maxDate = new Date(today);
-    maxDate.setDate(today.getDate() + profile.bookingWindowDays);
+    const effectiveSessionPrice = appliedPromo
+        ? appliedPromo.finalPrice
+        : Number(selectedService?.price ?? 0);
+    const needsAdvancePaymentStep = profile.requiresAdvancePayment && effectiveSessionPrice > 0;
+
+    // Calendar grid helpers (aligned with professional timezone & active rules)
+    const todayUtcMidnight = Date.UTC(todayY, todayM - 1, todayD);
+    const maxDateUtcMidnight = todayUtcMidnight + profile.bookingWindowDays * 86_400_000;
+    const activeWeekdays = useMemo(() => {
+        if (profile.schedule?.alwaysOpen) return null;
+        const active = (profile.schedule?.rules ?? []).filter((r) => r.isActive).map((r) => r.dayOfWeek);
+        return active.length > 0 ? new Set(active) : null;
+    }, [profile.schedule]);
 
     const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
     const firstDayOfMonth = (y: number, m: number) => new Date(y, m, 1).getDay();
 
     const isDateAvailable = (y: number, m: number, d: number) => {
-        const date = new Date(y, m, d);
-        const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        return date >= todayMidnight && date <= maxDate;
+        const dateUtc = Date.UTC(y, m, d);
+        if (dateUtc < todayUtcMidnight || dateUtc > maxDateUtcMidnight) return false;
+        if (activeWeekdays) {
+            const dow = new Date(dateUtc).getUTCDay();
+            if (!activeWeekdays.has(dow)) return false;
+        }
+        return true;
     };
 
     const toDateStr = (y: number, m: number, d: number) =>
@@ -423,6 +478,10 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             setInfoError('El email no es válido.');
             return;
         }
+        if (clientPhone.trim() && clientPhone.trim().replace(/\D/g, '').length < 7) {
+            setInfoError('Ingresa un número de teléfono válido.');
+            return;
+        }
         if (!clientEmail.trim() && !clientPhone.trim()) {
             setInfoError('Ingresa al menos un correo o teléfono de contacto. Si dejas un correo, te enviaremos el estado de tu cita.');
             return;
@@ -432,7 +491,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
             setStep('preconsult');
         } else if (bookingTermsText) {
             setStep('encuadre');
-        } else if (profile.requiresAdvancePayment) {
+        } else if (needsAdvancePaymentStep) {
             setStep('payment');
         } else {
             void handleSubmit();
@@ -442,19 +501,23 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
     const handlePreconsultNext = () => {
         const fields = selectedService?.preconsultFields ?? [];
         for (const f of fields) {
+            const v = preconsultValues[f.id];
             if (f.required) {
-                const v = preconsultValues[f.id];
                 const empty = f.type === 'checkbox' ? v !== true : !(typeof v === 'string' && v.trim());
                 if (empty) {
                     setPreconsultError(`Falta responder: ${f.label}`);
                     return;
                 }
             }
+            if (f.type === 'number' && typeof v === 'string' && v.trim() && !Number.isFinite(Number(v))) {
+                setPreconsultError(`Ingresa un número válido en: ${f.label}`);
+                return;
+            }
         }
         setPreconsultError('');
         if (bookingTermsText) {
             setStep('encuadre');
-        } else if (profile.requiresAdvancePayment) {
+        } else if (needsAdvancePaymentStep) {
             setStep('payment');
         } else {
             void handleSubmit();
@@ -463,7 +526,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
 
     const handleEncuadreNext = () => {
         if (!policyAgreed) return;
-        if (profile.requiresAdvancePayment) {
+        if (needsAdvancePaymentStep) {
             setStep('payment');
         } else {
             void handleSubmit();
@@ -501,6 +564,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                 preconsultResponses: selectedService.preconsultFields?.length ? preconsultValues : undefined,
                 promotionCode: appliedPromo?.code,
                 modality: bookingModality,
+                locationId: bookingModality === 'presential' ? (selectedLocationId || undefined) : undefined,
                 paymentMethod: method,
             });
             if (!result.ok || !result.appointment) {
@@ -619,7 +683,11 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                 titleId="booking-step-title"
                 headerContent={(
                     <>
-                        <p className="text-xs booking-muted">{selectedService?.name}</p>
+                        <p className="text-xs booking-muted">
+                            {selectedService?.name}
+                            {selectedService ? ` · ${selectedService.durationMinutes} min` : ''}
+                            {selectedService?.price ? ` · ${formattedPrice(String(effectiveSessionPrice), selectedService.currency)}` : ''}
+                        </p>
                         <p id="booking-step-title" className="text-sm font-semibold booking-fg">
                             {bookingStepTitle}
                         </p>
@@ -673,7 +741,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                 <div className="min-w-0 border-t border-(--border) pt-4 sm:border-t-0 sm:border-l sm:pl-5 sm:pt-0">
                                 <h3 ref={slotsHeading} tabIndex={-1} className="mb-3 text-sm font-semibold booking-fg">
                                     {selectedDate
-                                        ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })
+                                        ? new Date(`${selectedDate}T12:00:00Z`).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
                                         : 'Horarios disponibles'}
                                 </h3>
                                 {!selectedDate ? (
@@ -758,8 +826,9 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-xs font-medium block mb-1.5 booking-muted">Apellido *</label>
+                                            <label htmlFor="agenda-booking-lastname" className="text-xs font-medium block mb-1.5 booking-muted">Apellido *</label>
                                             <input
+                                                id="agenda-booking-lastname"
                                                 type="text"
                                                 value={clientLastName}
                                                 onChange={(e) => { setClientLastName(e.target.value); setInfoError(''); }}
@@ -769,25 +838,25 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium block mb-1.5 booking-muted">
+                                        <label htmlFor="agenda-booking-email" className="text-xs font-medium block mb-1.5 booking-muted">
                                             <IconMail size={11} className="inline mr-1" />Email
                                         </label>
-                                        <input type="email" value={clientEmail} onChange={(e) => { setClientEmail(e.target.value); setInfoError(''); }} placeholder="tu@email.com" className="booking-input" />
+                                        <input id="agenda-booking-email" type="email" value={clientEmail} onChange={(e) => { setClientEmail(e.target.value); setInfoError(''); }} placeholder="tu@email.com" className="booking-input" />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium block mb-1.5 booking-muted">
+                                        <label htmlFor="agenda-booking-phone" className="text-xs font-medium block mb-1.5 booking-muted">
                                             <IconPhone size={11} className="inline mr-1" />Teléfono
                                         </label>
-                                        <input type="tel" value={clientPhone} onChange={(e) => { setClientPhone(e.target.value); setInfoError(''); }} placeholder="+56 9 1234 5678" className="booking-input" />
+                                        <input id="agenda-booking-phone" type="tel" value={clientPhone} onChange={(e) => { setClientPhone(e.target.value); setInfoError(''); }} placeholder="+56 9 1234 5678" className="booking-input" />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium block mb-1.5 booking-muted">Mensaje (opcional)</label>
-                                        <textarea value={clientNotes} onChange={(e) => setClientNotes(e.target.value)} placeholder="¿Hay algo que quieras comentarle al profesional?" rows={3} className="booking-input resize-none" />
+                                        <label htmlFor="agenda-booking-notes" className="text-xs font-medium block mb-1.5 booking-muted">Mensaje (opcional)</label>
+                                        <textarea id="agenda-booking-notes" value={clientNotes} onChange={(e) => setClientNotes(e.target.value)} placeholder="¿Hay algo que quieras comentarle al profesional?" rows={3} className="booking-input resize-none" />
                                     </div>
 
                                     {selectedService?.isOnline && selectedService?.isPresential ? (
                                         <div>
-                                            <label className="text-xs font-medium block mb-1.5 booking-muted">Modalidad de la cita</label>
+                                            <p className="text-xs font-medium block mb-1.5 booking-muted">Modalidad de la cita</p>
                                             <div className="flex gap-2">
                                                 {([['online', 'Online'], ['presential', 'Presencial']] as const).map(([value, label]) => (
                                                     <button
@@ -803,23 +872,45 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         </div>
                                     ) : null}
 
+                                    {bookingModality === 'presential' && (profile.locations?.length ?? 0) > 1 ? (
+                                        <div>
+                                            <label htmlFor="agenda-booking-location" className="text-xs font-medium block mb-1.5 booking-muted">Ubicación de atención</label>
+                                            <select
+                                                id="agenda-booking-location"
+                                                value={selectedLocationId}
+                                                onChange={(e) => setSelectedLocationId(e.target.value)}
+                                                className="booking-input"
+                                            >
+                                                {(profile.locations ?? []).map((loc) => (
+                                                    <option key={loc.id} value={loc.id}>
+                                                        {loc.name}{loc.addressLine ? ` — ${loc.addressLine}` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    ) : null}
+
                                     {/* Recurrencia */}
                                     {profile.allowsRecurrentBooking && (
                                     <div className="rounded-xl border p-3 booking-subtle">
-                                        <label className="flex items-start gap-3 cursor-pointer">
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsRecurring((v) => !v)}
+                                        <button
+                                            type="button"
+                                            role="checkbox"
+                                            aria-checked={isRecurring}
+                                            onClick={() => setIsRecurring((v) => !v)}
+                                            className="flex items-start gap-3 cursor-pointer text-left w-full"
+                                        >
+                                            <span
+                                                aria-hidden="true"
                                                 className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors booking-checkbox ${isRecurring ? 'booking-checkbox--checked' : ''}`}
-                                                aria-label="Reservar varias sesiones"
                                             >
                                                 {isRecurring && <IconCheck size={10} color="var(--accent-contrast)" />}
-                                            </button>
+                                            </span>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium booking-fg">Quiero reservar varias sesiones</p>
                                                 <p className="text-xs mt-0.5 booking-muted">Se reservarán todas en el mismo horario del día elegido.</p>
                                             </div>
-                                        </label>
+                                        </button>
 
                                         {isRecurring && (
                                             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -931,11 +1022,12 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                     const setVal = (v: string | boolean) => setPreconsultValues((prev) => ({ ...prev, [field.id]: v }));
                                     return (
                                         <div key={field.id} className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-medium booking-fg">
+                                            <label htmlFor={`preconsult-${field.id}`} className="text-xs font-medium booking-fg">
                                                 {field.label}{field.required && <span className="booking-required"> *</span>}
                                             </label>
                                             {field.type === 'textarea' && (
                                                 <textarea
+                                                    id={`preconsult-${field.id}`}
                                                     value={typeof val === 'string' ? val : ''}
                                                     onChange={(e) => setVal(e.target.value)}
                                                     placeholder={field.placeholder ?? ''}
@@ -945,6 +1037,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                             )}
                                             {(field.type === 'text' || field.type === 'number') && (
                                                 <input
+                                                    id={`preconsult-${field.id}`}
                                                     type={field.type === 'number' ? 'number' : 'text'}
                                                     value={typeof val === 'string' ? val : ''}
                                                     onChange={(e) => setVal(e.target.value)}
@@ -954,6 +1047,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                             )}
                                             {field.type === 'select' && (
                                                 <select
+                                                    id={`preconsult-${field.id}`}
                                                     value={typeof val === 'string' ? val : ''}
                                                     onChange={(e) => setVal(e.target.value)}
                                                     className="field-input"
@@ -1023,23 +1117,41 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         He leído y acepto las condiciones de atención.
                                     </span>
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={handleEncuadreNext}
-                                    disabled={!policyAgreed || submitting}
-                                    className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"
-                                >
-                                    {submitting ? <IconLoader2 size={16} className="animate-spin inline" /> : 'Confirmar cita'}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setStep((selectedService?.preconsultFields?.length ?? 0) > 0 ? 'preconsult' : 'info')}
+                                        className="px-4 py-3 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle) booking-btn-secondary"
+                                    >
+                                        Atrás
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleEncuadreNext}
+                                        disabled={!policyAgreed || submitting}
+                                        className="flex-1 py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"
+                                    >
+                                        {submitting ? <IconLoader2 size={16} className="animate-spin inline" /> : needsAdvancePaymentStep ? 'Continuar al pago' : 'Confirmar cita'}
+                                    </button>
+                                </div>
                             </div>
                         )}
 
                         {/* Step: Payment instructions */}
                         {step === 'payment' && (
                             <div>
-                                <p className="text-sm font-semibold mb-1 booking-fg">Pago anticipado</p>
-                                <p className="text-xs mb-5 booking-muted">
-                                    Esta sesión requiere pago anticipado. Elige tu método de pago preferido.
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                    <p className="text-sm font-semibold booking-fg">Pago anticipado</p>
+                                    {selectedService?.price ? (
+                                        <span className="text-sm font-bold booking-fg">
+                                            {formattedPrice(String(effectiveSessionPrice), selectedService.currency)}
+                                        </span>
+                                    ) : null}
+                                </div>
+                                <p className="text-xs mb-4 booking-muted">
+                                    {isRecurring
+                                        ? `El pago inicial cubre la 1.ª sesión (${recurrenceCount} reservadas); las siguientes se coordinan con el profesional.`
+                                        : 'Esta sesión requiere pago anticipado. Elige tu método de pago preferido.'}
                                 </p>
 
                                 {profile.advancePaymentInstructions ? (
@@ -1049,7 +1161,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                 ) : null}
                                 <div className="flex flex-col gap-3 mb-5">
                                     {/* MercadoPago automatic checkout */}
-                                    {profile.paymentMethods.mpConnected && Number(selectedService?.price) > 0 && (
+                                    {profile.paymentMethods.mpConnected && effectiveSessionPrice > 0 && (
                                         <div className="rounded-xl border p-4 booking-subtle">
                                             <p className="text-xs font-semibold mb-1 booking-fg">MercadoPago</p>
                                             <p className="text-xs mb-3 booking-muted">
@@ -1122,7 +1234,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                     )}
 
                                     {/* Fallback: no methods configured but requiresAdvancePayment */}
-                                    {!(profile.paymentMethods.mpConnected && Number(selectedService?.price) > 0) && !profile.paymentMethods.paymentLinkUrl && !(profile.paymentMethods.acceptsTransfer || profile.paymentMethods.bankTransferData) && (
+                                    {!(profile.paymentMethods.mpConnected && effectiveSessionPrice > 0) && !profile.paymentMethods.paymentLinkUrl && !(profile.paymentMethods.acceptsTransfer || profile.paymentMethods.bankTransferData) && (
                                         <div className="rounded-xl border p-4 border-(--border)">
                                             <p className="text-xs mb-3 booking-muted">
                                                 El profesional confirmará los detalles de pago contigo directamente.
@@ -1140,10 +1252,19 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                 </div>
 
                                 {submitError && (
-                                    <div className="flex items-center gap-2 p-3 rounded-xl text-sm booking-error-banner">
+                                    <div className="mb-3 flex items-center gap-2 p-3 rounded-xl text-sm booking-error-banner">
                                         <IconAlertCircle size={14} /> {submitError}
                                     </div>
                                 )}
+
+                                <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() => setStep(bookingTermsText ? 'encuadre' : (selectedService?.preconsultFields?.length ?? 0) > 0 ? 'preconsult' : 'info')}
+                                    className="w-full py-2.5 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle) booking-btn-secondary"
+                                >
+                                    Atrás
+                                </button>
                             </div>
                         )}
 
@@ -1229,6 +1350,30 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                     </div>
                                 )}
                                 {paymentError && <p role="alert" className="mb-3 rounded-xl px-3 py-2 text-sm booking-error-banner">{paymentError}</p>}
+                                {paymentPending && paymentMethod === 'transfer' && profile.paymentMethods.bankTransferData && !cancelled && (
+                                    <div className="mb-3 rounded-xl border p-3 text-left booking-subtle">
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                            <span className="text-xs font-semibold booking-fg">Datos para transferir</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const d = profile.paymentMethods.bankTransferData!;
+                                                    const text = `${d.bank}\n${d.accountType}: ${d.accountNumber}\nTitular: ${d.holderName}\nRUT: ${d.holderRut}\nEmail: ${d.holderEmail}`;
+                                                    void navigator.clipboard.writeText(text).then(() => {
+                                                        setCopiedBank(true);
+                                                        setTimeout(() => setCopiedBank(false), 1800);
+                                                    }).catch(() => {});
+                                                }}
+                                                className="text-xs font-semibold underline underline-offset-2 booking-fg"
+                                            >
+                                                {copiedBank ? 'Copiado' : 'Copiar datos'}
+                                            </button>
+                                        </div>
+                                        <p className="text-xs booking-muted">
+                                            {profile.paymentMethods.bankTransferData.bank} · {profile.paymentMethods.bankTransferData.accountType} {profile.paymentMethods.bankTransferData.accountNumber} · {profile.paymentMethods.bankTransferData.holderName}
+                                        </p>
+                                    </div>
+                                )}
                                 {paymentPending && paymentMethod === 'mp' && !isDemo && !cancelled && !checkingPayment && (
                                     <button type="button" onClick={() => void reopenCheckout()} disabled={submitting}
                                         className="mb-3 min-h-11 w-full rounded-xl px-3 py-2 text-sm font-semibold disabled:opacity-50 booking-mercadopago">

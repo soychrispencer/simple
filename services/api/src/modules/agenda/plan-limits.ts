@@ -224,10 +224,10 @@ export async function getAgendaMonthlyBookingCount(profileId: string, queryable:
         .where(and(
             eq(agendaAppointments.professionalId, profileId),
             sql`${agendaAppointments.createdAt} >= GREATEST(
-                date_trunc('month', now() AT TIME ZONE 'America/Santiago') AT TIME ZONE 'America/Santiago',
+                date_trunc('month', now() AT TIME ZONE COALESCE((SELECT timezone FROM agenda_professional_profiles WHERE id = ${profileId}), 'America/Santiago')) AT TIME ZONE COALESCE((SELECT timezone FROM agenda_professional_profiles WHERE id = ${profileId}), 'America/Santiago'),
                 COALESCE(
                     (SELECT plan_expires_at FROM agenda_professional_profiles WHERE id = ${profileId}),
-                    date_trunc('month', now() AT TIME ZONE 'America/Santiago') AT TIME ZONE 'America/Santiago'
+                    date_trunc('month', now() AT TIME ZONE COALESCE((SELECT timezone FROM agenda_professional_profiles WHERE id = ${profileId}), 'America/Santiago')) AT TIME ZONE COALESCE((SELECT timezone FROM agenda_professional_profiles WHERE id = ${profileId}), 'America/Santiago')
                 )
             )`,
         ));

@@ -330,8 +330,9 @@ function mapPublicAgendaProfile(
             acceptsPaymentLink: !!profile.acceptsPaymentLink,
             mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
             paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
-            bankTransferData: null,
+            bankTransferData: profile.acceptsTransfer ? (profile.bankTransferData ?? null) : null,
         },
+        customDomain: profile.customDomain && profile.customDomainStatus === 'verified' ? profile.customDomain : null,
         schedule: {
             alwaysOpen: Boolean(profile.alwaysOpen),
             scheduleNote: profile.scheduleNote ?? null,
@@ -5050,6 +5051,18 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         }
     }
 
+    function resolvePublicProfileUrls(profile: any) {
+        const agendaAppUrl = (typeof process.env.AGENDA_APP_URL === 'string' && process.env.AGENDA_APP_URL.trim()) || 'https://simpleagenda.app';
+        const hasVerifiedDomain = Boolean(
+            profile?.customDomain
+            && profile?.customDomainStatus === 'verified'
+            && hasAgendaProPlusAccess(profile),
+        );
+        const baseUrl = hasVerifiedDomain ? `https://${profile.customDomain}` : agendaAppUrl;
+        const bookingUrl = hasVerifiedDomain ? baseUrl : `${baseUrl}/${encodeURIComponent(profile.slug)}`;
+        return { agendaAppUrl, baseUrl, bookingUrl };
+    }
+
     async function ensureBookingCheckout(profile: any, appointmentId: string): Promise<string | null> {
         if (!profile.acceptsMp || !profile.mpAccessToken) return null;
 
@@ -5066,9 +5079,8 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             const amount = Number(appointment.price);
             if (!Number.isFinite(amount) || amount <= 0) return null;
 
-            const appUrl = process.env.AGENDA_APP_URL ?? 'http://localhost:3004';
             const apiUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
-            const bookingUrl = `${appUrl}/${encodeURIComponent(profile.slug)}`;
+            const { bookingUrl } = resolvePublicProfileUrls(profile);
             const pref = await createCheckoutPreference({
                 externalReference: appointment.id,
                 title: `Sesión con ${profile.displayName ?? 'el profesional'}`,
@@ -5260,11 +5272,17 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         if (isFreePlan(profile)) {
             publicProfile.coverUrl = null;
             publicProfile.landingPage = null;
+            publicProfile.packs = [];
+            publicProfile.promotions = [];
+            publicProfile.allowsRecurrentBooking = false;
+            publicProfile.customDomain = null;
             publicProfile.appearance = {
                 layout: 'booking',
                 colorMode: 'system',
                 accentColor: 'auto',
             };
+        } else if (!hasAgendaProPlusAccess(profile)) {
+            publicProfile.customDomain = null;
         }
         return c.json({
             ok: true,
@@ -5354,13 +5372,13 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             expectedStartsAt: z.string().datetime({ offset: true }),
         }).safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return c.json({ ok: false, error: 'La fecha elegida no es válida.' }, 400);
-        const startsAt = parseDateTimeInTimezone(parsed.data.startsAt, 'America/Santiago');
         const expectedStartsAt = new Date(parsed.data.expectedStartsAt);
         const moved = await db.transaction(async (tx: any) => {
             // Usar el mismo orden de bloqueo que la creación pública para serializar ambas operaciones.
             const [profile] = await tx.select().from(agendaProfessionalProfiles)
                 .where(eq(agendaProfessionalProfiles.slug, c.req.param('slug'))).limit(1).for('update');
             if (!profile) return { ok: false as const, status: 404 as const, error: 'Cita no encontrada.' };
+            const startsAt = parseDateTimeInTimezone(parsed.data.startsAt, profile.timezone ?? 'America/Santiago');
             const [appointment] = await tx.select().from(agendaAppointments)
                 .where(and(eq(agendaAppointments.id, id.data), eq(agendaAppointments.professionalId, profile.id)))
                 .limit(1).for('update');
@@ -5409,7 +5427,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             const dateLabel = updated.startsAt.toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short', timeZone: timezone });
             void sendPushToUser(profile.userId, { title: 'Cita reprogramada', body: `Nuevo horario: ${dateLabel}`, url: '/panel/agenda' });
             if (updated.clientEmail) {
-                const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
+                const { baseUrl } = resolvePublicProfileUrls(profile);
                 void sendBookingConfirmationEmail(updated.clientEmail, {
                     ...updated,
                     clientName: updated.clientName ?? 'Cliente',
@@ -5427,8 +5445,8 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                             ? profile.bankTransferData : null,
                         instructions: profile.advancePaymentInstructions ?? null,
                     } : null,
-                    cancelUrl: `${agendaAppUrl}/cancelar?appt=${updated.id}&slug=${profile.slug}`,
-                    appUrl: agendaAppUrl,
+                    cancelUrl: `${baseUrl}/cancelar?appt=${updated.id}&slug=${profile.slug}`,
+                    appUrl: baseUrl,
                 }).catch((error: unknown) => console.error('[agenda] Reschedule confirmation email error:', error));
             }
         }
@@ -5485,6 +5503,10 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             paymentStatus: agendaAppointments.paymentStatus,
             startsAt: agendaAppointments.startsAt,
             endsAt: agendaAppointments.endsAt,
+            modality: agendaAppointments.modality,
+            meetingUrl: agendaAppointments.meetingUrl,
+            location: agendaAppointments.location,
+            bookingPaymentMethod: agendaAppointments.bookingPaymentMethod,
         }).from(agendaAppointments)
             .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
             .where(and(eq(agendaAppointments.id, id.data), eq(agendaProfessionalProfiles.slug, c.req.param('slug'))))
@@ -5546,7 +5568,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             if (!currentProfile || currentProfile.slug !== slug || !currentProfile.isPublished) {
                 return { ok: false as const, status: 409 as const, error: 'Este perfil dejó de aceptar reservas. Actualiza la página.' };
             }
-            if (requestedFrequency && !currentProfile.allowsRecurrentBooking) {
+            if (requestedFrequency && (isFreePlan(currentProfile) || !currentProfile.allowsRecurrentBooking)) {
                 return { ok: false as const, status: 403 as const, error: 'Este profesional no permite reservar sesiones recurrentes.' };
             }
 
@@ -5687,6 +5709,25 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 bookingModality = 'presential';
             }
 
+            let resolvedLocationLabel: string | null = null;
+            if (bookingModality === 'presential') {
+                const requestedLocationId = typeof body.locationId === 'string' && body.locationId.trim() ? body.locationId.trim() : null;
+                const activeLocations = await tx.select().from(agendaLocations)
+                    .where(and(eq(agendaLocations.professionalId, currentProfile.id), eq(agendaLocations.isActive, true)))
+                    .orderBy(asc(agendaLocations.createdAt));
+                const matchedLoc = requestedLocationId
+                    ? activeLocations.find((loc: any) => loc.id === requestedLocationId)
+                    : activeLocations.length === 1
+                        ? activeLocations[0]
+                        : null;
+                if (matchedLoc) {
+                    const parts = [matchedLoc.name, matchedLoc.addressLine, matchedLoc.city].filter(Boolean);
+                    resolvedLocationLabel = parts.join(' — ').slice(0, 255) || null;
+                } else if (currentProfile.address) {
+                    resolvedLocationLabel = [currentProfile.address, currentProfile.city].filter(Boolean).join(', ').slice(0, 255) || null;
+                }
+            }
+
             const insertedAppointments: Array<{ id: string; startsAt: Date; [key: string]: any }> = [];
             for (const occurrence of occurrences) {
                 const [inserted] = await tx.insert(agendaAppointments).values({
@@ -5700,6 +5741,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                     endsAt: occurrence.endsAt,
                     durationMinutes,
                     modality: bookingModality,
+                    location: resolvedLocationLabel,
                     status,
                     price,
                     currency: currentProfile.currency,
@@ -5719,8 +5761,9 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             }
 
             if (appliedPromotion) {
+                const promoIncrement = Math.max(1, insertedAppointments.length);
                 await tx.update(agendaPromotions)
-                    .set({ usesCount: sql`${agendaPromotions.usesCount} + 1`, updatedAt: new Date() })
+                    .set({ usesCount: sql`${agendaPromotions.usesCount} + ${promoIncrement}`, updatedAt: new Date() })
                     .where(eq(agendaPromotions.id, appliedPromotion.id));
             }
 
@@ -5851,7 +5894,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         }
         const clientEmail2 = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
         if (clientEmail2) {
-            const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
+            const { baseUrl } = resolvePublicProfileUrls(profile);
             void sendBookingConfirmationEmail(clientEmail2, { appointmentId: appointment.id, clientName: String(body.clientName), professionalName: profile.displayName ?? 'el profesional', slug: profile.slug, serviceName, startsAt, endsAt, durationMinutes, modality: bookingModality, price, currency: profile.currency, meetingUrl: appointment.meetingUrl, location: appointment.location, timezone: profile.timezone ?? 'America/Santiago', status, paymentStatus: appointment.paymentStatus, seriesDates: publicSeriesId ? insertedAppointments.map((a: { startsAt: Date }) => a.startsAt) : null, seriesFrequency: publicSeriesId ? requestedFrequency : null, paymentMethods: {
                 requiresAdvancePayment: appointment.paymentStatus === 'pending',
                 mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
@@ -5859,7 +5902,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 bankTransferData: (!appointment.bookingPaymentMethod || appointment.bookingPaymentMethod === 'transfer') && profile.acceptsTransfer ? ((profile.bankTransferData ?? null) as Record<string,string>|null) : null,
                 instructions: profile.advancePaymentInstructions ?? null,
                 checkoutUrl,
-            }, cancelUrl: `${agendaAppUrl}/cancelar?appt=${appointment.id}&slug=${profile.slug}`, appUrl: agendaAppUrl }).catch((err: any) => console.error('[agenda] Failed to send booking confirmation email:', err));
+            }, cancelUrl: `${baseUrl}/cancelar?appt=${appointment.id}&slug=${profile.slug}`, appUrl: baseUrl }).catch((err: any) => console.error('[agenda] Failed to send booking confirmation email:', err));
         }
         await logAudit({ professionalId: profile.id, entityType: 'appointment', entityId: appointment.id, action: 'create', metadata: { source: 'public_booking', seriesId: publicSeriesId, occurrences: insertedAppointments.length, serviceId, serviceName, clientName: typeof body.clientName === 'string' ? body.clientName.slice(0,100) : null }, ctx: c });
         void (async () => {

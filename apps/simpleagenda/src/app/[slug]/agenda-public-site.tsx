@@ -34,6 +34,7 @@ export type AgendaPublicProfile = AgendaOperatorSiteProfile & {
     youtubeUrl?: string | null;
     twitterUrl?: string | null;
     timezone: string;
+    customDomain?: string | null;
     bookingWindowDays: number;
     allowsRecurrentBooking: boolean;
     encuadre?: string | null;

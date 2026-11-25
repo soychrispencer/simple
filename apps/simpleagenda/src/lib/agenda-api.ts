@@ -764,13 +764,33 @@ export type AgendaStats = {
     hasLocations: boolean;
 };
 
+async function publicFetchJson<T extends { ok: boolean; error?: string }>(url: string, init?: RequestInit): Promise<T> {
+    try {
+        const res = await fetch(url, init);
+        const contentType = res.headers.get('content-type') ?? '';
+        if (contentType.includes('application/json')) {
+            return await res.json() as T;
+        }
+        return {
+            ok: false,
+            error: res.status === 429
+                ? 'Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.'
+                : 'No pudimos conectar con el servidor. Intenta nuevamente.',
+        } as T;
+    } catch {
+        return {
+            ok: false,
+            error: 'Error de conexión. Revisa tu internet e intenta nuevamente.',
+        } as T;
+    }
+}
+
 export async function cancelPublicAppointment(appointmentId: string, reason?: string): Promise<{ ok: boolean; error?: string }> {
-    const res = await fetch(`${API_BASE}/api/public/agenda/appointments/${appointmentId}/cancel`, {
+    return publicFetchJson(`${API_BASE}/api/public/agenda/appointments/${appointmentId}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: reason ?? '' }),
     });
-    return res.json() as Promise<{ ok: boolean; error?: string }>;
 }
 
 
@@ -896,17 +916,15 @@ function publicRescheduleUrl(slug: string, appointmentId: string) {
 
 export async function fetchPublicRescheduleAvailability(slug: string, appointmentId: string, date?: string): Promise<PublicRescheduleAvailability> {
     const query = date ? `?${new URLSearchParams({ date })}` : '';
-    const response = await fetch(publicRescheduleUrl(slug, appointmentId) + query, { cache: 'no-store' });
-    return response.json();
+    return publicFetchJson(publicRescheduleUrl(slug, appointmentId) + query, { cache: 'no-store' });
 }
 
 export async function reschedulePublicAppointment(slug: string, appointmentId: string, expectedStartsAt: string, startsAt: string): Promise<{ ok: boolean; startsAt?: string; timezone?: string; error?: string }> {
-    const response = await fetch(publicRescheduleUrl(slug, appointmentId), {
+    return publicFetchJson(publicRescheduleUrl(slug, appointmentId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ expectedStartsAt, startsAt }),
     });
-    return response.json();
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────
@@ -938,26 +956,25 @@ export async function bookAppointment(slug: string, body: {
     clientNotes?: string;
     startsAt: string;
     modality?: string;
+    locationId?: string;
     policyAgreed?: boolean;
     recurrenceFrequency?: RecurrenceFrequency;
     recurrenceCount?: number;
     preconsultResponses?: Record<string, string | boolean>;
     promotionCode?: string;
     paymentMethod?: 'mp' | 'link' | 'transfer' | 'manual';
-}): Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null }; appointments?: Array<{ id: string; startsAt: string }>; seriesId?: string | null; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }> {
-    const res = await fetch(`${API_BASE}/api/public/agenda/${slug}/book`, {
+}): Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null; location?: string | null }; appointments?: Array<{ id: string; startsAt: string }>; seriesId?: string | null; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }> {
+    return publicFetchJson(`${API_BASE}/api/public/agenda/${slug}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    return res.json() as Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null }; appointments?: Array<{ id: string; startsAt: string }>; seriesId?: string | null; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }>;
 }
 
 export async function retryPublicBookingCheckout(slug: string, appointmentId: string): Promise<{ ok: boolean; checkoutUrl?: string; error?: string }> {
-    const res = await fetch(`${API_BASE}/api/public/agenda/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(appointmentId)}/checkout`, {
+    return publicFetchJson(`${API_BASE}/api/public/agenda/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(appointmentId)}/checkout`, {
         method: 'POST',
     });
-    return res.json();
 }
 
 export async function fetchPublicBookingPaymentStatus(slug: string, appointmentId: string): Promise<{
@@ -966,12 +983,15 @@ export async function fetchPublicBookingPaymentStatus(slug: string, appointmentI
     paymentStatus?: string;
     startsAt?: string;
     endsAt?: string;
+    modality?: string | null;
+    meetingUrl?: string | null;
+    location?: string | null;
+    bookingPaymentMethod?: string | null;
     error?: string;
 }> {
-    const res = await fetch(`${API_BASE}/api/public/agenda/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(appointmentId)}/payment-status`, {
+    return publicFetchJson(`${API_BASE}/api/public/agenda/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(appointmentId)}/payment-status`, {
         cache: 'no-store',
     });
-    return res.json();
 }
 
 // ── Analytics ────────────────────────────────────────────────────────────────

@@ -73,18 +73,20 @@ export async function generateMetadata({
             : `${APP_URL}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`
         : `${APP_URL}/hero/consultation-hero.webp`;
 
+    const canonicalUrl = profile.customDomain ? `https://${profile.customDomain}` : `${APP_URL}/${slug}`;
+
     return {
         title: seoTitle,
         description,
         alternates: {
-            canonical: `${APP_URL}/${slug}`,
+            canonical: canonicalUrl,
         },
         openGraph: {
             title: ogTitle,
             description,
             type: 'website',
             siteName: 'SimpleAgenda',
-            url: `${APP_URL}/${slug}`,
+            url: canonicalUrl,
             images: [
                 {
                     url: absoluteImage,

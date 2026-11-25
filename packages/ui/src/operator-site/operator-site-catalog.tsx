@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
     formatOperatorPromotionLabel,
     formatOperatorServicePrice,
@@ -9,7 +10,15 @@ import type { OperatorSiteCatalog } from './types.js';
 /** Packs y promociones (los servicios se eligen en el flujo de reserva). */
 export function OperatorSiteOffersBlock({ catalog }: { catalog: OperatorSiteCatalog }) {
     const { packs, promotions } = catalog;
+    const [copiedPromoId, setCopiedPromoId] = useState<string | null>(null);
     if (packs.length === 0 && promotions.length === 0) return null;
+
+    const handleCopyCode = (promoId: string, code: string) => {
+        void navigator.clipboard.writeText(code).then(() => {
+            setCopiedPromoId(promoId);
+            setTimeout(() => setCopiedPromoId((curr) => (curr === promoId ? null : curr)), 1800);
+        }).catch(() => {});
+    };
 
     return (
         <div className="os-offers-block">
@@ -54,7 +63,16 @@ export function OperatorSiteOffersBlock({ catalog }: { catalog: OperatorSiteCata
                                         <p className="os-catalog-promo__desc">{promo.description}</p>
                                     ) : null}
                                     {promo.code ? (
-                                        <p className="os-catalog-promo__code">Código: {promo.code}</p>
+                                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                            <p className="os-catalog-promo__code">Código: {promo.code}</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleCopyCode(promo.id, promo.code!)}
+                                                className="rounded-md border border-current/25 px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
+                                            >
+                                                {copiedPromoId === promo.id ? 'Copiado' : 'Copiar'}
+                                            </button>
+                                        </div>
                                     ) : null}
                                 </div>
                                 <span className="os-catalog-promo__badge">
