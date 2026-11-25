@@ -9,9 +9,10 @@ import { AgendaMiNegocioShell } from '@/components/panel/agenda-mi-negocio-shell
 
 type Team = {
     workspace: { name: string; canManage: boolean } | null;
-    members: Array<{ id: string; name: string; role: string }>;
-    agendas: Array<{ id: string; name?: string; displayName?: string }>;
+    members: Array<{ id: string; userId?: string; name: string; role: string; hasAgenda?: boolean }>;
+    agendas: Array<{ id: string; slug?: string; name?: string; displayName?: string }>;
     assignments: Array<{ membershipId: string; professionalId: string }>;
+    seatSummary?: { activeAgendas: number; includedSeats: number; maxSeats: number };
 };
 type Appointment = { id: string; clientName: string | null; startsAt: string; status: string; paymentStatus: string };
 type Service = { id: string; name: string; isOnline: boolean; isPresential: boolean };
@@ -223,6 +224,24 @@ export default function EquipoAgendaPage() {
         }
     }
 
+    async function activateTeamAgenda(membershipId: string) {
+        setBusy(true);
+        setError('');
+        setConfirmation('');
+        try {
+            await teamRequest('/agendas', {
+                method: 'POST',
+                body: JSON.stringify({ membershipId }),
+            });
+            setTeam(await teamRequest<Team>());
+            setConfirmation('Agenda profesional activada para el integrante.');
+        } catch (failure) {
+            setError(failure instanceof Error ? failure.message : 'No pudimos activar la agenda.');
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function confirmAppointment(id: string) {
         setConfirming(id);
         setError('');
@@ -250,7 +269,69 @@ export default function EquipoAgendaPage() {
             )}
             {team && !team.workspace && <PanelNotice tone="info">Elige un espacio de negocio compatible para configurar accesos de recepción.</PanelNotice>}
             {team?.workspace && (
-                <PanelCard size="lg" className="space-y-4">
+                <div className="space-y-4">
+                    {team.workspace.canManage && team.seatSummary ? (
+                        <PanelCard size="lg" className="space-y-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <h2 className="font-semibold">Profesionales del equipo</h2>
+                                    <p className="text-xs text-fg-muted">
+                                        Cada profesional tiene su propia agenda, horarios y enlace público dentro del centro.
+                                    </p>
+                                </div>
+                                <span className="rounded-full border border-(--border) px-3 py-1 text-xs font-semibold">
+                                    {team.seatSummary.activeAgendas} / {team.seatSummary.includedSeats} incluidos · máx. {team.seatSummary.maxSeats}
+                                </span>
+                            </div>
+                            {team.agendas.length > 0 ? (
+                                <ul className="divide-y divide-(--border)">
+                                    {team.agendas.map((ag) => (
+                                        <li key={ag.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
+                                            <span className="font-medium">{ag.displayName || ag.name || 'Agenda profesional'}</span>
+                                            {ag.slug ? (
+                                                <a
+                                                    href={`/${ag.slug}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs font-medium text-accent-ink hover:underline"
+                                                >
+                                                    /{ag.slug}
+                                                </a>
+                                            ) : null}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : null}
+                            {team.members.some((m) => !m.hasAgenda && m.role !== 'agent') ? (
+                                <div className="border-t border-(--border) pt-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                                        Integrantes sin agenda activa
+                                    </p>
+                                    <ul className="space-y-2">
+                                        {team.members.filter((m) => !m.hasAgenda && m.role !== 'agent').map((m) => (
+                                            <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                                <span>{m.name}</span>
+                                                <PanelButton
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    disabled={busy}
+                                                    onClick={() => void activateTeamAgenda(m.id)}
+                                                >
+                                                    Activar agenda
+                                                </PanelButton>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : (
+                                <p className="text-xs text-fg-muted">
+                                    Para sumar nuevos profesionales, invítalos primero a tu espacio de empresa desde Mi cuenta → Equipo y luego activa su agenda aquí.
+                                </p>
+                            )}
+                        </PanelCard>
+                    ) : null}
+                    <PanelCard size="lg" className="space-y-4">
                     <h2 className="font-semibold">{team.workspace.name}</h2>
                     <p className="text-sm text-fg-muted">Recepción gestiona las citas de cada agenda asignada.</p>
                     {team.workspace.canManage && (
@@ -331,7 +412,8 @@ export default function EquipoAgendaPage() {
                             ))}
                         </ul> : <p className="text-sm text-fg-muted">No hay próximas citas para esta agenda.</p>
                     )}
-                </PanelCard>
+                    </PanelCard>
+                </div>
             )}
         </AgendaMiNegocioShell>
     );

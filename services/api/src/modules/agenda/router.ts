@@ -5451,7 +5451,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             return c.json(access.body, access.status);
         }
         const profile = access.profile;
-        const [services, locations, rules, packRows, promotionRows, operationalTz, publicReviewRows] = await Promise.all([
+        const [services, locations, rules, packRows, promotionRows, operationalTz, publicReviewRows, teamRows] = await Promise.all([
             db.select().from(agendaServices).where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true), eq(agendaServices.kind, 'appointment'))).orderBy(asc(agendaServices.position)),
             db.select().from(agendaLocations).where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true))).orderBy(asc(agendaLocations.position)),
             db.select().from(agendaAvailabilityRules).where(eq(agendaAvailabilityRules.professionalId, profile.id)).orderBy(asc(agendaAvailabilityRules.dayOfWeek)),
@@ -5476,6 +5476,21 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
                 ))
                 .orderBy(desc(agendaNpsResponses.submittedAt))
                 .limit(12),
+            profile.accountId
+                ? db.select({
+                    id: agendaProfessionalProfiles.id,
+                    slug: agendaProfessionalProfiles.slug,
+                    displayName: agendaProfessionalProfiles.displayName,
+                    profession: agendaProfessionalProfiles.profession,
+                    avatarUrl: agendaProfessionalProfiles.avatarUrl,
+                })
+                    .from(agendaProfessionalProfiles)
+                    .where(and(
+                        eq(agendaProfessionalProfiles.accountId, profile.accountId),
+                        eq(agendaProfessionalProfiles.isPublished, true),
+                    ))
+                    .orderBy(asc(agendaProfessionalProfiles.createdAt))
+                : Promise.resolve([]),
         ]);
         const operatingLocation = operatingLocationFromAgendaProfile(profile);
         const promotions = promotionRows.filter((promo: typeof promotionRows[number]) => isPublicAgendaPromotionVisible(promo));
@@ -5510,6 +5525,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             }),
             reviews,
             reviewSummary,
+            teamProfessionals: teamRows.length > 1 ? teamRows : [],
             whatsappRemindersAvailable: getAgendaWhatsappMonthlyLimit(profile) > 0
                 && profile.whatsappRemindersEnabled !== false
                 && isWhatsAppCloudConfigured(),

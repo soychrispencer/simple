@@ -3,7 +3,7 @@ import { pgTable, primaryKey, uuid } from 'drizzle-orm/pg-core';
 import { Hono } from 'hono';
 import type { Context, MiddlewareHandler } from 'hono';
 import { z } from 'zod';
-import { resolveBookingModality } from '@simple/utils';
+import { resolveBookingModality, AGENDA_PRICING } from '@simple/utils';
 import type { db as database } from '../../db/index.js';
 import {
     accounts,
@@ -66,6 +66,7 @@ async function activeAgendaTeam(db: AgendaDatabase | AgendaTransaction, userId: 
 function scopedAgendas(db: AgendaDatabase | AgendaTransaction, accountId: string) {
     return db.select({
         id: agendaProfessionalProfiles.id,
+        slug: agendaProfessionalProfiles.slug,
         displayName: agendaProfessionalProfiles.displayName,
         timezone: agendaProfessionalProfiles.timezone,
     }).from(agendaProfessionalProfiles).innerJoin(accountUsers, and(
@@ -144,11 +145,88 @@ export function createAgendaTeamRouter({
         const agendas = canManage ? itineraries : itineraries.filter((item) => permittedIds.has(item.id));
         const members = canManage ? await db.select({
             id: accountUsers.id,
+            userId: accountUsers.userId,
             name: users.name,
             role: accountUsers.role,
         }).from(accountUsers).innerJoin(users, eq(users.id, accountUsers.userId))
             .where(eq(accountUsers.accountId, workspace.id)).orderBy(asc(users.name)) : [];
-        return c.json({ ok: true, workspace: { name: workspace.name, role: workspace.role, canManage }, members, agendas, assignments });
+        const existingProfiles = canManage ? await db.select({
+            userId: agendaProfessionalProfiles.userId,
+        }).from(agendaProfessionalProfiles).where(eq(agendaProfessionalProfiles.accountId, workspace.id)) : [];
+        const profileUserIds = new Set(existingProfiles.map((p) => p.userId));
+        return c.json({
+            ok: true,
+            workspace: { name: workspace.name, role: workspace.role, canManage },
+            members: members.map((m) => ({ ...m, hasAgenda: profileUserIds.has(m.userId) })),
+            agendas,
+            assignments,
+            seatSummary: {
+                activeAgendas: itineraries.length,
+                includedSeats: AGENDA_PRICING.teamsIncludedProfessionals,
+                maxSeats: AGENDA_PRICING.teamsMaxProfessionals,
+            },
+        });
+    });
+
+    app.post('/agendas', async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado.' }, 401);
+        const workspace = await activeAgendaTeam(db, user.id);
+        if (!workspace || !canManageAccountRole(workspace.role)) {
+            return c.json({ ok: false, error: 'Tu rol no puede agregar agendas al equipo.' }, 403);
+        }
+        const body = await c.req.json().catch(() => ({})) as { membershipId?: string; displayName?: string; profession?: string };
+        const membershipId = typeof body.membershipId === 'string' ? body.membershipId : '';
+        if (!membershipId) return c.json({ ok: false, error: 'Selecciona un integrante del equipo.' }, 400);
+
+        const result = await runAccountManagerWrite(db, { userId: user.id, accountId: workspace.id }, async (tx: AgendaTransaction) => {
+            const current = await activeAgendaTeam(tx, user.id);
+            if (current?.id !== workspace.id) return { ok: false as const, error: 'Espacio no activo.' };
+
+            const agendas = await scopedAgendas(tx, current.id);
+            if (agendas.length >= AGENDA_PRICING.teamsMaxProfessionals) {
+                return { ok: false as const, error: `Alcanzaste el máximo de ${AGENDA_PRICING.teamsMaxProfessionals} profesionales en el plan Equipos.` };
+            }
+
+            const [member] = await tx.select({
+                id: accountUsers.id,
+                userId: accountUsers.userId,
+                name: users.name,
+            }).from(accountUsers)
+                .innerJoin(users, eq(users.id, accountUsers.userId))
+                .where(and(eq(accountUsers.id, membershipId), eq(accountUsers.accountId, current.id)))
+                .limit(1);
+            if (!member) return { ok: false as const, error: 'Integrante no encontrado en el espacio.' };
+
+            const [existing] = await tx.select({ id: agendaProfessionalProfiles.id })
+                .from(agendaProfessionalProfiles)
+                .where(and(
+                    eq(agendaProfessionalProfiles.accountId, current.id),
+                    eq(agendaProfessionalProfiles.userId, member.userId),
+                ))
+                .limit(1);
+            if (existing) return { ok: false as const, error: 'Este integrante ya tiene su agenda activa.' };
+
+            const displayName = (body.displayName?.trim() || member.name || 'Profesional').slice(0, 160);
+            const rawSlug = displayName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'profesional';
+            const slug = `${rawSlug}-${member.userId.slice(0, 6)}`;
+
+            const [created] = await tx.insert(agendaProfessionalProfiles).values({
+                accountId: current.id,
+                userId: member.userId,
+                slug,
+                displayName,
+                profession: body.profession?.trim().slice(0, 100) || null,
+                isPublished: true,
+                plan: 'pro_plus',
+            }).returning({ id: agendaProfessionalProfiles.id, slug: agendaProfessionalProfiles.slug, displayName: agendaProfessionalProfiles.displayName });
+
+            return { ok: true as const, agenda: created };
+        });
+
+        if (!result.ok) return c.json({ ok: false, error: 'No se pudo activar la agenda.' }, 403);
+        if (!result.value.ok) return c.json({ ok: false, error: result.value.error }, 400);
+        return c.json({ ok: true, agenda: result.value.agenda });
     });
 
     app.put('/assignment', async (c) => {

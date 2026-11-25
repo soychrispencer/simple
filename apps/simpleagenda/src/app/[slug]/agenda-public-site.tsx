@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import Link from 'next/link';
 import {
     buildOperatorSiteScheduleDays,
     normalizeOperatorSiteColorMode,
@@ -35,6 +36,13 @@ export type AgendaPublicProfile = AgendaOperatorSiteProfile & {
     twitterUrl?: string | null;
     timezone: string;
     customDomain?: string | null;
+    teamProfessionals?: Array<{
+        id: string;
+        slug: string;
+        displayName: string | null;
+        profession: string | null;
+        avatarUrl: string | null;
+    }>;
     bookingWindowDays: number;
     allowsRecurrentBooking: boolean;
     encuadre?: string | null;
@@ -219,19 +227,54 @@ export function AgendaPublicSite({ profile, previewMode = false }: { profile: Ag
         document.getElementById('agenda-preview-booking')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
+    const teamProfessionals = !previewMode && Array.isArray(profile.teamProfessionals) && profile.teamProfessionals.length > 1
+        ? profile.teamProfessionals
+        : [];
+
     return (
-        <AgendaOperatorSite
-            profile={siteProfile}
-            typeLabel={typeLabel}
-            businessLabel={businessLabel}
-            socialLinks={buildSocialLinks(profile)}
-            schedule={schedule}
-            catalog={catalog}
-            onServiceBook={previewMode ? previewBooking : (serviceId) => bookingRef.current?.openService(serviceId)}
-            appearance={appearance}
-            booking={previewMode
-                ? <PreviewBookingBlock />
-                : <BookingFlow ref={bookingRef} profile={profile} hasCustomAccent={hasCustomAccent} embedded />}
-        />
+        <>
+            {teamProfessionals.length > 0 ? (
+                <div className="border-b border-[var(--border)] bg-[var(--surface)]">
+                    <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 py-3">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fg-muted)] mr-1">
+                            Profesionales:
+                        </span>
+                        {teamProfessionals.map((member) => {
+                            const active = member.slug === profile.slug;
+                            return (
+                                <Link
+                                    key={member.id}
+                                    href={`/${encodeURIComponent(member.slug)}`}
+                                    className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors"
+                                    style={{
+                                        borderColor: active ? 'var(--accent)' : 'var(--border)',
+                                        background: active ? 'var(--accent-soft, var(--bg-subtle))' : 'transparent',
+                                        color: active ? 'var(--accent-ink, var(--fg))' : 'var(--fg-secondary)',
+                                    }}
+                                >
+                                    <span>{member.displayName || 'Profesional'}</span>
+                                    {member.profession ? (
+                                        <span className="opacity-70">· {member.profession}</span>
+                                    ) : null}
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
+            ) : null}
+            <AgendaOperatorSite
+                profile={siteProfile}
+                typeLabel={typeLabel}
+                businessLabel={businessLabel}
+                socialLinks={buildSocialLinks(profile)}
+                schedule={schedule}
+                catalog={catalog}
+                onServiceBook={previewMode ? previewBooking : (serviceId) => bookingRef.current?.openService(serviceId)}
+                appearance={appearance}
+                booking={previewMode
+                    ? <PreviewBookingBlock />
+                    : <BookingFlow ref={bookingRef} profile={profile} hasCustomAccent={hasCustomAccent} embedded />}
+            />
+        </>
     );
 }
