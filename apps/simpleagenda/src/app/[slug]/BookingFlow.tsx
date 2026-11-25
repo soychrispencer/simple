@@ -1165,7 +1165,7 @@ export default forwardRef<BookingFlowHandle, BookingFlowProps>(function BookingF
                                         <div className="rounded-xl border p-4 booking-subtle">
                                             <p className="text-xs font-semibold mb-1 booking-fg">MercadoPago</p>
                                             <p className="text-xs mb-3 booking-muted">
-                                                Paga de forma segura con tarjeta, débito o efectivo.
+                                                Paga de forma segura con tarjeta, débito o efectivo. Tienes 30 minutos para completar el pago antes de que la hora se libere.
                                             </p>
                                             <button
                                                 onClick={() => void handleSubmit('mp')}
