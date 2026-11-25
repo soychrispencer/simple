@@ -792,83 +792,87 @@ export function AgendaLandingBuilder({ profile, onPublished }: {
                                     </p>
                                 </div>
 
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    {/* Logo o foto */}
-                                    <div className="flex items-center gap-3.5 rounded-2xl border border-(--border) bg-(--bg-subtle)/50 p-3">
-                                        <button
-                                            type="button"
-                                            disabled={!!operation}
-                                            onClick={() => logoUploadRef.current?.openPicker()}
-                                            aria-label={resolvedLogoUrl ? 'Cambiar foto o logo' : 'Subir foto o logo'}
-                                            className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-(--border) bg-(--surface) text-fg-muted transition hover:border-(--accent-border) disabled:opacity-60"
-                                        >
-                                            {resolvedLogoUrl ? (
-                                                <img src={resolvedLogoUrl} alt={profile.displayName || 'Logo'} className="h-full w-full object-cover" />
-                                            ) : (
-                                                <IconCamera size={18} stroke={1.6} />
-                                            )}
-                                        </button>
-                                        <div className="min-w-0 flex-1 space-y-1">
-                                            <p className="text-xs font-semibold text-fg">Foto o logo</p>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    disabled={!!operation}
-                                                    onClick={() => logoUploadRef.current?.openPicker()}
-                                                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-(--border) bg-(--surface) px-2.5 text-xs font-semibold text-fg transition hover:bg-(--bg-subtle) disabled:opacity-50"
-                                                >
-                                                    {resolvedLogoUrl ? 'Cambiar' : 'Subir'}
-                                                </button>
-                                                {resolvedLogoUrl ? (
-                                                    <button
-                                                        type="button"
-                                                        disabled={!!operation}
-                                                        onClick={() => void updateLogo(null)}
-                                                        className="inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium text-fg-muted hover:text-fg disabled:opacity-50"
-                                                    >
-                                                        Quitar
-                                                    </button>
-                                                ) : null}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Imagen de portada */}
-                                    <div className="flex items-center gap-3.5 rounded-2xl border border-(--border) bg-(--bg-subtle)/50 p-3">
+                                <div className="overflow-hidden rounded-2xl border border-(--border) bg-(--bg-subtle)/40">
+                                    {/* Banner de portada */}
+                                    <div className="relative h-32 w-full bg-(--bg-subtle) sm:h-36">
                                         <button
                                             type="button"
                                             disabled={!!operation}
                                             onClick={() => coverUploadRef.current?.openPicker()}
                                             aria-label={resolvedCoverUrl ? 'Cambiar imagen de portada' : 'Subir imagen de portada'}
-                                            className="relative flex aspect-video w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-(--border) bg-(--surface) text-fg-muted transition hover:border-(--accent-border) disabled:opacity-60"
+                                            className="group relative flex h-full w-full items-center justify-center overflow-hidden text-fg-muted transition hover:bg-(--bg-muted)/50 disabled:opacity-60"
                                         >
                                             {resolvedCoverUrl ? (
                                                 <img src={resolvedCoverUrl} alt="Portada de tu página web" className="h-full w-full object-cover" />
                                             ) : (
-                                                <IconPhoto size={18} stroke={1.6} />
+                                                <div className="flex items-center gap-2 rounded-xl border border-dashed border-(--border-strong) bg-(--surface)/80 px-3.5 py-2 text-xs font-medium text-fg-secondary transition group-hover:border-(--accent-border) group-hover:text-fg">
+                                                    <IconPhoto size={16} stroke={1.7} />
+                                                    <span>Subir portada (16:9)</span>
+                                                </div>
                                             )}
                                         </button>
-                                        <div className="min-w-0 flex-1 space-y-1">
-                                            <p className="text-xs font-semibold text-fg">Portada (16:9)</p>
-                                            <div className="flex flex-wrap items-center gap-2">
+                                        {resolvedCoverUrl ? (
+                                            <div className="absolute right-3 top-3 flex items-center gap-1.5">
                                                 <button
                                                     type="button"
                                                     disabled={!!operation}
                                                     onClick={() => coverUploadRef.current?.openPicker()}
-                                                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-(--border) bg-(--surface) px-2.5 text-xs font-semibold text-fg transition hover:bg-(--bg-subtle) disabled:opacity-50"
+                                                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-(--border) bg-(--surface)/90 px-2.5 text-xs font-semibold text-fg shadow-sm backdrop-blur transition hover:bg-(--surface) disabled:opacity-50"
                                                 >
-                                                    {resolvedCoverUrl ? 'Cambiar' : 'Subir'}
+                                                    <IconPhoto size={13} /> Cambiar
                                                 </button>
-                                                {resolvedCoverUrl ? (
+                                                <button
+                                                    type="button"
+                                                    disabled={!!operation}
+                                                    onClick={() => changeAppearance('coverUrl', null)}
+                                                    className="inline-flex h-8 items-center rounded-lg border border-(--border) bg-(--surface)/90 px-2.5 text-xs font-medium text-fg-muted shadow-sm backdrop-blur transition hover:text-fg disabled:opacity-50"
+                                                >
+                                                    Quitar
+                                                </button>
+                                            </div>
+                                        ) : null}
+                                    </div>
+
+                                    {/* Logo circular superpuesto + acciones */}
+                                    <div className="flex flex-wrap items-end justify-between gap-3 px-4 pb-3.5">
+                                        <div className="flex items-end gap-3">
+                                            <button
+                                                type="button"
+                                                disabled={!!operation}
+                                                onClick={() => logoUploadRef.current?.openPicker()}
+                                                aria-label={resolvedLogoUrl ? 'Cambiar foto o logo' : 'Subir foto o logo'}
+                                                className="group relative -mt-9 flex size-[4.5rem] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-(--surface) bg-(--surface) text-fg-muted shadow-sm transition hover:border-(--accent-border) disabled:opacity-60"
+                                            >
+                                                {resolvedLogoUrl ? (
+                                                    <img src={resolvedLogoUrl} alt={profile.displayName || 'Logo'} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center rounded-full border border-dashed border-(--border-strong) bg-(--bg-subtle)">
+                                                        <IconCamera size={20} stroke={1.6} />
+                                                    </div>
+                                                )}
+                                            </button>
+                                            <div className="pb-0.5">
+                                                <p className="text-xs font-semibold text-fg">Foto o logo</p>
+                                                <div className="mt-1 flex items-center gap-2">
                                                     <button
                                                         type="button"
                                                         disabled={!!operation}
-                                                        onClick={() => changeAppearance('coverUrl', null)}
-                                                        className="inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium text-fg-muted hover:text-fg disabled:opacity-50"
+                                                        onClick={() => logoUploadRef.current?.openPicker()}
+                                                        className="text-xs font-semibold text-accent-ink hover:underline disabled:opacity-50"
                                                     >
-                                                        Quitar
+                                                        {resolvedLogoUrl ? 'Cambiar logo' : 'Subir logo'}
                                                     </button>
-                                                ) : null}
+                                                    {resolvedLogoUrl ? (
+                                                        <button
+                                                            type="button"
+                                                            disabled={!!operation}
+                                                            onClick={() => void updateLogo(null)}
+                                                            className="text-xs font-medium text-fg-muted hover:text-fg disabled:opacity-50"
+                                                        >
+                                                            Quitar
+                                                        </button>
+                                                    ) : null}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
