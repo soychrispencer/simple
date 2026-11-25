@@ -18,6 +18,7 @@ export type MercadoPagoIntegrationCardProps = {
     subscriptionHref?: string;
     lockedHint?: string;
     className?: string;
+    embedded?: boolean;
     onConnectionChange?: (connected: boolean) => void;
 };
 
@@ -26,6 +27,7 @@ export function MercadoPagoIntegrationCard({
     subscriptionHref = '/panel/mi-cuenta/suscripcion',
     lockedHint,
     className,
+    embedded = false,
     onConnectionChange,
 }: MercadoPagoIntegrationCardProps) {
     const [status, setStatus] = useState<MercadoPagoIntegrationStatus | null>(null);
@@ -87,8 +89,8 @@ export function MercadoPagoIntegrationCard({
     const locked = Boolean(status && !status.eligible && !connected);
     const missingTarget = Boolean(status && status.eligible && !status.hasTarget && !connected);
 
-    return (
-        <PanelCard size="lg" className={className}>
+    const content = (
+        <>
             {error ? <PanelNotice tone="error" className="mb-4">{error}</PanelNotice> : null}
 
             {loading ? (
@@ -132,6 +134,16 @@ export function MercadoPagoIntegrationCard({
                     onDisconnect={onDisconnect}
                 />
             )}
+        </>
+    );
+
+    if (embedded) {
+        return <div className={className}>{content}</div>;
+    }
+
+    return (
+        <PanelCard size="lg" className={className}>
+            {content}
         </PanelCard>
     );
 }

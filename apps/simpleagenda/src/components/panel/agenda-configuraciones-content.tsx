@@ -277,17 +277,6 @@ export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'a
                         description={BUSINESS_PAYMENT_METHODS_PAGE.description}
                         className="mb-0"
                     />
-                    <p className="text-sm text-fg-muted">
-                        Conecta la cuenta que recibirá los pagos. Luego activa Mercado Pago como método de cobro cuando quieras ofrecerlo a tus clientes.
-                    </p>
-                    <div id="mercadopago" className="scroll-mt-24">
-                        <MercadoPagoIntegrationCard
-                            vertical="agenda"
-                            subscriptionHref="/panel/mi-negocio/plan"
-                            lockedHint="Disponible con Pro, Pro+ o una prueba activa."
-                            onConnectionChange={setMpConnected}
-                        />
-                    </div>
                     <BusinessPaymentMethodsEditor
                         value={paymentForm}
                         onChange={(next) => {
@@ -302,6 +291,17 @@ export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'a
                             connected: mpConnected,
                             inlineCard: true,
                         }}
+                        mercadoPagoSlot={(
+                            <div id="mercadopago" className="scroll-mt-24">
+                                <MercadoPagoIntegrationCard
+                                    embedded
+                                    vertical="agenda"
+                                    subscriptionHref="/panel/mi-negocio/plan"
+                                    lockedHint="Disponible con Pro, Pro+ o una prueba activa."
+                                    onConnectionChange={setMpConnected}
+                                />
+                            </div>
+                        )}
                         copy={{
                             advancePaymentDescription: `Aplica a cualquier método activo. El ${vocab.client} verá las instrucciones antes de confirmar.`,
                             advancePaymentInstructionsHint: `Se muestran al ${vocab.client} en la pantalla de confirmación.`,

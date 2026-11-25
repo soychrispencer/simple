@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
     IconAlertCircle,
@@ -50,6 +50,7 @@ export type BusinessPaymentMethodsEditorProps = {
     saved?: boolean;
     saveError?: string | null;
     mercadoPago?: BusinessPaymentMethodsMercadoPagoConfig;
+    mercadoPagoSlot?: ReactNode;
     copy?: BusinessPaymentMethodsEditorCopy;
     showSubscriptionNotice?: boolean;
     hideSaveButton?: boolean;
@@ -92,6 +93,7 @@ export function BusinessPaymentMethodsEditor({
     saved = false,
     saveError = null,
     mercadoPago = { mode: 'toggle' },
+    mercadoPagoSlot,
     copy,
     showSubscriptionNotice = false,
     hideSaveButton = false,
@@ -328,7 +330,7 @@ export function BusinessPaymentMethodsEditor({
                                 <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
                                     MercadoPago
                                 </p>
-                                {value.acceptsMp && mercadoPago.mode === 'oauth' && mpConnected ? (
+                                {mercadoPago.mode === 'oauth' && mpConnected ? (
                                     <span
                                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
                                         style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
@@ -357,7 +359,13 @@ export function BusinessPaymentMethodsEditor({
                     />
                 </div>
 
-                {value.acceptsMp && mercadoPago.mode === 'oauth' && !mpConnected ? (
+                {mercadoPagoSlot ? (
+                    <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                        {mercadoPagoSlot}
+                    </div>
+                ) : null}
+
+                {!mercadoPagoSlot && value.acceptsMp && mercadoPago.mode === 'oauth' && !mpConnected ? (
                     <div className="mt-4 pt-4 flex items-start gap-3" style={{ borderTop: '1px solid var(--border)' }}>
                         <IconAlertCircle size={15} style={{ color: 'var(--color-warning)', flexShrink: 0, marginTop: 1 }} />
                         <div className="flex-1 min-w-0">
@@ -383,7 +391,7 @@ export function BusinessPaymentMethodsEditor({
                     </div>
                 ) : null}
 
-                {value.acceptsMp && mercadoPago.mode === 'oauth' && mpConnected ? (
+                {!mercadoPagoSlot && value.acceptsMp && mercadoPago.mode === 'oauth' && mpConnected ? (
                     <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                             {mercadoPago.inlineCard ? (
