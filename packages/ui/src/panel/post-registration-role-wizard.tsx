@@ -146,10 +146,11 @@ export function PostRegistrationRoleWizard({
     onDefer,
 }: Props) {
     const isAgendaMinimal = vertical === 'agenda';
+    const effectiveAgendaAccountKind: OperatorTier = isPersonalAccount === false ? 'company' : 'individual';
     const [step, setStep] = useState(Math.max(0, Math.min(initialStep, vertical === 'serenatas' ? 1 : isAgendaMinimal ? 0 : 2)));
     const [accountKind, setAccountKind] = useState<OperatorTier | null>(
         isAgendaMinimal
-            ? 'individual'
+            ? effectiveAgendaAccountKind
             : isPersonalAccount === false ? 'company' : (initialAnswers?.accountKind as OperatorTier | undefined) ?? initialAccountKind,
     );
     const [subtype, setSubtype] = useState<string | null>(
@@ -354,8 +355,8 @@ export function PostRegistrationRoleWizard({
     }
 
     const agendaSubtypes = useMemo(
-        () => isAgendaMinimal ? getOperatorSubtypes('agenda', 'individual') : [],
-        [isAgendaMinimal],
+        () => isAgendaMinimal ? getOperatorSubtypes('agenda', effectiveAgendaAccountKind) : [],
+        [effectiveAgendaAccountKind, isAgendaMinimal],
     );
     const canSubmitAgendaMinimal = isAgendaMinimal
         && Boolean(subtype)
@@ -401,7 +402,7 @@ export function PostRegistrationRoleWizard({
                                     tabIndex={subtype === option.id || (!subtype && option.id === agendaSubtypes[0]?.id) ? 0 : -1}
                                     disabled={saving}
                                     onClick={() => {
-                                        const normalized = normalizeOperatorSubtype('agenda', 'individual', option.id);
+                                        const normalized = normalizeOperatorSubtype('agenda', effectiveAgendaAccountKind, option.id);
                                         setSubtype(normalized);
                                         if (!isOperatorSubtypeOther(normalized)) setSubtypeCustom('');
                                         setError(null);
@@ -445,9 +446,10 @@ export function PostRegistrationRoleWizard({
                                     setError(null);
                                     try {
                                         const result = await onComplete({
-                                            accountKind: 'individual',
+                                            accountKind: effectiveAgendaAccountKind,
                                             operatorSubtype: subtype ?? undefined,
                                             operatorSubtypeCustom: selectedCustomSubtype ? subtypeCustom.trim() : '',
+                                            companyName: effectiveAgendaAccountKind === 'company' ? (resolvedCompanyName.trim() || initialAccountName || 'Mi negocio') : undefined,
                                         });
                                         if (!result.ok) setError(result.error ?? 'No pudimos guardar tu actividad.');
                                     } catch {
