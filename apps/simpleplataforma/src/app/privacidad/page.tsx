@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { LegalDocumentLayout, legalContactEmail } from '@/components/legal-document-layout';
 
 export const metadata: Metadata = {
@@ -126,6 +127,13 @@ export default function PrivacidadPage() {
                 <li>Revocación del consentimiento para integraciones opcionales.</li>
                 <li>Información sobre proveedores que intervienen como encargados del tratamiento.</li>
             </ul>
+            <p>
+                Para solicitar la eliminación de una cuenta o de datos asociados, revisa el{' '}
+                <Link href="/eliminacion-de-datos" className="font-medium text-[var(--accent)] underline">
+                    procedimiento de eliminación de datos
+                </Link>
+                .
+            </p>
 
             <h2>7. Conservación y seguridad</h2>
             <p>

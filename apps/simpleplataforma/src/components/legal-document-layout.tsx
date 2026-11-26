@@ -34,6 +34,9 @@ export function LegalDocumentLayout({
                         <Link href="/terminos" className="plt-muted hover:text-[var(--fg)]">
                             Términos
                         </Link>
+                        <Link href="/eliminacion-de-datos" className="plt-muted hover:text-[var(--fg)]">
+                            Eliminar datos
+                        </Link>
                         <Link href="/" className="font-medium plt-fg">
                             Inicio
                         </Link>
@@ -71,6 +74,9 @@ export function LegalDocumentLayout({
                         </Link>
                         <Link href="/terminos" className="hover:text-[var(--fg)]">
                             Términos y condiciones
+                        </Link>
+                        <Link href="/eliminacion-de-datos" className="hover:text-[var(--fg)]">
+                            Eliminación de datos
                         </Link>
                     </div>
                 </div>
