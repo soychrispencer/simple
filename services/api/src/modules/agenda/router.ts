@@ -11,8 +11,9 @@ import { ensureAgendaProfileTrial, getAgendaMonthlyBookingCount, getAgendaWhatsa
 import {
     extractWhatsAppButtonActions,
     extractWhatsAppOptOuts,
+    getWhatsAppWebhookVerifyToken,
     isWhatsAppCloudConfigured,
-    isWhatsAppWebhookForConfiguredPhoneNumber,
+    isWhatsAppWebhookForConfiguredAssets,
     isWhatsAppWebhookConfigured,
     normalizeWhatsAppRecipient,
     verifyWhatsAppWebhookSignature,
@@ -6232,13 +6233,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         const mode = c.req.query('hub.mode');
         const token = c.req.query('hub.verify_token');
         const challenge = c.req.query('hub.challenge') ?? '';
-        const expected = (
-            process.env.WHATSAPP_VERIFY_TOKEN_AGENDA?.trim()
-            || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN_AGENDA?.trim()
-            || process.env.WHATSAPP_CLOUD_VERIFY_TOKEN?.trim()
-            || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim()
-            || process.env.WHATSAPP_VERIFY_TOKEN?.trim()
-        );
+        const expected = getWhatsAppWebhookVerifyToken();
         if (!expected) return c.json({ ok: false, error: 'El webhook de WhatsApp aún no está configurado.' }, 503);
         if (mode === 'subscribe' && expected && token === expected) {
             return c.text(challenge, 200);
@@ -6262,7 +6257,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
             return c.json({ ok: false, error: 'JSON inválido' }, 400);
         }
 
-        if (!isWhatsAppWebhookForConfiguredPhoneNumber(payload)) {
+        if (!isWhatsAppWebhookForConfiguredAssets(payload)) {
             return c.json({ ok: true, ignored: true });
         }
 

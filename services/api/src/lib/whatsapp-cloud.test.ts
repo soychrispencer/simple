@@ -26,6 +26,8 @@ describe('whatsapp-cloud helpers', () => {
         'WHATSAPP_PHONE_NUMBER_ID_AGENDA',
         'WHATSAPP_PHONE_NUMBER_ID',
         'WHATSAPP_CLOUD_PHONE_NUMBER_ID',
+        'WHATSAPP_WABA_ID_AGENDA',
+        'WHATSAPP_WABA_ID',
         'WHATSAPP_AGENDA_ENABLED',
     ];
     const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
@@ -97,6 +99,34 @@ describe('whatsapp-cloud helpers', () => {
         expect(isWhatsAppWebhookForConfiguredPhoneNumber(payload('agenda-sender'))).toBe(true);
         expect(isWhatsAppWebhookForConfiguredPhoneNumber(payload('other-vertical-sender'))).toBe(false);
         expect(isWhatsAppWebhookForConfiguredPhoneNumber({ entry: [] })).toBe(false);
+    });
+
+    it('accepts coexistence callbacks only for the configured WABA', () => {
+        process.env.WHATSAPP_WABA_ID_AGENDA = 'agenda-waba';
+        const payload = (wabaId: string, field: string) => ({
+            object: 'whatsapp_business_account',
+            entry: [{ id: wabaId, changes: [{ field, value: {} }] }],
+        });
+
+        expect(isWhatsAppWebhookForConfiguredPhoneNumber(payload('agenda-waba', 'smb_message_echoes'))).toBe(true);
+        expect(isWhatsAppWebhookForConfiguredPhoneNumber(payload('other-waba', 'history'))).toBe(false);
+        expect(isWhatsAppWebhookForConfiguredPhoneNumber(payload('agenda-waba', 'account_update'))).toBe(true);
+    });
+
+    it('does not treat coexistence echoes as client opt-outs or appointment actions', () => {
+        const appointmentId = '11111111-1111-4111-8111-111111111111';
+        const payload = {
+            entry: [{ changes: [{
+                field: 'smb_message_echoes',
+                value: { messages: [
+                    { id: 'wamid.echo', from: '56987654321', type: 'text', text: { body: 'BAJA' } },
+                    { id: 'wamid.echo.button', from: '56987654321', type: 'button', button: { payload: `CONFIRM_APPT:${appointmentId}` } },
+                ] },
+            }] }],
+        };
+
+        expect(extractWhatsAppOptOuts(payload)).toEqual([]);
+        expect(extractWhatsAppButtonActions(payload)).toEqual([]);
     });
 
     it('extracts confirm and cancel quick-reply button payloads', () => {

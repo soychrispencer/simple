@@ -21,6 +21,14 @@ function resolveWhatsAppPhoneNumberId(): string | undefined {
     );
 }
 
+function resolveWhatsAppWabaId(): string | undefined {
+    return (
+        process.env.WHATSAPP_WABA_ID_AGENDA?.trim()
+        || process.env.WHATSAPP_WABA_ID?.trim()
+        || undefined
+    );
+}
+
 function resolveWhatsAppAppSecret(): string | undefined {
     return (
         process.env.WHATSAPP_APP_SECRET_AGENDA?.trim()
@@ -28,11 +36,14 @@ function resolveWhatsAppAppSecret(): string | undefined {
         || process.env.WHATSAPP_CLOUD_APP_SECRET?.trim()
         || process.env.WHATSAPP_APP_SECRET?.trim()
         || process.env.META_APP_SECRET?.trim()
+        // Simple Plataforma's Meta app ID is shared by the Instagram and
+        // WhatsApp products, so both integrations use the same app secret.
+        || process.env.INSTAGRAM_APP_SECRET?.trim()
         || undefined
     );
 }
 
-function resolveWhatsAppVerifyToken(): string | undefined {
+export function getWhatsAppWebhookVerifyToken(): string | undefined {
     return (
         process.env.WHATSAPP_VERIFY_TOKEN_AGENDA?.trim()
         || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN_AGENDA?.trim()
@@ -44,7 +55,7 @@ function resolveWhatsAppVerifyToken(): string | undefined {
 }
 
 export function isWhatsAppWebhookConfigured(): boolean {
-    return Boolean(resolveWhatsAppVerifyToken() && resolveWhatsAppAppSecret());
+    return Boolean(getWhatsAppWebhookVerifyToken() && resolveWhatsAppAppSecret());
 }
 
 export function isWhatsAppCloudConfigured(): boolean {
@@ -126,7 +137,12 @@ export function extractWhatsAppOptOuts(payload: unknown): WhatsAppOptOut[] {
             : [];
         for (const change of changes) {
             if (!change || typeof change !== 'object') continue;
-            const value = (change as { value?: Record<string, unknown> }).value;
+            const changeRecord = change as { field?: unknown; value?: Record<string, unknown> };
+            // Coexistence mirrors messages sent from the Business app using the
+            // `smb_message_echoes` field. They are not client replies and must
+            // never be interpreted as opt-out requests.
+            if (typeof changeRecord.field === 'string' && changeRecord.field !== 'messages') continue;
+            const value = changeRecord.value;
             const messages = Array.isArray(value?.messages) ? value.messages : [];
             for (const message of messages) {
                 if (!message || typeof message !== 'object') continue;
@@ -149,33 +165,82 @@ export function extractWhatsAppOptOuts(payload: unknown): WhatsAppOptOut[] {
     return optOuts;
 }
 
-/** Rejects callbacks from other WhatsApp senders configured on the shared Meta app. */
-export function isWhatsAppWebhookForConfiguredPhoneNumber(payload: unknown): boolean {
+/** Accepts only message or coexistence callbacks for the configured Agenda assets. */
+export function isWhatsAppWebhookForConfiguredAssets(payload: unknown): boolean {
     const expectedPhoneNumberId = resolveWhatsAppPhoneNumberId();
-    if (!expectedPhoneNumberId || !payload || typeof payload !== 'object') return false;
+    const expectedWabaId = resolveWhatsAppWabaId();
+    if (!payload || typeof payload !== 'object') return false;
+    const payloadObject = (payload as { object?: unknown }).object;
+    if (payloadObject !== undefined && payloadObject !== 'whatsapp_business_account') return false;
     const entries = Array.isArray((payload as { entry?: unknown[] }).entry)
         ? (payload as { entry: unknown[] }).entry
         : [];
-    const receivedPhoneNumberIds: string[] = [];
+    let receivedConfiguredAsset = false;
 
     for (const entry of entries) {
         if (!entry || typeof entry !== 'object') continue;
+        const entryRecord = entry as { id?: unknown; changes?: unknown[] };
         const changes = Array.isArray((entry as { changes?: unknown[] }).changes)
             ? (entry as { changes: unknown[] }).changes
             : [];
         for (const change of changes) {
             if (!change || typeof change !== 'object') continue;
-            const value = (change as { value?: Record<string, unknown> }).value;
-            const metadata = value?.metadata as { phone_number_id?: unknown } | undefined;
-            if (typeof metadata?.phone_number_id === 'string') {
-                receivedPhoneNumberIds.push(metadata.phone_number_id);
+            const changeRecord = change as { field?: unknown; value?: Record<string, unknown> };
+            const field = typeof changeRecord.field === 'string' ? changeRecord.field : '';
+            const value = changeRecord.value;
+
+            if (field === 'messages') {
+                const metadata = value?.metadata as { phone_number_id?: unknown } | undefined;
+                if (
+                    !expectedPhoneNumberId
+                    || typeof metadata?.phone_number_id !== 'string'
+                    || metadata.phone_number_id !== expectedPhoneNumberId
+                ) return false;
+
+                if (expectedWabaId && entryRecord.id !== expectedWabaId) return false;
+                receivedConfiguredAsset = true;
+                continue;
             }
+
+            // Preserve compatibility with legacy webhook payloads that were
+            // constructed without Meta's `object` and `field` envelope fields.
+            if (!field) {
+                const metadata = value?.metadata as { phone_number_id?: unknown } | undefined;
+                if (
+                    !expectedPhoneNumberId
+                    || typeof metadata?.phone_number_id !== 'string'
+                    || metadata.phone_number_id !== expectedPhoneNumberId
+                ) return false;
+                receivedConfiguredAsset = true;
+                continue;
+            }
+
+            // Meta sends these fields for WhatsApp Business app + Cloud API
+            // coexistence. account_update identifies the shared WABA inside
+            // `waba_info`; the other three use the WABA as entry.id.
+            if (['account_update', 'history', 'smb_app_state_sync', 'smb_message_echoes'].includes(field)) {
+                const wabaInfo = value?.waba_info as { waba_id?: unknown } | undefined;
+                const eventWabaId = typeof wabaInfo?.waba_id === 'string'
+                    ? wabaInfo.waba_id
+                    : entryRecord.id;
+                if (!expectedWabaId || eventWabaId !== expectedWabaId) return false;
+                receivedConfiguredAsset = true;
+                continue;
+            }
+
+            // A subscribed WABA event may not have message metadata. For an
+            // unrecognized field, trust only the already-configured WABA ID;
+            // the downstream message parsers ignore this event safely.
+            if (!expectedWabaId || entryRecord.id !== expectedWabaId) return false;
+            receivedConfiguredAsset = true;
         }
     }
 
-    return receivedPhoneNumberIds.length > 0
-        && receivedPhoneNumberIds.every((id) => id === expectedPhoneNumberId);
+    return receivedConfiguredAsset;
 }
+
+/** @deprecated Use isWhatsAppWebhookForConfiguredAssets. */
+export const isWhatsAppWebhookForConfiguredPhoneNumber = isWhatsAppWebhookForConfiguredAssets;
 
 export type WhatsAppButtonAction = {
     action: 'confirm' | 'cancel';
@@ -201,7 +266,11 @@ export function extractWhatsAppButtonActions(payload: unknown): WhatsAppButtonAc
             : [];
         for (const change of changes) {
             if (!change || typeof change !== 'object') continue;
-            const value = (change as { value?: Record<string, unknown> }).value;
+            const changeRecord = change as { field?: unknown; value?: Record<string, unknown> };
+            // Do not act on `smb_message_echoes`: it contains messages sent by
+            // the business through its WhatsApp Business app, not client input.
+            if (typeof changeRecord.field === 'string' && changeRecord.field !== 'messages') continue;
+            const value = changeRecord.value;
             const messages = Array.isArray(value?.messages) ? value.messages : [];
             for (const msg of messages) {
                 if (!msg || typeof msg !== 'object') continue;
