@@ -24,7 +24,7 @@ import {
 
 // These are public Meta identifiers. Environment overrides are useful for a separate staging app.
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID?.trim() || '1220805133562499';
-const META_CONFIG_ID = process.env.NEXT_PUBLIC_WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID?.trim() || '2002982174471698';
+const META_CONFIG_ID = process.env.NEXT_PUBLIC_WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID?.trim() || '1155121870348319';
 const META_SDK_VERSION = 'v27.0';
 
 type WhatsAppEmbeddedSignupSession = {
@@ -45,7 +45,7 @@ type FacebookSdk = {
             config_id: string;
             response_type: 'code';
             override_default_response_type: true;
-            extras: { setup: Record<string, never>; featureType: 'whatsapp_business_app_onboarding'; sessionInfoVersion: '3' };
+            extras: { setup: Record<string, never>; version: 'v5' };
         },
     ) => void;
 };
@@ -125,7 +125,9 @@ export function AdminWhatsAppSetup({ user }: { user: AdminSessionUser }) {
 
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
-            if (!['https://www.facebook.com', 'https://web.facebook.com'].includes(event.origin)) return;
+            let origin: URL;
+            try { origin = new URL(event.origin); } catch { return; }
+            if (origin.protocol !== 'https:' || !(origin.hostname === 'facebook.com' || origin.hostname.endsWith('.facebook.com'))) return;
             let payload = event.data as Record<string, unknown> | null;
             if (typeof event.data === 'string') {
                 try { payload = JSON.parse(event.data) as Record<string, unknown>; } catch { return; }
@@ -137,7 +139,10 @@ export function AdminWhatsAppSetup({ user }: { user: AdminSessionUser }) {
                 ? payload.data as Record<string, unknown>
                 : {};
             if (eventName === 'FINISH' || eventName === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
-                const wabaId = String(data.waba_id ?? data.wabaId ?? '');
+                const messagingAccountIds = Array.isArray(data.messaging_account_ids)
+                    ? data.messaging_account_ids
+                    : [];
+                const wabaId = String(data.waba_id ?? data.wabaId ?? messagingAccountIds[0] ?? '');
                 const rawPhoneNumberId = data.phone_number_id ?? data.phoneNumberId;
                 const phoneNumberId = typeof rawPhoneNumberId === 'string' ? rawPhoneNumberId : undefined;
                 if (!/^\d{5,30}$/.test(wabaId) || (phoneNumberId && !/^\d{5,30}$/.test(phoneNumberId))) {
@@ -218,8 +223,7 @@ export function AdminWhatsAppSetup({ user }: { user: AdminSessionUser }) {
             override_default_response_type: true,
             extras: {
                 setup: {},
-                featureType: 'whatsapp_business_app_onboarding',
-                sessionInfoVersion: '3',
+                version: 'v5',
             },
         });
     };
