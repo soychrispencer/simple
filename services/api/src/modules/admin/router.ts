@@ -17,6 +17,11 @@ import { downgradeAgendaProfileAccessById } from '../agenda/plan-limits.js';
 import { defaultSerenataTrialEndsAt } from '../serenatas/plan-config.js';
 import { isDevMercadoPagoPreapprovalId } from '../mercadopago/checkout-helpers.js';
 import {
+    completeWhatsAppEmbeddedSignup,
+    getWhatsAppPlatformConnectionStatus,
+    WhatsAppEmbeddedSignupError,
+} from '../../lib/whatsapp-embedded-signup.js';
+import {
     captureManualResponse,
     listAdminConversations,
     recordAdminOutboundMessage,
@@ -222,6 +227,46 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         }
         return { ok: true as const, account: await deps.ensurePrimaryAccountForUser(targetUser) };
     };
+
+    // ── SimpleAgenda WhatsApp Cloud connection (platform sender) ─────────────
+
+    app.get('/whatsapp/platform-status', async (c) => {
+        const adminUser = await deps.authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (adminUser.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede administrar esta conexión' }, 403);
+        return c.json({ ok: true, status: await getWhatsAppPlatformConnectionStatus() });
+    });
+
+    app.post('/whatsapp/coexistence/complete', async (c) => {
+        const adminUser = await deps.authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (adminUser.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede administrar esta conexión' }, 403);
+
+        const payload = await c.req.json().catch(() => null);
+        const parsed = z.object({
+            code: z.string().trim().min(8).max(4096),
+            wabaId: z.string().trim().regex(/^\d{5,30}$/),
+            phoneNumberId: z.string().trim().regex(/^\d{5,30}$/),
+        }).strict().safeParse(payload);
+        if (!parsed.success) return c.json({ ok: false, error: 'Meta devolvió una respuesta de registro incompleta.' }, 400);
+
+        try {
+            const result = await completeWhatsAppEmbeddedSignup(parsed.data);
+            await createAdminAudit({
+                actorUserId: adminUser.id,
+                action: 'whatsapp.coexistence_connected',
+                entityType: 'whatsapp_platform_sender',
+                entityId: parsed.data.phoneNumberId,
+                payload: { wabaId: parsed.data.wabaId, subscribed: result.subscribed },
+            });
+            return c.json({ ok: true, ...result });
+        } catch (error) {
+            if (error instanceof WhatsAppEmbeddedSignupError) {
+                return c.json({ ok: false, error: error.message, code: error.code }, error.status as any);
+            }
+            return c.json({ ok: false, error: 'No se pudo finalizar la conexión con Meta. Vuelve a intentarlo.' }, 502);
+        }
+    });
 
     // ── Bootstrap ────────────────────────────────────────────────────────────
 

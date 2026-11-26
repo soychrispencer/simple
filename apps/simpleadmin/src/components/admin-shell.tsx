@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     IconArrowLeft,
+    IconBrandWhatsapp,
     IconCreditCard,
     IconMessageCircle,
     IconUsers,
@@ -48,7 +49,11 @@ export function AdminShell({ children, user }: { children: ReactNode; user: Admi
     const roleLabel = adminRoleLabel(user.role);
     const platformUrl = getPlatformUrl();
     const adminNav = user.role === 'superadmin'
-        ? [...ADMIN_NAV_BASE, { href: '/planes', label: 'Planes', icon: IconCreditCard }]
+        ? [
+            ...ADMIN_NAV_BASE,
+            { href: '/planes', label: 'Planes', icon: IconCreditCard },
+            { href: '/integraciones/whatsapp', label: 'WhatsApp', icon: IconBrandWhatsapp },
+        ]
         : ADMIN_NAV_BASE;
 
     const handleLogout = async () => {

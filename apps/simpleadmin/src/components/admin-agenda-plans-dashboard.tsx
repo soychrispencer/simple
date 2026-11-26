@@ -27,7 +27,7 @@ function planPriceLabel(plan: (typeof AGENDA_PLAN_CATALOG)[keyof typeof AGENDA_P
     if (plan.id === 'pro') return formatAgendaProMonthlyPrice();
     if (plan.id === 'pro_plus') return formatAgendaProPlusMonthlyPrice();
     if (plan.id === 'free') return 'Siempre gratis después de la prueba';
-    return plan.availability === 'contact' ? 'A cotizar según el equipo' : 'Próximamente';
+    return 'Próximamente';
 }
 
 function statusLabel(item: AdminAgendaSubscription) {
@@ -109,7 +109,7 @@ export function AdminAgendaPlansDashboard({ user }: { user: AdminSessionUser }) 
                                 <p className="mt-1 text-sm font-medium text-[var(--fg-secondary)]">{planPriceLabel(plan)}</p>
                             </div>
                             <PanelStatusBadge
-                                label={plan.availability === 'available' ? 'Disponible' : plan.availability === 'contact' ? 'A cotizar' : 'Próximamente'}
+                                label={plan.availability === 'available' ? 'Disponible' : 'Próximamente'}
                                 tone={plan.availability === 'available' ? 'success' : 'neutral'}
                             />
                         </div>

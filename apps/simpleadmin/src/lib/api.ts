@@ -187,6 +187,38 @@ export async function fetchAdminAgendaSubscriptions(): Promise<AdminAgendaSubscr
     return data.subscriptions ?? [];
 }
 
+export type AdminWhatsAppConnectionStatus = {
+    configured: boolean;
+    remindersEnabled: boolean;
+    connected: boolean;
+    webhookConfigured: boolean;
+    phoneNumber: string | null;
+    verifiedName: string | null;
+    accountMode: string | null;
+    platformType: string | null;
+    businessAppConnected: boolean | null;
+    qualityRating: string | null;
+    checkedAt: string | null;
+    error: 'missing_configuration' | 'meta_unavailable' | null;
+};
+
+export async function fetchAdminWhatsAppConnectionStatus(): Promise<AdminWhatsAppConnectionStatus> {
+    const data = await expectOk<{ status: AdminWhatsAppConnectionStatus }>('/api/admin/whatsapp/platform-status');
+    return data.status;
+}
+
+export async function completeAdminWhatsAppCoexistence(input: {
+    code: string;
+    wabaId: string;
+    phoneNumberId: string;
+}): Promise<{ subscribed: boolean; connection: AdminWhatsAppConnectionStatus }> {
+    const data = await expectOk<{ subscribed: boolean; connection: AdminWhatsAppConnectionStatus }>('/api/admin/whatsapp/coexistence/complete', {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
+    return { subscribed: data.subscribed, connection: data.connection };
+}
+
 export async function updateAdminUser(userId: string, input: {
     name?: string;
     phone?: string | null;
