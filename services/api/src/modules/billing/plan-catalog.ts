@@ -29,7 +29,7 @@ export function filterCatalogPlans(
     }
     if (isTrialBillingVertical(vertical)) {
         const visiblePlanIds = vertical === 'agenda'
-            ? new Set(['free', 'pro', 'pro_plus'])
+            ? new Set(['free', 'pro', 'pro_plus', 'enterprise'])
             : new Set(['free', 'pro']);
         return plans.filter((plan) => visiblePlanIds.has(plan.id));
     }

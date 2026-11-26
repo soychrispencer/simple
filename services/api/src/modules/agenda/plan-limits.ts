@@ -41,8 +41,8 @@ export async function getAgendaProfile(userId: string, accountId?: string | null
     });
 }
 
-export function normalizeAgendaBillingPlan(plan: string): 'free' | 'pro' | 'pro_plus' {
-    return plan === 'pro' || plan === 'pro_plus' ? plan : 'free';
+export function normalizeAgendaBillingPlan(plan: string): 'free' | 'pro' | 'pro_plus' | 'enterprise' {
+    return plan === 'pro' || plan === 'pro_plus' || plan === 'enterprise' ? plan : 'free';
 }
 
 /**
@@ -94,7 +94,7 @@ export function isAgendaTrialActive(profile: { plan: string; planExpiresAt: Date
 
 export function isAgendaProActive(profile: { plan: string; planExpiresAt: Date | null }): boolean {
     const plan = normalizeAgendaBillingPlan(profile.plan);
-    if (plan !== 'pro' && plan !== 'pro_plus') return false;
+    if (plan !== 'pro' && plan !== 'pro_plus' && plan !== 'enterprise') return false;
     return !profile.planExpiresAt || profile.planExpiresAt.getTime() >= Date.now();
 }
 
@@ -109,7 +109,8 @@ export function hasAgendaProPlusAccess(
     profile: { plan: string; planExpiresAt: Date | null },
 ): boolean {
     if (isPlatformLaunchActive('agenda')) return true;
-    if (normalizeAgendaBillingPlan(profile.plan) !== 'pro_plus') return false;
+    const plan = normalizeAgendaBillingPlan(profile.plan);
+    if (plan !== 'pro_plus' && plan !== 'enterprise') return false;
     return !profile.planExpiresAt || profile.planExpiresAt.getTime() >= Date.now();
 }
 
@@ -239,6 +240,7 @@ export async function getAgendaMonthlyBookingCount(profileId: string, queryable:
 export function getAgendaWhatsappMonthlyLimit(profile: { plan: string; planExpiresAt: Date | null }): number {
     if (!isAgendaProActive(profile)) return 0;
     const plan = normalizeAgendaBillingPlan(profile.plan);
+    if (plan === 'enterprise') return AGENDA_PRICING.teamsMonthlyWhatsappReminders;
     if (plan === 'pro_plus') return AGENDA_PRICING.proPlus.monthlyWhatsappReminders;
     if (plan === 'pro') return AGENDA_PRICING.pro.monthlyWhatsappReminders;
     return 0;

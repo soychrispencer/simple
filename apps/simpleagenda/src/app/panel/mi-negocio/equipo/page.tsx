@@ -183,6 +183,9 @@ export default function EquipoAgendaPage() {
     const [confirmation, setConfirmation] = useState('');
     const [schedule, setSchedule] = useState<Appointment | 'new' | null>(null);
     const [refresh, setRefresh] = useState(0);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteRole, setInviteRole] = useState<'admin' | 'agent'>('admin');
+    const [inviting, setInviting] = useState(false);
     const fmt = usePanelFormatters();
 
     useEffect(() => {
@@ -221,6 +224,33 @@ export default function EquipoAgendaPage() {
             setError(failure instanceof Error ? failure.message : 'No pudimos guardar el acceso.');
         } finally {
             setBusy(false);
+        }
+    }
+
+    async function sendTeamInvite(event: React.FormEvent) {
+        event.preventDefault();
+        const email = inviteEmail.trim();
+        if (!email || inviting) return;
+        setInviting(true);
+        setError('');
+        setConfirmation('');
+        try {
+            const response = await fetch(`${API_BASE}/api/accounts/current/invitations?vertical=agenda`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, role: inviteRole }),
+            });
+            const body = await response.json().catch(() => null);
+            if (!response.ok || !body?.ok) {
+                throw new Error(body?.error ?? 'No pudimos enviar la invitación.');
+            }
+            setInviteEmail('');
+            setConfirmation(`Invitación enviada a ${email}. Cuando la acepte, podrás activar su agenda aquí.`);
+        } catch (failure) {
+            setError(failure instanceof Error ? failure.message : 'No pudimos enviar la invitación.');
+        } finally {
+            setInviting(false);
         }
     }
 
@@ -324,11 +354,36 @@ export default function EquipoAgendaPage() {
                                         ))}
                                     </ul>
                                 </div>
-                            ) : (
-                                <p className="text-xs text-fg-muted">
-                                    Para sumar nuevos profesionales, invítalos primero a tu espacio de empresa desde Mi cuenta → Equipo y luego activa su agenda aquí.
-                                </p>
-                            )}
+                            ) : null}
+                            <form onSubmit={(e) => void sendTeamInvite(e)} className="border-t border-(--border) pt-3 flex flex-wrap items-end gap-2">
+                                <label className="flex-1 min-w-[200px] text-xs font-medium text-fg-secondary">
+                                    Invitar por correo
+                                    <input
+                                        type="email"
+                                        required
+                                        value={inviteEmail}
+                                        onChange={(e) => setInviteEmail(e.target.value)}
+                                        placeholder="profesional@centro.cl"
+                                        className="form-input mt-1"
+                                        disabled={inviting}
+                                    />
+                                </label>
+                                <label className="text-xs font-medium text-fg-secondary">
+                                    Rol
+                                    <select
+                                        value={inviteRole}
+                                        onChange={(e) => setInviteRole(e.target.value === 'agent' ? 'agent' : 'admin')}
+                                        className="form-input mt-1"
+                                        disabled={inviting}
+                                    >
+                                        <option value="admin">Profesional</option>
+                                        <option value="agent">Recepción</option>
+                                    </select>
+                                </label>
+                                <PanelButton type="submit" size="sm" disabled={inviting || !inviteEmail.trim()}>
+                                    {inviting ? 'Enviando…' : 'Enviar invitación'}
+                                </PanelButton>
+                            </form>
                         </PanelCard>
                     ) : null}
                     <PanelCard size="lg" className="space-y-4">

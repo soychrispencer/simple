@@ -515,6 +515,52 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
     return true;
 }
 
+async function sendAppointmentReviewEmail(clientEmail: string, data: {
+    clientName: string;
+    professionalName: string;
+    reviewUrl: string;
+}): Promise<boolean> {
+    if (await skipAgendaEmail(clientEmail, 'appointment-review')) return false;
+    const transporter = getAuthMailerTransporter();
+    if (!transporter) {
+        console.info(`[agenda] Review survey for ${clientEmail}: ${data.reviewUrl}`);
+        return false;
+    }
+    const subject = `¿Cómo estuvo tu atención con ${data.professionalName}?`;
+    const text = [
+        `Hola ${data.clientName},`,
+        '',
+        `Gracias por tu visita con ${data.professionalName}.`,
+        'Tu opinión nos ayuda a mejorar y toma menos de 30 segundos:',
+        data.reviewUrl,
+        '',
+        'SimpleAgenda',
+    ].join('\n');
+    const html = `
+        <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111827">
+            <h2 style="font-size:18px;margin:0 0 12px">${subject}</h2>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 16px">
+                Hola ${data.clientName}, gracias por atenderte con <strong>${data.professionalName}</strong>.
+                Cuéntanos cómo fue tu experiencia calificando de 1 a 5 estrellas:
+            </p>
+            <p style="margin:24px 0">
+                <a href="${data.reviewUrl}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px">
+                    Calificar atención
+                </a>
+            </p>
+            <p style="font-size:12px;color:#6b7280;margin:0">SimpleAgenda</p>
+        </div>
+    `;
+    const delivery = await transporter.sendMail({
+        from: formatEmailFromAddress('SimpleAgenda'),
+        to: clientEmail,
+        subject,
+        text,
+        html,
+    });
+    return delivery.accepted.length > 0;
+}
+
 async function issueEmailVerification(userId: string, email: string, origin: string, returnTo?: string | null): Promise<void> {
     const rawToken = randomBytes(32).toString('hex');
     const now = new Date();
@@ -556,6 +602,7 @@ export {
     sendAccountInvitationEmail,
     sendBookingConfirmationEmail,
     sendAppointmentReminderEmail,
+    sendAppointmentReviewEmail,
     issueEmailVerification,
 };
 export type { BookingEmailData };

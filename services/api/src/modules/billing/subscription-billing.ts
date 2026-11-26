@@ -19,9 +19,11 @@ export function getMercadoPagoSubscriptionChargeClp(
     billingCycle: 'monthly' | 'annual' = 'monthly',
 ): number {
     if (vertical === 'agenda' && billingCycle === 'annual') {
-        const annualNetPrice = plan.id === 'pro_plus'
-            ? AGENDA_PRICING.proPlusAnnualTotalNetClp
-            : AGENDA_PRICING.proAnnualTotalNetClp;
+        const annualNetPrice = plan.id === 'enterprise'
+            ? AGENDA_PRICING.teamsAnnualTotalNetClp
+            : plan.id === 'pro_plus'
+                ? AGENDA_PRICING.proPlusAnnualTotalNetClp
+                : AGENDA_PRICING.proAnnualTotalNetClp;
         return addChileVat(annualNetPrice);
     }
 

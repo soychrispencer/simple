@@ -37,7 +37,7 @@ export default function AppSubscriptionManager() {
                 track('subscription_checkout_started', { plan: input.planId, billing_cycle: input.billingCycle });
                 return startSubscriptionCheckout({
                     returnUrl: input.returnUrl,
-                    planId: input.planId as Extract<SubscriptionPlanId, 'pro' | 'pro_plus'>,
+                    planId: input.planId as Extract<SubscriptionPlanId, 'pro' | 'pro_plus' | 'enterprise'>,
                     billingCycle: input.billingCycle,
                 });
             }}

@@ -95,7 +95,9 @@ export async function ensureSubscriptionPlanDbId(
         ? AGENDA_PRICING.proAnnualTotalNetClp
         : vertical === 'agenda' && planSlug === 'pro_plus'
             ? AGENDA_PRICING.proPlusAnnualTotalNetClp
-            : catalog.priceMonthly * 12;
+            : vertical === 'agenda' && planSlug === 'enterprise'
+                ? AGENDA_PRICING.teamsAnnualTotalNetClp
+                : catalog.priceMonthly * 12;
 
     const existing = await db
         .select({ id: subscriptionPlans.id })

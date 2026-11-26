@@ -3401,7 +3401,30 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         if (status === 'cancelled') { void syncToGoogleCalendar(profile, updated, 'delete'); }
         else { void syncToGoogleCalendar(profile, updated, 'update'); }
         if (status === 'completed' && !isFreePlan(profile)) {
-            void ensureNpsForAppointment(profile.id, updated.id, updated.clientId).catch(() => {});
+            void (async () => {
+                try {
+                    const out = await ensureNpsForAppointment(profile.id, updated.id, updated.clientId);
+                    if (!out?.token || !updated.clientEmail) return;
+                    const existingNps = await db.query.agendaNpsResponses.findFirst({
+                        where: eq(agendaNpsResponses.token, out.token),
+                    });
+                    if (existingNps?.sentAt || existingNps?.submittedAt) return;
+                    const { baseUrl } = resolvePublicProfileUrls(profile);
+                    const { sendAppointmentReviewEmail } = await import('../../lib/auth-email.js');
+                    const sent = await sendAppointmentReviewEmail(updated.clientEmail, {
+                        clientName: updated.clientName ?? 'Paciente',
+                        professionalName: profile.displayName ?? 'tu profesional',
+                        reviewUrl: `${baseUrl}/nps/${out.token}`,
+                    });
+                    if (sent) {
+                        await db.update(agendaNpsResponses)
+                            .set({ sentAt: new Date() })
+                            .where(eq(agendaNpsResponses.token, out.token));
+                    }
+                } catch {
+                    // No bloquea el cierre de cita si falla el correo
+                }
+            })();
         }
         emitTimelineEvent(db, timelineEvents, {
             type: 'booking.status_changed',

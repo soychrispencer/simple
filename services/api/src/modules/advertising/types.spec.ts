@@ -17,7 +17,7 @@ describe('Serenatas subscription catalog', () => {
 describe('Agenda subscription catalog', () => {
     it('exposes Gratis, Pro and Pro+ without temporary pricing promotions', () => {
         const plans = SUBSCRIPTION_PLANS_BY_VERTICAL.agenda;
-        expect(plans.map((plan) => plan.id)).toEqual(['free', 'pro', 'pro_plus']);
+        expect(plans.map((plan) => plan.id)).toEqual(['free', 'pro', 'pro_plus', 'enterprise']);
         expect(plans.find((plan) => plan.id === 'pro')).toMatchObject({
             priceMonthly: 14990,
             maxFreeBoostsPerMonth: 0,

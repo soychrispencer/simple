@@ -226,6 +226,21 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
             maxFreeBoostsPerMonth: 0,
             features: [...AGENDA_PLAN_CATALOG.proPlus.features],
         },
+        {
+            id: 'enterprise',
+            name: AGENDA_PLAN_CATALOG.business.name,
+            description: AGENDA_PLAN_CATALOG.business.description,
+            priceMonthly: AGENDA_PRICING.teamsMonthlyNetClp,
+            currency: 'CLP',
+            maxListings: 0,
+            maxImagesPerListing: 0,
+            analyticsEnabled: true,
+            prioritySupport: true,
+            customBranding: true,
+            apiAccess: true,
+            maxFreeBoostsPerMonth: 0,
+            features: [...AGENDA_PLAN_CATALOG.business.features],
+        },
     ],
     serenatas: [
         {

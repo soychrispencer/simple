@@ -26,7 +26,7 @@ export type {
 };
 
 export type CheckoutStartInput = {
-    planId: 'pro' | 'pro_plus';
+    planId: 'pro' | 'pro_plus' | 'enterprise';
     billingCycle?: 'monthly' | 'annual';
     returnUrl: string;
 };

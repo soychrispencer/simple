@@ -19,8 +19,8 @@ describe('plan-catalog', () => {
         expect(catalogPaidPlans(vertical, plans, 'company').map((plan) => plan.id)).toEqual(['pro', 'enterprise']);
     });
 
-    it('agenda expone sus tres planes y Serenatas solo su plan de pago', () => {
-        expect(filterCatalogPlans('agenda', SUBSCRIPTION_PLANS_BY_VERTICAL.agenda).map((plan) => plan.id)).toEqual(['free', 'pro', 'pro_plus']);
+    it('agenda expone sus cuatro planes y Serenatas solo su plan de pago', () => {
+        expect(filterCatalogPlans('agenda', SUBSCRIPTION_PLANS_BY_VERTICAL.agenda).map((plan) => plan.id)).toEqual(['free', 'pro', 'pro_plus', 'enterprise']);
         expect(catalogPaidPlans('serenatas', SUBSCRIPTION_PLANS_BY_VERTICAL.serenatas).map((plan) => plan.id)).toEqual(['pro']);
     });
 
