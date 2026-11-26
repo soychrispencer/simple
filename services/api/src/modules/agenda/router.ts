@@ -59,6 +59,7 @@ import {
     normalizeOperatorSiteAccentHex,
     parseDateTimeInTimezone,
     AGENDA_PRICING,
+    addChileVat,
     type OperatorSiteLandingBrief,
     type OperatorSiteLandingConfig,
     type OperatorSiteLandingContent,
@@ -4774,6 +4775,89 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         return c.json({ ok: true, events });
     });
 
+    app.post('/whatsapp-pack/checkout', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const profile = await getCurrentAgendaProfile(user.id);
+        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        if (proGateError(profile)) return c.json({ ok: false, error: proGateError(profile) }, 403);
+
+        const { baseUrl } = resolvePublicProfileUrls(profile);
+        const returnBase = `${baseUrl}/panel/mi-negocio/agenda`;
+        const amount = addChileVat(AGENDA_PRICING.whatsappPackNetClp);
+        const pref = await createCheckoutPreference({
+            externalReference: `wa-pack:${profile.id}:${randomUUID()}`,
+            title: `Recarga +${AGENDA_PRICING.whatsappPackSize} recordatorios WhatsApp`,
+            amount,
+            currencyId: 'CLP',
+            payerEmail: user.email ?? 'profesional@simpleagenda.app',
+            payerName: profile.displayName ?? undefined,
+            backUrls: {
+                success: `${returnBase}?wa_pack=success`,
+                failure: `${returnBase}?wa_pack=failure`,
+                pending: `${returnBase}?wa_pack=pending`,
+            },
+        });
+        const checkoutUrl = pref.initPoint || pref.sandboxInitPoint || null;
+        if (!checkoutUrl) {
+            return c.json({ ok: false, error: 'No pudimos iniciar el pago de la recarga.' }, 502);
+        }
+        return c.json({ ok: true, checkoutUrl, amount });
+    });
+
+    app.post('/whatsapp-pack/confirm', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const profile = await getCurrentAgendaProfile(user.id);
+        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const body = await c.req.json().catch(() => ({})) as { paymentId?: string };
+        const paymentId = typeof body.paymentId === 'string' ? body.paymentId.trim() : '';
+        if (!paymentId) return c.json({ ok: false, error: 'paymentId requerido' }, 400);
+
+        const payment = await getPaymentById(paymentId);
+        if (
+            !payment
+            || payment.status !== 'approved'
+            || typeof payment.external_reference !== 'string'
+            || !payment.external_reference.startsWith(`wa-pack:${profile.id}:`)
+        ) {
+            return c.json({ ok: false, error: 'El pago aún no figura aprobado para tu cuenta.' }, 400);
+        }
+
+        const alreadyCredited = await db.select({ id: agendaNotificationEvents.id })
+            .from(agendaNotificationEvents)
+            .where(and(
+                eq(agendaNotificationEvents.professionalId, profile.id),
+                eq(agendaNotificationEvents.eventType, 'whatsapp_pack_purchase'),
+                sql`${agendaNotificationEvents.payload}->>'paymentId' = ${paymentId}`,
+            ))
+            .limit(1);
+        if (alreadyCredited.length > 0) {
+            const quota = await getAgendaWhatsappQuota(profile);
+            return c.json({ ok: true, alreadyCredited: true, whatsappQuota: quota });
+        }
+
+        await db.transaction(async (tx: any) => {
+            await tx.update(agendaProfessionalProfiles)
+                .set({
+                    whatsappExtraCredits: sql`${agendaProfessionalProfiles.whatsappExtraCredits} + ${AGENDA_PRICING.whatsappPackSize}`,
+                    updatedAt: new Date(),
+                })
+                .where(eq(agendaProfessionalProfiles.id, profile.id));
+            await tx.insert(agendaNotificationEvents).values({
+                professionalId: profile.id,
+                channel: 'whatsapp',
+                eventType: 'whatsapp_pack_purchase',
+                status: 'sent',
+                payload: { paymentId, creditsAdded: AGENDA_PRICING.whatsappPackSize },
+            });
+        });
+
+        const updatedProfile = await getCurrentAgendaProfile(user.id);
+        const quota = updatedProfile ? await getAgendaWhatsappQuota(updatedProfile) : null;
+        return c.json({ ok: true, creditsAdded: AGENDA_PRICING.whatsappPackSize, whatsappQuota: quota });
+    });
+
     app.get('/notifications', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -5599,6 +5683,90 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         }
         const slots = await getPublicBookingSlots(profile, dateStr, durationMinutes);
         return c.json({ ok: true, slots });
+    });
+
+    app.get('/:slug/next-available', publicSlotsLimit, async (c) => {
+        const slug = c.req.param('slug') ?? '';
+        const access = await requirePublicBookingProfile(slug);
+        if (!access.ok) return c.json(access.body, access.status);
+        const profile = access.profile;
+
+        const candidates = profile.accountId
+            ? await db.select()
+                .from(agendaProfessionalProfiles)
+                .where(and(
+                    eq(agendaProfessionalProfiles.accountId, profile.accountId),
+                    eq(agendaProfessionalProfiles.isPublished, true),
+                ))
+                .orderBy(asc(agendaProfessionalProfiles.createdAt))
+                .limit(20)
+            : [profile];
+
+        let earliest: {
+            slug: string;
+            displayName: string;
+            profession: string | null;
+            startsAt: string;
+        } | null = null;
+
+        const tz = profile.timezone ?? 'America/Santiago';
+        for (let offset = 0; offset < 7; offset += 1) {
+            const targetDate = new Date(Date.now() + offset * 86_400_000);
+            const dateStr = localDateKey(targetDate, tz);
+            for (const candidate of candidates) {
+                const slots = await getPublicBookingSlots(candidate, dateStr, 60);
+                const first = slots[0];
+                if (first && (!earliest || first.startsAt < earliest.startsAt)) {
+                    earliest = {
+                        slug: candidate.slug,
+                        displayName: candidate.displayName || 'Profesional',
+                        profession: candidate.profession ?? null,
+                        startsAt: first.startsAt,
+                    };
+                }
+            }
+            if (earliest) break;
+        }
+
+        return c.json({ ok: true, nextAvailable: earliest });
+    });
+
+    app.get('/appointments/:id/receipt', async (c) => {
+        const id = bookingIdSchema.safeParse(c.req.param('id'));
+        if (!id.success) return c.json({ ok: false, error: 'Comprobante no encontrado.' }, 404);
+        const [entry] = await db.select({
+            appointment: agendaAppointments,
+            professional: agendaProfessionalProfiles,
+            serviceName: agendaServices.name,
+        }).from(agendaAppointments)
+            .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
+            .leftJoin(agendaServices, eq(agendaAppointments.serviceId, agendaServices.id))
+            .where(eq(agendaAppointments.id, id.data))
+            .limit(1);
+        if (!entry) return c.json({ ok: false, error: 'Comprobante no encontrado.' }, 404);
+
+        const { appointment, professional, serviceName } = entry;
+        return c.json({
+            ok: true,
+            receipt: {
+                id: appointment.id,
+                clientName: appointment.clientName ?? 'Paciente',
+                professionalName: professional.displayName ?? 'Profesional',
+                professionalProfession: professional.profession ?? null,
+                professionalSlug: professional.slug,
+                serviceName: serviceName ?? 'Sesión profesional',
+                startsAt: appointment.startsAt.toISOString(),
+                endsAt: appointment.endsAt.toISOString(),
+                durationMinutes: appointment.durationMinutes,
+                modality: appointment.modality,
+                location: appointment.location ?? null,
+                price: appointment.price ?? null,
+                currency: appointment.currency,
+                paymentStatus: appointment.paymentStatus,
+                status: appointment.status,
+                timezone: professional.timezone ?? 'America/Santiago',
+            },
+        });
     });
 
     function rescheduleContext(profile: any, appointment: any) {

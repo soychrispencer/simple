@@ -12,7 +12,34 @@ type Team = {
     members: Array<{ id: string; userId?: string; name: string; role: string; hasAgenda?: boolean }>;
     agendas: Array<{ id: string; slug?: string; name?: string; displayName?: string }>;
     assignments: Array<{ membershipId: string; professionalId: string }>;
-    seatSummary?: { activeAgendas: number; includedSeats: number; maxSeats: number };
+    seatSummary?: {
+        activeAgendas: number;
+        includedSeats: number;
+        maxSeats: number;
+        extraSeats?: number;
+        extraSeatUnitNetClp?: number;
+        totalMonthlyNetClp?: number;
+    };
+};
+type TeamOverview = {
+    summaryByProfessional: Array<{
+        professionalId: string;
+        displayName: string;
+        slug: string;
+        upcomingCount: number;
+        completedCount: number;
+        paidRevenue: number;
+        pendingRevenue: number;
+    }>;
+    upcomingAppointments: Array<{
+        id: string;
+        professionalId: string;
+        professionalName: string;
+        clientName: string | null;
+        startsAt: string;
+        status: string;
+        paymentStatus: string;
+    }>;
 };
 type Appointment = { id: string; clientName: string | null; startsAt: string; status: string; paymentStatus: string };
 type Service = { id: string; name: string; isOnline: boolean; isPresential: boolean };
@@ -174,6 +201,7 @@ function ReceptionSchedule({ agenda, appointment, onSave, onClose }: {
 
 export default function EquipoAgendaPage() {
     const [team, setTeam] = useState<Team | null>(null);
+    const [overview, setOverview] = useState<TeamOverview | null>(null);
     const [member, setMember] = useState('');
     const [agenda, setAgenda] = useState('');
     const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -190,7 +218,15 @@ export default function EquipoAgendaPage() {
 
     useEffect(() => {
         let active = true;
-        void teamRequest<Team>().then((value) => { if (active) setTeam(value); })
+        void teamRequest<Team>().then((value) => {
+            if (!active) return;
+            setTeam(value);
+            if (value.workspace?.canManage) {
+                void teamRequest<TeamOverview>('/overview')
+                    .then((ov) => { if (active) setOverview(ov); })
+                    .catch(() => {});
+            }
+        })
             .catch((failure: Error) => { if (active) setError(failure.message); });
         return () => { active = false; };
     }, []);
@@ -311,8 +347,17 @@ export default function EquipoAgendaPage() {
                                 </div>
                                 <span className="rounded-full border border-(--border) px-3 py-1 text-xs font-semibold">
                                     {team.seatSummary.activeAgendas} / {team.seatSummary.includedSeats} incluidos · máx. {team.seatSummary.maxSeats}
+                                    {team.seatSummary.extraSeats ? ` (+${team.seatSummary.extraSeats} extra)` : ''}
                                 </span>
                             </div>
+                            {team.seatSummary.totalMonthlyNetClp ? (
+                                <p className="text-xs text-fg-muted">
+                                    Valor plan Equipos estimado: <strong>${team.seatSummary.totalMonthlyNetClp.toLocaleString('es-CL')} + IVA / mes</strong>
+                                    {team.seatSummary.extraSeats
+                                        ? ` (incluye ${team.seatSummary.extraSeats} adicional${team.seatSummary.extraSeats === 1 ? '' : 'es'} a +$${(team.seatSummary.extraSeatUnitNetClp ?? 4990).toLocaleString('es-CL')} + IVA c/u)`
+                                        : ' (hasta 3 profesionales incluidos)'}
+                                </p>
+                            ) : null}
                             {team.agendas.length > 0 ? (
                                 <ul className="divide-y divide-(--border)">
                                     {team.agendas.map((ag) => (
@@ -384,6 +429,49 @@ export default function EquipoAgendaPage() {
                                     {inviting ? 'Enviando…' : 'Enviar invitación'}
                                 </PanelButton>
                             </form>
+                        </PanelCard>
+                    ) : null}
+                    {team.workspace.canManage && overview && overview.summaryByProfessional.length > 0 ? (
+                        <PanelCard size="lg" className="space-y-4">
+                            <div>
+                                <h2 className="font-semibold">Resumen del centro (mes actual)</h2>
+                                <p className="text-xs text-fg-muted">
+                                    Citas próximas, atenciones completadas e ingresos por cada profesional del equipo.
+                                </p>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                {overview.summaryByProfessional.map((item) => (
+                                    <div key={item.professionalId} className="rounded-xl border border-(--border) p-3 space-y-1">
+                                        <p className="text-sm font-semibold truncate">{item.displayName}</p>
+                                        <p className="text-xs text-fg-muted">
+                                            {item.upcomingCount} próximas · {item.completedCount} completadas
+                                        </p>
+                                        <p className="text-xs font-medium">
+                                            Pagado: ${Math.round(item.paidRevenue).toLocaleString('es-CL')}
+                                            {item.pendingRevenue > 0 ? ` · Pendiente: $${Math.round(item.pendingRevenue).toLocaleString('es-CL')}` : ''}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                            {overview.upcomingAppointments.length > 0 ? (
+                                <div className="border-t border-(--border) pt-3">
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                                        Próximas citas del equipo
+                                    </p>
+                                    <ul className="divide-y divide-(--border)">
+                                        {overview.upcomingAppointments.slice(0, 10).map((appt) => (
+                                            <li key={appt.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
+                                                <span>
+                                                    <strong>{appt.professionalName}</strong> · {appt.clientName ?? 'Paciente'}
+                                                </span>
+                                                <span className="text-fg-muted">
+                                                    {fmt.dateShort(appt.startsAt)} {fmt.time(appt.startsAt)}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : null}
                         </PanelCard>
                     ) : null}
                     <PanelCard size="lg" className="space-y-4">

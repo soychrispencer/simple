@@ -246,7 +246,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const parsed = z.object({
             code: z.string().trim().min(8).max(4096),
             wabaId: z.string().trim().regex(/^\d{5,30}$/),
-            phoneNumberId: z.string().trim().regex(/^\d{5,30}$/),
+            phoneNumberId: z.string().trim().regex(/^\d{5,30}$/).optional(),
         }).strict().safeParse(payload);
         if (!parsed.success) return c.json({ ok: false, error: 'Meta devolvió una respuesta de registro incompleta.' }, 400);
 
@@ -256,7 +256,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 actorUserId: adminUser.id,
                 action: 'whatsapp.coexistence_connected',
                 entityType: 'whatsapp_platform_sender',
-                entityId: parsed.data.phoneNumberId,
+                entityId: parsed.data.phoneNumberId ?? parsed.data.wabaId,
                 payload: { wabaId: parsed.data.wabaId, subscribed: result.subscribed },
             });
             return c.json({ ok: true, ...result });

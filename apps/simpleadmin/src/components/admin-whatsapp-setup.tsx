@@ -29,7 +29,7 @@ const META_SDK_VERSION = 'v27.0';
 
 type WhatsAppEmbeddedSignupSession = {
     wabaId: string;
-    phoneNumberId: string;
+    phoneNumberId?: string;
 };
 
 type FacebookLoginResponse = {
@@ -136,15 +136,16 @@ export function AdminWhatsAppSetup({ user }: { user: AdminSessionUser }) {
             const data = payload.data && typeof payload.data === 'object'
                 ? payload.data as Record<string, unknown>
                 : {};
-            if (eventName === 'FINISH') {
+            if (eventName === 'FINISH' || eventName === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
                 const wabaId = String(data.waba_id ?? data.wabaId ?? '');
-                const phoneNumberId = String(data.phone_number_id ?? data.phoneNumberId ?? '');
-                if (!/^\d{5,30}$/.test(wabaId) || !/^\d{5,30}$/.test(phoneNumberId)) {
-                    setError('Meta terminó el registro, pero no entregó los identificadores de la cuenta y del número. Actualiza el estado y vuelve a conectar.');
+                const rawPhoneNumberId = data.phone_number_id ?? data.phoneNumberId;
+                const phoneNumberId = typeof rawPhoneNumberId === 'string' ? rawPhoneNumberId : undefined;
+                if (!/^\d{5,30}$/.test(wabaId) || (phoneNumberId && !/^\d{5,30}$/.test(phoneNumberId))) {
+                    setError('Meta terminó el registro, pero no entregó un identificador válido de la cuenta. Actualiza el estado y vuelve a conectar.');
                     return;
                 }
                 sessionRef.current = { wabaId, phoneNumberId };
-                setMessage('Cuenta autorizada. Finalizando la suscripción del webhook…');
+                setMessage('Cuenta autorizada. Finalizando la conexión de WhatsApp…');
                 void finishRef.current();
             } else if (eventName === 'CANCEL') {
                 codeRef.current = '';
@@ -205,7 +206,7 @@ export function AdminWhatsAppSetup({ user }: { user: AdminSessionUser }) {
             const code = response.authResponse?.code;
             if (code) {
                 codeRef.current = code;
-                setMessage('Autorización recibida. Esperando la confirmación de Meta…');
+                setMessage('Meta recibió la autorización. Revisa el mensaje oficial de Facebook Business en WhatsApp Business y confirma la conexión.');
                 void finishRef.current();
             } else if (response.status !== 'connected') {
                 setConnecting(false);

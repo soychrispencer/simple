@@ -14,6 +14,8 @@ export const AGENDA_PRICING = {
     teamsAdditionalProfessionalNetClp: 4_990,
     teamsMaxProfessionals: 20,
     teamsMonthlyWhatsappReminders: 120,
+    whatsappPackSize: 100,
+    whatsappPackNetClp: 3_990,
     free: {
         monthlyBookings: 30,
         activeServices: 3,
@@ -101,6 +103,11 @@ export function formatAgendaProPlusMonthlyPrice(): string {
 
 export function formatAgendaProAnnualMonthlyPrice(): string {
     return `$${AGENDA_PRICING.proAnnualMonthlyEquivalentNetClp.toLocaleString('es-CL')} + IVA / mes`;
+}
+
+export function calculateAgendaTeamsMonthlyNetClp(activeSeats: number): number {
+    const extraSeats = Math.max(0, Math.floor(activeSeats) - AGENDA_PRICING.teamsIncludedProfessionals);
+    return AGENDA_PRICING.teamsMonthlyNetClp + extraSeats * AGENDA_PRICING.teamsAdditionalProfessionalNetClp;
 }
 
 export function formatAgendaProAnnualTotalPrice(): string {

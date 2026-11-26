@@ -210,7 +210,7 @@ export async function fetchAdminWhatsAppConnectionStatus(): Promise<AdminWhatsAp
 export async function completeAdminWhatsAppCoexistence(input: {
     code: string;
     wabaId: string;
-    phoneNumberId: string;
+    phoneNumberId?: string;
 }): Promise<{ subscribed: boolean; connection: AdminWhatsAppConnectionStatus }> {
     const data = await expectOk<{ subscribed: boolean; connection: AdminWhatsAppConnectionStatus }>('/api/admin/whatsapp/coexistence/complete', {
         method: 'POST',

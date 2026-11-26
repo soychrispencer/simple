@@ -138,13 +138,13 @@ export async function getWhatsAppPlatformConnectionStatus(): Promise<WhatsAppPla
 export async function completeWhatsAppEmbeddedSignup(input: {
     code: string;
     wabaId: string;
-    phoneNumberId: string;
+    phoneNumberId?: string;
 }): Promise<WhatsAppEmbeddedSignupResult> {
     const config = configuredMetaAssets();
     if (!config.appId || !config.appSecret || !config.token || !config.wabaId || !config.phoneNumberId) {
         throw new WhatsAppEmbeddedSignupError('La conexión de WhatsApp de Simple no está configurada por completo.', 'MISSING_CONFIGURATION', 503);
     }
-    if (input.wabaId !== config.wabaId || input.phoneNumberId !== config.phoneNumberId) {
+    if (input.wabaId !== config.wabaId || (input.phoneNumberId && input.phoneNumberId !== config.phoneNumberId)) {
         throw new WhatsAppEmbeddedSignupError('Meta devolvió una cuenta o un número distinto al configurado para SimpleAgenda.', 'ASSET_MISMATCH', 409);
     }
 

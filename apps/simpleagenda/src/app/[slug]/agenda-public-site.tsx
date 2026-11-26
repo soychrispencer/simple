@@ -1,7 +1,9 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { API_BASE } from '@simple/config';
 import {
     buildOperatorSiteScheduleDays,
     normalizeOperatorSiteColorMode,
@@ -227,9 +229,25 @@ export function AgendaPublicSite({ profile, previewMode = false }: { profile: Ag
         document.getElementById('agenda-preview-booking')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
+    const router = useRouter();
+    const [findingNext, setFindingNext] = useState(false);
     const teamProfessionals = !previewMode && Array.isArray(profile.teamProfessionals) && profile.teamProfessionals.length > 1
         ? profile.teamProfessionals
         : [];
+
+    const handleNextAvailable = async () => {
+        if (findingNext) return;
+        setFindingNext(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/public/agenda/${encodeURIComponent(profile.slug)}/next-available`);
+            const data = await res.json().catch(() => null) as { ok?: boolean; nextAvailable?: { slug: string } | null } | null;
+            if (data?.ok && data.nextAvailable?.slug) {
+                router.push(`/${encodeURIComponent(data.nextAvailable.slug)}`);
+            }
+        } finally {
+            setFindingNext(false);
+        }
+    };
 
     return (
         <>
@@ -239,6 +257,15 @@ export function AgendaPublicSite({ profile, previewMode = false }: { profile: Ag
                         <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fg-muted)] mr-1">
                             Profesionales:
                         </span>
+                        <button
+                            type="button"
+                            disabled={findingNext}
+                            onClick={() => void handleNextAvailable()}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-semibold transition-colors hover:border-[var(--accent)] disabled:opacity-60"
+                            style={{ color: 'var(--fg)' }}
+                        >
+                            {findingNext ? 'Buscando hora…' : 'Primer disponible →'}
+                        </button>
                         {teamProfessionals.map((member) => {
                             const active = member.slug === profile.slug;
                             return (

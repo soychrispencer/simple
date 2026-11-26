@@ -3,7 +3,7 @@ import { pgTable, primaryKey, uuid } from 'drizzle-orm/pg-core';
 import { Hono } from 'hono';
 import type { Context, MiddlewareHandler } from 'hono';
 import { z } from 'zod';
-import { resolveBookingModality, AGENDA_PRICING } from '@simple/utils';
+import { resolveBookingModality, AGENDA_PRICING, calculateAgendaTeamsMonthlyNetClp } from '@simple/utils';
 import type { db as database } from '../../db/index.js';
 import {
     accounts,
@@ -154,6 +154,7 @@ export function createAgendaTeamRouter({
             userId: agendaProfessionalProfiles.userId,
         }).from(agendaProfessionalProfiles).where(eq(agendaProfessionalProfiles.accountId, workspace.id)) : [];
         const profileUserIds = new Set(existingProfiles.map((p) => p.userId));
+        const extraSeats = Math.max(0, itineraries.length - AGENDA_PRICING.teamsIncludedProfessionals);
         return c.json({
             ok: true,
             workspace: { name: workspace.name, role: workspace.role, canManage },
@@ -164,7 +165,110 @@ export function createAgendaTeamRouter({
                 activeAgendas: itineraries.length,
                 includedSeats: AGENDA_PRICING.teamsIncludedProfessionals,
                 maxSeats: AGENDA_PRICING.teamsMaxProfessionals,
+                extraSeats,
+                extraSeatUnitNetClp: AGENDA_PRICING.teamsAdditionalProfessionalNetClp,
+                totalMonthlyNetClp: calculateAgendaTeamsMonthlyNetClp(itineraries.length),
             },
+        });
+    });
+
+    app.get('/overview', async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado.' }, 401);
+        const workspace = await activeAgendaTeam(db, user.id);
+        if (!workspace || !canManageAccountRole(workspace.role)) {
+            return c.json({ ok: false, error: 'Tu rol no puede ver el resumen del centro.' }, 403);
+        }
+
+        const itineraries = await scopedAgendas(db, workspace.id);
+        const agendaIds = itineraries.map((item) => item.id);
+        if (agendaIds.length === 0) {
+            return c.json({ ok: true, summaryByProfessional: [], upcomingAppointments: [] });
+        }
+
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const rows = await db.select({
+            id: agendaAppointments.id,
+            professionalId: agendaAppointments.professionalId,
+            clientName: agendaAppointments.clientName,
+            startsAt: agendaAppointments.startsAt,
+            status: agendaAppointments.status,
+            paymentStatus: agendaAppointments.paymentStatus,
+            price: agendaAppointments.price,
+        }).from(agendaAppointments)
+            .where(and(
+                inArray(agendaAppointments.professionalId, agendaIds),
+                gte(agendaAppointments.startsAt, monthStart),
+            ))
+            .orderBy(asc(agendaAppointments.startsAt))
+            .limit(400);
+
+        const summaryMap = new Map<string, {
+            professionalId: string;
+            displayName: string;
+            slug: string;
+            upcomingCount: number;
+            completedCount: number;
+            paidRevenue: number;
+            pendingRevenue: number;
+        }>();
+        for (const ag of itineraries) {
+            summaryMap.set(ag.id, {
+                professionalId: ag.id,
+                displayName: ag.displayName || 'Profesional',
+                slug: ag.slug,
+                upcomingCount: 0,
+                completedCount: 0,
+                paidRevenue: 0,
+                pendingRevenue: 0,
+            });
+        }
+
+        const upcomingAppointments: Array<{
+            id: string;
+            professionalId: string;
+            professionalName: string;
+            clientName: string | null;
+            startsAt: string;
+            status: string;
+            paymentStatus: string;
+            price: string | null;
+        }> = [];
+
+        for (const row of rows) {
+            const bucket = summaryMap.get(row.professionalId);
+            if (!bucket) continue;
+            const amount = row.price ? Number(row.price) : 0;
+            if (row.status === 'completed') bucket.completedCount += 1;
+            if (['pending', 'confirmed'].includes(row.status) && row.startsAt.getTime() >= now.getTime()) {
+                bucket.upcomingCount += 1;
+                if (upcomingAppointments.length < 30) {
+                    upcomingAppointments.push({
+                        id: row.id,
+                        professionalId: row.professionalId,
+                        professionalName: bucket.displayName,
+                        clientName: row.clientName,
+                        startsAt: row.startsAt.toISOString(),
+                        status: row.status,
+                        paymentStatus: row.paymentStatus,
+                        price: row.price,
+                    });
+                }
+            }
+            if (row.status !== 'cancelled') {
+                if (row.paymentStatus === 'paid' && Number.isFinite(amount)) {
+                    bucket.paidRevenue += amount;
+                } else if (row.paymentStatus === 'pending' && Number.isFinite(amount)) {
+                    bucket.pendingRevenue += amount;
+                }
+            }
+        }
+
+        return c.json({
+            ok: true,
+            summaryByProfessional: Array.from(summaryMap.values()),
+            upcomingAppointments,
         });
     });
 

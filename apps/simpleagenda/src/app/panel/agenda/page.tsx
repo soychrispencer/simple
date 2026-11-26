@@ -1441,6 +1441,20 @@ export default function AgendaPage() {
                             );
                         })()}
 
+                        {/* Comprobante PDF */}
+                        <div className="agenda-panel-border border-t pt-4 flex items-center justify-between gap-2">
+                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>Comprobante de atención / pago</span>
+                            <a
+                                href={`/comprobante/${encodeURIComponent(selectedAppt.id)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-semibold hover:underline"
+                                style={{ color: 'var(--accent-ink)' }}
+                            >
+                                Ver / Imprimir PDF →
+                            </a>
+                        </div>
+
                         {/* Session notes */}
                         <div className="agenda-panel-border border-t pt-4">
                             <div className="flex items-center justify-between mb-2">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { API_BASE } from '@simple/config';
 import { IconLoader2 } from '@tabler/icons-react';
 import { MercadoPagoIntegrationCard } from '@simple/ui/integrations';
 import {
@@ -319,6 +320,30 @@ export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'a
                                                 width: `${Math.min(100, (profile.whatsappQuota.used / profile.whatsappQuota.totalLimit) * 100)}%`,
                                             }}
                                         />
+                                    </div>
+                                    <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
+                                        <span className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                            {profile.whatsappQuota.extraCredits > 0
+                                                ? `Incluye ${profile.whatsappQuota.extraCredits} créditos prepago adicionales.`
+                                                : '¿Necesitas más envíos este mes?'}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                const res = await fetch(`${API_BASE}/api/agenda/whatsapp-pack/checkout`, {
+                                                    method: 'POST',
+                                                    credentials: 'include',
+                                                });
+                                                const data = await res.json().catch(() => null) as { ok?: boolean; checkoutUrl?: string } | null;
+                                                if (data?.ok && data.checkoutUrl) {
+                                                    window.location.href = data.checkoutUrl;
+                                                }
+                                            }}
+                                            className="text-xs font-semibold hover:underline"
+                                            style={{ color: 'var(--accent-ink)' }}
+                                        >
+                                            Recargar +100 WhatsApps ($3.990 + IVA) →
+                                        </button>
                                     </div>
                                 </div>
                             ) : (
