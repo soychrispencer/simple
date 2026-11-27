@@ -81,12 +81,12 @@ export type AdminUserSnapshot = {
         reasons: string[];
     };
     subscriptions?: {
-        agenda?: { plan: 'free' | 'pro' | 'pro_plus' | 'enterprise'; status: 'active' | 'expired' | 'free' | 'trial'; expiresAt: string | null };
-        autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
-        propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
-        serenatas?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
-        serenatasProvider?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
-        serenatasMusician?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
+        agenda?: { plan: 'free' | 'pro' | 'pro_plus' | 'enterprise'; status: 'active' | 'expired' | 'free' | 'trial'; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+        autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+        propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+        serenatas?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+        serenatasProvider?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+        serenatasMusician?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
     };
     agendaProfile?: {
         id: string;
@@ -295,6 +295,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
             planSlug: subscriptionPlans.planId,
             planName: subscriptionPlans.name,
             status: subscriptions.status,
+            providerStatus: subscriptions.providerStatus,
+            billingCycle: subscriptions.billingCycle,
             expiresAt: subscriptions.expiresAt,
             createdAt: subscriptions.createdAt,
             updatedAt: subscriptions.updatedAt,
@@ -368,6 +370,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
         planId: string;
         planName: string;
         status: string;
+        providerStatus: string | null;
+        billingCycle: string | null;
         expiresAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
@@ -376,6 +380,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
         planId: string;
         planName: string;
         status: string;
+        providerStatus: string | null;
+        billingCycle: string | null;
         expiresAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
@@ -384,6 +390,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
         planId: string;
         planName: string;
         status: string;
+        providerStatus: string | null;
+        billingCycle: string | null;
         expiresAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
@@ -393,6 +401,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
             planId: row.planSlug,
             planName: row.planName,
             status: row.status,
+            providerStatus: row.providerStatus ?? null,
+            billingCycle: row.billingCycle ?? null,
             expiresAt: row.expiresAt ?? null,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
@@ -493,6 +503,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                     status: defaultAgendaProfile.plan === 'free'
                         ? defaultAgendaProfile.planExpiresAt && defaultAgendaProfile.planExpiresAt >= new Date() ? 'trial' : 'free'
                         : defaultAgendaProfile.planExpiresAt && defaultAgendaProfile.planExpiresAt < new Date() ? 'expired' : 'active',
+                    providerStatus: defaultAccountSubscriptions.agenda?.providerStatus ?? null,
+                    billingCycle: defaultAccountSubscriptions.agenda?.billingCycle ?? null,
                     expiresAt: defaultAgendaProfile.planExpiresAt ?? null,
                     createdAt: defaultAgendaProfile.createdAt,
                     updatedAt: defaultAgendaProfile.updatedAt,
@@ -523,6 +535,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                         status: profile.plan === 'free'
                             ? profile.planExpiresAt && profile.planExpiresAt >= new Date() ? 'trial' : 'free'
                             : profile.planExpiresAt && profile.planExpiresAt < new Date() ? 'expired' : 'active',
+                        providerStatus: accountSubs.agenda?.providerStatus ?? null,
+                        billingCycle: accountSubs.agenda?.billingCycle ?? null,
                         expiresAt: profile.planExpiresAt ?? null,
                         createdAt: profile.createdAt,
                         updatedAt: profile.updatedAt,
@@ -717,6 +731,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                                   plan: agendaPlan,
                                   status: agendaTrial ? 'trial' : agendaPlan === 'free' ? 'free' : agendaExpired ? 'expired' : 'active',
                                   expiresAt: defaultAccountSubscriptions.agenda.expiresAt?.toISOString() ?? null,
+                                  providerStatus: defaultAccountSubscriptions.agenda.providerStatus ?? null,
+                                  billingCycle: defaultAccountSubscriptions.agenda.billingCycle ?? null,
                               }
                             : undefined,
                         autos: defaultAccountSubscriptions.autos
@@ -725,6 +741,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                                   planName: defaultAccountSubscriptions.autos.planName,
                                   status: defaultAccountSubscriptions.autos.status,
                                   expiresAt: defaultAccountSubscriptions.autos.expiresAt?.toISOString() ?? null,
+                                  providerStatus: defaultAccountSubscriptions.autos.providerStatus ?? null,
+                                  billingCycle: defaultAccountSubscriptions.autos.billingCycle ?? null,
                               }
                             : undefined,
                         propiedades: defaultAccountSubscriptions.propiedades
@@ -733,6 +751,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                                   planName: defaultAccountSubscriptions.propiedades.planName,
                                   status: defaultAccountSubscriptions.propiedades.status,
                                   expiresAt: defaultAccountSubscriptions.propiedades.expiresAt?.toISOString() ?? null,
+                                  providerStatus: defaultAccountSubscriptions.propiedades.providerStatus ?? null,
+                                  billingCycle: defaultAccountSubscriptions.propiedades.billingCycle ?? null,
                               }
                             : undefined,
                         serenatas: defaultAccountSubscriptions.serenatas
@@ -741,6 +761,8 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                                   planName: defaultAccountSubscriptions.serenatas.planName,
                                   status: defaultAccountSubscriptions.serenatas.status,
                                   expiresAt: defaultAccountSubscriptions.serenatas.expiresAt?.toISOString() ?? null,
+                                  providerStatus: defaultAccountSubscriptions.serenatas.providerStatus ?? null,
+                                  billingCycle: defaultAccountSubscriptions.serenatas.billingCycle ?? null,
                               }
                             : undefined,
                         serenatasProvider: defaultAccountSubscriptions.serenatasProvider

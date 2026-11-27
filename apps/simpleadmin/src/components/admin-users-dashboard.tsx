@@ -37,8 +37,8 @@ import {
     type AdminUsersPage,
     type AdminUserSnapshot,
 } from '@/lib/api';
-import { EditUserDialog, EmailUserDialog, SubscriptionsDialog } from './users/user-dialogs';
-import { UserAvatar, UserDetailSheet } from './users/user-detail-sheet';
+import { EmailUserDialog } from './users/user-dialogs';
+import { UserAvatar, UserDetailSheet, type DetailTab } from './users/user-detail-sheet';
 import {
     activitySummary,
     capabilitiesFor,
@@ -59,9 +59,7 @@ import {
 } from './users/user-domain';
 
 type ModalState =
-    | { type: 'edit'; user: AdminUserSnapshot }
     | { type: 'email'; user?: AdminUserSnapshot; userIds?: string[] }
-    | { type: 'subscriptions'; user: AdminUserSnapshot }
     | { type: 'delete'; user: AdminUserSnapshot }
     | { type: 'status'; user: AdminUserSnapshot; nextStatus: AdminUserStatus }
     | { type: 'serenatas'; user: AdminUserSnapshot; profile: SerenatasProfile }
@@ -98,6 +96,9 @@ export function AdminUsersDashboard({ currentUser }: { currentUser: AdminSession
         return Number.isFinite(raw) && raw >= 1 ? Math.trunc(raw) : 1;
     });
     const [selectedUserId, setSelectedUserId] = useState<string | null>(() => searchParams.get('user'));
+    const [detailTab, setDetailTab] = useState<DetailTab>(() => (
+        searchParams.get('tab') === 'subscriptions' ? 'subscriptions' : 'overview'
+    ));
     const [checkedIds, setCheckedIds] = useState<string[]>([]);
     const [modal, setModal] = useState<ModalState>(null);
     const [confirming, setConfirming] = useState(false);
@@ -199,7 +200,8 @@ export function AdminUsersDashboard({ currentUser }: { currentUser: AdminSession
         }
     };
 
-    const openUserSheet = (userId: string) => {
+    const openUserSheet = (userId: string, tab: DetailTab = 'overview') => {
+        setDetailTab(tab);
         setSelectedUserId(userId);
         syncUrlParams({ user: userId });
     };
@@ -320,7 +322,7 @@ export function AdminUsersDashboard({ currentUser }: { currentUser: AdminSession
                                 {capabilities.manageSubscriptions ? (
                                     <PanelIconButton
                                         label={`Plan de ${user.name}`}
-                                        onClick={() => setModal({ type: 'subscriptions', user })}
+                                        onClick={() => openUserSheet(user.id, 'subscriptions')}
                                         variant="soft"
                                     >
                                         <IconCreditCard size={15} />
@@ -378,37 +380,24 @@ export function AdminUsersDashboard({ currentUser }: { currentUser: AdminSession
 
             {selectedUser ? (
                 <UserDetailSheet
+                    key={`${selectedUser.id}:${detailTab}`}
                     user={selectedUser}
+                    currentUserId={currentUser.id}
+                    initialTab={detailTab}
                     capabilities={{ ...capabilities, deleteUsers: capabilities.deleteUsers && selectedUser.id !== currentUser.id }}
                     onClose={closeUserSheet}
-                    onEdit={() => setModal({ type: 'edit', user: selectedUser })}
                     onEmail={() => setModal({ type: 'email', user: selectedUser })}
-                    onSubscriptions={() => setModal({ type: 'subscriptions', user: selectedUser })}
                     onToggleStatus={(nextStatus) => setModal({ type: 'status', user: selectedUser, nextStatus })}
                     onDelete={() => setModal({ type: 'delete', user: selectedUser })}
                     onSerenatasProfile={(profile) => setModal({ type: 'serenatas', user: selectedUser, profile })}
+                    onUserUpdated={() => loadUsers()}
                 />
             ) : null}
 
-            {modal?.type === 'edit' ? (
-                <EditUserDialog
-                    user={modal.user}
-                    currentUserId={currentUser.id}
-                    onClose={() => setModal(null)}
-                    onCompleted={() => void completeAction(false)}
-                />
-            ) : null}
             {modal?.type === 'email' ? (
                 <EmailUserDialog
                     user={modal.user}
                     userIds={modal.userIds}
-                    onClose={() => setModal(null)}
-                    onCompleted={() => void completeAction(false)}
-                />
-            ) : null}
-            {modal?.type === 'subscriptions' ? (
-                <SubscriptionsDialog
-                    user={modal.user}
                     onClose={() => setModal(null)}
                     onCompleted={() => void completeAction(false)}
                 />

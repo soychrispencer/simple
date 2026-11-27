@@ -38,12 +38,12 @@ export type AdminPlatformAccess = {
 export type AdminSubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'free' | 'trial';
 
 export type AdminUserSubscriptions = {
-    agenda?: { plan: 'free' | 'pro' | 'pro_plus' | 'enterprise'; status: AdminSubscriptionStatus; expiresAt: string | null };
-    autos?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
-    propiedades?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
-    serenatas?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
-    serenatasProvider?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
-    serenatasMusician?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
+    agenda?: { plan: 'free' | 'pro' | 'pro_plus' | 'enterprise'; status: AdminSubscriptionStatus; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+    autos?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+    propiedades?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+    serenatas?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+    serenatasProvider?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
+    serenatasMusician?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null; providerStatus?: string | null; billingCycle?: string | null };
 };
 
 export type AdminAccountSnapshot = {

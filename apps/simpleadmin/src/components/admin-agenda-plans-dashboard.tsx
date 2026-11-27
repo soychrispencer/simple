@@ -212,10 +212,10 @@ export function AdminAgendaPlansDashboard({ user }: { user: AdminSessionUser }) 
                             ) : 'Privado'}
                         </div>
                         <Link
-                            href={`/?vertical=agenda&q=${encodeURIComponent(item.userEmail)}&user=${encodeURIComponent(item.userId)}`}
+                            href={`/?vertical=agenda&q=${encodeURIComponent(item.userEmail)}&user=${encodeURIComponent(item.userId)}&tab=subscriptions`}
                             className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--border)] px-3 text-xs font-medium text-[var(--fg)] transition-colors hover:bg-[var(--bg-subtle)]"
                         >
-                            Abrir ficha
+                            Gestionar plan
                         </Link>
                     </PanelListRow>
                 ))}
