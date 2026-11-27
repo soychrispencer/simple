@@ -1,7 +1,8 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { IconAlertTriangle, IconCheck, IconChevronDown, IconChevronUp, IconMessageCircle, IconPlus, IconRefresh, IconSend } from '@tabler/icons-react';
+import Link from 'next/link';
+import { IconAlertTriangle, IconCheck, IconChevronDown, IconChevronUp, IconMessageCircle, IconPlus, IconRefresh, IconSend, IconUserSearch } from '@tabler/icons-react';
 import { ModernSelect } from '@simple/ui';
 import {
     PanelButton,
@@ -110,6 +111,14 @@ export function AdminConversationsDashboard() {
                             <div className="min-w-0">
                                 <p className="break-words text-sm font-medium text-[var(--fg)]">{item.name || item.email || item.phone || item.threadId}{item.company ? ` · ${item.company}` : ''}</p>
                                 <p className="mt-0.5 break-words text-xs text-[var(--fg-muted)]">{item.email ? <a className="break-all underline underline-offset-2" href={`mailto:${encodeURIComponent(item.email)}`}>{item.email}</a> : item.phone || 'Sin teléfono'}</p>
+                                {(item.email || item.phone) ? (
+                                    <Link
+                                        href={`/?q=${encodeURIComponent(item.email || item.phone || '')}`}
+                                        className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] font-medium text-[var(--fg)] transition-colors hover:bg-[var(--surface)]"
+                                    >
+                                        <IconUserSearch size={12} /> Abrir en Usuarios
+                                    </Link>
+                                ) : null}
                                 <p className="mt-1 text-xs font-medium text-[var(--accent)]">{VERTICAL_LABELS[item.sourceVertical || ''] || 'Sin clasificar'}{item.purpose ? ` · ${PURPOSE_LABELS[item.purpose] || item.purpose}` : ''}</p>
                                 <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{CHANNEL_LABELS[item.channel] || item.channel}</p>
                                 {item.campaignName ? <p className="mt-0.5 break-words text-xs text-[var(--fg-muted)]">{item.campaignName}</p> : null}

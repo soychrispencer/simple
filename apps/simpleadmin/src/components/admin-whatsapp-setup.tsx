@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
     IconBrandWhatsapp,
     IconCheck,
@@ -8,18 +9,25 @@ import {
     IconShieldCheck,
     IconAlertTriangle,
 } from '@tabler/icons-react';
+import { ModernSelect } from '@simple/ui';
 import {
     PanelButton,
     PanelCard,
+    PanelEmptyState,
     PanelNotice,
     PanelPageHeader,
+    PanelStatCard,
     PanelStatusBadge,
+    SkeletonList,
 } from '@simple/ui/panel';
 import {
     completeAdminWhatsAppCoexistence,
     fetchAdminWhatsAppConnectionStatus,
+    fetchAdminWhatsAppLogs,
     type AdminSessionUser,
     type AdminWhatsAppConnectionStatus,
+    type AdminWhatsAppLogItem,
+    type AdminWhatsAppLogsResponse,
 } from '@/lib/api';
 
 // These are public Meta identifiers. Environment overrides are useful for a separate staging app.
@@ -72,8 +80,35 @@ function statusValue(value: string | boolean | null | undefined) {
     return 'Sin dato';
 }
 
+const LOG_STATUS_OPTIONS = [
+    { value: 'all', label: 'Todos los estados' },
+    { value: 'sent', label: 'Enviados' },
+    { value: 'failed', label: 'Fallidos' },
+    { value: 'skipped', label: 'Omitidos' },
+];
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+    confirmation: 'Confirmación cita',
+    reminder_24h: 'Recordatorio 24h',
+    reminder_30min: 'Recordatorio 30 min',
+    cancellation: 'Cancelación cita',
+    professional_new_booking: 'Aviso nueva reserva',
+    test: 'Mensaje de prueba',
+};
+
+function whatsappLogBadge(status: string): { label: string; tone: 'success' | 'danger' | 'warning' | 'neutral' } {
+    if (status === 'sent') return { label: 'Enviado', tone: 'success' };
+    if (status === 'failed') return { label: 'Fallido', tone: 'danger' };
+    if (status === 'skipped') return { label: 'Omitido', tone: 'warning' };
+    return { label: status, tone: 'neutral' };
+}
+
 export function AdminWhatsAppSetup({ user }: { user: AdminSessionUser }) {
     const [status, setStatus] = useState<AdminWhatsAppConnectionStatus | null>(null);
+    const [logsData, setLogsData] = useState<AdminWhatsAppLogsResponse | null>(null);
+    const [logStatusFilter, setLogStatusFilter] = useState<'all' | 'sent' | 'failed' | 'skipped'>('all');
+    const [loadingLogs, setLoadingLogs] = useState(true);
+    const [logsError, setLogsError] = useState('');
     const [sdkReady, setSdkReady] = useState(false);
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState(false);
@@ -83,6 +118,18 @@ export function AdminWhatsAppSetup({ user }: { user: AdminSessionUser }) {
     const sessionRef = useRef<WhatsAppEmbeddedSignupSession | null>(null);
     const finishingRef = useRef(false);
     const finishRef = useRef<() => Promise<void>>(async () => undefined);
+
+    const refreshLogs = useCallback(async (filter = logStatusFilter) => {
+        setLoadingLogs(true);
+        setLogsError('');
+        try {
+            setLogsData(await fetchAdminWhatsAppLogs(filter));
+        } catch (err) {
+            setLogsError(err instanceof Error ? err.message : 'No pudimos cargar el monitor de envíos.');
+        } finally {
+            setLoadingLogs(false);
+        }
+    }, [logStatusFilter]);
 
     const refreshStatus = useCallback(async () => {
         setLoading(true);
@@ -97,6 +144,7 @@ export function AdminWhatsAppSetup({ user }: { user: AdminSessionUser }) {
     }, []);
 
     useEffect(() => { void refreshStatus(); }, [refreshStatus]);
+    useEffect(() => { void refreshLogs(logStatusFilter); }, [logStatusFilter, refreshLogs]);
 
     useEffect(() => {
         let cancelled = false;
@@ -313,6 +361,96 @@ export function AdminWhatsAppSetup({ user }: { user: AdminSessionUser }) {
                 {status?.error === 'missing_configuration' ? (
                     <PanelNotice tone="warning" className="mt-4"><IconAlertTriangle size={16} /> Faltan credenciales o identificadores en el servicio de API; el alta está pausada para evitar enlazar una cuenta incorrecta.</PanelNotice>
                 ) : null}
+            </PanelCard>
+
+            <PanelCard className="p-5 sm:p-6 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 className="text-base font-semibold text-[var(--fg)]">Monitor de envíos WhatsApp (SimpleAgenda)</h2>
+                        <p className="text-xs text-[var(--fg-muted)]">Resumen de los últimos 7 días y detalle de los 40 envíos más recientes.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-44">
+                            <ModernSelect
+                                value={logStatusFilter}
+                                onChange={(value) => setLogStatusFilter(value as 'all' | 'sent' | 'failed' | 'skipped')}
+                                options={LOG_STATUS_OPTIONS}
+                                ariaLabel="Filtrar envíos WhatsApp"
+                            />
+                        </div>
+                        <PanelButton size="sm" variant="secondary" disabled={loadingLogs} onClick={() => void refreshLogs(logStatusFilter)}>
+                            <IconRefresh size={14} /> Actualizar
+                        </PanelButton>
+                    </div>
+                </div>
+
+                {logsData ? (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <PanelStatCard label="Total 7 días" value={String(logsData.summary.total7d)} meta="Intentos WhatsApp" />
+                        <PanelStatCard label="Enviados (7d)" value={String(logsData.summary.sent7d)} meta="Entregados a Meta" />
+                        <PanelStatCard label="Fallidos (7d)" value={String(logsData.summary.failed7d)} meta="Errores de API / plantilla" />
+                        <PanelStatCard label="Omitidos (7d)" value={String(logsData.summary.skipped7d)} meta="Sin créditos u opt-out" />
+                    </div>
+                ) : null}
+
+                {logsError ? <PanelNotice tone="error">{logsError}</PanelNotice> : null}
+
+                {loadingLogs ? (
+                    <SkeletonList count={4} />
+                ) : !logsData || logsData.items.length === 0 ? (
+                    <PanelEmptyState title="Sin registros de WhatsApp" description="No hay eventos de envío para este filtro." />
+                ) : (
+                    <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+                        <table className="w-full text-left text-xs">
+                            <thead className="border-b border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--fg-muted)]">
+                                <tr>
+                                    <th className="px-3 py-2.5 font-medium">Fecha</th>
+                                    <th className="px-3 py-2.5 font-medium">Profesional</th>
+                                    <th className="px-3 py-2.5 font-medium">Destinatario</th>
+                                    <th className="px-3 py-2.5 font-medium">Tipo</th>
+                                    <th className="px-3 py-2.5 font-medium">Estado</th>
+                                    <th className="px-3 py-2.5 font-medium">Detalle / Error</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--border)]">
+                                {logsData.items.map((entry: AdminWhatsAppLogItem) => {
+                                    const badge = whatsappLogBadge(entry.status);
+                                    return (
+                                        <tr key={entry.id} className="hover:bg-[var(--bg-subtle)]/50">
+                                            <td className="whitespace-nowrap px-3 py-2.5 text-[var(--fg-muted)]">
+                                                {entry.createdAt ? new Date(entry.createdAt).toLocaleString('es-CL') : '—'}
+                                            </td>
+                                            <td className="px-3 py-2.5">
+                                                {entry.professionalUserId ? (
+                                                    <Link
+                                                        href={`/?q=${encodeURIComponent(entry.professionalSlug || entry.professionalName || '')}&user=${encodeURIComponent(entry.professionalUserId)}`}
+                                                        className="font-medium text-[var(--fg)] underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--fg)]"
+                                                    >
+                                                        {entry.professionalName || entry.professionalSlug || 'Sin nombre'}
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-[var(--fg-muted)]">{entry.professionalName || entry.professionalSlug || 'Sin perfil'}</span>
+                                                )}
+                                            </td>
+                                            <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-[var(--fg)]">
+                                                {entry.recipient || '—'}
+                                            </td>
+                                            <td className="whitespace-nowrap px-3 py-2.5 text-[var(--fg-secondary)]">
+                                                {EVENT_TYPE_LABELS[entry.eventType] ?? entry.eventType}
+                                            </td>
+                                            <td className="whitespace-nowrap px-3 py-2.5">
+                                                <PanelStatusBadge label={badge.label} tone={badge.tone} size="sm" />
+                                            </td>
+                                            <td className="max-w-xs break-words px-3 py-2.5 text-[var(--fg-muted)]">
+                                                {entry.errorMessage || '—'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </PanelCard>
         </div>
     );

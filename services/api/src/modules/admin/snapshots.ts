@@ -1,8 +1,10 @@
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
     accountUsers,
     accounts,
+    agendaAppointments,
+    agendaNotificationEvents,
     agendaProfessionalProfiles,
     listings,
     serenataOwners,
@@ -19,7 +21,7 @@ type UserStatus = 'active' | 'verified' | 'suspended';
 type VerticalType = 'autos' | 'propiedades' | 'agenda';
 type AdminVertical = VerticalType | 'serenatas';
 type BoostSection = 'sale' | 'rent' | 'auction' | 'project';
-type ListingStatus = 'draft' | 'published' | 'paused' | 'archived' | 'sold' | 'rented';
+type ListingStatus = 'draft' | 'active' | 'published' | 'paused' | 'archived' | 'sold' | 'rented';
 type VerticalSignalSource =
     | 'primary_vertical'
     | 'signup_app'
@@ -96,6 +98,9 @@ export type AdminUserSnapshot = {
         customDomain: string | null;
         customDomainStatus: string;
         whatsappExtraCredits: number;
+        monthlyBookingsUsed: number;
+        monthlyWhatsappUsed: number;
+        teamAgendasCount: number;
     } | null;
     serenatas?: {
         client: boolean;
@@ -233,7 +238,19 @@ function buildRealness(input: {
 }
 
 export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): Promise<AdminUserSnapshot[]> {
-    const [userRows, platformRows, listingRows, agendaProfiles, serenataClientRows, serenataMusicianRows, serenataOwnerRows, accountRows, accountMembershipRows] = await Promise.all([
+    const [
+        userRows,
+        platformRows,
+        listingRows,
+        agendaProfiles,
+        serenataClientRows,
+        serenataMusicianRows,
+        serenataOwnerRows,
+        accountRows,
+        accountMembershipRows,
+        monthlyBookingRows,
+        monthlyWhatsappRows,
+    ] = await Promise.all([
         db.select().from(users).orderBy(desc(users.createdAt)),
         db.select().from(userPlatformAccess),
         db.select({
@@ -283,7 +300,41 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
             role: accountUsers.role,
             isDefault: accountUsers.isDefault,
         }).from(accountUsers),
+        db.select({
+            professionalId: agendaAppointments.professionalId,
+            count: sql<number>`count(*)::int`,
+        })
+            .from(agendaAppointments)
+            .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
+            .where(sql`${agendaAppointments.createdAt} >= date_trunc('month', now() AT TIME ZONE COALESCE(${agendaProfessionalProfiles.timezone}, 'America/Santiago')) AT TIME ZONE COALESCE(${agendaProfessionalProfiles.timezone}, 'America/Santiago')`)
+            .groupBy(agendaAppointments.professionalId),
+        db.select({
+            professionalId: agendaNotificationEvents.professionalId,
+            count: sql<number>`count(*)::int`,
+        })
+            .from(agendaNotificationEvents)
+            .innerJoin(agendaProfessionalProfiles, eq(agendaNotificationEvents.professionalId, agendaProfessionalProfiles.id))
+            .where(and(
+                eq(agendaNotificationEvents.channel, 'whatsapp'),
+                eq(agendaNotificationEvents.status, 'sent'),
+                sql`${agendaNotificationEvents.createdAt} >= date_trunc('month', now() AT TIME ZONE COALESCE(${agendaProfessionalProfiles.timezone}, 'America/Santiago')) AT TIME ZONE COALESCE(${agendaProfessionalProfiles.timezone}, 'America/Santiago')`,
+            ))
+            .groupBy(agendaNotificationEvents.professionalId),
     ]);
+
+    const monthlyBookingsByProfile = new Map(monthlyBookingRows.map((row) => [row.professionalId, Number(row.count ?? 0)]));
+    const monthlyWhatsappByProfile = new Map(
+        monthlyWhatsappRows
+            .filter((row): row is { professionalId: string; count: number } => Boolean(row.professionalId))
+            .map((row) => [row.professionalId, Number(row.count ?? 0)]),
+    );
+    const accountMemberKeys = new Set(accountMembershipRows.map((row) => `${row.accountId}:${row.userId}`));
+    const teamAgendasByAccount = new Map<string, number>();
+    for (const profile of agendaProfiles) {
+        if (!profile.accountId) continue;
+        if (!accountMemberKeys.has(`${profile.accountId}:${profile.userId}`)) continue;
+        teamAgendasByAccount.set(profile.accountId, (teamAgendasByAccount.get(profile.accountId) ?? 0) + 1);
+    }
 
     const userIds = userRows.map((user) => user.id);
     const subscriptionRows = userIds.length > 0
@@ -692,6 +743,11 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                         customDomain: (defaultAgendaProfile ?? agendaProfile)!.customDomain ?? null,
                         customDomainStatus: (defaultAgendaProfile ?? agendaProfile)!.customDomainStatus ?? 'none',
                         whatsappExtraCredits: Number((defaultAgendaProfile ?? agendaProfile)!.whatsappExtraCredits ?? 0),
+                        monthlyBookingsUsed: monthlyBookingsByProfile.get((defaultAgendaProfile ?? agendaProfile)!.id) ?? 0,
+                        monthlyWhatsappUsed: monthlyWhatsappByProfile.get((defaultAgendaProfile ?? agendaProfile)!.id) ?? 0,
+                        teamAgendasCount: (defaultAgendaProfile ?? agendaProfile)!.accountId
+                            ? (teamAgendasByAccount.get((defaultAgendaProfile ?? agendaProfile)!.accountId!) ?? 1)
+                            : 1,
                     }
                     : null,
                 realness: buildRealness({

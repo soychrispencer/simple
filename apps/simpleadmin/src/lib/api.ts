@@ -110,6 +110,9 @@ export type AdminUserSnapshot = {
         customDomain: string | null;
         customDomainStatus: string;
         whatsappExtraCredits: number;
+        monthlyBookingsUsed?: number;
+        monthlyWhatsappUsed?: number;
+        teamAgendasCount?: number;
     } | null;
     serenatas?: {
         client: boolean;
@@ -207,6 +210,10 @@ export type AdminOverviewResponse = {
         agendaProfilesTotal: number;
         agendaPaidTotal: number;
         agendaTrialTotal: number;
+        estimatedMrrNetClp: number;
+        agendaMrrMpNetClp: number;
+        agendaPaidBillingUnits: number;
+        agendaPaidMpUnits: number;
         autosListingsTotal: number;
         propiedadesListingsTotal: number;
     };
@@ -439,4 +446,95 @@ export async function updateAdminConversationStatus(
         method: 'PATCH',
         body: JSON.stringify(input),
     });
+}
+
+export type AdminAuditLogItem = {
+    id: string;
+    actorUserId: string;
+    actorName: string | null;
+    actorEmail: string | null;
+    action: string;
+    entityType: string;
+    entityId: string;
+    payload: Record<string, unknown>;
+    createdAt: string | null;
+};
+
+export async function fetchAdminUserAuditLogs(userId: string, limit = 30): Promise<AdminAuditLogItem[]> {
+    const data = await expectOk<{ items?: AdminAuditLogItem[] }>(
+        `/api/admin/users/${encodeURIComponent(userId)}/audit-logs?limit=${encodeURIComponent(String(limit))}`,
+    );
+    return data.items ?? [];
+}
+
+export type AdminWhatsAppLogItem = {
+    id: string;
+    professionalId: string | null;
+    professionalName: string | null;
+    professionalSlug: string | null;
+    professionalUserId: string | null;
+    eventType: string;
+    recipient: string | null;
+    status: 'sent' | 'failed' | 'skipped' | string;
+    errorMessage: string | null;
+    createdAt: string | null;
+};
+
+export type AdminWhatsAppLogsResponse = {
+    summary: {
+        sent7d: number;
+        failed7d: number;
+        skipped7d: number;
+        total7d: number;
+    };
+    items: AdminWhatsAppLogItem[];
+};
+
+export async function fetchAdminWhatsAppLogs(status: 'all' | 'sent' | 'failed' | 'skipped' = 'all', limit = 40): Promise<AdminWhatsAppLogsResponse> {
+    const data = await expectOk<Partial<AdminWhatsAppLogsResponse>>(
+        `/api/admin/whatsapp/logs?status=${encodeURIComponent(status)}&limit=${encodeURIComponent(String(limit))}`,
+    );
+    return {
+        summary: data.summary ?? { sent7d: 0, failed7d: 0, skipped7d: 0, total7d: 0 },
+        items: data.items ?? [],
+    };
+}
+
+export type AdminListingStatus = 'draft' | 'active' | 'published' | 'paused' | 'archived' | 'sold' | 'rented';
+
+export type AdminListingSnapshot = {
+    id: string;
+    title: string;
+    vertical: 'autos' | 'propiedades';
+    section: string;
+    status: AdminListingStatus;
+    ownerId: string;
+    ownerName: string;
+    ownerEmail: string;
+    price: string | null;
+    href: string | null;
+    createdAt: number;
+    updatedAt: number;
+};
+
+export async function fetchAdminListings(): Promise<AdminListingSnapshot[]> {
+    const data = await expectOk<{ items?: AdminListingSnapshot[] }>('/api/admin/listings');
+    return data.items ?? [];
+}
+
+export async function updateAdminListingStatus(
+    listingId: string,
+    status: 'draft' | 'active' | 'paused' | 'sold' | 'archived',
+): Promise<{ id: string; status: AdminListingStatus }> {
+    const data = await expectOk<{ id?: string; status?: AdminListingStatus }>(
+        `/api/admin/listings/${encodeURIComponent(listingId)}/status`,
+        {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+        },
+    );
+    return {
+        id: data.id ?? listingId,
+        status: data.status ?? status,
+    };
 }

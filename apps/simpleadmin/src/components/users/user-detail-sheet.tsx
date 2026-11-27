@@ -16,8 +16,10 @@ import {
 import { ModernSelect } from '@simple/ui';
 import { PanelButton, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
 import {
+    fetchAdminUserAuditLogs,
     updateAdminUser,
     updateAdminUserSubscriptions,
+    type AdminAuditLogItem,
     type AdminUserRole,
     type AdminUserSnapshot,
     type AdminUserStatus,
@@ -77,6 +79,54 @@ function billingSourceLabel(status?: string | null, providerStatus?: string | nu
     if (status === 'active') return `Activo${cycle === 'annual' ? ' (anual)' : ''}`;
     if (status === 'expired') return 'Vencido';
     return 'Gratis';
+}
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+    'user.role.update': 'Cambio de rol',
+    'user.status.update': 'Cambio de estado',
+    'user.profile.update': 'Edición de ficha',
+    'user.subscriptions.update': 'Suscripciones actualizadas',
+    'user.subscription.set_plan': 'Plan asignado manualmente',
+    'user.subscription.cancel_plan': 'Suscripción cancelada',
+    'user.serenatas_profile.update': 'Perfil Serenatas actualizado',
+    'user.email.send': 'Correo enviado',
+    'agenda.subscription.set_plan': 'Plan Agenda asignado',
+    'agenda.subscription.cancel_plan': 'Plan Agenda cancelado',
+    'listing.status.update': 'Estado de publicación modificado',
+};
+
+function formatAuditSummary(item: AdminAuditLogItem): string {
+    const payload = item.payload ?? {};
+    if (item.action === 'user.role.update') {
+        return `${String(payload.previousRole ?? '?')} → ${String(payload.role ?? '?')}`;
+    }
+    if (item.action === 'user.status.update') {
+        return `${String(payload.previousStatus ?? '?')} → ${String(payload.status ?? '?')}`;
+    }
+    if (item.action === 'listing.status.update') {
+        return `${String(payload.title ?? 'Aviso')} · ${String(payload.previousStatus ?? '?')} → ${String(payload.status ?? '?')}`;
+    }
+    if (typeof payload.plan === 'string') return `Plan: ${payload.plan}`;
+    if (typeof payload.planId === 'string') {
+        return `${typeof payload.vertical === 'string' ? `${payload.vertical} · ` : ''}Plan: ${payload.planId}`;
+    }
+    if (typeof payload.subject === 'string') return `Asunto: ${payload.subject}`;
+    if (typeof payload.notes === 'string' && payload.notes) return payload.notes;
+    if (payload.subscriptions && typeof payload.subscriptions === 'object') {
+        return Object.keys(payload.subscriptions as Record<string, unknown>).join(', ') || 'Suscripción actualizada';
+    }
+    if (payload.updates && typeof payload.updates === 'object') {
+        return `Campos: ${Object.keys(payload.updates as Record<string, unknown>).join(', ')}`;
+    }
+    return item.entityType;
+}
+
+function whatsappPlanLimit(plan?: string, status?: string): number {
+    if (status !== 'active') return 0;
+    if (plan === 'enterprise') return 120;
+    if (plan === 'pro_plus') return 80;
+    if (plan === 'pro') return 50;
+    return 0;
 }
 
 function subscriptionFormFor(user: AdminUserSnapshot, accountId: string): SubscriptionForm {
@@ -167,6 +217,29 @@ export function UserDetailSheet({
     const [dirtySerenatas, setDirtySerenatas] = useState<Set<'provider' | 'musician'>>(() => new Set());
     const [savingSubs, setSavingSubs] = useState(false);
     const [subFeedback, setSubFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+    const [auditLogs, setAuditLogs] = useState<AdminAuditLogItem[]>([]);
+    const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+    const [auditLogsError, setAuditLogsError] = useState('');
+
+    useEffect(() => {
+        if (tab !== 'actions') return;
+        let cancelled = false;
+        setLoadingAuditLogs(true);
+        setAuditLogsError('');
+        void fetchAdminUserAuditLogs(user.id)
+            .then((items) => {
+                if (!cancelled) setAuditLogs(items);
+            })
+            .catch((err) => {
+                if (!cancelled) setAuditLogsError(err instanceof Error ? err.message : 'No pudimos cargar el historial.');
+            })
+            .finally(() => {
+                if (!cancelled) setLoadingAuditLogs(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [tab, user]);
 
     // Sync local forms if snapshot updates after save
     useEffect(() => {
@@ -645,6 +718,27 @@ export function UserDetailSheet({
                                                 ? `${user.agendaProfile.customDomain} (${user.agendaProfile.customDomainStatus})`
                                                 : 'Sin dominio'}
                                         />
+                                        <Info
+                                            label="Citas este mes"
+                                            value={user.subscriptions?.agenda?.status === 'active' || user.subscriptions?.agenda?.status === 'trial'
+                                                ? `${user.agendaProfile.monthlyBookingsUsed ?? 0} (sin límite)`
+                                                : `${user.agendaProfile.monthlyBookingsUsed ?? 0} / 30`}
+                                        />
+                                        <Info
+                                            label="WhatsApp este mes"
+                                            value={(() => {
+                                                const used = user.agendaProfile.monthlyWhatsappUsed ?? 0;
+                                                const planLimit = whatsappPlanLimit(user.subscriptions?.agenda?.plan, user.subscriptions?.agenda?.status);
+                                                const extra = user.agendaProfile.whatsappExtraCredits;
+                                                return planLimit > 0
+                                                    ? `${used} / ${planLimit} plan${extra > 0 ? ` (+${extra} extra)` : ''}`
+                                                    : `${used} enviados · ${extra} extra`;
+                                            })()}
+                                        />
+                                        <Info
+                                            label="Agendas en espacio"
+                                            value={String(user.agendaProfile.teamAgendasCount ?? 1)}
+                                        />
                                         <Info label="Créditos extra WA" value={`${user.agendaProfile.whatsappExtraCredits} disponibles`} />
                                     </dl>
                                 </Section>
@@ -870,6 +964,39 @@ export function UserDetailSheet({
                                     </div>
                                 </Section>
                             ) : null}
+
+                            <Section title="Historial administrativo (auditoría)">
+                                {auditLogsError ? (
+                                    <PanelNotice tone="error">{auditLogsError}</PanelNotice>
+                                ) : loadingAuditLogs ? (
+                                    <div className="rounded-2xl border border-[var(--border)] p-4 text-xs text-[var(--fg-muted)]">
+                                        Cargando movimientos registrados...
+                                    </div>
+                                ) : auditLogs.length === 0 ? (
+                                    <div className="rounded-2xl border border-[var(--border)] p-4 text-xs text-[var(--fg-muted)]">
+                                        Aún no hay acciones administrativas registradas para este usuario.
+                                    </div>
+                                ) : (
+                                    <ol className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)]">
+                                        {auditLogs.map((entry) => (
+                                            <li key={entry.id} className="space-y-1 px-4 py-3 text-xs">
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <span className="font-semibold text-[var(--fg)]">
+                                                        {AUDIT_ACTION_LABELS[entry.action] ?? entry.action}
+                                                    </span>
+                                                    <span className="text-[var(--fg-muted)]">
+                                                        {entry.createdAt ? new Date(entry.createdAt).toLocaleString('es-CL') : '—'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[var(--fg-secondary)]">{formatAuditSummary(entry)}</p>
+                                                <p className="text-[11px] text-[var(--fg-muted)]">
+                                                    Por: {entry.actorName || entry.actorEmail || entry.actorUserId}
+                                                </p>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                )}
+                            </Section>
                         </>
                     ) : null}
                 </div>

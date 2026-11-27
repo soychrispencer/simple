@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { AGENDA_PRICING, calculateAgendaTeamsMonthlyNetClp } from '@simple/utils';
 import type { SubscriptionPlanId, AppUser, VerticalType } from '../../lib/domain-types.js';
-import { accountUsers, accounts, publicProfiles, serenataClients, serenataMusicians, serenataOwners } from '../../db/schema.js';
+import { accountUsers, accounts, agendaNotificationEvents, agendaProfessionalProfiles, listings, publicProfiles, serenataClients, serenataMusicians, serenataOwners } from '../../db/schema.js';
+import { listingsById } from '../cache/domain-maps.js';
 import { formatAuthFromAddress, getAuthMailerTransporter } from '../../lib/auth-email.js';
 import { getEmailBrandProfileForVertical, type EmailBrandProfile, type EmailBrandVertical } from '../../lib/email-brand.js';
 import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
@@ -237,6 +239,76 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         return c.json({ ok: true, status: await getWhatsAppPlatformConnectionStatus() });
     });
 
+    app.get('/whatsapp/logs', async (c) => {
+        const adminUser = await deps.authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (adminUser.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede ver envíos de WhatsApp' }, 403);
+
+        const rawStatus = c.req.query('status') ?? 'all';
+        const statusFilter = rawStatus === 'sent' || rawStatus === 'failed' || rawStatus === 'skipped' ? rawStatus : 'all';
+        const rawLimit = Number(c.req.query('limit') ?? 40);
+        const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(100, Math.trunc(rawLimit))) : 40;
+
+        const [summaryRows, logRows] = await Promise.all([
+            deps.db.execute(deps.sql`
+                SELECT
+                    COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_7d,
+                    COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_7d,
+                    COUNT(*) FILTER (WHERE status = 'skipped')::int AS skipped_7d,
+                    COUNT(*)::int AS total_7d
+                FROM agenda_notification_events
+                WHERE channel = 'whatsapp'
+                  AND created_at >= now() - interval '7 days'
+            `),
+            deps.db
+                .select({
+                    id: agendaNotificationEvents.id,
+                    professionalId: agendaNotificationEvents.professionalId,
+                    professionalName: agendaProfessionalProfiles.displayName,
+                    professionalSlug: agendaProfessionalProfiles.slug,
+                    professionalUserId: agendaProfessionalProfiles.userId,
+                    eventType: agendaNotificationEvents.eventType,
+                    recipient: agendaNotificationEvents.recipient,
+                    status: agendaNotificationEvents.status,
+                    errorMessage: agendaNotificationEvents.errorMessage,
+                    createdAt: agendaNotificationEvents.createdAt,
+                })
+                .from(agendaNotificationEvents)
+                .leftJoin(agendaProfessionalProfiles, deps.eq(agendaNotificationEvents.professionalId, agendaProfessionalProfiles.id))
+                .where(statusFilter === 'all'
+                    ? deps.eq(agendaNotificationEvents.channel, 'whatsapp')
+                    : deps.and(
+                        deps.eq(agendaNotificationEvents.channel, 'whatsapp'),
+                        deps.eq(agendaNotificationEvents.status, statusFilter),
+                    ))
+                .orderBy(deps.desc(agendaNotificationEvents.createdAt))
+                .limit(limit),
+        ]);
+
+        const summaryRow = (summaryRows as Array<{ sent_7d?: number; failed_7d?: number; skipped_7d?: number; total_7d?: number }>)[0] ?? {};
+        return c.json({
+            ok: true,
+            summary: {
+                sent7d: Number(summaryRow.sent_7d ?? 0),
+                failed7d: Number(summaryRow.failed_7d ?? 0),
+                skipped7d: Number(summaryRow.skipped_7d ?? 0),
+                total7d: Number(summaryRow.total_7d ?? 0),
+            },
+            items: logRows.map((row: any) => ({
+                id: row.id,
+                professionalId: row.professionalId ?? null,
+                professionalName: row.professionalName ?? null,
+                professionalSlug: row.professionalSlug ?? null,
+                professionalUserId: row.professionalUserId ?? null,
+                eventType: row.eventType,
+                recipient: row.recipient ?? null,
+                status: row.status,
+                errorMessage: row.errorMessage ?? null,
+                createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+            })),
+        });
+    });
+
     app.post('/whatsapp/coexistence/complete', async (c) => {
         const adminUser = await deps.authUser(c);
         if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -290,6 +362,45 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const agendaUsers = adminUsers.filter((u: any) => Boolean(u.agendaProfile || u.subscriptions?.agenda));
         const agendaPaidTotal = agendaUsers.filter((u: any) => u.subscriptions?.agenda?.status === 'active').length;
         const agendaTrialTotal = agendaUsers.filter((u: any) => u.subscriptions?.agenda?.status === 'trial').length;
+
+        const seenAgendaAccounts = new Set<string>();
+        let estimatedMrrNetClp = 0;
+        let agendaMrrMpNetClp = 0;
+        let agendaPaidBillingUnits = 0;
+        let agendaPaidMpUnits = 0;
+        for (const u of agendaUsers as Array<any>) {
+            const sub = u.subscriptions?.agenda;
+            if (!sub || sub.status !== 'active') continue;
+            const defaultAcc = u.accounts?.find((a: any) => a.isDefault) ?? u.accounts?.[0];
+            const billingKey = defaultAcc?.id ?? u.id;
+            if (seenAgendaAccounts.has(billingKey)) continue;
+            seenAgendaAccounts.add(billingKey);
+
+            let monthlyNet = 0;
+            if (sub.plan === 'enterprise') {
+                const seats = Math.max(1, Number(u.agendaProfile?.teamAgendasCount ?? 1));
+                const extraSeats = Math.max(0, seats - AGENDA_PRICING.teamsIncludedProfessionals);
+                monthlyNet = sub.billingCycle === 'annual'
+                    ? AGENDA_PRICING.teamsAnnualMonthlyEquivalentNetClp + extraSeats * AGENDA_PRICING.teamsAdditionalProfessionalNetClp
+                    : calculateAgendaTeamsMonthlyNetClp(seats);
+            } else if (sub.plan === 'pro_plus') {
+                monthlyNet = sub.billingCycle === 'annual'
+                    ? AGENDA_PRICING.proPlusAnnualMonthlyEquivalentNetClp
+                    : AGENDA_PRICING.proPlusMonthlyNetClp;
+            } else if (sub.plan === 'pro') {
+                monthlyNet = sub.billingCycle === 'annual'
+                    ? AGENDA_PRICING.proAnnualMonthlyEquivalentNetClp
+                    : AGENDA_PRICING.proMonthlyNetClp;
+            }
+
+            if (monthlyNet <= 0) continue;
+            estimatedMrrNetClp += monthlyNet;
+            agendaPaidBillingUnits += 1;
+            if (sub.providerStatus !== 'manual') {
+                agendaMrrMpNetClp += monthlyNet;
+                agendaPaidMpUnits += 1;
+            }
+        }
         const withActiveSubscription = adminUsers.filter((u: any) => (
             u.subscriptions?.agenda?.status === 'active'
             || u.subscriptions?.autos?.status === 'active'
@@ -325,6 +436,10 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 agendaProfilesTotal: agendaUsers.length,
                 agendaPaidTotal,
                 agendaTrialTotal,
+                estimatedMrrNetClp,
+                agendaMrrMpNetClp,
+                agendaPaidBillingUnits,
+                agendaPaidMpUnits,
                 autosListingsTotal: autosListings.length,
                 propiedadesListingsTotal: propiedadesListings.length,
             },
@@ -435,6 +550,14 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const updated = await deps.db.update(deps.tables.users).set({ role }).where(deps.eq(deps.tables.users.id, userId)).returning();
         if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
 
+        await createAdminAudit({
+            actorUserId: adminUser.id,
+            action: 'user.role.update',
+            entityType: 'user',
+            entityId: userId,
+            payload: { previousRole: targetUser.role, role },
+        });
+
         const appUser = deps.mapUserRowToAppUser(updated[0]);
         return c.json({ ok: true, item: deps.sanitizeUser(appUser) });
     });
@@ -456,6 +579,14 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         const updated = await deps.db.update(deps.tables.users).set({ status }).where(deps.eq(deps.tables.users.id, userId)).returning();
         if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
+
+        await createAdminAudit({
+            actorUserId: adminUser.id,
+            action: 'user.status.update',
+            entityType: 'user',
+            entityId: userId,
+            payload: { previousStatus: targetUser.status, status },
+        });
 
         const appUser = deps.mapUserRowToAppUser(updated[0]);
         return c.json({ ok: true, item: deps.sanitizeUser(appUser) });
@@ -543,6 +674,14 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         const updated = await deps.db.update(deps.tables.users).set(updates).where(deps.eq(deps.tables.users.id, userId)).returning();
         if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
+
+        await createAdminAudit({
+            actorUserId: adminUser.id,
+            action: 'user.profile.update',
+            entityType: 'user',
+            entityId: userId,
+            payload: { updates },
+        });
 
         const appUser = deps.mapUserRowToAppUser(updated[0]);
         return c.json({ ok: true, item: deps.sanitizeUser(appUser) });
@@ -1427,6 +1566,52 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         });
     });
 
+    app.get('/users/:id/audit-logs', async (c) => {
+        const adminUser = await deps.authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
+
+        const userId = (c.req.param('id') ?? '').trim();
+        if (!userId) return c.json({ ok: false, error: 'Usuario inválido' }, 400);
+
+        const rawLimit = Number(c.req.query('limit') ?? 30);
+        const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(100, Math.trunc(rawLimit))) : 30;
+
+        const rows = await deps.db.execute(deps.sql`
+            SELECT
+                a.id,
+                a.actor_user_id,
+                u.name AS actor_name,
+                u.email AS actor_email,
+                a.action,
+                a.entity_type,
+                a.entity_id,
+                a.payload,
+                a.created_at
+            FROM admin_audit_logs a
+            LEFT JOIN users u ON u.id = a.actor_user_id
+            WHERE (a.entity_type = 'user' AND a.entity_id = ${userId})
+               OR (a.payload->>'userId' = ${userId})
+            ORDER BY a.created_at DESC
+            LIMIT ${limit}
+        `);
+
+        return c.json({
+            ok: true,
+            items: (rows as any[]).map((row) => ({
+                id: row.id,
+                actorUserId: row.actor_user_id,
+                actorName: row.actor_name ?? null,
+                actorEmail: row.actor_email ?? null,
+                action: row.action,
+                entityType: row.entity_type,
+                entityId: row.entity_id,
+                payload: row.payload ?? {},
+                createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+            })),
+        });
+    });
+
     // ── Listings ──────────────────────────────────────────────────────────────
 
     app.get('/listings', async (c) => {
@@ -1436,6 +1621,68 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const scopedVertical = adminUser.role === 'superadmin' ? null : (adminUser.primaryVertical ?? null);
         const items = await deps.listAdminListingsSnapshot(scopedVertical);
         return c.json({ ok: true, items });
+    });
+
+    app.patch('/listings/:id/status', async (c) => {
+        const adminUser = await deps.authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
+
+        const listingId = (c.req.param('id') ?? '').trim();
+        if (!listingId) return c.json({ ok: false, error: 'Publicación inválida' }, 400);
+
+        const payload = await c.req.json().catch(() => null);
+        const parsed = z.object({
+            status: z.enum(['draft', 'active', 'paused', 'sold', 'archived']),
+        }).safeParse(payload);
+        if (!parsed.success) {
+            return c.json({ ok: false, error: 'Estado inválido. Usa draft, active, paused, sold o archived.' }, 400);
+        }
+
+        const [existing] = await deps.db.select({
+            id: listings.id,
+            ownerId: listings.ownerId,
+            vertical: listings.vertical,
+            title: listings.title,
+            status: listings.status,
+        }).from(listings).where(deps.eq(listings.id, listingId)).limit(1);
+
+        if (!existing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+        if (adminUser.role !== 'superadmin' && adminUser.primaryVertical && existing.vertical !== adminUser.primaryVertical) {
+            return c.json({ ok: false, error: 'No tienes permiso sobre publicaciones de esta vertical' }, 403);
+        }
+
+        const nextStatus = parsed.data.status;
+        if (existing.status === nextStatus) {
+            return c.json({ ok: true, id: listingId, status: nextStatus });
+        }
+
+        const updatedAt = new Date();
+        await deps.db.update(listings)
+            .set({ status: nextStatus, updatedAt })
+            .where(deps.eq(listings.id, listingId));
+
+        const cached = listingsById.get(listingId);
+        if (cached) {
+            cached.status = nextStatus;
+            cached.updatedAt = updatedAt.getTime();
+        }
+
+        await createAdminAudit({
+            actorUserId: adminUser.id,
+            action: 'listing.status.update',
+            entityType: 'listing',
+            entityId: listingId,
+            payload: {
+                userId: existing.ownerId,
+                title: existing.title,
+                vertical: existing.vertical,
+                previousStatus: existing.status,
+                status: nextStatus,
+            },
+        });
+
+        return c.json({ ok: true, id: listingId, status: nextStatus, updatedAt: updatedAt.getTime() });
     });
 
     // ── Subscriptions (superadmin) ────────────────────────────────────────────
@@ -1471,6 +1718,13 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 expiresAt: parsedExpiry,
             });
             deps.cancelActiveSubscriptionForUser?.(userId, v, accountId);
+            await createAdminAudit({
+                actorUserId: admin.id,
+                action: 'user.subscription.set_plan',
+                entityType: 'user',
+                entityId: userId,
+                payload: { vertical: v, planId: 'free', accountId, expiresAt: parsedExpiry.toISOString() },
+            });
             return c.json({ ok: true, planId: 'free' });
         }
 
@@ -1502,6 +1756,13 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             updatedAt: Date.now(),
         };
         deps.upsertActiveSubscription(sub);
+        await createAdminAudit({
+            actorUserId: admin.id,
+            action: 'user.subscription.set_plan',
+            entityType: 'user',
+            entityId: userId,
+            payload: { vertical: v, planId: plan.id, accountId, expiresAt: parsedExpiry.toISOString() },
+        });
         return c.json({ ok: true, planId, expiresAt: parsedExpiry.toISOString() });
     });
 
@@ -1527,6 +1788,13 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             status: 'cancelled',
         });
         deps.cancelActiveSubscriptionForUser?.(body.userId, v, accountId);
+        await createAdminAudit({
+            actorUserId: admin.id,
+            action: 'user.subscription.cancel_plan',
+            entityType: 'user',
+            entityId: body.userId,
+            payload: { vertical: v, accountId },
+        });
         return c.json({ ok: true });
     });
 

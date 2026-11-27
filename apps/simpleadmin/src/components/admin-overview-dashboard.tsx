@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { IconClock, IconCreditCard, IconRefresh, IconUserCheck, IconUsers } from '@tabler/icons-react';
+import { IconClock, IconCoin, IconCreditCard, IconRefresh, IconUserCheck, IconUsers } from '@tabler/icons-react';
 import {
     PanelButton,
     PanelCard,
@@ -48,7 +48,7 @@ export function AdminOverviewDashboard() {
                 <SkeletonList count={4} />
             ) : data ? (
                 <div className="space-y-6">
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                         <PanelStatCard
                             label="Usuarios totales"
                             value={String(data.stats.usersTotal)}
@@ -60,6 +60,12 @@ export function AdminOverviewDashboard() {
                             value={String(data.stats.withActiveSubscription)}
                             meta="En todo el ecosistema"
                             icon={<IconCreditCard size={17} />}
+                        />
+                        <PanelStatCard
+                            label="MRR estimado Agenda"
+                            value={`$${(data.stats.estimatedMrrNetClp ?? 0).toLocaleString('es-CL')}`}
+                            meta={`${data.stats.agendaPaidBillingUnits ?? 0} pagas · $${(data.stats.agendaMrrMpNetClp ?? 0).toLocaleString('es-CL')} MP (+ IVA)`}
+                            icon={<IconCoin size={17} />}
                         />
                         <PanelStatCard
                             label="SimpleAgenda"
