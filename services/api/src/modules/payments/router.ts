@@ -1182,8 +1182,8 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         : 'El plan Empresa está disponible para espacios configurados como inmobiliaria o empresa.',
                 }, 403);
             }
-            if (billingCycle === 'annual' && (vertical !== 'agenda' || (plan.id !== 'pro' && plan.id !== 'pro_plus'))) {
-                return c.json({ ok: false, error: 'La facturación anual solo está disponible para Pro y Pro+ de SimpleAgenda.' }, 400);
+            if (billingCycle === 'annual' && (vertical !== 'agenda' || !['pro', 'pro_plus', 'enterprise'].includes(plan.id))) {
+                return c.json({ ok: false, error: 'La facturación anual solo está disponible para los planes pagados de SimpleAgenda.' }, 400);
             }
             let subscriptionAlreadyActive = false;
             try {

@@ -244,7 +244,7 @@ export default function ClientesPage() {
                         className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-(--accent-ink) hover:underline"
                     >
                         <IconTag size={13} />
-                        Reactivar {vocab.clients} · Pro+
+                        Reactivar {vocab.clients} · Pro
                     </Link>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

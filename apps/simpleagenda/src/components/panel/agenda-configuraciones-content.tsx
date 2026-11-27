@@ -348,7 +348,7 @@ export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'a
                                 </div>
                             ) : (
                                 <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                    Tu plan actual incluye recordatorios automáticos por email y envío manual por wa.me. Activa Pro (30/mes) o Pro+ (80/mes) para envíos automáticos por WhatsApp.
+                                    Tu plan actual incluye recordatorios automáticos por email y envío manual por wa.me. Activa Pro (50/mes) o Negocios (120/mes) para envíos automáticos por WhatsApp.
                                 </p>
                             )}
                         </section>
@@ -384,7 +384,7 @@ export function AgendaConfiguracionesContent({ section = 'all' }: { section?: 'a
                                     vertical="agenda"
                                     description="Cobros online con tarjeta o débito en tu cuenta de MercadoPago. Sin comisión de Simple."
                                     subscriptionHref="/panel/mi-negocio/plan"
-                                    lockedHint="Disponible con Pro, Pro+ o una prueba activa."
+                                    lockedHint="Disponible con Pro, Negocios o una prueba activa."
                                     onConnectionChange={setMpConnected}
                                     extraControl={(
                                         <PanelSwitch

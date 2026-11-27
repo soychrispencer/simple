@@ -163,15 +163,15 @@ export default function ReactivarClientesPage() {
                     <span className="inline-flex size-12 items-center justify-center rounded-xl bg-(--accent-subtle) text-(--accent-ink)">
                         <IconSparkles size={24} />
                     </span>
-                    <h1 className="mt-4 text-2xl font-bold text-(--fg)">Reactivación de clientes · Pro+</h1>
+                    <h1 className="mt-4 text-2xl font-bold text-(--fg)">Reactivación de clientes · Pro</h1>
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-(--fg-secondary)">
                         Encuentra clientes que llevan 30, 60 o 90 días sin una atención y prepara un mensaje personal para WhatsApp o correo. Revisas y envías cada mensaje.
                     </p>
                     <p className="mt-3 text-sm font-semibold text-(--fg)">
-                        {'Desde $' + AGENDA_PRICING.proPlusMonthlyNetClp.toLocaleString('es-CL') + ' + IVA al mes'}
+                        {'Desde $' + AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL') + ' + IVA al mes'}
                     </p>
                     <Link href="/panel/mi-negocio/plan" className="agenda-button agenda-button--signal mt-5 inline-flex min-h-11 items-center justify-center px-5">
-                        Ver y contratar Pro+
+                        Ver y contratar Pro
                     </Link>
                 </section>
             </div>
@@ -195,7 +195,7 @@ export default function ReactivarClientesPage() {
             <header className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-(--accent-ink)">
-                        <IconSparkles size={15} /> Incluido en Pro+
+                        <IconSparkles size={15} /> Incluido en Pro
                     </p>
                     <h1 className="mt-2 text-2xl font-bold text-(--fg) sm:text-3xl">Reactivar clientes</h1>
                     <p className="mt-1 max-w-xl text-sm leading-relaxed text-(--fg-secondary)">

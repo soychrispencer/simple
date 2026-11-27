@@ -560,7 +560,7 @@ export function SubscriptionManager({
                         : currentPlanId === 'pro_plus'
                             ? 'Tu plan Pro+'
                             : currentPlanId === 'enterprise'
-                                ? 'Tu plan Enterprise'
+                                ? (agendaBilling ? 'Tu plan Negocios' : 'Tu plan Enterprise')
                                 : marketplaceIndividual ? 'Plan particular' : 'Elige tu plan'}
                     description={
                         currentPlanId === 'pro' || currentPlanId === 'pro_plus' || currentPlanId === 'enterprise'
@@ -570,7 +570,7 @@ export function SubscriptionManager({
                                 : canSelfServeEnterprise
                                     ? 'Elige la capacidad que necesita la cartera y el equipo de este espacio. El plan se comparte entre sus integrantes.'
                                 : agendaBilling
-                                ? 'Elige Pro o Pro+ con pago mensual o anual y cancela cuando quieras.'
+                                ? 'Elige Pro o Negocios con pago mensual o anual y cancela cuando quieras.'
                                 : marketplaceMode
                                     ? 'Pro reúne las herramientas profesionales para administrar tus publicaciones y oportunidades en un solo espacio.'
                                     : 'Un plan con todo incluido. Facturación mensual y cancelación cuando quieras.'

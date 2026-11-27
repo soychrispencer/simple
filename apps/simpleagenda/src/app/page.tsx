@@ -17,8 +17,8 @@ const questions = [
     ['¿Cómo funciona la prueba Pro?', `Todas las cuentas empiezan en Gratis. Puedes activar una prueba Pro de ${AGENDA_PRICING.trialDays} días desde tu panel cuando quieras. Empieza al activarla, una vez por espacio de trabajo, sin tarjeta ni cobro automático. Al terminar, sigues en Gratis.`],
     ['¿Qué incluye el plan Gratis?', `Puedes recibir hasta ${AGENDA_PRICING.free.monthlyBookings} citas nuevas al mes. Las canceladas también cuentan. Tu perfil público y tus datos se mantienen sin límite de tiempo.`],
     ['¿Cómo reservan mis clientes?', 'Abren tu enlace, eligen un servicio y una hora disponible y completan sus datos. Tu agenda confirma automáticamente por defecto. Si pides un anticipo o prefieres aprobar a mano, verán el estado de su cita.'],
-    ['¿Cómo puedo cobrar por una cita?', 'Con Pro o Pro+ puedes conectar Mercado Pago. También puedes compartir instrucciones de transferencia o un enlace de pago desde tu agenda. SimpleAgenda no cobra comisión por cita. El proveedor de pago puede aplicar sus propias tarifas.'],
-    ['¿Cómo se envían los recordatorios?', 'Los recordatorios automáticos llegan por correo cuando tu cliente deja su email. En Agenda puedes abrir un mensaje listo en WhatsApp y enviarlo tú. Con Pro+ puedes además preparar mensajes para clientes que llevan 30, 60 o 90 días sin una atención.'],
+    ['¿Cómo puedo cobrar por una cita?', 'Con Pro o Negocios puedes conectar Mercado Pago. También puedes compartir instrucciones de transferencia o un enlace de pago desde tu agenda. SimpleAgenda no cobra comisión por cita. El proveedor de pago puede aplicar sus propias tarifas.'],
+    ['¿Cómo se envían los recordatorios?', 'Los recordatorios automáticos llegan por correo cuando tu cliente deja su email y por WhatsApp automático según la cuota de tu plan. En Agenda también puedes abrir un mensaje listo en WhatsApp y enviarlo tú. Con Pro puedes además preparar mensajes para clientes que llevan 30, 60 o 90 días sin una atención.'],
 ];
 
 const businessQuoteMessage = 'Hola, quiero cotizar el plan Empresa de SimpleAgenda. Somos ___ profesionales y tenemos ___ sucursales.';

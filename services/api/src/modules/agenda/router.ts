@@ -166,7 +166,7 @@ type PreconsultFieldType = 'text' | 'textarea' | 'select' | 'checkbox' | 'number
 type PreconsultField = { id: string; label: string; type: PreconsultFieldType; required: boolean; placeholder?: string; options?: string[] };
 
 const AGENDA_PRO_REQUIRED_MESSAGE = `Esta función está incluida en Pro (${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes).`;
-const AGENDA_PRO_PLUS_REQUIRED_MESSAGE = `El dominio propio está incluido en Pro+ (${AGENDA_PRICING.proPlusMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes).`;
+const AGENDA_PRO_PLUS_REQUIRED_MESSAGE = `El dominio propio está incluido en Pro (${AGENDA_PRICING.proMonthlyNetClp.toLocaleString('es-CL')} + IVA al mes).`;
 
 function matchesLandingRevision(config: OperatorSiteLandingConfig, revision: string | null | undefined): boolean {
     return revision === undefined || revision === (config.draftRevision ?? null);

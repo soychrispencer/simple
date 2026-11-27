@@ -191,17 +191,17 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                                 <h2 className="text-sm font-medium text-fg">Dominio propio</h2>
-                                <PanelStatusBadge label="Pro+" tone="info" size="sm" />
+                                <PanelStatusBadge label="Pro" tone="info" size="sm" />
                             </div>
                             <p className="mt-0.5 text-xs text-fg-secondary">
                                 Conecta tu propia URL (ej. <span className="font-medium text-fg">reservas.tunegocio.cl</span>) con SSL automático.
                             </p>
                         </div>
                         <Link
-                            href="/panel/mi-negocio/plan?plan=pro_plus"
+                            href="/panel/mi-negocio/plan?plan=pro"
                             className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl bg-(--accent) px-3.5 text-xs font-semibold text-(--accent-contrast) hover:opacity-90"
                         >
-                            Mejorar a Pro+ <IconArrowRight size={14} aria-hidden="true" />
+                            Mejorar a Pro <IconArrowRight size={14} aria-hidden="true" />
                         </Link>
                     </div>
                 ) : (
@@ -209,7 +209,7 @@ export function AgendaCustomDomainCard({ profile }: { profile: AgendaProfile }) 
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex flex-wrap items-center gap-2">
                                 <h2 className="text-sm font-medium text-fg">Dominio propio</h2>
-                                <PanelStatusBadge label="Pro+" tone="info" size="sm" />
+                                <PanelStatusBadge label="Pro" tone="info" size="sm" />
                             </div>
                             {badge}
                         </div>
