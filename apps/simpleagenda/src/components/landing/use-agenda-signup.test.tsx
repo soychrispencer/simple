@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatAgendaProPlusAnnualTotalPrice } from '@simple/utils';
+import { formatAgendaTeamsAnnualTotalPrice } from '@simple/utils';
 import { useAgendaSignup } from './use-agenda-signup';
 
 const mocks = vi.hoisted(() => ({
@@ -24,11 +24,11 @@ describe('continuing from an Agenda plan on the landing', () => {
 
     it('keeps the paid plan and cycle through registration', () => {
         const { result } = renderHook(() => useAgendaSignup());
-        result.current.startPlan('pro_plus', 'annual');
+        result.current.startPlan('enterprise', 'annual');
 
         expect(mocks.openAuth).toHaveBeenCalledWith('register', {
-            returnTo: '/panel/mi-negocio/plan?plan=pro_plus&billingCycle=annual',
-            contextLabel: `Pro+ anual · ${formatAgendaProPlusAnnualTotalPrice()}`,
+            returnTo: '/panel/mi-negocio/plan?plan=enterprise&billingCycle=annual',
+            contextLabel: `Negocios anual · ${formatAgendaTeamsAnnualTotalPrice()}`,
         });
         expect(mocks.push).not.toHaveBeenCalled();
     });

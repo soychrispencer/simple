@@ -23,7 +23,7 @@ export const AGENDA_PRICING = {
         monthlyWhatsappReminders: 0,
     },
     pro: {
-        monthlyWhatsappReminders: 30,
+        monthlyWhatsappReminders: 50,
     },
     proPlus: {
         monthlyWhatsappReminders: 80,
@@ -51,14 +51,13 @@ export const AGENDA_PLAN_CATALOG = {
         name: 'Pro',
         availability: 'available',
         priceMonthlyNetClp: AGENDA_PRICING.proMonthlyNetClp,
-        description: 'Todo lo necesario para gestionar una agenda profesional completa.',
+        description: 'Todo lo necesario para gestionar una agenda profesional completa, sin límites.',
         features: [
             'Citas, servicios y ubicaciones sin límites de uso',
-            'Página pública personalizable: portada, estilos visuales y colores de marca',
+            'Página pública personalizable + dominio propio (ej. reservas.tunegocio.cl)',
             `${AGENDA_PRICING.pro.monthlyWhatsappReminders} recordatorios automáticos por WhatsApp al mes + email ilimitado`,
-            'Finanzas y control de cobros',
-            'Packs, promociones y agenda avanzada',
-            'Estadísticas, NPS y referidos',
+            'Finanzas, Mercado Pago, packs, promociones y comprobantes PDF',
+            'Estadísticas, reseñas verificadas (1–5★), referidos y reactivación de clientes',
             'Integraciones disponibles y 0% de comisión de SimpleAgenda por cita',
         ],
     },
@@ -80,15 +79,15 @@ export const AGENDA_PLAN_CATALOG = {
     },
     business: {
         id: 'enterprise',
-        name: 'Equipos / Centros',
+        name: 'Negocios',
         availability: 'available',
         priceMonthlyNetClp: 34_990,
         description: 'Para clínicas, centros y estudios con varios especialistas bajo una misma página pública de reservas.',
         features: [
-            '3 profesionales incluidos (agendas y horarios independientes)',
-            'Cada profesional adicional: +$4.990 + IVA / mes (hasta 20)',
-            'Página pública única con selector de profesional y dominio propio',
-            '120 recordatorios automáticos por WhatsApp al mes + roles de recepción',
+            'Todo lo incluido en Pro para cada profesional del centro',
+            '3 profesionales incluidos (+$4.990 + IVA/mes por adicional, hasta 20)',
+            'Página pública única con selector de profesional y primer disponible',
+            `${AGENDA_PRICING.teamsMonthlyWhatsappReminders} recordatorios automáticos por WhatsApp al mes + roles de recepción`,
         ],
     },
 } as const;
@@ -112,6 +111,14 @@ export function calculateAgendaTeamsMonthlyNetClp(activeSeats: number): number {
 
 export function formatAgendaProAnnualTotalPrice(): string {
     return `$${AGENDA_PRICING.proAnnualTotalNetClp.toLocaleString('es-CL')} + IVA / año`;
+}
+
+export function formatAgendaTeamsMonthlyPrice(): string {
+    return `$${AGENDA_PRICING.teamsMonthlyNetClp.toLocaleString('es-CL')} + IVA / mes`;
+}
+
+export function formatAgendaTeamsAnnualTotalPrice(): string {
+    return `$${AGENDA_PRICING.teamsAnnualTotalNetClp.toLocaleString('es-CL')} + IVA / año`;
 }
 
 export function formatAgendaProPlusAnnualMonthlyPrice(): string {

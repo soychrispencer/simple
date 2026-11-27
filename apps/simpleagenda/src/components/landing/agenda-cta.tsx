@@ -19,7 +19,7 @@ export function AgendaCta({ location, className }: AgendaCtaProps) {
 }
 
 type PlanCtaProps = {
-    plan: 'pro' | 'pro_plus' | 'gratis';
+    plan: 'pro' | 'enterprise' | 'gratis';
     billingCycle?: 'monthly' | 'annual';
     className?: string;
 };
@@ -29,8 +29,8 @@ export function PlanCta({ plan, billingCycle = 'monthly', className }: PlanCtaPr
     const { label, startPlan } = useAgendaSignup();
     const text = plan === 'pro'
         ? `Contratar Pro${billingCycle === 'annual' ? ' anual' : ''}`
-        : plan === 'pro_plus'
-            ? `Contratar Pro+${billingCycle === 'annual' ? ' anual' : ''}`
+        : plan === 'enterprise'
+            ? `Contratar Negocios${billingCycle === 'annual' ? ' anual' : ''}`
             : label;
 
     return (

@@ -2,14 +2,19 @@
 
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@simple/auth';
-import { formatAgendaProAnnualTotalPrice, formatAgendaProMonthlyPrice, formatAgendaProPlusAnnualTotalPrice, formatAgendaProPlusMonthlyPrice } from '@simple/utils';
+import {
+    formatAgendaProAnnualTotalPrice,
+    formatAgendaProMonthlyPrice,
+    formatAgendaTeamsAnnualTotalPrice,
+    formatAgendaTeamsMonthlyPrice,
+} from '@simple/utils';
 import { track } from '@/lib/analytics';
 
 export type AgendaCtaLocation = 'hero' | 'cierre' | 'demo' | 'sticky';
 
 const paidPlans = {
     pro: { label: 'Pro', monthly: formatAgendaProMonthlyPrice, annual: formatAgendaProAnnualTotalPrice },
-    pro_plus: { label: 'Pro+', monthly: formatAgendaProPlusMonthlyPrice, annual: formatAgendaProPlusAnnualTotalPrice },
+    enterprise: { label: 'Negocios', monthly: formatAgendaTeamsMonthlyPrice, annual: formatAgendaTeamsAnnualTotalPrice },
 };
 
 /**
@@ -32,7 +37,7 @@ export function useAgendaSignup() {
         openAuth('register');
     };
 
-    const startPlan = (plan: 'pro' | 'pro_plus' | 'gratis', billingCycle: 'monthly' | 'annual' = 'monthly') => {
+    const startPlan = (plan: 'pro' | 'enterprise' | 'gratis', billingCycle: 'monthly' | 'annual' = 'monthly') => {
         track('landing_cta_click', { location: `plan_${plan}`, loggedIn: isLoggedIn, billingCycle: plan === 'gratis' ? undefined : billingCycle });
 
         if (plan === 'gratis') {

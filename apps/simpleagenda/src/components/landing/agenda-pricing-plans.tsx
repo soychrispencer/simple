@@ -6,7 +6,6 @@ import {
     AGENDA_PLAN_CATALOG,
     AGENDA_PRICING,
     formatAgendaProAnnualMonthlyPrice,
-    formatAgendaProPlusAnnualMonthlyPrice,
 } from '@simple/utils';
 import { PlanCta } from './agenda-cta';
 
@@ -28,7 +27,7 @@ export function AgendaPricingPlans() {
             features: [
                 AGENDA_PLAN_CATALOG.free.features[1],
                 'Enlace de reservas, agenda y ficha de clientes',
-                'Confirmaciones y recordatorios por correo',
+                'Confirmaciones y recordatorios por correo + wa.me manual',
             ],
             action: 'gratis' as const,
         },
@@ -38,37 +37,37 @@ export function AgendaPricingPlans() {
             price: annual ? `$${AGENDA_PRICING.proAnnualTotalNetClp.toLocaleString('es-CL')}` : `$${AGENDA_PLAN_CATALOG.pro.priceMonthlyNetClp.toLocaleString('es-CL')}`,
             priceDetail: annual ? '+ IVA / año' : '+ IVA / mes',
             annualDetail: annual ? `Equivale a aprox. ${formatAgendaProAnnualMonthlyPrice()}` : null,
-            description: 'Personaliza tu página con la marca de tu negocio y accede a funciones avanzadas de gestión.',
-            lead: 'Citas, servicios y ubicaciones sin límites de uso',
+            description: 'Todo incluido para 1 profesional: tu web con dominio propio, cobros y WhatsApp automático.',
+            lead: 'Citas, servicios y ubicaciones sin límites',
             features: [
                 AGENDA_PLAN_CATALOG.pro.features[1],
+                AGENDA_PLAN_CATALOG.pro.features[2],
                 AGENDA_PLAN_CATALOG.pro.features[3],
-                'Agenda avanzada, packs, promociones, estadísticas, NPS y referidos',
+                AGENDA_PLAN_CATALOG.pro.features[4],
             ],
             action: 'pro' as const,
         },
         {
-            id: 'pro-plus',
-            name: AGENDA_PLAN_CATALOG.proPlus.name,
-            price: annual ? `$${AGENDA_PRICING.proPlusAnnualTotalNetClp.toLocaleString('es-CL')}` : `$${AGENDA_PRICING.proPlusMonthlyNetClp.toLocaleString('es-CL')}`,
+            id: 'enterprise',
+            name: AGENDA_PLAN_CATALOG.business.name,
+            price: annual ? `$${AGENDA_PRICING.teamsAnnualTotalNetClp.toLocaleString('es-CL')}` : `$${AGENDA_PRICING.teamsMonthlyNetClp.toLocaleString('es-CL')}`,
             priceDetail: annual ? '+ IVA / año' : '+ IVA / mes',
-            annualDetail: annual ? `Equivale a aprox. ${formatAgendaProPlusAnnualMonthlyPrice()}` : null,
-            description: 'Detecta quién lleva tiempo sin reservar y prepara mensajes que revisas y envías tú.',
-            lead: AGENDA_PLAN_CATALOG.proPlus.features[0],
+            annualDetail: annual ? `Equivale a aprox. $${AGENDA_PRICING.teamsAnnualMonthlyEquivalentNetClp.toLocaleString('es-CL')} + IVA / mes` : null,
+            description: AGENDA_PLAN_CATALOG.business.description,
+            lead: AGENDA_PLAN_CATALOG.business.features[0],
             features: [
-                AGENDA_PLAN_CATALOG.proPlus.features[1],
-                AGENDA_PLAN_CATALOG.proPlus.features[2],
-                AGENDA_PLAN_CATALOG.proPlus.features[3],
-                'Mensajes individuales para WhatsApp o correo; tú eliges a quién contactar y los envías',
+                AGENDA_PLAN_CATALOG.business.features[1],
+                AGENDA_PLAN_CATALOG.business.features[2],
+                AGENDA_PLAN_CATALOG.business.features[3],
             ],
-            action: 'pro_plus' as const,
+            action: 'enterprise' as const,
         },
     ];
 
     return (
         <>
             <div className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-medium text-[var(--fg-secondary)]">Elige cómo pagar Pro y Pro+</p>
+                <p className="text-sm font-medium text-[var(--fg-secondary)]">Elige cómo pagar Pro y Negocios</p>
                 <div className="inline-flex w-full rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-1 sm:w-auto" role="group" aria-label="Frecuencia de pago">
                     <button
                         type="button"

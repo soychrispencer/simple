@@ -84,33 +84,16 @@ export default function HomePage() {
                         <section className="agenda-company mt-6">
                             <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
                                 <div>
-                                    <p className="agenda-eyebrow mb-2">Para clínicas, centros y equipos</p>
-                                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                                        <h3 className="text-xl font-bold">{AGENDA_PLAN_CATALOG.business.name}</h3>
-                                        <span className="text-lg font-extrabold">
-                                            ${AGENDA_PRICING.teamsMonthlyNetClp.toLocaleString('es-CL')}
-                                        </span>
-                                        <span className="text-xs font-medium text-[var(--fg-secondary)]">
-                                            + IVA / mes · {AGENDA_PRICING.teamsIncludedProfessionals} profesionales incluidos
-                                        </span>
-                                    </div>
-                                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--fg-secondary)]">{AGENDA_PLAN_CATALOG.business.description}</p>
-                                    <ul className="mt-4 grid gap-2 text-sm text-[var(--fg-secondary)] sm:grid-cols-2">
-                                        {AGENDA_PLAN_CATALOG.business.features.map((feature) => (
-                                            <li key={feature} className="flex items-start gap-2">
-                                                <IconCheck size={15} className="mt-0.5 shrink-0 text-[var(--agenda-lime)]" stroke={2.5} />
-                                                <span>{feature}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    <p className="agenda-eyebrow mb-2">¿Más de {AGENDA_PRICING.teamsMaxProfessionals} profesionales o multi-sucursal?</p>
+                                    <h3 className="text-xl font-bold">Plan a medida para clínicas grandes</h3>
+                                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--fg-secondary)]">
+                                        Si tu organización supera los {AGENDA_PRICING.teamsMaxProfessionals} profesionales o necesita flujos y sucursales a medida, te armamos una propuesta directa.
+                                    </p>
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <Link href="/panel/mi-negocio/plan" className="agenda-button inline-flex min-h-11 items-center justify-center gap-2 px-5">
-                                        Elegir Equipos
-                                    </Link>
-                                    <a href={businessWhatsAppHref} target="_blank" rel="noopener noreferrer" className="agenda-button agenda-button--secondary inline-flex min-h-11 items-center justify-center gap-2 px-5 text-xs">
-                                        <IconBrandWhatsapp size={16} aria-hidden="true" />
-                                        ¿Más de {AGENDA_PRICING.teamsMaxProfessionals}? Cotizar
+                                    <a href={businessWhatsAppHref} target="_blank" rel="noopener noreferrer" className="agenda-button agenda-button--secondary inline-flex min-h-11 items-center justify-center gap-2 px-5">
+                                        <IconBrandWhatsapp size={17} aria-hidden="true" />
+                                        Cotizar por WhatsApp
                                     </a>
                                 </div>
                             </div>

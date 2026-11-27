@@ -50,9 +50,9 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Profesionales y agendas de equipo',
-                free: 'Una agenda',
-                pro: 'Una agenda',
-                proPlus: 'Una agenda',
+                free: '1 profesional',
+                pro: '1 profesional',
+                proPlus: '3 incluidos (+$4.990 c/u hasta 20)',
             },
         ],
     },
@@ -135,10 +135,10 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
             },
             {
                 name: 'Envíos automáticos por WhatsApp',
-                description: 'Recordatorio automático 24 horas antes con botón de confirmación y respaldo gratis por email y wa.me al completar tu cuota.',
+                description: 'Recordatorio automático 24 horas antes con botón de confirmación y respaldo gratis por email y wa.me al completar tu cuota. Recarga opcional +100 por $3.990 + IVA.',
                 free: false,
                 pro: `${AGENDA_PRICING.pro.monthlyWhatsappReminders} al mes`,
-                proPlus: `${AGENDA_PRICING.proPlus.monthlyWhatsappReminders} al mes`,
+                proPlus: `${AGENDA_PRICING.teamsMonthlyWhatsappReminders} al mes`,
             },
             {
                 name: 'Seguimiento automático después de la cita',
@@ -217,7 +217,7 @@ const COMPARISON_CATEGORIES: ComparisonCategory[] = [
                 name: 'Clientes inactivos y reactivación',
                 description: 'Filtra por última atención (30, 60 o 90 días) y prepara mensajes individuales. Tú los envías.',
                 free: false,
-                pro: false,
+                pro: true,
                 proPlus: true,
             },
         ],
@@ -296,7 +296,7 @@ export function PlanComparisonTable() {
                             <th scope="col" className="w-[29%] px-4 py-3">Función</th>
                             <th scope="col" className="w-[23.67%] px-2 py-3 text-center">Gratis</th>
                             <th scope="col" className="agenda-comparison-highlight w-[23.67%] bg-[var(--agenda-tint)] px-2 py-3 text-center">Pro</th>
-                            <th scope="col" className="w-[23.66%] px-2 py-3 text-center">Pro+</th>
+                            <th scope="col" className="w-[23.66%] px-2 py-3 text-center">Negocios</th>
                         </tr>
                     </thead>
                     {COMPARISON_CATEGORIES.map((category) => (

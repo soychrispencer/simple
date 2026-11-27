@@ -109,9 +109,7 @@ export function hasAgendaProPlusAccess(
     profile: { plan: string; planExpiresAt: Date | null },
 ): boolean {
     if (isPlatformLaunchActive('agenda')) return true;
-    const plan = normalizeAgendaBillingPlan(profile.plan);
-    if (plan !== 'pro_plus' && plan !== 'enterprise') return false;
-    return !profile.planExpiresAt || profile.planExpiresAt.getTime() >= Date.now();
+    return isAgendaProActive(profile);
 }
 
 /** Baja el plan del espacio asociado al perfil sin afectar otros espacios del usuario. */
