@@ -287,15 +287,49 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         const autosListings = adminListings.filter((item: any) => item.vertical === 'autos');
         const propiedadesListings = adminListings.filter((item: any) => item.vertical === 'propiedades');
+        const agendaUsers = adminUsers.filter((u: any) => Boolean(u.agendaProfile || u.subscriptions?.agenda));
+        const agendaPaidTotal = agendaUsers.filter((u: any) => u.subscriptions?.agenda?.status === 'active').length;
+        const agendaTrialTotal = agendaUsers.filter((u: any) => u.subscriptions?.agenda?.status === 'trial').length;
+        const withActiveSubscription = adminUsers.filter((u: any) => (
+            u.subscriptions?.agenda?.status === 'active'
+            || u.subscriptions?.autos?.status === 'active'
+            || u.subscriptions?.propiedades?.status === 'active'
+            || u.subscriptions?.serenatas?.status === 'active'
+        )).length;
+        const usersRealActive = adminUsers.filter((u: any) => u.realness?.label === 'Cuenta real activa').length;
+        const nowMs = Date.now();
+        const in14DaysMs = nowMs + 14 * 86_400_000;
+        const expiringSoon = adminUsers
+            .filter((u: any) => {
+                const exp = u.subscriptions?.agenda?.expiresAt;
+                if (!exp) return false;
+                const t = new Date(exp).getTime();
+                return t >= nowMs && t <= in14DaysMs;
+            })
+            .slice(0, 8)
+            .map((u: any) => ({
+                id: u.id,
+                name: u.name,
+                email: u.email,
+                plan: u.subscriptions?.agenda?.plan ?? 'free',
+                status: u.subscriptions?.agenda?.status ?? 'free',
+                expiresAt: u.subscriptions?.agenda?.expiresAt ?? null,
+            }));
 
         return c.json({
             ok: true,
             stats: {
                 usersTotal: adminUsers.length,
+                usersRealActive,
+                withActiveSubscription,
+                agendaProfilesTotal: agendaUsers.length,
+                agendaPaidTotal,
+                agendaTrialTotal,
                 autosListingsTotal: autosListings.length,
                 propiedadesListingsTotal: propiedadesListings.length,
             },
-            recentUsers: adminUsers.slice(0, 6),
+            expiringSoon,
+            recentUsers: adminUsers.slice(0, 8),
             recentListings: adminListings.slice(0, 6),
             systemStatus: deps.getEnvStatus(),
         });
@@ -317,8 +351,70 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
         if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
         const scopedVertical = adminUser.role === 'superadmin' ? null : (adminUser.primaryVertical ?? null);
-        const items = await deps.listAdminUsersSnapshot(scopedVertical);
-        return c.json({ ok: true, items });
+        const allItems = await deps.listAdminUsersSnapshot(scopedVertical);
+
+        const q = (c.req.query('q') ?? '').trim().toLowerCase();
+        const statusFilter = (c.req.query('status') ?? 'all').trim();
+        const verticalFilter = (c.req.query('vertical') ?? 'all').trim();
+        const planFilter = (c.req.query('plan') ?? 'all').trim();
+
+        const hasActiveSub = (u: any) => Boolean(
+            u.subscriptions?.agenda?.status === 'active'
+            || u.subscriptions?.autos?.status === 'active'
+            || u.subscriptions?.propiedades?.status === 'active'
+            || u.subscriptions?.serenatas?.status === 'active'
+            || u.subscriptions?.serenatasProvider?.status === 'active'
+            || u.subscriptions?.serenatasMusician?.status === 'active',
+        );
+        const hasTrialSub = (u: any) => u.subscriptions?.agenda?.status === 'trial';
+
+        const filtered = allItems.filter((u: any) => {
+            if (statusFilter !== 'all' && u.status !== statusFilter) return false;
+            if (verticalFilter !== 'all') {
+                const hasAccess = Array.isArray(u.platformAccesses)
+                    && u.platformAccesses.some((a: any) => a.vertical === verticalFilter);
+                const matchesSignal = u.likelySignupVertical === verticalFilter || u.primaryVertical === verticalFilter;
+                if (!hasAccess && !matchesSignal) return false;
+            }
+            if (planFilter === 'paid' && !hasActiveSub(u)) return false;
+            if (planFilter === 'trial' && !hasTrialSub(u)) return false;
+            if (planFilter === 'free' && (hasActiveSub(u) || hasTrialSub(u))) return false;
+            if (q) {
+                const haystack = [
+                    u.name,
+                    u.email,
+                    u.phone,
+                    u.rut,
+                    u.agendaProfile?.slug,
+                    u.agendaProfile?.displayName,
+                    u.agendaProfile?.customDomain,
+                    ...(Array.isArray(u.platformAccesses) ? u.platformAccesses.map((a: any) => a.label) : []),
+                ]
+                    .filter(Boolean)
+                    .join(' ')
+                    .toLowerCase();
+                if (!haystack.includes(q)) return false;
+            }
+            return true;
+        });
+
+        const summary = {
+            total: filtered.length,
+            withPlatform: filtered.filter((u: any) => Array.isArray(u.platformAccesses) && u.platformAccesses.length > 0).length,
+            withActiveSubscription: filtered.filter(hasActiveSub).length,
+            suspended: filtered.filter((u: any) => u.status === 'suspended').length,
+        };
+
+        const rawPageSize = Number(c.req.query('pageSize') ?? 25);
+        const pageSize = Number.isFinite(rawPageSize) ? Math.min(Math.max(Math.trunc(rawPageSize), 1), 200) : 25;
+        const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+        const rawPage = Number(c.req.query('page') ?? 1);
+        const page = Number.isFinite(rawPage) ? Math.min(Math.max(Math.trunc(rawPage), 1), pageCount) : 1;
+        const items = c.req.query('page') || c.req.query('pageSize')
+            ? filtered.slice((page - 1) * pageSize, page * pageSize)
+            : filtered;
+
+        return c.json({ ok: true, items, summary, page, pageSize, total: filtered.length, pageCount });
     });
 
     app.patch('/users/:id/role', async (c) => {
@@ -502,7 +598,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             const results: Record<string, unknown> = {};
 
             if (subData.agenda) {
-                const agendaPayload = subData.agenda as { plan?: string; expiresAt?: string | null };
+                const agendaPayload = subData.agenda as { plan?: string; expiresAt?: string | null; whatsappExtraCredits?: number };
                 let profile = await deps.db.select()
                     .from(deps.tables.agendaProfessionalProfiles)
                     .where(deps.and(
@@ -520,12 +616,14 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                         .limit(1);
                 }
 
-                const plan: 'free' | 'pro' | 'pro_plus' = agendaPayload.plan === 'pro_plus'
-                    ? 'pro_plus'
-                    : agendaPayload.plan === 'pro'
-                        ? 'pro'
-                        : 'free';
-                const isPaidAgendaPlan = plan === 'pro' || plan === 'pro_plus';
+                const plan: 'free' | 'pro' | 'pro_plus' | 'enterprise' = agendaPayload.plan === 'enterprise'
+                    ? 'enterprise'
+                    : agendaPayload.plan === 'pro_plus'
+                        ? 'pro_plus'
+                        : agendaPayload.plan === 'pro'
+                            ? 'pro'
+                            : 'free';
+                const isPaidAgendaPlan = plan === 'pro' || plan === 'pro_plus' || plan === 'enterprise';
                 const expiresAt = agendaPayload.expiresAt ? new Date(agendaPayload.expiresAt) : null;
                 if (expiresAt && Number.isNaN(expiresAt.getTime())) {
                     return c.json({ ok: false, error: 'La fecha de expiración de Agenda no es válida.' }, 400);
@@ -661,6 +759,29 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                     results.agenda = { ...result, expiresAt: expiresAt?.toISOString() ?? null, created: true };
                 } else {
                     results.agenda = { plan, skipped: 'Sin perfil Agenda para asignar free' };
+                }
+                if (
+                    typeof agendaPayload.whatsappExtraCredits === 'number'
+                    && Number.isFinite(agendaPayload.whatsappExtraCredits)
+                    && agendaPayload.whatsappExtraCredits >= 0
+                ) {
+                    const updatedProfileRows = profile.length > 0
+                        ? profile
+                        : await deps.db.select()
+                            .from(deps.tables.agendaProfessionalProfiles)
+                            .where(deps.and(
+                                deps.eq(deps.tables.agendaProfessionalProfiles.userId, userId),
+                                deps.eq(deps.tables.agendaProfessionalProfiles.accountId, targetAccount.id),
+                            ))
+                            .limit(1);
+                    if (updatedProfileRows[0]) {
+                        await deps.db.update(deps.tables.agendaProfessionalProfiles)
+                            .set({
+                                whatsappExtraCredits: Math.trunc(agendaPayload.whatsappExtraCredits),
+                                updatedAt: new Date(),
+                            })
+                            .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, updatedProfileRows[0].id));
+                    }
                 }
             }
 
@@ -1424,6 +1545,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             plan: deps.tables.agendaProfessionalProfiles.plan,
             planExpiresAt: deps.tables.agendaProfessionalProfiles.planExpiresAt,
             isPublished: deps.tables.agendaProfessionalProfiles.isPublished,
+            whatsappExtraCredits: deps.tables.agendaProfessionalProfiles.whatsappExtraCredits,
             createdAt: deps.tables.agendaProfessionalProfiles.createdAt,
         }).from(deps.tables.agendaProfessionalProfiles).orderBy(deps.desc(deps.tables.agendaProfessionalProfiles.createdAt));
 
@@ -1432,7 +1554,8 @@ export function createAdminRouter(deps: AdminRouterDeps) {
 
         const result = profiles.map((p: any) => {
             const u = userMap.get(p.userId) as any;
-            const expired = p.plan === 'pro' && p.planExpiresAt && p.planExpiresAt < new Date();
+            const isPaid = p.plan === 'pro' || p.plan === 'pro_plus' || p.plan === 'enterprise';
+            const expired = isPaid && p.planExpiresAt && p.planExpiresAt < new Date();
             return {
                 profileId: p.id,
                 userId: p.userId,
@@ -1443,7 +1566,8 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 plan: p.plan,
                 planExpiresAt: p.planExpiresAt ? p.planExpiresAt.toISOString() : null,
                 isPublished: p.isPublished,
-                status: p.plan === 'pro' && !expired ? 'active' : expired ? 'expired' : (p.planExpiresAt && p.planExpiresAt >= new Date() ? 'trial' : 'free'),
+                whatsappExtraCredits: Number(p.whatsappExtraCredits ?? 0),
+                status: isPaid && !expired ? 'active' : expired ? 'expired' : (p.planExpiresAt && p.planExpiresAt >= new Date() ? 'trial' : 'free'),
                 createdAt: p.createdAt.toISOString(),
             };
         });
@@ -1460,8 +1584,8 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const { profileId, plan, expiresAt, notes } = body as { profileId?: string; plan?: string; expiresAt?: string | null; notes?: string };
 
         if (!profileId || !plan) return c.json({ ok: false, error: 'Se requiere profileId y plan' }, 400);
-        if (!['free', 'pro'].includes(plan)) return c.json({ ok: false, error: 'Plan debe ser free o pro' }, 400);
-        const agendaPlan: 'free' | 'pro' = plan === 'pro' ? 'pro' : 'free';
+        if (!['free', 'pro', 'enterprise'].includes(plan)) return c.json({ ok: false, error: 'Plan debe ser free, pro o enterprise' }, 400);
+        const agendaPlan: 'free' | 'pro' | 'enterprise' = plan === 'enterprise' ? 'enterprise' : plan === 'pro' ? 'pro' : 'free';
 
         const profiles = await deps.db.select().from(deps.tables.agendaProfessionalProfiles)
             .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profileId)).limit(1);
@@ -1482,7 +1606,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 return c.json({ ok: false, error: 'No encontramos la cuenta personal asociada a este perfil antiguo.' }, 409);
             }
         }
-        const expiry = agendaPlan === 'pro' && expiresAt ? new Date(expiresAt) : null;
+        const expiry = agendaPlan !== 'free' && expiresAt ? new Date(expiresAt) : null;
         if (expiry && Number.isNaN(expiry.getTime())) return c.json({ ok: false, error: 'La fecha de expiración no es válida.' }, 400);
         let result: Record<string, unknown>;
         if (agendaPlan === 'free') {
@@ -1499,17 +1623,17 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             } else {
                 return c.json({ ok: false, error: cancelled.error }, cancelled.status as 400 | 404 | 502);
             }
-        } else if (profiles[0].plan === 'pro') {
+        } else if (profiles[0].plan === agendaPlan) {
             await deps.db.update(deps.tables.agendaProfessionalProfiles)
-                .set({ plan: 'pro', planExpiresAt: expiry, updatedAt: new Date() })
+                .set({ plan: agendaPlan, planExpiresAt: expiry, updatedAt: new Date() })
                 .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profileId));
-            result = { plan: 'pro', status: 'active' };
+            result = { plan: agendaPlan, status: 'active' };
         } else {
             result = await persistManualAdminSubscription({
                 userId: targetUser.id,
                 accountId: profileAccountId,
                 vertical: 'agenda',
-                planSlug: 'pro',
+                planSlug: agendaPlan,
                 status: 'active',
                 expiresAt: expiry,
             });

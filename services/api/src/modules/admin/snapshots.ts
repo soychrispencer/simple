@@ -81,13 +81,22 @@ export type AdminUserSnapshot = {
         reasons: string[];
     };
     subscriptions?: {
-        agenda?: { plan: 'free' | 'pro' | 'pro_plus'; status: 'active' | 'expired' | 'free' | 'trial'; expiresAt: string | null };
+        agenda?: { plan: 'free' | 'pro' | 'pro_plus' | 'enterprise'; status: 'active' | 'expired' | 'free' | 'trial'; expiresAt: string | null };
         autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         serenatas?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         serenatasProvider?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         serenatasMusician?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
     };
+    agendaProfile?: {
+        id: string;
+        slug: string;
+        displayName: string | null;
+        isPublished: boolean;
+        customDomain: string | null;
+        customDomainStatus: string;
+        whatsappExtraCredits: number;
+    } | null;
     serenatas?: {
         client: boolean;
         musician: boolean;
@@ -234,8 +243,15 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
             updatedAt: listings.updatedAt,
         }).from(listings),
         db.select({
+            id: agendaProfessionalProfiles.id,
             userId: agendaProfessionalProfiles.userId,
             accountId: agendaProfessionalProfiles.accountId,
+            slug: agendaProfessionalProfiles.slug,
+            displayName: agendaProfessionalProfiles.displayName,
+            isPublished: agendaProfessionalProfiles.isPublished,
+            customDomain: agendaProfessionalProfiles.customDomain,
+            customDomainStatus: agendaProfessionalProfiles.customDomainStatus,
+            whatsappExtraCredits: agendaProfessionalProfiles.whatsappExtraCredits,
             plan: agendaProfessionalProfiles.plan,
             planExpiresAt: agendaProfessionalProfiles.planExpiresAt,
             createdAt: agendaProfessionalProfiles.createdAt,
@@ -459,9 +475,21 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                 ? userAgendaProfiles.find((profile) => profile.accountId === defaultAccount.id) ?? legacyAgendaProfile
                 : agendaProfile;
             if (defaultAgendaProfile) {
+                const mappedPlan = defaultAgendaProfile.plan === 'enterprise'
+                    ? 'enterprise'
+                    : defaultAgendaProfile.plan === 'pro_plus'
+                        ? 'pro_plus'
+                        : defaultAgendaProfile.plan === 'pro'
+                            ? 'pro'
+                            : 'free';
+                const mappedName = mappedPlan === 'enterprise'
+                    ? 'Negocios'
+                    : mappedPlan === 'pro' || mappedPlan === 'pro_plus'
+                        ? 'Pro'
+                        : 'Gratis';
                 defaultAccountSubscriptions.agenda = {
-                    planId: defaultAgendaProfile.plan === 'pro_plus' ? 'pro_plus' : defaultAgendaProfile.plan === 'pro' ? 'pro' : 'free',
-                    planName: defaultAgendaProfile.plan === 'pro_plus' ? 'Pro+' : defaultAgendaProfile.plan === 'pro' ? 'Pro' : 'Gratis',
+                    planId: mappedPlan,
+                    planName: mappedName,
                     status: defaultAgendaProfile.plan === 'free'
                         ? defaultAgendaProfile.planExpiresAt && defaultAgendaProfile.planExpiresAt >= new Date() ? 'trial' : 'free'
                         : defaultAgendaProfile.planExpiresAt && defaultAgendaProfile.planExpiresAt < new Date() ? 'expired' : 'active',
@@ -477,9 +505,21 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                 const profile = userAgendaProfiles.find((item) => item.accountId === account.id)
                     ?? (account.isPersonal && account.ownerUserId === user.id ? userAgendaProfiles.find((item) => !item.accountId) : undefined);
                 if (profile) {
+                    const mappedPlan = profile.plan === 'enterprise'
+                        ? 'enterprise'
+                        : profile.plan === 'pro_plus'
+                            ? 'pro_plus'
+                            : profile.plan === 'pro'
+                                ? 'pro'
+                                : 'free';
+                    const mappedName = mappedPlan === 'enterprise'
+                        ? 'Negocios'
+                        : mappedPlan === 'pro' || mappedPlan === 'pro_plus'
+                            ? 'Pro'
+                            : 'Gratis';
                     accountSubs.agenda = {
-                        planId: profile.plan === 'pro_plus' ? 'pro_plus' : profile.plan === 'pro' ? 'pro' : 'free',
-                        planName: profile.plan === 'pro_plus' ? 'Pro+' : profile.plan === 'pro' ? 'Pro' : 'Gratis',
+                        planId: mappedPlan,
+                        planName: mappedName,
                         status: profile.plan === 'free'
                             ? profile.planExpiresAt && profile.planExpiresAt >= new Date() ? 'trial' : 'free'
                             : profile.planExpiresAt && profile.planExpiresAt < new Date() ? 'expired' : 'active',
@@ -629,6 +669,17 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                 platformAccesses,
                 primaryPlatform,
                 accounts: accountSnapshots,
+                agendaProfile: (defaultAgendaProfile ?? agendaProfile)
+                    ? {
+                        id: (defaultAgendaProfile ?? agendaProfile)!.id,
+                        slug: (defaultAgendaProfile ?? agendaProfile)!.slug,
+                        displayName: (defaultAgendaProfile ?? agendaProfile)!.displayName ?? null,
+                        isPublished: Boolean((defaultAgendaProfile ?? agendaProfile)!.isPublished),
+                        customDomain: (defaultAgendaProfile ?? agendaProfile)!.customDomain ?? null,
+                        customDomainStatus: (defaultAgendaProfile ?? agendaProfile)!.customDomainStatus ?? 'none',
+                        whatsappExtraCredits: Number((defaultAgendaProfile ?? agendaProfile)!.whatsappExtraCredits ?? 0),
+                    }
+                    : null,
                 realness: buildRealness({
                     role: user.role,
                     status: user.status,
@@ -650,9 +701,14 @@ export async function listAdminUsersSnapshot(vertical?: AdminVertical | null): P
                     : undefined,
                 subscriptions: (() => {
                     if (!Object.keys(defaultAccountSubscriptions).length && !sub && !agendaProfile) return undefined;
-                    const agendaPlan = defaultAccountSubscriptions.agenda?.planId === 'pro_plus'
-                        ? 'pro_plus'
-                        : defaultAccountSubscriptions.agenda?.planId === 'pro' ? 'pro' : 'free';
+                    const rawAgendaPlan = defaultAccountSubscriptions.agenda?.planId;
+                    const agendaPlan = rawAgendaPlan === 'enterprise'
+                        ? 'enterprise'
+                        : rawAgendaPlan === 'pro_plus'
+                            ? 'pro_plus'
+                            : rawAgendaPlan === 'pro'
+                                ? 'pro'
+                                : 'free';
                     const agendaExpired = defaultAccountSubscriptions.agenda?.status === 'expired';
                     const agendaTrial = defaultAccountSubscriptions.agenda?.status === 'trial';
                     return {

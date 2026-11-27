@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capabilitiesFor, getSubscriptionSummary, statusLabel, verticalLabel } from './user-domain';
+import { capabilitiesFor, getSubscriptionSummary, primaryPlanBadge, statusLabel, verticalLabel } from './user-domain';
 
 describe('user domain', () => {
     it('keeps unrestricted access focused on the superadmin', () => {
@@ -14,5 +14,7 @@ describe('user domain', () => {
         expect(statusLabel('verified')).toBe('Verificado');
         expect(verticalLabel('serenatas')).toBe('SimpleSerenatas');
         expect(getSubscriptionSummary({ subscriptions: { agenda: { plan: 'pro', status: 'active', expiresAt: null } } } as never, 'agenda')).toBe('Pro activo');
+        expect(getSubscriptionSummary({ subscriptions: { agenda: { plan: 'enterprise', status: 'active', expiresAt: null } } } as never, 'agenda')).toBe('Negocios activo');
+        expect(primaryPlanBadge({ subscriptions: { agenda: { plan: 'enterprise', status: 'active', expiresAt: null } } } as never)).toEqual({ label: 'Negocios', tone: 'success' });
     });
 });

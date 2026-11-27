@@ -7,6 +7,7 @@ import {
     IconArrowLeft,
     IconBrandWhatsapp,
     IconCreditCard,
+    IconLayoutDashboard,
     IconMessageCircle,
     IconUsers,
 } from '@tabler/icons-react';
@@ -16,6 +17,7 @@ import { logoutAdmin, type AdminSessionUser } from '@/lib/api';
 
 const ADMIN_NAV_BASE = [
     { href: '/', label: 'Usuarios', icon: IconUsers },
+    { href: '/resumen', label: 'Resumen', icon: IconLayoutDashboard },
     { href: '/conversaciones', label: 'Conversaciones', icon: IconMessageCircle },
 ];
 

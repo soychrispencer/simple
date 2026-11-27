@@ -38,7 +38,7 @@ export type AdminPlatformAccess = {
 export type AdminSubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'free' | 'trial';
 
 export type AdminUserSubscriptions = {
-    agenda?: { plan: 'free' | 'pro' | 'pro_plus'; status: AdminSubscriptionStatus; expiresAt: string | null };
+    agenda?: { plan: 'free' | 'pro' | 'pro_plus' | 'enterprise'; status: AdminSubscriptionStatus; expiresAt: string | null };
     autos?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
     propiedades?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
     serenatas?: { planId: string | null; planName: string | null; status: AdminSubscriptionStatus; expiresAt: string | null };
@@ -63,9 +63,10 @@ export type AdminAgendaSubscription = {
     userEmail: string;
     displayName: string;
     slug: string;
-    plan: 'free' | 'pro' | 'pro_plus';
+    plan: 'free' | 'pro' | 'pro_plus' | 'enterprise';
     planExpiresAt: string | null;
     isPublished: boolean;
+    whatsappExtraCredits?: number;
     status: 'active' | 'expired' | 'trial' | 'free';
     createdAt: string;
 };
@@ -101,6 +102,15 @@ export type AdminUserSnapshot = {
         reasons: string[];
     };
     subscriptions?: AdminUserSubscriptions;
+    agendaProfile?: {
+        id: string;
+        slug: string;
+        displayName: string | null;
+        isPublished: boolean;
+        customDomain: string | null;
+        customDomainStatus: string;
+        whatsappExtraCredits: number;
+    } | null;
     serenatas?: {
         client: boolean;
         musician: boolean;
@@ -156,6 +166,7 @@ export async function fetchAdminUsers(input: {
     query?: string;
     status?: 'all' | AdminUserStatus;
     vertical?: 'all' | AdminVertical;
+    plan?: 'all' | 'paid' | 'trial' | 'free';
     page?: number;
     pageSize?: number;
 } = {}): Promise<AdminUsersPage> {
@@ -163,6 +174,7 @@ export async function fetchAdminUsers(input: {
     if (input.query?.trim()) params.set('q', input.query.trim());
     if (input.status && input.status !== 'all') params.set('status', input.status);
     if (input.vertical && input.vertical !== 'all') params.set('vertical', input.vertical);
+    if (input.plan && input.plan !== 'all') params.set('plan', input.plan);
     params.set('page', String(input.page ?? 1));
     params.set('pageSize', String(input.pageSize ?? 25));
     const data = await expectOk<Partial<AdminUsersPage>>(`/api/admin/users?${params.toString()}`);
@@ -185,6 +197,32 @@ export async function fetchAdminUsers(input: {
 export async function fetchAdminAgendaSubscriptions(): Promise<AdminAgendaSubscription[]> {
     const data = await expectOk<{ subscriptions?: AdminAgendaSubscription[] }>('/api/admin/agenda/subscriptions');
     return data.subscriptions ?? [];
+}
+
+export type AdminOverviewResponse = {
+    stats: {
+        usersTotal: number;
+        usersRealActive: number;
+        withActiveSubscription: number;
+        agendaProfilesTotal: number;
+        agendaPaidTotal: number;
+        agendaTrialTotal: number;
+        autosListingsTotal: number;
+        propiedadesListingsTotal: number;
+    };
+    expiringSoon: Array<{
+        id: string;
+        name: string;
+        email: string;
+        plan: string;
+        status: string;
+        expiresAt: string | null;
+    }>;
+    recentUsers: AdminUserSnapshot[];
+};
+
+export async function fetchAdminOverview(): Promise<AdminOverviewResponse> {
+    return expectOk<AdminOverviewResponse>('/api/admin/overview');
 }
 
 export type AdminWhatsAppConnectionStatus = {

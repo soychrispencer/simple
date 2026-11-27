@@ -1,8 +1,9 @@
 import type { AdminSessionUser, AdminUserRole, AdminUserSnapshot, AdminUserStatus, AdminVertical } from '@/lib/api';
-import { formatAgendaProMonthlyPrice, formatAgendaProPlusMonthlyPrice } from '@simple/utils';
+import { formatAgendaProMonthlyPrice, formatAgendaTeamsMonthlyPrice } from '@simple/utils';
 
 export type VerticalFilter = 'all' | AdminVertical;
 export type StatusFilter = 'all' | AdminUserStatus;
+export type PlanFilter = 'all' | 'paid' | 'trial' | 'free';
 export type PrimaryVerticalValue = 'none' | 'autos' | 'propiedades' | 'agenda';
 export type SubscriptionStatusValue = 'active' | 'cancelled' | 'expired';
 export type SerenatasProfile = 'client' | 'musician' | 'owner';
@@ -41,6 +42,13 @@ export const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
     { value: 'suspended', label: 'Suspendidos' },
 ];
 
+export const PLAN_FILTER_OPTIONS: Array<{ value: PlanFilter; label: string }> = [
+    { value: 'all', label: 'Todos los planes' },
+    { value: 'paid', label: 'Con plan de pago' },
+    { value: 'trial', label: 'En prueba Pro' },
+    { value: 'free', label: 'En Gratis' },
+];
+
 export const ROLE_OPTIONS: Array<{ value: AdminUserRole; label: string }> = [
     { value: 'user', label: 'Usuario' },
     { value: 'admin', label: 'Admin' },
@@ -64,7 +72,7 @@ export const PLAN_OPTIONS: Record<AdminVertical, Array<{ value: string; label: s
     agenda: [
         { value: 'free', label: 'Gratis' },
         { value: 'pro', label: `Pro · ${formatAgendaProMonthlyPrice()}` },
-        { value: 'pro_plus', label: `Pro+ · ${formatAgendaProPlusMonthlyPrice()}` },
+        { value: 'enterprise', label: `Negocios · ${formatAgendaTeamsMonthlyPrice()}` },
     ],
     autos: [{ value: 'free', label: 'Gratis' }, { value: 'pro', label: 'Pro' }, { value: 'enterprise', label: 'Enterprise' }],
     propiedades: [{ value: 'free', label: 'Gratis' }, { value: 'pro', label: 'Pro' }, { value: 'enterprise', label: 'Enterprise' }],
@@ -132,12 +140,29 @@ export function getSubscriptionSummary(user: AdminUserSnapshot, vertical: AdminV
     if (!item) return 'Sin plan';
     const plan = vertical === 'agenda' && 'plan' in item ? item.plan : 'planId' in item ? item.planId : null;
     if (vertical === 'agenda') {
-        if (item.status === 'trial') return 'Prueba Pro activa · 30 días';
+        if (item.status === 'trial') return 'Prueba Pro · 30 días';
+        if (plan === 'enterprise') return item.status === 'expired' ? 'Negocios vencido' : 'Negocios activo';
         if (plan === 'pro') return item.status === 'expired' ? 'Pro vencido' : 'Pro activo';
-        if (plan === 'pro_plus') return item.status === 'expired' ? 'Pro+ vencido' : 'Pro+ activo';
+        if (plan === 'pro_plus') return item.status === 'expired' ? 'Pro vencido' : 'Pro (legado) activo';
         return 'Gratis';
     }
     return `${plan || 'free'}${item.status ? ` · ${item.status}` : ''}`;
+}
+
+export function primaryPlanBadge(user: AdminUserSnapshot): { label: string; tone: 'success' | 'info' | 'warning' | 'neutral' } {
+    const agenda = user.subscriptions?.agenda;
+    if (agenda) {
+        if (agenda.status === 'active') {
+            return { label: agenda.plan === 'enterprise' ? 'Negocios' : 'Pro', tone: 'success' };
+        }
+        if (agenda.status === 'trial') return { label: 'Prueba Pro', tone: 'info' };
+        if (agenda.status === 'expired') return { label: 'Vencido', tone: 'warning' };
+    }
+    for (const v of ['autos', 'propiedades', 'serenatas'] as const) {
+        const sub = user.subscriptions?.[v];
+        if (sub?.status === 'active') return { label: `${sub.planName || sub.planId || 'Pro'}`, tone: 'success' };
+    }
+    return { label: 'Gratis', tone: 'neutral' };
 }
 
 export function toDateInputValue(value: unknown): string {

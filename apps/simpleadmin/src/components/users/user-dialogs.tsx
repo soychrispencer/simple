@@ -157,7 +157,7 @@ export function EmailUserDialog({ user, userIds, onClose, onCompleted }: DialogP
 
 type SubscriptionFields = { plan: string; status: string; expiresAt: string; trialEndsAt: string };
 type SubscriptionForm = {
-    agenda: { plan: string; status: string; expiresAt: string };
+    agenda: { plan: string; status: string; expiresAt: string; whatsappExtraCredits: string };
     autos: { plan: string; status: string; expiresAt: string };
     propiedades: { plan: string; status: string; expiresAt: string };
     serenatas: { provider: SubscriptionFields; musician: SubscriptionFields };
@@ -184,9 +184,10 @@ function subscriptionFormFor(user: AdminUserSnapshot, accountId: string): Subscr
     });
     return {
         agenda: {
-            plan: subscriptions?.agenda?.plan ?? 'free',
+            plan: subscriptions?.agenda?.plan === 'pro_plus' ? 'pro' : (subscriptions?.agenda?.plan ?? 'free'),
             status: subscriptions?.agenda?.status ?? 'free',
             expiresAt: toDateInputValue(subscriptions?.agenda?.expiresAt),
+            whatsappExtraCredits: String(user.agendaProfile?.whatsappExtraCredits ?? 0),
         },
         autos: { plan: subscriptions?.autos?.planId ?? 'free', status: subscriptions?.autos?.status ?? 'cancelled', expiresAt: toDateInputValue(subscriptions?.autos?.expiresAt) },
         propiedades: { plan: subscriptions?.propiedades?.planId ?? 'free', status: subscriptions?.propiedades?.status ?? 'cancelled', expiresAt: toDateInputValue(subscriptions?.propiedades?.expiresAt) },
@@ -237,7 +238,7 @@ export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps 
         setForm((current) => {
             const resetAgendaExpiration = vertical === 'agenda'
                 && field === 'plan'
-                && (value === 'pro' || value === 'pro_plus')
+                && (value === 'pro' || value === 'pro_plus' || value === 'enterprise')
                 && current.agenda.plan !== value;
             return {
                 ...current,
@@ -269,7 +270,12 @@ export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps 
             const changes: Record<string, unknown> = {};
             for (const vertical of dirtyVerticals) {
                 if (vertical === 'agenda') {
-                    changes.agenda = { plan: form.agenda.plan, expiresAt: dateInputToIso(form.agenda.expiresAt) };
+                    const creditsNum = Number(form.agenda.whatsappExtraCredits);
+                    changes.agenda = {
+                        plan: form.agenda.plan,
+                        expiresAt: dateInputToIso(form.agenda.expiresAt),
+                        ...(Number.isFinite(creditsNum) && creditsNum >= 0 ? { whatsappExtraCredits: Math.trunc(creditsNum) } : {}),
+                    };
                 } else {
                     changes[vertical] = {
                         planId: form[vertical].plan,
@@ -340,13 +346,24 @@ export function SubscriptionsDialog({ user, onClose, onCompleted }: DialogProps 
                         <div className="grid gap-3 sm:grid-cols-3">
                                 <Field label="Plan"><ModernSelect value={form[vertical].plan} onChange={(value) => setField(vertical, 'plan', value)} options={PLAN_OPTIONS[vertical]} /></Field>
                                 {vertical !== 'agenda' ? <Field label="Estado"><ModernSelect value={form[vertical].status} onChange={(value) => setField(vertical, 'status', value)} options={SUBSCRIPTION_STATUS_OPTIONS} disabled={form[vertical].plan === 'free'} /></Field> : null}
-                                {vertical !== 'agenda' || form.agenda.plan === 'pro' || form.agenda.plan === 'pro_plus' ? (
-                                    <Field label="Expiración"><input className="form-input" type="date" value={form[vertical].expiresAt} onChange={(event) => setField(vertical, 'expiresAt', event.target.value)} /></Field>
+                                {vertical !== 'agenda' || ['pro', 'pro_plus', 'enterprise'].includes(form.agenda.plan) ? (
+                                    <Field label="Expiración"><input className="form-input" type="date" value={form.agenda.plan === 'free' && vertical === 'agenda' ? '' : form[vertical].expiresAt} onChange={(event) => setField(vertical, 'expiresAt', event.target.value)} /></Field>
+                                ) : null}
+                                {vertical === 'agenda' ? (
+                                    <Field label="Créditos extra WhatsApp">
+                                        <input
+                                            className="form-input"
+                                            type="number"
+                                            min={0}
+                                            value={form.agenda.whatsappExtraCredits}
+                                            onChange={(event) => setField('agenda', 'whatsappExtraCredits', event.target.value)}
+                                        />
+                                    </Field>
                                 ) : null}
                                 {vertical === 'agenda' ? (
                                     <div className="sm:col-span-3">
                                         <PanelNotice tone="info">
-                                            Las cuentas nuevas reciben 30 días de Pro y luego continúan en Gratis. En esta pantalla puedes asignar Gratis, Pro o Pro+; Empresa / Negocios se cotiza según el tamaño del equipo.
+                                            Cada cuenta nueva recibe 30 días de prueba Pro y luego sigue en Gratis. Desde aquí puedes asignar Gratis, Pro (50 WhatsApps/mes) o Negocios (3 profesionales y 120 WhatsApps/mes) y ajustar créditos extra de WhatsApp para soporte.
                                         </PanelNotice>
                                     </div>
                                 ) : null}
